@@ -1,0 +1,12 @@
+[package]
+name = "vhapi"
+version = "0.1.0"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+dirs = "2.0"
+semver = "0.9"
+yaml-rust = "0.4"
+linked-hash-map = ">=0.0.9, <0.6"
+tera = "1"

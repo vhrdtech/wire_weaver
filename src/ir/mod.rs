@@ -46,11 +46,18 @@ pub enum NumericType {
     UQ(u8, u8)
 }
 
+#[derive(Debug)]
 pub enum Endianness {
     Big,
     Little
 }
 
+#[derive(Debug)]
+pub struct SIUnit {
+
+}
+
+#[derive(Debug)]
 pub enum Access {
     ReadOnly,
     ReadWrite,
@@ -72,6 +79,14 @@ pub struct Register {
 
 impl Register {
     pub fn new() -> Self {
-        Register { base_address: BaseAddress::SixteenBit(0xaa), r#type: NumericType::Q(1, 2) }
+        Register {
+            base_address: BaseAddress::SixteenBit(0xaa),
+            r#type: NumericType::Q(1, 2),
+            endianness: Endianness::Little,
+            unit: SIUnit{},
+            default: Vec::new(),
+            access: Access::ReadOnly,
+            description: 0
+        }
     }
 }

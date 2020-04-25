@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
+    <generated />
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="ef5162d7-ee7e-49e1-97cc-613efc957f56" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/src/parser/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/vhapi-cli/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/vhapi-cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ir/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ir/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="lb4o10du" />
+  </component>
+  <component name="ProjectId" id="1b1gPipqJO38cy7oZVT7du2MC68" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="cf.first.check.clang-format" value="false" />
+    <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.Console Font" />
+  </component>
+  <component name="RunManager">
+    <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="channel" value="DEFAULT" />
+      <option name="command" value="run --release -p vhapi-cli" />
+      <option name="allFeatures" value="false" />
+      <option name="nocapture" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ef5162d7-ee7e-49e1-97cc-613efc957f56" name="Default Changelist" comment="" />
+      <created>1587804991133</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1587804991133</updated>
+      <workItem from="1587804992277" duration="3465000" />
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="360" y="236" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1587805357351">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state x="360" y="236" key="#com.intellij.execution.impl.EditConfigurationsDialog/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587805357351" />
+    <state width="875" height="303" key="GridCell.Tab.0.bottom" timestamp="1587826686775">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state width="875" height="303" key="GridCell.Tab.0.bottom/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686775" />
+    <state width="875" height="303" key="GridCell.Tab.0.center" timestamp="1587826686774">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state width="875" height="303" key="GridCell.Tab.0.center/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686774" />
+    <state width="875" height="303" key="GridCell.Tab.0.left" timestamp="1587826686774">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state width="875" height="303" key="GridCell.Tab.0.left/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686774" />
+    <state width="875" height="303" key="GridCell.Tab.0.right" timestamp="1587826686775">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state width="875" height="303" key="GridCell.Tab.0.right/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686775" />
+    <state x="397" y="213" key="SettingsEditor" timestamp="1587805211967">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state x="397" y="213" key="SettingsEditor/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587805211967" />
+    <state x="561" y="271" key="search.everywhere.popup" timestamp="1587805020572">
+      <screen x="0" y="23" width="1792" height="1097" />
+    </state>
+    <state x="561" y="271" key="search.everywhere.popup/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587805020572" />
+  </component>
+</project>

@@ -1,57 +1,64 @@
 use crate::types::Type;
 
-enum Value {
+#[derive(Debug)]
+pub enum Value {
     Constant(Type),
     Variable(Type),
     Resource,
-    Expression(Box<Expression>)
+    Expression(Box<Expression>),
 }
 
-enum Operation {
+#[derive(Debug)]
+pub enum Operation {
     Addition(Value, Value),
     Subtraction(Value, Value),
     Multiplication(Value, Value),
     Division(Value, Value),
 }
 
-enum Expression {
+#[derive(Debug)]
+pub enum Expression {
     Value(Value),
-    Operation(Operation)
+    Operation(Operation),
 }
 
-struct Context {
+#[derive(Debug)]
+pub struct Context {}
 
-}
-
-enum Sequential {
+#[derive(Debug)]
+pub enum Sequential {
     Integer(i32),
     Char(char),
-    CChar(u8)
+    CChar(u8),
 }
 
-struct Range {
-    start: Sequential,
-    end: Sequential
+#[derive(Debug)]
+pub struct Range {
+    pub start: Sequential,
+    pub end: Sequential,
 }
 
-enum ResourceName {
+#[derive(Debug)]
+pub enum ResourceName {
     Terminal(String),
     //ArrayProduct(String, Array, String),
-    RangeProduct(String, Range, String)
+    RangeProduct(String, Range, String),
 }
 
-enum ResourceKind {
+#[derive(Debug)]
+pub enum ResourceKind {
     Property, // set/get/subscribe(sugar on stream?), default, allowed, values
     Function, // fn(args) -> value
     Stream,   // value,value,value... subscribe, unsubscribe, backpressure, bandwith limit
-    //User      // everything else
+              //User      // everything else
 }
 
-struct Resource {
-    id: u32,
-    name: ResourceName,
-    children: Vec<Resource>,
-    kind: ResourceKind,
-    r#type: Type // underlying type
-    //meta: // all additional fields goes here
+#[derive(Debug)]
+pub struct Resource {
+    pub id: Option<u32>,
+    pub name: ResourceName,
+    pub children: Vec<Resource>,
+    pub kind: ResourceKind,
+    pub r#type: Type, // underlying type
+                  //meta: // all additional fields goes here
 }

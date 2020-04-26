@@ -16,35 +16,38 @@ pub enum Numeric {
     F32,
     F64,
     Q(u8, u8), // "Q" notation
-    UQ(u8, u8)
+    UQ(u8, u8),
 }
 
+#[derive(Debug)]
 pub enum Textual {
     Char,
     String,
     CChar,
     CString,
     UTF16String,
-    UTF32String
+    UTF32String,
 }
 
-pub enum Binary {
+#[derive(Debug)]
+pub enum Binary {}
 
-}
-
+#[derive(Debug)]
 pub enum Sequence {
     Tuple,
-    Array
+    Array,
 }
 
+#[derive(Debug)]
 pub struct User {
     //declaration: Statement?
 }
 
+#[derive(Debug)]
 pub enum Type {
     Numeric(Numeric),
     Textual(Textual),
     Binary(Binary),
     Sequence(Sequence),
-    User(User)
+    User(User),
 }

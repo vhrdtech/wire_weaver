@@ -1,6 +1,8 @@
 use std::fmt;
 use std::fmt::{Formatter, Error};
 
+use crate::types::Numeric;
+
 pub enum BaseAddress {
     EightBit(u8),
     SixteenBit(u16),
@@ -26,27 +28,6 @@ impl fmt::Debug for BaseAddress {
 }
 
 #[derive(Debug)]
-pub enum NumericType {
-    I8,
-    I16,
-    I32,
-    I64,
-    I128,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    In(u8),
-    Un(u8),
-    F16,
-    F32,
-    F64,
-    Q(u8, u8), // "Q" notation
-    UQ(u8, u8)
-}
-
-#[derive(Debug)]
 pub enum Endianness {
     Big,
     Little
@@ -67,7 +48,7 @@ pub enum Access {
 #[derive(Debug)]
 pub struct Register {
     pub base_address: BaseAddress,
-    pub r#type: NumericType,
+    pub r#type: Numeric,
     pub endianness: Endianness,
     pub unit: SIUnit,
     pub default: Vec<u8>,
@@ -81,7 +62,7 @@ impl Register {
     pub fn new() -> Self {
         Register {
             base_address: BaseAddress::SixteenBit(0xaa),
-            r#type: NumericType::Q(1, 2),
+            r#type: Numeric::Q(1, 2),
             endianness: Endianness::Little,
             unit: SIUnit{},
             default: Vec::new(),

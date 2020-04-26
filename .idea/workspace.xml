@@ -13,12 +13,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ef5162d7-ee7e-49e1-97cc-613efc957f56" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/parser/mod.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/vhapi-cli/Cargo.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/vhapi-cli/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/ast/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/loader/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vhapi.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vhapi.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ir/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ir/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vhapi-cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/vhapi-cli/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,12 +53,15 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.first.check.clang-format" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/Cargo.toml" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.Console Font" />
+    <property name="show.migrate.to.gradle.popup" value="false" />
   </component>
   <component name="RunManager">
     <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
@@ -74,6 +80,10 @@
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+    <option name="version" value="2" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -86,26 +96,37 @@
     </task>
     <servers />
   </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+  </component>
   <component name="WindowStateProjectService">
     <state x="360" y="236" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1587805357351">
       <screen x="0" y="23" width="1792" height="1097" />
     </state>
     <state x="360" y="236" key="#com.intellij.execution.impl.EditConfigurationsDialog/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587805357351" />
-    <state width="875" height="303" key="GridCell.Tab.0.bottom" timestamp="1587826686775">
-      <screen x="0" y="23" width="1792" height="1097" />
+    <state width="939" height="237" key="GridCell.Tab.0.bottom" timestamp="1587888547848">
+      <screen x="0" y="23" width="1920" height="1004" />
     </state>
+    <state width="939" height="237" key="GridCell.Tab.0.bottom/0.22.1920.1005/1920.22.1920.1058@0.22.1920.1005" timestamp="1587849062056" />
+    <state width="939" height="237" key="GridCell.Tab.0.bottom/0.23.1920.1004/1920.23.1920.1057@0.23.1920.1004" timestamp="1587888547848" />
     <state width="875" height="303" key="GridCell.Tab.0.bottom/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686775" />
-    <state width="875" height="303" key="GridCell.Tab.0.center" timestamp="1587826686774">
-      <screen x="0" y="23" width="1792" height="1097" />
+    <state width="939" height="237" key="GridCell.Tab.0.center" timestamp="1587888547847">
+      <screen x="0" y="23" width="1920" height="1004" />
     </state>
+    <state width="939" height="237" key="GridCell.Tab.0.center/0.22.1920.1005/1920.22.1920.1058@0.22.1920.1005" timestamp="1587849062055" />
+    <state width="939" height="237" key="GridCell.Tab.0.center/0.23.1920.1004/1920.23.1920.1057@0.23.1920.1004" timestamp="1587888547847" />
     <state width="875" height="303" key="GridCell.Tab.0.center/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686774" />
-    <state width="875" height="303" key="GridCell.Tab.0.left" timestamp="1587826686774">
-      <screen x="0" y="23" width="1792" height="1097" />
+    <state width="939" height="237" key="GridCell.Tab.0.left" timestamp="1587888547846">
+      <screen x="0" y="23" width="1920" height="1004" />
     </state>
+    <state width="939" height="237" key="GridCell.Tab.0.left/0.22.1920.1005/1920.22.1920.1058@0.22.1920.1005" timestamp="1587849062054" />
+    <state width="939" height="237" key="GridCell.Tab.0.left/0.23.1920.1004/1920.23.1920.1057@0.23.1920.1004" timestamp="1587888547846" />
     <state width="875" height="303" key="GridCell.Tab.0.left/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686774" />
-    <state width="875" height="303" key="GridCell.Tab.0.right" timestamp="1587826686775">
-      <screen x="0" y="23" width="1792" height="1097" />
+    <state width="939" height="237" key="GridCell.Tab.0.right" timestamp="1587888547848">
+      <screen x="0" y="23" width="1920" height="1004" />
     </state>
+    <state width="939" height="237" key="GridCell.Tab.0.right/0.22.1920.1005/1920.22.1920.1058@0.22.1920.1005" timestamp="1587849062056" />
+    <state width="939" height="237" key="GridCell.Tab.0.right/0.23.1920.1004/1920.23.1920.1057@0.23.1920.1004" timestamp="1587888547847" />
     <state width="875" height="303" key="GridCell.Tab.0.right/1792.-175.1920.1057/0.23.1792.1097@0.23.1792.1097" timestamp="1587826686775" />
     <state x="397" y="213" key="SettingsEditor" timestamp="1587805211967">
       <screen x="0" y="23" width="1792" height="1097" />

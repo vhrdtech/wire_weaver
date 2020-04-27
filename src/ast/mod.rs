@@ -55,10 +55,10 @@ pub enum ResourceKind {
 
 #[derive(Debug)]
 pub struct Resource {
-    pub id: Option<u32>,
-    pub name: ResourceName,
-    pub children: Vec<Resource>,
-    pub kind: ResourceKind,
-    pub r#type: Type, // underlying type
+    pub id: Option<u32>, // required, maybe not provided at all, it that case it can be auto assigned
+    pub name: ResourceName, // required and available right away
+    pub children: Vec<Resource>, // optional, can be 0 or more children
+    pub kind: Option<ResourceKind>, // required, but maybe not known right away
+    pub r#type: Option<Type>, // underlying type, required, but maybe not known right away
                   //meta: // all additional fields goes here
 }

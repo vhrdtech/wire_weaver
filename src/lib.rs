@@ -16,3 +16,4 @@ pub mod ir;
 pub mod loader;
 pub mod parser;
 pub mod types;
+pub mod error;

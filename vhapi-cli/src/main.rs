@@ -7,7 +7,7 @@ use yaml_rust::Yaml;
 
 use vhapi::ir::*;
 use vhapi::loader::*;
-use vhapi::parser;
+use vhapi::*;
 
 // fn callback(x: u8) {
 //     println!("Callback called");
@@ -55,8 +55,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         let rname = "/TEC(register)[]";
         let val = h.get(&Yaml::String(rname.to_string()));
         if val.is_some() {
-            let r = parser::parse_resource(rname, &val.unwrap());
-            dbg!(r);
+            let r = parser::resource::parse_resource(rname, &val.unwrap());
+            //dbg!(r);
         } else {
             println!("none");
         }

@@ -3,7 +3,6 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, },
     error::{ParseError},
-    IResult,
     combinator::{map as nom_map}
 };
 
@@ -11,14 +10,13 @@ use crate::ast;
 use crate::ast::{ResourceName, ResourceKind};
 use crate::types::Type;
 use crate::types::Numeric;
-use nom::character::complete::{none_of, char as nom_char, one_of, alphanumeric1, alpha1, digit1, alphanumeric0};
-use nom::bytes::complete::{take_till1, is_not, take_while1};
-use nom::sequence::{terminated, preceded};
-use nom::multi::{many_till, many1};
-use crate::ast::Value::Resource;
+use nom::character::complete::{char as nom_char, alpha1, digit1, alphanumeric0, alphanumeric1};
+use nom::bytes::complete::{is_not, take_while1};
+use nom::sequence::{terminated, preceded, separated_pair};
 use nom::character::is_alphanumeric;
-use nom::combinator::{peek, rest_len};
+use nom::combinator::{peek, rest_len, value, verify};
 use nom::error::{VerboseError, convert_error};
+use nom::multi::many1;
 
 #[derive(Debug)]
 struct ResourceNameRaw<'a> {
@@ -53,7 +51,7 @@ enum ResourceNameParts<'a> {
     Junk
 }
 
-fn left_part(i: &str) -> nom::IResult<&str, &str> {
+fn left_part<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
 //    take_while1(|c| !"{}[]()".contains(c))(i)
     alt((
         preceded(peek(tag("_")), take_while1(|c| c == '_' || is_alphanumeric(c as u8))),
@@ -61,107 +59,126 @@ fn left_part(i: &str) -> nom::IResult<&str, &str> {
     ))(i)
 }
 
-fn right_part(i: &str) -> nom::IResult<&str, &str> {
-    alphanumeric0(i)
+fn right_part<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
+    alphanumeric1(i)
 }
 
-fn set<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &str, E> {
+fn set<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
     preceded(nom_char('{'),
              terminated(is_not("}"), nom_char('}')))(i)
 }
 
-fn resource_type(i: &str) -> nom::IResult<&str, &str> {
+fn resource_type<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
     preceded(nom_char('('),
              terminated(alpha1, nom_char(')')))(i)
 }
 
-fn resource_id(i: &str) -> nom::IResult<&str, &str> {
+fn resource_id<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
     preceded(nom_char('['),
              terminated(digit1, nom_char(']')))(i)
 }
 
-fn get_slash(i: &str) -> nom::IResult<&str, &str> {
+fn get_slash<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, &'a str, E> {
     tag("/")(i)
 }
 
-fn alt_parser(i: &str) -> nom::IResult<&str, ResourceNameParts, E> {
+fn alt_parser<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, ResourceNameParts<'a>, E> {
     alt((
         nom_map(tag("/"), |_| ResourceNameParts::Slash),
         nom_map(left_part, |l| ResourceNameParts::LeftPart(l)),
         nom_map(set, |s| ResourceNameParts::SetPart(s)),
-        nom_map(right_part, |r| ResourceNameParts::RightPart(r)),
+        nom_map(alphanumeric1, |r| ResourceNameParts::RightPart(r)),
         nom_map(resource_type, |t| ResourceNameParts::TypePart(t)),
         nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
-        nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
+        //nom_map(rest_len, |l| if l == 0 { Err(nom::Err::Error(("", nom::error::ErrorKind::Eof))) } else { Err(()) } )
     ))(i)
 }
 
-fn parser(i: &str) -> nom::IResult<&str, ResourceNameRaw> {
-    let (i, _) = tag("/")(i)?;
-    let (i, left_part) = left_part(i)?;
-    let (i, inner_part) = alt((
-        nom_map(set, |s| ResourceNameParts::SetPart(s)),
-        nom_map(resource_type, |t| ResourceNameParts::TypePart(t)),
-        nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
-        nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
-    ))(i)?;
-    let mut rn_raw = ResourceNameRaw::new();
-    rn_raw.left_part = Some(left_part);
-    if let ResourceNameParts::Nothing = inner_part {
-        return Ok((i, rn_raw));
-    } else if let ResourceNameParts::Junk = inner_part {
-        return Err(nom::Err::Error((i, nom::error::ErrorKind::TooLarge)));
-    }
-    let (i, next_part) = match inner_part {
-        ResourceNameParts::SetPart(s) => {
-            rn_raw.set = Some(s);
-            alt((
-                nom_map(right_part, |r| ResourceNameParts::RightPart(r)),
-                nom_map(resource_type, |t| ResourceNameParts::TypePart(t)),
-                nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
-                nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
-                ))(i)?
-        },
-        ResourceNameParts::TypePart(t) => {
-            rn_raw.r#type = Some(t);
-            alt((
-                nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
-                nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
-                ))(i)?
-        },
-        ResourceNameParts::IdPart(id) => {
-            let (i, rest) = rest_len(i)?;
-            if rest != 0 {
-                return Err(nom::Err::Error((i, nom::error::ErrorKind::TooLarge)));
-            }
-            rn_raw.id = Some(id);
-            (i, ResourceNameParts::Nothing)
-        },
-        _ => { unreachable!() }
-    };
-    if let ResourceNameParts::Nothing = next_part {
-        return Ok((i, rn_raw));
-    }
-
-    Ok((i, rn_raw))
+fn alt_parser22<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, Vec<ResourceNameParts<'a>>, E> {
+    many1(alt_parser)(i)
 }
+
+fn alt_parser33<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, (), E> {
+    let (i, parts) = alt_parser(i)?;
+    println!("{:?}", parts);
+    let (i, parts) = alt_parser(i)?;
+    println!("{:?}", parts);
+    let (i, parts) = alt_parser(i)?;
+    println!("{:?}", parts);
+    Ok(("", ()))
+}
+
+// fn parser<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str, ResourceNameRaw<'a>, E> {
+//     let (i, _) = tag("/")(i)?;
+//     let (i, left_part) = left_part(i)?;
+//     let (i, inner_part) = alt((
+//         nom_map(set, |s| ResourceNameParts::SetPart(s)),
+//         nom_map(resource_type, |t| ResourceNameParts::TypePart(t)),
+//         nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
+//         nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
+//     ))(i)?;
+//     let mut rn_raw = ResourceNameRaw::new();
+//     rn_raw.left_part = Some(left_part);
+//     if let ResourceNameParts::Nothing = inner_part {
+//         return Ok((i, rn_raw));
+//     } else if let ResourceNameParts::Junk = inner_part {
+//         return Err(nom::Err::Error((i, nom::error::ErrorKind::TooLarge)));
+//     }
+//     let (i, next_part) = match inner_part {
+//         ResourceNameParts::SetPart(s) => {
+//             rn_raw.set = Some(s);
+//             alt((
+//                 nom_map(right_part, |r| ResourceNameParts::RightPart(r)),
+//                 nom_map(resource_type, |t| ResourceNameParts::TypePart(t)),
+//                 nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
+//                 nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
+//                 ))(i)?
+//         },
+//         ResourceNameParts::TypePart(t) => {
+//             rn_raw.r#type = Some(t);
+//             alt((
+//                 nom_map(resource_id, |id| ResourceNameParts::IdPart(id)),
+//                 nom_map(rest_len, |l| if l == 0 { ResourceNameParts::Nothing } else { ResourceNameParts::Junk } )
+//                 ))(i)?
+//         },
+//         ResourceNameParts::IdPart(id) => {
+//             let (i, rest) = rest_len(i)?;
+//             if rest != 0 {
+//                 return Err(nom::Err::Error((i, nom::error::ErrorKind::TooLarge)));
+//             }
+//             rn_raw.id = Some(id);
+//             (i, ResourceNameParts::Nothing)
+//         },
+//         _ => { unreachable!() }
+//     };
+//     if let ResourceNameParts::Nothing = next_part {
+//         return Ok((i, rn_raw));
+//     }
+//
+//     Ok((i, rn_raw))
+// }
 
 pub fn parse_resource(name: &str, tok_tree: &Yaml) -> ast::Resource {
     //dbg!(tok_tree);
 
     //let r = parse_name("TEC(register)[]");
-    let data = "/abcd{1..2}";
-    let r1 = alt_parser::<VerboseError<&str>>(data);
+    let data = "/abcd{1..2}0abcd(ty)[1]junk";
+    let r1 = alt_parser22::<VerboseError<&str>>(data);
+    println!("{:?}", r1);
+    verify()
 //    let (i, r2) = alt_parser(data)?;
 //    let (i, r3) = alt_parser(data)?;
 //    let (i, r4) = alt_parser(data)?;
-    println!("{:?}", r1);
-//    match alt_parser::<VerboseError<&str>>(data) {
-//        Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-//            println!("{}", convert_error(data, e));
-//        }
-//        _ => {}
-//    }
+    //println!("{:?}", r1);
+   // match alt_parser22::<VerboseError<&str>>(data) {
+   //     Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
+   //         println!("err {} {:#?}", convert_error(data, e.clone()), e);
+   //     }
+   //     Ok((i, parts)) => {
+   //         println!("{}, {:?}", i, parts);
+   //     }
+   //     _ => { println!("incomplete"); }
+   // }
 
     //let res = many1(alt_parser)("/abcd{1..2}");
     //println!("{:?}", res);

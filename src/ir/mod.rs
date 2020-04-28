@@ -1,5 +1,5 @@
 use std::fmt;
-use std::fmt::{Error, Formatter};
+use std::fmt::{Formatter};
 
 use crate::types::Numeric;
 

@@ -36,6 +36,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
+name = "bytecount"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f861d9ce359f56dbcb6e0c2a1cb84e52ad732cadb57b806adeb3c7668caccbd8"
+
+[[package]]
+name = "bytecount"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0017894339f586ccb943b01b9555de56770c11cda818e7e3d8bd93f4ed7f46e"
+
+[[package]]
 name = "cfg-if"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -115,6 +127,79 @@ dependencies = [
 ]
 
 [[package]]
+name = "nom-greedyerror"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "005188fda7f3ea919ee32f9c71e99a0aff25031c7403a2e1b40210627602b180"
+dependencies = [
+ "nom",
+ "nom_locate 1.0.0",
+ "nom_locate 2.0.0",
+]
+
+[[package]]
+name = "nom-tracable"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e012c742e1269f801f6bfe0d1ebf99d7a3f7bc1d65c970bab0e7bee439e31610"
+dependencies = [
+ "nom",
+ "nom-tracable-macros",
+ "nom_locate 1.0.0",
+ "nom_locate 2.0.0",
+]
+
+[[package]]
+name = "nom-tracable-macros"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65ad630ff46d4c61da89042f327e6fdf104a6ebb667565727ef0bb294a7c3197"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "nom_locate"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f932834fd8e391fc7710e2ba17e8f9f8645d846b55aa63207e17e110a1e1ce35"
+dependencies = [
+ "bytecount 0.3.2",
+ "memchr",
+ "nom",
+]
+
+[[package]]
+name = "nom_locate"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e4726500a3d0297dd38edc169d919ad997a9931b4645b59ce0231e88536e213"
+dependencies = [
+ "bytecount 0.6.0",
+ "memchr",
+ "nom",
+]
+
+[[package]]
+name = "proc-macro2"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df246d292ff63439fea9bc8c0a270bed0e390d5ebd4db4ba15aba81111b5abe3"
+dependencies = [
+ "unicode-xid",
+]
+
+[[package]]
+name = "quote"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bdc6c187c65bca4260c9011c9e3132efe4909da44726bad24cf7572ae338d7f"
+dependencies = [
+ "proc-macro2",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -157,6 +242,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
+name = "syn"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "410a7488c0a728c7ceb4ad59b9567eb4053d02e8cc7f5c0e0eeeb39518369213"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,6 +266,12 @@ name = "unicode-width"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caaa9d531767d1ff2150b9332433f32a24622147e5ebb1f26409d5da67afd479"
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
 name = "vec_map"
@@ -189,6 +291,9 @@ version = "0.1.0"
 dependencies = [
  "linked-hash-map",
  "nom",
+ "nom-greedyerror",
+ "nom-tracable",
+ "nom_locate 2.0.0",
  "yaml-rust",
 ]
 

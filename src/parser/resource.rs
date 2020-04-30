@@ -165,7 +165,6 @@ pub fn parse_resource(name: &str, tok_tree: &Yaml) -> ast::Resource {
     let data = "/abcd{1..2}0abcd(ty)[1]junk";
     let r1 = alt_parser22::<VerboseError<&str>>(data);
     println!("{:?}", r1);
-    verify()
 //    let (i, r2) = alt_parser(data)?;
 //    let (i, r3) = alt_parser(data)?;
 //    let (i, r4) = alt_parser(data)?;

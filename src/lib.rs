@@ -11,9 +11,10 @@
 //        assert_eq!(2 + 2, 4);
 //    }
 //}
+pub mod loader;
+pub mod lexer;
+pub mod parser;
 pub mod ast;
 pub mod ir;
-pub mod loader;
-pub mod parser;
 pub mod types;
 pub mod error;

@@ -23,6 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     lexer::lexer_play();
 
+
+
 //     let matches =
 //         App::new("vhapi-cli")
 //             .version("0.1.0")
@@ -63,9 +65,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 //         }
 //     }
 
-
-
-//    println!("{:?}", doc);
 
     Ok(())
 }

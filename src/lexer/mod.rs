@@ -8,8 +8,10 @@ use nom::character::complete::{alpha1, digit1};
 use std::fmt;
 use nom::lib::std::fmt::Formatter;
 use nom::multi::many1;
+use crate::lexer::TokenKind::BinOp;
+use nom::combinator::{peek, not};
 
-/// `+` `-` `*` `/` `%` `^` `&` `|` `<<` `>>`
+/// Binary operation token
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BinOpToken {
     /// `+`
@@ -32,6 +34,36 @@ pub enum BinOpToken {
     Shl,
     /// `>>`
     Shr
+}
+
+/// Boolean operation token
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BoolOpToken {
+    /// "<"
+    Lt,
+    /// "<="
+    Le,
+    /// "=="
+    EqEq,
+    /// "!="
+    Ne,
+    /// ">"
+    Gt,
+    /// ">="
+    Ge,
+    /// "&&"
+    AndAnd,
+    /// "||"
+    OrOr,
+}
+
+/// Unary operation token
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UnaryOpToken {
+    /// "~"
+    Tilde,
+    /// "!"
+    Excl,
 }
 
 /// `()` or `[]` or `{}`
@@ -75,25 +107,11 @@ pub enum TokenKind {
     // Expression operators
     /// "="
     Eq,
-    /// "<"
-    Lt,
-    /// "<="
-    Le,
-    /// "=="
-    EqEq,
-    /// "!="
-    Ne,
-    /// ">"
-    Gt,
-    /// ">="
-    Ge,
-    /// "&&"
-    AndAnd,
-    /// "||"
-    OrOr,
-    /// "~"
-    Tilde,
-    /// `+`, `-`, etc
+    /// `!` `~`
+    UnaryOp(UnaryOpToken),
+    /// `<` `<=` `==` `!=` `>=` `&&` `||`
+    BoolOp(BoolOpToken),
+    /// `+` `-` `*` `/` `%` `^` `&` `|` `<<` `>>`
     BinOp(BinOpToken),
     //?BinOpEq(BinOpToken),
 
@@ -106,7 +124,6 @@ pub enum TokenKind {
     DotDot,
     /// ","
     Comma,
-
     /// ";"
     Semicolon,
     /// ":"
@@ -203,8 +220,8 @@ pub struct NLSpanInfo {
     // pub recursive_info: RecursiveInfo
 }
 
+#[cfg(feature = "trace")]
 impl NLSpanInfo {
-    #[cfg(feature = "trace")]
     pub fn new() -> Self {
         NLSpanInfo {
             traceable_info: TracableInfo::new()
@@ -272,44 +289,149 @@ impl<'a> From<NLSpan<'a>> for Span {
 // }
 
 #[tracable_parser]
-fn equal_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("==")(s)?;
-    Ok( (s, Token { kind: TokenKind::EqEq, span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::EqEq), span: nls.into() } ) )
 }
 
 #[tracable_parser]
-fn not_equal_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn not_equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("!=")(s)?;
-    Ok( (s, Token { kind: TokenKind::Ne, span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Ne), span: nls.into() } ) )
 }
 
 #[tracable_parser]
-fn assign_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn le_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("<=")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Le), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn lt_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, _) = peek(not(tag("<=")))(s)?;
+    let (s, nls) = tag("<")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Lt), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn assign_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("=")(s)?;
     Ok( (s, Token { kind: TokenKind::Eq, span: nls.into() } ) )
 }
 
 #[tracable_parser]
-fn plus_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn ge_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(">=")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Ge), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn gt_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(">")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Gt), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn andand_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("&&")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::AndAnd), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn oror_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("||")(s)?;
+    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::OrOr), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn tilde_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("~")(s)?;
+    Ok( (s, Token { kind: TokenKind::UnaryOp(UnaryOpToken::Tilde), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn plus_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("+")(s)?;
     Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Plus), span: nls.into() } ) )
 }
 
 #[tracable_parser]
-fn multiply_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn minus_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("-")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Minus), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn star_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("*")(s)?;
     Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Star), span: nls.into() } ) )
 }
 
 #[tracable_parser]
-fn lex_operator(s: NLSpan) -> IResult<NLSpan, Token> {
+fn slash_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("/")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Slash), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn percent_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("%")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Percent), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn caret_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("^")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Caret), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn and_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("&")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::And), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn or_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("|")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Or), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn shl_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("<<")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Shl), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn shr_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(">>")(s)?;
+    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Shr), span: nls.into() } ) )
+}
+
+#[tracable_parser]
+fn bin_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, t) = alt((
-        equal_operator,
-        not_equal_operator,
-        assign_operator,
-        plus_operator,
-        multiply_operator
+        plus_op,
+        minus_op,
+        star_op,
+        slash_op,
+        percent_op,
+        caret_op,
+        and_op,
+        or_op,
+        shl_op,
+        shr_op
         ))(s)?;
+    Ok( (s, t) )
+}
+
+#[tracable_parser]
+fn bool_op(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, t) = alt((
+        lt_op,
+        le_op
+    ))(s)?;
     Ok( (s, t) )
 }
 
@@ -323,8 +445,8 @@ pub fn lexer_play() {
     // histogram();
     // cumulative_histogram();
 
-    let input = NLSpan::new_extra("++++*!==", NLSpanInfo::new() );
-    let output = many1(lex_operator)(input);
+    let input = NLSpan::new_extra("<=<+++", NLSpanInfo::new() );
+    let output = many1(bool_op)(input);
     println!("{:?}", output);
 
     histogram();

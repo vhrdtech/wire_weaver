@@ -10,74 +10,6 @@ use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
 use std::iter::Enumerate;
 use crate::lexer::token::LitKind::Byte;
 
-/// Binary operation token
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BinOpToken {
-    /// `+`
-    Plus,
-    /// `-`
-    Minus,
-    /// `*`
-    Star,
-    /// `/`
-    Slash,
-    /// `%`
-    Percent,
-    /// `^`
-    Caret,
-    /// `&`
-    And,
-    /// `|`
-    Or,
-    /// `<<`
-    Shl,
-    /// `>>`
-    Shr
-}
-
-/// Boolean operation token
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BoolOpToken {
-    /// "<"
-    Lt,
-    /// "<="
-    Le,
-    /// "=="
-    EqEq,
-    /// "!="
-    Ne,
-    /// ">"
-    Gt,
-    /// ">="
-    Ge,
-    /// "&&"
-    AndAnd,
-    /// "||"
-    OrOr,
-}
-
-/// Unary operation token
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum UnaryOpToken {
-    /// "~"
-    Tilde,
-    /// "!"
-    Excl,
-}
-
-/// `()` or `[]` or `{}`
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DelimToken {
-    /// `(` or `)`
-    Paren,
-    /// `[` or `]`
-    Bracket,
-    /// `{` or `}`
-    Brace,
-    // An empty delimiter
-    // NoDelim
-}
-
 /// Bool / Byte / Char / Integer / Float / Str / ByteStr / Err
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LitKind {
@@ -117,12 +49,52 @@ pub enum TokenKind {
     // Expression operators
     /// "="
     Assign,
-    /// `!` `~`
-    UnaryOp(UnaryOpToken),
-    /// `<` `<=` `==` `!=` `>=` `&&` `||`
-    BoolOp(BoolOpToken),
-    /// `+` `-` `*` `/` `%` `^` `&` `|` `<<` `>>`
-    BinOp(BinOpToken),
+
+    // Unary op tokens
+    /// "~"
+    Tilde,
+    /// "!"
+    Excl,
+
+    // Bool op tokens
+    /// "<"
+    Lt,
+    /// "<="
+    Le,
+    /// "=="
+    EqEq,
+    /// "!="
+    Ne,
+    /// ">"
+    Gt,
+    /// ">="
+    Ge,
+    /// "&&"
+    AndAnd,
+    /// "||"
+    OrOr,
+
+    // Binary op tokens
+    /// `+`
+    Plus,
+    /// `-`
+    Minus,
+    /// `*`
+    Star,
+    /// `/`
+    Slash,
+    /// `%`
+    Percent,
+    /// `^`
+    Caret,
+    /// `&`
+    And,
+    /// `|`
+    Or,
+    /// `<<`
+    Shl,
+    /// `>>`
+    Shr,
     //?BinOpEq(BinOpToken),
 
     // Structural symbols
@@ -149,10 +121,19 @@ pub enum TokenKind {
     Dollar,
     /// "?"
     Question,
-    /// An opening delimiter `{` or `(` or `[`
-    OpenDelim(DelimToken),
-    /// A closing delimiter `}` or `)` or `]`
-    CloseDelim(DelimToken),
+
+    /// `(`
+    OpenParen,
+    /// `)`
+    CloseParen,
+    /// `[`
+    OpenBracket,
+    /// `]`
+    CloseBracket,
+    /// `{`
+    OpenBrace,
+    /// `}`
+    CloseBrace,
 
     // Literals
     Literal(Lit),

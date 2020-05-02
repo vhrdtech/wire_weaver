@@ -4,8 +4,8 @@ use nom::sequence::{tuple, terminated, preceded};
 use nom::combinator::{peek, not, map, cut};
 use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
-use super::token::{NLSpan, IResult, Token, TokenKind, BoolOpToken, BinOpToken, UnaryOpToken};
-use crate::lexer::token::{DelimToken, LitKind, Lit, IdentToken, Span};
+use super::token::{NLSpan, IResult, Token, TokenKind};
+use crate::lexer::token::{LitKind, Lit, IdentToken, Span};
 use nom::error::context;
 use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
 use nom::character::is_alphanumeric;
@@ -16,7 +16,7 @@ use nom::multi::many0;
 #[packrat_parser]
 pub(crate) fn equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("==")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::EqEq), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::EqEq, span: nls.into() } ) )
 }
 
 /// Eats "!="
@@ -24,7 +24,7 @@ pub(crate) fn equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn not_equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("!=")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Ne), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Ne, span: nls.into() } ) )
 }
 
 /// Eats "<="
@@ -32,7 +32,7 @@ pub(crate) fn not_equal_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn le_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("<=")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Le), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Le, span: nls.into() } ) )
 }
 
 /// Eats "<" if not followed by `<` or `=`
@@ -42,7 +42,7 @@ pub(crate) fn lt_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (_, _) = peek(not(tag("<=")))(s)?;
     let (_, _) = peek(not(tag("<<")))(s)?;
     let (s, nls) = tag("<")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Lt), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Lt, span: nls.into() } ) )
 }
 
 /// Eats "=" if not followed by `=`
@@ -59,7 +59,7 @@ pub(crate) fn assign_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn ge_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag(">=")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Ge), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Ge, span: nls.into() } ) )
 }
 
 /// Eats ">" if not followed by `>` or `=`
@@ -69,7 +69,7 @@ pub(crate) fn gt_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (_, _) = peek(not(tag(">>")))(s)?;
     let (_, _) = peek(not(tag(">=")))(s)?;
     let (s, nls) = tag(">")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::Gt), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Gt, span: nls.into() } ) )
 }
 
 /// Eats "&&"
@@ -77,7 +77,7 @@ pub(crate) fn gt_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn andand_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("&&")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::AndAnd), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::AndAnd, span: nls.into() } ) )
 }
 
 /// Eats "||"
@@ -85,7 +85,7 @@ pub(crate) fn andand_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn oror_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("||")(s)?;
-    Ok( (s, Token { kind: TokenKind::BoolOp(BoolOpToken::OrOr), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::OrOr, span: nls.into() } ) )
 }
 
 /// Eats "~"
@@ -93,7 +93,7 @@ pub(crate) fn oror_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn tilde_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("~")(s)?;
-    Ok( (s, Token { kind: TokenKind::UnaryOp(UnaryOpToken::Tilde), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Tilde, span: nls.into() } ) )
 }
 
 /// Eats "!"
@@ -101,7 +101,7 @@ pub(crate) fn tilde_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn excl_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("!")(s)?;
-    Ok( (s, Token { kind: TokenKind::UnaryOp(UnaryOpToken::Excl), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Excl, span: nls.into() } ) )
 }
 
 /// Eats "+"
@@ -109,7 +109,7 @@ pub(crate) fn excl_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn plus_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("+")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Plus), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Plus, span: nls.into() } ) )
 }
 
 /// Eats "-"
@@ -117,7 +117,7 @@ pub(crate) fn plus_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn minus_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("-")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Minus), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Minus, span: nls.into() } ) )
 }
 
 /// Eats "*"
@@ -125,7 +125,7 @@ pub(crate) fn minus_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn star_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("*")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Star), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Star, span: nls.into() } ) )
 }
 
 /// Eats "/"
@@ -133,7 +133,7 @@ pub(crate) fn star_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn slash_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("/")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Slash), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Slash, span: nls.into() } ) )
 }
 
 /// Eats "%"
@@ -141,7 +141,7 @@ pub(crate) fn slash_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn percent_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("%")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Percent), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Percent, span: nls.into() } ) )
 }
 
 /// Eats "^"
@@ -149,7 +149,7 @@ pub(crate) fn percent_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn caret_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("^")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Caret), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Caret, span: nls.into() } ) )
 }
 
 /// Eats "&" if not followed by `&`
@@ -158,7 +158,7 @@ pub(crate) fn caret_op(s: NLSpan) -> IResult<NLSpan, Token> {
 pub(crate) fn and_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (_, _) = peek(not(tag("&&")))(s)?;
     let (s, nls) = tag("&")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::And), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::And, span: nls.into() } ) )
 }
 
 /// Eats "|" if not followed by `|`
@@ -167,7 +167,7 @@ pub(crate) fn and_op(s: NLSpan) -> IResult<NLSpan, Token> {
 pub(crate) fn or_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (_, _) = peek(not(tag("||")))(s)?;
     let (s, nls) = tag("|")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Or), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Or, span: nls.into() } ) )
 }
 
 /// Eats "<<"
@@ -175,7 +175,7 @@ pub(crate) fn or_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn shl_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("<<")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Shl), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Shl, span: nls.into() } ) )
 }
 
 /// Eats ">>"
@@ -183,7 +183,7 @@ pub(crate) fn shl_op(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn shr_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag(">>")(s)?;
-    Ok( (s, Token { kind: TokenKind::BinOp(BinOpToken::Shr), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Shr, span: nls.into() } ) )
 }
 
 /// Eats binary operator
@@ -314,7 +314,7 @@ pub(crate) fn punct(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn open_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("(")(s)?;
-    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Paren), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::OpenParen, span: nls.into() } ) )
 }
 
 /// Eats ")"
@@ -322,7 +322,7 @@ pub(crate) fn open_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn close_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag(")")(s)?;
-    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Paren), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::CloseParen, span: nls.into() } ) )
 }
 
 /// Eats "["
@@ -330,7 +330,7 @@ pub(crate) fn close_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn open_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("[")(s)?;
-    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Bracket), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::OpenBracket, span: nls.into() } ) )
 }
 
 /// Eats "]"
@@ -338,7 +338,7 @@ pub(crate) fn open_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn close_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("]")(s)?;
-    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Bracket), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::CloseBracket, span: nls.into() } ) )
 }
 
 /// Eats "{"
@@ -346,7 +346,7 @@ pub(crate) fn close_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn open_brace_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("{")(s)?;
-    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Brace), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::OpenBrace, span: nls.into() } ) )
 }
 
 /// Eats "}"
@@ -354,7 +354,7 @@ pub(crate) fn open_brace_delim(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn close_brace_delim(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = tag("}")(s)?;
-    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Brace), span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::CloseBrace, span: nls.into() } ) )
 }
 
 /// Eats delimiter

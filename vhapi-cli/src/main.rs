@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     //
     // loader.load("123".to_string());
 
-    lexer::lexer_play();
-
+    //lexer::lexer_play();
+    parser::parser_play();
 
 
 //     let matches =

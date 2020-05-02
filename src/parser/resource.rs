@@ -12,10 +12,10 @@ use crate::types::Type;
 use crate::types::Numeric;
 use nom::character::complete::{char as nom_char, alpha1, digit1, alphanumeric0, alphanumeric1};
 use nom::bytes::complete::{is_not, take_while1};
-use nom::sequence::{terminated, preceded, separated_pair};
+use nom::sequence::{terminated, preceded};
 use nom::character::is_alphanumeric;
-use nom::combinator::{peek, rest_len, value, verify};
-use nom::error::{VerboseError, convert_error};
+use nom::combinator::{peek,};
+use nom::error::{VerboseError};
 use nom::multi::many1;
 
 #[derive(Debug)]
@@ -103,7 +103,7 @@ fn alt_parser33<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str,
     println!("{:?}", parts);
     let (i, parts) = alt_parser(i)?;
     println!("{:?}", parts);
-    let (i, parts) = alt_parser(i)?;
+    let (_, parts) = alt_parser(i)?;
     println!("{:?}", parts);
     Ok(("", ()))
 }
@@ -158,7 +158,7 @@ fn alt_parser33<'a, E: ParseError<&'a str>>(i: &'a str) -> nom::IResult<&'a str,
 //     Ok((i, rn_raw))
 // }
 
-pub fn parse_resource(name: &str, tok_tree: &Yaml) -> ast::Resource {
+pub fn parse_resource(_name: &str, _tok_tree: &Yaml) -> ast::Resource {
     //dbg!(tok_tree);
 
     //let r = parse_name("TEC(register)[]");

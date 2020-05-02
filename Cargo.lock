@@ -138,6 +138,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "nom-packrat"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3ec62525e98be79d646fda5144d70afc71bee2375ab847a3d78ffe5eaeb8260"
+dependencies = [
+ "nom-packrat-macros",
+ "nom_locate 1.0.0",
+ "nom_locate 2.0.0",
+]
+
+[[package]]
+name = "nom-packrat-macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a845d4abd19861ab38dd485e90daf0a29a4f7bdc675c4fcce4be7af788140c2"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "nom-tracable"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -292,6 +313,7 @@ dependencies = [
  "linked-hash-map",
  "nom",
  "nom-greedyerror",
+ "nom-packrat",
  "nom-tracable",
  "nom_locate 2.0.0",
  "yaml-rust",

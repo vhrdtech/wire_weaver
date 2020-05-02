@@ -11,6 +11,7 @@ nom = "5"
 nom_locate = "2"
 nom-greedyerror = "0.2"
 nom-tracable = "0.5"
+nom-packrat = "0.4"
 
 yaml-rust = "0.4"
 linked-hash-map = ">=0.0.9, <0.6"

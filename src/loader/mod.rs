@@ -1,16 +1,16 @@
-enum Location {
-    Local,
-    Git,
-    Github,
-    // User?
-}
+// enum Location {
+//     Local,
+//     Git,
+//     Github,
+//     // User?
+// }
 
 pub struct Loader<'a> {
     pub fs_loader: Box<dyn FnMut(u8) + 'a>,
 }
 
 impl<'a> Loader<'a> {
-    pub fn load(&mut self, uri: String) -> String {
+    pub fn load(&mut self, _uri: String) -> String {
         (self.fs_loader)(123);
         return "abc".to_string();
     }

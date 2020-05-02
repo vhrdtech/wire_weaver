@@ -1,10 +1,15 @@
-use nom::bytes::complete::{tag};
+use nom::bytes::complete::{tag, escaped, take_while1, take_while};
 use nom::branch::{alt};
-use nom::sequence::{tuple};
-use nom::combinator::{peek, not};
+use nom::sequence::{tuple, terminated, preceded};
+use nom::combinator::{peek, not, map, cut};
 use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
 use super::token::{NLSpan, IResult, Token, TokenKind, BoolOpToken, BinOpToken, UnaryOpToken};
+use crate::lexer::token::{DelimToken, LitKind, Lit, IdentToken};
+use nom::error::context;
+use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
+use nom::character::is_alphanumeric;
+use nom::multi::many0;
 
 /// Eats "=="
 #[tracable_parser]
@@ -46,7 +51,7 @@ pub(crate) fn lt_op(s: NLSpan) -> IResult<NLSpan, Token> {
 pub(crate) fn assign_op(s: NLSpan) -> IResult<NLSpan, Token> {
     let (_, _) = peek(not(tag("==")))(s)?;
     let (s, nls) = tag("=")(s)?;
-    Ok( (s, Token { kind: TokenKind::Eq, span: nls.into() } ) )
+    Ok( (s, Token { kind: TokenKind::Assign, span: nls.into() } ) )
 }
 
 /// Eats ">="
@@ -238,4 +243,201 @@ pub(crate) fn expr_op(s: NLSpan) -> IResult<NLSpan, Token> {
         unary_op
     ))(s)?;
     Ok( (s, t) )
+}
+
+/// Eats "@"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn at_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("@")(s)?;
+    Ok( (s, Token { kind: TokenKind::At, span: nls.into() } ) )
+}
+
+/// Eats "." if not followed by another dot
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn dot_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (_, _) = peek(not(tag("..")))(s)?;
+    let (s, nls) = tag(".")(s)?;
+    Ok( (s, Token { kind: TokenKind::Dot, span: nls.into() } ) )
+}
+
+/// Eats ".."
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn dotdot_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("..")(s)?;
+    Ok( (s, Token { kind: TokenKind::Dot, span: nls.into() } ) )
+}
+
+/// Eats ","
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn comma_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(",")(s)?;
+    Ok( (s, Token { kind: TokenKind::Comma, span: nls.into() } ) )
+}
+
+/// Eats ";"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn semicolon_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(";")(s)?;
+    Ok( (s, Token { kind: TokenKind::Semicolon, span: nls.into() } ) )
+}
+
+/// Eats ":"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn colon_punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(":")(s)?;
+    Ok( (s, Token { kind: TokenKind::Colon, span: nls.into() } ) )
+}
+
+/// Eats and punct character('s)
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn punct(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, t) = alt((
+        at_punct,
+        dotdot_punct,
+        dot_punct,
+        comma_punct,
+        semicolon_punct,
+        colon_punct
+    ))(s)?;
+    Ok( (s, t) )
+}
+
+/// Eats "("
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn open_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("(")(s)?;
+    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Paren), span: nls.into() } ) )
+}
+
+/// Eats ")"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn close_paren_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag(")")(s)?;
+    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Paren), span: nls.into() } ) )
+}
+
+/// Eats "["
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn open_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("[")(s)?;
+    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Bracket), span: nls.into() } ) )
+}
+
+/// Eats "]"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn close_bracket_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("]")(s)?;
+    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Bracket), span: nls.into() } ) )
+}
+
+/// Eats "{"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn open_brace_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("{")(s)?;
+    Ok( (s, Token { kind: TokenKind::OpenDelim(DelimToken::Brace), span: nls.into() } ) )
+}
+
+/// Eats "}"
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn close_brace_delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = tag("}")(s)?;
+    Ok( (s, Token { kind: TokenKind::CloseDelim(DelimToken::Brace), span: nls.into() } ) )
+}
+
+/// Eats delimiter
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn delim(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, t) = alt((
+        open_paren_delim,
+        close_paren_delim,
+        open_bracket_delim,
+        close_bracket_delim,
+        open_brace_delim,
+        close_brace_delim
+    ))(s)?;
+    Ok ( (s, t) )
+}
+
+fn str_lit_inside(s: NLSpan) -> IResult<NLSpan, NLSpan> {
+    let (s, nls) = escaped(
+        alphanumeric1,
+        '\\',
+        one_of(r#""n\"#))(s)?;
+    Ok( (s, nls) )
+}
+
+/// Eats a string in `""`
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn str_lit(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = context("str_lit",
+        preceded(nomchar('\"'), cut(terminated(str_lit_inside, nomchar('\"'))))
+    )(s)?;
+    Ok( (s, Token { kind: TokenKind::Literal(Lit{kind: LitKind::Str}), span: nls.into() } ) )
+}
+
+fn eat_ident(s: NLSpan) -> IResult<NLSpan, NLSpan> {
+    let (s, ident) = alt((
+        preceded(peek(tag("_")), take_while1(|c| c == '_' || is_alphanumeric(c as u8))),
+        preceded(peek(alpha1), alphanumeric0)
+    ))(s)?;
+    Ok( (s, ident) )
+}
+
+/// Eats an ident
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn ident(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, ident) = eat_ident(s)?;
+    match *ident.fragment() {
+        "if" => Ok( (s, Token { kind: TokenKind::Ident(IdentToken::If), span: ident.into() } ) ),
+        _ => Ok( (s, Token { kind: TokenKind::Ident(IdentToken::Normal), span: ident.into() } ) )
+    }
+}
+
+// #[tracable_parser]
+// #[packrat_parser]
+// pub(crate) fn comment(s: NLSpan) -> IResult<NLSpan, NLSpan> {
+//
+// }
+//
+// #[tracable_parser]
+// #[packrat_parser]
+// pub(crate) fn multicomment(s: NLSpan) -> IResult<NLSpan, NLSpan> {
+//
+// }
+
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn whitespace(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, nls) = take_while1(|c| " \n\t\r".contains(c) )(s)?;
+    Ok( (s, Token { kind: TokenKind::Whitespace, span: nls.into() } ) )
+}
+
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn any_token(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, t) = alt((
+        expr_op,
+        punct,
+        delim,
+        ident,
+        str_lit,
+        whitespace
+    ))(s)?;
+    Ok ( (s, t) )
 }

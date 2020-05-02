@@ -1,22 +1,25 @@
 pub mod resource;
 
-use crate::lexer::token::{Token, TokenStream, TokenKind, BoolOpToken, Span};
-use crate::lexer::{get_some_tokens, get_some_more};
+use crate::lexer::token::{*};
+use crate::lexer::{get_some_tokens};
 use nom::bytes::complete::tag;
 
+macro_rules! tok {
+    (+$bin_op:ident) => { TokenKind::BinOp(BinOpToken::$bin_op) };
+    (&&$bool_op:ident) => { TokenKind::BoolOp(BoolOpToken::$bool_op) };
+    (!$unary_op:ident) => { TokenKind::UnaryOp(UnaryOpToken::$unary_op) };
+    (<$unary_op:ident) => { TokenKind::OpenDelim(DelimToken::$unary_op) };
+    (>$unary_op:ident) => { TokenKind::CloseDelim(DelimToken::$unary_op) };
+}
+
 macro_rules! ts {
-    ($a:ident) => {
-        TokenStream::new_with_slice(&[Token{kind: TokenKind::$a, span: Span::any()}])
-    }
+    ($($t1:tt$t2:tt),+) => {
+        TokenStream::new_with_slice(&[ $(Token{kind: tok!($t1$t2), span: Span::any()}),* ])
+    };
 }
 
 fn tparser(ts: TokenStream) -> nom::IResult<TokenStream, bool> {
-    let more_toks = get_some_more();
-    let ts_tag = TokenStream::new(&more_toks);
-
-    println!("ts_tag is: {:?}", ts_tag);
-
-    let (ts, x) = tag(ts!(At))(ts)?;
+    let (ts, x) = tag(TokenStream::new_with_slice(&[ Token{kind: tok!(+Plus), span: Span::any()} ]))(ts)?;
 
     println!("ts: {:?}", ts);
     println!("x: {:?}", x);
@@ -25,8 +28,11 @@ fn tparser(ts: TokenStream) -> nom::IResult<TokenStream, bool> {
 }
 
 pub fn parser_play() {
-    let tokens = get_some_tokens();
-    let ts = TokenStream::new(&tokens);
-    let r = tparser(ts);
-    println!("tparser result: {:?}", r);
+    println!("{:?}", ts!(&&Le, <Bracket, >Brace));
+    // let tokens = get_some_tokens();
+    // let ts = TokenStream::new(&tokens);
+    //
+    // println!("tparser called with: {:?}", ts);
+    // let r = tparser(ts);
+    // println!("tparser result: {:?}", r);
 }

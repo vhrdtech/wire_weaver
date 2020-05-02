@@ -101,11 +101,22 @@ pub struct Lit {
     //pub suffix: Option<Symbol>
 }
 
+/// Reserved or normal identifier
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum IdentToken {
+    Let,
+    Fn,
+    If,
+    Else,
+    Return,
+    Normal
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenKind {
     // Expression operators
     /// "="
-    Eq,
+    Assign,
     /// `!` `~`
     UnaryOp(UnaryOpToken),
     /// `<` `<=` `==` `!=` `>=` `&&` `||`
@@ -146,7 +157,7 @@ pub enum TokenKind {
     // Literals
     Literal(Lit),
 
-    Ident(/*name*/),
+    Ident(IdentToken),
 
     /// Any whitespace
     Whitespace,
@@ -202,15 +213,20 @@ pub struct Span {
 
 impl fmt::Debug for Span {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "bytes[{}..{})", self.lo.0, self.hi.0)
+        if self.hi.0 >= self.lo.0 {
+            write!(f, "bytes[{}..{})", self.lo.0, self.hi.0)
+        } else {
+            write!(f, "any")
+        }
     }
 }
 
 impl Span {
+    /// Construct invalid Span that is equal to any other Span (when comparing TokenStream's).
     pub fn any() -> Self {
         Span {
-            lo: BytePos(u32::max_value()),
-            hi: BytePos(u32::max_value())
+            lo: BytePos(1u32),
+            hi: BytePos(0u32)
         }
     }
 }
@@ -313,10 +329,20 @@ impl<'a> TokenStream<'a> {
 
 impl<'a, 'b> Compare<TokenStream<'b>> for TokenStream<'a> {
     fn compare(&self, t: TokenStream<'b>) -> CompareResult {
-        println!("compare called with: {:?}", t);
-        println!("self is: {:?}", self);
+        let pos = self.iter_elements().zip(
+            t.iter_elements()).position(
+            |(a, b)| a.kind != b.kind);
 
-        CompareResult::Ok
+        match pos {
+            Some(_) => CompareResult::Error,
+            None => {
+                if self.input_len() >= t.input_len() {
+                    CompareResult::Ok
+                } else {
+                    CompareResult::Incomplete
+                }
+            }
+        }
     }
 
     fn compare_no_case(&self, t: TokenStream<'b>) -> CompareResult {
@@ -351,7 +377,7 @@ impl<'a> InputTake for TokenStream<'a> {
             start: 0,
             end: suffix.len()
         };
-        (first, second)
+        (second, first)
     }
 }
 

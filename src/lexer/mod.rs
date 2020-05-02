@@ -7,6 +7,7 @@ pub mod tokenizer;
 
 use token::{NLSpan, NLSpanInfo};
 use crate::lexer::token::Token;
+use crate::lexer::tokenizer::any_token;
 
 pub fn lexer_play() {
     // println!("lexer_play():");
@@ -20,8 +21,25 @@ pub fn lexer_play() {
 
     nom_packrat::init!();
 
-    let input = NLSpan::new_extra("<=<+++", NLSpanInfo::new() );
-    let output = many1(tokenizer::expr_op)(input);
+    let test = "/ctrl(bitfield) {
+  addr:
+  type: u8
+  description:
+  default:
+
+  /fdiv(7:5) {
+    type: u2
+    unit: 1
+    default: 0b00
+    access: rw
+    description:
+    examples:
+    allowed: 'expression'
+  }
+}";
+
+    let input = NLSpan::new_extra(test, NLSpanInfo::new() );
+    let output = many1(any_token)(input);
     println!("{:?}", output);
 
     histogram();
@@ -31,25 +49,12 @@ pub fn lexer_play() {
 pub fn get_some_tokens() -> Vec<Token> {
     nom_packrat::init!();
 
-    let input = NLSpan::new_extra("<=<+++", NLSpanInfo::new() );
+    let input = NLSpan::new_extra("+-*+", NLSpanInfo::new() );
     let output = many1(tokenizer::expr_op)(input);
     if output.is_err() {
+        println!("{:?}", output.err());
         return Vec::new()
     }
-    let toks = output.unwrap();
-    toks.1
-}
-
-pub fn get_some_more() -> Vec<Token> {
-    nom_packrat::init!();
-
-    let input = NLSpan::new_extra("<=", NLSpanInfo::new() );
-    let output = many1(tokenizer::expr_op)(input);
-    //println!("{:?}", output);
-    // if output.is_err() {
-    //     //println!("{:?}", output.err());
-    //     return Vec::new()
-    // }
     let toks = output.unwrap();
     toks.1
 }

@@ -22,8 +22,8 @@ pub fn lexer_play() {
     nom_packrat::init!();
 
     let test = "/ctrl(bitfield) {
-  addr:
-  type: u8
+  addr: // comment
+  type: u8 //
   description:
   default:
 
@@ -38,9 +38,9 @@ pub fn lexer_play() {
   }
 }";
 
-    let input = NLSpan::new_extra(test, NLSpanInfo::new() );
+    let input = NLSpan::new_extra("abcd /* com /*inn*/ */abc", NLSpanInfo::new() );
     let output = many1(any_token)(input);
-    println!("{:?}", output);
+    println!("{:#?}", output);
 
     histogram();
     cumulative_histogram();

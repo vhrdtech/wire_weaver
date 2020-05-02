@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, ops};
 use nom_locate::{LocatedSpan};
 #[cfg(feature = "trace")]
 use nom_tracable::{TracableInfo, HasTracableInfo};
@@ -227,6 +227,17 @@ impl Span {
         Span {
             lo: BytePos(1u32),
             hi: BytePos(0u32)
+        }
+    }
+}
+
+impl ops::Add<Span> for Span {
+    type Output = Span;
+
+    fn add(self, rhs: Span) -> Span {
+        Span {
+            lo: BytePos(self.lo.0),
+            hi: BytePos(rhs.hi.0)
         }
     }
 }

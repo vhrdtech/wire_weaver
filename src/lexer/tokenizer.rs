@@ -1,11 +1,11 @@
-use nom::bytes::complete::{tag, escaped, take_while1, take_while};
+use nom::bytes::complete::{tag, escaped, take_while1, take_while, take, take_until};
 use nom::branch::{alt};
 use nom::sequence::{tuple, terminated, preceded};
 use nom::combinator::{peek, not, map, cut};
 use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
 use super::token::{NLSpan, IResult, Token, TokenKind, BoolOpToken, BinOpToken, UnaryOpToken};
-use crate::lexer::token::{DelimToken, LitKind, Lit, IdentToken};
+use crate::lexer::token::{DelimToken, LitKind, Lit, IdentToken, Span};
 use nom::error::context;
 use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
 use nom::character::is_alphanumeric;
@@ -409,22 +409,54 @@ pub(crate) fn ident(s: NLSpan) -> IResult<NLSpan, Token> {
     }
 }
 
-// #[tracable_parser]
-// #[packrat_parser]
-// pub(crate) fn comment(s: NLSpan) -> IResult<NLSpan, NLSpan> {
-//
-// }
-//
-// #[tracable_parser]
-// #[packrat_parser]
-// pub(crate) fn multicomment(s: NLSpan) -> IResult<NLSpan, NLSpan> {
-//
-// }
+/// Eats single line comment.
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn comment(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (s, cs) = tag("//")(s)?;
+    let (s, cb) = take_while(|c| c != '\n')(s)?;
+    Ok( (s, Token { kind: TokenKind::Comment, span: Span::from(cs) + Span::from(cb) }))
+}
 
+/// Eats nested block comments. `/*` must have corresponding `*/`.
+#[tracable_parser]
+#[packrat_parser]
+pub(crate) fn blockcomment(s: NLSpan) -> IResult<NLSpan, Token> {
+    let (mut rs, bc) = tag("/*")(s)?;
+    let mut depth = 1_usize;
+    let mut bc_span = Span::from(bc);
+
+    let mut prev_c: Option<char> = None;
+    while depth >= 1 {
+        // Eat one symbol at a time, error out on EOF if inner block comment is not closed.
+        let (s, bc) = context("block comment",
+                              cut(take(1_usize)))(rs)?;
+        bc_span = bc_span + Span::from(bc);
+        rs = s;
+        let c = bc.fragment().chars().nth(0).unwrap(); // safe, cut() will return on EOF
+        if let Some(p) = prev_c {
+            if p == '*' && c == '/' {
+                depth = depth - 1;
+            } else if p == '/' && c == '*' {
+                depth = depth + 1;
+            }
+            prev_c = Some(c);
+        } else {
+            prev_c = Some(c);
+            continue;
+        }
+    }
+
+    Ok( (rs, Token { kind: TokenKind::Comment, span: bc_span }))
+}
+
+/// Eats whitespace characters.
+/// See [librustc_lexer](https://github.com/rust-lang/rust/blob/master/src/librustc_lexer/src/lib.rs)
 #[tracable_parser]
 #[packrat_parser]
 pub(crate) fn whitespace(s: NLSpan) -> IResult<NLSpan, Token> {
-    let (s, nls) = take_while1(|c| " \n\t\r".contains(c) )(s)?;
+    let (s, nls) = take_while1(
+        |c| " \n\t\r\u{000B}\u{000C}\u{0085}\u{200E}\u{200F}\u{2028}\u{2029}".contains(c) )(s)?;
     Ok( (s, Token { kind: TokenKind::Whitespace, span: nls.into() } ) )
 }
 
@@ -432,12 +464,14 @@ pub(crate) fn whitespace(s: NLSpan) -> IResult<NLSpan, Token> {
 #[packrat_parser]
 pub(crate) fn any_token(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, t) = alt((
+        whitespace,
+        comment,
+        blockcomment,
         expr_op,
         punct,
         delim,
         ident,
         str_lit,
-        whitespace
     ))(s)?;
     Ok ( (s, t) )
 }

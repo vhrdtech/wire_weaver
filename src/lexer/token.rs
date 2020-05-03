@@ -4,31 +4,31 @@ use nom_locate::{LocatedSpan};
 use nom_tracable::{TracableInfo, HasTracableInfo};
 use nom_greedyerror::{GreedyError, Position};
 use std::fmt::Formatter;
-use nom_packrat::HasExtraState;
+//use nom_packrat::HasExtraState;
 use nom::{InputLength, InputTake, Slice, InputIter, Compare, CompareResult};
 use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
 use std::iter::Enumerate;
-use crate::lexer::token::LitKind::Byte;
+use strum_macros::{AsRefStr};
 
-/// Bool / Byte / Char / Integer / Float / Str / ByteStr / Err
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum LitKind {
-    Bool,
-    Byte,
-    Char,
-    Integer,
-    Float,
-    Str,
-    //StrRaw(u16),
-    ByteStr,
-    //ByteStrRaw(u16),
-    Err
-}
+// /// Bool / Byte / Char / Integer / Float / Str / ByteStr / Err
+// #[derive(Clone, Copy, Debug, PartialEq)]
+// pub enum LitKind {
+//     Bool,
+//     Byte,
+//     Char,
+//     Integer,
+//     Float,
+//     Str,
+//     //StrRaw(u16),
+//     ByteStr,
+//     //ByteStrRaw(u16),
+//     Err
+// }
 
 /// LitKind + Symbol + Optional suffix
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Lit {
-    pub kind: LitKind,
+    pub kind: LiteralKind,
     //pub symbol: Symbol,
     //pub suffix: Option<Symbol>
 }
@@ -44,7 +44,7 @@ pub enum IdentToken {
     Normal
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, AsRefStr)]
 pub enum TokenKind {
     // Expression operators
     /// "="
@@ -149,38 +149,39 @@ pub enum TokenKind {
     Eof,
 }
 
-// #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord)]
-// pub enum LiteralKind {
-//     /// "127_u8", "0o100", "0b129i99"
-//     Int { base: Base },
-//     /// "12.34f32", "56f16"
-//     Float { base: Base },
-//     /// "'a'", "'\\'", "'''"
-//     Char,
-//     /// "b'a'", "b'\\'", "b'''"
-//     //Byte,
-//     /// ""abc""
-//     Str,
-//     /// "b"abc""
-//     //ByteStr,
-//     /// "r"abc""
-//     //RawStr,
-//     /// "br"abc""
-//     //RawByteStr
-// }
-//
-// /// Base of numeric literal
-// #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord)]
-// pub enum Base {
-//     /// 0b prefix
-//     Binary,
-//     /// 0o prefix
-//     Octal,
-//     /// 0x prefix
-//     Hexadecimal,
-//     /// Without prefix
-//     Decimal
-// }
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LiteralKind {
+    /// "127_u8", "0o100", "0b129i99"
+    Int { base: Base },
+    /// "12.34f32", "56f16"
+    Float { base: Base },
+    /// "'a'", "'\\'", "'''"
+    Char,
+    /// "b'a'", "b'\\'", "b'''"
+    //Byte,
+    /// ""abc""
+    Str,
+    Bool,
+    // /// "b"abc""
+    //ByteStr,
+    // /// "r"abc""
+    //RawStr,
+    // /// "br"abc""
+    //RawByteStr
+}
+
+/// Base of numeric literal
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Base {
+    /// 0b prefix
+    Binary,
+    /// 0o prefix
+    Octal,
+    /// 0x prefix
+    Hexadecimal,
+    /// Without prefix
+    Decimal
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BytePos(pub u32);
@@ -192,7 +193,7 @@ pub struct Span {
     hi: BytePos
 }
 
-impl fmt::Debug for Span {
+impl fmt::Display for Span {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.hi.0 >= self.lo.0 {
             write!(f, "bytes[{}..{})", self.lo.0, self.hi.0)
@@ -202,8 +203,20 @@ impl fmt::Debug for Span {
     }
 }
 
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl Span {
-    /// Construct invalid Span that is equal to any other Span (when comparing TokenStream's).
+    pub fn new(lo: u32, hi: u32) -> Self {
+        Span {
+            lo: BytePos(lo),
+            hi: BytePos(hi)
+        }
+    }
+    /// Constructs invalid Span that is equal to any other Span (when comparing TokenStream's).
     pub fn any() -> Self {
         Span {
             lo: BytePos(1u32),
@@ -252,6 +265,10 @@ impl NLSpanInfo {
 pub(crate) type NLSpan<'a> = LocatedSpan<&'a str, NLSpanInfo>;
 pub(crate) type IResult<T, U> = nom::IResult<T, U, GreedyError<T>>;
 
+pub(crate) fn nlspan_from(program: &str) -> NLSpan {
+    NLSpan::new_extra(program, NLSpanInfo::new() )
+}
+
 // impl HasRecursiveInfo for NLSpanInfo {
 //     fn get_recursive_info(&self) -> RecursiveInfo {
 //         self.recursive_info
@@ -275,11 +292,11 @@ impl HasTracableInfo for NLSpanInfo {
     }
 }
 
-impl HasExtraState<()> for NLSpanInfo {
-    fn get_extra_state(&self) -> () {
-        ()
-    }
-}
+// impl HasExtraState<()> for NLSpanInfo {
+//     fn get_extra_state(&self) -> () {
+//         ()
+//     }
+// }
 
 impl<'a> From<NLSpan<'a>> for Span {
     fn from(nlspan: NLSpan<'a>) -> Self {
@@ -292,7 +309,7 @@ impl<'a> From<NLSpan<'a>> for Span {
     }
 }
 
-nom_packrat::storage!(Token);
+//nom_packrat::storage!(Token);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TokenStream<'a> {

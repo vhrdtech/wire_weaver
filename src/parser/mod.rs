@@ -1,14 +1,10 @@
 pub mod resource;
 
 use crate::lexer::token::{Token, TokenKind, TokenStream, Span};
-use crate::lexer::{get_some_tokens};
-use nom::bytes::complete::tag;
 
-macro_rules! ts {
-    ($($kind:ident),+) => {
-        TokenStream::new_with_slice(&[ $(Token{kind: TokenKind::$kind, span: Span::any()}),* ])
-    };
-}
+use crate::lexer::{get_some_tokens};
+
+use nom::bytes::complete::tag;
 
 // fn tparser(ts: TokenStream) -> nom::IResult<TokenStream, bool> {
 //     let (ts, x) = tag(TokenStream::new_with_slice(&[ Token{kind: tok!(+Plus), span: Span::any()} ]))(ts)?;
@@ -20,7 +16,6 @@ macro_rules! ts {
 // }
 
 pub fn parser_play() {
-    println!("{:?}", ts!(Le, OpenBracket, OpenBrace));
     // let tokens = get_some_tokens();
     // let ts = TokenStream::new(&tokens);
     //

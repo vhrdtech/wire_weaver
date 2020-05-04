@@ -1,4 +1,4 @@
 
-enum Error {
-    ResourceNameParseError,
+enum ErrorKind {
+    LexerError,
 }

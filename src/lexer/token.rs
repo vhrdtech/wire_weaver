@@ -144,9 +144,10 @@ pub enum TokenKind {
     Whitespace,
     Comment,
 
-    Unkown(/*name*/),
+    Unknown,
 
-    Eof,
+    TreeIndent(i32),
+    //Eof,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -187,16 +188,25 @@ pub enum Base {
 pub struct BytePos(pub u32);
 
 /// Token span [lo, hi)
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct Span {
-    lo: BytePos,
-    hi: BytePos
+    pub lo: BytePos,
+    pub hi: BytePos,
+    pub line: u32
+}
+
+impl PartialEq for Span {
+    fn eq(&self, other: &Span) -> bool {
+        self.lo.0 == other.lo.0 && self.hi.0 == other.hi.0
+    }
 }
 
 impl fmt::Display for Span {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.hi.0 >= self.lo.0 {
+        if self.hi.0 > self.lo.0 {
             write!(f, "bytes[{}..{})", self.lo.0, self.hi.0)
+        } else if self.hi.0 == 0u32 && self.lo.0 == 0u32 {
+            write!(f, "∅")
         } else {
             write!(f, "any")
         }
@@ -213,14 +223,24 @@ impl Span {
     pub fn new(lo: u32, hi: u32) -> Self {
         Span {
             lo: BytePos(lo),
-            hi: BytePos(hi)
+            hi: BytePos(hi),
+            line: 0
         }
     }
     /// Constructs invalid Span that is equal to any other Span (when comparing TokenStream's).
     pub fn any() -> Self {
         Span {
             lo: BytePos(1u32),
-            hi: BytePos(0u32)
+            hi: BytePos(0u32),
+            line: 0
+        }
+    }
+    /// Constructs invalid Span with zero length, used as a span for TreeIndent tokens.
+    pub fn zero() -> Self {
+        Span {
+            lo: BytePos(0u32),
+            hi: BytePos(0u32),
+            line: 0
         }
     }
 }
@@ -231,8 +251,15 @@ impl ops::Add<Span> for Span {
     fn add(self, rhs: Span) -> Span {
         Span {
             lo: BytePos(self.lo.0),
-            hi: BytePos(rhs.hi.0)
+            hi: BytePos(rhs.hi.0),
+            line: self.line
         }
+    }
+}
+
+impl From<Span> for Range<usize> {
+    fn from(s: Span) -> Range<usize> {
+        Range { start: s.lo.0 as usize, end: s.hi.0 as usize }
     }
 }
 
@@ -240,6 +267,79 @@ impl ops::Add<Span> for Span {
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DelimKind {
+    Open,
+    Close,
+    Wrong
+}
+
+impl Token {
+    pub fn is_punct(&self) -> bool {
+        match self.kind {
+            TokenKind::Comma |
+            TokenKind::Dot |
+            TokenKind::Colon |
+            TokenKind::Semicolon => true,
+            _ => false
+        }
+    }
+
+    pub fn is_delim(&self) -> bool {
+        match self.kind {
+            TokenKind::OpenBrace |
+            TokenKind::CloseBrace |
+            TokenKind::OpenBracket |
+            TokenKind::CloseBracket |
+            TokenKind::OpenParen |
+            TokenKind::CloseParen => true,
+            _ => false
+        }
+    }
+
+    pub fn delim_kind(&self) -> DelimKind {
+        match self.kind {
+            TokenKind::OpenBrace |
+            TokenKind::OpenBracket |
+            TokenKind::OpenParen => DelimKind::Open,
+            TokenKind::CloseBrace |
+            TokenKind::CloseBracket |
+            TokenKind::CloseParen => DelimKind::Close,
+            _ => DelimKind::Wrong
+        }
+    }
+
+    pub fn is_bool_op(&self) -> bool {
+        match self.kind {
+            TokenKind::Lt |
+            TokenKind::Le |
+            TokenKind::EqEq |
+            TokenKind::Ne |
+            TokenKind::Gt |
+            TokenKind::Ge |
+            TokenKind::AndAnd |
+            TokenKind::OrOr => true,
+            _ => false
+        }
+    }
+
+    pub fn is_binary_op(&self) -> bool {
+        match self.kind {
+            TokenKind::Plus |
+            TokenKind::Minus |
+            TokenKind::Star |
+            TokenKind::Slash |
+            TokenKind::Percent |
+            TokenKind::Caret |
+            TokenKind::And |
+            TokenKind::Or |
+            TokenKind::Shl |
+            TokenKind::Shr => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default, PartialEq)]
@@ -304,7 +404,8 @@ impl<'a> From<NLSpan<'a>> for Span {
         let len = nlspan.fragment().len() as u32;
         Span {
             lo: BytePos(pos),
-            hi: BytePos(pos + len)
+            hi: BytePos(pos + len),
+            line: nlspan.location_line()
         }
     }
 }

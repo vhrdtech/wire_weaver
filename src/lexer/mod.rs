@@ -7,9 +7,10 @@ pub mod tokenizer;
 pub mod prettyprinter;
 
 use token::{NLSpan, NLSpanInfo};
-use crate::lexer::token::Token;
+use crate::lexer::token::{Token, TokenStream};
 use crate::lexer::tokenizer::{any_token, tokenize};
 use prettyprinter::token as prettyprint_token;
+use prettyprinter::token_stream as prettyprint_ts;
 
 #[macro_export]
 macro_rules! ts {
@@ -57,7 +58,9 @@ pub fn lexer_play() {
   /fdiv(7:5) {
     type: u2
     unit: 1
-    default: 0b00
+    default: 1 /*
+        abcd
+    */
     access: rw
     description:
     examples:
@@ -69,9 +72,8 @@ pub fn lexer_play() {
     let output = tokenize(input);
     if output.is_ok() {
         let toks = output.unwrap().1;
-        for t in &toks {
-            prettyprint_token(test, t);
-        }
+        let ts = TokenStream::new(&toks);
+        prettyprint_ts(test, ts);
     }
     //println!("{:+#?}", output);
 
@@ -121,6 +123,7 @@ mod tests {
         // let output = number_and_suffix_lit(span);
         // println!("{:?}", output);
         assert_eq!(tokenize_or_fail("0"), vec![tok!(l/Int/Decimal/0-1)]);
+        assert_eq!(tokenize_or_fail("1\n"), vec![tok!(l/Int/Decimal/0-1), tok!(Whitespace/1-2)]);
         assert_eq!(tokenize_or_fail("123"), vec![tok!(l/Int/Decimal/0-3)]);
         assert_eq!(tokenize_or_fail("0x123"), vec![tok!(l/Int/Hexadecimal/0-5)]);
     }

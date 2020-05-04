@@ -5,7 +5,7 @@ use nom::combinator::{peek, not, map, cut};
 //use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
 use super::token::{NLSpan, IResult, Token, TokenKind};
-use crate::lexer::token::{Lit, IdentToken, Span, Base, LiteralKind};
+use crate::lexer::token::{Lit, IdentToken, Span, Base, LiteralKind, DelimKind};
 use nom::error::{context, ParseError};
 use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
 use nom::character::is_alphanumeric;
@@ -414,19 +414,18 @@ pub(crate) fn bool_lit(s: NLSpan) -> IResult<NLSpan, Token> {
 
 /// Eats a number
 pub(crate) fn eat_number(s: NLSpan) -> IResult<NLSpan, (Base, Span)> {
-    let (ss, fd) = context("eat_number/1", take(1_usize))(s)?;
+    let (s1, fd) = context("eat_number/1", take(1_usize))(s)?;
     let fdc = fd.fragment().chars().nth(0).unwrap();
     if !fdc.is_numeric() {
         return Err(nom::Err::Error(GreedyError::from_error_kind(s, nom::error::ErrorKind::Digit)));
     }
-    let sdr: IResult<NLSpan, NLSpan> = take(1_usize)(ss);
+    let sdr: IResult<NLSpan, NLSpan> = take(1_usize)(s1);
     if sdr.is_err() { // Only 1 char left and it is a digit.
-        return Ok( (ss, (Base::Decimal, Span::from(fd) ) ) )
+        return Ok( (s1, (Base::Decimal, Span::from(fd) ) ) )
     }
-    let (ss, sd) = sdr.unwrap();
+    let (s2, sd) = sdr.unwrap();
     let sdc = sd.fragment().chars().nth(0).unwrap();
     let mut base = Base::Decimal;
-
     if fdc == '0' {
         match sdc {
             'b' => { base = Base::Binary; }
@@ -434,14 +433,20 @@ pub(crate) fn eat_number(s: NLSpan) -> IResult<NLSpan, (Base, Span)> {
             'x' => { base = Base::Hexadecimal; }
             '0'..='9' | '_' | '.' | 'e' | 'E' => {}
             _ => { // Eat just zero, but this is probably will cause an error later.
-                return Ok( (ss, (Base::Decimal, Span::from(fd) ) ) )
+                println!("here i am");
+                return Ok( (s1, (Base::Decimal, Span::from(fd) ) ) )
             }
+        }
+    } else {
+        if !(sdc.is_numeric() || sdc == '_') {
+            // First char was 1-9 and second char is incorrect, eat first.
+            return Ok( (s1, (Base::Decimal, Span::from(fd) ) ) )
         }
     }
     // Eat the rest of the digits, including possible `_` at the end.
-    let (ss, rd) = take_while(|c: char| c.is_numeric() || c == '_')(ss)?;
+    let (s3, rd) = take_while(|c: char| c.is_numeric() || c == '_')(s2)?;
     let number_span = Span::from(fd) + Span::from(sd) + Span::from(rd);
-    Ok( (ss, (base, number_span) ) )
+    Ok( (s3, (base, number_span) ) )
 }
 
 /// Eats a number and then a suffix, if there is one
@@ -556,6 +561,24 @@ pub(crate) fn any_token(s: NLSpan) -> IResult<NLSpan, Token> {
 }
 
 pub(crate) fn tokenize(s: NLSpan) -> IResult<NLSpan, Vec<Token>> {
-    let (s, v) = many1(any_token)(s)?;
-    Ok( (s, v) )
+    let (s, mut v) = many1(any_token)(s)?;
+    let mut indent = 0;
+    let mut patch: Vec<(usize, Token)> = Vec::new();
+    let mut acc = 0;
+    for (i, tok) in v.iter().enumerate() {
+        if tok.is_delim() {
+            if tok.delim_kind() == DelimKind::Open {
+                indent = indent + 1;
+                patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(indent), span: Span::zero() } ) );
+            } else {
+                indent = indent - 1;
+                patch.push((i + acc, Token { kind: TokenKind::TreeIndent(indent), span: Span::zero() } ) );
+            }
+            acc = acc + 1;
+        }
+    }
+    for (i, t) in patch {
+        v.insert(i, t);
+    }
+    Ok( (s, v) ) // return own Result with LexerError
 }

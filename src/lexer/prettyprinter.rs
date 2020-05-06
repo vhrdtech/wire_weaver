@@ -16,21 +16,33 @@ pub fn line_numbers(source: &str) -> Vec<usize> {
 
 pub fn token(source: &str, tok: &Token) {
     if tok.is_delim() {
-        println!("{}({}, {})", "Delim".bright_yellow(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "Delim".bright_yellow(),
+                 tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if tok.is_punct() {
-        println!("{}({}, {})", "Punct".green(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "Punct".green(),
+                 tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if let TokenKind::Literal(l) = tok.kind {
-        println!("{}({}, {})", "Literal".purple(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "Literal".purple(),
+                 l.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if let TokenKind::Ident(id) = tok.kind {
-        println!("{}({}, {})", "Ident".cyan(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "Ident".cyan(),
+                 tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if tok.is_binary_op() {
-        println!("{}({}, {})", "BinOp".blue(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "BinOp".blue(),
+                 tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if tok.is_bool_op() {
-        println!("{}({}, {})", "BoolOp".blue(), tok.kind.as_ref(), tok.span);
+        println!("{}({}=`{}`, {})",
+                 "BoolOp".blue(),
+                 tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
     } else if tok.kind == TokenKind::Unknown {
         println!("{}({})", "Unknown".red(), tok.span);
     } else if let TokenKind::TreeIndent(i) = tok.kind {
-        println!("{}({})", "TreeIndent".black().on_white(), i);
+        println!("{}({})", "TreeIndent".black().on_white(), i.0);
     } else {
         println!("{}({})", tok.kind.as_ref(), tok.span);
     }
@@ -43,7 +55,7 @@ fn print_one_line(line: &str, number: u32) {
 
 fn print_n_tabs(n: u32) {
     for _ in 0..n {
-        print!("\t");
+        print!("    ");
     }
 }
 
@@ -59,7 +71,7 @@ pub fn token_stream(source: &str, ts: TokenStream) {
     let mut tree_indent = 0;
     for tok in ts.iter_elements() {
         if let TokenKind::TreeIndent(i) = tok.kind {
-            tree_indent = i as u32;
+            tree_indent = i.0 as u32;
 
             print_n_tabs(tree_indent);
             token(source, tok);

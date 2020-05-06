@@ -146,11 +146,30 @@ pub enum TokenKind {
 
     Unknown,
 
-    TreeIndent(i32),
+    TreeIndent(TreeIndent),
     //Eof,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug)]
+pub struct TreeIndent(pub i32);
+
+impl PartialEq for TreeIndent {
+    fn eq(&self, other: &Self) -> bool {
+        if self.0 == i32::max_value() || other.0 == i32::max_value() {
+            true
+        } else {
+            self.0 == other.0
+        }
+    }
+}
+
+impl TreeIndent {
+    pub fn any() -> Self {
+        TreeIndent(i32::max_value())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, AsRefStr)]
 pub enum LiteralKind {
     /// "127_u8", "0o100", "0b129i99"
     Int { base: Base },
@@ -172,16 +191,31 @@ pub enum LiteralKind {
 }
 
 /// Base of numeric literal
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum Base {
     /// 0b prefix
-    Binary,
+    Binary = 1,
     /// 0o prefix
-    Octal,
+    Octal = 2,
     /// 0x prefix
-    Hexadecimal,
+    Hexadecimal = 3,
     /// Without prefix
-    Decimal
+    Decimal = 4,
+    /// Used int parser to search literals in any base
+    Any = 5
+}
+
+impl PartialEq for Base {
+    fn eq(&self, other: &Self) -> bool {
+        let b1 = *self as u8;
+        let b2 = *other as u8;
+        println!("base cmp here {} {}", b1, b2);
+        if b1 == 5 || b2 == 5 {
+            true
+        } else {
+            b1 == b2
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -197,7 +231,12 @@ pub struct Span {
 
 impl PartialEq for Span {
     fn eq(&self, other: &Span) -> bool {
-        self.lo.0 == other.lo.0 && self.hi.0 == other.hi.0
+        if self.lo.0 > self.hi.0 || // `any` span is equal to every real span, used in parser
+            other.lo.0 > other.hi.0 {
+            true
+        } else {
+            self.lo.0 == other.lo.0 && self.hi.0 == other.hi.0
+        }
     }
 }
 
@@ -263,7 +302,7 @@ impl From<Span> for Range<usize> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span
@@ -339,6 +378,16 @@ impl Token {
             TokenKind::Shr => true,
             _ => false
         }
+    }
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Token) -> bool {
+        if self.span != other.span {
+            return false;
+        }
+
+        return self.kind == other.kind
     }
 }
 

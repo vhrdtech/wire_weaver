@@ -14,14 +14,18 @@ use prettyprinter::token_stream as prettyprint_ts;
 
 #[macro_export]
 macro_rules! ts {
-    ($($kind:ident),+) => {
-        TokenStream::new_with_slice(&[ $(Token{kind: TokenKind::$kind, span: Span::any()}),* ])
+    ($({$xx:item}),+) => {
+        TokenStream::new_with_slice(&[ $(tok!($xx)),* ])
     };
 }
 
+#[macro_export]
 macro_rules! tok {
     ($kind:ident/$lo:literal-$hi:literal) => {
         Token{kind: TokenKind::$kind, span: Span::new($lo, $hi)}
+    };
+    (TreeIndent) => {
+        Token{kind: TokenKind::TreeIndent(TreeIndent::any()), span: Span::any()}
     };
     ($kind:ident) => {
         Token{kind: TokenKind::$kind, span: Span::any()}
@@ -34,6 +38,19 @@ macro_rules! tok {
     };
     (l/$int:ident/$base:ident/$lo:literal-$hi:literal) => {
         Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::Int{base: Base::$base} }), span: Span::new($lo, $hi)}
+    };
+    (l/$int:ident/$base:ident) => {
+        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::Int{base: Base::$base} }), span: Span::any()}
+    };
+}
+
+#[macro_export]
+macro_rules! tstok {
+    ($l:tt) => {
+        TokenStream::new_with_slice(&[ tok!($l) ])
+    };
+    ($t1:tt, $t2:tt) => {
+        TokenStream::new_with_slice(&[ tok!($t1), tok!($t2) ])
     };
 }
 
@@ -84,8 +101,8 @@ pub fn lexer_play() {
 pub fn get_some_tokens() -> Vec<Token> {
     //nom_packrat::init!();
 
-    let input = NLSpan::new_extra("+-*+", NLSpanInfo::new() );
-    let output = many1(tokenizer::expr_op)(input);
+    let input = NLSpan::new_extra("0 - /*cmt*/ 0x123", NLSpanInfo::new() );
+    let output = tokenize(input);
     if output.is_err() {
         println!("{:?}", output.err());
         return Vec::new()

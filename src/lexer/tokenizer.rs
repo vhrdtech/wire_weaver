@@ -5,7 +5,7 @@ use nom::combinator::{peek, not, map, cut};
 //use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
 use super::token::{NLSpan, IResult, Token, TokenKind};
-use crate::lexer::token::{Lit, IdentToken, Span, Base, LiteralKind, DelimKind};
+use crate::lexer::token::{Lit, IdentToken, Span, Base, LiteralKind, DelimKind, TreeIndent};
 use nom::error::{context, ParseError};
 use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
 use nom::character::is_alphanumeric;
@@ -569,10 +569,10 @@ pub(crate) fn tokenize(s: NLSpan) -> IResult<NLSpan, Vec<Token>> {
         if tok.is_delim() {
             if tok.delim_kind() == DelimKind::Open {
                 indent = indent + 1;
-                patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(indent), span: Span::zero() } ) );
+                patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
             } else {
                 indent = indent - 1;
-                patch.push((i + acc, Token { kind: TokenKind::TreeIndent(indent), span: Span::zero() } ) );
+                patch.push((i + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
             }
             acc = acc + 1;
         }

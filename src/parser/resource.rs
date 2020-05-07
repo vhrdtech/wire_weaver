@@ -1,30 +1,14 @@
-use yaml_rust::Yaml;
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, },
-    error::{ParseError},
-    combinator::{map as nom_map}
-};
+use crate::lexer::token::Token;
+use super::InclusiveRange;
 
-use crate::ast;
-use crate::ast::{ResourceName, ResourceKind};
-use crate::types::Type;
-use crate::types::Numeric;
-use nom::character::complete::{char as nom_char, alpha1, digit1, alphanumeric0, alphanumeric1};
-use nom::bytes::complete::{is_not, take_while1};
-use nom::sequence::{terminated, preceded};
-use nom::character::is_alphanumeric;
-use nom::combinator::{peek,};
-use nom::error::{VerboseError};
-use nom::multi::many1;
-
+/// TODO: Add support for arrays ([0, 2, 5] for ex.).
 #[derive(Debug)]
-pub(crate) struct ResourceDeclaration<'a> {
-    left_part: Option<&'a str>,
-    set: Option<&'a str>,
-    right_part: Option<&'a str>,
-    r#type: Option<&'a str>,
-    id: Option<&'a str>
+pub(crate) struct ResourceDeclaration {
+    pub(crate) left_part: Option<Token>,
+    pub(crate) set: Option<InclusiveRange>,
+    pub(crate) right_part: Option<Token>,
+    pub(crate) r#type: Option<Token>,
+    pub(crate) id: Option<Token>
 }
 
 #[cfg(test)]

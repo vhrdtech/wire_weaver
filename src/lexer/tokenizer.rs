@@ -5,7 +5,7 @@ use nom::combinator::{peek, not, map, cut};
 //use nom_packrat::{packrat_parser};
 use nom_tracable::{tracable_parser};
 use super::token::{NLSpan, IResult, Token, TokenKind};
-use crate::lexer::token::{Lit, IdentToken, Span, Base, LiteralKind, DelimKind, TreeIndent};
+use crate::lexer::token::{Lit, IdentKind, Span, Base, LiteralKind, DelimKind, TreeIndent};
 use nom::error::{context, ParseError};
 use nom::character::complete::{alphanumeric1, one_of, char as nomchar, alphanumeric0, alpha1};
 use nom::character::is_alphanumeric;
@@ -486,8 +486,8 @@ fn eat_ident(s: NLSpan) -> IResult<NLSpan, NLSpan> {
 pub(crate) fn ident(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, ident) = eat_ident(s)?;
     match *ident.fragment() {
-        "if" => Ok( (s, Token { kind: TokenKind::Ident(IdentToken::If), span: ident.into() } ) ),
-        _ => Ok( (s, Token { kind: TokenKind::Ident(IdentToken::Normal), span: ident.into() } ) )
+        "if" => Ok( (s, Token { kind: TokenKind::Ident(IdentKind::If), span: ident.into() } ) ),
+        _ => Ok( (s, Token { kind: TokenKind::Ident(IdentKind::Normal), span: ident.into() } ) )
     }
 }
 
@@ -562,23 +562,23 @@ pub(crate) fn any_token(s: NLSpan) -> IResult<NLSpan, Token> {
 
 pub(crate) fn tokenize(s: NLSpan) -> IResult<NLSpan, Vec<Token>> {
     let (s, mut v) = many1(any_token)(s)?;
-    let mut indent = 0;
-    let mut patch: Vec<(usize, Token)> = Vec::new();
-    let mut acc = 0;
-    for (i, tok) in v.iter().enumerate() {
-        if tok.is_delim() {
-            if tok.delim_kind() == DelimKind::Open {
-                indent = indent + 1;
-                patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
-            } else {
-                indent = indent - 1;
-                patch.push((i + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
-            }
-            acc = acc + 1;
-        }
-    }
-    for (i, t) in patch {
-        v.insert(i, t);
-    }
+    // let mut indent = 0;
+    // let mut patch: Vec<(usize, Token)> = Vec::new();
+    // let mut acc = 0;
+    // for (i, tok) in v.iter().enumerate() {
+    //     if tok.is_delim() {
+    //         if tok.delim_kind() == DelimKind::Open {
+    //             indent = indent + 1;
+    //             patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
+    //         } else {
+    //             indent = indent - 1;
+    //             patch.push((i + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
+    //         }
+    //         acc = acc + 1;
+    //     }
+    // }
+    // for (i, t) in patch {
+    //     v.insert(i, t);
+    // }
     Ok( (s, v) ) // return own Result with LexerError
 }

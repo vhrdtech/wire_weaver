@@ -37,20 +37,44 @@ macro_rules! tok {
         Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$kind }), span: Span::new($lo, $hi)}
     };
     (l/$int:ident/$base:ident/$lo:literal-$hi:literal) => {
-        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::Int{base: Base::$base} }), span: Span::new($lo, $hi)}
+        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$int{base: Base::$base} }), span: Span::new($lo, $hi)}
     };
     (l/$int:ident/$base:ident) => {
-        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::Int{base: Base::$base} }), span: Span::any()}
+        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$int{base: Base::$base} }), span: Span::any()}
+    };
+    (Ident/$type:ident) => {
+        Token{kind: TokenKind::Ident(IdentKind::$type), span: Span::any()}
     };
 }
 
 #[macro_export]
 macro_rules! tstok {
-    ($l:tt) => {
-        TokenStream::new_with_slice(&[ tok!($l) ])
+    // ($l:tt) => {
+    //     TokenStream::new_with_slice(&[ tok!($l) ])
+    // };
+    ($kind:ident/$lo:literal-$hi:literal) => {
+        TokenStream::new_with_slice(&[ tok!($kind/$lo-$hi) ])
     };
-    ($t1:tt, $t2:tt) => {
-        TokenStream::new_with_slice(&[ tok!($t1), tok!($t2) ])
+    (TreeIndent) => {
+        TokenStream::new_with_slice(&[ tok!(TreeIndent) ])
+    };
+    ($kind:ident) => {
+        TokenStream::new_with_slice(&[ tok!($kind) ])
+    };
+    (l/$kind:ident) => {
+        TokenStream::new_with_slice(&[ tok!(l/$kind) ])
+    };
+    (l/$kind:ident/$lo:literal-$hi:literal) => {
+        TokenStream::new_with_slice(&[ tok!(l/$kind/$lo-$hi) ])
+    };
+    (l/$int:ident/$base:ident/$lo:literal-$hi:literal) => {
+        TokenStream::new_with_slice(&[ tok!(l/$int/$base/$lo-$hi) ])
+    };
+    (l/$int:ident/$base:ident) => {
+        TokenStream::new_with_slice(&[ tok!(l/$int/$base) ])
+    };
+    (Ident/$type:ident) => {
+        TokenStream::new_with_slice(&[ tok!(Ident/$type) ])
     };
 }
 
@@ -101,7 +125,7 @@ pub fn lexer_play() {
 pub fn get_some_tokens() -> Vec<Token> {
     //nom_packrat::init!();
 
-    let input = NLSpan::new_extra("0 - /*cmt*/ 0x123", NLSpanInfo::new() );
+    let input = NLSpan::new_extra("/name{1-2}ab(ty)[1]", NLSpanInfo::new() );
     let output = tokenize(input);
     if output.is_err() {
         println!("{:?}", output.err());

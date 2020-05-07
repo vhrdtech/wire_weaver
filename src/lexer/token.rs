@@ -6,7 +6,7 @@ use nom_greedyerror::{GreedyError, Position};
 use std::fmt::Formatter;
 //use nom_packrat::HasExtraState;
 use nom::{InputLength, InputTake, Slice, InputIter, Compare, CompareResult};
-use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+use std::ops::{Range, RangeTo, RangeFrom, RangeFull, Index};
 use std::iter::Enumerate;
 use strum_macros::{AsRefStr};
 
@@ -35,7 +35,7 @@ pub struct Lit {
 
 /// Reserved or normal identifier
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum IdentToken {
+pub enum IdentKind {
     Let,
     Fn,
     If,
@@ -138,7 +138,7 @@ pub enum TokenKind {
     // Literals
     Literal(Lit),
 
-    Ident(IdentToken),
+    Ident(IdentKind),
 
     /// Any whitespace
     Whitespace,
@@ -604,5 +604,13 @@ impl<'a> InputIter for TokenStream<'a> {
         } else {
             None
         }
+    }
+}
+
+impl<'a> Index<usize> for TokenStream<'a> {
+    type Output = Token;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.toks[index]
     }
 }

@@ -125,7 +125,7 @@ pub fn lexer_play() {
 pub fn get_some_tokens() -> Vec<Token> {
     //nom_packrat::init!();
 
-    let input = NLSpan::new_extra("/name{1-2}ab(ty)[1]", NLSpanInfo::new() );
+    let input = NLSpan::new_extra("/{1-3}", NLSpanInfo::new() );
     let output = tokenize(input);
     if output.is_err() {
         println!("{:?}", output.err());

@@ -34,7 +34,7 @@ pub struct Lit {
 }
 
 /// Reserved or normal identifier
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum IdentKind {
     Let,
     Fn,

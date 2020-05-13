@@ -1,9 +1,9 @@
-use crate::types::Type;
+use crate::types::{Lit, RangeLit, StrLit, Ty};
 
 #[derive(Debug)]
 pub enum Value {
-    Constant(Type),
-    Variable(Type),
+    Constant(Ty),
+    Variable(Ty),
     Resource,
     Expression(Box<Expression>),
 }
@@ -23,33 +23,25 @@ pub enum Expression {
 }
 
 #[derive(Debug)]
-pub struct Context {}
-
-#[derive(Debug)]
-pub enum Sequential {
-    Integer(i32),
-    Char(char),
-    CChar(u8),
-}
-
-#[derive(Debug)]
 pub struct Range {
-    pub start: Sequential,
-    pub end: Sequential,
+    pub start: RangeLit,
+    pub end: RangeLit,
 }
 
 #[derive(Debug)]
 pub enum ResourceName {
-    Terminal(String),
+    Terminal(StrLit),
     //ArrayProduct(String, Array, String),
-    RangeProduct(String, Range, String),
+    RangeProduct(StrLit, Range, StrLit),
 }
 
 #[derive(Debug)]
 pub enum ResourceKind {
-    Property, // set/get/subscribe(sugar on stream?), default, allowed, values
+    // set/get/subscribe(sugar on stream?), default, allowed, values
+    // underlying type is required, maybe not known right away, but can be derived from bits
+    Property(Option<Ty>),
     Function, // fn(args) -> value
-    Stream,   // value,value,value... subscribe, unsubscribe, backpressure, bandwith limit
+    Stream(Ty),   // value,value,value... subscribe, unsubscribe, backpressure, bandwith limit
               //User      // everything else
 }
 
@@ -59,6 +51,5 @@ pub struct Resource {
     pub name: ResourceName, // required and available right away
     pub children: Vec<Resource>, // optional, can be 0 or more children
     pub kind: Option<ResourceKind>, // required, but maybe not known right away
-    pub r#type: Option<Type>, // underlying type, required, but maybe not known right away
-                  //meta: // all additional fields goes here
+                  //meta: // all additional fields goes here, hash Ident->Expression?
 }

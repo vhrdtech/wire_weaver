@@ -3,7 +3,7 @@ use super::InclusiveRange;
 
 /// TODO: Add support for arrays ([0, 2, 5] for ex.).
 #[derive(Debug)]
-pub(crate) struct ResourceDeclaration {
+pub(crate) struct ResourceHeader {
     pub(crate) left_part: Option<Token>,
     pub(crate) set: Option<InclusiveRange>,
     pub(crate) right_part: Option<Token>,

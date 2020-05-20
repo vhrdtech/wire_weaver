@@ -26,11 +26,72 @@ use strum_macros::{AsRefStr};
 // }
 
 /// LitKind + Symbol + Optional suffix
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Lit {
     pub kind: LiteralKind,
     //pub symbol: Symbol,
     //pub suffix: Option<Symbol>
+}
+
+#[derive(Clone, Debug, PartialEq, AsRefStr)]
+pub enum LiteralKind {
+    /// "127_u8", "0o100", "0b129i99"
+    Int { base: Base, parsed: Option<u128> },
+    /// "12.34f32", "56f16"
+    Float { base: Base, parsed: Option<u64> },
+    /// "'a'", "'\\'", "'''"
+    Char(char),
+    /// "b'a'", "b'\\'", "b'''"
+    Byte(u8),
+    /// ""abc""
+    Str(String),
+    Bool(bool),
+    // /// "b"abc""
+    ByteStr(Vec<u8>),
+    // /// "r"abc""
+    //RawStr,
+    // /// "br"abc""
+    //RawByteStr
+}
+
+/// Base of numeric literal
+#[derive(Clone, Copy, Debug)]
+pub enum Base {
+    /// 0b prefix
+    Binary = 1,
+    /// 0o prefix
+    Octal = 2,
+    /// 0x prefix
+    Hexadecimal = 3,
+    /// Without prefix
+    Decimal = 4,
+    /// Used in parser to search literals in any base
+    Any = 5
+}
+
+impl std::fmt::Display for Base {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Base::Binary => { write!(f, "0b") },
+            Base::Octal => { write!(f, "0o") },
+            Base::Hexadecimal => { write!(f, "0x") },
+            Base::Decimal => { write!(f, "") },
+            Base::Any => { write!(f, "@") },
+        }
+    }
+}
+
+impl PartialEq for Base {
+    fn eq(&self, other: &Self) -> bool {
+        let b1 = *self as u8;
+        let b2 = *other as u8;
+        println!("base cmp here {} {}", b1, b2);
+        if b1 == 5 || b2 == 5 {
+            true
+        } else {
+            b1 == b2
+        }
+    }
 }
 
 /// Reserved or normal identifier
@@ -44,7 +105,7 @@ pub enum IdentKind {
     Normal
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, AsRefStr)]
+#[derive(Clone, Debug, PartialEq, AsRefStr)]
 pub enum TokenKind {
     // Expression operators
     /// "="
@@ -169,55 +230,6 @@ impl TreeIndent {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, AsRefStr)]
-pub enum LiteralKind {
-    /// "127_u8", "0o100", "0b129i99"
-    Int { base: Base },
-    /// "12.34f32", "56f16"
-    Float { base: Base },
-    /// "'a'", "'\\'", "'''"
-    Char,
-    /// "b'a'", "b'\\'", "b'''"
-    //Byte,
-    /// ""abc""
-    Str,
-    Bool,
-    // /// "b"abc""
-    //ByteStr,
-    // /// "r"abc""
-    //RawStr,
-    // /// "br"abc""
-    //RawByteStr
-}
-
-/// Base of numeric literal
-#[derive(Clone, Copy, Debug)]
-pub enum Base {
-    /// 0b prefix
-    Binary = 1,
-    /// 0o prefix
-    Octal = 2,
-    /// 0x prefix
-    Hexadecimal = 3,
-    /// Without prefix
-    Decimal = 4,
-    /// Used int parser to search literals in any base
-    Any = 5
-}
-
-impl PartialEq for Base {
-    fn eq(&self, other: &Self) -> bool {
-        let b1 = *self as u8;
-        let b2 = *other as u8;
-        println!("base cmp here {} {}", b1, b2);
-        if b1 == 5 || b2 == 5 {
-            true
-        } else {
-            b1 == b2
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BytePos(pub u32);
 
@@ -302,7 +314,7 @@ impl From<Span> for Range<usize> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span

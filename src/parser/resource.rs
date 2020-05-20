@@ -1,5 +1,13 @@
-use crate::lexer::token::Token;
+use crate::lexer::token::{Token, TokenKind, LiteralKind, Base, Lit, TokenStream, Span, TreeIndent, IdentKind};
 use super::InclusiveRange;
+use super::{braced, bracketed, parenthesized, inclusive_range};
+use crate::{tok, tstok};
+use crate::ast;
+use nom::bytes::complete::tag;
+use nom::sequence::{delimited, separated_pair, terminated, pair};
+use nom::branch::alt;
+use nom::multi::many0;
+use nom::combinator::{opt, map};
 
 /// TODO: Add support for arrays ([0, 2, 5] for ex.).
 #[derive(Debug)]
@@ -10,6 +18,40 @@ pub(crate) struct ResourceHeader {
     pub(crate) r#type: Option<Token>,
     pub(crate) id: Option<Token>
 }
+
+/// Eats `/CTRL{0-3}ABC(register)[7]`, where `{inc.range}`, `(type)`, `[unique id]` is optional,
+/// but must come in the specified order.
+///
+/// `{'A'-'B'}REG` and `/{'A'-'B'}` is also allowed.
+///
+/// TODO: Allow digits in the beginning of a second part of the name.
+pub(crate) fn resource_header(ts: TokenStream) -> nom::IResult<TokenStream, ResourceHeader> {
+    let (ts, _) = tag(tstok!(Slash))(ts)?;
+    let (ts, lp) = opt(tag(tstok!(Ident/Normal)))(ts)?;
+    let (ts, set_rp) = if lp.is_some() {
+        map(opt(pair(
+            map(braced(inclusive_range), |r| Some(r) ),
+            opt(tag(tstok!(Ident/Normal))))
+        ), |o| o.unwrap_or((None, None)) )(ts)?
+    } else {
+        pair(opt(braced(inclusive_range)), opt(tag(tstok!(Ident/Normal))) )(ts)?
+    };
+    let (ts, r#type) = opt(parenthesized(tag(tstok!(Ident/Normal))) )(ts)?;
+    let (ts, id) = opt(bracketed(tag(tstok!(l/Int/Any))) )(ts)?;
+
+    Ok( (ts, ResourceHeader{
+        left_part: lp.map(|lp| lp[0].clone()),
+        set: set_rp.0,
+        right_part: set_rp.1.map(|rp| rp[0].clone()),
+        r#type: r#type.map(|t| t[0].clone()),
+        id: id.map(|id| id[0].clone())
+    } ))
+}
+
+// pub fn resource(ts: TokenStream) -> nom::IResult<TokenStream, ast::Resource> {
+//     let (ts, header) = resource_header(ts)?;
+//
+// }
 
 #[cfg(test)]
 mod tests {

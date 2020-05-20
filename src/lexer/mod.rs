@@ -40,7 +40,7 @@ macro_rules! tok {
         Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$int{base: Base::$base} }), span: Span::new($lo, $hi)}
     };
     (l/$int:ident/$base:ident) => {
-        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$int{base: Base::$base} }), span: Span::any()}
+        Token{kind: TokenKind::Literal(Lit{ kind: LiteralKind::$int{base: Base::$base, parsed: None} }), span: Span::any()}
     };
     (Ident/$type:ident) => {
         Token{kind: TokenKind::Ident(IdentKind::$type), span: Span::any()}
@@ -93,12 +93,12 @@ pub fn lexer_play() {
     let test = "/ctrl(bitfield) {
   addr: // comment
   type: u8 //
-  description:
-  default:
+  description: \"desc\"
+  default: true
 
   /fdiv(7:5) {
     type: u2
-    unit: 1
+    unit: 0x1
     default: 1 /*
         abcd
     */

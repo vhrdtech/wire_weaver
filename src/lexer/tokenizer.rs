@@ -12,6 +12,8 @@ use nom::character::is_alphanumeric;
 use nom::multi::{many0, many1};
 use nom_greedyerror::GreedyError;
 use nom::error::ErrorKind::Space;
+use std::ops::Range;
+use nom::InputLength;
 
 /// Eats "=="
 #[tracable_parser]
@@ -383,15 +385,16 @@ fn str_lit_inside(s: NLSpan) -> IResult<NLSpan, NLSpan> {
 }
 
 /// Eats a string in `""`
+/// TODO: accept valid Unicode strings
 #[tracable_parser]
 //#[packrat_parser]
 pub(crate) fn str_lit(s: NLSpan) -> IResult<NLSpan, Token> {
     let (s, nls) = context("str_lit",
         preceded(nomchar('\"'), cut(terminated(str_lit_inside, nomchar('\"'))))
     )(s)?;
-    Ok( (s, Token { kind: TokenKind::Literal(Lit{kind: LiteralKind::Str}), span: nls.into() } ) )
+    let str = String::from(*nls.fragment());
+    Ok( (s, Token { kind: TokenKind::Literal(Lit{kind: LiteralKind::Str(str)}), span: nls.into() } ) )
 }
-
 
 /// Eats bool literal
 #[tracable_parser]
@@ -409,7 +412,13 @@ pub(crate) fn bool_lit(s: NLSpan) -> IResult<NLSpan, Token> {
             return Err(nom::Err::Error(GreedyError::from_error_kind(ns, nom::error::ErrorKind::Char)));
         }
     }
-    Ok( (s2, Token { kind: TokenKind::Literal(Lit{kind: LiteralKind::Bool}), span: l.into() }) )
+    let lit_len = (*l.fragment()).len();
+    let lit_value = if lit_len == 4 {
+        true
+    } else {
+        false
+    };
+    Ok( (s2, Token { kind: TokenKind::Literal(Lit{kind: LiteralKind::Bool(lit_value)}), span: l.into() }) )
 }
 
 /// Eats a number
@@ -433,7 +442,6 @@ pub(crate) fn eat_number(s: NLSpan) -> IResult<NLSpan, (Base, Span)> {
             'x' => { base = Base::Hexadecimal; }
             '0'..='9' | '_' | '.' | 'e' | 'E' => {}
             _ => { // Eat just zero, but this is probably will cause an error later.
-                println!("here i am");
                 return Ok( (s1, (Base::Decimal, Span::from(fd) ) ) )
             }
         }
@@ -458,9 +466,9 @@ pub(crate) fn number_and_suffix_lit(s: NLSpan) -> IResult<NLSpan, Token> {
     if possible_suffix.is_ok() {
         let (s, suffix) = possible_suffix.unwrap();
         let span = Span::from(suffix) + number_sp;
-        return Ok( (s, Token{ kind: TokenKind::Literal(Lit{kind: LiteralKind::Int{base}}), span }) );
+        return Ok( (s, Token{ kind: TokenKind::Literal(Lit{kind: LiteralKind::Int{base, parsed: None}}), span }) );
     }
-    Ok( (s, Token{ kind: TokenKind::Literal(Lit{kind: LiteralKind::Int{base}}), span: number_sp }) )
+    Ok( (s, Token{ kind: TokenKind::Literal(Lit{kind: LiteralKind::Int{base, parsed: None}}), span: number_sp }) )
 }
 
 /// Returns `true` if `c` is valid as a non-first character of an identifier.
@@ -560,25 +568,55 @@ pub(crate) fn any_token(s: NLSpan) -> IResult<NLSpan, Token> {
     Ok ( (s, t) )
 }
 
+fn find_tree_indents(v: &Vec<Token>) -> Vec<(usize, Token)> {
+    let mut indent = 0;
+    let mut patch: Vec<(usize, Token)> = Vec::new();
+    let mut acc = 0;
+    for (i, tok) in v.iter().enumerate() {
+        if tok.is_delim() {
+            if tok.delim_kind() == DelimKind::Open {
+                indent = indent + 1;
+                patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
+            } else {
+                indent = indent - 1;
+                patch.push((i + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
+            }
+            acc = acc + 1;
+        }
+    }
+    patch
+}
+
+fn parse_numbers(v: &mut Vec<Token>) {
+    for tok in v.iter_mut() {
+        match &mut tok.kind {
+            TokenKind::Literal(l) => {
+                let new_kind = match l.kind {
+                    LiteralKind::Int { base, parsed} => {
+                        Some(LiteralKind::Int { base, parsed: Some(123) })
+                    },
+                    //LiteralKind::Float { .. } => {},
+                    _ => { None }
+                };
+                if new_kind.is_some() {
+                    l.kind = new_kind.unwrap();
+                }
+            }
+            _ => {}
+        }
+    }
+    //v.swap()
+}
+
 pub(crate) fn tokenize(s: NLSpan) -> IResult<NLSpan, Vec<Token>> {
     let (s, mut v) = many1(any_token)(s)?;
-    // let mut indent = 0;
-    // let mut patch: Vec<(usize, Token)> = Vec::new();
-    // let mut acc = 0;
-    // for (i, tok) in v.iter().enumerate() {
-    //     if tok.is_delim() {
-    //         if tok.delim_kind() == DelimKind::Open {
-    //             indent = indent + 1;
-    //             patch.push((i + 1 + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
-    //         } else {
-    //             indent = indent - 1;
-    //             patch.push((i + acc, Token { kind: TokenKind::TreeIndent(TreeIndent(indent)), span: Span::zero() } ) );
-    //         }
-    //         acc = acc + 1;
-    //     }
-    // }
+
+    // let patch = find_tree_indents(&v);
     // for (i, t) in patch {
     //     v.insert(i, t);
     // }
+
+    parse_numbers(&mut v);
+
     Ok( (s, v) ) // return own Result with LexerError
 }

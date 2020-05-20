@@ -14,6 +14,18 @@ pub fn line_numbers(source: &str) -> Vec<usize> {
     ln
 }
 
+fn print_lit(l: &Lit) {
+    match &l.kind {
+        LiteralKind::Int { base, parsed } => { print!("Int={}{:?}", base, parsed) },
+        LiteralKind::Float { base, parsed } => { print!("Float={:?}", parsed) },
+        LiteralKind::Char(c) => { print!("Char=`{}`", c) },
+        LiteralKind::Byte(b) => { print!("Byte={:#04x}", b) },
+        LiteralKind::Str(s) => { print!("Str=\"{}\"", s) },
+        LiteralKind::Bool(b) => { print!("Bool={}", b) },
+        LiteralKind::ByteStr(bs) => { print!("ByteStr=`unimplemented!`") },
+    }
+}
+
 pub fn token(source: &str, tok: &Token) {
     if tok.is_delim() {
         println!("{}({}=`{}`, {})",
@@ -23,10 +35,10 @@ pub fn token(source: &str, tok: &Token) {
         println!("{}({}=`{}`, {})",
                  "Punct".green(),
                  tok.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
-    } else if let TokenKind::Literal(l) = tok.kind {
-        println!("{}({}=`{}`, {})",
-                 "Literal".purple(),
-                 l.kind.as_ref(), &source[Range::from(tok.span)], tok.span);
+    } else if let TokenKind::Literal(l) = &tok.kind {
+        print!("{}(", "Literal".purple());
+        print_lit(l);
+        println!(", {})", tok.span);
     } else if let TokenKind::Ident(id) = tok.kind {
         println!("{}({}=`{}`, {})",
                  "Ident".cyan(),

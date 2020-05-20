@@ -33,7 +33,7 @@ fn inclusive_range(ts: TokenStream) -> nom::IResult<TokenStream, InclusiveRange>
         tag(tstok!(l/Int/Any)),
         delimited(space, tag(tstok!(Minus)), space),
       tag(tstok!(l/Int/Any)) )(ts)?;
-    Ok( (ts, InclusiveRange{ from: range.0[0], to: range.1[0] } ))
+    Ok( (ts, InclusiveRange{ from: range.0[0].clone(), to: range.1[0].clone() } ))
 }
 
 /// Eats `{`, then gets an object from the `f` parser, then eats `}`.
@@ -78,34 +78,7 @@ fn parenthesized<'a, O, E: nom::error::ParseError<TokenStream<'a>>, F>(f: F) -> 
     }
 }
 
-/// Eats `/CTRL{0-3}ABC(register)[7]`, where `{inc.range}`, `(type)`, `[unique id]` is optional,
-/// but must come in the specified order.
-///
-/// `{'A'-'B'}REG` and `/{'A'-'B'}` is also allowed.
-///
-/// TODO: Allow digits in the beginning of a second part of the name.
-fn resource_header(ts: TokenStream) -> nom::IResult<TokenStream, ResourceHeader> {
-    let (ts, _) = tag(tstok!(Slash))(ts)?;
-    let (ts, lp) = opt(tag(tstok!(Ident/Normal)))(ts)?;
-    let (ts, set_rp) = if lp.is_some() {
-        map(opt(pair(
-            map(braced(inclusive_range), |r| Some(r) ),
-            opt(tag(tstok!(Ident/Normal))))
-        ), |o| o.unwrap_or((None, None)) )(ts)?
-    } else {
-        pair(opt(braced(inclusive_range)), opt(tag(tstok!(Ident/Normal))) )(ts)?
-    };
-    let (ts, r#type) = opt(parenthesized(tag(tstok!(Ident/Normal))) )(ts)?;
-    let (ts, id) = opt(bracketed(tag(tstok!(l/Int/Any))) )(ts)?;
 
-    Ok( (ts, ResourceHeader{
-        left_part: lp.map(|lp| lp[0]),
-        set: set_rp.0,
-        right_part: set_rp.1.map(|rp| rp[0]),
-        r#type: r#type.map(|t| t[0]),
-        id: id.map(|id| id[0])
-    } ))
-}
 
 pub fn parser_play() {
     // println!("ts macro: {:?}", tstok!(l/Int/Any/10-12));
@@ -113,6 +86,6 @@ pub fn parser_play() {
     let ts = TokenStream::new(&tokens);
 
     println!("tparser called with: {:?}", ts);
-    let r = resource_header(ts);
+    let r = resource::resource_header(ts);
     println!("tparser result: {:?}", r);
 }

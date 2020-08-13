@@ -59,13 +59,9 @@ mod tests {
 //     use nom::Err;
 //
 //     #[test]
-//     fn left_part_works() {
-//         assert_eq!(super::left_part("cfg1{"), Ok(("{", "cfg1", )));
-//         assert_eq!(super::left_part("c}fg1{"), Ok(("}fg1{", "c", )));
-//         assert_eq!(super::left_part("cfg1["), Ok(("[", "cfg1", )));
-//         assert_eq!(super::left_part("cfg1("), Ok(("(", "cfg1", )));
-//         assert_eq!(super::left_part("_0abc"), Ok(("", "_0abc", )));
-//         assert_eq!(super::left_part("0abc"), Err(nom::Err::Error(("0abc", nom::error::ErrorKind::Alpha))));
+//     fn resource_parser() {
+//         "/simple:" "/with_type(reg):" "/with_id[123]:" "/with_id_and_type(reg)[456]:"
+    // "/set{1-3}:"
 //     }
 //
 //     #[test]

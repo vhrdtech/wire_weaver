@@ -1,27 +1,19 @@
 [package]
-name = "vhapi"
-version = "0.1.0"
+name = "vhl"
+version = "0.2.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 edition = "2018"
 
 [lib]
 
 [dependencies]
-nom = "5"
-nom_locate = "2"
-nom-greedyerror = "0.2"
-nom-tracable = "0.5"
-#nom-packrat = "0.4"
-strum = "0.18.0"
-strum_macros = "0.18.0"
-colored = "1.9"
-
-yaml-rust = "0.4"
-linked-hash-map = ">=0.0.9, <0.6"
+syn = { version = "1.0.33", features = ["full", "parsing", "extra-traits", "printing"] }
+quote = "1.0.7"
+proc-macro2 = { version = "1.0.18", features = ["span-locations"] }
+#either = "1.6"
 
 [features]
 default = []
-trace = ["nom-tracable/trace"]
 
 [workspace]
-members = ["vhapi-cli"]
+members = ["vhl-cli"]

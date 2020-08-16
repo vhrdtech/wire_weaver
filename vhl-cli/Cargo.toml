@@ -1,0 +1,8 @@
+[package]
+name = "vhl-cli"
+version = "0.2.0"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+vhl = { path = "../" }

@@ -8,12 +8,14 @@ use syn::{LitStr, LitInt, ExprStruct, Expr, ExprCall, ExprClosure, Path};
 //     Expression(Box<Expression>),
 // }
 
+/// Inclusive range from numbers.
 #[derive(Debug)]
 pub struct Range {
     pub start: LitInt,
     pub end: LitInt,
 }
 
+/// Plain string or string + range + string.
 #[derive(Debug)]
 pub enum ResourceName {
     Plain(LitStr),
@@ -38,22 +40,25 @@ pub struct BitField {
     /// Example values for enum fields code generation, documentation and UI.
     /// The only values that are allowed, if `is_valid` == `Some(OnlyListedValues)`.
     pub values: Vec<ExprStruct>,
-    /// Validity check mode
+    /// Validity check mode, if `None`, any values are allowed and values field is only examples.
     pub is_valid: Option<ValidityCheck>
 }
 
+/// Number or custom struct.
 #[derive(Debug)]
 pub enum RegisterAddress {
     Plain(u64),
     Custom(ExprStruct)
 }
 
+/// Big or Little.
 #[derive(Debug)]
 pub enum Endianness {
     Little,
     Big
 }
 
+/// RO, WO or RW.
 #[derive(Debug)]
 pub enum AccessMode {
     ReadOnly,
@@ -61,6 +66,7 @@ pub enum AccessMode {
     ReadWrite
 }
 
+/// Only listed values or function or closure.
 #[derive(Debug)]
 pub enum ValidityCheck {
     OnlyListedValues,

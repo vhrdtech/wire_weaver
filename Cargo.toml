@@ -3,6 +3,14 @@ name = "vhl"
 version = "0.3.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 edition = "2018"
+keywords = ["language", "api", "m2m"]
+license = "MIT"
+description = ""
+readme = "README.md"
+
+[lib]
+name = "vhl"
+path = "src/lib.rs"
 
 [workspace]
-members = ["parser"]
+members = ["parser", "cli"]

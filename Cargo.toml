@@ -1,19 +1,8 @@
 [package]
 name = "vhl"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 edition = "2018"
 
-[lib]
-
-[dependencies]
-syn = { version = "1.0.33", features = ["full", "parsing", "extra-traits", "printing"] }
-quote = "1.0.7"
-proc-macro2 = { version = "1.0.18", features = ["span-locations"] }
-#either = "1.6"
-
-[features]
-default = []
-
 [workspace]
-members = ["vhl-cli"]
+members = ["parser"]

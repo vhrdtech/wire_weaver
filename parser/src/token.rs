@@ -102,7 +102,7 @@ pub enum Token<'input> {
 
     // Unknown,
     // TreeIndent(TreeIndent),
-    // Eof,
+    Eof,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -140,7 +140,7 @@ pub enum Literal<'input> {
 }
 
 /// Base of numeric literal
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Base {
     /// 0b prefix
     Binary = 1,
@@ -155,7 +155,7 @@ pub enum Base {
 }
 
 /// Char kind in char or string
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CharKind {
     Unicode,
     C,

@@ -1,3 +1,6 @@
+#[derive(Parser)]
+#[grammar = "vhl.pest"]
+pub struct Lexer;
 
 // pub struct Lexer<'input> {
 //     input: &'input str,
@@ -7,9 +10,10 @@
 
 #[cfg(test)]
 mod test {
-    use crate::token::Token;
-    use std::str::{Chars, CharIndices};
+    use std::str::{CharIndices};
     use std::iter::Peekable;
+    use super::{Rule, Lexer};
+    use pest::Parser;
 
     // fn lexer<'input>(input: &'input str) -> Box<dyn Iterator<Item = Result<Spanned<Token<'input>>, SpError>>> {
     //     Box::new(Lexer::new(input).take_while(|token| match *token {
@@ -45,7 +49,6 @@ mod test {
 
                     let mut end = start;
                     loop {
-                        let mut end_found = false;
                         match self.spans.next() {
                             Some((pos, c)) => {
                                 if c.is_whitespace() {
@@ -106,5 +109,11 @@ mod test {
         let mut hl = Highlighter::new("^-- ");
         let r = std::panic::catch_unwind(move || hl.next());
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn test_discrete_numbers() {
+        let p = Lexer::parse(Rule::number, "37");
+        println!("{:?}", p);
     }
 }

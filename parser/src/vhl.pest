@@ -1,1 +1,39 @@
-number = { (ASCII_DIGIT | "." | "-")+ }
+/// 1, 2, 3, 4, 5, ...
+natural_number = @{ '1'..'9' ~ ASCII_DIGIT* }
+/// 0, 1, 2, 3, 4, 5, ...
+whole_number = { ASCII_DIGIT+ }
+/// ..., -3, -2, -1, 0, 1, 2, 3, ...
+integer_number = @{ ("-" ~ natural_number) | whole_number }
+
+// Discrete numbers
+/// i8 / i16 / i32 / i3
+discrete_signed_ty = @{ "i" ~ natural_number }
+/// i<N>
+discrete_signed_expl_ty = { "i" ~ "<" ~ natural_number ~ ">" }
+/// u8 / u16 / u32 / u11
+discrete_unsigned_ty = @{ "u" ~ natural_number }
+/// u<N>
+discrete_unsigned_expl_ty = { "u" ~ "<" ~ natural_number ~ ">" }
+discrete_any_ty = { discrete_signed_ty | discrete_signed_expl_ty | discrete_unsigned_ty | discrete_unsigned_expl_ty }
+
+// Fixed point numbers
+/// Signed: q3.12
+fixed_signed_ty = @{ "q" ~ whole_number ~ "." ~ whole_number }
+/// Full syntax signed: q<m, n>
+fixed_signed_expl_ty = { "q" ~ "<" ~ natural_number ~ "," ~ natural_number ~ ">" }
+/// Unsigned: uq1.15
+fixed_unsigned_ty = @{ "uq" ~ whole_number ~ "." ~ whole_number }
+/// Full syntax unsigned: uq<m, n>
+fixed_unsigned_expl_ty = { "uq" ~ "<" ~ natural_number ~ "," ~ natural_number ~ ">" }
+/// Implicitly scaled: q12<u8> 0..=255 * 2^-12
+fixed_impl_scaled_ty = @ { "q" ~ natural_number ~ "<" ~ discrete_any_ty ~ ">" }
+fixed_any_ty = { fixed_signed_ty | fixed_signed_expl_ty | fixed_unsigned_ty | fixed_unsigned_expl_ty | fixed_impl_scaled_ty }
+
+/// All the types
+any_ty = { discrete_any_ty | fixed_any_ty }
+
+type_name = { (ASCII_ALPHA ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHANUMERIC+) }
+type_alias_ty = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
+
+COMMENT = { ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) }
+WHITESPACE = _{ " " }

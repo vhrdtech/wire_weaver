@@ -1,3 +1,4 @@
+// Number traits
 /// 1, 2, 3, 4, 5, ...
 natural_number = @{ '1'..'9' ~ ASCII_DIGIT* }
 /// 0, 1, 2, 3, 4, 5, ...
@@ -5,7 +6,11 @@ whole_number = { ASCII_DIGIT+ }
 /// ..., -3, -2, -1, 0, 1, 2, 3, ...
 integer_number = @{ ("-" ~ natural_number) | whole_number }
 
-// Discrete numbers
+// Types
+type_name = { (ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC*) }
+ident_name = { (ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC*) }
+
+// Discrete number types
 /// i8 / i16 / i32 / i3
 discrete_signed_ty = @{ "i" ~ natural_number }
 /// i<N>
@@ -44,7 +49,57 @@ tuple_ty = { unit_ty | "(" ~ (any_ty ~ ",")+ ~ any_ty? ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ expression }
 
 /// All the types
-any_ty = { discrete_any_ty | fixed_any_ty }
+any_ty = { discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty }
+
+// Definitions
+/// Alias type
+type_alias_def = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
+
+// Statements
+let_stmt = { "let" ~ ident_name ~ "=" ~ expression }
+item_stmt = { "TODO" }
+api_stmt = { "TODO" }
+expr_stmt = { expression ~ ";" | expression_block ~ ";"? }
+
+statement = { let_stmt | item_stmt | api_stmt }
+
+// Literals
+bool_lit = { "true" | "false" }
+sign_prefix = { "+" | "-" }
+/// -10, 17, 0, +3, 127u16, 1_000, 1023_u32
+dec_lit = { sign_prefix? ~ (ASCII_DIGIT | "_")+ ~ discrete_any_ty? }
+/// 0xAA, 0xcc, 0xff_u8
+hex_lit = { "0x" ~ (ASCII_HEX_DIGIT | "_")+ ~ discrete_any_ty? }
+/// 0b1111_0000, 0b101_u3
+bin_lit = { "0b" ~ (ASCII_BIN_DIGIT | "_")+ ~ discrete_any_ty? }
+/// 0o7
+oct_lit = { "0o" ~ (ASCII_OCT_DIGIT | "_")+ ~ discrete_any_ty? }
+/// Any discrete literal followed by optional type
+discrete_lit = { dec_lit | hex_lit | bin_lit | oct_lit }
+
+// Operators
+unary_op = {
+    "-" | // Negation
+    "!"   // Bitwise NOT or Boolean NOT
+}
+binary_op = {
+    "+" | // Addition
+    "-" | // Subtraction
+    "*" | // Multiplication
+    "/" | // Division
+    "%" | // Remainder
+    "&" | // Bitwise AND or Boolean AND
+    "|" | // Bitwise OR or Boolean OR
+    "^" | // Bitwise XOR or Boolean XOR
+    "<<" | // Left shift
+    ">>"   // Right shift
+}
+
+// Expressions
+literal_expr = { bool_lit | discrete_lit }
+
+unary_expr = { unary_op ~ expression }
+infix_expr = { expression_inner ~ (binary_op ~ expression_inner)+ }
 
 expression_inner = { unary_expr | literal_expr }
 expression = {  infix_expr | expression_inner }

@@ -16,24 +16,42 @@ discrete_unsigned_ty = @{ "u" ~ natural_number }
 discrete_unsigned_expl_ty = { "u" ~ "<" ~ natural_number ~ ">" }
 discrete_any_ty = { discrete_signed_ty | discrete_signed_expl_ty | discrete_unsigned_ty | discrete_unsigned_expl_ty }
 
-// Fixed point numbers
+// Fixed point number types
 /// Signed: q3.12
 fixed_signed_ty = @{ "q" ~ whole_number ~ "." ~ whole_number }
 /// Full syntax signed: q<m, n>
-fixed_signed_expl_ty = { "q" ~ "<" ~ natural_number ~ "," ~ natural_number ~ ">" }
+fixed_signed_expl_ty = { "q" ~ "<" ~ expression ~ "," ~ expression ~ ">" }
 /// Unsigned: uq1.15
 fixed_unsigned_ty = @{ "uq" ~ whole_number ~ "." ~ whole_number }
 /// Full syntax unsigned: uq<m, n>
-fixed_unsigned_expl_ty = { "uq" ~ "<" ~ natural_number ~ "," ~ natural_number ~ ">" }
+fixed_unsigned_expl_ty = { "uq" ~ "<" ~ expression ~ "," ~ expression ~ ">" }
 /// Implicitly scaled: q12<u8> 0..=255 * 2^-12
 fixed_impl_scaled_ty = @ { "q" ~ natural_number ~ "<" ~ discrete_any_ty ~ ">" }
 fixed_any_ty = { fixed_signed_ty | fixed_signed_expl_ty | fixed_unsigned_ty | fixed_unsigned_expl_ty | fixed_impl_scaled_ty }
 
+/// Floating point number types
+floating_any_ty = { "f32" | "f64" }
+
+/// Textual types
+textual_any_ty = { "char" | "str" }
+
+// Sequence types
+/// Unit: ()
+unit_ty = { "(" ~ ")" }
+/// Tuple: (t1, t2, ...)
+tuple_ty = { unit_ty | "(" ~ (any_ty ~ ",")+ ~ any_ty? ~ ")" }
+/// Array
+array_ty = { "[" ~ any_ty ~ ";" ~ expression }
+
 /// All the types
 any_ty = { discrete_any_ty | fixed_any_ty }
 
-type_name = { (ASCII_ALPHA ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHANUMERIC+) }
-type_alias_ty = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
+expression_inner = { unary_expr | literal_expr }
+expression = {  infix_expr | expression_inner }
+
+block_open = { "(" | "{" | "[" }
+block_close = { ")" | "}" | "]" }
+expression_block = { block_open ~ expression ~ block_close }
 
 COMMENT = { ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) }
-WHITESPACE = _{ " " }
+WHITESPACE = _{ (" " | "\t" | "\r" | "\n")+ }

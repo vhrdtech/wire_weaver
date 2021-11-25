@@ -49,11 +49,14 @@ tuple_ty = { unit_ty | "(" ~ (any_ty ~ ",")+ ~ any_ty? ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ expression }
 
 /// All the types
-any_ty = { discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty }
+any_ty = { discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | type_name }
 
 // Definitions
 /// Alias type
 type_alias_def = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
+/// Struct type
+struct_inner_def = { "{" ~ (ident_name ~ ":" ~ any_ty)+ ~ "}" }
+struct_def = { doc_comment{0,} ~ shebang{0,} ~ "struct" ~ type_name ~ struct_inner_def }
 
 // Statements
 let_stmt = { "let" ~ ident_name ~ "=" ~ expression }
@@ -108,5 +111,12 @@ block_open = { "(" | "{" | "[" }
 block_close = { ")" | "}" | "]" }
 expression_block = { block_open ~ expression ~ block_close }
 
-COMMENT = { ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) }
+// Shebang
+shebang = @{ "#[" ~ (!"]" ~ ANY)* ~ "]" ~ NEWLINE }
+
+//
+doc_comment = { "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+single_line_comment = { !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+multi_line_comment = { "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+COMMENT = { single_line_comment | multi_line_comment }
 WHITESPACE = _{ (" " | "\t" | "\r" | "\n")+ }

@@ -28,7 +28,15 @@ mod test {
     //
     // }
 
-    /// Helper type that create (start, end) iterator over strings like "^ ^--^ ^^"
+    /// Helper type that create (start, end) iterator over strings like "^ ^--^ ^^".
+    /// Allows to write parser tests as follows:
+    /// test(
+    ///      "struct X { field: u32 }",
+    ///      "       ^   ^---^  ^-^  ",
+    ///      type_name("My"),
+    ///      ident_name("field"),
+    ///      any_ty("u32")
+    /// );
     struct Highlighter<'a> {
         spans: Peekable<CharIndices<'a>>,
     }
@@ -113,7 +121,8 @@ mod test {
 
     #[test]
     fn test_discrete_numbers() {
-        let p = Lexer::parse(Rule::number, "37");
+        let p = Lexer::parse(Rule::struct_def, "#[adsad\nas]\n\nstruct My { a: u32 // abc\n }");
+        // let p = Lexer::parse(Rule::discrete_any_ty, "u32");
         println!("{:?}", p);
     }
 }

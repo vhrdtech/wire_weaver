@@ -121,8 +121,8 @@ mod test {
 
     #[test]
     fn test_discrete_numbers() {
-        let p = Lexer::parse(Rule::struct_def, "#[adsad\nas]\n\nstruct My { a: u32 // abc\n }");
+        let p = Lexer::parse(Rule::file, "struct A { f1: u32 }\n struct B { f2: i32 }");
         // let p = Lexer::parse(Rule::discrete_any_ty, "u32");
-        println!("{:?}", p);
+        println!("{:#?}", p);
     }
 }

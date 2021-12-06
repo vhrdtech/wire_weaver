@@ -1,3 +1,6 @@
+file = { SOI ~ shebang? ~ item* ~ EOI }
+item = { definition }
+
 // Number traits
 /// 1, 2, 3, 4, 5, ...
 natural_number = @{ '1'..'9' ~ ASCII_DIGIT* }
@@ -47,6 +50,8 @@ type_alias_def = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
 /// Struct type
 struct_inner_def = { "{" ~ (ident_name ~ ":" ~ any_ty)+ ~ "}" }
 struct_def = { doc_comment{0,} ~ shebang{0,} ~ "struct" ~ type_name ~ struct_inner_def }
+
+definition = { struct_def | type_alias_def }
 
 // Statements
 let_stmt = { "let" ~ ident_name ~ "=" ~ expression }

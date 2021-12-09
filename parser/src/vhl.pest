@@ -10,8 +10,11 @@ whole_number = @{ ASCII_DIGIT+ }
 integer_number = @{ ("-" ~ natural_number) | whole_number }
 
 // Types
-type_name = @{ (ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC*) }
-ident_name = @{ (ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC*) | ("_" ~ ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC*) }
+capitalized_word = @{ ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC* }
+lowercase_word = @{ ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC* }
+type_name = @{ capitalized_word }
+ident_name = @{ lowercase_word }
+simple_path_segment = @{ (ASCII_ALPHA_LOWER | "_")+ }
 
 // Discrete number types
 /// i8 / i16 / i32 / i3 / i{expr}

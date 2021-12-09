@@ -110,8 +110,38 @@ block_close = { ")" | "}" | "]" }
 // expression_block = { block_open ~ expression ~ block_close }
 expression_braced = { "{" ~ expression ~ "}" }
 
-// Shebang
-shebang = @{ "#[" ~ (!"]" ~ ANY)* ~ "]" ~ NEWLINE }
+// Attributes
+inner_attribute = { "#![" ~ attribute ~ "]" }
+outer_attribute = { "#[" ~ attribute ~ "]" }
+attribute = { simple_path ~ attribute_input }
+simple_path = { "::"? ~ simple_path_segment ~ ("::" ~ simple_path_segment)* }
+attribute_input = { delim_token_tree | "=" ~ expression }
+
+// Keywords
+kw_fn = { "fn" }
+kw_let = { "let" }
+kw_struct = { "struct" }
+kw_type = { "type" }
+kw_use = { "use" }
+keyword = { kw_fn | kw_let | kw_struct | kw_type | kw_use }
+
+// Punctuation
+punct_plus = { "+" }
+punct_minus = { "-" }
+punct_star = { "*" }
+punct_slash = { "/" }
+punct_caret = { "^" }
+punct_not = { "!" }
+punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not }
+
+// Delimiters
+delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
+
+// Tokens
+token_tree = { token_except_delimiters | delim_token_tree }
+delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
+token_except_delimiters = { keyword | ident_name | literal_expr | punctuation }
+token = { token_except_delimiters | delimiter }
 
 //
 doc_comment = { "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }

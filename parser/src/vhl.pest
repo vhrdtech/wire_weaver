@@ -1,4 +1,4 @@
-file = { SOI ~ shebang? ~ item* ~ EOI }
+file = { SOI ~ inner_attribute* ~ item* ~ EOI }
 item = { definition }
 
 // Number traits
@@ -40,7 +40,8 @@ textual_any_ty = { "char" | "str" }
 /// Unit: ()
 unit_ty = { "(" ~ ")" }
 /// Tuple: (t1, t2, ...)
-tuple_ty = { unit_ty | "(" ~ (any_ty ~ ",")+ ~ any_ty? ~ ")" }
+tuple_fields = { any_ty ~ ("," ~ any_ty)* ~ ","? }
+tuple_ty = { "(" ~ tuple_fields ~ ")" }
 /// Array
 array_ty = { "[" ~ any_ty ~ ";" ~ expression }
 
@@ -51,10 +52,20 @@ any_ty = { discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | t
 /// Alias type
 type_alias_def = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
 /// Struct type
-struct_inner_def = { "{" ~ (ident_name ~ ":" ~ any_ty)+ ~ "}" }
-struct_def = { doc_comment{0,} ~ shebang{0,} ~ "struct" ~ type_name ~ struct_inner_def }
+struct_field = { outer_attribute* ~ ident_name ~ ":" ~ any_ty }
+struct_fields = _{ struct_field ~ ("," ~ struct_field)* ~ ","? }
+struct_def = {  "struct" ~ type_name ~ ("{" ~ struct_fields ~ "}" | ";") }
+/// Tuple struct
+tuple_struct_def = { "struct" ~ type_name ~ "(" ~ tuple_fields ~ ")" ~ ";" }
+/// Enum
+enum_item_tuple = { "(" ~ tuple_fields? ~ ")" }
+enum_item_struct = { "{" ~ struct_fields ~ "}" }
+enum_item_discriminant = { "=" ~ expression }
+enum_item = { outer_attribute* ~ capitalized_word ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
+enum_items = { enum_item ~ ("," ~ enum_item)* ~ ","? }
+enum_def = { "enum" ~ type_name ~ "{" ~ enum_items? ~ "}" }
 
-definition = { struct_def | type_alias_def }
+definition = { type_alias_def | struct_def | tuple_struct_def | enum_def }
 
 // Statements
 let_stmt = { "let" ~ ident_name ~ "=" ~ expression }

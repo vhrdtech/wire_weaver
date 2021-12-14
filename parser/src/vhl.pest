@@ -10,11 +10,12 @@ whole_number = @{ ASCII_DIGIT+ }
 integer_number = @{ ("-" ~ natural_number) | whole_number }
 
 // Types
-capitalized_word = @{ ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC* }
-lowercase_word = @{ ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC* }
+capitalized_word = @{ ASCII_ALPHA_UPPER ~ (ASCII_ALPHANUMERIC | "_")* }
+lowercase_word = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
 type_name = @{ capitalized_word }
 ident_name = @{ lowercase_word }
 simple_path_segment = @{ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")+ }
+enum_item_name = @{ capitalized_word }
 
 // Discrete number types
 /// i8 / i16 / i32 / i3 / i{expr}
@@ -61,7 +62,7 @@ tuple_struct_def = { "struct" ~ type_name ~ "(" ~ tuple_fields ~ ")" ~ ";" }
 enum_item_tuple = { "(" ~ tuple_fields? ~ ")" }
 enum_item_struct = { "{" ~ struct_fields ~ "}" }
 enum_item_discriminant = { "=" ~ expression }
-enum_item = { doc_attr ~ capitalized_word ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
+enum_item = { doc_attr ~ enum_item_name ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
 enum_items = { enum_item ~ ("," ~ enum_item)* ~ ","? }
 enum_def = { doc_attr ~ "enum" ~ type_name ~ "{" ~ enum_items? ~ "}" }
 
@@ -124,7 +125,7 @@ expression_braced = { "{" ~ expression ~ "}" }
 // Attributes
 inner_attribute = { "#![" ~ attribute ~ "]" }
 outer_attribute = { "#[" ~ attribute ~ "]" }
-attribute = { simple_path ~ attribute_input? }
+attribute = _{ simple_path ~ attribute_input? }
 simple_path = { "::"? ~ simple_path_segment ~ ("::" ~ simple_path_segment)* }
 attribute_input = { delim_token_tree | "=" ~ expression }
 

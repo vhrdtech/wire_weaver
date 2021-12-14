@@ -1,4 +1,4 @@
-use crate::parse::{ParseInput, Parse};
+use crate::parse::{ParseInput};
 use crate::ast::item::Item;
 use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
@@ -43,11 +43,12 @@ impl<'i> File<'i> {
         let mut items = Vec::new();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
-        println!("File::parse: {:?}", pi);
+        // println!("File::parse: {:?}", pi);
         match pi.next() { // Rule::file
             Some(pair) => {
                 let mut pi = pair.into_inner();
                 while let Some(p) = pi.peek() {
+                    println!("next file item: {:?}", p);
                     match p.as_rule() {
                         Rule::inner_attribute => {
                             let attr = pi.next();
@@ -60,7 +61,14 @@ impl<'i> File<'i> {
                         _ => {
                             let pair = pi.next().unwrap();
                             // println!("deferring to others {:?}", pair);
-                            ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse().map(|item| items.push(item));
+                            match ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse().map(|item| items.push(item)) {
+                                Ok(_) => {},
+                                Err(()) => {
+                                    if errors.is_empty() {
+                                        errors.push(ParseError::E0002);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -80,16 +88,16 @@ impl<'i> File<'i> {
 #[cfg(test)]
 mod test {
     use super::File;
-    use crate::lexer::{Lexer, Rule};
-    // use crate::pest::Parser;
-    use crate::parse::{Parse, ParseInput};
 
     #[test]
     fn test_simple() {
         let input = r#"
+        /// Doc line 1
+        /// Doc line 2
         enum FrameId {
+            /// Doc for std
             Standard(u11),
-
+            /// Doc for ext
             Extended(u29)
         }"#;
         let file= match File::parse(input) {

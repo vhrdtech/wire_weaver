@@ -17,15 +17,24 @@ impl<'i, 'm> ParseInput<'i, 'm> {
             pairs, warnings, errors
         }
     }
+
+    pub fn fork(
+        pair: pest::iterators::Pair<'i, crate::lexer::Rule>,
+        prev_input: &'m mut ParseInput,
+    ) -> Self {
+        ParseInput {
+            pairs: pair.into_inner(), warnings: prev_input.warnings, errors: prev_input.errors
+        }
+    }
 }
 
 /// Parsing interface implemented by all AST nodes
 pub trait Parse<'i>: Sized {
-    fn parse<'m>(input: ParseInput<'i, 'm>) -> Result<Self, ()>;
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()>;
 }
 
 impl<'i, 'm> ParseInput<'i, 'm> {
-    pub fn parse<T: Parse<'i>>(self) -> Result<T, ()> {
+    pub fn parse<T: Parse<'i>>(&mut self) -> Result<T, ()> {
         T::parse(self)
     }
 }

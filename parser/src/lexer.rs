@@ -121,8 +121,9 @@ mod test {
 
     #[test]
     fn test_discrete_numbers() {
-        let p = Lexer::parse(Rule::file, "struct A { f1: u32 }\n struct B { f2: i32 }");
+        let p = Lexer::parse(Rule::file, "enum FrameId { Standard(u11), Extended(u29) }");
+        // let _:() = p;
         // let p = Lexer::parse(Rule::discrete_any_ty, "u32");
-        println!("{:#?}", p);
+        println!("{:?}", p);
     }
 }

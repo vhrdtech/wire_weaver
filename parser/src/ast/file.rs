@@ -33,17 +33,18 @@ impl Display for FileError {
 }
 
 #[derive(Debug)]
-pub struct File {
-    pub items: Vec<Item>
+pub struct File<'i> {
+    pub items: Vec<Item<'i>>
 }
 
-impl File {
-    fn parse(input: &str) -> Result<(Self, Vec<ParseWarning>), FileError> {
+impl<'i> File<'i> {
+    fn parse(input: &'i str) -> Result<(Self, Vec<ParseWarning>), FileError> {
         let mut pi = <Lexer as pest::Parser<Rule>>::parse(Rule::file, input)?;
         let mut items = Vec::new();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
-        match pi.next() {
+        println!("File::parse: {:?}", pi);
+        match pi.next() { // Rule::file
             Some(pair) => {
                 let mut pi = pair.into_inner();
                 while let Some(p) = pi.peek() {
@@ -55,10 +56,11 @@ impl File {
                         Rule::EOI => {
                             break;
                         },
+                        // Rule::COMMENT => {}
                         _ => {
                             let pair = pi.next().unwrap();
-                            println!("deferring to others {:?}", pair);
-                            ParseInput::new(pair, &mut warnings, &mut errors).parse().map(|item| items.push(item));
+                            // println!("deferring to others {:?}", pair);
+                            ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse().map(|item| items.push(item));
                         }
                     }
                 }
@@ -85,23 +87,9 @@ mod test {
     #[test]
     fn test_simple() {
         let input = r#"
-        #![inner]
-
-        ///Docs
-        ///Docs more
-        #[outer1]
-        #[outer2]
         enum FrameId {
-            /// Std doc
-            /// Std doc 2
-            #[std_outer]
-            #[std_outer2]
             Standard(u11),
 
-            /// Ext doc
-            /// Ext doc 2
-            #[ext_outer]
-            #[ext_outer2]
             Extended(u29)
         }"#;
         let file= match File::parse(input) {

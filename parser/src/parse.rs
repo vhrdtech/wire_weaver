@@ -1,31 +1,31 @@
 use crate::warning::ParseWarning;
 use crate::error::ParseError;
 
-pub struct ParseInput<'i> {
-    pub pair: pest::iterators::Pair<'i, crate::lexer::Rule>,
-    pub warnings: &'i mut Vec<ParseWarning>,
-    pub errors: &'i mut Vec<ParseError>,
+pub struct ParseInput<'i, 'm> {
+    pub pairs: pest::iterators::Pairs<'i, crate::lexer::Rule>,
+    pub warnings: &'m mut Vec<ParseWarning>,
+    pub errors: &'m mut Vec<ParseError>,
 }
 
-impl<'i> ParseInput<'i> {
+impl<'i, 'm> ParseInput<'i, 'm> {
     pub fn new(
-        pair: pest::iterators::Pair<'i, crate::lexer::Rule>,
-        warnings: &'i mut Vec<ParseWarning>,
-        errors: &'i mut Vec<ParseError>
+        pairs: pest::iterators::Pairs<'i, crate::lexer::Rule>,
+        warnings: &'m mut Vec<ParseWarning>,
+        errors: &'m mut Vec<ParseError>
     ) -> Self {
         ParseInput {
-            pair, warnings, errors
+            pairs, warnings, errors
         }
     }
 }
 
 /// Parsing interface implemented by all AST nodes
-pub trait Parse: Sized {
-    fn parse(input: ParseInput) -> Option<Self>;
+pub trait Parse<'i>: Sized {
+    fn parse<'m>(input: ParseInput<'i, 'm>) -> Result<Self, ()>;
 }
 
-impl<'i> ParseInput<'i> {
-    pub fn parse<T: Parse>(self) -> Option<T> {
+impl<'i, 'm> ParseInput<'i, 'm> {
+    pub fn parse<T: Parse<'i>>(self) -> Result<T, ()> {
         T::parse(self)
     }
 }

@@ -4,27 +4,27 @@ use crate::ast::item_tuple::TupleFields;
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
-    docs: Docs<'i>,
+    pub docs: Docs<'i>,
     // attrs: Vec<Attribute>,
-    typename: Typename<'i>,
-    items: EnumItems<'i>
+    pub typename: Typename<'i>,
+    pub items: EnumItems<'i>
 }
 
 #[derive(Debug)]
 pub struct EnumItems<'i> {
-    items: Vec<EnumItem<'i>>,
+    pub items: Vec<EnumItem<'i>>,
 }
 
 #[derive(Debug)]
 pub struct EnumItem<'i> {
-    docs: Docs<'i>,
-    name: EnumItemName<'i>,
-    kind: Option<EnumItemKind<'i>>
+    pub docs: Docs<'i>,
+    pub name: EnumItemName<'i>,
+    pub kind: Option<EnumItemKind<'i>>
 }
 
 #[derive(Debug)]
 pub struct EnumItemName<'i> {
-    name: &'i str,
+    pub name: &'i str,
 }
 
 #[derive(Debug)]

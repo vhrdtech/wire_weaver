@@ -1,6 +1,4 @@
 use super::prelude::*;
-use super::item::{Docs};
-use std::fmt::Formatter;
 
 #[derive(Debug)]
 pub enum Ty {
@@ -61,28 +59,5 @@ impl<'i> Parse<'i> for Ty {
                 Err(())
             }
         }
-    }
-}
-
-impl Display for Ty {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Ty(");
-        match self {
-            Ty::Boolean => { write!("bool"); }
-            Ty::Discrete { is_signed, bits } => {
-                if is_signed {
-                    write!(f, "i");
-                } else {
-                    write!(f, "u");
-                }
-                write!(f, "{}", bits);
-            }
-            Ty::FixedPoint { .. } => {}
-            Ty::FloatingPoint { .. } => {}
-            Ty::Textual => {}
-            Ty::Sequence => {}
-            Ty::UserDefined => {}
-        }
-        write!(f, ")")
     }
 }

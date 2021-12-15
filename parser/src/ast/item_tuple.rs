@@ -3,7 +3,7 @@ use super::ty::Ty;
 
 #[derive(Debug)]
 pub struct TupleFields {
-    fields: Vec<Ty>
+    pub fields: Vec<Ty>
 }
 
 impl<'i> Parse<'i> for TupleFields {

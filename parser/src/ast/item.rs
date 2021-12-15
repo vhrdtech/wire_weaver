@@ -1,6 +1,5 @@
 use super::prelude::*;
 use super::item_enum::ItemEnum;
-use std::fmt::Formatter;
 
 #[derive(Debug)]
 pub enum Item<'i> {
@@ -29,12 +28,10 @@ pub struct ItemConst {
 
 }
 
-
 #[derive(Debug)]
 pub struct Typename<'i> {
-    typename: &'i str,
+    pub typename: &'i str,
 }
-
 
 impl<'i> Parse<'i> for Typename<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ()> {
@@ -54,7 +51,7 @@ impl<'i> Parse<'i> for Typename<'i> {
 
 #[derive(Debug)]
 pub struct Docs<'i> {
-    lines: Vec<&'i str>
+    pub lines: Vec<&'i str>
 }
 
 impl<'i> Parse<'i> for Docs<'i> {
@@ -76,6 +73,3 @@ impl<'i> Parse<'i> for Docs<'i> {
         })
     }
 }
-
-
-

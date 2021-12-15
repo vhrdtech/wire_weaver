@@ -2,7 +2,6 @@ use crate::parse::{ParseInput};
 use crate::ast::item::Item;
 use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
-use std::fmt::{Display, Formatter};
 use crate::error::ParseError;
 use crate::warning::ParseWarning;
 
@@ -16,19 +15,6 @@ pub enum FileError {
 impl From<pest::error::Error<Rule>> for FileError {
     fn from(e: Error<Rule>) -> Self {
         FileError::Lexer(e)
-    }
-}
-
-impl Display for FileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FileError::Lexer(le) => {
-                write!(f, "{}", le)
-            }
-            FileError::Parser(pe) => {
-                write!(f, "{:?}", pe)
-            }
-        }
     }
 }
 
@@ -92,22 +78,18 @@ mod test {
     #[test]
     fn test_simple() {
         let input = r#"
-        /// Doc line 1
-        /// Doc line 2
         enum FrameId {
-            /// Doc for std
-            Standard(u11, bool),
-            /// Doc for ext
+            Standard(u11),
             Extended(u29)
         }"#;
         let file= match File::parse(input) {
             Ok(file) => file,
             Err(e) => {
-                println!("{}", e);
+                println!("{:?}", e);
                 return;
             }
         };
         println!("Warnings: {:?}", file.1);
-        println!("File: {}", file.0);
+        println!("File: {:?}", file.0);
     }
 }

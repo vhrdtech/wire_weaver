@@ -96,7 +96,7 @@ mod test {
         /// Doc line 2
         enum FrameId {
             /// Doc for std
-            Standard(u11),
+            Standard(u11, bool),
             /// Doc for ext
             Extended(u29)
         }"#;
@@ -108,6 +108,6 @@ mod test {
             }
         };
         println!("Warnings: {:?}", file.1);
-        println!("File: {:?}", file.0);
+        println!("File: {}", file.0);
     }
 }

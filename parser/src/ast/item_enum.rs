@@ -1,5 +1,6 @@
 use super::prelude::*;
 use super::item::{Typename, Docs};
+use crate::ast::item_tuple::TupleFields;
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
@@ -18,11 +19,19 @@ pub struct EnumItems<'i> {
 pub struct EnumItem<'i> {
     docs: Docs<'i>,
     name: EnumItemName<'i>,
+    kind: Option<EnumItemKind<'i>>
 }
 
 #[derive(Debug)]
 pub struct EnumItemName<'i> {
     name: &'i str,
+}
+
+#[derive(Debug)]
+pub enum EnumItemKind<'i> {
+    Tuple(TupleFields),
+    Struct,
+    Discriminant(&'i str)
 }
 
 impl<'i> Parse<'i> for ItemEnum<'i> {
@@ -71,7 +80,8 @@ impl<'i> Parse<'i> for EnumItem<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
         Ok(EnumItem {
             docs: input.parse()?,
-            name: input.parse()?
+            name: input.parse()?,
+            kind: input.parse().ok()
         })
     }
 }
@@ -89,5 +99,32 @@ impl<'i> Parse<'i> for EnumItemName<'i> {
             };
         }
         Err(())
+    }
+}
+
+impl<'i> Parse<'i> for EnumItemKind<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+        match input.pairs.peek() {
+            Some(_) => {
+                let enum_item = input.pairs.next().unwrap();
+                println!("enum_item: {:?}", enum_item);
+                match enum_item.as_rule() {
+                    Rule::enum_item_tuple => {
+                        Ok(EnumItemKind::Tuple(ParseInput::fork(enum_item, input).parse()?))
+                    }
+                    Rule::enum_item_struct => {
+                        Err(())
+                    }
+                    Rule::enum_item_discriminant => {
+                        Err(())
+                    }
+                    _ => unreachable!()
+                }
+            },
+            None => {
+                println!("enum_item none");
+                Err(())
+            }
+        }
     }
 }

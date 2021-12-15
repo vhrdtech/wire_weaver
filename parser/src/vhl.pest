@@ -17,6 +17,9 @@ ident_name = @{ lowercase_word }
 simple_path_segment = @{ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")+ }
 enum_item_name = @{ capitalized_word }
 
+// Boolean
+bool_ty = { "bool" }
+
 // Discrete number types
 /// i8 / i16 / i32 / i3 / i{expr}
 discrete_signed_ty = @{ "i" ~ natural_number | "i" ~ expression_braced }
@@ -47,7 +50,7 @@ tuple_ty = { "(" ~ tuple_fields ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ expression }
 
 /// All the types
-any_ty = { discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | type_name }
+any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | type_name }
 
 // Definitions
 /// Alias type

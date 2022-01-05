@@ -1,7 +1,6 @@
-use parser::ast::item_enum::ItemEnum;
 use parser::ast::item::Typename;
 
-use proc_macro2::{TokenTree, Spacing, Span, Punct, Ident, TokenStream};
+use proc_macro2::{Span, Ident, TokenStream};
 use quote::{TokenStreamExt, ToTokens};
 
 pub struct CGTypename<'i, 'c> {

@@ -30,14 +30,14 @@ Features:
 * Boolean (true / false)
 * Discrete numbers:
   * Signed: `i8` / `i16` / `i32` / `i64` / `i128`
-  * Signed with configurable length: `i<N>`, N = 1, 2, 3...
+  * Signed with configurable length: `i{expr -> u32}`
   * Unsigned: `u8`, `u16`, `u32`, `u64`, `u128`
-  * Unsigned with configurable length: `u<N>`, N = 1, 2, 3...
+  * Unsigned with configurable length: `u{expr -> u32}`
 * Fixed point numbers (Q notation):
   * Signed: `q3.12`
   * Unsigned: `uq1.15`
-  * Implicitly scaled: `q12<u8>` 0..=255 * 2^-12
-  * Full syntax to allow constant's to be easily used: `q<m, n>`, `uq<m, n>`
+  * Implicitly scaled: `q12<u8>` 0..=255 * 2^-12 (m=0, n=12)
+  * Full syntax to allow constant's to be easily used: `q{expr -> (u32, u32)}`, `uq{expr -> (u32, u32)}`
 * Floating point numbers:
   * `float32`, `float64` (IEEE-754)
   * ?`float16` and others
@@ -66,6 +66,7 @@ Simple checked numbers where only a range of values is allowed:
 * `u16 in 1..=512` - values 513 and above are not allowed
 * `u<N>` or `i<N>` - valid values from -2^(N-1) to 2^(N-1)-1
 * ? auto-bound-number: `-10..21` to let vhL choose the smallest representation possible automatically
+* fixed point can be derived as well: `-1.0,-0.9..1.0`
 
 Set of allowed values:
 * `u8 in {0..=8, 12, 16, 20, 24, 32, 48, 64}`

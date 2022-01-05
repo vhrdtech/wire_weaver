@@ -4,6 +4,7 @@ use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
 use crate::error::ParseError;
 use crate::warning::ParseWarning;
+use std::fmt::{Display, Formatter};
 
 
 #[derive(Debug)]
@@ -18,13 +19,21 @@ impl From<pest::error::Error<Rule>> for FileError {
     }
 }
 
+impl Display for FileError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for FileError {}
+
 #[derive(Debug)]
 pub struct File<'i> {
     pub items: Vec<Item<'i>>
 }
 
 impl<'i> File<'i> {
-    fn parse(input: &'i str) -> Result<(Self, Vec<ParseWarning>), FileError> {
+    pub fn parse(input: &'i str) -> Result<(Self, Vec<ParseWarning>), FileError> {
         let mut pi = <Lexer as pest::Parser<Rule>>::parse(Rule::file, input)?;
         let mut items = Vec::new();
         let mut warnings = Vec::new();
@@ -77,19 +86,6 @@ mod test {
 
     #[test]
     fn test_simple() {
-        let input = r#"
-        enum FrameId {
-            Standard(u11),
-            Extended(u29)
-        }"#;
-        let file= match File::parse(input) {
-            Ok(file) => file,
-            Err(e) => {
-                println!("{:?}", e);
-                return;
-            }
-        };
-        println!("Warnings: {:?}", file.1);
-        println!("File: {:?}", file.0);
+
     }
 }

@@ -13,4 +13,4 @@ name = "vhl"
 path = "src/lib.rs"
 
 [workspace]
-members = ["parser", "cli", "codegen"]
+members = ["parser", "cli", "codegen", "mtoken", "mquote"]

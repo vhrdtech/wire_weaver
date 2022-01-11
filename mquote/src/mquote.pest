@@ -5,9 +5,9 @@ token_except_delimiters = { interpolate | interpolate_repetition | token_except_
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }
-interpolate_simple = { "#" ~ interpolate_path_segment }
+interpolate_simple = _{ "#" ~ interpolate_path_segment }
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
-interpolate_path = { "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ "}" }
+interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ "}" }
 interpolate_repetition = { "#(" ~ token_tree_except_interpolate* ~ interpolate ~ token_tree_except_interpolate* ~ ")" ~ punctuation? ~ "*" }
 
 token_tree_except_interpolate = _{ token_except_interpolate_and_delimiters | delim_token_tree_except_interpolate }

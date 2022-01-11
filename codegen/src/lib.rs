@@ -29,7 +29,7 @@ pub fn fun(ast_item_enum: &ItemEnum) -> u32 {
 pub fn fun2() {
     use mquote::mquote;
     let ts = mquote!(rust r#"
-        x + y
+        struct #{name.field}
     "#);
     println!("{}", ts);
 }

@@ -1,8 +1,6 @@
-use proc_macro2::{TokenStream, Ident, Span};
+use proc_macro2::{TokenStream, };
 use quote::{quote, TokenStreamExt, ToTokens};
-use crate::ast_wrappers::{CGTypename};
-use parser::ast::item_enum::{EnumItems, ItemEnum, EnumItemName, EnumItemKind};
-use std::marker::PhantomData;
+use parser::ast::item_enum::{ItemEnum};
 use crate::dart::docs::CGDocs;
 
 pub struct CGItemEnum<'i, 'c> {

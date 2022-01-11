@@ -1,5 +1,5 @@
 use proc_macro2::{TokenStream, Punct, Spacing, Ident, Span};
-use quote::{quote, TokenStreamExt, ToTokens};
+use quote::{TokenStreamExt, ToTokens};
 use parser::ast::item::Docs;
 
 pub struct CGDocs<'i, 'c> {

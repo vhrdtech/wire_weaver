@@ -89,7 +89,7 @@ impl<'i, 'c> ToTokens for CGEnumItemKind<'i, 'c> {
                 EnumItemKind::Struct => {
                     todo!()
                 }
-                EnumItemKind::Discriminant(expression) => {
+                EnumItemKind::Discriminant(_expression) => {
                     todo!()
                 }
             }

@@ -7,3 +7,5 @@ edition = "2021"
 parser = { path = "../parser" }
 quote = "1.0"
 proc-macro2 = "1.0"
+mtoken = { path = "../mtoken" }
+mquote = { path = "../mquote" }

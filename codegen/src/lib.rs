@@ -25,3 +25,13 @@ pub fn fun(ast_item_enum: &ItemEnum) -> u32 {
 
     0
 }
+
+pub fn fun2() {
+    use mquote::mquote;
+    let ts = mquote!(rust r#"
+        // comment
+        /// comment
+        x + y
+    "#);
+    println!("{}", ts);
+}

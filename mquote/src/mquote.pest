@@ -1,9 +1,22 @@
-token_stream = { SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
+token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
-token_tree = { token_except_delimiters | delim_token_tree }
-token_except_delimiters = _{ ident | ds_comment | ts_comment | punctuation | literal }
+token_tree = _{ token_except_delimiters | delim_token_tree }
+token_except_delimiters = _{ interpolate | interpolate_repetition | token_except_interpolate_and_delimiters }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
-// token = { token_except_delimiters | delimiter }
+
+interpolate = { interpolate_simple | interpolate_path }
+interpolate_simple = { "#" ~ interpolate_path_segment }
+interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
+interpolate_path = { "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ "}" }
+interpolate_repetition = { "#(" ~ token_tree_except_interpolate* ~ interpolate ~ token_tree_except_interpolate* ~ ")" ~ punctuation? ~ "*" }
+
+token_tree_except_interpolate = _{ token_except_interpolate_and_delimiters | delim_token_tree_except_interpolate }
+token_except_interpolate_and_delimiters = _{ ident | ds_comment | ts_comment | punctuation | literal }
+delim_token_tree_except_interpolate = {
+    "(" ~ token_tree_except_interpolate* ~ ")" |
+    "[" ~ token_tree_except_interpolate* ~ "]" |
+    "{" ~ token_tree_except_interpolate* ~ "}"
+}
 
 ident = @{ XID_START ~ XID_CONTINUE* }
 
@@ -13,9 +26,8 @@ punct_star = _{ "*" }
 punct_slash = _{ "/" }
 punct_caret = _{ "^" }
 punct_not = _{ "!" }
-punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not }
-
-delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
+punct_comma = _{ "," }
+punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not | punct_comma }
 
 literal = { "123" }
 

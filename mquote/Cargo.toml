@@ -9,4 +9,5 @@ proc-macro = true
 [dependencies]
 pest = "2.1"
 pest_derive = "2.1"
-#mtoken = { path = "../mtoken" }
+quote = "1.0"
+proc-macro2 = "1.0"

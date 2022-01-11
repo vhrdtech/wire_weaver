@@ -1,5 +1,9 @@
 mod lexer;
 
+use quote::{quote, TokenStreamExt, format_ident};
+
+use proc_macro2::Literal;
+
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
@@ -26,6 +30,51 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
         _ => panic!("Expected raw string literal with mtoken's")
     };
     let mquote_ts = MQuoteLexer::parse(Rule::token_stream, &mquote_ts).unwrap();
-    panic!("{:?} {:?}", language, mquote_ts);
-    "{ let mut ts = mtoken::TokenStream::new(); ts.append(mtoken::Ident::new(\"x\", mtoken::Span::call_site())); ts }".parse().unwrap()
+
+    let mut ts_builder = quote! {
+          let mut ts = mtoken::TokenStream::new();
+    };
+
+    for tt in mquote_ts {
+        eprintln!("{:?}", tt);
+        match tt.as_rule() {
+            Rule::delim_token_tree => {
+
+            },
+            Rule::interpolate => {
+
+            },
+            Rule::interpolate_repetition => {
+
+            },
+            Rule::ident => {
+                let ident_lit = Literal::string(tt.as_str());
+                ts_builder.append_all(quote! {
+                    ts.append(mtoken::Ident::new(#ident_lit, mtoken::Span::call_site()));
+                })
+            },
+            Rule::ds_comment => {
+
+            },
+            Rule::ts_comment => {
+
+            },
+            Rule::punctuation => {
+
+            },
+            Rule::literal => {
+
+            },
+            _ => {}
+        }
+    }
+
+    let ts_builder = quote! {
+        {
+            #ts_builder
+            ts
+        }
+    };
+    eprintln!("TS builder: {}", ts_builder);
+    ts_builder.into()
 }

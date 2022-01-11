@@ -1,7 +1,7 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token_except_delimiters | delim_token_tree }
-token_except_delimiters = _{ interpolate | interpolate_repetition | token_except_interpolate_and_delimiters }
+token_except_delimiters = { interpolate | interpolate_repetition | token_except_interpolate_and_delimiters }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }
@@ -20,14 +20,93 @@ delim_token_tree_except_interpolate = {
 
 ident = @{ XID_START ~ XID_CONTINUE* }
 
+punct_eqeq = _{ "==" }
+punct_assign = _{ "=" }
+
+punct_shl = _{ "<<" }
+punct_rhl = _{ ">>" }
+
+punct_le = _{ "<=" }
+punct_lt = _{ "<" }
+punct_ne = _{ "!=" }
+punct_ge = _{ ">=" }
+punct_gt = _{ ">" }
+
+punct_andand = _{ "&&" }
+punct_oror = _{ "||" }
+
+punct_double_question = _{ "??" }
+punct_question_dot = _ { "?." }
+punct_excl_dot = _ { "!." }
+punct_impl = _ { "->" }
+
+punct_tilde = _{ "~" }
+punct_excl = _{ "!" }
+
+punct_slashslash = _{ "//" }
+punct_slash = _{ "/" }
+
 punct_plus = _{ "+" }
 punct_minus = _{ "-" }
 punct_star = _{ "*" }
-punct_slash = _{ "/" }
+
+punct_percent = _{ "%" }
+
 punct_caret = _{ "^" }
-punct_not = _{ "!" }
+punct_and = _{ "&" }
+punct_or = _{ "|" }
+
+punct_at = _{ "@" }
+punct_dotdot = _{ ".." }
+punct_dot = _{ "." }
 punct_comma = _{ "," }
-punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not | punct_comma }
+punct_semicolon = _{ ";" }
+punct_colon = _{ ":" }
+punct_rarrow = _{ ">" }
+punct_larrow = _{ "<" }
+punct_pound = _{ "#" }
+punct_dollar = _{ "$" }
+punct_question = _{ "?" }
+
+punctuation = {
+    punct_eqeq |
+    punct_assign |
+    punct_shl |
+    punct_rhl |
+    punct_le |
+    punct_lt |
+    punct_ne |
+    punct_ge |
+    punct_gt |
+    punct_andand |
+    punct_oror |
+    punct_double_question |
+    punct_question_dot |
+    punct_excl_dot |
+    punct_impl |
+    punct_tilde |
+    punct_excl |
+    punct_slashslash |
+    punct_slash |
+    punct_plus |
+    punct_minus |
+    punct_star |
+    punct_percent |
+    punct_caret |
+    punct_and |
+    punct_or |
+    punct_at |
+    punct_dotdot |
+    punct_dot |
+    punct_comma |
+    punct_semicolon |
+    punct_colon |
+    punct_rarrow |
+    punct_larrow |
+    punct_pound |
+    punct_dollar |
+    punct_question
+}
 
 literal = { "123" }
 

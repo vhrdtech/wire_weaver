@@ -8,6 +8,10 @@ pub struct TokenStream {
     pub(crate) inner: Vec<TokenTree>
 }
 
+pub trait ToTokens {
+    fn to_tokens(&self, tokens: &mut TokenStream);
+}
+
 impl TokenStream {
     pub fn new() -> Self {
         TokenStream {

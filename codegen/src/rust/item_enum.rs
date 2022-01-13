@@ -1,5 +1,5 @@
-use proc_macro2::{TokenStream, Ident, Span};
-use quote::{quote, TokenStreamExt, ToTokens};
+use mtoken::{ToTokens, TokenStream, Span, Ident};
+use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
 use crate::rust::docs::CGDocs;
 use parser::ast::item_enum::{EnumItems, ItemEnum, EnumItemName, EnumItemKind};
@@ -24,8 +24,6 @@ impl<'i, 'c> CGItemEnum<'i, 'c> {
 
 impl<'i, 'c> ToTokens for CGItemEnum<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let docs = &self.docs;
-        let typename = &self.typename;
         let items = self.items.items.iter().map(
             |i| CGEnumItem {
                 docs: CGDocs { inner: &i.docs },
@@ -33,13 +31,13 @@ impl<'i, 'c> ToTokens for CGItemEnum<'i, 'c> {
                 kind: CGEnumItemKind { inner: &i.kind }
             }
         );
-        tokens.append_all(quote! {
-            #docs
+        tokens.append_all(mquote!(rust r#"
+            #{self.docs}
             #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-            enum #typename {
+            enum #{self.typename} {
                 #(#items),*
             }
-        });
+        "#));
     }
 }
 
@@ -51,14 +49,11 @@ pub struct CGEnumItem<'i, 'c> {
 
 impl<'i, 'c> ToTokens for CGEnumItem<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let docs = &self.docs;
-        let name = &self.name;
-        let kind = &self.kind;
-        tokens.append_all(quote! {
-            #docs
-            #name
-            #kind
-        });
+        tokens.append_all(mquote!(rust r#"
+            #{self.docs}
+            #{self.name}
+            #{self.kind}
+        "#));
     }
 }
 
@@ -82,9 +77,7 @@ impl<'i, 'c> ToTokens for CGEnumItemKind<'i, 'c> {
             match kind {
                 EnumItemKind::Tuple(fields) => {
                     let fields = CGTupleFields { inner: &fields, _p: &PhantomData };
-                    tokens.append_all(quote! {
-                        #fields
-                    });
+                    tokens.append_all(fields);
                 }
                 EnumItemKind::Struct => {
                     todo!()

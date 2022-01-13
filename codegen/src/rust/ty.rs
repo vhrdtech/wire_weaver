@@ -1,5 +1,5 @@
-use proc_macro2::{TokenStream, Ident, Span};
-use quote::{quote, format_ident, TokenStreamExt, ToTokens};
+use mtoken::{ToTokens, TokenStream, Span, Ident};
+use mquote::mquote;
 use parser::ast::ty::Ty;
 use std::marker::PhantomData;
 
@@ -29,9 +29,9 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
                     }
                 };
                 let discrete = format_ident!("{}{}", is_signed, bits);
-                tokens.append_all(quote! {
+                tokens.append_all(mquote!(rust r#"
                     #discrete
-                });
+                "#));
             }
             Ty::FixedPoint { .. } => {}
             Ty::FloatingPoint { .. } => {}

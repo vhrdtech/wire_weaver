@@ -7,7 +7,7 @@ pub mod token_stream;
 
 pub use token::{Ident, Punct, Literal, Comment, Span, Spacing};
 pub use token_tree::TokenTree;
-pub use token_stream::TokenStream;
+pub use token_stream::{TokenStream, ToTokens};
 
 #[cfg(test)]
 mod tests {

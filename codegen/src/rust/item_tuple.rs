@@ -1,5 +1,5 @@
-use proc_macro2::{TokenStream};
-use quote::{quote, TokenStreamExt, ToTokens};
+use mtoken::{ToTokens, TokenStream, Span, Ident};
+use mquote::mquote;
 use parser::ast::item_tuple::TupleFields;
 use std::marker::PhantomData;
 use crate::rust::ty::CGTy;
@@ -17,8 +17,8 @@ impl<'i, 'c> ToTokens for CGTupleFields<'i, 'c> {
                 _p: &PhantomData
             }
         );
-        tokens.append_all(quote! {
+        tokens.append_all(mquote!(rust r#"
             ( #(#fields),* )
-        });
+        "#));
     }
 }

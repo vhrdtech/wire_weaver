@@ -32,4 +32,4 @@ pub fn fun2() {
         struct #{name.field}
     "#);
     println!("{}", ts);
-}
+}h

@@ -68,6 +68,8 @@ punct_pound = _{ "#" }
 punct_dollar = _{ "$" }
 punct_question = _{ "?" }
 
+punct_newline = _{ "\\n" }
+
 punctuation = {
     punct_eqeq |
     punct_assign |
@@ -105,7 +107,8 @@ punctuation = {
     punct_larrow |
     punct_pound |
     punct_dollar |
-    punct_question
+    punct_question |
+    punct_newline
 }
 
 literal = { "123" }

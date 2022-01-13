@@ -50,8 +50,6 @@ dependencies = [
  "mquote",
  "mtoken",
  "parser",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]

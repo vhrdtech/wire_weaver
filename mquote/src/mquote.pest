@@ -2,20 +2,19 @@ token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token_except_delimiters | delim_token_tree }
 token_except_delimiters = { interpolate | interpolate_repetition | token_except_interpolate_and_delimiters }
+token_except_interpolate_and_delimiters = _{ ident | punctuation | literal }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }
 interpolate_simple = _{ "#" ~ interpolate_path_segment }
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
 interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ "}" }
-interpolate_repetition = { "#(" ~ token_tree_except_interpolate* ~ interpolate ~ token_tree_except_interpolate* ~ ")" ~ punctuation? ~ "*" }
 
-token_tree_except_interpolate = _{ token_except_interpolate_and_delimiters | delim_token_tree_except_interpolate }
-token_except_interpolate_and_delimiters = _{ ident | ds_comment | ts_comment | punctuation | literal }
-delim_token_tree_except_interpolate = {
-    "(" ~ token_tree_except_interpolate* ~ ")" |
-    "[" ~ token_tree_except_interpolate* ~ "]" |
-    "{" ~ token_tree_except_interpolate* ~ "}"
+repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
+interpolate_repetition = {
+    "#" ~ "(" ~
+    (!"#" ~ token_tree)* ~ interpolate ~ (!"#" ~ token_tree)* ~ interpolate? ~ (!"#" ~ token_tree)* ~
+    ")" ~ repetition_separator? ~ "*"
 }
 
 ident = @{ XID_START ~ XID_CONTINUE* }
@@ -43,7 +42,8 @@ punct_impl = _ { "->" }
 punct_tilde = _{ "~" }
 punct_excl = _{ "!" }
 
-punct_slashslash = _{ "//" }
+punct_triple_slash = _{ "///" }
+punct_double_slash = _{ "//" }
 punct_slash = _{ "/" }
 
 punct_plus = _{ "+" }
@@ -61,6 +61,7 @@ punct_dotdot = _{ ".." }
 punct_dot = _{ "." }
 punct_comma = _{ "," }
 punct_semicolon = _{ ";" }
+punct_double_colon = _{ "::" }
 punct_colon = _{ ":" }
 punct_rarrow = _{ ">" }
 punct_larrow = _{ "<" }
@@ -88,7 +89,8 @@ punctuation = {
     punct_impl |
     punct_tilde |
     punct_excl |
-    punct_slashslash |
+    punct_triple_slash |
+    punct_double_slash |
     punct_slash |
     punct_plus |
     punct_minus |
@@ -113,7 +115,7 @@ punctuation = {
 
 literal = { "123" }
 
-ds_comment = @{ !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
-ts_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+//ds_comment = @{ !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+//ts_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
 WHITESPACE = _{ (" " | "\t" | "\r" | "\n")+ }

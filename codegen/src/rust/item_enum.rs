@@ -1,4 +1,4 @@
-use mtoken::{ToTokens, TokenStream, Span, Ident};
+use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
 use crate::rust::docs::CGDocs;
@@ -77,7 +77,7 @@ impl<'i, 'c> ToTokens for CGEnumItemKind<'i, 'c> {
             match kind {
                 EnumItemKind::Tuple(fields) => {
                     let fields = CGTupleFields { inner: &fields, _p: &PhantomData };
-                    tokens.append_all(fields);
+                    fields.to_tokens(tokens);
                 }
                 EnumItemKind::Struct => {
                     todo!()

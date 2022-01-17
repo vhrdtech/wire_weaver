@@ -2,34 +2,30 @@ pub mod rust;
 pub mod ast_wrappers;
 pub mod dart;
 
-use quote::quote;
-
 use parser::ast::item_enum::ItemEnum;
 use crate::rust::item_enum::CGItemEnum as RCGItemEnum;
 use crate::dart::item_enum::CGItemEnum as DCGItemEnum;
+use mquote::mquote;
+use mtoken::ToTokens;
 
 pub fn fun(ast_item_enum: &ItemEnum) -> u32 {
     let item_enum = RCGItemEnum::new(ast_item_enum);
-    let tokens = quote! {
+    let tokens = mquote! { rust r#"
         #item_enum
-    };
-    println!("{:?}", tokens);
-    println!("{}", tokens);
+    "#};
+    println!("rust: {:?}", tokens);
+    println!("rust: {}", tokens);
 
     let item_enum = DCGItemEnum::new(ast_item_enum);
-    let tokens = quote! {
+    let tokens = mquote! { rust r#"
         #item_enum
-    };
-    println!("{:?}", tokens);
-    println!("{}", tokens);
+    "#};
+    println!("dart: {:?}", tokens);
+    println!("dart: {}", tokens);
 
     0
 }
 
 pub fn fun2() {
-    use mquote::mquote;
-    let ts = mquote!(rust r#"
-        struct #{name.field}
-    "#);
-    println!("{}", ts);
-}h
+
+}

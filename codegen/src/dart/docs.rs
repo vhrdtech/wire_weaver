@@ -1,6 +1,5 @@
-use proc_macro2::{TokenStream, Punct, Spacing, Ident, Span};
-use quote::{TokenStreamExt, ToTokens};
 use parser::ast::item::Docs;
+use mtoken::{ToTokens, TokenStream, Punct, Spacing, Ident, Span, ext::TokenStreamExt};
 
 pub struct CGDocs<'i, 'c> {
     pub inner: &'c Docs<'i>

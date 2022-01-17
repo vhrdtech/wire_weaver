@@ -1,7 +1,7 @@
-use proc_macro2::{TokenStream, };
-use quote::{quote, TokenStreamExt, ToTokens};
 use parser::ast::item_enum::{ItemEnum};
 use crate::dart::docs::CGDocs;
+use mtoken::{ToTokens, TokenStream, ext::TokenStreamExt};
+use mquote::mquote;
 
 pub struct CGItemEnum<'i, 'c> {
     pub docs: CGDocs<'i, 'c>,
@@ -30,8 +30,8 @@ impl<'i, 'c> ToTokens for CGItemEnum<'i, 'c> {
         //         kind: CGEnumItemKind { inner: &i.kind }
         //     }
         // );
-        tokens.append_all(quote! {
+        tokens.append_all(mquote!(rust r#"
             #docs
-        });
+        "#));
     }
 }

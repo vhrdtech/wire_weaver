@@ -1,4 +1,4 @@
-use mtoken::{ToTokens, TokenStream, Span, Ident};
+use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt};
 use mquote::mquote;
 use parser::ast::ty::Ty;
 use std::marker::PhantomData;
@@ -28,7 +28,7 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
                         "VU"
                     }
                 };
-                let discrete = format_ident!("{}{}", is_signed, bits);
+                let discrete = Ident::new(&format!("{}{}", is_signed, bits), Span::call_site());
                 tokens.append_all(mquote!(rust r#"
                     #discrete
                 "#));

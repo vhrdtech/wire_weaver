@@ -1,7 +1,5 @@
 use parser::ast::item::Typename;
-
-use proc_macro2::{Span, Ident, TokenStream};
-use quote::{TokenStreamExt, ToTokens};
+use mtoken::{ToTokens, TokenStream, Ident, Span, ext::TokenStreamExt};
 
 pub struct CGTypename<'i, 'c> {
     pub inner: &'c Typename<'i>

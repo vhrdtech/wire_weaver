@@ -2,6 +2,7 @@ use crate::token_stream::TokenStream;
 use crate::token::{Ident, Punct, Literal, Comment};
 use std::fmt;
 use std::fmt::{Display, Debug};
+use crate::ToTokens;
 
 /// A single token or a delimited sequence of token trees (e.g. `[1, (), ..]`).
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -28,6 +29,15 @@ pub struct Group {
     stream: TokenStream,
 }
 
+impl Group {
+    pub fn new(delimiter: Delimiter, stream: TokenStream) -> Self {
+        Self {
+            delimiter,
+            stream
+        }
+    }
+}
+
 /// Describes how a sequence of token trees is delimited.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Delimiter {
@@ -47,6 +57,12 @@ pub enum Delimiter {
     // None,
 }
 
+impl From<Group> for TokenTree {
+    fn from(group: Group) -> Self {
+        TokenTree::Group(group)
+    }
+}
+
 impl From<Ident> for TokenTree {
     fn from(ident: Ident) -> Self {
         TokenTree::Ident(ident)
@@ -62,6 +78,12 @@ impl From<Punct> for TokenTree {
 impl From<Literal> for TokenTree {
     fn from(lit: Literal) -> Self {
         TokenTree::Literal(lit)
+    }
+}
+
+impl From<Comment> for TokenTree {
+    fn from(comment: Comment) -> Self {
+        TokenTree::Comment(comment)
     }
 }
 
@@ -104,5 +126,11 @@ impl Debug for Group {
         debug.field("stream", &self.stream);
         // debug_span_field_if_nontrivial(&mut debug, self.span);
         debug.finish()
+    }
+}
+
+impl ToTokens for TokenTree {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(self.clone())
     }
 }

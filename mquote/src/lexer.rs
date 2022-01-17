@@ -106,11 +106,11 @@ mod tests {
         let input = "#( a b #items x y )*";
         let spans = "   ^ ^ ^----^ ^ ^ ";
         let expected = [
-            Rule::token_except_delimiters,
-            Rule::token_except_delimiters,
+            Rule::token,
+            Rule::token,
             Rule::interpolate,
-            Rule::token_except_delimiters,
-            Rule::token_except_delimiters,
+            Rule::token,
+            Rule::token,
         ];
         assert!(verify(input, spans, expected));
     }
@@ -120,13 +120,13 @@ mod tests {
         let input = "#( a b #k x y #v z );*";
         let spans = "   ^ ^ ^^ ^ ^ ^^ ^  ^ ";
         let expected = [
-            Rule::token_except_delimiters,
-            Rule::token_except_delimiters,
+            Rule::token,
+            Rule::token,
             Rule::interpolate,
-            Rule::token_except_delimiters,
-            Rule::token_except_delimiters,
+            Rule::token,
+            Rule::token,
             Rule::interpolate,
-            Rule::token_except_delimiters,
+            Rule::token,
             Rule::repetition_separator
         ];
         assert!(verify(input, spans, expected));

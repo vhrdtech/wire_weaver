@@ -1,8 +1,7 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
-token_tree = _{ token_except_delimiters | delim_token_tree }
-token_except_delimiters = { interpolate | interpolate_repetition | token_except_interpolate_and_delimiters }
-token_except_interpolate_and_delimiters = _{ ident | punctuation | literal }
+token_tree = _{ token | delim_token_tree }
+token = { interpolate | interpolate_repetition | ident | punctuation | literal }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }

@@ -86,6 +86,7 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 name = "mquote"
 version = "0.1.0"
 dependencies = [
+ "parser-test",
  "pest",
  "pest_derive",
  "proc-macro2",
@@ -109,6 +110,12 @@ dependencies = [
  "pest",
  "pest_derive",
 ]
+
+[[package]]
+name = "parser-test"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3fa9e25a3b1685bd22f64a3548eadb948fd8183896d76979a7e750b39bf8ecf"
 
 [[package]]
 name = "pest"

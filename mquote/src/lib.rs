@@ -29,9 +29,9 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
         },
         _ => panic!("Expected raw string literal with mtoken's")
     };
-    eprintln!("\nParsing mquote str: {}", mquote_ts);
+    // eprintln!("\nParsing mquote str: {}", mquote_ts);
     let mquote_ts = MQuoteLexer::parse(Rule::token_stream, &mquote_ts).unwrap();
-    eprintln!("Parsed: {:?}", mquote_ts);
+    // eprintln!("Parsed: {:?}", mquote_ts);
 
     let mut ts_builder = new_ts_builder();
     for token in mquote_ts {
@@ -43,7 +43,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
             ts
         }
     };
-    eprintln!("TS builder: {}", ts_builder);
+    // eprintln!("TS builder: {}", ts_builder);
     ts_builder.into()
 }
 
@@ -64,7 +64,7 @@ fn interpolate_path(token: pest::iterators::Pair<Rule>) -> proc_macro2::TokenStr
 }
 
 fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
-    eprintln!("tt_append: {:?}", token);
+    // eprintln!("tt_append: {:?}", token);
     match token.as_rule() {
         Rule::delim_token_tree => {
             let delimiter = match token.as_str().chars().next().unwrap() {
@@ -114,7 +114,7 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                         }
                     },
                     Rule::interpolate => {
-                        let mut interpolate_expr = interpolate_path(interpolate_token);
+                        let interpolate_expr = interpolate_path(interpolate_token);
                         if interpolate_or_key.is_none() {
                             interpolate_or_key = Some(interpolate_expr);
                         } else {
@@ -127,7 +127,7 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                     _ => panic!("Internal error: unexpected token in interpolate repetition: {:?}", interpolate_token),
                 }
             }
-            eprintln!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}", prefix_ts, interpolate_or_key, infix_ts, interpolate_or_value, postfix_ts, separator);
+            // eprintln!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}", prefix_ts, interpolate_or_key, infix_ts, interpolate_or_value, postfix_ts, separator);
             if interpolate_or_value.is_none() { // interpolate over iterator
                 let interpolate_path_expr = interpolate_or_key.unwrap();
                 ts_builder.append_all(quote! {

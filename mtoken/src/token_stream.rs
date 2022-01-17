@@ -72,7 +72,7 @@ impl FromIterator<TokenStream> for TokenStream {
     fn from_iter<I: IntoIterator<Item = TokenStream>>(streams: I) -> Self {
         let mut v = Vec::new();
 
-        for mut stream in streams {
+        for stream in streams {
             v.extend(stream.inner);
         }
 
@@ -104,7 +104,7 @@ impl IntoIterator for TokenStream {
     type Item = TokenTree;
     type IntoIter = TokenTreeIter;
 
-    fn into_iter(mut self) -> TokenTreeIter {
+    fn into_iter(self) -> TokenTreeIter {
         self.inner.into_iter()
     }
 }

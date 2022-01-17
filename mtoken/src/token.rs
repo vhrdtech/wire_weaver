@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
+use crate::{ToTokens, TokenStream, TokenTree};
 
 /// A word of code, which may be a keyword or legal variable name
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +26,12 @@ impl Display for Ident {
             f.write_str("r#")?;
         }
         Display::fmt(&self.sym, f)
+    }
+}
+
+impl ToTokens for Ident {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(TokenTree::Ident(self.clone()))
     }
 }
 
@@ -61,6 +68,12 @@ impl Display for Punct {
     }
 }
 
+impl ToTokens for Punct {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(TokenTree::Punct(self.clone()))
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Spacing {
     Alone,
@@ -79,18 +92,62 @@ impl Display for Literal {
     }
 }
 
+impl ToTokens for Literal {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(TokenTree::Literal(self.clone()))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Comment {
     line: String,
+    flavor: CommentFlavor,
     span: Span,
+}
+
+impl Comment {
+    pub fn new(line: &str, flavor: CommentFlavor, span: Span) -> Self {
+        Self {
+            line: line.to_owned(),
+            flavor,
+            span
+        }
+    }
 }
 
 impl Display for Comment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("\n")?;
-        Display::fmt(&self.line, f)?;
-        f.write_str("\n")
+        match self.flavor {
+            CommentFlavor::DoubleSlash => {
+                f.write_str("// ")?;
+                Display::fmt(&self.line, f)?;
+                f.write_str("\n")
+            }
+            CommentFlavor::TripleSlash => {
+                f.write_str("/// ")?;
+                Display::fmt(&self.line, f)?;
+                f.write_str("\n")
+            }
+            CommentFlavor::SlashStarMultiline => {
+                f.write_str("/* ")?;
+                Display::fmt(&self.line, f)?;
+                f.write_str(" */")
+            }
+        }
     }
+}
+
+impl ToTokens for Comment {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(TokenTree::Comment(self.clone()))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CommentFlavor {
+    DoubleSlash,
+    TripleSlash,
+    SlashStarMultiline
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

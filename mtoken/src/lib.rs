@@ -4,9 +4,10 @@
 pub mod token;
 pub mod token_tree;
 pub mod token_stream;
+pub mod ext;
 
-pub use token::{Ident, Punct, Literal, Comment, Span, Spacing};
-pub use token_tree::TokenTree;
+pub use token::{Ident, Punct, Literal, Comment, CommentFlavor, Span, Spacing};
+pub use token_tree::{Delimiter, Group, TokenTree};
 pub use token_stream::{TokenStream, ToTokens};
 
 #[cfg(test)]

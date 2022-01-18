@@ -1,6 +1,6 @@
 use parser::ast::item_enum::{ItemEnum};
-use crate::dart::docs::CGDocs;
-use mtoken::{ToTokens, TokenStream, ext::TokenStreamExt};
+use crate::multilang::docs::CGDocs;
+use mtoken::{ToTokens, TokenStream, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 
 pub struct CGItemEnum<'i, 'c> {
@@ -12,7 +12,7 @@ pub struct CGItemEnum<'i, 'c> {
 impl<'i, 'c> CGItemEnum<'i, 'c> {
     pub fn new(item_enum: &'c ItemEnum<'i>) -> Self {
         Self {
-            docs: CGDocs { inner: &item_enum.docs },
+            docs: CGDocs { inner: &item_enum.docs, flavor: CommentFlavor::TripleSlash },
             // typename: CGTypename { inner: &item_enum.typename },
             // items: &item_enum.items
         }

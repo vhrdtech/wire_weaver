@@ -143,7 +143,7 @@ impl ToTokens for Comment {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum CommentFlavor {
     DoubleSlash,
     TripleSlash,

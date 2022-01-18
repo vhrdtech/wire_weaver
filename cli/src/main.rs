@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             Extended(u29)
         }"#;
     let file = File::parse(input)?;
-    println!("Warnings: {:?}", file.1);
+    // println!("Warnings: {:?}", file.1);
     println!("{:?}", file.0.items[0]);
 
     match &file.0.items[0] {

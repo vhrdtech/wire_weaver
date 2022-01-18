@@ -1,10 +1,10 @@
-use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt};
+use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
-use crate::rust::docs::CGDocs;
 use parser::ast::item_enum::{EnumItems, ItemEnum, EnumItemName, EnumItemKind};
 use crate::rust::item_tuple::CGTupleFields;
 use std::marker::PhantomData;
+use crate::multilang::docs::CGDocs;
 
 pub struct CGItemEnum<'i, 'c> {
     pub docs: CGDocs<'i, 'c>,
@@ -15,7 +15,7 @@ pub struct CGItemEnum<'i, 'c> {
 impl<'i, 'c> CGItemEnum<'i, 'c> {
     pub fn new(item_enum: &'c ItemEnum<'i>) -> Self {
         Self {
-            docs: CGDocs { inner: &item_enum.docs },
+            docs: CGDocs { inner: &item_enum.docs, flavor: CommentFlavor::TripleSlash },
             typename: CGTypename { inner: &item_enum.typename },
             items: &item_enum.items
         }
@@ -26,7 +26,7 @@ impl<'i, 'c> ToTokens for CGItemEnum<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let items = self.items.items.iter().map(
             |i| CGEnumItem {
-                docs: CGDocs { inner: &i.docs },
+                docs: CGDocs { inner: &i.docs, flavor: CommentFlavor::TripleSlash },
                 name: CGEnumItemName { inner: &i.name },
                 kind: CGEnumItemKind { inner: &i.kind }
             }

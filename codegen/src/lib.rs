@@ -1,3 +1,4 @@
+pub mod multilang;
 pub mod rust;
 pub mod ast_wrappers;
 pub mod dart;
@@ -13,15 +14,15 @@ pub fn fun(ast_item_enum: &ItemEnum) -> u32 {
     let tokens = mquote! { rust r#"
         #item_enum
     "#};
-    println!("rust: {:?}", tokens);
-    println!("rust: {}", tokens);
+    // println!("rust: {:?}", tokens);
+    println!("rust:\n{}", tokens);
 
     let item_enum = DCGItemEnum::new(ast_item_enum);
     let tokens = mquote! { rust r#"
         #item_enum
     "#};
-    println!("dart: {:?}", tokens);
-    println!("dart: {}", tokens);
+    // println!("dart: {:?}", tokens);
+    println!("dart:\n{}", tokens);
 
     0
 }

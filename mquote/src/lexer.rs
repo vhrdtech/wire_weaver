@@ -7,36 +7,14 @@ mod tests {
     use crate::pest::Parser;
     use super::{Rule, MQuoteLexer};
 
-    struct TestToken {
-        start: usize,
-        end: usize,
-        rule: Rule,
-    }
-
-    impl parser_test::Token for TestToken {
-        type Rule = Rule;
-
-        fn start(&self) -> usize {
-            self.start
-        }
-
-        fn end(&self) -> usize {
-            self.end
-        }
-
-        fn rule(&self) -> Self::Rule {
-            self.rule
-        }
-    }
-
-    fn verify<I>(input: &str, spans: &str, expected: I) -> bool
+    fn verify_inner<I>(rule: Rule, input: &str, spans: &str, expected: I) -> bool
         where I: IntoIterator<Item = Rule>,
     {
-        let mut output = MQuoteLexer::parse(Rule::interpolate_repetition, input).unwrap();
+        let mut output = MQuoteLexer::parse(rule, input).unwrap();
         // println!("{:?}", output);
         let output = output.next().unwrap().into_inner().map(|t| {
             let span = t.as_span();
-            TestToken {
+            parser_test::TestToken {
                 start: span.start(),
                 end: span.end() - 1,
                 rule: t.as_rule()
@@ -50,7 +28,7 @@ mod tests {
         let input = "#(#items)*";
         let spans = "  ^----^  ";
         let expected = [Rule::interpolate];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -58,7 +36,7 @@ mod tests {
         let input = "# ( # items ) *";
         let spans = "    ^-----^   ";
         let expected = [Rule::interpolate];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -66,7 +44,7 @@ mod tests {
         let input = "#(#{self.items})*";
         let spans = "  ^-----------^ ";
         let expected = [Rule::interpolate];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -74,7 +52,7 @@ mod tests {
         let input = "#(#items),*";
         let spans = "  ^----^ ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -82,7 +60,7 @@ mod tests {
         let input = "#(#items) , *";
         let spans = "  ^----^  ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -90,7 +68,7 @@ mod tests {
         let input = "#(#items)**";
         let spans = "  ^----^ ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -98,7 +76,7 @@ mod tests {
         let input = "#(#items) * *";
         let spans = "  ^----^  ^  ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -112,7 +90,7 @@ mod tests {
             Rule::token,
             Rule::token,
         ];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 
     #[test]
@@ -129,6 +107,6 @@ mod tests {
             Rule::token,
             Rule::repetition_separator
         ];
-        assert!(verify(input, spans, expected));
+        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
     }
 }

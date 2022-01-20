@@ -6,7 +6,6 @@ use crate::error::ParseError;
 use crate::warning::ParseWarning;
 use std::fmt::{Display, Formatter};
 
-
 #[derive(Debug)]
 pub enum FileError {
     Lexer(pest::error::Error<Rule>),
@@ -77,15 +76,5 @@ impl<'i> File<'i> {
         } else {
             Err(FileError::Parser(errors))
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::File;
-
-    #[test]
-    fn test_simple() {
-
     }
 }

@@ -123,23 +123,9 @@ struct FrameCounters {
 ```
 
 ### 2. Serialisation and Deserialisation / `serdes`
-Platform independent, efficient binary format. Support for no_std environment without memory allocator.
+Several wire formats targeted at constrained systems and low bandwidth channels, inter process communication and
+ease of human editing are planned. See [Wire formats](book/wire_formats.md).
 
-* Generate serialisation and deserialisation code in various languages (Rust, Dart, C++, ...).
-* Ability to configure and tweak the code generator
-* For now codegen to be implemented in Rust, maybe later by the language itself
-* Support/utils libraries in target languages written manually
-* Various cli tool commands
-
-Format features:
-* Cross-platform
-* No type information, only data and necessary service information
-* Bounds checking
-* Optional sanity checks (cannot cover all errors though, use other means of checking for faulty channels,
-like CRC or FEC).
-* Proper padding for efficient processing?
-* Backwards compatibility, add new fields to the end
-* Little endian
 
 ### 3. / `api`
 Define hardware device or software service API/ABI as a collection primitives such as methods, properties,

@@ -124,7 +124,7 @@ struct FrameCounters {
 
 ### 2. Serialisation and Deserialisation / `serdes`
 Several wire formats targeted at constrained systems and low bandwidth channels, inter process communication and
-ease of human editing are planned. See [Wire formats](book/wire_formats.md).
+ease of human editing are planned. See [Wire formats](book/src/wire_formats/wire_formats.md).
 
 
 ### 3. / `api`

@@ -161,6 +161,15 @@ delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ t
 token_except_delimiters = { keyword | ident_name | literal_expr | punctuation }
 token = { token_except_delimiters | delimiter }
 
+// xPI Blocks
+xpi_block = { "/" ~ xpi_uri_segment ~ xpi_parameters? ~ xpi_body }
+xpi_uri_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")* }
+xpi_parameters = { "<" ~ any_ty? ~ xpi_serial? ~ ">" }
+xpi_serial = { ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
+xpi_body = { "{" ~ xpi_item* ~ "}" }
+xpi_item = { xpi_block | xpi_field }
+xpi_field = { ident_name ~ ":" ~ expression ~ ("," | NEWLINE) }
+
 //
 doc_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 single_line_comment = { !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }

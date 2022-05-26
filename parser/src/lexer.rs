@@ -45,7 +45,7 @@ mod test {
     #[test]
     fn discrete_unsigned_29() {
         let input = "u29";
-        let spans = "^^^";
+        let spans = "^-^";
         let expected = [Rule::discrete_unsigned_ty];
         assert!(verify_inner(Rule::discrete_any_ty, input, spans, expected));
     }
@@ -53,8 +53,16 @@ mod test {
     #[test]
     fn discrete_unsigned_expr() {
         let input = "u{ 4 + 4 }";
-        let spans = "^^^^^^^^^^";
+        let spans = "^--------^";
         let expected = [Rule::discrete_unsigned_ty];
         assert!(verify_inner(Rule::discrete_any_ty, input, spans, expected));
+    }
+
+    #[test]
+    fn xpi() {
+        let input = "/block {}";
+        let spans = " ^---^ ^^";
+        let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
+        assert!(verify_inner(Rule::xpi_block, input, spans, expected));
     }
 }

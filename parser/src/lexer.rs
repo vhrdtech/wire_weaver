@@ -4,10 +4,10 @@ pub struct Lexer;
 
 #[cfg(test)]
 mod test {
-    use crate::pest::Parser;
+    use crate::pest::{Parser, iterators::Pairs};
     use super::{Rule, Lexer};
 
-    fn verify_inner<I>(rule: Rule, input: &str, spans: &str, expected: I) -> bool
+    fn verify_inner<I>(input: Pairs<Rule>, spans: &str, expected: I) -> bool
         where I: IntoIterator<Item = Rule>,
     {
         let mut output = match Lexer::parse(rule, input) {
@@ -59,10 +59,28 @@ mod test {
     }
 
     #[test]
-    fn xpi() {
-        let input = "/block {}";
+    fn xpi_grouping() {
+        let input = "/group {}";
         let spans = " ^---^ ^^";
         let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
         assert!(verify_inner(Rule::xpi_block, input, spans, expected));
     }
+
+    #[test]
+    fn xpi_grouping_nested() {
+        let input = "/group { /nested{} }";
+        let spans = " ^---^ ^-----------^";
+        let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
+        assert!(verify_inner(Rule::xpi_block, input, spans, expected));
+    }
+    
+    #[test]
+    fn xpi_fields() {
+        let input = "/group { field: 123, field: 1, }"; // \n doesn't work instead of a comma!
+        let spans = " ^---^ ^-----------------------^";
+        let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
+        assert!(verify_inner(Rule::xpi_block, input, spans, expected));
+    }
+
+
 }

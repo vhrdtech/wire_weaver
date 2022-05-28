@@ -22,18 +22,16 @@ bool_ty = { "bool" }
 
 // Discrete number types
 /// i8 / i16 / i32 / i3 / i{expr}
-discrete_signed_lit_ty = @{ "i" ~ natural_number }
-discrete_signed_ty = { discrete_signed_lit_ty | ("i" ~ expression_braced) }
+discrete_signed_ty = @{ "i" ~ (natural_number | expression_braced) }
 /// u8 / u16 / u32 / u11 / u{expr}
-discrete_unsigned_lit_ty = @{ "u" ~ natural_number }
-discrete_unsigned_ty = { discrete_unsigned_lit_ty | ("u" ~ expression_braced) }
+discrete_unsigned_ty = @{ "u" ~ (natural_number | expression_braced) }
 discrete_any_ty = { discrete_signed_ty | discrete_unsigned_ty }
 
 // Fixed point number types
 /// Signed: q3.12 / q{ expr -> (m, n) } / q{ expr -> (m, discrete_any_ty) }
-fixed_signed_ty = @{ "q" ~ whole_number ~ "." ~ whole_number | "q" ~ expression_braced }
+fixed_signed_ty = @{ "q" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
 /// Unsigned: uq1.15 / uq{ expr -> (m, n) }
-fixed_unsigned_ty = @{ "uq" ~ whole_number ~ "." ~ whole_number | "uq" ~ expression_braced }
+fixed_unsigned_ty = @{ "uq" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
 fixed_any_ty = { fixed_signed_ty | fixed_unsigned_ty }
 
 /// Floating point number types
@@ -93,7 +91,17 @@ bin_lit = @{ "0b" ~ (ASCII_BIN_DIGIT | "_")+ ~ discrete_any_ty? }
 /// 0o7
 oct_lit = @{ "0o" ~ (ASCII_OCT_DIGIT | "_")+ ~ discrete_any_ty? }
 /// Any discrete literal followed by optional type
-discrete_lit = { dec_lit | hex_lit | bin_lit | oct_lit }
+discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
+/// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
+char = _{
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "0")
+    | "\\" ~ ("u{" ~ ASCII_HEX_DIGIT{4} ~ "}")
+}
+char_lit = { "'" ~ char ~ "'" }
+
+/// All possible literals
+any_lit = _{ bool_lit | discrete_lit | char_lit }
 
 // Operators
 unary_op = {
@@ -110,22 +118,24 @@ binary_op = {
     "|" | // Bitwise OR or Boolean OR
     "^" | // Bitwise XOR or Boolean XOR
     "<<" | // Left shift
-    ">>"   // Right shift
+    ">>" | // Right shift
+    "..="| // Closed range
+    ".."  // Open range
 }
 
 // Expressions
-literal_expr = { bool_lit | discrete_lit }
 
 unary_expr = { unary_op ~ expression }
-infix_expr = { expression_inner ~ (binary_op ~ expression_inner)+ }
+infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
 
-expression_inner = { unary_expr | literal_expr }
+expression_inner = _{ unary_expr | any_lit }
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }
 // block_close = { ")" | "}" | "]" }
 // expression_block = { block_open ~ expression ~ block_close }
-expression_braced = { "{" ~ expression ~ "}" }
+expression_braced = !{ "{" ~ expression ~ "}" }
+expression_ticked = !{ "`" ~ expression ~ "`" }
 
 // Attributes
 inner_attribute = { "#![" ~ attribute ~ "]" }
@@ -160,15 +170,16 @@ delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
 // Tokens
 token_tree = { token_except_delimiters | delim_token_tree }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
-token_except_delimiters = { keyword | ident_name | literal_expr | punctuation }
+token_except_delimiters = { keyword | ident_name | any_lit | punctuation }
 token = { token_except_delimiters | delimiter }
 
 // xPI Blocks
 xpi_block = { "/" ~ xpi_uri_segment ~ xpi_parameters? ~ xpi_body }
-xpi_uri_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")* }
-xpi_parameters = { "<" ~ any_ty? ~ xpi_serial? ~ ">" }
+xpi_uri_ident = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")* }
+xpi_uri_segment = ${ xpi_uri_ident ~ expression_ticked? ~ xpi_uri_ident? }
+xpi_parameters = !{ "<" ~ any_ty? ~ xpi_serial? ~ ">" }
 xpi_serial = { ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
-xpi_body = { "{" ~ xpi_item* ~ "}" }
+xpi_body = !{ "{" ~ xpi_item* ~ "}" }
 xpi_item = _{ xpi_block | xpi_field }
 xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
 

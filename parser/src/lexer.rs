@@ -62,6 +62,24 @@ mod test {
     }
 
     #[test]
+    fn expression_open_range() {
+        let input = "0 .. 7";
+        let spans = "^----^";
+        let expected = [Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
+    fn expression_closed_range() {
+        let input = "0 ..= 7";
+        let spans = "^-----^";
+        let expected = [Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
     fn expression_braced() {
         let input = "{ 4 + 4 }";
         let spans = "^-------^";
@@ -83,12 +101,40 @@ mod test {
     }
 
     #[test]
-    fn xpi_grouping() {
+    fn fixed_ty_directly() {
+        let input = "uq3.12";
+        let spans = "^----^";
+        let expected = [Rule::fixed_unsigned_ty];
+        let parsed = Lexer::parse(Rule::fixed_unsigned_ty, input).unwrap();
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
+    fn fixed_ty_expr_directly() {
+        let input = "uq{ (3, 12) }";
+        let spans = "^-----------^";
+        let expected = [Rule::fixed_unsigned_ty];
+        let parsed = Lexer::parse(Rule::fixed_unsigned_ty, input).unwrap();
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
+    fn xpi_group() {
         let input = "/group {}";
         let spans = " ^---^ ^^";
         let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
+    }
+
+    #[test]
+    fn xpi_name_interpolation() {
+        let input = "/velocity_`'x'..'z'` {}";
+        let spans = " ^---^ ^^";
+        let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
+        let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
+        println!("{:?}", parsed);
+        // assert!(verify(parsed, vec![0], spans, expected));
     }
 
     #[test]
@@ -125,5 +171,35 @@ mod test {
         let expected = [Rule::xpi_field, Rule::xpi_block];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
         assert!(verify(parsed, vec![0, 1], spans, expected));
+    }
+
+    #[test]
+    fn char_literal() {
+        let input = "'a'";
+        let spans = "^-^";
+        let expected = [Rule::char_lit];
+        let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
+        println!("{:?}", parsed);
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
+    fn char_literal_unicode() {
+        let input = "'∈'";
+        let spans = "^---^";
+        let expected = [Rule::char_lit];
+        let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
+        println!("{:?}", parsed);
+        assert!(verify(parsed, vec![], spans, expected));
+    }
+
+    #[test]
+    fn char_literal_ascii_escape() {
+        let input = "'\\n'";
+        let spans = "^--^";
+        let expected = [Rule::char_lit];
+        let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
+        println!("{:?}", parsed);
+        assert!(verify(parsed, vec![], spans, expected));
     }
 }

@@ -22,9 +22,11 @@ bool_ty = { "bool" }
 
 // Discrete number types
 /// i8 / i16 / i32 / i3 / i{expr}
-discrete_signed_ty = @{ "i" ~ natural_number | "i" ~ expression_braced }
+discrete_signed_lit_ty = @{ "i" ~ natural_number }
+discrete_signed_ty = { discrete_signed_lit_ty | ("i" ~ expression_braced) }
 /// u8 / u16 / u32 / u11 / u{expr}
-discrete_unsigned_ty = @{ "u" ~ natural_number | "u" ~ expression_braced }
+discrete_unsigned_lit_ty = @{ "u" ~ natural_number }
+discrete_unsigned_ty = { discrete_unsigned_lit_ty | ("u" ~ expression_braced) }
 discrete_any_ty = { discrete_signed_ty | discrete_unsigned_ty }
 
 // Fixed point number types
@@ -120,8 +122,8 @@ infix_expr = { expression_inner ~ (binary_op ~ expression_inner)+ }
 expression_inner = { unary_expr | literal_expr }
 expression = { infix_expr | expression_inner }
 
-block_open = { "(" | "{" | "[" }
-block_close = { ")" | "}" | "]" }
+// block_open = { "(" | "{" | "[" }
+// block_close = { ")" | "}" | "]" }
 // expression_block = { block_open ~ expression ~ block_close }
 expression_braced = { "{" ~ expression ~ "}" }
 
@@ -167,12 +169,12 @@ xpi_uri_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")
 xpi_parameters = { "<" ~ any_ty? ~ xpi_serial? ~ ">" }
 xpi_serial = { ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
 xpi_body = { "{" ~ xpi_item* ~ "}" }
-xpi_item = { xpi_block | xpi_field }
-xpi_field = { ident_name ~ ":" ~ expression ~ ("," | NEWLINE) }
+xpi_item = _{ xpi_block | xpi_field }
+xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
 
 //
 doc_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 single_line_comment = { !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 multi_line_comment = { "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 COMMENT = { single_line_comment | multi_line_comment }
-WHITESPACE = _{ (" " | "\t" | "\r" | "\n")+ }
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }

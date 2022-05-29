@@ -101,6 +101,7 @@ mod test {
         let spans = "^-----^";
         let expected = [Rule::expression];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        println!("{:?}", parsed);
         assert!(verify(parsed, vec![], spans, expected));
     }
 

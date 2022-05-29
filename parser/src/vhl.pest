@@ -124,20 +124,25 @@ binary_op = {
     "^" | // Bitwise XOR or Boolean XOR
     "<<" | // Left shift
     ">>" | // Right shift
-    "."  | // Field access
     "..="| // Closed range
-    ".."   // Open range
+    ".." | // Open range
+    "."    // Field access
 }
 
 // Expressions
-
 unary_expr = { unary_op ~ expression }
-call_expr = { expression ~ tuple_lit }
+
+call_expr = { call_local | call_method }
+call_local = { ident_name ~ call_arguments }
+call_method = { callable ~ ("." ~ ident_name ~ call_arguments)+ }
+callable = { expression_braced | ident_name | call_local }
+
 infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
+call_arguments = { "(" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ ")" }
 
-expression_inner = _{ unary_expr | any_lit | ident_name }
-expression = { infix_expr | expression_inner | expression_parenthesized | tuple_of_expressions }
+expression_inner = _{ call_expr | unary_expr | any_lit | ident_name | expression_braced | expression_parenthesized | tuple_of_expressions }
+expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }
 // block_close = { ")" | "}" | "]" }

@@ -107,7 +107,7 @@ checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 name = "parser"
 version = "0.1.0"
 dependencies = [
- "parser-test 0.3.1",
+ "parser-test 0.3.3",
  "pest",
  "pest_derive",
 ]
@@ -120,9 +120,9 @@ checksum = "f3cc0deb389a5153e606775c11e483c4934c3789d5913958636917a1dce72881"
 
 [[package]]
 name = "parser-test"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f0ae7ad71ce27f07d35bf99394556f0cb7551c2818923a6c98f6e67b57d759b"
+checksum = "5bed1fb3690a73af8b4e91406f8392c51b2602a740eedf873a2726253c4267a7"
 
 [[package]]
 name = "pest"

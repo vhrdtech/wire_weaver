@@ -8,4 +8,4 @@ pest = "2.1"
 pest_derive = "2.1"
 
 [dev-dependencies]
-parser-test = "0.3.1"
+parser-test = "0.3.3"

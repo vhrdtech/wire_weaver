@@ -95,13 +95,18 @@ discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
 char = _{
     !("\"" | "\\") ~ ANY
-    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "0")
-    | "\\" ~ ("u{" ~ ASCII_HEX_DIGIT{4} ~ "}")
+    | "\\" ~ ("\"" | "'" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "0")
+    | "\\" ~ ("u{" ~ ASCII_HEX_DIGIT{4, 6} ~ "}")
 }
 char_lit = { "'" ~ char ~ "'" }
+/// String
+string_lit = ${ "\"" ~ string_inner ~ "\"" }
+string_inner = @{ char* }
+/// Tuple literal
+tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 
 /// All possible literals
-any_lit = _{ bool_lit | discrete_lit | char_lit }
+any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit | tuple_lit }
 
 // Operators
 unary_op = {
@@ -119,23 +124,27 @@ binary_op = {
     "^" | // Bitwise XOR or Boolean XOR
     "<<" | // Left shift
     ">>" | // Right shift
+    "."  | // Field access
     "..="| // Closed range
-    ".."  // Open range
+    ".."   // Open range
 }
 
 // Expressions
 
 unary_expr = { unary_op ~ expression }
+call_expr = { expression ~ tuple_lit }
 infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
+tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
 
-expression_inner = _{ unary_expr | any_lit }
-expression = { infix_expr | expression_inner }
+expression_inner = _{ unary_expr | any_lit | ident_name }
+expression = { infix_expr | expression_inner | expression_parenthesized | tuple_of_expressions }
 
 // block_open = { "(" | "{" | "[" }
 // block_close = { ")" | "}" | "]" }
 // expression_block = { block_open ~ expression ~ block_close }
 expression_braced = !{ "{" ~ expression ~ "}" }
 expression_ticked = !{ "`" ~ expression ~ "`" }
+expression_parenthesized = { "(" ~ expression ~ ")" }
 
 // Attributes
 inner_attribute = { "#![" ~ attribute ~ "]" }
@@ -174,12 +183,12 @@ token_except_delimiters = { keyword | ident_name | any_lit | punctuation }
 token = { token_except_delimiters | delimiter }
 
 // xPI Blocks
-xpi_block = { "/" ~ xpi_uri_segment ~ xpi_parameters? ~ xpi_body }
+xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
 xpi_uri_ident = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")* }
 xpi_uri_segment = ${ xpi_uri_ident ~ expression_ticked? ~ xpi_uri_ident? }
-xpi_parameters = !{ "<" ~ any_ty? ~ xpi_serial? ~ ">" }
-xpi_serial = { ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
-xpi_body = !{ "{" ~ xpi_item* ~ "}" }
+xpi_resource_ty = { "<" ~ any_ty? ~ ("," ~ xpi_serial)? ~ ">" }
+xpi_serial = @{ "'" ~ ASCII_DIGIT ~ (ASCII_DIGIT)* }
+xpi_body = { "{" ~ xpi_item* ~ "}" }
 xpi_item = _{ xpi_block | xpi_field }
 xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
 

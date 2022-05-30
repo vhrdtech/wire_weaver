@@ -132,16 +132,20 @@ binary_op = {
 // Expressions
 unary_expr = { unary_op ~ expression }
 
-call_expr = { call_local }
+call_expr = { call_then_index | call_after_index | call_local }
+call_then_index = _{ ident_name ~ call_arguments ~ index_arguments }
+call_after_index = _{ ident_name ~ index_arguments ~ call_arguments }
 call_local = _{ ident_name ~ call_arguments }
+index_into_expr = { ident_name ~ index_arguments }
 // call_method = _{ callable ~ ("." ~ ident_name ~ call_arguments)+ }
 callable = _{ expression_braced | ident_name | call_local }
 
 infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
 call_arguments = { "(" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ ")" }
+index_arguments = { "[" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ "]" }
 
-expression_inner = _{ call_expr | unary_expr | any_lit | ident_name | expression_braced | expression_parenthesized | tuple_of_expressions }
+expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | ident_name | expression_braced | expression_parenthesized | tuple_of_expressions }
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }

@@ -173,6 +173,48 @@ mod test {
     }
 
     #[test]
+    fn expression_call_then_index() {
+        let input = "fun(1)['x']";
+        let span1 = "^---------^";
+        let span2 = "^-^^-^^---^";
+        let expected1 = [Rule::expression];
+        let expected1b = [Rule::call_expr];
+        let expected2 = [Rule::ident_name, Rule::call_arguments, Rule::index_arguments];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected1b));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+    }
+
+    #[test]
+    fn expression_index_then_call() {
+        let input = "fun['x'](1)";
+        let span1 = "^---------^";
+        let span2 = "^-^^---^^-^";
+        let expected1 = [Rule::expression];
+        let expected1b = [Rule::call_expr];
+        let expected2 = [Rule::ident_name, Rule::index_arguments, Rule::call_arguments];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected1b));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+    }
+
+    #[test]
+    fn expression_index() {
+        let input = "matrix[3, 7]";
+        let span1 = "^----------^";
+        let span2 = "^----^^----^";
+        let expected1 = [Rule::expression];
+        let expected1b = [Rule::index_into_expr];
+        let expected2 = [Rule::ident_name, Rule::index_arguments];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected1b));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+    }
+
+    #[test]
     fn tuple_of_expressions() {
         let input = "(1 + 1, 2, x.y)";
         let span1 = "^-------------^";

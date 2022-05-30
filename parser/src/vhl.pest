@@ -138,14 +138,15 @@ call_after_index = _{ ident_name ~ index_arguments ~ call_arguments }
 call_local = _{ ident_name ~ call_arguments }
 index_into_expr = { ident_name ~ index_arguments }
 // call_method = _{ callable ~ ("." ~ ident_name ~ call_arguments)+ }
-callable = _{ expression_braced | ident_name | call_local }
+// callable = _{ expression_braced | ident_name | call_local }
 
 infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
 call_arguments = { "(" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ ")" }
 index_arguments = { "[" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ "]" }
+resource_path_start = { "#.." | "#." | "#" }
 
-expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | ident_name | expression_braced | expression_parenthesized | tuple_of_expressions }
+expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | ident_name | resource_path_start | expression_braced | expression_parenthesized | tuple_of_expressions }
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }

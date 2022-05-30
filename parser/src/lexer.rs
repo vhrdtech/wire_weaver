@@ -215,6 +215,34 @@ mod test {
     }
 
     #[test]
+    fn resource_path_index() {
+        let input = "#/sensors/acc/raw[0]";
+        let span1 = "^------------------^";
+        let span2 = "||^-----^|^-^|^----^";
+        let expected1 = [Rule::expression];
+        let expected2 = [
+            Rule::resource_path_start, Rule::binary_op, Rule::ident_name, Rule::binary_op,
+            Rule::ident_name, Rule::binary_op, Rule::index_into_expr];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
+
+    #[test]
+    fn resource_path_relative() {
+        let input = "#./#../xyz";
+        let span1 = "^--------^";
+        let span2 = "^^|^-^|^-^";
+        let expected1 = [Rule::expression];
+        let expected2 = [
+            Rule::resource_path_start, Rule::binary_op, Rule::resource_path_start,
+            Rule::binary_op, Rule::ident_name];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
+
+    #[test]
     fn tuple_of_expressions() {
         let input = "(1 + 1, 2, x.y)";
         let span1 = "^-------------^";

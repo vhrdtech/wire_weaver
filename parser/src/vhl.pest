@@ -103,10 +103,10 @@ char_lit = { "'" ~ char ~ "'" }
 string_lit = ${ "\"" ~ string_inner ~ "\"" }
 string_inner = @{ char* }
 /// Tuple literal
-tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
+// tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 
 /// All possible literals
-any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit | tuple_lit }
+any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit }
 
 // Operators
 unary_op = {

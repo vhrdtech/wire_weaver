@@ -119,7 +119,7 @@ mod test {
         let input = "('x', 'y')";
         let spans = "^--------^";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::tuple_lit];
+        let expected2 = [Rule::tuple_of_expressions];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], spans, expected1));
         assert!(verify(parsed.clone(), vec![0], spans, expected2));
@@ -282,10 +282,13 @@ mod test {
         let input = "(1, 2, 3)";
         let span1 = "^-------^";
         let span2 = " |  |  | ";
-        let expected1 = [Rule::tuple_lit];
-        let expected2 = [Rule::dec_lit, Rule::dec_lit, Rule::dec_lit];
-        let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
+        let span3 = " |       ";
+        let expected1 = [Rule::expression];
+        let expected2 = [Rule::expression, Rule::expression, Rule::expression];
+        let expected3 = [Rule::dec_lit];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
-        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0, 0], span3, expected3));
     }
 }

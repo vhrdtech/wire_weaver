@@ -65,16 +65,6 @@ mod test {
     }
 
     #[test]
-    fn expression_call() {
-        let input = "xyz()";
-        let spans = "^---^";
-        let expected = [Rule::expression];
-        let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        println!("{:?}", parsed);
-        assert!(verify(parsed, vec![], spans, expected));
-    }
-
-    #[test]
     fn expression_field_access() {
         let input = "x.y.z";
         let span1 = "^---^";
@@ -123,6 +113,63 @@ mod test {
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], spans, expected1));
         assert!(verify(parsed.clone(), vec![0], spans, expected2));
+    }
+
+    #[test]
+    fn expression_call() {
+        let input = "fun(1, 2)";
+        let span1 = "^-------^";
+        let span3 = "^-^^----^";
+        let span4 = "    |  | ";
+        let expected1 = [Rule::expression];
+        let expected2 = [Rule::call_expr];
+        let expected3 = [Rule::ident_name, Rule::call_arguments];
+        let expected4 = [Rule::expression, Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], span3, expected3));
+        assert!(verify(parsed.clone(), vec![0, 0, 1], span4, expected4));
+    }
+
+
+    #[test]
+    fn expression_call_method() {
+        let input = "abc.xyz.uvw(1, 1+1)";
+        let span1 = "^-----------------^";
+        let span2 = "^-^|^-^|^---------^";
+        let span3 = "            |  ^-^ ";
+        let expected1 = [Rule::expression];
+        let expected2 = [Rule::ident_name, Rule::binary_op, Rule::ident_name, Rule::binary_op, Rule::call_expr];
+        let expected3 = [Rule::expression, Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        // println!("{:?}", parsed);
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 4, 1], span3, expected3));
+    }
+
+    #[test]
+    fn expression_compound_sum() {
+        let input = "(1 + x + data.y + fun()) + fun2(1, 2)";
+        let span1 = "^-----------------------------------^";
+        let span2 = "^----------------------^ | ^--------^";
+        let span3 = " | | | | ^--^|| | ^---^         I  I ";
+        let span4 = "                                |  | ";
+        let expected1 = [Rule::expression];
+        let expected2 = [Rule::expression_parenthesized, Rule::binary_op, Rule::call_expr];
+        let expected3 = [
+            Rule::dec_lit, Rule::binary_op, Rule::ident_name,
+            Rule::binary_op, Rule::ident_name, Rule::binary_op, Rule::ident_name,
+            Rule::binary_op, Rule::call_expr
+        ];
+        let expected4 = [Rule::expression, Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        // println!("{:?}", parsed);
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0, 0], span3, expected3));
+        assert!(verify(parsed.clone(), vec![0, 2, 1], span4, expected4));
     }
 
     #[test]

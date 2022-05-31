@@ -408,4 +408,28 @@ mod test {
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
         assert!(verify(parsed.clone(), vec![0, 0, 0], span3, expected3));
     }
+
+    #[test]
+    fn si_meters_per_second() {
+        let input = "m / s";
+        let span1 = "^---^";
+        let span2 = "| | |";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name, Rule::si_op, Rule::si_name];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
+
+    #[test]
+    fn si_meter_cubed() {
+        let input = "m+3";
+        let span1 = "^-^";
+        let span2 = "|||";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name, Rule::si_op, Rule::si_power];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
 }

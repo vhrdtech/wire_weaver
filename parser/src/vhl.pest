@@ -202,6 +202,17 @@ xpi_body = { "{" ~ xpi_item* ~ "}" }
 xpi_item = _{ xpi_block | xpi_field }
 xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
 
+// SI units
+si_expr = { si_infix_expr | si_expr_inner }
+si_expr_inner = _{ si_call_expr | si_name | si_power }
+si_infix_expr = _{ si_expr_inner ~ (si_op ~ si_expr_inner)+ }
+si_name = @{ si_char+ }
+si_power = { ASCII_NONZERO_DIGIT+ }
+si_char = _{ "Ω" | "°" | ASCII_ALPHA }
+si_op = { "*" | "⋅" | "/" | "-" | "+" }
+si_fn = { "unit_of" }
+si_call_expr = _{ si_fn ~ call_arguments }
+
 //
 doc_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 single_line_comment = { !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }

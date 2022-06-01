@@ -91,7 +91,6 @@ mod test {
         let spans = "^-----^";
         let expected = [Rule::expression];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        println!("{:?}", parsed);
         assert!(verify(parsed, vec![], spans, expected));
     }
 
@@ -362,7 +361,7 @@ mod test {
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
         let expected2 = [Rule::discrete_any_ty, Rule::xpi_serial];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
-        println!("{:?}", parsed);
+        // println!("{:?}", parsed);
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 1], span2, expected2));
     }
@@ -427,7 +426,85 @@ mod test {
         let span1 = "^-^";
         let span2 = "|||";
         let expected1 = [Rule::si_expr];
-        let expected2 = [Rule::si_name, Rule::si_op, Rule::si_power];
+        let expected2 = [Rule::si_name, Rule::si_op, Rule::dec_lit];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
+
+    #[test]
+    fn si_meter() {
+        let input = "m";
+        let span1 = "|";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected2));
+    }
+
+    #[test]
+    fn si_millimeter() {
+        let input = "mm";
+        let span1 = "^^";
+        let span2 = "| ";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name];
+        let expected3 = [Rule::si_prefix];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected3));
+    }
+
+    #[test]
+    fn si_millihertz() {
+        let input = "mHz";
+        let span1 = "^-^";
+        let span2 = "| ";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name];
+        let expected3 = [Rule::si_prefix];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span1, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected3));
+    }
+
+    #[test]
+    fn si_gibibytes_per_second() {
+        let input = "GiB / s";
+        let span1 = "^-----^";
+        let span2 = "^-^ | |";
+        let span3 = "^^     ";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_name, Rule::si_op, Rule::si_name];
+        let expected3 = [Rule::bin_prefix];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], span3, expected3));
+    }
+
+    #[test]
+    fn si_unit_of() {
+        let input = "unit_of(#./position) / s";
+        let span1 = "^----------------------^";
+        let span2 = "^-----^^-----------^ | |";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::si_fn, Rule::call_arguments, Rule::si_op, Rule::si_name];
+        let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    }
+
+    #[test]
+    fn si_scaling() {
+        let input = "1024 * B";
+        let span1 = "^------^";
+        let span2 = "^--^ | |";
+        let expected1 = [Rule::si_expr];
+        let expected2 = [Rule::dec_lit, Rule::si_op, Rule::si_name];
         let parsed = Lexer::parse(Rule::si_expr, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));

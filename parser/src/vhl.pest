@@ -90,6 +90,8 @@ hex_lit = @{ "0x" ~ (ASCII_HEX_DIGIT | "_")+ ~ discrete_any_ty? }
 bin_lit = @{ "0b" ~ (ASCII_BIN_DIGIT | "_")+ ~ discrete_any_ty? }
 /// 0o7
 oct_lit = @{ "0o" ~ (ASCII_OCT_DIGIT | "_")+ ~ discrete_any_ty? }
+/// Floating point
+float_lit = @{ "ftodo" }
 /// Any discrete literal followed by optional type
 discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
@@ -204,10 +206,14 @@ xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
 
 // SI units
 si_expr = { si_infix_expr | si_expr_inner }
-si_expr_inner = _{ si_call_expr | si_name | si_power }
+si_expr_inner = _{ si_call_expr | si_name | dec_lit | float_lit }
 si_infix_expr = _{ si_expr_inner ~ (si_op ~ si_expr_inner)+ }
-si_name = @{ si_char+ }
-si_power = { ASCII_NONZERO_DIGIT+ }
+si_name = @{ &("m" ~ !si_char) ~ si_char+ | &("T" ~ !si_char) ~ si_char+ | (bin_prefix | si_prefix)? ~ si_char+ }
+si_prefix = ${
+    "y" | "z" | "a" | "f" | "p" | "n" | "u" | "μ" | "m" | "c" | "da" |
+    "d" | "h" | "k" | "M" | "G" | "T" | "P" | "E" | "Z" | "Y"
+}
+bin_prefix = ${ "Ki" | "Mi" | "Gi" | "Ti" | "Pi" | "Ei" | "Zi" | "Yi" }
 si_char = _{ "Ω" | "°" | ASCII_ALPHA }
 si_op = { "*" | "⋅" | "/" | "-" | "+" }
 si_fn = { "unit_of" }

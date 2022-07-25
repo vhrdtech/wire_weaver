@@ -167,9 +167,9 @@ inevitable shortcomings of the codegen.
 * Declaration block can contain properties, nested resources or groups:
 ```
 /accelerometer {
-  /x<f32> { access: ro; }
-  /y<f32> { access: ro; }
-  /z<f32> { access: ro; }
+  /x<ro f32> {}
+  /y<ro f32> {}
+  /z<ro f32> {}
 }
 ```
 
@@ -177,13 +177,13 @@ inevitable shortcomings of the codegen.
 Similar resources can be grouped into one declaration to avoid repeated code:
 ```
 /accelerometer {
-  /`'x'..='z'`<f32> { access: ro; } 
+  /`'x'..='z'`<ro f32> {} 
 }
 ```
 or
 ```
 /accelerometer {
-  /`('x', 'y', 'z')`<f32> { access: ro; } 
+  /`('x', 'y', 'z')`<ro f32> {} 
 }
 ```
 Ticked expression must resolve into either a:
@@ -205,6 +205,71 @@ Bounded numbers are allowed:
 ```
 In this case an actual number of resources available at the moment must be set during run time by a generated user code.
 
+### Resource properties
+* `description` - textual description of the resource function
+* `default` - default value for a resource or constant
+* `values` - array of named values, can be used to create enums in generated code and as examples in documentation
+  * `values: [10 => "Nominal setting", 20 => "High setting"];`
+  * `values: [10 => { description: "Nominal setting", ident: "NominalSetting" } ];`
+  * Restrict resource to be only one of the `values: strict ["low", "mid", "high"]`
+
+#### Properties specific to low level hardware registers
+If a resource describes a hardware register in memory, additional properties are available:
+* `addr` - address in memory.
+* `interface` - separately defined interface block, through which all IO operations are performed.
+* `endiannness` - `little` or `big`.
+* `read_sideeffects` - set to true if read access results in an undesirable system state change,
+for example reading data register of a peripheral can sometimes change status flags (`false` by default).
+* `reserved` - not used portion of the bitfield, can also be set `ro` if it is forbidden to write anything else than default value into it.
+
+Interface block can be defined as follows:
+```
+interface i2c0 {
+  speed: 100 [kHz];
+}
+```
+Actual interface management must be performed by the user code, properties defined will be provided to it.
+
+#### Units
+SI unit can be added after `bits` if the bit portion of the register represent a physical quantity.
+If special conversion is required to obtain a physical value (shift bits around, bias, etc) - create an alias resource and provide an equation.
+
+#### Bit fields
+Specify a resource to be `bitfield<T>` and it's nested resources will represent various bit portions of it.
+For example:
+```
+/sys_stat<bitfield<u8>> {
+  addr: 0x00;
+  default: 0x00;
+  
+  /cc_ready<bit<7>> {
+    description: "Indicates that a fresh coulomb counter reading is available.";
+    values: [
+      0 => "0 = Fresh CC reading not yet available or bit is cleared by host microcontroller.",
+      1 => "1 = Fresh CC reading is available. Remains latched high until cleared by host."
+    ]
+  }
+}
+```
+
+Bit range is defined by using `bits` type: `/scd_t<bits<2, 0>> {}`.
+
+Several similar bits or bit ranges can be defined by using resource arrays.
+Shifts are possible by using `i` variable that goes from 0 to the size of the array-1:
+```
+/cellbal<bitfield<u16>> {
+  addr: 0x02;
+  description: "Balancing control for Cells 6-10";
+  
+  /cb<[bit<i + 6>; 5]> {
+    values: [
+      0 => "Cell balancing on Cell [i+6] is enabled",
+      1 => "Cell balancing on Cell [i+6] is disabled"
+    ]
+  }
+}
+```
+
 ### Resource borrowing
 Shared access to a mutable resource can lead to data races. To address this issue, resource can be borrowed by
 a connected client or user code (or loaded wasm module).
@@ -213,7 +278,31 @@ a connected client or user code (or loaded wasm module).
   /value<u8> {}
 }
 ```
-Borrowed resources can still be read, since all writes are 'atomic' in the sense that it is not possible to perform partial writes like in memory.
+Borrowed resources can still be read, since all writes are 'atomic' in the sense that it is not possible to
+perform partial writes like in memory.
+
+### Resource conditional enable
+`#cfg[name]` can be used before resource declaration to allow enabling/disabling it.
+User code can decide whether to do it in run time or just once during initialization.
+
+### Functions
+Functions or methods can be defined as follows:
+```
+/start<fn()> {}
+```
+
+### Streams
+
+
+### Chunked access / lazy load
+
+### Access type
+Resources with a type which is not a function or a stream are read-write by default (properties).
+Other access types are:
+* `rw` - default, but can be explicitly used anyway
+* `ro` - read only
+* `wo` - write only
+* `const` - read only and guaranteed not to change
 
 ### Alias resources
 ```
@@ -229,7 +318,12 @@ Borrowed resources can still be read, since all writes are 'atomic' in the sense
 * `#./` points to child resources
 * `#../` points to parent resources
 
-### Internal functions
+### Built-in types and functions
+#### Types
+* `[T; numbound?]` - array of things, can be of fixed size (`numbound` = unsigned literal), bounded (`..4`, `2..8`) or unbounded.
+* `Cell<T>` - borrowable resource, described above
+
+#### Functions
 * `indexof( [resource path] )` - returns type with enough bits to hold the index for specified resource array
   * `/array_of_resources<[_; 7]> {}`
   * `indexof(#/array_of_resources) == autonum<0..7>`

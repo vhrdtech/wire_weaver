@@ -9,8 +9,8 @@ whole_number = @{ ASCII_DIGIT+ }
 /// ..., -3, -2, -1, 0, 1, 2, 3, ...
 integer_number = @{ ("-" ~ natural_number) | whole_number }
 
-// identifierifier
-identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+/// Identifier, very permissive to allow parse stage to pass and show user friendly warning/error later in lint phase.
+identifier = @{ XID_START ~ XID_CONTINUE* }
 
 // Boolean
 bool_ty = { "bool" }
@@ -29,6 +29,8 @@ fixed_signed_ty = @{ "q" ~ (whole_number ~ "." ~ whole_number | expression_brace
 fixed_unsigned_ty = @{ "uq" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
 fixed_any_ty = { fixed_signed_ty | fixed_unsigned_ty }
 
+num_bound = { dec_lit | "unbound" | expression_list | "max" ~ dec_lit }
+
 /// Floating point number types
 floating_any_ty = { "f32" | "f64" }
 
@@ -42,9 +44,11 @@ unit_ty = { "(" ~ ")" }
 tuple_fields = { any_ty ~ ("," ~ any_ty)* ~ ","? }
 tuple_ty = { "(" ~ tuple_fields ~ ")" }
 /// Array
-array_ty = { "[" ~ any_ty ~ ";" ~ expression ~ "]" }
+array_ty = { "[" ~ any_ty ~ ";" ~ num_bound ~ "]" }
 
-param_ty = { identifier ~ ("<" ~ expression_list ~ ">") }
+derive = { "_" }
+type_param = _{ any_ty | derive | expression}
+param_ty = { identifier ~ ("<" ~ type_param ~ ("," ~ type_param)* ~ ","? ~ ">") }
 
 /// Any supported type without access modifier
 any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | param_ty | identifier }
@@ -83,15 +87,17 @@ statement = { let_stmt | item_stmt | api_stmt }
 bool_lit = { "true" | "false" }
 sign_prefix = { "+" | "-" }
 /// -10, 17, 0, +3, 127u16, 1_000, 1023_u32
-dec_lit = @{ sign_prefix? ~ (ASCII_DIGIT | "_")+ ~ discrete_any_ty? }
+dec_lit = @{ sign_prefix? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* ~ discrete_any_ty? }
+dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 /// 0xAA, 0xcc, 0xff_u8
-hex_lit = @{ "0x" ~ (ASCII_HEX_DIGIT | "_")+ ~ discrete_any_ty? }
+hex_lit = @{ "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* ~ discrete_any_ty? }
 /// 0b1111_0000, 0b101_u3
-bin_lit = @{ "0b" ~ (ASCII_BIN_DIGIT | "_")+ ~ discrete_any_ty? }
+bin_lit = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* ~ discrete_any_ty? }
 /// 0o7
-oct_lit = @{ "0o" ~ (ASCII_OCT_DIGIT | "_")+ ~ discrete_any_ty? }
+oct_lit = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* ~ discrete_any_ty? }
 /// Floating point
-float_lit = @{ "ftodo" }
+float_exponent = @{ "e" | "E" ~ sign_prefix? ~ dec_lit_raw }
+float_lit = @{ sign_prefix? ~ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
 discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
@@ -108,7 +114,7 @@ string_inner = @{ char* }
 // tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 
 /// All possible literals
-any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit }
+any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit | float_lit }
 
 // Operators
 unary_op = {

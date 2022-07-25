@@ -400,6 +400,32 @@ mod test {
     }
 
     #[test]
+    fn float_literals() {
+        let numbers = ["123.0f64", "0.1f64", "0.1f32", "12e+99f64", "5f32", "-1.0", "+7.7"];
+        for n in numbers {
+            let _ = Lexer::parse(Rule::any_lit, n).unwrap();
+        }
+    }
+
+    #[test]
+    fn type_parameter() {
+        let input = "Cell<_>";
+        let spans = "^--^ | ";
+        let expected = [Rule::identifier, Rule::derive];
+        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        assert!(verify(parsed, vec![0], spans, expected));
+    }
+
+    #[test]
+    fn type_parameters() {
+        let input = "alias<u16, _>";
+        let spans = "^---^ ^-^  | ";
+        let expected = [Rule::identifier, Rule::discrete_any_ty, Rule::derive];
+        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        assert!(verify(parsed, vec![0], spans, expected));
+    }
+
+    #[test]
     fn char_literal_ascii_escape() {
         let input = "'\\n'";
         let spans = "^--^";
@@ -527,14 +553,17 @@ mod test {
 
     #[test]
     fn type_alias_definition() {
-        let input = "type UserTy = autonum<0.0, 0.1 ..= 1.0>;";
-        let span1 = "^--------------------------------------^";
-        let span2 = "     ^----^   ^-----^ ^-^  ^---------^  ";
+        let input = "type UserTy = autonum<0, 1 ..= 10>;";
+        let span1 = "^---------------------------------^";
+        let span2 = "     ^----^   ^------------------^ ";
+        let span3 = "              ^-----^ |  ^------^  ";
         let expected1 = [Rule::type_alias_def];
-        let expected2 = [Rule::identifier, Rule::identifier, Rule::expression, Rule::expression];
+        let expected2 = [Rule::identifier, Rule::param_ty];
+        let expected3 = [Rule::identifier, Rule::expression, Rule::expression];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0, 1], span3, expected3));
     }
 
     #[test]

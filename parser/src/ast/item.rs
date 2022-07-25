@@ -36,7 +36,7 @@ pub struct Typename<'i> {
 impl<'i> Parse<'i> for Typename<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ()> {
         if let Some(p) = input.pairs.peek() {
-            return if p.as_rule() == Rule::type_name {
+            return if p.as_rule() == Rule::identifier {
                 let p = input.pairs.next().unwrap();
                 Ok(Typename {
                     typename: p.as_str()

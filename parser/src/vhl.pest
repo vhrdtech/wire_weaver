@@ -9,13 +9,8 @@ whole_number = @{ ASCII_DIGIT+ }
 /// ..., -3, -2, -1, 0, 1, 2, 3, ...
 integer_number = @{ ("-" ~ natural_number) | whole_number }
 
-// Types
-capitalized_word = @{ ASCII_ALPHA_UPPER ~ (ASCII_ALPHANUMERIC | "_")* }
-lowercase_word = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
-type_name = @{ capitalized_word }
-ident_name = @{ lowercase_word }
-simple_path_segment = @{ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")+ }
-enum_item_name = @{ capitalized_word }
+// identifierifier
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
 // Boolean
 bool_ty = { "bool" }
@@ -47,32 +42,37 @@ unit_ty = { "(" ~ ")" }
 tuple_fields = { any_ty ~ ("," ~ any_ty)* ~ ","? }
 tuple_ty = { "(" ~ tuple_fields ~ ")" }
 /// Array
-array_ty = { "[" ~ any_ty ~ ";" ~ expression }
+array_ty = { "[" ~ any_ty ~ ";" ~ expression ~ "]" }
 
-/// All the types
-any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | type_name }
+param_ty = { identifier ~ ("<" ~ expression_list ~ ">") }
+
+/// Any supported type without access modifier
+any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | param_ty | identifier }
+
+/// Access modifier
+access_mod = { "const" | "rw" | "ro" | "wo" }
 
 // Definitions
 /// Alias type
-type_alias_def = { "type" ~ type_name ~ "=" ~ any_ty ~ ";" }
+type_alias_def = { "type" ~ identifier ~ "=" ~ any_ty ~ ";" }
 /// Struct type
-struct_field = { outer_attribute* ~ ident_name ~ ":" ~ any_ty }
+struct_field = { outer_attribute* ~ identifier ~ ":" ~ any_ty }
 struct_fields = _{ struct_field ~ ("," ~ struct_field)* ~ ","? }
-struct_def = {  "struct" ~ type_name ~ ("{" ~ struct_fields ~ "}" | ";") }
+struct_def = {  "struct" ~ identifier ~ ("{" ~ struct_fields ~ "}" | ";") }
 /// Tuple struct
-tuple_struct_def = { "struct" ~ type_name ~ "(" ~ tuple_fields ~ ")" ~ ";" }
+tuple_struct_def = { "struct" ~ identifier ~ "(" ~ tuple_fields ~ ")" ~ ";" }
 /// Enum
 enum_item_tuple = { "(" ~ tuple_fields? ~ ")" }
 enum_item_struct = { "{" ~ struct_fields ~ "}" }
 enum_item_discriminant = { "=" ~ expression }
-enum_item = { doc_attr ~ enum_item_name ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
-enum_items = { enum_item ~ ("," ~ enum_item)* ~ ","? }
-enum_def = { doc_attr ~ "enum" ~ type_name ~ "{" ~ enum_items? ~ "}" }
+enum_item = _{ doc_attr ~ identifier ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
+enum_items = _{ enum_item ~ ("," ~ enum_item)* ~ ","? }
+enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
 
-definition = { type_alias_def | struct_def | tuple_struct_def | enum_def }
+definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | xpi_block }
 
 // Statements
-let_stmt = { "let" ~ ident_name ~ "=" ~ expression }
+let_stmt = { "let" ~ identifier ~ "=" ~ expression }
 item_stmt = { "TODO" }
 api_stmt = { "TODO" }
 expr_stmt = { expression ~ ";" | expression_braced ~ ";"? }
@@ -135,20 +135,20 @@ binary_op = {
 unary_expr = { unary_op ~ expression }
 
 call_expr = { call_then_index | call_after_index | call_local }
-call_then_index = _{ ident_name ~ call_arguments ~ index_arguments }
-call_after_index = _{ ident_name ~ index_arguments ~ call_arguments }
-call_local = _{ ident_name ~ call_arguments }
-index_into_expr = { ident_name ~ index_arguments }
-// call_method = _{ callable ~ ("." ~ ident_name ~ call_arguments)+ }
-// callable = _{ expression_braced | ident_name | call_local }
+call_then_index = _{ identifier ~ call_arguments ~ index_arguments }
+call_after_index = _{ identifier ~ index_arguments ~ call_arguments }
+call_local = _{ identifier ~ call_arguments }
+index_into_expr = { identifier ~ index_arguments }
+// call_method = _{ callable ~ ("." ~ identifier ~ call_arguments)+ }
+// callable = _{ expression_braced | identifier | call_local }
 
 infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
-call_arguments = { "(" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ ")" }
-index_arguments = { "[" ~ (expression ~ ("," ~ expression)* ~ ","?)? ~ "]" }
+call_arguments = { "(" ~ expression_list? ~ ")" }
+index_arguments = { "[" ~ expression_list? ~ "]" }
 resource_path_start = { "#.." | "#." | "#" }
 
-expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | ident_name | resource_path_start | expression_braced | expression_parenthesized | tuple_of_expressions }
+expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | identifier | resource_path_start | expression_braced | expression_parenthesized | tuple_of_expressions }
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }
@@ -157,12 +157,13 @@ expression = { infix_expr | expression_inner }
 expression_braced = !{ "{" ~ expression ~ "}" }
 expression_ticked = !{ "`" ~ expression ~ "`" }
 expression_parenthesized = { "(" ~ expression ~ ")" }
+expression_list = _{ expression ~ ("," ~ expression)* ~ ","? }
 
 // Attributes
 inner_attribute = { "#![" ~ attribute ~ "]" }
 outer_attribute = { "#[" ~ attribute ~ "]" }
 attribute = _{ simple_path ~ attribute_input? }
-simple_path = { "::"? ~ simple_path_segment ~ ("::" ~ simple_path_segment)* }
+simple_path = { "::"? ~ identifier ~ ("::" ~ identifier)* }
 attribute_input = { delim_token_tree | "=" ~ expression }
 
 // Optional doc comments and attributes prior to many user defined things
@@ -191,18 +192,17 @@ delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
 // Tokens
 token_tree = { token_except_delimiters | delim_token_tree }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
-token_except_delimiters = { keyword | ident_name | any_lit | punctuation }
+token_except_delimiters = { keyword | identifier | any_lit | punctuation }
 token = { token_except_delimiters | delimiter }
 
 // xPI Blocks
 xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
-xpi_uri_ident = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHA_LOWER | ASCII_DIGIT | "_")* }
-xpi_uri_segment = ${ xpi_uri_ident ~ expression_ticked? ~ xpi_uri_ident? }
-xpi_resource_ty = { "<" ~ any_ty? ~ ("," ~ xpi_serial)? ~ ">" }
+xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier?) | expression_ticked ~ identifier? }
+xpi_resource_ty = { "<" ~ (access_mod? ~ any_ty)? ~ ("," ~ xpi_serial)? ~ ">" }
 xpi_serial = @{ "'" ~ ASCII_DIGIT ~ (ASCII_DIGIT)* }
 xpi_body = { "{" ~ xpi_item* ~ "}" }
 xpi_item = _{ xpi_block | xpi_field }
-xpi_field = { ident_name ~ ":" ~ expression ~ ";" }
+xpi_field = { identifier ~ ":" ~ expression ~ ";" }
 
 // SI units
 si_expr = { si_infix_expr | si_expr_inner }

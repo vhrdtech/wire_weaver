@@ -89,7 +89,7 @@ impl<'i> Parse<'i> for EnumItem<'i> {
 impl<'i> Parse<'i> for EnumItemName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
         if let Some(p) = input.pairs.peek() {
-            return if p.as_rule() == Rule::enum_item_name {
+            return if p.as_rule() == Rule::identifier {
                 let p = input.pairs.next().unwrap();
                 Ok(EnumItemName {
                     name: p.as_str()

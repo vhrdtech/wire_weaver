@@ -52,7 +52,7 @@ impl<'i> Parse<'i> for Ty {
             Rule::array_ty => {
                 Err(())
             }
-            Rule::type_name => {
+            Rule::identifier => {
                 Err(())
             }
             _ => {

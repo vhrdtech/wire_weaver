@@ -294,8 +294,6 @@ Functions or methods can be defined as follows:
 ### Streams
 
 
-### Chunked access / lazy load
-
 ### Access type
 Resources with a type which is not a function or a stream are read-write by default (properties).
 Other access types are:

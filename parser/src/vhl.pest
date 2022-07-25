@@ -20,19 +20,19 @@ bool_ty = { "bool" }
 discrete_signed_ty = @{ "i" ~ (natural_number | expression_braced) }
 /// u8 / u16 / u32 / u11 / u{expr}
 discrete_unsigned_ty = @{ "u" ~ (natural_number | expression_braced) }
-discrete_any_ty = { discrete_signed_ty | discrete_unsigned_ty }
+discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ si_expr_ticked? }
 
 // Fixed point number types
 /// Signed: q3.12 / q{ expr -> (m, n) } / q{ expr -> (m, discrete_any_ty) }
 fixed_signed_ty = @{ "q" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
 /// Unsigned: uq1.15 / uq{ expr -> (m, n) }
 fixed_unsigned_ty = @{ "uq" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
-fixed_any_ty = { fixed_signed_ty | fixed_unsigned_ty }
+fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
 
-num_bound = { dec_lit | "unbound" | expression_list | "max" ~ dec_lit }
+num_bound = { "unbound" | "max" ~ dec_lit | expression_list }
 
 /// Floating point number types
-floating_any_ty = { "f32" | "f64" }
+floating_any_ty = { ("f32" | "f64") ~ si_expr_ticked? }
 
 /// Textual types
 textual_any_ty = { "char" | "str" }
@@ -47,11 +47,14 @@ tuple_ty = { "(" ~ tuple_fields ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ num_bound ~ "]" }
 
 derive = { "_" }
-type_param = _{ any_ty | derive | expression}
+type_param = _{ any_ty | expression}
 param_ty = { identifier ~ ("<" ~ type_param ~ ("," ~ type_param)* ~ ","? ~ ">") }
 
+fn_declaration_params = { "()" }
+fn_ty = { "fn" ~ fn_declaration_params ~ ("->" ~ any_ty)? }
+
 /// Any supported type without access modifier
-any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | param_ty | identifier }
+any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | param_ty | derive | fn_ty | identifier }
 
 /// Access modifier
 access_mod = { "const" | "rw" | "ro" | "wo" }
@@ -114,7 +117,7 @@ string_inner = @{ char* }
 // tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 
 /// All possible literals
-any_lit = _{ bool_lit | discrete_lit | char_lit | string_lit | float_lit }
+any_lit = _{ bool_lit | float_lit | discrete_lit | char_lit | string_lit }
 
 // Operators
 unary_op = {
@@ -212,6 +215,7 @@ xpi_field = { identifier ~ ":" ~ expression ~ ";" }
 
 // SI units
 si_expr = { si_infix_expr | si_expr_inner }
+si_expr_ticked = _{ "`" ~ si_expr ~ "`" }
 si_expr_inner = _{ si_call_expr | si_name | dec_lit | float_lit }
 si_infix_expr = _{ si_expr_inner ~ (si_op ~ si_expr_inner)+ }
 si_name = @{ &("m" ~ !si_char) ~ si_char+ | &("T" ~ !si_char) ~ si_char+ | (bin_prefix | si_prefix)? ~ si_char+ }

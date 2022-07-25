@@ -25,6 +25,10 @@ mod test {
         parser_test::test(output, expected, spans)
     }
 
+    macro_rules! ppt {
+        ($p:ident) => { crate::util::pest_print_tree($p.clone()); }
+    }
+
     #[test]
     fn discrete_signed_8_as_discrete_any_ty() {
         let input = "i8";
@@ -306,6 +310,21 @@ mod test {
     }
 
     #[test]
+    fn xpi_resource_with_unit() {
+        let input = "/speed<f32 `m/s`> {}";
+        let span1 = " ^---^^---------^ ^^";
+        let span2 = "       ^-------^    ";
+        let span3 = "            ^-^     ";
+        let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
+        let expected2 = [Rule::floating_any_ty];
+        let expected3 = [Rule::si_expr];
+        let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
+        assert!(verify(parsed.clone(), vec![0], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0, 1], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 1, 0], span3, expected3));
+    }
+
+    #[test]
     fn xpi_const_property_resource() {
         let input = "/channel_count<const indexof<#./channel>> {}";
         let span1 = "^------------------------------------------^";
@@ -318,6 +337,33 @@ mod test {
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
         assert!(verify(parsed.clone(), vec![0, 0, 1], span3, expected3));
+    }
+
+    #[test]
+    fn xpi_array_property_resource() {
+        let input = "/channels<[indexof<#../channel>; 3..=4]> {}";
+        let span1 = "^-----------------------------------------^";
+        let span2 = " ^------^^-----------------------------^ ^^";
+        let span3 = "          ^---------------------------^    ";
+        let expected1 = [Rule::xpi_block];
+        let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
+        let expected3 = [Rule::array_ty];
+        let parsed = Lexer::parse(Rule::definition, input).unwrap();
+        assert!(verify(parsed.clone(), vec![0], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0, 1], span3, expected3));
+    }
+
+    #[test]
+    fn xpi_method_resource() {
+        let input = "/query<fn()> {}";
+        let span1 = "^-------------^";
+        let span2 = "       ^--^    ";
+        let expected1 = [Rule::xpi_block];
+        let expected2 = [Rule::fn_ty];
+        let parsed = Lexer::parse(Rule::definition, input).unwrap();
+        assert!(verify(parsed.clone(), vec![0], span1, expected1));
+        assert!(verify(parsed.clone(), vec![0, 0, 1], span2, expected2));
     }
 
     #[test]
@@ -412,6 +458,15 @@ mod test {
         let input = "Cell<_>";
         let spans = "^--^ | ";
         let expected = [Rule::identifier, Rule::derive];
+        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        assert!(verify(parsed, vec![0], spans, expected));
+    }
+
+    #[test]
+    fn type_parameter_xpi_path() {
+        let input = "Cell<#../channel>";
+        let spans = "^--^ ^---------^ ";
+        let expected = [Rule::identifier, Rule::expression];
         let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
     }

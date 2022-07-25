@@ -135,6 +135,13 @@ struct FrameCounters {
 }
 ```
 
+### Naming convention
+Only ASCII identifiers or Greek letters (will be converted into names in languages not supporting Unicode identifiers)
+are allowed at this point.
+* User types: CamelCase
+* Constants: SNAKE_CASE_UPPER
+* Functions: lower_case_snake
+
 ## 2. Serialisation and Deserialisation / `serdes`
 Several wire formats targeted at constrained systems and low bandwidth channels, inter process communication and
 ease of human editing are planned. See [Wire formats](book/src/wire_formats/wire_formats.md).
@@ -328,6 +335,9 @@ Other access types are:
 * `sizeof( [resource path] )` - returns resource array size or bound
   * `/channels<[_; max 12]> {}`
   * `sizeof(#/channels) == numbound<min 0 max 12>` not known during vhL compilation
+
+### Resource naming
+Use lower_snake_case.
 
 ## 4. Automatic UI building / `ui`
 Flutter based application + supporting Dart libraries.

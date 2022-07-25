@@ -159,6 +159,62 @@ Ability to specify congestion control policy between selected properties.
 inevitable shortcomings of the codegen. 
 * For now codegen to be implemented in Rust, maybe later by the language itself
 
+### Syntax
+* Resource definition begins with a `/` followed by a name of the resource, it's type and a declaration block:
+  * `/acceleration<f32, '0> {}` where `'0` is a serial number that can be omitted (in which case it can be auto generated later).
+* If type is omitted, then it's a group of resources: `/velocity {}`
+
+* Declaration block can contain properties, nested resources or groups:
+```
+/accelerometer {
+  /x<f32> { access: ro; }
+  /y<f32> { access: ro; }
+  /z<f32> { access: ro; }
+}
+```
+
+#### Resource tuple
+Similar resources can be grouped into one declaration to avoid repeated code:
+```
+/accelerometer {
+  /`'x'..='z'`<f32> { access: ro; } 
+}
+```
+or
+```
+/accelerometer {
+  /`('x', 'y', 'z')`<f32> { access: ro; } 
+}
+```
+Ticked expression must resolve into either a:
+* Range of numbers or char literals
+* Or a tuple of numbers, char literals or strings
+
+#### Resource array
+It is also possible to define an array of resources:
+```
+/channels<[_; 8]> {
+  /value<u8> {}
+}
+```
+Bounded numbers are allowed:
+```
+/channels<[_; max 8]> {
+  /value<u8> {}
+}
+```
+In this case an actual number of resources available at the moment must be set during run time by a generated user code.
+
+### Resource borrowing
+Shared access to a mutable resource can lead to data races. To address this issue, resource can be borrowed by
+a connected client or user code (or loaded wasm module).
+```
+/channels<[Cell<_>; max 8]> {
+  /value<u8> {}
+}
+```
+Borrowed resources can still be read, since all writes are 'atomic' in the sense that it is not possible to perform partial writes like in memory.
+
 ### Alias resources
 ```
 /main {

@@ -1,4 +1,4 @@
-## Very Hard Language / vhL
+# Very Hard Language / vhL
 vhL is a language aimed at fully defining machine-to-machine communications. [TODO: write short and meaningful description]
 
 vhL is not a regular language, it is (mostly) not designed to be executed, but rather it precisely describes what
@@ -17,16 +17,16 @@ _Things are mostly sorted and to be implemented in the importance order._
 
 Goals and features of the language:
 
-### 1. Advanced type system / `types`
+## 1. Advanced type system / `types`
 The goal is to develop a rich type system with first class support for bounded numbers and SI units that will be
 able to represent even the most complex systems, while still being able to serialise everything in all
 the supported targets.
 
-Features:
+### Features
 * Bytecode target should be supported
 * Provide `Default`, `Example` and `Allowed` values for any user defined type
 
-**Types:**
+### Types
 * Boolean (true / false)
 * Discrete numbers:
   * Signed: `i8` / `i16` / `i32` / `i64` / `i128`
@@ -60,16 +60,20 @@ Features:
   * Map
 * Variable length encoded numbers: `varint<Flavor>`, Flavor: gve, vlq, leb128, zigzag
 
-**Bounded / checked numbers:**
+### Bounded / checked numbers
 
 Simple checked numbers where only a range of values is allowed:
 * `u16 in 1..=512` - values 513 and above are not allowed
+* or `u16<1..=512>` for consistency?
 * `u<N>` or `i<N>` - valid values from -2^(N-1) to 2^(N-1)-1
+* `u<N, [B]>` - where B is an optional bound
 * ? auto-bound-number: `-10..21` to let vhL choose the smallest representation possible automatically
+* `autonum` keyword: `autonum<-10..21>`, `autonum<0.00, 0.01 ..= 1.00>`
 * fixed point can be derived as well: `-1.0,-0.9..1.0`
+* `1..=512`, `0.00, 0.01 ..= 1.00` above is an implicit form of a special type - `numbound`
 
 Set of allowed values:
-* `u8 in {0..=8, 12, 16, 20, 24, 32, 48, 64}`
+* `u8<0..=8, 12, 16, 20, 24, 32, 48, 64>`
 
 Number classes/traits?:
 * Natural: 1, 2, 3, 4, 5, ...
@@ -86,7 +90,16 @@ Possible syntax:
 * `u16: 1..=512` - to be in sync with traits?
 * `u16<1..=512>`, `u16<Natural>`, `u16<0..=8, 12, 16>` - make numbers kinda like higher kind?
 
-**SI support:**
+Shifted numbers:
+* Additional optional parameter (of the same type as the number itself) on all numbers representing shift/bias.
+* u8<+1000> == u8<1000..=1256>
+* `+` or `-` required
+
+### Bounded array sizes
+* Array type is `[T; numbound]`, 
+where T is any type and `numbound` is a special type holding allowed values described above.
+
+### SI support
 
 Specify any SI unit for any number, define derived and custom units, define unit relations.
 * `current: q3.12 [A]`
@@ -122,16 +135,16 @@ struct FrameCounters {
 }
 ```
 
-### 2. Serialisation and Deserialisation / `serdes`
+## 2. Serialisation and Deserialisation / `serdes`
 Several wire formats targeted at constrained systems and low bandwidth channels, inter process communication and
 ease of human editing are planned. See [Wire formats](book/src/wire_formats/wire_formats.md).
 
 
-### 3. / `api`
+## 3. / `api`
 Define hardware device or software service API/ABI as a collection primitives such as methods, properties,
 streams and more.
 
-Features:
+### Features
 * Semantic versioning for backwards compatibility checking
 * Generate **server** side code with the ability for a user to provide an implementation
 * Generate **client** side code that can be used to interact with server part
@@ -146,7 +159,29 @@ Ability to specify congestion control policy between selected properties.
 inevitable shortcomings of the codegen. 
 * For now codegen to be implemented in Rust, maybe later by the language itself
 
-### 4. Automatic UI building / `ui`
+### Alias resources
+```
+/main {
+  /x<u8> {}
+  /y<alias<u16, _>> {
+    bound: #../x * 10
+  }
+}
+```
+
+* `#/` points to `/main`
+* `#./` points to child resources
+* `#../` points to parent resources
+
+### Internal functions
+* `indexof( [resource path] )` - returns type with enough bits to hold the index for specified resource array
+  * `/array_of_resources<[_; 7]> {}`
+  * `indexof(#/array_of_resources) == autonum<0..7>`
+* `sizeof( [resource path] )` - returns resource array size or bound
+  * `/channels<[_; max 12]> {}`
+  * `sizeof(#/channels) == numbound<min 0 max 12>` not known during vhL compilation
+
+## 4. Automatic UI building / `ui`
 Flutter based application + supporting Dart libraries.
 
 Features:
@@ -157,16 +192,16 @@ Features:
 * Generate server mockup UI with ability to respond with user input, prerecorded answers or examples
 * vhL syntax highlighting
 
-### 5. Repository / `repo`
+## 5. Repository / `repo`
 Public repository where versioned vhL sources can be uploaded to be used as dependencies.
 Located in [vhrdtech/vhl-repo]()
 
 
-### 6. Language Library / `langlib`
+## 6. Language Library / `langlib`
 Language implementation itself, bundling together all of its components. To be used by `cli`, `ui` and other
 project as a Rust crate dependency.
 
-Components:
+### Components
 * **parser** - in charge of lexing and parsing source code into AST data structures
 * **types** - Type system
 * **serdes** - SerDes format and everything related to it
@@ -184,14 +219,14 @@ can also load dependencies from git or local folder for development
 * **doc** - Documentation generator
 * **patch** - codegen patch extraction and application (allows user to hand-fix codegen errors and shortcomings very quickly
 
-### 7. CLI utility / `cli`
+## 7. CLI utility / `cli`
 Utility for creating vhL projects, generating code, documentation, publishing to the repository, etc.
 Works on top of language library (`src/lib.rs`).
 
-### 8. / `doc`
+## 8. / `doc`
 Generate rich and useful documentation with navigation and search capabilities.
 
-### 9. / `flow`
+## 9. / `flow`
 Describe how api calls is to be converted to and from messages and how messages are
 flowing through data processing blocs up to the medium boundary (wires, radio, fiber, etc.)
 
@@ -208,8 +243,8 @@ Features:
 * Generate code that is interconnecting aforementioned blocks to produce a
 working communication system.
 
-### 10. / `interop`
+## 10. / `interop`
 Support for interoperability with other protocols and systems.
 
-### 11. / `bootstrap`
+## 11. / `bootstrap`
 Full-fledged language that can be used to express all the above features by itself.

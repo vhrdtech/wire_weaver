@@ -3,7 +3,7 @@ pub mod item;
 pub mod item_attrs;
 pub mod item_enum;
 pub mod item_tuple;
-pub mod ty;
+pub mod item_type;
 pub mod item_type_alias;
 pub mod item_doc;
 pub mod naming;

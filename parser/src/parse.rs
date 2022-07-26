@@ -1,7 +1,7 @@
 use crate::warning::ParseWarning;
 use crate::lexer::Rule;
 use pest::iterators::{Pairs, Pair};
-use crate::error::ParseError;
+use crate::error::{ParseError, ParseErrorKind};
 
 pub struct ParseInput<'i, 'm> {
     pub pairs: Pairs<'i, Rule>,
@@ -26,6 +26,19 @@ impl<'i, 'm> ParseInput<'i, 'm> {
     ) -> Self {
         ParseInput {
             pairs: pair.into_inner(), warnings: prev_input.warnings, errors: prev_input.errors
+        }
+    }
+
+    pub fn next1(&mut self, rule1: Rule) -> Option<Pair<'i, Rule>> {
+        match self.pairs.next() {
+            Some(p1) => {
+                if p1.as_rule() == rule1 {
+                    Some(p1)
+                } else {
+                    None
+                }
+            },
+            None => None
         }
     }
 
@@ -56,8 +69,9 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         (p1, p2)
     }
 
-    pub fn push_error(&mut self, on_pair: &Pair<'i, Rule>) {
+    pub fn push_internal_error(&mut self, on_pair: &Pair<'i, Rule>) {
         self.errors.push(ParseError {
+            kind: ParseErrorKind::InternalError,
             rule: on_pair.as_rule(),
             span: (on_pair.as_span().start(), on_pair.as_span().end())
         })

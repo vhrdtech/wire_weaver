@@ -1,3 +1,4 @@
+use crate::ast::item_type::Type;
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -5,7 +6,7 @@ pub struct ItemTypeAlias<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub typename: Typename<'i>,
-    pub r#type: u32,
+    pub r#type: Type<'i>,
 }
 
 impl<'i> Parse<'i> for ItemTypeAlias<'i> {
@@ -14,7 +15,7 @@ impl<'i> Parse<'i> for ItemTypeAlias<'i> {
             doc: input.parse()?,
             attrs: input.parse()?,
             typename: input.parse()?,
-            r#type: 0
+            r#type: input.parse()?
         })
     }
 }

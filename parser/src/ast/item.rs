@@ -1,22 +1,38 @@
+use crate::ast::item_type_alias::ItemTypeAlias;
 use super::prelude::*;
 use super::item_enum::ItemEnum;
 
 #[derive(Debug)]
 pub enum Item<'i> {
     Const(ItemConst),
-    Enum(ItemEnum<'i>)
+    Enum(ItemEnum<'i>),
+    TypeAlias(ItemTypeAlias<'i>),
+
 }
 
 impl<'i> Parse<'i> for Item<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
-        println!("Item::parse {:?}", input.pairs.peek());
-        let rule = input.pairs.next().unwrap();
+        crate::util::pest_print_tree(input.pairs.clone());
+        let rule = match input.pairs.next() {
+            Some(r) => r,
+            None => {
+                println!("Item::parse: None");
+                return Err(());
+            }
+        };
+        let rule_copy = rule.clone();
         match rule.as_rule() {
             Rule::enum_def => {
-                ParseInput::fork(rule, input).parse().map(|item| Item::Enum(item))
+                ParseInput::fork(rule, input).parse()
+                    .map(|item| Item::Enum(item))
             },
+            Rule::type_alias_def => {
+                ParseInput::fork(rule, input).parse()
+                    .map(|item| Item::TypeAlias(item))
+                    .map_err(|()| input.push_error(&rule_copy))
+            }
             _ => {
-                input.errors.push(ParseError::E0001);
+                // input.errors.push(ParseError::E0001);
                 Err(())
             }
         }
@@ -28,48 +44,6 @@ pub struct ItemConst {
 
 }
 
-#[derive(Debug)]
-pub struct Typename<'i> {
-    pub typename: &'i str,
-}
 
-impl<'i> Parse<'i> for Typename<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ()> {
-        if let Some(p) = input.pairs.peek() {
-            return if p.as_rule() == Rule::identifier {
-                let p = input.pairs.next().unwrap();
-                Ok(Typename {
-                    typename: p.as_str()
-                })
-            } else {
-                Err(())
-            };
-        }
-        Err(())
-    }
-}
 
-#[derive(Debug)]
-pub struct Docs<'i> {
-    pub lines: Vec<&'i str>
-}
 
-impl<'i> Parse<'i> for Docs<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Docs<'i>, ()> {
-        let mut lines = Vec::new();
-        while let Some(p) = input.pairs.peek() {
-            if p.as_rule() == Rule::doc_comment {
-                let p = input.pairs.next().unwrap();
-                let line = &p.as_str()[3..];
-                let line = line.strip_prefix(" ").unwrap_or(line);
-                let line = line.strip_suffix("\r\n").or(line.strip_suffix("\n")).unwrap_or(line);
-                lines.push(line);
-            } else {
-                break;
-            }
-        }
-        Ok(Docs {
-            lines
-        })
-    }
-}

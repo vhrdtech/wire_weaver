@@ -9,18 +9,11 @@ pub struct Typename<'i> {
 
 impl<'i> Parse<'i> for Typename<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ParseErrorSource> {
-        if let Some(p) = input.pairs.peek() {
-            return if p.as_rule() == Rule::identifier {
-                let p = input.pairs.next().unwrap();
-                check_camel_case(&p, &mut input.warnings);
-                Ok(Typename {
-                    typename: p.as_str()
-                })
-            } else {
-                Err(ParseErrorSource::Internal)
-            };
-        }
-        Err(ParseErrorSource::Internal)
+        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::Internal)?;
+        check_camel_case(&ident, &mut input.warnings);
+        Ok(Typename {
+            typename: ident.as_str()
+        })
     }
 }
 
@@ -31,26 +24,25 @@ pub struct PathSegment<'i> {
 
 impl<'i> Parse<'i> for PathSegment<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        match input.pairs.next() {
-            Some(identifier) => {
-                if identifier.as_rule() != Rule::identifier {
-                    return Err(ParseErrorSource::Internal)
-                }
-                Ok(PathSegment {
-                    segment: identifier.as_str()
-                })
-            },
-            None => Err(ParseErrorSource::Internal)
-        }
+        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::Internal)?;
+        check_lower_snake_case(&ident, &mut input.warnings);
+        Ok(PathSegment {
+            segment: ident.as_str()
+        })
     }
 }
 
 fn check_camel_case(pair: &Pair<Rule>, warnings: &mut Vec<ParseWarning>) {
-    if pair.as_str().chars().next().unwrap().is_lowercase() {
+    let contains_underscore = pair.as_str().find("_").map(|_| true).unwrap_or(false);
+    if pair.as_str().chars().next().unwrap().is_lowercase() || contains_underscore {
         warnings.push(ParseWarning {
             kind: ParseWarningKind::NonCamelCaseTypename,
             rule: pair.as_rule(),
             span: (pair.as_span().start(), pair.as_span().end())
         });
     }
+}
+
+fn check_lower_snake_case(_pair: &Pair<Rule>, _warnings: &mut Vec<ParseWarning>) {
+
 }

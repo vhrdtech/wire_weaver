@@ -61,7 +61,7 @@ access_mod = { "const" | "rw" | "ro" | "wo" }
 
 // Definitions
 /// Alias type
-type_alias_def = { "type" ~ identifier ~ "=" ~ any_ty ~ ";" }
+type_alias_def = { doc_attr ~ "type" ~ identifier ~ "=" ~ any_ty ~ ";" }
 /// Struct type
 struct_field = { outer_attribute* ~ identifier ~ ":" ~ any_ty }
 struct_fields = _{ struct_field ~ ("," ~ struct_field)* ~ ","? }
@@ -88,9 +88,8 @@ statement = { let_stmt | item_stmt | api_stmt }
 
 // Literals
 bool_lit = { "true" | "false" }
-sign_prefix = { "+" | "-" }
 /// -10, 17, 0, +3, 127u16, 1_000, 1023_u32
-dec_lit = @{ sign_prefix? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* ~ discrete_any_ty? }
+dec_lit = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* ~ discrete_any_ty? }
 dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 /// 0xAA, 0xcc, 0xff_u8
 hex_lit = @{ "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* ~ discrete_any_ty? }
@@ -99,8 +98,8 @@ bin_lit = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* ~ discrete_any_ty
 /// 0o7
 oct_lit = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* ~ discrete_any_ty? }
 /// Floating point
-float_exponent = @{ "e" | "E" ~ sign_prefix? ~ dec_lit_raw }
-float_lit = @{ sign_prefix? ~ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) ~ floating_any_ty? }
+float_exponent = @{ "e" | "E" ~ dec_lit_raw }
+float_lit = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
 discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
@@ -172,7 +171,8 @@ expression_list = _{ expression ~ ("," ~ expression)* ~ ","? }
 inner_attribute = { "#![" ~ attribute ~ "]" }
 outer_attribute = { "#[" ~ attribute ~ "]" }
 attribute = _{ simple_path ~ attribute_input? }
-simple_path = { "::"? ~ identifier ~ ("::" ~ identifier)* }
+path_segment = { identifier }
+simple_path = { "::"? ~ path_segment ~ ("::" ~ path_segment)* }
 attribute_input = { delim_token_tree | "=" ~ expression }
 
 // Optional doc comments and attributes prior to many user defined things
@@ -199,10 +199,10 @@ punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_care
 delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
 
 // Tokens
-token_tree = { token_except_delimiters | delim_token_tree }
+token_tree = _{ token_except_delimiters | delim_token_tree }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
-token_except_delimiters = { keyword | identifier | any_lit | punctuation }
-token = { token_except_delimiters | delimiter }
+token_except_delimiters = _{ keyword | identifier | any_lit | punctuation }
+token = _{ token_except_delimiters | delimiter }
 
 // xPI Blocks
 xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }

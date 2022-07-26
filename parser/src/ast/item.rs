@@ -1,4 +1,5 @@
 use crate::ast::item_type_alias::ItemTypeAlias;
+use crate::error::ParseErrorSource;
 use super::prelude::*;
 use super::item_enum::ItemEnum;
 
@@ -11,13 +12,13 @@ pub enum Item<'i> {
 }
 
 impl<'i> Parse<'i> for Item<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         crate::util::pest_print_tree(input.pairs.clone());
         let rule = match input.pairs.next() {
             Some(r) => r,
             None => {
                 println!("Item::parse: None");
-                return Err(());
+                return Err(ParseErrorSource::Internal);
             }
         };
         let rule_copy = rule.clone();
@@ -29,11 +30,16 @@ impl<'i> Parse<'i> for Item<'i> {
             Rule::type_alias_def => {
                 ParseInput::fork(rule, input).parse()
                     .map(|item| Item::TypeAlias(item))
-                    .map_err(|()| input.push_internal_error(&rule_copy))
+                    .map_err(|e| {
+                        if e.is_internal() {
+                            input.push_internal_error(&rule_copy)
+                        }
+                        e
+                    })
             }
             _ => {
                 // input.errors.push(ParseError::E0001);
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
         }
     }

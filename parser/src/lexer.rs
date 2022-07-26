@@ -443,7 +443,7 @@ mod test {
 
     #[test]
     fn float_literals() {
-        let numbers = ["123.0f64", "0.1f64", "0.1f32", "12e+99f64", "5f32", "-1.0", "+7.7"];
+        let numbers = ["123.0f64", "0.1f64", "0.1f32", "12e+99f64", "5f32"];
         for n in numbers {
             let _ = Lexer::parse(Rule::any_lit, n).unwrap();
         }

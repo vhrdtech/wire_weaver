@@ -14,4 +14,5 @@ mod prelude {
     pub use crate::ast::naming::Typename;
     pub use crate::ast::item_doc::Doc;
     pub use crate::ast::item_attrs::Attrs;
+    pub use crate::error::ParseErrorSource;
 }

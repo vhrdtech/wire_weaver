@@ -7,7 +7,7 @@ pub struct TupleFields<'i> {
 }
 
 impl<'i> Parse<'i> for TupleFields<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         if let Some(tf) = input.pairs.peek() {
             if tf.as_rule() == Rule::tuple_fields {
                 let tf = input.pairs.next().unwrap();
@@ -21,10 +21,10 @@ impl<'i> Parse<'i> for TupleFields<'i> {
                     fields
                 })
             } else {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
         } else {
-            Err(())
+            Err(ParseErrorSource::Internal)
         }
     }
 }

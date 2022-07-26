@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate::ast::item_tuple::TupleFields;
+use crate::error::ParseErrorSource;
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
@@ -34,7 +35,7 @@ pub enum EnumItemKind<'i> {
 }
 
 impl<'i> Parse<'i> for ItemEnum<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         Ok(ItemEnum {
             docs: input.parse()?,
             typename: input.parse()?,
@@ -44,7 +45,7 @@ impl<'i> Parse<'i> for ItemEnum<'i> {
 }
 
 impl<'i> Parse<'i> for EnumItems<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut items = Vec::new();
         if let Some(p) = input.pairs.peek() {
             if p.as_rule() == Rule::enum_items {
@@ -54,19 +55,19 @@ impl<'i> Parse<'i> for EnumItems<'i> {
                         Ok(item) => {
                             items.push(item);
                         },
-                        Err(()) => {
+                        Err(e) => {
                             println!("enum item parse error");
-                            return Err(());
+                            return Err(ParseErrorSource::Internal);
                         }
                     }
                 }
             } else {
                 println!("enum unexpected rule: {:?}", p);
-                return Err(());
+                return Err(ParseErrorSource::Internal);
             }
         } else {
             println!("enum items absent");
-            return Err(());
+            return Err(ParseErrorSource::Internal);
         }
 
         Ok(EnumItems {
@@ -76,7 +77,7 @@ impl<'i> Parse<'i> for EnumItems<'i> {
 }
 
 impl<'i> Parse<'i> for EnumItem<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         Ok(EnumItem {
             docs: input.parse()?,
             name: input.parse()?,
@@ -86,7 +87,7 @@ impl<'i> Parse<'i> for EnumItem<'i> {
 }
 
 impl<'i> Parse<'i> for EnumItemName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         if let Some(p) = input.pairs.peek() {
             return if p.as_rule() == Rule::identifier {
                 let p = input.pairs.next().unwrap();
@@ -94,15 +95,15 @@ impl<'i> Parse<'i> for EnumItemName<'i> {
                     name: p.as_str()
                 })
             } else {
-                Err(())
+                Err(ParseErrorSource::Internal)
             };
         }
-        Err(())
+        Err(ParseErrorSource::Internal)
     }
 }
 
 impl<'i> Parse<'i> for EnumItemKind<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         match input.pairs.peek() {
             Some(_) => {
                 let enum_item = input.pairs.next().unwrap();
@@ -112,17 +113,17 @@ impl<'i> Parse<'i> for EnumItemKind<'i> {
                         Ok(EnumItemKind::Tuple(ParseInput::fork(enum_item, input).parse()?))
                     }
                     Rule::enum_item_struct => {
-                        Err(())
+                        Err(ParseErrorSource::Internal)
                     }
                     Rule::enum_item_discriminant => {
-                        Err(())
+                        Err(ParseErrorSource::Internal)
                     }
                     _ => unreachable!()
                 }
             },
             None => {
                 println!("enum_item none");
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
         }
     }

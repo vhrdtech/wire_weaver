@@ -1,6 +1,5 @@
 use pest::Span;
-use crate::ast::item_attrs::Attr;
-use crate::error::{ParseError, ParseErrorKind};
+use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -27,7 +26,7 @@ pub enum Type<'i> {
 }
 
 impl<'i> Parse<'i> for Type<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         crate::util::ppt!(input.pairs);
         let ty = input.pairs.next().unwrap();
         match ty.as_rule() {
@@ -44,28 +43,28 @@ impl<'i> Parse<'i> for Type<'i> {
                 Ok(Type::Discrete { is_signed, bits, shift: 0 })
             }
             Rule::fixed_any_ty => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::floating_any_ty => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::textual_any_ty => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::tuple_ty => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::array_ty => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::identifier => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
             Rule::param_ty => {
                parse_param_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
             }
             _ => {
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
         }
     }
@@ -86,7 +85,7 @@ pub enum AutoNumber {
     }
 }
 
-fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ()> {
+fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
     match input.pairs.peek() {
         Some(name) => {
             if name.as_str() == "autonum" {
@@ -101,7 +100,7 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
                         rule: Rule::param_ty,
                         span: (span.start(), span.end())
                     });
-                    ()
+                    ParseErrorSource::User
                 })?;
                 let discrete = true;
                 if discrete {
@@ -122,12 +121,12 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
                 println!("not implemented 1");
                 let typename: Typename = input.parse()?;
 
-                Err(())
+                Err(ParseErrorSource::Internal)
             }
         },
         None => {
             println!("int e 1");
-            Err(())
+            Err(ParseErrorSource::Internal)
         }
     }
 }

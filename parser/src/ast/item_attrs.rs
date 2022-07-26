@@ -1,4 +1,5 @@
 use crate::ast::naming::PathSegment;
+use crate::error::ParseErrorSource;
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -7,7 +8,7 @@ pub struct Attrs<'i> {
 }
 
 impl<'i> Parse<'i> for Attrs<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut attributes = Vec::new();
         while let Some(a) = input.pairs.peek() {
             if a.as_rule() == Rule::outer_attribute || a.as_rule() == Rule::inner_attribute {
@@ -30,7 +31,7 @@ pub struct Attr<'i> {
 }
 
 impl<'i> Parse<'i> for Attr<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let (simple_path, attr_input) = input.next2(Rule::simple_path, Rule::attribute_input);
 
         let path_segments = match simple_path {
@@ -42,7 +43,7 @@ impl<'i> Parse<'i> for Attr<'i> {
                 path_segments
             },
             None => {
-                return Err(());
+                return Err(ParseErrorSource::Internal);
             }
         };
 

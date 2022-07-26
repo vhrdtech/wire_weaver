@@ -1,7 +1,7 @@
 use crate::warning::ParseWarning;
 use crate::lexer::Rule;
 use pest::iterators::{Pairs, Pair};
-use crate::error::{ParseError, ParseErrorKind};
+use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 
 pub struct ParseInput<'i, 'm> {
     pub pairs: Pairs<'i, Rule>,
@@ -80,11 +80,11 @@ impl<'i, 'm> ParseInput<'i, 'm> {
 
 /// Parsing interface implemented by all AST nodes
 pub trait Parse<'i>: Sized {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()>;
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource>;
 }
 
 impl<'i, 'm> ParseInput<'i, 'm> {
-    pub fn parse<T: Parse<'i>>(&mut self) -> Result<T, ()> {
+    pub fn parse<T: Parse<'i>>(&mut self) -> Result<T, ParseErrorSource> {
         T::parse(self)
     }
 }

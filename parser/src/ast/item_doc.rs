@@ -6,7 +6,7 @@ pub struct Doc<'i> {
 }
 
 impl<'i> Parse<'i> for Doc<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Doc<'i>, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Doc<'i>, ParseErrorSource> {
         let mut lines = Vec::new();
         while let Some(p) = input.pairs.peek() {
             if p.as_rule() == Rule::doc_comment {

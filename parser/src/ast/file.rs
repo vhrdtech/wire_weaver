@@ -9,7 +9,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum FileError {
     Lexer(pest::error::Error<Rule>),
-    InternalParserError(Vec<ParseError>)
+    ParserError(Vec<ParseError>)
 }
 
 impl From<pest::error::Error<Rule>> for FileError {
@@ -59,7 +59,7 @@ impl<'i> File<'i> {
                                 Ok(item) => {
                                     items.push(item);
                                 },
-                                Err(()) => {
+                                Err(e) => {
                                     // if errors.is_empty() {
                                     //     errors.push(ParseError::E0002);
                                     // }
@@ -76,7 +76,7 @@ impl<'i> File<'i> {
                 items
             }, warnings))
         } else {
-            Err(FileError::InternalParserError(errors))
+            Err(FileError::ParserError(errors))
         }
     }
 }

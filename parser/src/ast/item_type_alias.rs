@@ -10,7 +10,7 @@ pub struct ItemTypeAlias<'i> {
 }
 
 impl<'i> Parse<'i> for ItemTypeAlias<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         Ok(ItemTypeAlias {
             doc: input.parse()?,
             attrs: input.parse()?,

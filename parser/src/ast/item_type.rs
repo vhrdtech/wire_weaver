@@ -1,4 +1,6 @@
 use pest::Span;
+use crate::ast::item_lit::ItemLit;
+use crate::ast::item_op::ItemOp;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
 
@@ -19,7 +21,7 @@ pub enum Type<'i> {
     FloatingPoint {
         bits: u32
     },
-    AutoNumber(AutoNumber),
+    AutoNumber(AutoNumber<'i>),
     Textual(&'i str),
     Sequence,
     UserDefined
@@ -71,62 +73,61 @@ impl<'i> Parse<'i> for Type<'i> {
 }
 
 #[derive(Debug)]
-pub enum AutoNumber {
-    Discrete {
-        start: u128,
-        step: u128,
-        end: u128
-    },
-    Fixed {
-        start: f64,
-        step: f64,
-        end: f64,
-        shift: f64
-    }
+pub struct AutoNumber<'i> {
+    start: ItemLit<'i>,
+    step: ItemLit<'i>,
+    end: ItemLit<'i>,
+    inclusive: bool,
 }
 
 fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
-    match input.pairs.peek() {
-        Some(name) => {
-            if name.as_str() == "autonum" {
-                let _ = input.pairs.next();
-
-                let (ex1, ex2) = input.next2(Rule::expression, Rule::expression);
-                ex1.zip(ex2).map(|(ex1, ex2)| {
-
-                }).ok_or(()).map_err(|_| {
-                    input.errors.push(ParseError {
-                        kind: ParseErrorKind::AutonumWrongForm,
-                        rule: Rule::param_ty,
-                        span: (span.start(), span.end())
-                    });
-                    ParseErrorSource::User
-                })?;
-                let discrete = true;
-                if discrete {
-                    Ok(Type::AutoNumber(AutoNumber::Discrete {
-                        start: 0,
-                        step: 0,
-                        end: 0
-                    }))
-                } else {
-                    Ok(Type::AutoNumber(AutoNumber::Fixed {
-                        start: 0.0,
-                        step: 0.0,
-                        end: 0.0,
-                        shift: 0.0
-                    }))
-                }
-            } else {
-                println!("not implemented 1");
-                let typename: Typename = input.parse()?;
-
-                Err(ParseErrorSource::Internal)
-            }
-        },
+    let name = match input.pairs.next() {
+        Some(name) => name,
         None => {
-            println!("int e 1");
-            Err(ParseErrorSource::Internal)
+            return Err(ParseErrorSource::Internal)
         }
+    };
+    if name.as_str() == "autonum" {
+        let (ex1, ex2) = input.next2(Rule::expression, Rule::expression);
+        let (ex1, ex2) = ex1.zip(ex2).map(|(ex1, ex2)| (ex1, ex2))
+            .ok_or_else(|| {
+                input.errors.push(ParseError {
+                    kind: ParseErrorKind::AutonumWrongForm,
+                    rule: Rule::param_ty,
+                    span: (span.start(), span.end())
+                });
+                ParseErrorSource::Internal
+            })?;
+        let mut ex1 = ParseInput::fork(ex1, input);
+        let start: ItemLit = ex1.parse()?;
+        let mut ex2 = ParseInput::fork(ex2, input);
+        let step: ItemLit = ex2.parse()?;
+        let range_op: ItemOp = ex2.parse()?;
+        let end: ItemLit = ex2.parse()?;
+
+        if !start.is_a_number() || !step.is_a_number() || !end.is_a_number() ||
+            !start.is_same_kind(&step) || !step.is_same_kind(&end) ||
+            !range_op.is_range()
+        {
+            input.errors.push(ParseError {
+                kind: ParseErrorKind::AutonumWrongArguments,
+                rule: Rule::param_ty,
+                span: (span.start(), span.end())
+            })
+        }
+
+        let inclusive = range_op == ItemOp::ClosedRange;
+
+        Ok(Type::AutoNumber(AutoNumber {
+            start,
+            step,
+            end,
+            inclusive,
+        }))
+    } else {
+        println!("not implemented 1");
+        let _typename: Typename = input.parse()?;
+
+        Err(ParseErrorSource::Internal)
     }
 }

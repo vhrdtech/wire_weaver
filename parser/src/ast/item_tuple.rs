@@ -1,12 +1,12 @@
 use super::prelude::*;
-use super::ty::Ty;
+use super::item_type::Type;
 
 #[derive(Debug)]
-pub struct TupleFields {
-    pub fields: Vec<Ty>
+pub struct TupleFields<'i> {
+    pub fields: Vec<Type<'i>>
 }
 
-impl<'i> Parse<'i> for TupleFields {
+impl<'i> Parse<'i> for TupleFields<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ()> {
         if let Some(tf) = input.pairs.peek() {
             if tf.as_rule() == Rule::tuple_fields {

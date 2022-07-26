@@ -29,7 +29,7 @@ impl<'i> Parse<'i> for Item<'i> {
             Rule::type_alias_def => {
                 ParseInput::fork(rule, input).parse()
                     .map(|item| Item::TypeAlias(item))
-                    .map_err(|()| input.push_error(&rule_copy))
+                    .map_err(|()| input.push_internal_error(&rule_copy))
             }
             _ => {
                 // input.errors.push(ParseError::E0001);

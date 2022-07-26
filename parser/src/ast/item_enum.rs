@@ -28,7 +28,7 @@ pub struct EnumItemName<'i> {
 
 #[derive(Debug)]
 pub enum EnumItemKind<'i> {
-    Tuple(TupleFields),
+    Tuple(TupleFields<'i>),
     Struct,
     Discriminant(&'i str)
 }

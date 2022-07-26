@@ -6,7 +6,7 @@ use crate::rust::ty::CGTy;
 use mtoken::ext::TokenStreamExt;
 
 pub struct CGTupleFields<'i, 'c> {
-    pub inner: &'c TupleFields,
+    pub inner: &'c TupleFields<'i>,
     pub _p: &'i PhantomData<()>
 }
 

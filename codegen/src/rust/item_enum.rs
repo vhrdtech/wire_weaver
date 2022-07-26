@@ -1,7 +1,7 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
-use parser::ast::item_enum::{EnumItems, ItemEnum, EnumItemName, EnumItemKind};
+use parser::ast::item_enum::{EnumEntries, ItemEnum, EnumEntryName, EnumEntryKind};
 use crate::rust::item_tuple::CGTupleFields;
 use std::marker::PhantomData;
 use crate::multilang::docs::CGDocs;
@@ -9,7 +9,7 @@ use crate::multilang::docs::CGDocs;
 pub struct CGItemEnum<'i, 'c> {
     pub docs: CGDocs<'i, 'c>,
     pub typename: CGTypename<'i, 'c>,
-    pub items: &'c EnumItems<'i>,
+    pub items: &'c EnumEntries<'i>,
 }
 
 impl<'i, 'c> CGItemEnum<'i, 'c> {
@@ -17,14 +17,14 @@ impl<'i, 'c> CGItemEnum<'i, 'c> {
         Self {
             docs: CGDocs { inner: &item_enum.docs, flavor: CommentFlavor::TripleSlash },
             typename: CGTypename { inner: &item_enum.typename },
-            items: &item_enum.items
+            items: &item_enum.entries
         }
     }
 }
 
 impl<'i, 'c> ToTokens for CGItemEnum<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let items = self.items.items.iter().map(
+        let items = self.items.entries.iter().map(
             |i| CGEnumItem {
                 docs: CGDocs { inner: &i.docs, flavor: CommentFlavor::TripleSlash },
                 name: CGEnumItemName { inner: &i.name },
@@ -58,7 +58,7 @@ impl<'i, 'c> ToTokens for CGEnumItem<'i, 'c> {
 }
 
 pub struct CGEnumItemName<'i, 'c> {
-    pub inner: &'c EnumItemName<'i>
+    pub inner: &'c EnumEntryName<'i>
 }
 
 impl<'i, 'c> ToTokens for CGEnumItemName<'i, 'c> {
@@ -68,21 +68,21 @@ impl<'i, 'c> ToTokens for CGEnumItemName<'i, 'c> {
 }
 
 pub struct CGEnumItemKind<'i, 'c> {
-    pub inner: &'c Option<EnumItemKind<'i>>
+    pub inner: &'c Option<EnumEntryKind<'i>>
 }
 
 impl<'i, 'c> ToTokens for CGEnumItemKind<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         if let Some(kind) = self.inner {
             match kind {
-                EnumItemKind::Tuple(fields) => {
+                EnumEntryKind::Tuple(fields) => {
                     let fields = CGTupleFields { inner: &fields, _p: &PhantomData };
                     fields.to_tokens(tokens);
                 }
-                EnumItemKind::Struct => {
+                EnumEntryKind::Struct => {
                     todo!()
                 }
-                EnumItemKind::Discriminant(_expression) => {
+                EnumEntryKind::Discriminant(_expression) => {
                     todo!()
                 }
             }

@@ -29,7 +29,7 @@ pub enum Type<'i> {
 
 impl<'i> Parse<'i> for Type<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        crate::util::ppt!(input.pairs);
+        // crate::util::ppt!(input.pairs);
         let ty = input.pairs.next().unwrap();
         match ty.as_rule() {
             Rule::bool_ty => {

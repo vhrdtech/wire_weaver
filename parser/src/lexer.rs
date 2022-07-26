@@ -25,10 +25,6 @@ mod test {
         parser_test::test(output, expected, spans)
     }
 
-    macro_rules! ppt {
-        ($p:ident) => { crate::util::pest_print_tree($p.clone()); }
-    }
-
     #[test]
     fn discrete_signed_8_as_discrete_any_ty() {
         let input = "i8";

@@ -1,10 +1,9 @@
 use super::prelude::*;
-use super::item::{Typename, Docs};
 use crate::ast::item_tuple::TupleFields;
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
-    pub docs: Docs<'i>,
+    pub docs: Doc<'i>,
     // attrs: Vec<Attribute>,
     pub typename: Typename<'i>,
     pub items: EnumItems<'i>
@@ -17,7 +16,7 @@ pub struct EnumItems<'i> {
 
 #[derive(Debug)]
 pub struct EnumItem<'i> {
-    pub docs: Docs<'i>,
+    pub docs: Doc<'i>,
     pub name: EnumItemName<'i>,
     pub kind: Option<EnumItemKind<'i>>
 }

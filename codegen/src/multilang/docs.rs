@@ -1,9 +1,9 @@
-use parser::ast::item::Docs;
+use parser::ast::item_doc::Doc;
 use mtoken::{ToTokens, TokenStream, Span, Comment, CommentFlavor, ext::TokenStreamExt};
 use mquote::mquote;
 
 pub struct CGDocs<'i, 'c> {
-    pub inner: &'c Docs<'i>,
+    pub inner: &'c Doc<'i>,
     pub flavor: CommentFlavor,
 }
 

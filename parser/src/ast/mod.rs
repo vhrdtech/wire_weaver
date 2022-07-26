@@ -1,12 +1,17 @@
 pub mod file;
 pub mod item;
-pub mod item_attr;
+pub mod item_attrs;
 pub mod item_enum;
 pub mod item_tuple;
 pub mod ty;
+pub mod item_type_alias;
+pub mod item_doc;
+pub mod naming;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};
-    pub use crate::error::ParseError;
     pub use crate::lexer::Rule;
+    pub use crate::ast::naming::Typename;
+    pub use crate::ast::item_doc::Doc;
+    pub use crate::ast::item_attrs::Attrs;
 }

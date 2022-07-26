@@ -59,7 +59,7 @@ impl<'i> File<'i> {
                                 Ok(item) => {
                                     items.push(item);
                                 },
-                                Err(e) => {
+                                Err(_) => {
                                     // if errors.is_empty() {
                                     //     errors.push(ParseError::E0002);
                                     // }

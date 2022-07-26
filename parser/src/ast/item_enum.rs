@@ -55,7 +55,7 @@ impl<'i> Parse<'i> for EnumItems<'i> {
                         Ok(item) => {
                             items.push(item);
                         },
-                        Err(e) => {
+                        Err(_) => {
                             println!("enum item parse error");
                             return Err(ParseErrorSource::Internal);
                         }

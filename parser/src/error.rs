@@ -9,6 +9,9 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     InternalError,
     AutonumWrongForm,
+    AutonumWrongArguments,
+    FloatParseError,
+
 }
 
 #[derive(PartialEq, Eq)]

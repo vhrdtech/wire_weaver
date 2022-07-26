@@ -1,5 +1,4 @@
 use crate::ast::naming::PathSegment;
-use crate::error::ParseErrorSource;
 use super::prelude::*;
 
 #[derive(Debug)]

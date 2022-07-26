@@ -7,6 +7,8 @@ pub mod item_type;
 pub mod item_type_alias;
 pub mod item_doc;
 pub mod naming;
+pub mod item_lit;
+pub mod item_op;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};

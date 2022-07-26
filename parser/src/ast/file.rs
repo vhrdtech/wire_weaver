@@ -9,7 +9,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum FileError {
     Lexer(pest::error::Error<Rule>),
-    Parser(Vec<ParseError>)
+    InternalParserError(Vec<ParseError>)
 }
 
 impl From<pest::error::Error<Rule>> for FileError {
@@ -42,7 +42,7 @@ impl<'i> File<'i> {
             Some(pair) => {
                 let mut pi = pair.into_inner();
                 while let Some(p) = pi.peek() {
-                    println!("next file item: {:?}", p);
+                    println!("next file item: {:?}", p.as_rule());
                     match p.as_rule() {
                         Rule::inner_attribute => {
                             let attr = pi.next();
@@ -55,12 +55,14 @@ impl<'i> File<'i> {
                         _ => {
                             let pair = pi.next().unwrap();
                             // println!("deferring to others {:?}", pair);
-                            match ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse().map(|item| items.push(item)) {
-                                Ok(_) => {},
+                            match ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse() {
+                                Ok(item) => {
+                                    items.push(item);
+                                },
                                 Err(()) => {
-                                    if errors.is_empty() {
-                                        errors.push(ParseError::E0002);
-                                    }
+                                    // if errors.is_empty() {
+                                    //     errors.push(ParseError::E0002);
+                                    // }
                                 }
                             }
                         }
@@ -74,7 +76,7 @@ impl<'i> File<'i> {
                 items
             }, warnings))
         } else {
-            Err(FileError::Parser(errors))
+            Err(FileError::InternalParserError(errors))
         }
     }
 }

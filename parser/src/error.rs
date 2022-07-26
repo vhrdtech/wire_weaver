@@ -1,5 +1,5 @@
-#[derive(Copy, Clone, Debug)]
-pub enum ParseError {
-    E0001,
-    E0002,
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ParseError {
+    pub rule: crate::lexer::Rule,
+    pub span: (usize, usize)
 }

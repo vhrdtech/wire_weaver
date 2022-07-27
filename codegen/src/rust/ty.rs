@@ -39,6 +39,7 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
             Type::Sequence => {}
             Type::UserDefined => {}
             Type::AutoNumber(_) => {}
+            Type::Derive => {}
         }
     }
 }

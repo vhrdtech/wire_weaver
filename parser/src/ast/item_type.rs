@@ -24,7 +24,8 @@ pub enum Type<'i> {
     AutoNumber(AutoNumber<'i>),
     Textual(&'i str),
     Sequence,
-    UserDefined
+    UserDefined,
+    Derive,
 }
 
 impl<'i> Parse<'i> for Type<'i> {
@@ -45,25 +46,32 @@ impl<'i> Parse<'i> for Type<'i> {
                 Ok(Type::Discrete { is_signed, bits, shift: 0 })
             }
             Rule::fixed_any_ty => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::floating_any_ty => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::textual_any_ty => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::tuple_ty => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::array_ty => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::identifier => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::param_ty => {
                parse_param_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
+            }
+            Rule::derive => {
+                Ok(Type::Derive)
+            }
+            Rule::fn_ty => {
+
+                Err(ParseErrorSource::Unimplemented)
             }
             _ => {
                 Err(ParseErrorSource::InternalError)
@@ -120,6 +128,6 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
         println!("not implemented 1");
         let _typename: Typename = input.parse()?;
 
-        Err(ParseErrorSource::InternalError)
+        Err(ParseErrorSource::Unimplemented)
     }
 }

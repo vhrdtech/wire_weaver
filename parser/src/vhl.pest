@@ -72,7 +72,7 @@ tuple_struct_def = { "struct" ~ identifier ~ "(" ~ tuple_fields ~ ")" ~ ";" }
 enum_item_tuple = { "(" ~ tuple_fields? ~ ")" }
 enum_item_struct = { "{" ~ struct_fields ~ "}" }
 enum_item_discriminant = { "=" ~ expression }
-enum_item = _{ doc_attr ~ identifier ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
+enum_item = { doc_attr ~ identifier ~ (enum_item_tuple | enum_item_struct | enum_item_discriminant)? }
 enum_items = _{ enum_item ~ ("," ~ enum_item)* ~ ","? }
 enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
 

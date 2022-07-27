@@ -1,9 +1,10 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
-use parser::ast::item_enum::{EnumEntries, ItemEnum, EnumEntryName, EnumEntryKind};
+use parser::ast::item_enum::{EnumEntries, ItemEnum, EnumEntryKind};
 use crate::rust::item_tuple::CGTupleFields;
 use std::marker::PhantomData;
+use parser::ast::naming::EnumEntryName;
 use crate::multilang::docs::CGDocs;
 
 pub struct CGItemEnum<'i, 'c> {

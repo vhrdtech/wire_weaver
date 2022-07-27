@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate::ast::item_tuple::TupleFields;
+use crate::ast::naming::EnumEntryName;
 use crate::error::ParseErrorSource;
 
 #[derive(Debug)]
@@ -21,11 +22,6 @@ pub struct EnumEntry<'i> {
     pub attrs: Attrs<'i>,
     pub name: EnumEntryName<'i>,
     pub kind: Option<EnumEntryKind<'i>>
-}
-
-#[derive(Debug)]
-pub struct EnumEntryName<'i> {
-    pub name: &'i str,
 }
 
 #[derive(Debug)]
@@ -77,22 +73,10 @@ impl<'i> Parse<'i> for EnumEntry<'i> {
     }
 }
 
-impl<'i> Parse<'i> for EnumEntryName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::Internal)?;
-        //check_lower_snake_case(&ident, &mut input.warnings);
-        Ok(EnumEntryName {
-            name: ident.as_str()
-        })
-    }
-}
-
 impl<'i> Parse<'i> for EnumEntryKind<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        match input.pairs.peek() {
-            Some(_) => {
-                let enum_item = input.pairs.next().unwrap();
-                println!("enum_item: {:?}", enum_item);
+        match input.pairs.next() {
+            Some(enum_item) => {
                 match enum_item.as_rule() {
                     Rule::enum_item_tuple => {
                         Ok(EnumEntryKind::Tuple(ParseInput::fork(enum_item, input).parse()?))
@@ -103,11 +87,10 @@ impl<'i> Parse<'i> for EnumEntryKind<'i> {
                     Rule::enum_item_discriminant => {
                         Err(ParseErrorSource::Internal)
                     }
-                    _ => unreachable!()
+                    _ => { return Err(ParseErrorSource::Internal) }
                 }
             },
             None => {
-                println!("enum_item none");
                 Err(ParseErrorSource::Internal)
             }
         }

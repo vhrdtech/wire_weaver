@@ -21,10 +21,10 @@ impl<'i> Parse<'i> for TupleFields<'i> {
                     fields
                 })
             } else {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
         } else {
-            Err(ParseErrorSource::Internal)
+            Err(ParseErrorSource::InternalError)
         }
     }
 }

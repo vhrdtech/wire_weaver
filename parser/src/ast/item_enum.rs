@@ -53,7 +53,7 @@ impl<'i> Parse<'i> for EnumEntries<'i> {
                 entries.push(entry);
             } else {
                 println!("enum unexpected rule: {:?}", p);
-                return Err(ParseErrorSource::Internal);
+                return Err(ParseErrorSource::InternalError);
             }
         }
 
@@ -79,7 +79,7 @@ impl<'i> Parse<'i> for EnumEntryKind<'i> {
         let entry_kind = match input.pairs.next() {
             Some(kind) => kind,
             None => {
-                return Err(ParseErrorSource::Internal)
+                return Err(ParseErrorSource::InternalError)
             }
         };
         let entry_kind_clone = entry_kind.clone();
@@ -87,7 +87,7 @@ impl<'i> Parse<'i> for EnumEntryKind<'i> {
         // enum entry kind is an Option and parsed as: parse().ok()
         // Empty input will be returned as error and ignored. Actual parse error will be remembered.
         parse_enum_entry_kind(entry_kind, input).map_err(|e| {
-            if e == ParseErrorSource::Internal {
+            if e == ParseErrorSource::InternalError {
                 input.push_internal_error(&entry_kind_clone);
             }
             e
@@ -101,11 +101,11 @@ fn parse_enum_entry_kind<'i, 'm>(entry_kind: Pair<'i, Rule>, input: &mut ParseIn
             Ok(EnumEntryKind::Tuple(ParseInput::fork(entry_kind, input).parse()?))
         }
         Rule::enum_item_struct => {
-            Err(ParseErrorSource::Internal)
+            Err(ParseErrorSource::InternalError)
         }
         Rule::enum_item_discriminant => {
-            Err(ParseErrorSource::Internal)
+            Err(ParseErrorSource::InternalError)
         }
-        _ => { return Err(ParseErrorSource::Internal) }
+        _ => { return Err(ParseErrorSource::InternalError) }
     }
 }

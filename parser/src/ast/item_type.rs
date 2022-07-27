@@ -45,28 +45,28 @@ impl<'i> Parse<'i> for Type<'i> {
                 Ok(Type::Discrete { is_signed, bits, shift: 0 })
             }
             Rule::fixed_any_ty => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::floating_any_ty => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::textual_any_ty => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::tuple_ty => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::array_ty => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::identifier => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::param_ty => {
                parse_param_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
             }
             _ => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
         }
     }
@@ -84,7 +84,7 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
     let name = match input.pairs.next() {
         Some(name) => name,
         None => {
-            return Err(ParseErrorSource::Internal)
+            return Err(ParseErrorSource::InternalError)
         }
     };
     if name.as_str() == "autonum" {
@@ -96,7 +96,7 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
                     rule: Rule::param_ty,
                     span: (span.start(), span.end())
                 });
-                ParseErrorSource::Internal
+                ParseErrorSource::InternalError
             })?;
         let mut ex1 = ParseInput::fork(ex1, input);
         let start: ItemLit = ex1.parse()?;
@@ -128,6 +128,6 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
         println!("not implemented 1");
         let _typename: Typename = input.parse()?;
 
-        Err(ParseErrorSource::Internal)
+        Err(ParseErrorSource::InternalError)
     }
 }

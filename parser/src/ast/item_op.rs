@@ -56,11 +56,11 @@ impl<'i> Parse<'i> for ItemOp {
                 if op.as_rule() == Rule::unary_op || op.as_rule() == Rule::binary_op {
                     Ok(ItemOp::from_str(op.as_str()))
                 } else {
-                    Err(ParseErrorSource::Internal)
+                    Err(ParseErrorSource::InternalError)
                 }
             },
             None => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
         }
     }

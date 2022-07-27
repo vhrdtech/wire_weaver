@@ -18,7 +18,7 @@ impl<'i> Parse<'i> for Item<'i> {
             Some(r) => r,
             None => {
                 println!("Item::parse: None");
-                return Err(ParseErrorSource::Internal);
+                return Err(ParseErrorSource::InternalError);
             }
         };
         let rule_copy = rule.clone();
@@ -39,7 +39,7 @@ impl<'i> Parse<'i> for Item<'i> {
             }
             _ => {
                 // input.errors.push(ParseError::E0001);
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
         }
     }

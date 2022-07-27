@@ -60,7 +60,7 @@ pub enum FixedLit {
 
 impl<'i> Parse<'i> for ItemLit<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let any_lit = input.next1(Rule::any_lit).ok_or(ParseErrorSource::Internal)?;
+        let any_lit = input.next1(Rule::any_lit).ok_or(ParseErrorSource::InternalError)?;
         let any_lit = any_lit.into_inner().next().unwrap();
         match any_lit.as_rule() {
             Rule::bool_lit => {
@@ -71,34 +71,34 @@ impl<'i> Parse<'i> for ItemLit<'i> {
             }
             Rule::discrete_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::char_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::string_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::tuple_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::struct_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::enum_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             Rule::array_lit => {
 
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
             _ => {
-                Err(ParseErrorSource::Internal)
+                Err(ParseErrorSource::InternalError)
             }
         }
     }
@@ -121,7 +121,7 @@ fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rul
                 rule: Rule::float_lit,
                 span: (any_lit.as_span().start(), any_lit.as_span().end())
             });
-            ParseErrorSource::User
+            ParseErrorSource::UserError
         })?;
         Ok(ItemLit::Float32Lit(f))
     } else {
@@ -131,7 +131,7 @@ fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rul
                 rule: Rule::float_lit,
                 span: (any_lit.as_span().start(), any_lit.as_span().end())
             });
-            ParseErrorSource::User
+            ParseErrorSource::UserError
         })?;
         Ok(ItemLit::Float64Lit(f))
     }

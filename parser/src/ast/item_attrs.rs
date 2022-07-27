@@ -42,7 +42,7 @@ impl<'i> Parse<'i> for Attr<'i> {
                 path_segments
             },
             None => {
-                return Err(ParseErrorSource::Internal);
+                return Err(ParseErrorSource::InternalError);
             }
         };
 

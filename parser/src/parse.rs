@@ -20,6 +20,16 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         }
     }
 
+    /// Given the following pairs tree:
+    /// rule_a, rule_b, rule_c, ...
+    ///   |_ rule_a1, rule_a2, ...
+    /// Where rula_ai is children rules inside rula_a.
+    ///
+    /// If called with expected_rule == rule_a, will return with input on rula_a1 ready to be parsed.
+    ///
+    /// Use fork(input.expect1(rule_a)?, input) if rula_a is expected to be the next rule to parse.
+    /// Otherwise UnexpectedInput error will be return, that can be ignored by `parse_or_skip()`
+    /// or propagated and recorded.
     pub fn fork(
         pair: Pair<'i, Rule>,
         prev_input: &'m mut ParseInput,
@@ -29,63 +39,24 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         }
     }
 
-    /// Given the following pairs tree:
-    /// rule_a, rule_b, rule_c, ...
-    ///   |_ rule_a1, rule_a2, ...
-    /// Where rula_ai is children rules inside rula_a.
-    ///
-    /// If called with expected_rule == rule_a, will return Ok with input on rula_a1 ready to be parsed.
-    /// Otherwise UnexpectedInput error will be return, that can be ignored by `parse_or_skip()`
-    /// or propagated and recorded.
-    pub fn fork_at(mut self, expected_rule: Rule) -> Result<ParseInput<'i, 'm>, ParseErrorSource> {
-        let pair = self.pairs.next().ok_or(ParseErrorSource::UnexpectedInput)?;
-        if pair.as_rule() == expected_rule {
-            Ok(ParseInput {
-                pairs: pair.into_inner(), warnings: self.warnings, errors: self.errors
-            })
-        } else {
-            Err(ParseErrorSource::UnexpectedInput)
+    /// Consume and return next pair if it exists with specified rule. Otherwise return an error,
+    /// leaving input as before.
+    pub fn expect1(&mut self, rule1: Rule) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+        match self.pairs.peek() {
+            Some(p1) => {
+                if p1.as_rule() == rule1 {
+                    let _ = self.pairs.next();
+                    Ok(p1)
+                } else {
+                    Err(ParseErrorSource::UnexpectedInput)
+                }
+            },
+            None => Err(ParseErrorSource::UnexpectedInput)
         }
     }
 
-    pub fn next1(&mut self, rule1: Rule) -> Option<Pair<'i, Rule>> {
-        match self.pairs.next() {
-            Some(p1) => {
-                if p1.as_rule() == rule1 {
-                    Some(p1)
-                } else {
-                    None
-                }
-            },
-            None => None
-        }
-    }
-
-    pub fn next2(&mut self, rule1: Rule, rule2: Rule) -> (Option<Pair<'i, Rule>>, Option<Pair<'i, Rule>>) {
-        let (p1, p2) = (self.pairs.next(), self.pairs.next());
-        let p1 = match p1 {
-            Some(p1) => {
-                if p1.as_rule() == rule1 {
-                    Some(p1)
-                } else {
-                    None
-                }
-            },
-            None => None
-        };
-
-        let p2 = match p2 {
-            Some(p2) => {
-                if p2.as_rule() == rule2 {
-                    Some(p2)
-                } else {
-                    None
-                }
-            },
-            None => None
-        };
-
-        (p1, p2)
+    pub fn expect2(&mut self, rule1: Rule, rule2: Rule) -> Result<(Pair<'i, Rule>, Pair<'i, Rule>), ParseErrorSource> {
+        Ok((self.expect1(rule1)?, self.expect1(rule2)?))
     }
 
     pub fn push_internal_error(&mut self, on_pair: &Pair<'i, Rule>) {

@@ -8,13 +8,15 @@ pub struct ParseError {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ParseErrorKind {
     InternalError,
+    UnhandledUnexpectedInput,
+    UserError,
+
     AutonumWrongForm,
     AutonumWrongArguments,
     FloatParseError,
-
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseErrorSource {
     /// Parser internal error, for example if a feature is not implemented.
     /// unreachable() and unwrap()'s are converted into this error as well.

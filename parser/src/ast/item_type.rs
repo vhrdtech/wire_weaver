@@ -88,16 +88,8 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
         }
     };
     if name.as_str() == "autonum" {
-        let (ex1, ex2) = input.next2(Rule::expression, Rule::expression);
-        let (ex1, ex2) = ex1.zip(ex2).map(|(ex1, ex2)| (ex1, ex2))
-            .ok_or_else(|| {
-                input.errors.push(ParseError {
-                    kind: ParseErrorKind::AutonumWrongForm,
-                    rule: Rule::param_ty,
-                    span: (span.start(), span.end())
-                });
-                ParseErrorSource::InternalError
-            })?;
+        let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)?;
+
         let mut ex1 = ParseInput::fork(ex1, input);
         let start: ItemLit = ex1.parse()?;
         let mut ex2 = ParseInput::fork(ex2, input);

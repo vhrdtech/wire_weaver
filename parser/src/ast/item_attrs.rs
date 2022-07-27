@@ -31,24 +31,17 @@ pub struct Attr<'i> {
 
 impl<'i> Parse<'i> for Attr<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let (simple_path, attr_input) = input.next2(Rule::simple_path, Rule::attribute_input);
+        todo!("do not use expect2 here");
+        let (simple_path, attr_input) = input.expect2(Rule::simple_path, Rule::attribute_input)?;
 
-        let path_segments = match simple_path {
-            Some(simple_path) => {
-                let mut path_segments = Vec::new();
-                for segment in simple_path.into_inner() {
-                    ParseInput::fork(segment, input).parse().map(|s| path_segments.push(s))?;
-                }
-                path_segments
-            },
-            None => {
-                return Err(ParseErrorSource::InternalError);
-            }
-        };
+        let mut path_segments = Vec::new();
+        for segment in simple_path.into_inner() {
+            ParseInput::fork(segment, input).parse().map(|s| path_segments.push(s))?;
+        }
 
         Ok(Attr {
             path: path_segments,
-            input: attr_input.is_some()
+            input: todo!()
         })
     }
 }

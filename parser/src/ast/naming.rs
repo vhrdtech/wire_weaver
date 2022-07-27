@@ -9,7 +9,7 @@ pub struct Typename<'i> {
 
 impl<'i> Parse<'i> for Typename<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ParseErrorSource> {
-        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::InternalError)?;
+        let ident = input.expect1(Rule::identifier)?;
         //check_camel_case(&ident, &mut input.warnings);
         Ok(Typename {
             typename: ident.as_str()
@@ -24,7 +24,7 @@ pub struct PathSegment<'i> {
 
 impl<'i> Parse<'i> for PathSegment<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::InternalError)?;
+        let ident = input.expect1(Rule::identifier)?;
         //check_lower_snake_case(&ident, &mut input.warnings);
         Ok(PathSegment {
             segment: ident.as_str()
@@ -39,7 +39,7 @@ pub struct EnumEntryName<'i> {
 
 impl<'i> Parse<'i> for EnumEntryName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::InternalError)?;
+        let ident = input.expect1(Rule::identifier)?;
         //check_lower_snake_case(&ident, &mut input.warnings);
         Ok(EnumEntryName {
             name: ident.as_str()
@@ -47,13 +47,14 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
     }
 }
 
+#[derive(Debug)]
 pub struct XpiUriNamedPart<'i> {
     pub name: &'i str
 }
 
 impl<'i> Parse<'i> for XpiUriNamedPart<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.next1(Rule::identifier).ok_or(ParseErrorSource::InternalError)?;
+        let ident = input.expect1(Rule::identifier)?;
         Ok(XpiUriNamedPart {
             name: ident.as_str()
         })

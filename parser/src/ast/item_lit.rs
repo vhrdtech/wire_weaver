@@ -60,7 +60,7 @@ pub enum FixedLit {
 
 impl<'i> Parse<'i> for ItemLit<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let any_lit = input.next1(Rule::any_lit).ok_or(ParseErrorSource::InternalError)?;
+        let any_lit = input.expect1(Rule::any_lit)?;
         let any_lit = any_lit.into_inner().next().unwrap();
         match any_lit.as_rule() {
             Rule::bool_lit => {

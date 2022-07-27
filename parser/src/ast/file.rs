@@ -2,7 +2,7 @@ use crate::parse::{ParseInput};
 use crate::ast::item::Item;
 use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
-use crate::error::ParseError;
+use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::warning::ParseWarning;
 use std::fmt::{Display, Formatter};
 
@@ -54,15 +54,24 @@ impl<'i> File<'i> {
                         // Rule::COMMENT => {}
                         _ => {
                             let pair = pi.next().unwrap();
+                            let rule = pair.as_rule();
+                            let span = (pair.as_span().start(), pair.as_span().end());
                             // println!("deferring to others {:?}", pair);
                             match ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse() {
                                 Ok(item) => {
                                     items.push(item);
                                 },
-                                Err(_) => {
-                                    // if errors.is_empty() {
-                                    //     errors.push(ParseError::E0002);
-                                    // }
+                                Err(e) => {
+                                    let kind = match e {
+                                        ParseErrorSource::InternalError => ParseErrorKind::InternalError,
+                                        ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
+                                        ParseErrorSource::UserError => ParseErrorKind::UserError
+                                    };
+                                    errors.push(ParseError {
+                                        kind,
+                                        rule,
+                                        span
+                                    });
                                 }
                             }
                         }

@@ -215,7 +215,7 @@ token = _{ token_except_delimiters | delimiter }
 xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier?) | expression_ticked ~ identifier? }
 xpi_resource_ty = { "<" ~ (access_mod? ~ any_ty)? ~ ("," ~ xpi_serial)? ~ ">" }
-xpi_serial = @{ "'" ~ ASCII_DIGIT ~ (ASCII_DIGIT)* }
+xpi_serial = @{ "'" ~ dec_lit_raw }
 xpi_body = { "{" ~ xpi_field* ~ xpi_block* ~ "}" }
 xpi_field = { identifier ~ ":" ~ expression ~ ";" }
 
@@ -239,5 +239,5 @@ si_call_expr = _{ si_fn ~ call_arguments }
 doc_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 single_line_comment = { !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 multi_line_comment = { "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
-COMMENT = { single_line_comment | multi_line_comment }
+COMMENT = _{ single_line_comment | multi_line_comment }
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }

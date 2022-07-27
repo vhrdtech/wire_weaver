@@ -71,31 +71,31 @@ impl<'i> Parse<'i> for ItemLit<'i> {
             }
             Rule::discrete_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::char_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::string_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::tuple_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::struct_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::enum_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             Rule::array_lit => {
 
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::Unimplemented)
             }
             _ => {
                 Err(ParseErrorSource::InternalError)

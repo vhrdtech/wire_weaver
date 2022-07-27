@@ -32,12 +32,12 @@ the supported targets.
   * Signed: `i8` / `i16` / `i32` / `i64` / `i128`
   * Signed with configurable length: `i{expr -> u32}`
   * Unsigned: `u8`, `u16`, `u32`, `u64`, `u128`
-  * Unsigned with configurable length: `u{expr -> u32}`
+  * Unsigned with configurable length: `u<expr -> u32>`
 * Fixed point numbers (Q notation):
   * Signed: `q3.12`
   * Unsigned: `uq1.15`
   * Implicitly scaled: `q12<u8>` 0..=255 * 2^-12 (m=0, n=12)
-  * Full syntax to allow constant's to be easily used: `q{expr -> (u32, u32)}`, `uq{expr -> (u32, u32)}`
+  * Full syntax to allow constant's to be easily used: `q<expr -> (u32, u32)>`, `uq<expr -> (u32, u32)>`
 * Floating point numbers:
   * `float32`, `float64` (IEEE-754)
   * ?`float16` and others
@@ -84,16 +84,14 @@ Number classes/traits?:
 * Real: Rational + Irrational
 * Complex
 
-Possible syntax:
-* `u32: Natural` ?
-* `Natural<u32>` ?
-* `u16: 1..=512` - to be in sync with traits?
-* `u16<1..=512>`, `u16<Natural>`, `u16<0..=8, 12, 16>` - make numbers kinda like higher kind?
-
-Shifted numbers:
+Shifted or scaled numbers:
 * Additional optional parameter (of the same type as the number itself) on all numbers representing shift/bias.
-* u8<+1000> == u8<1000..=1256>
+* u8<+1000> actual range = 1000..=1255 (10 bits), sent around range = 0 to 255 (8 bits).
 * `+` or `-` required
+* uq<(1, 15), *1e6>
+
+Range analysis:
+* Get a report of all numbers used with ranges, steps, allowed values, bits required: `vhl num report`
 
 ### Bounded array sizes
 * Array type is `[T; numbound]`, 

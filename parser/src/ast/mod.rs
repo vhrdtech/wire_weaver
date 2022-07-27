@@ -9,6 +9,9 @@ pub mod item_doc;
 pub mod naming;
 pub mod item_lit;
 pub mod item_op;
+pub mod item_xpi_block;
+pub mod item_expr;
+pub mod item_stmt;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};

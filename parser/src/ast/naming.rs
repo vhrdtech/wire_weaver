@@ -61,6 +61,20 @@ impl<'i> Parse<'i> for XpiUriNamedPart<'i> {
     }
 }
 
+#[derive(Debug)]
+pub struct XpiKeyName<'i> {
+    pub name: &'i str
+}
+
+impl<'i> Parse<'i> for XpiKeyName<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let ident = input.expect1(Rule::identifier)?;
+        Ok(XpiKeyName {
+            name: ident.as_str()
+        })
+    }
+}
+
 fn check_camel_case(pair: &Pair<Rule>, warnings: &mut Vec<ParseWarning>) {
     let contains_underscore = pair.as_str().find("_").map(|_| true).unwrap_or(false);
     if pair.as_str().chars().next().unwrap().is_lowercase() || contains_underscore {

@@ -1,3 +1,4 @@
+use pest::iterators::Pair;
 use super::prelude::*;
 use crate::ast::item_tuple::TupleFields;
 use crate::ast::naming::EnumEntryName;
@@ -75,24 +76,36 @@ impl<'i> Parse<'i> for EnumEntry<'i> {
 
 impl<'i> Parse<'i> for EnumEntryKind<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        match input.pairs.next() {
-            Some(enum_item) => {
-                match enum_item.as_rule() {
-                    Rule::enum_item_tuple => {
-                        Ok(EnumEntryKind::Tuple(ParseInput::fork(enum_item, input).parse()?))
-                    }
-                    Rule::enum_item_struct => {
-                        Err(ParseErrorSource::Internal)
-                    }
-                    Rule::enum_item_discriminant => {
-                        Err(ParseErrorSource::Internal)
-                    }
-                    _ => { return Err(ParseErrorSource::Internal) }
-                }
-            },
+        let entry_kind = match input.pairs.next() {
+            Some(kind) => kind,
             None => {
-                Err(ParseErrorSource::Internal)
+                return Err(ParseErrorSource::Internal)
             }
+        };
+        let entry_kind_clone = entry_kind.clone();
+
+        // enum entry kind is an Option and parsed as: parse().ok()
+        // Empty input will be returned as error and ignored. Actual parse error will be remembered.
+        parse_enum_entry_kind(entry_kind, input).map_err(|e| {
+            if e == ParseErrorSource::Internal {
+                input.push_internal_error(&entry_kind_clone);
+            }
+            e
+        })
+    }
+}
+
+fn parse_enum_entry_kind<'i, 'm>(entry_kind: Pair<'i, Rule>, input: &mut ParseInput<'i, 'm>) -> Result<EnumEntryKind<'i>, ParseErrorSource> {
+    match entry_kind.as_rule() {
+        Rule::enum_item_tuple => {
+            Ok(EnumEntryKind::Tuple(ParseInput::fork(entry_kind, input).parse()?))
         }
+        Rule::enum_item_struct => {
+            Err(ParseErrorSource::Internal)
+        }
+        Rule::enum_item_discriminant => {
+            Err(ParseErrorSource::Internal)
+        }
+        _ => { return Err(ParseErrorSource::Internal) }
     }
 }

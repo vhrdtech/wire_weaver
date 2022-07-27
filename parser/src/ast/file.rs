@@ -51,7 +51,10 @@ impl<'i> File<'i> {
                         Rule::EOI => {
                             break;
                         },
-                        // Rule::COMMENT => {}
+                        // silent in rules
+                        // Rule::COMMENT => {
+                        //     let _ = pi.next();
+                        // }
                         _ => {
                             let pair = pi.next().unwrap();
                             let rule = pair.as_rule();
@@ -64,6 +67,7 @@ impl<'i> File<'i> {
                                 Err(e) => {
                                     let kind = match e {
                                         ParseErrorSource::InternalError => ParseErrorKind::InternalError,
+                                        ParseErrorSource::Unimplemented => ParseErrorKind::Unimplemented,
                                         ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
                                         ParseErrorSource::UserError => ParseErrorKind::UserError
                                     };

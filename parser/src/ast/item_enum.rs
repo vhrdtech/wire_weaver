@@ -2,7 +2,7 @@ use pest::iterators::Pair;
 use super::prelude::*;
 use crate::ast::item_tuple::TupleFields;
 use crate::ast::naming::EnumEntryName;
-use crate::error::ParseErrorSource;
+use crate::error::{ParseErrorKind, ParseErrorSource};
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
@@ -83,12 +83,12 @@ impl<'i> Parse<'i> for EnumEntryKind<'i> {
             }
         };
         let entry_kind_clone = entry_kind.clone();
-
+todo!("update parser");
         // enum entry kind is an Option and parsed as: parse().ok()
         // Empty input will be returned as error and ignored. Actual parse error will be remembered.
         parse_enum_entry_kind(entry_kind, input).map_err(|e| {
             if e == ParseErrorSource::InternalError {
-                input.push_internal_error(&entry_kind_clone);
+                input.push_error(&entry_kind_clone, ParseErrorKind::InternalError);
             }
             e
         })
@@ -101,10 +101,10 @@ fn parse_enum_entry_kind<'i, 'm>(entry_kind: Pair<'i, Rule>, input: &mut ParseIn
             Ok(EnumEntryKind::Tuple(ParseInput::fork(entry_kind, input).parse()?))
         }
         Rule::enum_item_struct => {
-            Err(ParseErrorSource::InternalError)
+            Err(ParseErrorSource::Unimplemented)
         }
         Rule::enum_item_discriminant => {
-            Err(ParseErrorSource::InternalError)
+            Err(ParseErrorSource::Unimplemented)
         }
         _ => { return Err(ParseErrorSource::InternalError) }
     }

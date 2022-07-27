@@ -59,9 +59,9 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         Ok((self.expect1(rule1)?, self.expect1(rule2)?))
     }
 
-    pub fn push_internal_error(&mut self, on_pair: &Pair<'i, Rule>) {
+    pub fn push_error(&mut self, on_pair: &Pair<'i, Rule>, kind: ParseErrorKind) {
         self.errors.push(ParseError {
-            kind: ParseErrorKind::InternalError,
+            kind,
             rule: on_pair.as_rule(),
             span: (on_pair.as_span().start(), on_pair.as_span().end())
         })
@@ -94,6 +94,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
             Err(e) => {
                 match e {
                     e @ ParseErrorSource::InternalError => Err(e),
+                    e @ ParseErrorSource::Unimplemented => Err(e),
                     ParseErrorSource::UnexpectedInput => Ok(None),
                     e @ ParseErrorSource::UserError => Err(e)
                 }

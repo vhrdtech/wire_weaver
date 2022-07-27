@@ -216,8 +216,7 @@ xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier?) | expression_ticked ~ identifier? }
 xpi_resource_ty = { "<" ~ (access_mod? ~ any_ty)? ~ ("," ~ xpi_serial)? ~ ">" }
 xpi_serial = @{ "'" ~ ASCII_DIGIT ~ (ASCII_DIGIT)* }
-xpi_body = { "{" ~ xpi_item* ~ "}" }
-xpi_item = _{ xpi_block | xpi_field }
+xpi_body = { "{" ~ xpi_field* ~ xpi_block* ~ "}" }
 xpi_field = { identifier ~ ":" ~ expression ~ ";" }
 
 // SI units

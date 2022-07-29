@@ -1,12 +1,12 @@
 use mtoken::{ToTokens, TokenStream};
 use mquote::mquote;
-use parser::ast::item_tuple::TupleFields;
+use parser::ast::item_tuple::TupleFieldsTy;
 use std::marker::PhantomData;
 use crate::rust::ty::CGTy;
 use mtoken::ext::TokenStreamExt;
 
 pub struct CGTupleFields<'i, 'c> {
-    pub inner: &'c TupleFields<'i>,
+    pub inner: &'c TupleFieldsTy<'i>,
     pub _p: &'i PhantomData<()>
 }
 

@@ -28,6 +28,11 @@ pub enum Type<'i> {
     Derive,
 }
 
+// pub struct NumberTy<'i> {
+//     kind: NumberKind<'i>,
+//     bound: Option<NumberBound<'i>>,
+// }
+
 impl<'i> Parse<'i> for Type<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // crate::util::ppt!(input.pairs);

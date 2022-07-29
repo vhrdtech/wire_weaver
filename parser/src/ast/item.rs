@@ -22,13 +22,9 @@ impl<'i> Parse<'i> for Item<'i> {
                 return Err(ParseErrorSource::InternalError);
             }
         };
-        let rule_copy = rule.clone();
         match rule.as_rule() {
             Rule::enum_def => {
-                todo!("update parser");
-                let _ = input.pairs.next();
-                ParseInput::fork(rule, input).parse()
-                    .map(|item_enum| Item::Enum(item_enum))
+                input.parse().map(|enum_def| Item::Enum(enum_def))
             }
             Rule::type_alias_def => {
                 todo!("update parser");

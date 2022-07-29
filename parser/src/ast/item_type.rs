@@ -87,10 +87,10 @@ impl<'i> Parse<'i> for Type<'i> {
 
 #[derive(Debug)]
 pub struct AutoNumber<'i> {
-    start: ItemLit<'i>,
-    step: ItemLit<'i>,
-    end: ItemLit<'i>,
-    inclusive: bool,
+    pub start: ItemLit<'i>,
+    pub step: ItemLit<'i>,
+    pub end: ItemLit<'i>,
+    pub inclusive: bool,
 }
 
 fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {

@@ -1,9 +1,8 @@
 use crate::ast::item_expr::ItemExpr;
-use crate::ast::item_lit::ItemLit;
 use crate::ast::item_stmt::ItemStmt;
 use crate::ast::item_type::Type;
 use crate::ast::naming::{XpiKeyName, XpiUriNamedPart};
-use crate::error::{ParseError, ParseErrorKind};
+use crate::error::ParseErrorKind;
 use super::prelude::*;
 
 macro_rules! function {
@@ -19,9 +18,9 @@ macro_rules! function {
 
 #[derive(Debug)]
 pub struct ItemXpiBlock<'i> {
-    uri: XpiUri<'i>,
-    resource_ty: Option<XpiResourceTy<'i>>,
-    body: XpiBody<'i>,
+    pub uri: XpiUri<'i>,
+    pub resource_ty: Option<XpiResourceTy<'i>>,
+    pub body: XpiBody<'i>,
 }
 
 impl<'i> Parse<'i> for ItemXpiBlock<'i> {
@@ -40,9 +39,9 @@ impl<'i> Parse<'i> for ItemXpiBlock<'i> {
 
 #[derive(Debug)]
 pub struct XpiResourceTy<'i> {
-    access: Option<XpiResourceAccessMode>,
-    r#type: Option<XpiBlockType<'i>>,
-    serial: Option<XpiSerial>,
+    pub access: Option<XpiResourceAccessMode>,
+    pub r#type: Option<XpiBlockType<'i>>,
+    pub serial: Option<XpiSerial>,
 }
 
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
@@ -63,8 +62,8 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
 
 #[derive(Debug)]
 pub struct XpiBody<'i> {
-    kv_list: XpiBlockKVList<'i>,
-    children: XpiBlockChildren<'i>,
+    pub kv_list: XpiBlockKVList<'i>,
+    pub children: XpiBlockChildren<'i>,
 }
 
 impl<'i> Parse<'i> for XpiBody<'i> {
@@ -125,7 +124,7 @@ impl<'i> Parse<'i> for XpiUri<'i> {
 }
 
 #[derive(Debug)]
-enum XpiResourceAccessMode {
+pub enum XpiResourceAccessMode {
     Rw,
     Ro,
     Wo,
@@ -156,7 +155,7 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockType<'i>(Option<Type<'i>>);
+pub struct XpiBlockType<'i>(pub Option<Type<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockType<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -166,7 +165,7 @@ impl<'i> Parse<'i> for XpiBlockType<'i> {
 }
 
 #[derive(Debug)]
-pub struct XpiSerial(u32);
+pub struct XpiSerial(pub u32);
 
 impl<'i> Parse<'i> for XpiSerial {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -183,7 +182,7 @@ impl<'i> Parse<'i> for XpiSerial {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockKVList<'i>(Vec<XpiBlockKeyValue<'i>>);
+pub struct XpiBlockKVList<'i>(pub Vec<XpiBlockKeyValue<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockKVList<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -198,8 +197,8 @@ impl<'i> Parse<'i> for XpiBlockKVList<'i> {
 
 #[derive(Debug)]
 pub struct XpiBlockKeyValue<'i> {
-    key: XpiKeyName<'i>,
-    value: XpiValue<'i>,
+    pub key: XpiKeyName<'i>,
+    pub value: XpiValue<'i>,
 }
 
 impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
@@ -231,7 +230,7 @@ impl<'i> Parse<'i> for XpiValue<'i> {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockChildren<'i>(Vec<ItemXpiBlock<'i>>);
+pub struct XpiBlockChildren<'i>(pub Vec<ItemXpiBlock<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockChildren<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {

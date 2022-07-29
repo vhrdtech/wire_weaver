@@ -1,8 +1,7 @@
-use pest::iterators::Pair;
 use super::prelude::*;
 use crate::ast::item_tuple::TupleFieldsTy;
 use crate::ast::naming::EnumEntryName;
-use crate::error::{ParseErrorKind, ParseErrorSource};
+use crate::error::ParseErrorSource;
 
 #[derive(Debug)]
 pub struct ItemEnum<'i> {
@@ -48,7 +47,7 @@ impl<'i> Parse<'i> for ItemEnum<'i> {
 impl<'i> Parse<'i> for EnumEntries<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut entries = Vec::new();
-        while let Some(p) = input.pairs.peek() {
+        while let Some(_) = input.pairs.peek() {
             let mut input = ParseInput::fork(input.expect1(Rule::enum_item)?, input);
             entries.push(input.parse()?);
         }

@@ -5,16 +5,16 @@ use crate::ast::naming::{XpiKeyName, XpiUriNamedPart};
 use crate::error::ParseErrorKind;
 use super::prelude::*;
 
-macro_rules! function {
-    () => {{
-        fn f() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
-        }
-        let name = type_name_of(f);
-        &name[..name.len() - 3]
-    }}
-}
+// macro_rules! function {
+//     () => {{
+//         fn f() {}
+//         fn type_name_of<T>(_: T) -> &'static str {
+//             std::any::type_name::<T>()
+//         }
+//         let name = type_name_of(f);
+//         &name[..name.len() - 3]
+//     }}
+// }
 
 #[derive(Debug)]
 pub struct ItemXpiBlock<'i> {
@@ -25,7 +25,7 @@ pub struct ItemXpiBlock<'i> {
 
 impl<'i> Parse<'i> for ItemXpiBlock<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         // dbg!("xpi_block parse");
         crate::util::pest_print_tree(input.pairs.clone());
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_block)?, input);
@@ -46,7 +46,7 @@ pub struct XpiResourceTy<'i> {
 
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_resource_ty)?,
             input
@@ -68,7 +68,7 @@ pub struct XpiBody<'i> {
 
 impl<'i> Parse<'i> for XpiBody<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_body)?,
             input
@@ -95,7 +95,7 @@ pub enum XpiUri<'i> {
 
 impl<'i> Parse<'i> for XpiUri<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_uri_segment)?,
             input
@@ -104,21 +104,17 @@ impl<'i> Parse<'i> for XpiUri<'i> {
         let mut input_peek = input.pairs.clone();
         let (p1, p2, p3) = (input_peek.next(), input_peek.next(), input_peek.next());
         if p1.is_some() && p2.is_some() && p3.is_some() {
-            dbg!(3);
             Ok(XpiUri::Full(input.parse()?, input.parse()?, input.parse()?))
         } else if p1.is_some() && p2.is_some() {
-            dbg!(2);
             if p1.unwrap().as_rule() == Rule::identifier {
                 Ok(XpiUri::NamedPartThenExpr(input.parse()?, input.parse()?))
             } else {
                 Ok(XpiUri::ExprThenNamedPart(input.parse()?, input.parse()?))
             }
         } else if p1.is_some() {
-            dbg!(1);
             Ok(XpiUri::OneNamedPart(input.parse()?))
         } else {
-            dbg!(0);
-            Err(ParseErrorSource::InternalError)
+            Err(ParseErrorSource::internal())
         }
     }
 }
@@ -133,7 +129,7 @@ pub enum XpiResourceAccessMode {
 
 impl<'i> Parse<'i> for XpiResourceAccessMode {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         match input.pairs.peek() {
             Some(pair) => {
                 if pair.as_rule() == Rule::access_mod {
@@ -143,7 +139,7 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
                         "ro" => Ok(XpiResourceAccessMode::Ro),
                         "wo" => Ok(XpiResourceAccessMode::Wo),
                         "const" => Ok(XpiResourceAccessMode::Const),
-                        _ => Err(ParseErrorSource::InternalError)
+                        _ => Err(ParseErrorSource::internal())
                     }
                 } else {
                     Err(ParseErrorSource::UnexpectedInput)
@@ -159,7 +155,7 @@ pub struct XpiBlockType<'i>(pub Option<Type<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockType<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         Ok(XpiBlockType(input.parse_or_skip()?))
     }
 }
@@ -169,10 +165,10 @@ pub struct XpiSerial(pub u32);
 
 impl<'i> Parse<'i> for XpiSerial {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let xpi_serial = input.expect1(Rule::xpi_serial)?;
         Ok(XpiSerial(xpi_serial.as_str().strip_prefix('\'')
-                .ok_or_else(|| ParseErrorSource::InternalError)?
+                .ok_or_else(|| ParseErrorSource::internal())?
                 .parse().map_err(|_| {
                     input.push_error(&xpi_serial, ParseErrorKind::IntParseError);
                     ParseErrorSource::UserError
@@ -186,7 +182,7 @@ pub struct XpiBlockKVList<'i>(pub Vec<XpiBlockKeyValue<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockKVList<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut kv_list = Vec::new();
         while let Some(kv) = input.parse_or_skip()? {
             kv_list.push(kv);
@@ -203,7 +199,7 @@ pub struct XpiBlockKeyValue<'i> {
 
 impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_field)?, input);
         Ok(XpiBlockKeyValue {
             key: input.parse()?,
@@ -220,7 +216,7 @@ pub enum XpiValue<'i> {
 
 impl<'i> Parse<'i> for XpiValue<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let try_stmt: Option<ItemStmt<'i>> = input.parse_or_skip()?;
         match try_stmt {
             Some(stmt) => Ok(XpiValue::Stmt(stmt)),
@@ -234,7 +230,7 @@ pub struct XpiBlockChildren<'i>(pub Vec<ItemXpiBlock<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockChildren<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        dbg!(function!());
+        // dbg!(function!());
         let mut children = Vec::new();
         while let Some(child) = input.parse_or_skip()? {
             children.push(child);

@@ -93,8 +93,8 @@ impl<'i, 'm> ParseInput<'i, 'm> {
             Ok(t) => Ok(Some(t)),
             Err(e) => {
                 match e {
-                    e @ ParseErrorSource::InternalError => Err(e),
-                    e @ ParseErrorSource::Unimplemented => Err(e),
+                    e @ ParseErrorSource::InternalError{..} => Err(e),
+                    e @ ParseErrorSource::Unimplemented(_) => Err(e),
                     ParseErrorSource::UnexpectedInput => Ok(None),
                     e @ ParseErrorSource::UserError => Err(e)
                 }

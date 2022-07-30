@@ -1,6 +1,7 @@
 use pest::Span;
 use crate::ast::item_lit::ItemLit;
 use crate::ast::item_op::ItemOp;
+use crate::ast::naming::BuiltinTypename;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
 
@@ -51,35 +52,35 @@ impl<'i> Parse<'i> for Type<'i> {
                 Ok(Type::Discrete { is_signed, bits, shift: 0 })
             }
             Rule::fixed_any_ty => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("fixed ty"))
             }
             Rule::floating_any_ty => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("floating ty"))
             }
             Rule::textual_any_ty => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("textual ty"))
             }
             Rule::tuple_ty => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("tuple ty"))
             }
             Rule::array_ty => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("array ty"))
             }
             Rule::identifier => {
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("identifier ty"))
             }
-            Rule::param_ty => {
-               parse_param_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
+            Rule::generic_ty => {
+               parse_generic_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
             }
             Rule::derive => {
                 Ok(Type::Derive)
             }
             Rule::fn_ty => {
 
-                Err(ParseErrorSource::Unimplemented)
+                Err(ParseErrorSource::Unimplemented("fn ty"))
             }
             _ => {
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::internal())
             }
         }
     }
@@ -93,14 +94,9 @@ pub struct AutoNumber<'i> {
     pub inclusive: bool,
 }
 
-fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
-    let name = match input.pairs.next() {
-        Some(name) => name,
-        None => {
-            return Err(ParseErrorSource::InternalError)
-        }
-    };
-    if name.as_str() == "autonum" {
+fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
+    let typename: BuiltinTypename = input.parse()?;
+    if typename.typename == "autonum" {
         let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)?;
 
         let mut ex1 = ParseInput::fork(ex1, input);
@@ -116,7 +112,7 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
         {
             input.errors.push(ParseError {
                 kind: ParseErrorKind::AutonumWrongArguments,
-                rule: Rule::param_ty,
+                rule: Rule::generic_ty,
                 span: (span.start(), span.end())
             })
         }
@@ -130,9 +126,7 @@ fn parse_param_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Res
             inclusive,
         }))
     } else {
-        println!("not implemented 1");
-        let _typename: Typename = input.parse()?;
-
-        Err(ParseErrorSource::Unimplemented)
+        dbg!("unimpl", typename);
+        Err(ParseErrorSource::Unimplemented("generic ty"))
     }
 }

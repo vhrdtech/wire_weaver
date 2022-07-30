@@ -1,7 +1,7 @@
+use super::prelude::*;
 use crate::ast::item_type_alias::ItemTypeAlias;
 use crate::ast::item_xpi_block::ItemXpiBlock;
 use crate::error::ParseErrorSource;
-use super::prelude::*;
 use super::item_enum::ItemEnum;
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ impl<'i> Parse<'i> for Item<'i> {
             Some(r) => r,
             None => {
                 println!("Item::parse: None");
-                return Err(ParseErrorSource::InternalError);
+                return Err(ParseErrorSource::internal());
             }
         };
         match rule.as_rule() {
@@ -38,7 +38,7 @@ impl<'i> Parse<'i> for Item<'i> {
             }
             _ => {
                 // input.errors.push(ParseError::E0001);
-                Err(ParseErrorSource::InternalError)
+                Err(ParseErrorSource::internal())
             }
         }
     }

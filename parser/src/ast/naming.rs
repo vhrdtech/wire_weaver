@@ -17,6 +17,22 @@ impl<'i> Parse<'i> for Typename<'i> {
     }
 }
 
+/// Builtin types such as u8<...>, autonum<...>, indexof<...>
+#[derive(Debug)]
+pub struct BuiltinTypename<'i> {
+    pub typename: &'i str,
+}
+
+impl<'i> Parse<'i> for BuiltinTypename<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<BuiltinTypename<'i>, ParseErrorSource> {
+        let ident = input.expect1(Rule::identifier)?;
+        //check_camel_case(&ident, &mut input.warnings);
+        Ok(BuiltinTypename {
+            typename: ident.as_str()
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct PathSegment<'i> {
     pub segment: &'i str,

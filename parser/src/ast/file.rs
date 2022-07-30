@@ -66,8 +66,8 @@ impl<'i> File<'i> {
                                 },
                                 Err(e) => {
                                     let kind = match e {
-                                        ParseErrorSource::InternalError => ParseErrorKind::InternalError,
-                                        ParseErrorSource::Unimplemented => ParseErrorKind::Unimplemented,
+                                        ParseErrorSource::InternalError{..} => ParseErrorKind::InternalError,
+                                        ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
                                         ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
                                         ParseErrorSource::UserError => ParseErrorKind::UserError
                                     };

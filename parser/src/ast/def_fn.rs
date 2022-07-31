@@ -11,7 +11,7 @@ pub struct DefFn<'i> {
     pub name: FnName<'i>,
     pub generics: Generics<'i>,
     pub arguments: FnArguments<'i>,
-    pub ret_ty: Option<Ty<'i>>,
+    pub ret_ty: Option<FnRetTy<'i>>,
     pub statements: FnStmts<'i>,
 }
 
@@ -39,7 +39,6 @@ pub struct FnArguments<'i> {
 impl<'i> Parse<'i> for FnArguments<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::fn_args)?, input);
-        let mut input = ParseInput::fork(input.expect1(Rule::named_ty_list)?, &mut input);
 
         let mut args = Vec::new();
         while let Some(_) = input.pairs.peek() {
@@ -81,5 +80,15 @@ impl<'i> Parse<'i> for FnStmts<'i> {
         Ok(FnStmts {
             stmts
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct FnRetTy<'i>(pub Ty<'i>);
+
+impl<'i> Parse<'i> for FnRetTy<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::fn_ret_ty)?, input);
+        Ok(FnRetTy(input.parse()?))
     }
 }

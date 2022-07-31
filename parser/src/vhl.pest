@@ -79,8 +79,7 @@ enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
 /// Function
 def_fn = { doc_attr ~ "fn" ~ identifier ~ generics? ~ fn_args ~ fn_ret_ty? ~ "{" ~ statement* ~ "}" }
 named_ty = { identifier ~ ":" ~ any_ty }
-named_ty_list = { named_ty? ~ ("," ~ named_ty)* ~ ","? }
-fn_args = { "(" ~ named_ty_list ~ ")" }
+fn_args = { "(" ~ named_ty? ~ ("," ~ named_ty)* ~ ","? ~ ")" }
 fn_ret_ty = { "->" ~ any_ty }
 generics = { "<" ~ "T" ~ ">" }
 

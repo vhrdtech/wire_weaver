@@ -87,8 +87,9 @@ definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_f
 
 // Statements
 let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression }
-expr_stmt = { (expression | expression_braced) ~ ";"? }
-statement = { let_stmt | expr_stmt }
+expr_stmt = { expression ~ ";"? }
+statement = { let_stmt | expr_stmt | braced_statement }
+braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 
 // Literals
 bool_lit = { "true" | "false" }
@@ -144,9 +145,17 @@ op_closed_range = { "..=" }
 op_open_range = { ".." }
 op_dot = { "." }
 
+op_eq = { "==" }
+op_neq = { "!=" }
+op_gte = { ">=" }
+op_lte = { "<=" }
+op_gt = { ">" }
+op_lt = { "<" }
+
 op_unary = { op_minus | op_plus | op_not }
 op_binary = { op_plus | op_minus | op_mul | op_div | op_rem | op_bool_and | op_bit_and | op_bool_or |
-              op_bit_or | op_xor | op_lsh | op_rsh | op_closed_range | op_open_range | op_dot }
+              op_bit_or | op_xor | op_lsh | op_rsh | op_closed_range | op_open_range | op_dot |
+              op_eq | op_neq | op_gte | op_lte | op_gt | op_lt }
 
 // Expressions
 unary_expr = { op_unary ~ expression }

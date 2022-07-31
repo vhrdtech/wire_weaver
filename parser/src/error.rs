@@ -17,6 +17,7 @@ pub enum ParseErrorKind {
 
     AutonumWrongForm,
     AutonumWrongArguments,
+    IndexOfWrongForm,
     FloatParseError,
     IntParseError,
 }

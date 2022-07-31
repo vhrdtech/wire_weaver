@@ -1,6 +1,7 @@
 use pest::Span;
+use crate::ast::item_expr::ItemExpr;
 use crate::ast::item_lit::ItemLit;
-use crate::ast::item_op::ItemOp;
+use crate::ast::item_op::BinaryOp;
 use crate::ast::naming::BuiltinTypename;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
@@ -23,6 +24,7 @@ pub enum Type<'i> {
         bits: u32
     },
     AutoNumber(AutoNumber<'i>),
+    IndexOf(ItemExpr<'i>),
     Textual(&'i str),
     Sequence,
     UserDefined,
@@ -96,37 +98,55 @@ pub struct AutoNumber<'i> {
 
 fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
     let typename: BuiltinTypename = input.parse()?;
-    if typename.typename == "autonum" {
-        let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)?;
-
-        let mut ex1 = ParseInput::fork(ex1, input);
-        let start: ItemLit = ex1.parse()?;
-        let mut ex2 = ParseInput::fork(ex2, input);
-        let step: ItemLit = ex2.parse()?;
-        let range_op: ItemOp = ex2.parse()?;
-        let end: ItemLit = ex2.parse()?;
-
-        if !start.is_a_number() || !step.is_a_number() || !end.is_a_number() ||
-            !start.is_same_kind(&step) || !step.is_same_kind(&end) ||
-            !range_op.is_range()
-        {
-            input.errors.push(ParseError {
-                kind: ParseErrorKind::AutonumWrongArguments,
-                rule: Rule::generic_ty,
-                span: (span.start(), span.end())
-            })
+    match typename.typename {
+        "autonum" => parse_autonum_ty(input, span),
+        "indexof" => parse_indexof_ty(input, span),
+        _ => {
+            dbg!("unimpl", typename);
+            Err(ParseErrorSource::Unimplemented("generic ty"))
         }
-
-        let inclusive = range_op == ItemOp::ClosedRange;
-
-        Ok(Type::AutoNumber(AutoNumber {
-            start,
-            step,
-            end,
-            inclusive,
-        }))
-    } else {
-        dbg!("unimpl", typename);
-        Err(ParseErrorSource::Unimplemented("generic ty"))
     }
+}
+
+fn parse_autonum_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
+    let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)?;
+
+    let mut ex1 = ParseInput::fork(ex1, input);
+    let start: ItemLit = ex1.parse()?;
+    let mut ex2 = ParseInput::fork(ex2, input);
+    let step: ItemLit = ex2.parse()?;
+    let range_op: BinaryOp = ex2.parse()?;
+    let end: ItemLit = ex2.parse()?;
+
+    if !start.is_a_number() || !step.is_a_number() || !end.is_a_number() ||
+        !start.is_same_kind(&step) || !step.is_same_kind(&end) ||
+        !range_op.is_range_op()
+    {
+        input.errors.push(ParseError {
+            kind: ParseErrorKind::AutonumWrongArguments,
+            rule: Rule::generic_ty,
+            span: (span.start(), span.end())
+        })
+    }
+
+    let inclusive = range_op == BinaryOp::ClosedRange;
+
+    Ok(Type::AutoNumber(AutoNumber {
+        start,
+        step,
+        end,
+        inclusive,
+    }))
+}
+
+fn parse_indexof_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Type<'i>, ParseErrorSource> {
+    if !input.pairs.peek().map(|p| p.as_rule() == Rule::expression).unwrap_or(false) {
+        input.errors.push(ParseError {
+            kind: ParseErrorKind::IndexOfWrongForm,
+            rule: Rule::generic_ty,
+            span: (span.start(), span.end())
+        });
+        return Err(ParseErrorSource::UserError);
+    }
+    return Ok(Type::IndexOf(input.parse()?));
 }

@@ -78,14 +78,19 @@ impl BinaryOp {
 impl<'i> Parse<'i> for BinaryOp {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let op = input.expect1(Rule::op_binary)?;
-        Ok(BinaryOp::from_rule(op.as_rule())?)
+        Ok(BinaryOp::from_rule(op
+            .into_inner()
+            .next()
+            .ok_or_else(|| ParseErrorSource::internal())?
+            .as_rule()
+        )?)
     }
 }
 
 pub enum UnaryOp {
     Minus,
     Plus,
-    Negate,
+    Not,
 }
 
 impl UnaryOp {
@@ -93,14 +98,14 @@ impl UnaryOp {
         match rule {
             Rule::op_minus => Ok(UnaryOp::Minus),
             Rule::op_plus => Ok(UnaryOp::Plus),
-            Rule::op_negate => Ok(UnaryOp::Negate),
+            Rule::op_not => Ok(UnaryOp::Not),
             _ => Err(ParseErrorSource::internal())
         }
     }
 
     pub fn binding_power(&self) -> ((), u8) {
         match self {
-            UnaryOp::Plus | UnaryOp::Minus | UnaryOp::Negate => ((), 23),
+            UnaryOp::Plus | UnaryOp::Minus | UnaryOp::Not => ((), 23),
         }
     }
 }

@@ -16,17 +16,17 @@ identifier = @{ XID_START ~ XID_CONTINUE* }
 bool_ty = { "bool" }
 
 // Discrete number types
-/// i8 / i16 / i32 / i3 / i{expr}
-discrete_signed_ty = @{ "i" ~ (natural_number | expression_braced) }
-/// u8 / u16 / u32 / u11 / u{expr}
-discrete_unsigned_ty = @{ "u" ~ (natural_number | expression_braced) }
+/// i8 / i128 / i3`unit` / i<expr -> bits, [expr -> +/-shift], [expr -> numbound], [expr -> unit]>
+discrete_signed_ty = @{ "i" ~ natural_number }
+/// u8 / u128 / u11 / u<expr -> bits, [expr -> +/-shift], [expr -> numbound]>
+discrete_unsigned_ty = @{ "u" ~ natural_number }
 discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ si_expr_ticked? }
 
 // Fixed point number types
-/// Signed: q3.12 / q{ expr -> (m, n) } / q{ expr -> (m, discrete_any_ty) }
-fixed_signed_ty = @{ "q" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
-/// Unsigned: uq1.15 / uq{ expr -> (m, n) }
-fixed_unsigned_ty = @{ "uq" ~ (whole_number ~ "." ~ whole_number | expression_braced) }
+/// Signed: q3.12 / q< expr -> (m, n) > / q< expr -> (m, discrete_any_ty) >
+fixed_signed_ty = @{ "q" ~ whole_number ~ "." ~ whole_number }
+/// Unsigned: uq1.15 / uq< expr -> (m, n) > uq< expr -> (m, discrete_any_ty) >
+fixed_unsigned_ty = @{ "uq" ~ whole_number ~ "." ~ whole_number }
 fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
 
 num_bound = { "unbound" | "max" ~ dec_lit | expression_list }
@@ -94,19 +94,22 @@ braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 // Literals
 bool_lit = { "true" | "false" }
 /// -10, 17, 0, +3, 127u16, 1_000, 1023_u32
-dec_lit = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* ~ discrete_any_ty? }
+dec_lit = _{ dec_lit_raw ~ discrete_any_ty? }
 dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 /// 0xAA, 0xcc, 0xff_u8
-hex_lit = @{ "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* ~ discrete_any_ty? }
+hex_lit = _{ hex_lit_raw ~ discrete_any_ty? }
+hex_lit_raw = @{ "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* }
 /// 0b1111_0000, 0b101_u3
-bin_lit = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* ~ discrete_any_ty? }
+bin_lit = _{ bin_lit_raw ~ discrete_any_ty? }
+bin_lit_raw = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* }
 /// 0o7
-oct_lit = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* ~ discrete_any_ty? }
+oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
+oct_lit_raw = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* }
 /// Floating point
 float_exponent = @{ "e" | "E" ~ dec_lit_raw }
 float_lit = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
-discrete_lit = _{ dec_lit | hex_lit | bin_lit | oct_lit }
+discrete_lit = { dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw ~ discrete_any_ty? }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
 char = _{
     !("\"" | "\\") ~ ANY
@@ -180,7 +183,7 @@ expression = { infix_expr | expression_inner }
 // block_open = { "(" | "{" | "[" }
 // block_close = { ")" | "}" | "]" }
 // expression_block = { block_open ~ expression ~ block_close }
-expression_braced = !{ "{" ~ expression ~ "}" }
+// expression_braced = !{ "{" ~ expression ~ "}" }
 expression_ticked = !{ "`" ~ expression ~ "`" }
 expression_parenthesized = { "(" ~ expression ~ ")" }
 expression_list = _{ expression ~ ("," ~ expression)* ~ ","? }

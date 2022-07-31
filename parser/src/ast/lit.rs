@@ -60,18 +60,42 @@ pub enum FixedLit {
 
 impl<'i> Parse<'i> for Lit<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let any_lit = input.expect1(Rule::any_lit)?;
-        let any_lit = any_lit.into_inner().next().unwrap();
-        match any_lit.as_rule() {
+        let mut input = ParseInput::fork(input.expect1(Rule::any_lit)?, input);
+        // crate::util::pest_print_tree(input.pairs.clone());
+        let x_lit = input.pairs.next().ok_or_else(|| ParseErrorSource::internal())?;
+        let mut input = ParseInput::fork(x_lit.clone(), &mut input);
+        match x_lit.as_rule() {
             Rule::bool_lit => {
-                Ok(Lit::BoolLit(any_lit.as_str() == "true"))
+                Ok(Lit::BoolLit(x_lit.as_str() == "true"))
             }
             Rule::float_lit => {
-                parse_float_lit(input, any_lit)
+                parse_float_lit(&mut input, x_lit)
             }
             Rule::discrete_lit => {
+                let num: u32 = x_lit.as_str().parse().map_err(|_| {
+                    input.errors.push(ParseError {
+                        kind: ParseErrorKind::IntParseError,
+                        rule: Rule::dec_lit,
+                        span: (x_lit.as_span().start(), x_lit.as_span().end())
+                    });
+                    ParseErrorSource::UserError
+                })?;
+                Ok(Lit::UDecLit {
+                    bits: 32,
+                    lit: num as u128
+                })
+            }
+            Rule::hex_lit => {
 
-                Err(ParseErrorSource::Unimplemented("discrete lit"))
+                Err(ParseErrorSource::Unimplemented("hex_lit"))
+            }
+            Rule::bin_lit => {
+
+                Err(ParseErrorSource::Unimplemented("bin_lit"))
+            }
+            Rule::oct_lit => {
+
+                Err(ParseErrorSource::Unimplemented("oct_lit"))
             }
             Rule::char_lit => {
 
@@ -98,7 +122,7 @@ impl<'i> Parse<'i> for Lit<'i> {
                 Err(ParseErrorSource::Unimplemented("array lit"))
             }
             _ => {
-                Err(ParseErrorSource::internal())
+                Err(ParseErrorSource::internal_with_rule(x_lit.as_rule()))
             }
         }
     }

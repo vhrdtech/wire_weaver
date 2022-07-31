@@ -76,16 +76,19 @@ enum_item_kind = { enum_item_tuple | enum_item_struct | enum_item_discriminant }
 enum_item = { doc_attr ~ identifier ~ enum_item_kind? }
 enum_items = _{ enum_item ~ ("," ~ enum_item)* ~ ","? }
 enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
+/// Function
+def_fn = { "fn" ~ identifier ~ fn_generic_params? ~ fn_args ~ "{" ~ statement* ~ "}" }
+named_field_ty = { identifier ~ ":" ~ any_ty }
+named_field_ty_list = { named_field_ty? ~ ("," ~ named_field_ty)* ~ ","? }
+fn_args = { "(" ~ named_field_ty_list ~ ")" }
+fn_generic_params = { "<" ~ named_field_ty_list ~ ">" }
 
-definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | xpi_block }
+definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 
 // Statements
-let_stmt = { "let" ~ identifier ~ "=" ~ expression }
-item_stmt = { "TODO" }
-api_stmt = { "TODO" }
-expr_stmt = { expression ~ ";" | expression_braced ~ ";"? }
-
-statement = { let_stmt | item_stmt | api_stmt }
+let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression }
+expr_stmt = { (expression | expression_braced) ~ ";"? }
+statement = { let_stmt | expr_stmt }
 
 // Literals
 bool_lit = { "true" | "false" }

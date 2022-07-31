@@ -2,7 +2,6 @@ use super::prelude::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum BinaryOp {
-    Negate,
     Minus,
     Plus,
     Mul,
@@ -18,8 +17,12 @@ pub enum BinaryOp {
     ClosedRange,
     OpenRange,
     Dot,
-    LParen,
-    RParen,
+    Eq,
+    Neq,
+    Gte,
+    Gt,
+    Lte,
+    Lt,
 }
 
 impl BinaryOp {
@@ -29,7 +32,6 @@ impl BinaryOp {
 
     pub fn from_rule(rule: Rule) -> Result<Self, ParseErrorSource> {
         match rule {
-            Rule::op_not => Ok(BinaryOp::Negate),
             Rule::op_plus => Ok(BinaryOp::Plus),
             Rule::op_minus => Ok(BinaryOp::Minus),
             Rule::op_mul => Ok(BinaryOp::Mul),
@@ -45,7 +47,30 @@ impl BinaryOp {
             Rule::op_closed_range => Ok(BinaryOp::ClosedRange),
             Rule::op_open_range => Ok(BinaryOp::OpenRange),
             Rule::op_dot => Ok(BinaryOp::Dot),
+            Rule::op_eq => Ok(BinaryOp::Eq),
+            Rule::op_neq => Ok(BinaryOp::Neq),
+            Rule::op_gte => Ok(BinaryOp::Gte),
+            Rule::op_gt => Ok(BinaryOp::Gt),
+            Rule::op_lte => Ok(BinaryOp::Lte),
+            Rule::op_lt => Ok(BinaryOp::Lt),
             _ => Err(ParseErrorSource::internal())
+        }
+    }
+
+    pub fn binding_power(&self) -> (u8, u8) {
+        use BinaryOp::*;
+        match self {
+            OpenRange | ClosedRange => (1, 2),
+            BoolOr => (3, 4),
+            BoolAnd => (5, 6),
+            Eq | Neq | Gte | Gt | Lte | Lt => (7, 8),
+            BitOr => (9, 10),
+            Xor => (11, 12),
+            BitAnd => (13, 14),
+            Lsh | Rsh => (15, 16),
+            Plus | Minus => (17, 18),
+            Mul | Div | Rem => (19, 20),
+            Dot => (21, 22),
         }
     }
 }
@@ -54,5 +79,35 @@ impl<'i> Parse<'i> for BinaryOp {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let op = input.expect1(Rule::op_binary)?;
         Ok(BinaryOp::from_rule(op.as_rule())?)
+    }
+}
+
+pub enum UnaryOp {
+    Minus,
+    Plus,
+    Negate,
+}
+
+impl UnaryOp {
+    pub fn from_rule(rule: Rule) -> Result<Self, ParseErrorSource> {
+        match rule {
+            Rule::op_minus => Ok(UnaryOp::Minus),
+            Rule::op_plus => Ok(UnaryOp::Plus),
+            Rule::op_negate => Ok(UnaryOp::Negate),
+            _ => Err(ParseErrorSource::internal())
+        }
+    }
+
+    pub fn binding_power(&self) -> ((), u8) {
+        match self {
+            UnaryOp::Plus | UnaryOp::Minus | UnaryOp::Negate => ((), 23),
+        }
+    }
+}
+
+impl<'i> Parse<'i> for UnaryOp {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let op = input.expect1(Rule::op_unary)?;
+        Ok(UnaryOp::from_rule(op.as_rule())?)
     }
 }

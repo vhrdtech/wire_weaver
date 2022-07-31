@@ -117,38 +117,36 @@ string_inner = @{ char* }
 // tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 
 /// All possible literals
-tuple_lit = { "TODO" }
+tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 struct_lit = { "TODO" }
 enum_lit = { "TODO" }
 array_lit = { "TODO" }
 any_lit = { bool_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit | enum_lit | array_lit }
 
 // Operators
-unary_op = {
-    "-" | // Negation
-    "+" | // For shifted numbers or for consistency if entering many positive and negative numbers
-    "!"   // Bitwise NOT or Boolean NOT
-}
-binary_op = {
-    "+" | // Addition
-    "-" | // Subtraction
-    "*" | // Multiplication
-    "/" | // Division
-    "%" | // Remainder
-    "&&"| // Boolean AND
-    "&" | // Bitwise AND
-    "||"| // Boolean OR
-    "|" | // Bitwise OR
-    "^" | // Bitwise XOR or Boolean XOR
-    "<<" | // Left shift
-    ">>" | // Right shift
-    "..="| // Closed range
-    ".." | // Open range
-    "."    // Field access
-}
+op_not = { "!" } // Bitwise NOT or Boolean NOT
+op_plus = { "+" } // Can be unary in shifted numbers
+op_minus = { "-" } // Negation or binary minus
+op_mul = { "*" }
+op_div = { "/" }
+op_rem = { "%" }
+op_bool_and = { "&&" }
+op_bit_and = { "&" }
+op_bool_or = { "||" }
+op_bit_or = { "|" }
+op_xor = { "^" }
+op_lsh = { "<<" }
+op_rsh = { ">>" }
+op_closed_range = { "..=" }
+op_open_range = { ".." }
+op_dot = { "." }
+
+op_unary = { op_minus | op_plus | op_not }
+op_binary = { op_plus | op_minus | op_mul | op_div | op_rem | op_bool_and | op_bit_and | op_bool_or |
+              op_bit_or | op_xor | op_lsh | op_rsh | op_closed_range | op_open_range | op_dot }
 
 // Expressions
-unary_expr = { unary_op ~ expression }
+unary_expr = { op_unary ~ expression }
 
 call_expr = { call_then_index | call_after_index | call_local }
 call_then_index = _{ identifier ~ call_arguments ~ index_arguments }
@@ -158,13 +156,13 @@ index_into_expr = { identifier ~ index_arguments }
 // call_method = _{ callable ~ ("." ~ identifier ~ call_arguments)+ }
 // callable = _{ expression_braced | identifier | call_local }
 
-infix_expr = _{ expression_inner ~ (binary_op ~ expression_inner)+ }
-tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)* ~ ","? ~ ")" }
+infix_expr = _{ expression_inner ~ (op_binary ~ expression_inner)+ }
+tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)+ ~ ","? ~ ")" }
 call_arguments = { "(" ~ expression_list? ~ ")" }
 index_arguments = { "[" ~ expression_list? ~ "]" }
 resource_path_start = { "#.." | "#." | "#" }
 
-expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | identifier | resource_path_start | expression_braced | expression_parenthesized | tuple_of_expressions }
+expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | tuple_of_expressions | identifier | resource_path_start | expression_parenthesized }
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }

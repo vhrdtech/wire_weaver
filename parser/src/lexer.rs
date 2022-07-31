@@ -6,6 +6,7 @@ pub struct Lexer;
 mod test {
     use crate::pest::{Parser, iterators::Pairs};
     use super::{Rule, Lexer};
+    use crate::util::ppt;
 
     fn verify<I>(mut input: Pairs<Rule>, level: Vec<usize>, spans: &str, expected: I) -> bool
         where I: IntoIterator<Item=Rule>,
@@ -58,7 +59,7 @@ mod test {
         let span1 = "^-------^";
         let span2 = "| | | | |";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::dec_lit, Rule::binary_op, Rule::dec_lit, Rule::binary_op, Rule::dec_lit];
+        let expected2 = [Rule::any_lit, Rule::op_binary, Rule::any_lit, Rule::op_binary, Rule::any_lit];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));
@@ -70,7 +71,7 @@ mod test {
         let span1 = "^---^";
         let span2 = "|||||";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::identifier, Rule::binary_op, Rule::identifier, Rule::binary_op, Rule::identifier];
+        let expected2 = [Rule::identifier, Rule::op_binary, Rule::identifier, Rule::op_binary, Rule::identifier];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));
@@ -108,10 +109,12 @@ mod test {
         let input = "('x', 'y')";
         let spans = "^--------^";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::tuple_of_expressions];
+        let expected2 = [Rule::any_lit];
+        let expected3 = [Rule::tuple_lit];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], spans, expected1));
         assert!(verify(parsed.clone(), vec![0], spans, expected2));
+        assert!(verify(parsed.clone(), vec![0, 0], spans, expected3));
     }
 
     #[test]
@@ -139,7 +142,7 @@ mod test {
         let span2 = "^-^|^-^|^---------^";
         let span3 = "            |  ^-^ ";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::identifier, Rule::binary_op, Rule::identifier, Rule::binary_op, Rule::call_expr];
+        let expected2 = [Rule::identifier, Rule::op_binary, Rule::identifier, Rule::op_binary, Rule::call_expr];
         let expected3 = [Rule::expression, Rule::expression];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         // println!("{:?}", parsed);
@@ -156,11 +159,11 @@ mod test {
         let span3 = " | | | | ^--^|| | ^---^         I  I ";
         let span4 = "                                |  | ";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::expression_parenthesized, Rule::binary_op, Rule::call_expr];
+        let expected2 = [Rule::expression_parenthesized, Rule::op_binary, Rule::call_expr];
         let expected3 = [
-            Rule::dec_lit, Rule::binary_op, Rule::identifier,
-            Rule::binary_op, Rule::identifier, Rule::binary_op, Rule::identifier,
-            Rule::binary_op, Rule::call_expr
+            Rule::any_lit, Rule::op_binary, Rule::identifier,
+            Rule::op_binary, Rule::identifier, Rule::op_binary, Rule::identifier,
+            Rule::op_binary, Rule::call_expr
         ];
         let expected4 = [Rule::expression, Rule::expression];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
@@ -220,8 +223,8 @@ mod test {
         let span2 = "||^-----^|^-^|^----^";
         let expected1 = [Rule::expression];
         let expected2 = [
-            Rule::resource_path_start, Rule::binary_op, Rule::identifier, Rule::binary_op,
-            Rule::identifier, Rule::binary_op, Rule::index_into_expr];
+            Rule::resource_path_start, Rule::op_binary, Rule::identifier, Rule::op_binary,
+            Rule::identifier, Rule::op_binary, Rule::index_into_expr];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));
@@ -234,8 +237,8 @@ mod test {
         let span2 = "^^|^-^|^-^";
         let expected1 = [Rule::expression];
         let expected2 = [
-            Rule::resource_path_start, Rule::binary_op, Rule::resource_path_start,
-            Rule::binary_op, Rule::identifier];
+            Rule::resource_path_start, Rule::op_binary, Rule::resource_path_start,
+            Rule::op_binary, Rule::identifier];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));
@@ -328,7 +331,7 @@ mod test {
         let span3 = "               ^---^ ^-----------------^    ";
         let expected1 = [Rule::xpi_block];
         let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected3 = [Rule::access_mod, Rule::param_ty];
+        let expected3 = [Rule::access_mod, Rule::generic_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
@@ -427,16 +430,18 @@ mod test {
     fn char_literal() {
         let input = "'a'";
         let spans = "^-^";
-        let expected = [Rule::char_lit];
+        let expected = [Rule::any_lit];
+        let expected2 = [Rule::char_lit];
         let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
-        assert!(verify(parsed, vec![], spans, expected));
+        assert!(verify(parsed.clone(), vec![], spans, expected));
+        assert!(verify(parsed, vec![0], spans, expected2));
     }
 
     #[test]
     fn char_literal_unicode() {
         let input = "'∈'";
         let spans = "^---^";
-        let expected = [Rule::char_lit];
+        let expected = [Rule::any_lit];
         let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
         assert!(verify(parsed, vec![], spans, expected));
     }
@@ -454,7 +459,7 @@ mod test {
         let input = "Cell<_>";
         let spans = "^--^ | ";
         let expected = [Rule::identifier, Rule::derive];
-        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
     }
 
@@ -463,7 +468,7 @@ mod test {
         let input = "Cell<#../channel>";
         let spans = "^--^ ^---------^ ";
         let expected = [Rule::identifier, Rule::expression];
-        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
     }
 
@@ -472,7 +477,7 @@ mod test {
         let input = "alias<u16, _>";
         let spans = "^---^ ^-^  | ";
         let expected = [Rule::identifier, Rule::discrete_any_ty, Rule::derive];
-        let parsed = Lexer::parse(Rule::param_ty, input).unwrap();
+        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
     }
 
@@ -480,7 +485,7 @@ mod test {
     fn char_literal_ascii_escape() {
         let input = "'\\n'";
         let spans = "^--^";
-        let expected = [Rule::char_lit];
+        let expected = [Rule::any_lit];
         let parsed = Lexer::parse(Rule::any_lit, input).unwrap();
         assert!(verify(parsed, vec![], spans, expected));
     }
@@ -489,14 +494,15 @@ mod test {
     fn tuple_literal() {
         let input = "(1, 2, 3)";
         let span1 = "^-------^";
-        let span2 = " |  |  | ";
-        let span3 = " |       ";
+        let span2 = "^-------^";
+        let span3 = " |  |  | ";
         let expected1 = [Rule::expression];
-        let expected2 = [Rule::expression, Rule::expression, Rule::expression];
-        let expected3 = [Rule::dec_lit];
+        let expected2 = [Rule::any_lit];
+        let expected3 = [Rule::any_lit, Rule::any_lit, Rule::any_lit];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        ppt!(parsed);
         assert!(verify(parsed.clone(), vec![], span1, expected1));
-        assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
+        assert!(verify(parsed.clone(), vec![0], span2, expected2));
         assert!(verify(parsed.clone(), vec![0, 0, 0], span3, expected3));
     }
 
@@ -609,7 +615,7 @@ mod test {
         let span2 = "     ^----^   ^------------------^ ";
         let span3 = "              ^-----^ |  ^------^  ";
         let expected1 = [Rule::type_alias_def];
-        let expected2 = [Rule::identifier, Rule::param_ty];
+        let expected2 = [Rule::identifier, Rule::generic_ty];
         let expected3 = [Rule::identifier, Rule::expression, Rule::expression];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
@@ -623,7 +629,7 @@ mod test {
         let span1 = "^-------------------------^";
         let span2 = "     ^------^   ^-^  ^-^   ";
         let expected1 = [Rule::enum_def];
-        let expected2 = [Rule::identifier, Rule::identifier, Rule::identifier];
+        let expected2 = [Rule::identifier, Rule::enum_item, Rule::enum_item];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));

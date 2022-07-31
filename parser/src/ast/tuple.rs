@@ -1,9 +1,9 @@
 use super::prelude::*;
-use super::item_type::Type;
+use super::ty::Ty;
 
 #[derive(Debug)]
 pub struct TupleFieldsTy<'i> {
-    pub fields: Vec<Type<'i>>
+    pub fields: Vec<Ty<'i>>
 }
 
 impl<'i> Parse<'i> for TupleFieldsTy<'i> {

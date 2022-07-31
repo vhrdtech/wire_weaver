@@ -1,10 +1,10 @@
 use super::prelude::*;
-use crate::ast::item_tuple::TupleFieldsTy;
+use crate::ast::tuple::TupleFieldsTy;
 use crate::ast::naming::EnumEntryName;
 use crate::error::ParseErrorSource;
 
 #[derive(Debug)]
-pub struct ItemEnum<'i> {
+pub struct DefEnum<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub typename: Typename<'i>,
@@ -31,11 +31,11 @@ pub enum EnumEntryKind<'i> {
     Discriminant(&'i str)
 }
 
-impl<'i> Parse<'i> for ItemEnum<'i> {
+impl<'i> Parse<'i> for DefEnum<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::enum_def)?, input);
 
-        Ok(ItemEnum {
+        Ok(DefEnum {
             docs: input.parse()?,
             attrs: input.parse()?,
             typename: input.parse()?,

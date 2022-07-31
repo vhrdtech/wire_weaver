@@ -3,7 +3,7 @@ use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
 #[derive(Debug)]
-pub enum ItemLit<'i> {
+pub enum Lit<'i> {
     BoolLit(bool),
     UDecLit {
         bits: u32,
@@ -27,9 +27,9 @@ pub enum ItemLit<'i> {
     ArrayLit,
 }
 
-impl<'i> ItemLit<'i> {
+impl<'i> Lit<'i> {
     pub fn is_a_number(&self) -> bool {
-        use ItemLit::*;
+        use Lit::*;
         match self {
             UDecLit {..} => true,
             IDecLit {..} => true,
@@ -58,13 +58,13 @@ pub enum FixedLit {
     Implicit(f64)
 }
 
-impl<'i> Parse<'i> for ItemLit<'i> {
+impl<'i> Parse<'i> for Lit<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let any_lit = input.expect1(Rule::any_lit)?;
         let any_lit = any_lit.into_inner().next().unwrap();
         match any_lit.as_rule() {
             Rule::bool_lit => {
-                Ok(ItemLit::BoolLit(any_lit.as_str() == "true"))
+                Ok(Lit::BoolLit(any_lit.as_str() == "true"))
             }
             Rule::float_lit => {
                 parse_float_lit(input, any_lit)
@@ -104,7 +104,7 @@ impl<'i> Parse<'i> for ItemLit<'i> {
     }
 }
 
-fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rule>) -> Result<ItemLit<'i>, ParseErrorSource> {
+fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rule>) -> Result<Lit<'i>, ParseErrorSource> {
     let fx = any_lit.as_str();
     let (fx, bits) = fx
         .strip_suffix("f32")
@@ -123,7 +123,7 @@ fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rul
             });
             ParseErrorSource::UserError
         })?;
-        Ok(ItemLit::Float32Lit(f))
+        Ok(Lit::Float32Lit(f))
     } else {
         let f: f64 = fx.parse().map_err(|_| {
             input.errors.push(ParseError {
@@ -133,6 +133,6 @@ fn parse_float_lit<'i, 'm>(input: &mut ParseInput<'i, 'm>, any_lit: Pair<'i, Rul
             });
             ParseErrorSource::UserError
         })?;
-        Ok(ItemLit::Float64Lit(f))
+        Ok(Lit::Float64Lit(f))
     }
 }

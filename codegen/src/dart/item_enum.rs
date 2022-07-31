@@ -1,4 +1,4 @@
-use parser::ast::item_enum::{ItemEnum};
+use parser::ast::def_enum::{DefEnum};
 use crate::multilang::docs::CGDocs;
 use mtoken::{ToTokens, TokenStream, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
@@ -10,7 +10,7 @@ pub struct CGItemEnum<'i, 'c> {
 }
 
 impl<'i, 'c> CGItemEnum<'i, 'c> {
-    pub fn new(item_enum: &'c ItemEnum<'i>) -> Self {
+    pub fn new(item_enum: &'c DefEnum<'i>) -> Self {
         Self {
             docs: CGDocs { inner: &item_enum.docs, flavor: CommentFlavor::TripleSlash },
             // typename: CGTypename { inner: &item_enum.typename },

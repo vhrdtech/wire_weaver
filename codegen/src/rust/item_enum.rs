@@ -1,7 +1,7 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
-use parser::ast::item_enum::{EnumEntries, ItemEnum, EnumEntryKind};
+use parser::ast::def_enum::{EnumEntries, DefEnum, EnumEntryKind};
 use crate::rust::item_tuple::CGTupleFields;
 use std::marker::PhantomData;
 use parser::ast::naming::EnumEntryName;
@@ -14,7 +14,7 @@ pub struct CGItemEnum<'i, 'c> {
 }
 
 impl<'i, 'c> CGItemEnum<'i, 'c> {
-    pub fn new(item_enum: &'c ItemEnum<'i>) -> Self {
+    pub fn new(item_enum: &'c DefEnum<'i>) -> Self {
         Self {
             docs: CGDocs { inner: &item_enum.docs, flavor: CommentFlavor::TripleSlash },
             typename: CGTypename { inner: &item_enum.typename },

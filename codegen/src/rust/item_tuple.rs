@@ -1,6 +1,6 @@
 use mtoken::{ToTokens, TokenStream};
 use mquote::mquote;
-use parser::ast::item_tuple::TupleFieldsTy;
+use parser::ast::tuple::TupleFieldsTy;
 use std::marker::PhantomData;
 use crate::rust::ty::CGTy;
 use mtoken::ext::TokenStreamExt;

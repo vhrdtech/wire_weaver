@@ -1,5 +1,5 @@
 use crate::parse::{ParseInput};
-use crate::ast::item::Item;
+use crate::ast::definition::Definition;
 use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
@@ -28,7 +28,7 @@ impl std::error::Error for FileError {}
 
 #[derive(Debug)]
 pub struct File<'i> {
-    pub items: Vec<Item<'i>>
+    pub defs: Vec<Definition<'i>>
 }
 
 impl<'i> File<'i> {
@@ -86,7 +86,7 @@ impl<'i> File<'i> {
         }
         if errors.is_empty() {
             Ok((File {
-                items
+                defs: items
             }, warnings))
         } else {
             Err(FileError::ParserError(errors))

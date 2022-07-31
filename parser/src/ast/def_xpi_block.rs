@@ -1,6 +1,6 @@
-use crate::ast::item_expr::ItemExpr;
-use crate::ast::item_stmt::ItemStmt;
-use crate::ast::item_type::Type;
+use crate::ast::expr::Expr;
+use crate::ast::stmt::Stmt;
+use crate::ast::ty::Ty;
 use crate::ast::naming::{XpiKeyName, XpiUriNamedPart};
 use crate::error::ParseErrorKind;
 use super::prelude::*;
@@ -17,19 +17,19 @@ use super::prelude::*;
 // }
 
 #[derive(Debug)]
-pub struct ItemXpiBlock<'i> {
+pub struct DefXpiBlock<'i> {
     pub uri: XpiUri<'i>,
     pub resource_ty: Option<XpiResourceTy<'i>>,
     pub body: XpiBody<'i>,
 }
 
-impl<'i> Parse<'i> for ItemXpiBlock<'i> {
+impl<'i> Parse<'i> for DefXpiBlock<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // dbg!(function!());
         // dbg!("xpi_block parse");
         crate::util::pest_print_tree(input.pairs.clone());
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_block)?, input);
-        Ok(ItemXpiBlock {
+        Ok(DefXpiBlock {
             uri: input.parse()?,
             resource_ty: input.parse_or_skip()?,
             body: input.parse()?
@@ -86,11 +86,11 @@ pub enum XpiUri<'i> {
     /// `/main`
     OneNamedPart(XpiUriNamedPart<'i>),
     /// /\`'a'..'c'\`_ctrl
-    ExprThenNamedPart(ItemExpr<'i>, XpiUriNamedPart<'i>),
+    ExprThenNamedPart(Expr<'i>, XpiUriNamedPart<'i>),
     /// /velocity_\`'x'..'z'\`
-    NamedPartThenExpr(XpiUriNamedPart<'i>, ItemExpr<'i>),
+    NamedPartThenExpr(XpiUriNamedPart<'i>, Expr<'i>),
     /// /register_\`'0'..'9'\`_b
-    Full(XpiUriNamedPart<'i>, ItemExpr<'i>, XpiUriNamedPart<'i>)
+    Full(XpiUriNamedPart<'i>, Expr<'i>, XpiUriNamedPart<'i>)
 }
 
 impl<'i> Parse<'i> for XpiUri<'i> {
@@ -151,7 +151,7 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockType<'i>(pub Option<Type<'i>>);
+pub struct XpiBlockType<'i>(pub Option<Ty<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockType<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -210,14 +210,14 @@ impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
 
 #[derive(Debug)]
 pub enum XpiValue<'i> {
-    Stmt(ItemStmt<'i>),
-    Expr(ItemExpr<'i>),
+    Stmt(Stmt<'i>),
+    Expr(Expr<'i>),
 }
 
 impl<'i> Parse<'i> for XpiValue<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // dbg!(function!());
-        let try_stmt: Option<ItemStmt<'i>> = input.parse_or_skip()?;
+        let try_stmt: Option<Stmt<'i>> = input.parse_or_skip()?;
         match try_stmt {
             Some(stmt) => Ok(XpiValue::Stmt(stmt)),
             None => Ok(XpiValue::Expr(input.parse()?))
@@ -226,7 +226,7 @@ impl<'i> Parse<'i> for XpiValue<'i> {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockChildren<'i>(pub Vec<ItemXpiBlock<'i>>);
+pub struct XpiBlockChildren<'i>(pub Vec<DefXpiBlock<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockChildren<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {

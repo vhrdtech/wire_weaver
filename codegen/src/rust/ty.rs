@@ -1,20 +1,20 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt};
 use mquote::mquote;
-use parser::ast::item_type::Type;
+use parser::ast::ty::Ty;
 use std::marker::PhantomData;
 
 pub struct CGTy<'i, 'c> {
-    pub inner: &'c Type<'i>,
+    pub inner: &'c Ty<'i>,
     pub _p: &'i PhantomData<()>
 }
 
 impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self.inner {
-            Type::Boolean => {
+            Ty::Boolean => {
                 tokens.append(Ident::new("bool", Span::call_site()));
             }
-            Type::Discrete { is_signed, bits, shift } => {
+            Ty::Discrete { is_signed, bits, shift } => {
                 let is_signed = if is_native_discrete(*bits) {
                     if *is_signed {
                         "i"
@@ -33,14 +33,14 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
                     #discrete
                 "#));
             }
-            Type::FixedPoint { .. } => {}
-            Type::FloatingPoint { .. } => {}
-            Type::Textual(_) => {}
-            Type::Sequence => {}
-            Type::UserDefined => {}
-            Type::AutoNumber(_) => {}
-            Type::IndexOf(_) => {}
-            Type::Derive => {}
+            Ty::FixedPoint { .. } => {}
+            Ty::FloatingPoint { .. } => {}
+            Ty::Textual(_) => {}
+            Ty::Sequence => {}
+            Ty::UserDefined => {}
+            Ty::AutoNumber(_) => {}
+            Ty::IndexOf(_) => {}
+            Ty::Derive => {}
         }
     }
 }

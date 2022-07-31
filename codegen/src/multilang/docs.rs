@@ -1,4 +1,4 @@
-use parser::ast::item_doc::Doc;
+use parser::ast::doc::Doc;
 use mtoken::{ToTokens, TokenStream, Span, Comment, CommentFlavor, ext::TokenStreamExt};
 use mquote::mquote;
 

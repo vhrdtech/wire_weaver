@@ -1,3 +1,8 @@
+#![cfg_attr(
+feature = "backtrace",
+feature(backtrace)
+)]
+
 // mod token;
 pub mod lexer;
 pub mod parse;

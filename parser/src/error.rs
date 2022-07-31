@@ -1,16 +1,22 @@
-// use std::backtrace::Backtrace;
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
 use thiserror::Error;
+use crate::lexer::Rule;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseError {
     pub kind: ParseErrorKind,
     pub rule: crate::lexer::Rule,
     pub span: (usize, usize)
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ParseErrorKind {
-    InternalError,
+    InternalError {
+        rule: Option<Rule>,
+        #[cfg(feature = "backtrace")]
+        backtrace: String,
+    },
     Unimplemented(&'static str),
     UnhandledUnexpectedInput,
     UserError,
@@ -31,7 +37,9 @@ pub enum ParseErrorSource {
     /// TODO: add auto link to github here
     #[error("Parser internal error, please file a bug is one doesn't yet exists.")]
     InternalError {
-        // backtrace: Backtrace,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+        rule: Option<Rule>,
     },
     /// Parser feature unimplemented
     /// TODO: add link to feature status on github here
@@ -52,7 +60,17 @@ pub enum ParseErrorSource {
 impl ParseErrorSource {
     pub fn internal() -> ParseErrorSource {
         ParseErrorSource::InternalError {
-            // backtrace: Backtrace::capture()
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+            rule: None
+        }
+    }
+
+    pub fn internal_with_rule(rule: Rule) -> ParseErrorSource {
+        ParseErrorSource::InternalError {
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+            rule: Some(rule)
         }
     }
 }

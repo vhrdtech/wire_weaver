@@ -7,3 +7,6 @@ edition = "2018"
 [dependencies]
 parser = { path = "../parser" }
 codegen = { path = "../codegen" }
+
+[features]
+backtrace = ["parser/backtrace"]

@@ -33,24 +33,29 @@ pub enum Ty<'i> {
 
 // pub struct NumberTy<'i> {
 //     kind: NumberKind<'i>,
+//     unit: Option<Unit<'i>>,
 //     bound: Option<NumberBound<'i>>,
 // }
 
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // crate::util::ppt!(input.pairs);
-        let ty = input.pairs.next().unwrap();
-        match ty.as_rule() {
+        let ty = input.pairs.next().ok_or_else(|| ParseErrorSource::internal())?;
+        match ty.clone().as_rule() {
             Rule::bool_ty => {
                 Ok(Ty::Boolean)
             }
             Rule::discrete_any_ty => {
-                let bits: u32 = ty
+                let discrete_x_ty = ty
+                    .into_inner().next().ok_or(ParseErrorSource::internal())?;
+                let bits: u32 = discrete_x_ty
                     .as_str().strip_prefix("u")
-                    .or(ty.as_str().strip_prefix("i"))
-                    .unwrap().parse().unwrap();
-                let is_signed = ty
-                    .into_inner().next().unwrap().as_rule() == Rule::discrete_signed_ty;
+                    .or(discrete_x_ty.as_str().strip_prefix("i"))
+                    .ok_or(ParseErrorSource::internal())?.parse().map_err(|_| {
+                        input.push_error(&discrete_x_ty, ParseErrorKind::IntParseError);
+                        ParseErrorSource::internal()
+                })?;
+                let is_signed = discrete_x_ty.as_rule() == Rule::discrete_signed_ty;
                 Ok(Ty::Discrete { is_signed, bits, shift: 0 })
             }
             Rule::fixed_any_ty => {
@@ -82,7 +87,7 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Err(ParseErrorSource::Unimplemented("fn ty"))
             }
             _ => {
-                Err(ParseErrorSource::internal())
+                Err(ParseErrorSource::internal_with_rule(ty.as_rule()))
             }
         }
     }

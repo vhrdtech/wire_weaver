@@ -13,6 +13,8 @@ pub mod def_xpi_block;
 pub mod expr;
 pub mod stmt;
 pub mod def_const;
+pub mod def_fn;
+pub mod generics;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};

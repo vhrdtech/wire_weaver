@@ -1,4 +1,5 @@
 use crate::ast::def_const::DefConst;
+use crate::ast::def_fn::DefFn;
 use super::prelude::*;
 use crate::ast::def_type_alias::DefTypeAlias;
 use crate::ast::def_xpi_block::DefXpiBlock;
@@ -9,6 +10,8 @@ use super::def_enum::DefEnum;
 pub enum Definition<'i> {
     Const(DefConst),
     Enum(DefEnum<'i>),
+    Struct(),
+    Function(DefFn<'i>),
     TypeAlias(DefTypeAlias<'i>),
     XpiBlock(DefXpiBlock<'i>),
 }
@@ -36,6 +39,9 @@ impl<'i> Parse<'i> for Definition<'i> {
             Rule::xpi_block => {
                 input.parse()
                     .map(|item_xpi_block| Definition::XpiBlock(item_xpi_block))
+            }
+            Rule::def_fn => {
+                input.parse().map(|def_fn| Definition::Function(def_fn))
             }
             _ => {
                 // input.errors.push(ParseError::E0001);

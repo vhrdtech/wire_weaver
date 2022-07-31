@@ -77,11 +77,12 @@ enum_item = { doc_attr ~ identifier ~ enum_item_kind? }
 enum_items = _{ enum_item ~ ("," ~ enum_item)* ~ ","? }
 enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
 /// Function
-def_fn = { "fn" ~ identifier ~ fn_generic_params? ~ fn_args ~ "{" ~ statement* ~ "}" }
-named_field_ty = { identifier ~ ":" ~ any_ty }
-named_field_ty_list = { named_field_ty? ~ ("," ~ named_field_ty)* ~ ","? }
-fn_args = { "(" ~ named_field_ty_list ~ ")" }
-fn_generic_params = { "<" ~ named_field_ty_list ~ ">" }
+def_fn = { doc_attr ~ "fn" ~ identifier ~ generics? ~ fn_args ~ fn_ret_ty? ~ "{" ~ statement* ~ "}" }
+named_ty = { identifier ~ ":" ~ any_ty }
+named_ty_list = { named_ty? ~ ("," ~ named_ty)* ~ ","? }
+fn_args = { "(" ~ named_ty_list ~ ")" }
+fn_ret_ty = { "->" ~ any_ty }
+generics = { "<" ~ "T" ~ ">" }
 
 definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 

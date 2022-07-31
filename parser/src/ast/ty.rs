@@ -40,7 +40,7 @@ pub enum Ty<'i> {
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // crate::util::ppt!(input.pairs);
-        let ty = input.pairs.next().ok_or_else(|| ParseErrorSource::internal())?;
+        let ty = input.pairs.next().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match ty.clone().as_rule() {
             Rule::bool_ty => {
                 Ok(Ty::Boolean)

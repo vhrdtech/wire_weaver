@@ -8,24 +8,24 @@ pub struct DefEnum<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub typename: Typename<'i>,
-    pub entries: EnumEntries<'i>
+    pub entries: EnumItems<'i>
 }
 
 #[derive(Debug)]
-pub struct EnumEntries<'i> {
-    pub entries: Vec<EnumEntry<'i>>,
+pub struct EnumItems<'i> {
+    pub entries: Vec<EnumItem<'i>>,
 }
 
 #[derive(Debug)]
-pub struct EnumEntry<'i> {
+pub struct EnumItem<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub name: EnumEntryName<'i>,
-    pub kind: Option<EnumEntryKind<'i>>
+    pub kind: Option<EnumItemKind<'i>>
 }
 
 #[derive(Debug)]
-pub enum EnumEntryKind<'i> {
+pub enum EnumItemKind<'i> {
     Tuple(TupleFieldsTy<'i>),
     Struct,
     Discriminant(&'i str)
@@ -44,7 +44,7 @@ impl<'i> Parse<'i> for DefEnum<'i> {
     }
 }
 
-impl<'i> Parse<'i> for EnumEntries<'i> {
+impl<'i> Parse<'i> for EnumItems<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut entries = Vec::new();
         while let Some(_) = input.pairs.peek() {
@@ -52,15 +52,15 @@ impl<'i> Parse<'i> for EnumEntries<'i> {
             entries.push(input.parse()?);
         }
 
-        Ok(EnumEntries {
+        Ok(EnumItems {
             entries
         })
     }
 }
 
-impl<'i> Parse<'i> for EnumEntry<'i> {
+impl<'i> Parse<'i> for EnumItem<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        Ok(EnumEntry {
+        Ok(EnumItem {
             docs: input.parse()?,
             attrs: input.parse()?,
             name: input.parse()?,
@@ -69,7 +69,7 @@ impl<'i> Parse<'i> for EnumEntry<'i> {
     }
 }
 
-impl<'i> Parse<'i> for EnumEntryKind<'i> {
+impl<'i> Parse<'i> for EnumItemKind<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::enum_item_kind)?, input);
         let entry_kind = match input.pairs.peek() {
@@ -82,7 +82,7 @@ impl<'i> Parse<'i> for EnumEntryKind<'i> {
         match entry_kind.as_rule() {
             Rule::enum_item_tuple => {
                 let mut input = ParseInput::fork(input.expect1(Rule::enum_item_tuple)?, &mut input);
-                Ok(EnumEntryKind::Tuple(input.parse()?))
+                Ok(EnumItemKind::Tuple(input.parse()?))
             }
             Rule::enum_item_struct => {
                 Err(ParseErrorSource::Unimplemented("enum item struct"))

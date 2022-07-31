@@ -1,7 +1,7 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt, CommentFlavor};
 use mquote::mquote;
 use crate::ast_wrappers::{CGTypename};
-use parser::ast::def_enum::{EnumEntries, DefEnum, EnumEntryKind};
+use parser::ast::def_enum::{EnumItems, DefEnum, EnumItemKind};
 use crate::rust::item_tuple::CGTupleFields;
 use std::marker::PhantomData;
 use parser::ast::naming::EnumEntryName;
@@ -10,7 +10,7 @@ use crate::multilang::docs::CGDocs;
 pub struct CGItemEnum<'i, 'c> {
     pub docs: CGDocs<'i, 'c>,
     pub typename: CGTypename<'i, 'c>,
-    pub items: &'c EnumEntries<'i>,
+    pub items: &'c EnumItems<'i>,
 }
 
 impl<'i, 'c> CGItemEnum<'i, 'c> {
@@ -69,21 +69,21 @@ impl<'i, 'c> ToTokens for CGEnumItemName<'i, 'c> {
 }
 
 pub struct CGEnumItemKind<'i, 'c> {
-    pub inner: &'c Option<EnumEntryKind<'i>>
+    pub inner: &'c Option<EnumItemKind<'i>>
 }
 
 impl<'i, 'c> ToTokens for CGEnumItemKind<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         if let Some(kind) = self.inner {
             match kind {
-                EnumEntryKind::Tuple(fields) => {
+                EnumItemKind::Tuple(fields) => {
                     let fields = CGTupleFields { inner: &fields, _p: &PhantomData };
                     fields.to_tokens(tokens);
                 }
-                EnumEntryKind::Struct => {
+                EnumItemKind::Struct => {
                     todo!()
                 }
-                EnumEntryKind::Discriminant(_expression) => {
+                EnumItemKind::Discriminant(_expression) => {
                     todo!()
                 }
             }

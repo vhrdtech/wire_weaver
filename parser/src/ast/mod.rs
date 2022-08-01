@@ -15,6 +15,7 @@ pub mod stmt;
 pub mod def_const;
 pub mod def_fn;
 pub mod generics;
+pub mod visit;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};

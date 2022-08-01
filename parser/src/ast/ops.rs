@@ -73,6 +73,32 @@ impl BinaryOp {
             Dot => (21, 22),
         }
     }
+
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            BinaryOp::Minus => "-",
+            BinaryOp::Plus => "+",
+            BinaryOp::Mul => "*",
+            BinaryOp::Div => "/",
+            BinaryOp::Rem => "%",
+            BinaryOp::BoolAnd => "&&",
+            BinaryOp::BitAnd => "&",
+            BinaryOp::BoolOr => "||",
+            BinaryOp::BitOr => "|",
+            BinaryOp::Xor => "^",
+            BinaryOp::Lsh => "<<",
+            BinaryOp::Rsh => ">>",
+            BinaryOp::ClosedRange => "..=",
+            BinaryOp::OpenRange => "..",
+            BinaryOp::Dot => ".",
+            BinaryOp::Eq => "==",
+            BinaryOp::Neq => "!=",
+            BinaryOp::Gte => ">=",
+            BinaryOp::Gt => ">",
+            BinaryOp::Lte => "<=",
+            BinaryOp::Lt => "<",
+        }
+    }
 }
 
 impl<'i> Parse<'i> for BinaryOp {

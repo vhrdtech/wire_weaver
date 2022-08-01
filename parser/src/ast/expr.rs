@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::ast::lit::Lit;
 use crate::ast::ops::BinaryOp;
 use super::prelude::*;
@@ -23,6 +24,29 @@ impl<'i> Parse<'i> for Expr<'i> {
         crate::util::pest_print_tree(input.pairs.clone());
         let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
         pratt_parser(&mut input, 0)
+    }
+}
+
+impl<'i> Display for Expr<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Call => { write!(f, "call") }
+            Expr::IndexInto => { write!(f, "index_into") }
+            Expr::Unary => { write!(f, "unary") }
+            Expr::Lit(lit) => { write!(f, "{:?}", lit) }
+            Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
+            Expr::Ident(ident) => { write!(f, "{}", *ident) }
+            Expr::ResourcePathStart => { write!(f, "resource") }
+            Expr::ExprInParen => { write!(f, "expr_in_paren") }
+
+            Expr::Cons(op, cons) => {
+                write!(f, "({}", op.to_str())?;
+                for e in cons {
+                    write!(f, " {}", e)?;
+                }
+                write!(f, ")")
+            }
+        }
     }
 }
 

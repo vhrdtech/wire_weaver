@@ -38,12 +38,12 @@ pub fn visit_definition<'ast, 'input, V>(v: &mut V, node: &'ast Definition<'inpu
     where V: Visit<'ast, 'input> + ?Sized
 {
     match &node {
-        Definition::Const(_) => unimplemented!(),
-        Definition::Enum(_) => unimplemented!(),
-        Definition::Struct() => unimplemented!(),
+        Definition::Const(_) => {},
+        Definition::Enum(_) => {},
+        Definition::Struct() => {},
         Definition::Function(fun) => v.visit_function(fun),
-        Definition::TypeAlias(_) => unimplemented!(),
-        Definition::XpiBlock(_) => unimplemented!(),
+        Definition::TypeAlias(_) => {},
+        Definition::XpiBlock(_) => {},
     }
 }
 
@@ -59,7 +59,7 @@ pub fn visit_statement<'ast, 'input, V>(v: &mut V, node: &'ast Stmt<'input>)
     where V: Visit<'ast, 'input> + ?Sized
 {
     match &node {
-        Stmt::Let(_) => unimplemented!(),
+        Stmt::Let(_) => {},
         Stmt::Expr(ex) => v.visit_expression(ex),
     }
 }

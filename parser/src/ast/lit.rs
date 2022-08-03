@@ -2,7 +2,7 @@ use pest::iterators::Pair;
 use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Lit<'i> {
     BoolLit(bool),
     UDecLit {
@@ -48,7 +48,7 @@ impl<'i> Lit<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FixedLit {
     Explicit {
         m: u32,
@@ -62,7 +62,7 @@ impl<'i> Parse<'i> for Lit<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::any_lit)?, input);
         // crate::util::pest_print_tree(input.pairs.clone());
-        let x_lit = input.pairs.next().ok_or_else(|| ParseErrorSource::internal())?;
+        let x_lit = input.pairs.next().ok_or_else(|| ParseErrorSource::internal(""))?;
         let mut input = ParseInput::fork(x_lit.clone(), &mut input);
         match x_lit.as_rule() {
             Rule::bool_lit => {
@@ -102,8 +102,8 @@ impl<'i> Parse<'i> for Lit<'i> {
                 Err(ParseErrorSource::Unimplemented("char lit"))
             }
             Rule::string_lit => {
-
-                Err(ParseErrorSource::Unimplemented("string lit"))
+                let string_inner = x_lit.into_inner().next().ok_or_else(|| ParseErrorSource::internal(""))?;
+                Ok(Lit::StringLit(string_inner.as_str()))
             }
             Rule::tuple_lit => {
 
@@ -122,7 +122,7 @@ impl<'i> Parse<'i> for Lit<'i> {
                 Err(ParseErrorSource::Unimplemented("array lit"))
             }
             _ => {
-                Err(ParseErrorSource::internal_with_rule(x_lit.as_rule()))
+                Err(ParseErrorSource::internal_with_rule(x_lit.as_rule(), ""))
             }
         }
     }

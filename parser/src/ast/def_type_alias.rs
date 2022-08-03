@@ -11,6 +11,7 @@ pub struct DefTypeAlias<'i> {
 
 impl<'i> Parse<'i> for DefTypeAlias<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::type_alias_def)?, input);
         Ok(DefTypeAlias {
             doc: input.parse()?,
             attrs: input.parse()?,

@@ -18,12 +18,12 @@ pub enum Definition<'i> {
 
 impl<'i> Parse<'i> for Definition<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        crate::util::pest_print_tree(input.pairs.clone());
+        // crate::util::pest_print_tree(input.pairs.clone());
         let rule = match input.pairs.peek() {
             Some(r) => r,
             None => {
                 println!("Item::parse: None");
-                return Err(ParseErrorSource::internal());
+                return Err(ParseErrorSource::internal(""));
             }
         };
         match rule.as_rule() {
@@ -31,9 +31,7 @@ impl<'i> Parse<'i> for Definition<'i> {
                 input.parse().map(|enum_def| Definition::Enum(enum_def))
             }
             Rule::type_alias_def => {
-                todo!("update parser");
-                let _ = input.pairs.next();
-                ParseInput::fork(rule, input).parse()
+                input.parse()
                     .map(|item_type_alias| Definition::TypeAlias(item_type_alias))
             }
             Rule::xpi_block => {
@@ -45,7 +43,7 @@ impl<'i> Parse<'i> for Definition<'i> {
             }
             _ => {
                 // input.errors.push(ParseError::E0001);
-                Err(ParseErrorSource::internal())
+                Err(ParseErrorSource::internal(""))
             }
         }
     }

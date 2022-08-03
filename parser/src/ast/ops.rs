@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum BinaryOp {
     Minus,
     Plus,
@@ -53,7 +53,7 @@ impl BinaryOp {
             Rule::op_gt => Ok(BinaryOp::Gt),
             Rule::op_lte => Ok(BinaryOp::Lte),
             Rule::op_lt => Ok(BinaryOp::Lt),
-            _ => Err(ParseErrorSource::internal())
+            _ => Err(ParseErrorSource::internal(""))
         }
     }
 
@@ -107,7 +107,7 @@ impl<'i> Parse<'i> for BinaryOp {
         Ok(BinaryOp::from_rule(op
             .into_inner()
             .next()
-            .ok_or_else(|| ParseErrorSource::internal())?
+            .ok_or_else(|| ParseErrorSource::internal(""))?
             .as_rule()
         )?)
     }
@@ -125,7 +125,7 @@ impl UnaryOp {
             Rule::op_minus => Ok(UnaryOp::Minus),
             Rule::op_plus => Ok(UnaryOp::Plus),
             Rule::op_not => Ok(UnaryOp::Not),
-            _ => Err(ParseErrorSource::internal())
+            _ => Err(ParseErrorSource::internal(""))
         }
     }
 

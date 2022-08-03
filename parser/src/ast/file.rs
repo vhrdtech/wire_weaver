@@ -69,7 +69,7 @@ impl<'i> File<'i> {
                                         #[cfg(feature = "backtrace")]
                                         ParseErrorSource::InternalError{ rule, backtrace } => ParseErrorKind::InternalError{rule, backtrace: backtrace.to_string()},
                                         #[cfg(not(feature = "backtrace"))]
-                                        ParseErrorSource::InternalError{ rule } => ParseErrorKind::InternalError{rule},
+                                        ParseErrorSource::InternalError{ rule, message } => ParseErrorKind::InternalError{rule, message},
                                         ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
                                         ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
                                         ParseErrorSource::UserError => ParseErrorKind::UserError

@@ -14,6 +14,7 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     InternalError {
         rule: Option<Rule>,
+        message: &'static str,
         #[cfg(feature = "backtrace")]
         backtrace: String,
     },
@@ -26,6 +27,7 @@ pub enum ParseErrorKind {
     IndexOfWrongForm,
     FloatParseError,
     IntParseError,
+    MalformedResourcePath,
 }
 
 #[derive(Error, Debug)]
@@ -40,6 +42,7 @@ pub enum ParseErrorSource {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
         rule: Option<Rule>,
+        message: &'static str,
     },
     /// Parser feature unimplemented
     /// TODO: add link to feature status on github here
@@ -58,19 +61,21 @@ pub enum ParseErrorSource {
 }
 
 impl ParseErrorSource {
-    pub fn internal() -> ParseErrorSource {
+    pub fn internal(message: &'static str,) -> ParseErrorSource {
         ParseErrorSource::InternalError {
             #[cfg(feature = "backtrace")]
             backtrace: Backtrace::capture(),
-            rule: None
+            rule: None,
+            message
         }
     }
 
-    pub fn internal_with_rule(rule: Rule) -> ParseErrorSource {
+    pub fn internal_with_rule(rule: Rule, message: &'static str) -> ParseErrorSource {
         ParseErrorSource::InternalError {
             #[cfg(feature = "backtrace")]
             backtrace: Backtrace::capture(),
-            rule: Some(rule)
+            rule: Some(rule),
+            message,
         }
     }
 }

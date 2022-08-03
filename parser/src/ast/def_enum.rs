@@ -75,7 +75,7 @@ impl<'i> Parse<'i> for EnumItemKind<'i> {
         let entry_kind = match input.pairs.peek() {
             Some(entry_kind) => entry_kind,
             None => {
-                return Err(ParseErrorSource::internal())
+                return Err(ParseErrorSource::internal(""))
             }
         };
 
@@ -91,7 +91,7 @@ impl<'i> Parse<'i> for EnumItemKind<'i> {
                 Err(ParseErrorSource::Unimplemented("enum item discriminant"))
             }
             _ => {
-                return Err(ParseErrorSource::internal())
+                return Err(ParseErrorSource::internal(""))
             }
         }
     }

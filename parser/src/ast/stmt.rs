@@ -20,7 +20,7 @@ impl<'i> Parse<'i> for Stmt<'i> {
                 Ok(Stmt::Expr(input.parse()?))
             },
             _ => {
-                Err(ParseErrorSource::internal_with_rule(s.as_rule()))
+                Err(ParseErrorSource::internal_with_rule(s.as_rule(), ""))
             }
         }
     }

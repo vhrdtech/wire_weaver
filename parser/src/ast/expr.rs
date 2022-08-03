@@ -1,11 +1,14 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, write};
 use crate::ast::lit::Lit;
+use crate::ast::naming::{Identifier, XpiUriNamedPart};
 use crate::ast::ops::BinaryOp;
+use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
+use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
 /// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
 /// Atoms is everything except Cons variant, pre-processed by pest.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr<'i> {
     Call,
     IndexInto,
@@ -13,7 +16,11 @@ pub enum Expr<'i> {
     Lit(Lit<'i>),
     TupleOfExprs,
     Ident(&'i str),
-    ResourcePathStart,
+    ResourcePath {
+        kind: ResourcePathKind,
+        parts: Vec<ResourcePathPart<'i>>,
+        tail: ResourcePathTail<'i>,
+    },
     ExprInParen,
 
     Cons(BinaryOp, Vec<Expr<'i>>)
@@ -27,6 +34,16 @@ impl<'i> Parse<'i> for Expr<'i> {
     }
 }
 
+impl<'i> Parse<'i> for Vec<Expr<'i>> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut exprs = Vec::new();
+        while let Some(_) = input.pairs.peek() {
+            exprs.push(input.parse()?);
+        }
+        Ok(exprs)
+    }
+}
+
 impl<'i> Display for Expr<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -36,7 +53,15 @@ impl<'i> Display for Expr<'i> {
             Expr::Lit(lit) => { write!(f, "{:?}", lit) }
             Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
             Expr::Ident(ident) => { write!(f, "{}", *ident) }
-            Expr::ResourcePathStart => { write!(f, "resource") }
+            Expr::ResourcePath {
+                kind, parts, tail
+            } => {
+                write!(f, "{}", kind.to_str())?;
+                for part in parts {
+                    write!(f, "{}", part)?;
+                }
+                write!(f, "{}", tail)
+            }
             Expr::ExprInParen => { write!(f, "expr_in_paren") }
 
             Expr::Cons(op, cons) => {
@@ -52,7 +77,7 @@ impl<'i> Display for Expr<'i> {
 
 // Inspired by: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Expr<'i>, ParseErrorSource> {
-    let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal())?;
+    let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal(""))?;
     // println!("lhs pair = {:?}", pair);
     println!("pratt(_, {})", min_bp);
     let mut lhs = match pair.as_rule() {
@@ -77,7 +102,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             Expr::Ident(pair.as_str())
         }
         Rule::resource_path_start => {
-            return Err(ParseErrorSource::Unimplemented("resource_path_start"))
+            consume_resource_path(input)?
         }
         Rule::expression_parenthesized => {
             return Err(ParseErrorSource::Unimplemented("expression_parenthesized"))
@@ -85,11 +110,11 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
 
         // Op
         Rule::op_binary => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule()));
+            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), ""));
         }
 
         _ => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule()));
+            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), ""));
         }
     };
     println!("lhs = {:?}", lhs);
@@ -101,7 +126,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
                 BinaryOp::from_rule(p
                     .into_inner()
                     .next()
-                    .ok_or_else(|| ParseErrorSource::internal())?
+                    .ok_or_else(|| ParseErrorSource::internal(""))?
                     .as_rule()
                 )?
             }
@@ -126,4 +151,87 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
 
     println!("ret lhs = {:?}", lhs);
     Ok(lhs)
+}
+
+fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<'i>, ParseErrorSource> {
+    println!("consume_resource_path: {:?}", input.pairs);
+    let kind: ResourcePathKind = input.parse()?;
+    println!("consume_resource_path: {:?}", input.pairs);
+    let mut tails = Vec::new();
+    loop {
+        match input.pairs.peek() {
+            Some(p) => {
+                if p.as_rule() != Rule::op_binary || p.as_str() != "/" {
+                    println!("found path end");
+                    return finish_resource_path(kind, tails);
+                } else {
+                    println!("consuming /");
+                    let _ = input.pairs.next();
+                }
+            }
+            None => {
+                println!("found input end");
+                return finish_resource_path(kind, tails);
+            }
+        }
+
+        match input.pairs.peek() {
+            Some(p) => {
+                dbg!(p.clone());
+                match p.as_rule() {
+                    Rule::identifier => {
+                        tails.push(ResourcePathTail::Reference(input.parse()?));
+                    }
+                    Rule::index_into_expr => {
+                        tails.push(ResourcePathTail::IndexInto(
+                            input.parse()?, input.parse()?
+                        ));
+                    }
+                    Rule::call_expr => {
+                        tails.push(ResourcePathTail::Call(
+                            input.parse()?, input.parse()?
+                        ));
+                    }
+                    _ => {
+                        input.errors.push(ParseError {
+                            kind: ParseErrorKind::MalformedResourcePath,
+                            rule: p.as_rule(),
+                            span: (p.as_span().start(), p.as_span().end())
+                        });
+                        return Err(ParseErrorSource::UserError);
+                    }
+                }
+            }
+            None => {
+                return Err(ParseErrorSource::internal("consume_resource_path"));
+            }
+        }
+    }
+}
+
+fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) -> Result<Expr, ParseErrorSource> {
+    if tails.is_empty() {
+        Err(ParseErrorSource::internal("finish_resource_path: empty_tails"))
+    } else {
+        if tails.len() == 1 {
+            Ok(Expr::ResourcePath {
+                kind,
+                parts: Vec::new(),
+                tail: tails[0].clone()
+            })
+        } else {
+            let mut parts = Vec::new();
+            let tails_len = tails.len();
+            for (i, t) in tails.into_iter().enumerate() {
+                if i != tails_len - 1 {
+                    parts.push(t.try_into()?);
+                } else {
+                    return Ok(Expr::ResourcePath {
+                        kind, parts, tail: t.clone()
+                    })
+                }
+            };
+            unreachable!()
+        }
+    }
 }

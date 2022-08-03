@@ -35,9 +35,13 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
             }
             Ty::FixedPoint { .. } => {}
             Ty::FloatingPoint { .. } => {}
+            Ty::Array { .. } => {}
+            Ty::Tuple(_) => {}
+            Ty::Fn { .. } => {}
+            Ty::Generic { .. } => {}
             Ty::Textual(_) => {}
             Ty::Sequence => {}
-            Ty::UserDefined => {}
+            Ty::UserDefined(_) => {}
             Ty::AutoNumber(_) => {}
             Ty::IndexOf(_) => {}
             Ty::Derive => {}

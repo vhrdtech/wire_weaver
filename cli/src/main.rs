@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let file = File::parse(&input)?;
     println!("Warnings: {:?}", file.1);
-    println!("File: {:#?}", file.0);
+    println!("File: {:?}", file.0);
 
     let mut expr_visitor = ExprVisitor {};
     expr_visitor.visit_file(&file.0);

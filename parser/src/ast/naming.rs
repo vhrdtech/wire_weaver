@@ -1,5 +1,3 @@
-use pest::iterators::Pair;
-use crate::warning::{ParseWarning, ParseWarningKind};
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -63,7 +61,7 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct XpiUriNamedPart<'i> {
     pub name: &'i str
 }
@@ -93,14 +91,14 @@ impl<'i> Parse<'i> for XpiKeyName<'i> {
 
 #[derive(Debug)]
 pub struct FnName<'i> {
-    pub typename: &'i str,
+    pub name: &'i str,
 }
 
 impl<'i> Parse<'i> for FnName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(FnName {
-            typename: ident.as_str()
+            name: ident.as_str()
         })
     }
 }
@@ -108,31 +106,46 @@ impl<'i> Parse<'i> for FnName<'i> {
 
 #[derive(Debug)]
 pub struct FnArgName<'i> {
-    pub typename: &'i str,
+    pub name: &'i str,
 }
 
 impl<'i> Parse<'i> for FnArgName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnArgName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(FnArgName {
-            typename: ident.as_str()
+            name: ident.as_str()
         })
     }
 }
 
 #[derive(Debug)]
 pub struct LetStmtName<'i> {
-    pub typename: &'i str,
+    pub name: &'i str,
 }
 
 impl<'i> Parse<'i> for LetStmtName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<LetStmtName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(LetStmtName {
-            typename: ident.as_str()
+            name: ident.as_str()
         })
     }
 }
+
+#[derive(Debug)]
+pub struct Identifier<'i> {
+    pub name: &'i str,
+}
+
+impl<'i> Parse<'i> for Identifier<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<'i>, ParseErrorSource> {
+        let ident = input.expect1(Rule::identifier)?;
+        Ok(Identifier {
+            name: ident.as_str()
+        })
+    }
+}
+
 
 // fn check_camel_case(pair: &Pair<Rule>, warnings: &mut Vec<ParseWarning>) {
 //     let contains_underscore = pair.as_str().find("_").map(|_| true).unwrap_or(false);

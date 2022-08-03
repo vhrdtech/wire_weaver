@@ -1,8 +1,11 @@
 use pest::Span;
+use crate::ast::def_fn::{FnArguments, FnRetTy};
 use crate::ast::expr::Expr;
+use crate::ast::generics::Generics;
 use crate::ast::lit::Lit;
 use crate::ast::ops::BinaryOp;
-use crate::ast::naming::BuiltinTypename;
+use crate::ast::naming::{BuiltinTypename, FnArgName};
+use crate::ast::num_bound::NumBound;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
 
@@ -23,11 +26,24 @@ pub enum Ty<'i> {
     FloatingPoint {
         bits: u32
     },
+    Array {
+        ty: Box<Ty<'i>>,
+        num_bound: NumBound<'i>,
+    },
+    Tuple(Vec<Ty<'i>>),
+    Fn {
+        arguments: FnArguments<'i>,
+        ret_ty: Option<Box<FnRetTy<'i>>>,
+    },
     AutoNumber(AutoNumber<'i>),
     IndexOf(Expr<'i>),
+    Generic {
+        name: Typename<'i>,
+        params: Generics<'i>,
+    },
     Textual(&'i str),
     Sequence,
-    UserDefined,
+    UserDefined(Typename<'i>),
     Derive,
 }
 
@@ -39,7 +55,7 @@ pub enum Ty<'i> {
 
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        // crate::util::ppt!(input.pairs);
+        crate::util::ppt!(input.pairs);
         let ty = input.pairs.next().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match ty.clone().as_rule() {
             Rule::bool_ty => {
@@ -47,13 +63,13 @@ impl<'i> Parse<'i> for Ty<'i> {
             }
             Rule::discrete_any_ty => {
                 let discrete_x_ty = ty
-                    .into_inner().next().ok_or(ParseErrorSource::internal())?;
+                    .into_inner().next().ok_or(ParseErrorSource::internal(""))?;
                 let bits: u32 = discrete_x_ty
                     .as_str().strip_prefix("u")
                     .or(discrete_x_ty.as_str().strip_prefix("i"))
-                    .ok_or(ParseErrorSource::internal())?.parse().map_err(|_| {
+                    .ok_or(ParseErrorSource::internal(""))?.parse().map_err(|_| {
                         input.push_error(&discrete_x_ty, ParseErrorKind::IntParseError);
-                        ParseErrorSource::internal()
+                        ParseErrorSource::internal("")
                 })?;
                 let is_signed = discrete_x_ty.as_rule() == Rule::discrete_signed_ty;
                 Ok(Ty::Discrete { is_signed, bits, shift: 0 })
@@ -68,13 +84,15 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Err(ParseErrorSource::Unimplemented("textual ty"))
             }
             Rule::tuple_ty => {
-                Err(ParseErrorSource::Unimplemented("tuple ty"))
+                parse_tuple_ty(
+                    &mut ParseInput::fork(input.expect1(Rule::tuple_fields)?, input)
+                )
             }
             Rule::array_ty => {
-                Err(ParseErrorSource::Unimplemented("array ty"))
+                parse_array_ty(&mut ParseInput::fork(ty.clone(), input))
             }
             Rule::identifier => {
-                Err(ParseErrorSource::Unimplemented("identifier ty"))
+                Ok(Ty::UserDefined(input.parse()?))
             }
             Rule::generic_ty => {
                parse_generic_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
@@ -83,11 +101,18 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Ok(Ty::Derive)
             }
             Rule::fn_ty => {
-
-                Err(ParseErrorSource::Unimplemented("fn ty"))
+                Ok(Ty::Fn {
+                    arguments: input.parse()?,
+                    ret_ty: input.parse_or_skip().map(
+                        |ret_ty_op| ret_ty_op.map(
+                            |ret_ty| Box::new(ret_ty
+                            )
+                        )
+                    )?,
+                })
             }
             _ => {
-                Err(ParseErrorSource::internal_with_rule(ty.as_rule()))
+                Err(ParseErrorSource::internal_with_rule(ty.as_rule(), ""))
             }
         }
     }
@@ -107,8 +132,10 @@ fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
         "autonum" => parse_autonum_ty(input, span),
         "indexof" => parse_indexof_ty(input, span),
         _ => {
-            dbg!("unimpl", typename);
-            Err(ParseErrorSource::Unimplemented("generic ty"))
+            Ok(Ty::Generic {
+                name: input.parse()?,
+                params: input.parse()?,
+            })
         }
     }
 }
@@ -154,4 +181,19 @@ fn parse_indexof_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
         return Err(ParseErrorSource::UserError);
     }
     return Ok(Ty::IndexOf(input.parse()?));
+}
+
+fn parse_array_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Ty<'i>, ParseErrorSource> {
+    Ok(Ty::Array {
+        ty: Box::new(input.parse()?),
+        num_bound: input.parse()?
+    })
+}
+
+fn parse_tuple_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Ty<'i>, ParseErrorSource> {
+    let mut types = Vec::new();
+    while let Some(_) = input.pairs.peek() {
+        types.push(input.parse()?);
+    }
+    Ok(Ty::Tuple(types))
 }

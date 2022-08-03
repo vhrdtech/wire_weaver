@@ -47,11 +47,10 @@ tuple_ty = { "(" ~ tuple_fields ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ num_bound ~ "]" }
 
 derive = { "_" }
-type_param = _{ any_ty | expression}
+type_param = _{ any_ty | expression }
 generic_ty = { identifier ~ ("<" ~ type_param ~ ("," ~ type_param)* ~ ","? ~ ">") }
 
-fn_declaration_params = { "()" }
-fn_ty = { "fn" ~ fn_declaration_params ~ ("->" ~ any_ty)? }
+fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
 /// Any supported type without access modifier
 any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }

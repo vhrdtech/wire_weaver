@@ -47,8 +47,9 @@ tuple_ty = { "(" ~ tuple_fields ~ ")" }
 array_ty = { "[" ~ any_ty ~ ";" ~ num_bound ~ "]" }
 
 derive = { "_" }
-type_param = _{ any_ty | expression }
-generic_ty = { identifier ~ ("<" ~ type_param ~ ("," ~ type_param)* ~ ","? ~ ">") }
+generic_param = _{ any_ty | expression }
+generics = { "<" ~ generic_param ~ ("," ~ generic_param)* ~ ","? ~ ">" }
+generic_ty = { identifier ~ (generics) }
 
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
@@ -80,7 +81,6 @@ def_fn = { doc_attr ~ "fn" ~ identifier ~ generics? ~ fn_args ~ fn_ret_ty? ~ "{"
 named_ty = { identifier ~ ":" ~ any_ty }
 fn_args = { "(" ~ named_ty? ~ ("," ~ named_ty)* ~ ","? ~ ")" }
 fn_ret_ty = { "->" ~ any_ty }
-generics = { "<" ~ "T" ~ ">" }
 
 definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 

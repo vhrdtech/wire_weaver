@@ -31,6 +31,14 @@ impl<'i> Parse<'i> for BuiltinTypename<'i> {
     }
 }
 
+impl<'i> From<BuiltinTypename<'i>> for Typename<'i> {
+    fn from(other: BuiltinTypename<'i>) -> Self {
+        Typename {
+            typename: other.typename
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PathSegment<'i> {
     pub segment: &'i str,

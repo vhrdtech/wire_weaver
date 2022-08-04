@@ -133,7 +133,7 @@ fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
         "indexof" => parse_indexof_ty(input, span),
         _ => {
             Ok(Ty::Generic {
-                name: input.parse()?,
+                name: typename.into(),
                 params: input.parse()?,
             })
         }

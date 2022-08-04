@@ -177,20 +177,15 @@ fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<
 
         match input.pairs.peek() {
             Some(p) => {
-                dbg!(p.clone());
                 match p.as_rule() {
                     Rule::identifier => {
                         tails.push(ResourcePathTail::Reference(input.parse()?));
                     }
                     Rule::index_into_expr => {
-                        tails.push(ResourcePathTail::IndexInto(
-                            input.parse()?, input.parse()?
-                        ));
+                        tails.push(ResourcePathTail::IndexInto(input.parse()?));
                     }
                     Rule::call_expr => {
-                        tails.push(ResourcePathTail::Call(
-                            input.parse()?, input.parse()?
-                        ));
+                        tails.push(ResourcePathTail::Call(input.parse()?));
                     }
                     _ => {
                         input.errors.push(ParseError {
@@ -201,6 +196,7 @@ fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<
                         return Err(ParseErrorSource::UserError);
                     }
                 }
+                println!("tails consumed");
             }
             None => {
                 return Err(ParseErrorSource::internal("consume_resource_path"));

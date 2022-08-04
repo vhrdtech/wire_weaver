@@ -37,16 +37,16 @@ impl<'i> Parse<'i> for ResourcePathKind {
 #[derive(Debug, Clone)]
 pub enum ResourcePathPart<'i> {
     Reference(XpiUriNamedPart<'i>),
-    IndexInto(XpiUriNamedPart<'i>, Vec<Expr<'i>>)
+    IndexInto(IndexIntoResource<'i>)
 }
 
 impl<'i> Display for ResourcePathPart<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ResourcePathPart::Reference(named) => write!(f, "{}", named.name),
-            ResourcePathPart::IndexInto(named, args) => {
-                write!(f, "[{}", named.name)?;
-                for arg in args {
+            ResourcePathPart::IndexInto(idx) => {
+                write!(f, "[{}", idx.name.name)?;
+                for arg in &idx.args {
                     write!(f, "{}, ", arg)?;
                 }
                 write!(f, "]")
@@ -61,8 +61,8 @@ impl<'i> TryFrom<ResourcePathTail<'i>> for ResourcePathPart<'i> {
     fn try_from(tail: ResourcePathTail<'i>) -> Result<Self, Self::Error> {
         match tail {
             ResourcePathTail::Reference(named) => Ok(ResourcePathPart::Reference(named)),
-            ResourcePathTail::Call(_, _) => Err(ParseErrorSource::UserError),
-            ResourcePathTail::IndexInto(named, args) => Ok(ResourcePathPart::IndexInto(named, args))
+            ResourcePathTail::Call(call) => Err(ParseErrorSource::UserError),
+            ResourcePathTail::IndexInto(idx) => Ok(ResourcePathPart::IndexInto(idx))
         }
     }
 }
@@ -70,28 +70,68 @@ impl<'i> TryFrom<ResourcePathTail<'i>> for ResourcePathPart<'i> {
 #[derive(Debug, Clone)]
 pub enum ResourcePathTail<'i> {
     Reference(XpiUriNamedPart<'i>),
-    Call(XpiUriNamedPart<'i>, Vec<Expr<'i>>),
-    IndexInto(XpiUriNamedPart<'i>, Vec<Expr<'i>>),
+    Call(CallResource<'i>),
+    IndexInto(IndexIntoResource<'i>),
 }
 
 impl<'i> Display for ResourcePathTail<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ResourcePathTail::Reference(named) => write!(f, "{}", named.name),
-            ResourcePathTail::Call(named, args) => {
-                write!(f, "{}(", named.name)?;
-                for arg in args {
-                    write!(f, "{}, ", arg)?;
-                }
-                write!(f, "]")
-            }
-            ResourcePathTail::IndexInto(named, args) => {
-                write!(f, "{}[", named.name)?;
-                for arg in args {
-                    write!(f, "{}, ", arg)?;
-                }
-                write!(f, "]")
-            }
+            ResourcePathTail::Call(call) => write!(f, "{}", call),
+            ResourcePathTail::IndexInto(idx) => write!(f, "{}", idx),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallResource<'i> {
+    pub name: XpiUriNamedPart<'i>,
+    pub args: Vec<Expr<'i>>
+}
+
+impl<'i> Parse<'i> for CallResource<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::call_expr)?, input);
+        Ok(CallResource {
+            name: input.parse()?,
+            args: input.parse()?,
+        })
+    }
+}
+
+impl<'i> Display for CallResource<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.name.name)?;
+        for arg in &self.args {
+            write!(f, "{}, ", arg)?;
+        }
+        write!(f, ")")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IndexIntoResource<'i> {
+    pub name: XpiUriNamedPart<'i>,
+    pub args: Vec<Expr<'i>>
+}
+
+impl<'i> Parse<'i> for IndexIntoResource<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::index_into_expr)?, input);
+        Ok(IndexIntoResource {
+            name: input.parse()?,
+            args: input.parse()?,
+        })
+    }
+}
+
+impl<'i> Display for IndexIntoResource<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.name.name)?;
+        for arg in &self.args {
+            write!(f, "{}, ", arg)?;
+        }
+        write!(f, ")")
     }
 }

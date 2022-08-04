@@ -130,7 +130,10 @@ fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
     let typename: BuiltinTypename = input.parse()?;
     match typename.typename {
         "autonum" => parse_autonum_ty(input, span),
-        "indexof" => parse_indexof_ty(input, span),
+        "indexof" => parse_indexof_ty(
+            &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+            span
+        ),
         _ => {
             Ok(Ty::Generic {
                 name: typename.into(),
@@ -172,6 +175,7 @@ fn parse_autonum_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
 }
 
 fn parse_indexof_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Ty<'i>, ParseErrorSource> {
+    println!("parse_indexof_ty {:?}", input.pairs);
     if !input.pairs.peek().map(|p| p.as_rule() == Rule::expression).unwrap_or(false) {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IndexOfWrongForm,

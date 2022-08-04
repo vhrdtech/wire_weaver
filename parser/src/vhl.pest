@@ -172,8 +172,8 @@ index_into_expr = { identifier ~ index_arguments }
 
 infix_expr = _{ expression_inner ~ (op_binary ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)+ ~ ","? ~ ")" }
-call_arguments = { "(" ~ expression_list? ~ ")" }
-index_arguments = { "[" ~ expression_list? ~ "]" }
+call_arguments = _{ "(" ~ expression_list? ~ ")" }
+index_arguments = _{ "[" ~ expression_list? ~ "]" }
 resource_path_start = { "#.." | "#." | "#" }
 
 expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | tuple_of_expressions | identifier | resource_path_start | expression_parenthesized }

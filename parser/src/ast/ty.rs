@@ -83,15 +83,13 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Err(ParseErrorSource::Unimplemented("textual ty"))
             }
             Rule::tuple_ty => {
-                parse_tuple_ty(
-                    &mut ParseInput::fork(input.expect1(Rule::tuple_fields)?, input)
-                )
+                parse_tuple_ty(&mut ParseInput::fork(ty, input))
             }
             Rule::array_ty => {
-                parse_array_ty(&mut ParseInput::fork(ty.clone(), input))
+                parse_array_ty(&mut ParseInput::fork(ty, input))
             }
             Rule::identifier => {
-                Ok(Ty::UserDefined(input.parse()?))
+                Ok(Ty::UserDefined(Typename { typename: ty.as_str() }))
             }
             Rule::generic_ty => {
                parse_generic_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())
@@ -100,6 +98,7 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Ok(Ty::Derive)
             }
             Rule::fn_ty => {
+                let mut input = ParseInput::fork(ty, input);
                 Ok(Ty::Fn {
                     arguments: input.parse()?,
                     ret_ty: input.parse_or_skip().map(
@@ -128,7 +127,10 @@ pub struct AutoNumber<'i> {
 fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Ty<'i>, ParseErrorSource> {
     let typename: BuiltinTypename = input.parse()?;
     match typename.typename {
-        "autonum" => parse_autonum_ty(input, span),
+        "autonum" => parse_autonum_ty(
+            &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+            span
+        ),
         "indexof" => parse_indexof_ty(
             &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
             span
@@ -143,7 +145,20 @@ fn parse_generic_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
 }
 
 fn parse_autonum_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Ty<'i>, ParseErrorSource> {
-    let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)?;
+    let (ex1, ex2) = input.expect2(Rule::expression, Rule::expression)
+        .map_err(|e| {
+            // escalate unexpected input to user error
+            input.errors.push(ParseError {
+                kind: ParseErrorKind::AutonumWrongArguments,
+                rule: Rule::generic_ty,
+                span: (span.start(), span.end())
+            });
+
+            match e {
+                ParseErrorSource::UnexpectedInput => ParseErrorSource::UserError,
+                e => e,
+            }
+        })?;
 
     let mut ex1 = ParseInput::fork(ex1, input);
     let start: Lit = ex1.parse()?;
@@ -160,7 +175,8 @@ fn parse_autonum_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
             kind: ParseErrorKind::AutonumWrongArguments,
             rule: Rule::generic_ty,
             span: (span.start(), span.end())
-        })
+        });
+        return Err(ParseErrorSource::UserError);
     }
 
     let inclusive = range_op == BinaryOp::ClosedRange;
@@ -193,6 +209,7 @@ fn parse_array_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Ty<'i>, Pars
 }
 
 fn parse_tuple_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Ty<'i>, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields)?, input);
     let mut types = Vec::new();
     while let Some(_) = input.pairs.peek() {
         types.push(input.parse()?);

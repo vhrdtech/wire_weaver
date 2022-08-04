@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
@@ -16,7 +17,6 @@ use super::prelude::*;
 //     }}
 // }
 
-#[derive(Debug)]
 pub struct DefXpiBlock<'i> {
     pub uri: XpiUri<'i>,
     pub resource_ty: Option<XpiResourceTy<'i>>,
@@ -34,6 +34,13 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
             resource_ty: input.parse_or_skip()?,
             body: input.parse()?
         })
+    }
+}
+
+impl<'i> Debug for DefXpiBlock<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "\n\x1b[36mDefXpiBlock(uri: {:?} ty: {:?})\x1b[0m", self.uri, self.resource_ty)?;
+        writeln!(f, "{:?}", self.body)
     }
 }
 

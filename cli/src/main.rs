@@ -18,11 +18,14 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // println!("{}", s);
 
     let file = File::parse(&input)?;
-    println!("Warnings: {:?}", file.1);
-    println!("File: {:?}", file.0);
+    println!("\x1b[33mWarnings: {:?}\x1b[0m", file.1);
+    for def in file.0.defs {
+        println!("\x1b[45mD:\x1b[0m\t{:?}\n", def);
+    }
+    // println!("File: {:?}", file.0);
 
-    let mut expr_visitor = ExprVisitor {};
-    expr_visitor.visit_file(&file.0);
+    // let mut expr_visitor = ExprVisitor {};
+    // expr_visitor.visit_file(&file.0);
 
     // codegen::fun2();
 

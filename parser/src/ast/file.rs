@@ -42,7 +42,7 @@ impl<'i> File<'i> {
             Some(pair) => {
                 let mut pi = pair.into_inner();
                 while let Some(p) = pi.peek() {
-                    println!("next file item: {:?}", p.as_rule());
+                    // println!("next file item: {:?}", p.as_rule());
                     match p.as_rule() {
                         Rule::inner_attribute => {
                             let attr = pi.next();

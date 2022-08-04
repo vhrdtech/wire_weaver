@@ -1,6 +1,5 @@
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{Display, Formatter};
 use crate::ast::lit::Lit;
-use crate::ast::naming::{Identifier, XpiUriNamedPart};
 use crate::ast::ops::BinaryOp;
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
@@ -27,8 +26,7 @@ pub enum Expr<'i> {
 }
 
 impl<'i> Parse<'i> for Expr<'i> {
-    fn parse<'m>(mut input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        crate::util::pest_print_tree(input.pairs.clone());
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
         pratt_parser(&mut input, 0)
     }
@@ -78,8 +76,6 @@ impl<'i> Display for Expr<'i> {
 // Inspired by: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Expr<'i>, ParseErrorSource> {
     let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal(""))?;
-    // println!("lhs pair = {:?}", pair);
-    println!("pratt(_, {})", min_bp);
     let mut lhs = match pair.as_rule() {
         // Atoms
         Rule::call_expr => {
@@ -117,10 +113,8 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), ""));
         }
     };
-    println!("lhs = {:?}", lhs);
 
     loop {
-        println!("loop start {:?}", input.pairs);
         let op = match input.pairs.peek() {
             Some(p) => {
                 BinaryOp::from_rule(p
@@ -131,46 +125,36 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
                 )?
             }
             None => {
-                println!("break on eof");
                 break;
             }
         };
-        println!("op = {:?}", op);
 
         let (l_bp, r_bp) = op.binding_power();
         if l_bp < min_bp {
-            println!("l_bp < min_bp => breaking");
             // do not consume op and break
             break;
         }
         let _ = input.pairs.next(); // consume op
         let rhs = pratt_parser(input, r_bp)?;
         lhs = Expr::Cons(op, vec![lhs, rhs]);
-        println!("reassign lhs = {:?}", lhs);
     }
 
-    println!("ret lhs = {:?}", lhs);
     Ok(lhs)
 }
 
 fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<'i>, ParseErrorSource> {
-    println!("consume_resource_path: {:?}", input.pairs);
     let kind: ResourcePathKind = input.parse()?;
-    println!("consume_resource_path: {:?}", input.pairs);
     let mut tails = Vec::new();
     loop {
         match input.pairs.peek() {
             Some(p) => {
                 if p.as_rule() != Rule::op_binary || p.as_str() != "/" {
-                    println!("found path end");
                     return finish_resource_path(kind, tails);
                 } else {
-                    println!("consuming /");
                     let _ = input.pairs.next();
                 }
             }
             None => {
-                println!("found input end");
                 return finish_resource_path(kind, tails);
             }
         }
@@ -196,7 +180,6 @@ fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<
                         return Err(ParseErrorSource::UserError);
                     }
                 }
-                println!("tails consumed");
             }
             None => {
                 return Err(ParseErrorSource::internal("consume_resource_path"));

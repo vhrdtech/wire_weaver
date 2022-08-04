@@ -61,7 +61,7 @@ impl<'i> TryFrom<ResourcePathTail<'i>> for ResourcePathPart<'i> {
     fn try_from(tail: ResourcePathTail<'i>) -> Result<Self, Self::Error> {
         match tail {
             ResourcePathTail::Reference(named) => Ok(ResourcePathPart::Reference(named)),
-            ResourcePathTail::Call(call) => Err(ParseErrorSource::UserError),
+            ResourcePathTail::Call(_) => Err(ParseErrorSource::UserError),
             ResourcePathTail::IndexInto(idx) => Ok(ResourcePathPart::IndexInto(idx))
         }
     }

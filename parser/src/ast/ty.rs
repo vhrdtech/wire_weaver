@@ -4,7 +4,7 @@ use crate::ast::expr::Expr;
 use crate::ast::generics::Generics;
 use crate::ast::lit::Lit;
 use crate::ast::ops::BinaryOp;
-use crate::ast::naming::{BuiltinTypename, FnArgName};
+use crate::ast::naming::{BuiltinTypename};
 use crate::ast::num_bound::NumBound;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use super::prelude::*;
@@ -55,7 +55,6 @@ pub enum Ty<'i> {
 
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        crate::util::ppt!(input.pairs);
         let ty = input.pairs.next().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match ty.clone().as_rule() {
             Rule::bool_ty => {
@@ -175,7 +174,6 @@ fn parse_autonum_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> R
 }
 
 fn parse_indexof_ty<'i, 'm>(input: &mut ParseInput<'i, 'm>, span: Span<'i>) -> Result<Ty<'i>, ParseErrorSource> {
-    println!("parse_indexof_ty {:?}", input.pairs);
     if !input.pairs.peek().map(|p| p.as_rule() == Rule::expression).unwrap_or(false) {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IndexOfWrongForm,

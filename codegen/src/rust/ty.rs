@@ -14,7 +14,7 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
             Ty::Boolean => {
                 tokens.append(Ident::new("bool", Span::call_site()));
             }
-            Ty::Discrete { is_signed, bits, shift } => {
+            Ty::Discrete { is_signed, bits, .. } => {
                 let is_signed = if is_native_discrete(*bits) {
                     if *is_signed {
                         "i"

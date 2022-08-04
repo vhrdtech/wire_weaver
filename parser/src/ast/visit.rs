@@ -64,7 +64,7 @@ pub fn visit_statement<'ast, 'input, V>(v: &mut V, node: &'ast Stmt<'input>)
     }
 }
 
-pub fn visit_expression<'ast, 'input, V>(v: &mut V, node: &'ast Expr<'input>)
+pub fn visit_expression<'ast, 'input, V>(_v: &mut V, _node: &'ast Expr<'input>)
     where V: Visit<'ast, 'input> + ?Sized
 {
 

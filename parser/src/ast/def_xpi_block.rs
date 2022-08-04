@@ -27,7 +27,7 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // dbg!(function!());
         // dbg!("xpi_block parse");
-        crate::util::pest_print_tree(input.pairs.clone());
+        // crate::util::pest_print_tree(input.pairs.clone());
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_block)?, input);
         Ok(DefXpiBlock {
             uri: input.parse()?,

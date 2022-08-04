@@ -6,7 +6,7 @@ pub struct NumBound<'i> {
 }
 
 impl<'i> Parse<'i> for NumBound<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+    fn parse<'m>(_input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         Ok(NumBound {
             x: "dummy"
         })

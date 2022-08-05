@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::lit::Lit;
 use crate::ast::naming::Identifier;
-use crate::ast::ops::BinaryOp;
+use crate::ast::ops::{BinaryOp, UnaryOp};
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
@@ -14,7 +14,6 @@ pub enum Expr<'i> {
     IndexInto(Identifier<'i>, IndexArguments<'i>),
     // CallThenIndexInto(CallArguments<'i>, IndexArguments<'i>),
     // IndexIntoThenCall(IndexArguments<'i>, CallArguments<'i>),
-    Unary,
     Lit(Lit<'i>),
     TupleOfExprs,
     Ident(Identifier<'i>),
@@ -25,7 +24,8 @@ pub enum Expr<'i> {
     },
     ExprInParen,
 
-    Cons(BinaryOp, Vec<Expr<'i>>)
+    ConsU(UnaryOp, Box<Expr<'i>>),
+    ConsB(BinaryOp, Vec<Expr<'i>>)
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +72,6 @@ impl<'i> Display for Expr<'i> {
             Expr::IndexInto(id, args) => { write!(f, "{}[{:?}]", id.name, args) }
             // Expr::CallThenIndexInto(call, index) => { write!(f, "call_index") }
             // Expr::IndexIntoThenCall(index, call) => { write!(f, "index_call") }
-            Expr::Unary => { write!(f, "unary") }
             Expr::Lit(lit) => { write!(f, "{:?}", lit) }
             Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
             Expr::Ident(ident) => { write!(f, "{}", ident.name) }
@@ -87,7 +86,8 @@ impl<'i> Display for Expr<'i> {
             }
             Expr::ExprInParen => { write!(f, "expr_in_paren") }
 
-            Expr::Cons(op, cons) => {
+            Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
+            Expr::ConsB(op, cons) => {
                 write!(f, "({}", op.to_str())?;
                 for e in cons {
                     write!(f, " {}", e)?;
@@ -100,7 +100,7 @@ impl<'i> Display for Expr<'i> {
 
 // Inspired by: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Expr<'i>, ParseErrorSource> {
-    let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal(""))?;
+    let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected input"))?;
     let mut lhs = match pair.as_rule() {
         // Atoms
         Rule::call_expr => {
@@ -114,7 +114,11 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             Expr::IndexInto(input.parse()?, input.parse()?)
         }
         Rule::unary_expr => {
-            return Err(ParseErrorSource::Unimplemented("unary_expr"))
+            let _ = input.pairs.next();
+            let mut input = ParseInput::fork(pair, input);
+            let op: UnaryOp = input.parse()?;
+            let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
+            Expr::ConsU(op, Box::new(pratt_parser(&mut input, 0)?))
         }
         Rule::any_lit => {
             Expr::Lit(input.parse()?)
@@ -134,11 +138,11 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
 
         // Op
         Rule::op_binary => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), ""));
+            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), "pratt_parser: expected atom, got op_binary"));
         }
 
         _ => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), ""));
+            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), "pratt_parser: expected atom"));
         }
     };
 
@@ -148,7 +152,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
                 BinaryOp::from_rule(p
                     .into_inner()
                     .next()
-                    .ok_or_else(|| ParseErrorSource::internal(""))?
+                    .ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected binary op"))?
                     .as_rule()
                 )?
             }
@@ -164,7 +168,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
         }
         let _ = input.pairs.next(); // consume op
         let rhs = pratt_parser(input, r_bp)?;
-        lhs = Expr::Cons(op, vec![lhs, rhs]);
+        lhs = Expr::ConsB(op, vec![lhs, rhs]);
     }
 
     Ok(lhs)
@@ -245,7 +249,7 @@ fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) ->
 
 #[cfg(test)]
 mod test {
-    use crate::ast::ops::BinaryOp;
+    use crate::ast::ops::{BinaryOp, UnaryOp};
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
     use super::Expr;
@@ -257,10 +261,19 @@ mod test {
     }
 
     #[test]
+    fn not_false() {
+        let expr: Expr = parse_str("!false", Rule::expression);
+        assert!(matches!(expr, Expr::ConsU(UnaryOp::Not, _)));
+        if let Expr::ConsU(_, cons) = expr {
+            assert!(matches!(cons.as_ref(), Expr::Lit(_)));
+        }
+    }
+
+    #[test]
     fn one_plus_two() {
         let expr: Expr = parse_str("1+2", Rule::expression);
-        assert!(matches!(expr, Expr::Cons(BinaryOp::Plus, _)));
-        if let Expr::Cons(_, cons) = expr {
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Plus, _)));
+        if let Expr::ConsB(_, cons) = expr {
             assert!(matches!(cons[0], Expr::Lit(_)));
             assert!(matches!(cons[1], Expr::Lit(_)));
         }

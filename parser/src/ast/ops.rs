@@ -53,7 +53,7 @@ impl BinaryOp {
             Rule::op_gt => Ok(BinaryOp::Gt),
             Rule::op_lte => Ok(BinaryOp::Lte),
             Rule::op_lt => Ok(BinaryOp::Lt),
-            _ => Err(ParseErrorSource::internal(""))
+            _ => Err(ParseErrorSource::internal("expected op_binary"))
         }
     }
 
@@ -107,12 +107,13 @@ impl<'i> Parse<'i> for BinaryOp {
         Ok(BinaryOp::from_rule(op
             .into_inner()
             .next()
-            .ok_or_else(|| ParseErrorSource::internal(""))?
+            .ok_or_else(|| ParseErrorSource::internal("wrong op_binary rule"))?
             .as_rule()
         )?)
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     Minus,
     Plus,
@@ -125,7 +126,7 @@ impl UnaryOp {
             Rule::op_minus => Ok(UnaryOp::Minus),
             Rule::op_plus => Ok(UnaryOp::Plus),
             Rule::op_not => Ok(UnaryOp::Not),
-            _ => Err(ParseErrorSource::internal(""))
+            _ => Err(ParseErrorSource::internal("expected op_unary rule"))
         }
     }
 
@@ -134,11 +135,24 @@ impl UnaryOp {
             UnaryOp::Plus | UnaryOp::Minus | UnaryOp::Not => ((), 23),
         }
     }
+
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            UnaryOp::Minus => "-",
+            UnaryOp::Plus => "+",
+            UnaryOp::Not => "!",
+        }
+    }
 }
 
 impl<'i> Parse<'i> for UnaryOp {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let op = input.expect1(Rule::op_unary)?;
-        Ok(UnaryOp::from_rule(op.as_rule())?)
+        Ok(UnaryOp::from_rule(op
+            .into_inner()
+            .next()
+            .ok_or_else(|| ParseErrorSource::internal("wrong op_unary rule"))?
+            .as_rule()
+        )?)
     }
 }

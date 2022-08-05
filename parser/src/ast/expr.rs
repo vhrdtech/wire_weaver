@@ -16,13 +16,12 @@ pub enum Expr<'i> {
     // IndexIntoThenCall(IndexArguments<'i>, CallArguments<'i>),
     Lit(Lit<'i>),
     TupleOfExprs,
-    Ident(Identifier<'i>),
+    Id(Identifier<'i>),
     ResourcePath {
         kind: ResourcePathKind,
         parts: Vec<ResourcePathPart<'i>>,
         tail: ResourcePathTail<'i>,
     },
-    ExprInParen,
 
     ConsU(UnaryOp, Box<Expr<'i>>),
     ConsB(BinaryOp, Box<(Expr<'i>, Expr<'i>)>)
@@ -74,7 +73,7 @@ impl<'i> Display for Expr<'i> {
             // Expr::IndexIntoThenCall(index, call) => { write!(f, "index_call") }
             Expr::Lit(lit) => { write!(f, "{:?}", lit) }
             Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
-            Expr::Ident(ident) => { write!(f, "{}", ident.name) }
+            Expr::Id(ident) => { write!(f, "{}", ident.name) }
             Expr::ResourcePath {
                 kind, parts, tail
             } => {
@@ -84,7 +83,6 @@ impl<'i> Display for Expr<'i> {
                 }
                 write!(f, "{}", tail)
             }
-            Expr::ExprInParen => { write!(f, "expr_in_paren") }
 
             Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
             Expr::ConsB(op, a) => {
@@ -123,13 +121,16 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             return Err(ParseErrorSource::Unimplemented("tuple_of_expressions"))
         }
         Rule::identifier => {
-            Expr::Ident(input.parse()?)
+            Expr::Id(input.parse()?)
         }
         Rule::resource_path_start => {
             consume_resource_path(input)?
         }
         Rule::expression_parenthesized => {
-            return Err(ParseErrorSource::Unimplemented("expression_parenthesized"))
+            let _ = input.pairs.next();
+            let mut input = ParseInput::fork(pair, input);
+            let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
+            pratt_parser(&mut input, 0)?
         }
 
         // Op
@@ -272,6 +273,16 @@ mod test {
         if let Expr::ConsB(_, cons) = expr {
             assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
             assert!(matches!(cons.as_ref().1, Expr::Lit(_)));
+        }
+    }
+
+    #[test]
+    fn expr_in_paren() {
+        let expr: Expr = parse_str("1 * (2 + 3)", Rule::expression);
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Mul, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
+            assert!(matches!(cons.as_ref().1, Expr::ConsB(BinaryOp::Plus, _)));
         }
     }
 

@@ -9,7 +9,7 @@ pub struct DefFn<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub name: FnName<'i>,
-    pub generics: Generics<'i>,
+    pub generics: Option<Generics<'i>>,
     pub arguments: FnArguments<'i>,
     pub ret_ty: Option<FnRetTy<'i>>,
     pub statements: FnStmts<'i>,
@@ -23,7 +23,7 @@ impl<'i> Parse<'i> for DefFn<'i> {
             docs: input.parse()?,
             attrs: input.parse()?,
             name: input.parse()?,
-            generics: input.parse()?,
+            generics: input.parse_or_skip()?,
             arguments: input.parse()?,
             ret_ty: input.parse_or_skip()?,
             statements: input.parse()?

@@ -214,3 +214,40 @@ fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) ->
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::ast::ops::BinaryOp;
+    use crate::ast::test::parse_str;
+    use crate::lexer::Rule;
+    use super::Expr;
+
+    #[test]
+    fn single_lit() {
+        let expr: Expr = parse_str("7", Rule::expression);
+        assert!(matches!(expr, Expr::Lit(_)));
+    }
+
+    #[test]
+    fn one_plus_two() {
+        let expr: Expr = parse_str("1+2", Rule::expression);
+        assert!(matches!(expr, Expr::Cons(BinaryOp::Plus, _)));
+        if let Expr::Cons(_, cons) = expr {
+            assert!(matches!(cons[0], Expr::Lit(_)));
+            assert!(matches!(cons[1], Expr::Lit(_)));
+        }
+    }
+
+    #[test]
+    fn call_fn() {
+        let expr: Expr = parse_str("fun(1, 2)", Rule::expression);
+        assert!(matches!(expr, Expr::Call));
+    }
+
+    #[test]
+    fn index_array() {
+        let expr: Expr = parse_str("arr[0, 5]", Rule::expression);
+        assert!(matches!(expr, Expr::IndexInto));
+    }
+
+}

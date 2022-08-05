@@ -22,8 +22,7 @@ impl<'i> Parse<'i> for Definition<'i> {
         let rule = match input.pairs.peek() {
             Some(r) => r,
             None => {
-                println!("Item::parse: None");
-                return Err(ParseErrorSource::internal(""));
+                return Err(ParseErrorSource::internal("Item::parse: expected input"));
             }
         };
         match rule.as_rule() {
@@ -42,8 +41,7 @@ impl<'i> Parse<'i> for Definition<'i> {
                 input.parse().map(|def_fn| Definition::Function(def_fn))
             }
             _ => {
-                // input.errors.push(ParseError::E0001);
-                Err(ParseErrorSource::internal(""))
+                Err(ParseErrorSource::internal("unexpected definition"))
             }
         }
     }

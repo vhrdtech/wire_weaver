@@ -121,7 +121,7 @@ impl<'i> Parse<'i> for XpiUri<'i> {
         } else if p1.is_some() {
             Ok(XpiUri::OneNamedPart(input.parse()?))
         } else {
-            Err(ParseErrorSource::internal(""))
+            Err(ParseErrorSource::internal("wrong xpi_uri rule"))
         }
     }
 }
@@ -146,7 +146,7 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
                         "ro" => Ok(XpiResourceAccessMode::Ro),
                         "wo" => Ok(XpiResourceAccessMode::Wo),
                         "const" => Ok(XpiResourceAccessMode::Const),
-                        _ => Err(ParseErrorSource::internal(""))
+                        _ => Err(ParseErrorSource::internal("unexpected access modifier"))
                     }
                 } else {
                     Err(ParseErrorSource::UnexpectedInput)
@@ -175,7 +175,7 @@ impl<'i> Parse<'i> for XpiSerial {
         // dbg!(function!());
         let xpi_serial = input.expect1(Rule::xpi_serial)?;
         Ok(XpiSerial(xpi_serial.as_str().strip_prefix('\'')
-                .ok_or_else(|| ParseErrorSource::internal(""))?
+                .ok_or_else(|| ParseErrorSource::internal("xpi_serial: wrong rule"))?
                 .parse().map_err(|_| {
                     input.push_error(&xpi_serial, ParseErrorKind::IntParseError);
                     ParseErrorSource::UserError

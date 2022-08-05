@@ -62,13 +62,13 @@ impl<'i> Parse<'i> for Ty<'i> {
             }
             Rule::discrete_any_ty => {
                 let discrete_x_ty = ty
-                    .into_inner().next().ok_or(ParseErrorSource::internal(""))?;
+                    .into_inner().next().ok_or(ParseErrorSource::internal("empty discrete_any_ty"))?;
                 let bits: u32 = discrete_x_ty
                     .as_str().strip_prefix("u")
                     .or(discrete_x_ty.as_str().strip_prefix("i"))
-                    .ok_or(ParseErrorSource::internal(""))?.parse().map_err(|_| {
+                    .ok_or(ParseErrorSource::internal("wrong discrete prefix"))?.parse().map_err(|_| {
                         input.push_error(&discrete_x_ty, ParseErrorKind::IntParseError);
-                        ParseErrorSource::internal("")
+                        ParseErrorSource::UserError
                 })?;
                 let is_signed = discrete_x_ty.as_rule() == Rule::discrete_signed_ty;
                 Ok(Ty::Discrete { is_signed, bits, shift: 0 })
@@ -110,7 +110,7 @@ impl<'i> Parse<'i> for Ty<'i> {
                 })
             }
             _ => {
-                Err(ParseErrorSource::internal_with_rule(ty.as_rule(), ""))
+                Err(ParseErrorSource::internal_with_rule(ty.as_rule(), "Ty::parse: expected any_ty"))
             }
         }
     }

@@ -17,16 +17,16 @@ bool_ty = { "bool" }
 
 // Discrete number types
 /// i8 / i128 / i3`unit` / i<expr -> bits, [expr -> +/-shift], [expr -> numbound], [expr -> unit]>
-discrete_signed_ty = @{ "i" ~ natural_number }
+discrete_signed_ty = @{ "i" ~ (natural_number | generics) }
 /// u8 / u128 / u11 / u<expr -> bits, [expr -> +/-shift], [expr -> numbound]>
-discrete_unsigned_ty = @{ "u" ~ natural_number }
+discrete_unsigned_ty = @{ "u" ~ (natural_number | generics) }
 discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ si_expr_ticked? }
 
 // Fixed point number types
 /// Signed: q3.12 / q< expr -> (m, n) > / q< expr -> (m, discrete_any_ty) >
-fixed_signed_ty = @{ "q" ~ whole_number ~ "." ~ whole_number }
+fixed_signed_ty = @{ "q" ~ ((whole_number ~ "." ~ whole_number) | generics) }
 /// Unsigned: uq1.15 / uq< expr -> (m, n) > uq< expr -> (m, discrete_any_ty) >
-fixed_unsigned_ty = @{ "uq" ~ whole_number ~ "." ~ whole_number }
+fixed_unsigned_ty = @{ "uq" ~ ((whole_number ~ "." ~ whole_number) | generics) }
 fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
 
 num_bound = { "unbound" | "max" ~ dec_lit | expression_list }
@@ -48,7 +48,7 @@ array_ty = { "[" ~ any_ty ~ ";" ~ num_bound ~ "]" }
 
 derive = { "_" }
 generic_param = _{ any_ty | expression }
-generics = { "<" ~ generic_param ~ ("," ~ generic_param)* ~ ","? ~ ">" }
+generics = !{ "<" ~ generic_param ~ ("," ~ generic_param)* ~ ","? ~ ">" }
 generic_ty = { identifier ~ (generics) }
 
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
@@ -172,8 +172,8 @@ index_into_expr = { identifier ~ index_arguments }
 
 infix_expr = _{ expression_inner ~ (op_binary ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)+ ~ ","? ~ ")" }
-call_arguments = _{ "(" ~ expression_list? ~ ")" }
-index_arguments = _{ "[" ~ expression_list? ~ "]" }
+call_arguments = { "(" ~ expression_list? ~ ")" }
+index_arguments = { "[" ~ expression_list? ~ "]" }
 resource_path_start = { "#.." | "#." | "#" }
 
 expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | tuple_of_expressions | identifier | resource_path_start | expression_parenthesized }

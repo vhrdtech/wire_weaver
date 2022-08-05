@@ -25,7 +25,7 @@ pub enum Expr<'i> {
     ExprInParen,
 
     ConsU(UnaryOp, Box<Expr<'i>>),
-    ConsB(BinaryOp, Vec<Expr<'i>>)
+    ConsB(BinaryOp, Box<(Expr<'i>, Expr<'i>)>)
 }
 
 #[derive(Debug, Clone)]
@@ -87,12 +87,8 @@ impl<'i> Display for Expr<'i> {
             Expr::ExprInParen => { write!(f, "expr_in_paren") }
 
             Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
-            Expr::ConsB(op, cons) => {
-                write!(f, "({}", op.to_str())?;
-                for e in cons {
-                    write!(f, " {}", e)?;
-                }
-                write!(f, ")")
+            Expr::ConsB(op, a) => {
+                write!(f, "({} {} {})", op.to_str(), a.as_ref().0, a.as_ref().1)
             }
         }
     }
@@ -168,7 +164,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
         }
         let _ = input.pairs.next(); // consume op
         let rhs = pratt_parser(input, r_bp)?;
-        lhs = Expr::ConsB(op, vec![lhs, rhs]);
+        lhs = Expr::ConsB(op, Box::new((lhs, rhs)));
     }
 
     Ok(lhs)
@@ -274,8 +270,8 @@ mod test {
         let expr: Expr = parse_str("1+2", Rule::expression);
         assert!(matches!(expr, Expr::ConsB(BinaryOp::Plus, _)));
         if let Expr::ConsB(_, cons) = expr {
-            assert!(matches!(cons[0], Expr::Lit(_)));
-            assert!(matches!(cons[1], Expr::Lit(_)));
+            assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Lit(_)));
         }
     }
 

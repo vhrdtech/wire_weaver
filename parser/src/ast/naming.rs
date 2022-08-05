@@ -140,7 +140,7 @@ impl<'i> Parse<'i> for LetStmtName<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier<'i> {
     pub name: &'i str,
 }

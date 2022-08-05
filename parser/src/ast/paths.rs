@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::ast::expr::Expr;
+use crate::ast::expr::{CallArguments, IndexArguments};
 use crate::ast::naming::XpiUriNamedPart;
 use super::prelude::*;
 
@@ -46,7 +46,7 @@ impl<'i> Display for ResourcePathPart<'i> {
             ResourcePathPart::Reference(named) => write!(f, "{}", named.name),
             ResourcePathPart::IndexInto(idx) => {
                 write!(f, "[{}", idx.name.name)?;
-                for arg in &idx.args {
+                for arg in &idx.args.0 {
                     write!(f, "{}, ", arg)?;
                 }
                 write!(f, "]")
@@ -87,7 +87,7 @@ impl<'i> Display for ResourcePathTail<'i> {
 #[derive(Debug, Clone)]
 pub struct CallResource<'i> {
     pub name: XpiUriNamedPart<'i>,
-    pub args: Vec<Expr<'i>>
+    pub args: CallArguments<'i>,
 }
 
 impl<'i> Parse<'i> for CallResource<'i> {
@@ -103,7 +103,7 @@ impl<'i> Parse<'i> for CallResource<'i> {
 impl<'i> Display for CallResource<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.name.name)?;
-        for arg in &self.args {
+        for arg in &self.args.0 {
             write!(f, "{}, ", arg)?;
         }
         write!(f, ")")
@@ -113,7 +113,7 @@ impl<'i> Display for CallResource<'i> {
 #[derive(Debug, Clone)]
 pub struct IndexIntoResource<'i> {
     pub name: XpiUriNamedPart<'i>,
-    pub args: Vec<Expr<'i>>
+    pub args: IndexArguments<'i>,
 }
 
 impl<'i> Parse<'i> for IndexIntoResource<'i> {
@@ -129,7 +129,7 @@ impl<'i> Parse<'i> for IndexIntoResource<'i> {
 impl<'i> Display for IndexIntoResource<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.name.name)?;
-        for arg in &self.args {
+        for arg in &self.args.0 {
             write!(f, "{}, ", arg)?;
         }
         write!(f, ")")

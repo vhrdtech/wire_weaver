@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::lit::Lit;
+use crate::ast::naming::Identifier;
 use crate::ast::ops::BinaryOp;
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
@@ -9,12 +10,14 @@ use super::prelude::*;
 /// Atoms is everything except Cons variant, pre-processed by pest.
 #[derive(Debug, Clone)]
 pub enum Expr<'i> {
-    Call,
-    IndexInto,
+    Call(Identifier<'i>, CallArguments<'i>),
+    IndexInto(Identifier<'i>, IndexArguments<'i>),
+    // CallThenIndexInto(CallArguments<'i>, IndexArguments<'i>),
+    // IndexIntoThenCall(IndexArguments<'i>, CallArguments<'i>),
     Unary,
     Lit(Lit<'i>),
     TupleOfExprs,
-    Ident(&'i str),
+    Ident(Identifier<'i>),
     ResourcePath {
         kind: ResourcePathKind,
         parts: Vec<ResourcePathPart<'i>>,
@@ -23,6 +26,26 @@ pub enum Expr<'i> {
     ExprInParen,
 
     Cons(BinaryOp, Vec<Expr<'i>>)
+}
+
+#[derive(Debug, Clone)]
+pub struct IndexArguments<'i>(pub Vec<Expr<'i>>);
+
+impl<'i> Parse<'i> for IndexArguments<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::index_arguments)?, input);
+        Ok(IndexArguments(input.parse()?))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallArguments<'i>(pub Vec<Expr<'i>>);
+
+impl<'i> Parse<'i> for CallArguments<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::call_arguments)?, input);
+        Ok(CallArguments(input.parse()?))
+    }
 }
 
 impl<'i> Parse<'i> for Expr<'i> {
@@ -45,12 +68,14 @@ impl<'i> Parse<'i> for Vec<Expr<'i>> {
 impl<'i> Display for Expr<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Call => { write!(f, "call") }
-            Expr::IndexInto => { write!(f, "index_into") }
+            Expr::Call(id, args) => { write!(f, "{}({:?})", id.name, args) }
+            Expr::IndexInto(id, args) => { write!(f, "{}[{:?}]", id.name, args) }
+            // Expr::CallThenIndexInto(call, index) => { write!(f, "call_index") }
+            // Expr::IndexIntoThenCall(index, call) => { write!(f, "index_call") }
             Expr::Unary => { write!(f, "unary") }
             Expr::Lit(lit) => { write!(f, "{:?}", lit) }
             Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
-            Expr::Ident(ident) => { write!(f, "{}", *ident) }
+            Expr::Ident(ident) => { write!(f, "{}", ident.name) }
             Expr::ResourcePath {
                 kind, parts, tail
             } => {
@@ -79,10 +104,14 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
     let mut lhs = match pair.as_rule() {
         // Atoms
         Rule::call_expr => {
-            return Err(ParseErrorSource::Unimplemented("call_expr"))
+            let _ = input.pairs.next();
+            let mut input = ParseInput::fork(pair, input);
+            Expr::Call(input.parse()?, input.parse()?)
         }
         Rule::index_into_expr => {
-            return Err(ParseErrorSource::Unimplemented("index_into_expr"))
+            let _ = input.pairs.next();
+            let mut input = ParseInput::fork(pair, input);
+            Expr::IndexInto(input.parse()?, input.parse()?)
         }
         Rule::unary_expr => {
             return Err(ParseErrorSource::Unimplemented("unary_expr"))
@@ -94,8 +123,7 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             return Err(ParseErrorSource::Unimplemented("tuple_of_expressions"))
         }
         Rule::identifier => {
-            let _ = input.pairs.next();
-            Expr::Ident(pair.as_str())
+            Expr::Ident(input.parse()?)
         }
         Rule::resource_path_start => {
             consume_resource_path(input)?
@@ -241,13 +269,36 @@ mod test {
     #[test]
     fn call_fn() {
         let expr: Expr = parse_str("fun(1, 2)", Rule::expression);
-        assert!(matches!(expr, Expr::Call));
+        assert!(matches!(expr, Expr::Call(_, _)));
+        if let Expr::Call(id, args) = expr {
+            assert_eq!(id.name, "fun");
+            assert_eq!(args.0.len(), 2);
+            assert!(matches!(args.0[0], Expr::Lit(_)));
+            assert!(matches!(args.0[1], Expr::Lit(_)));
+        }
     }
 
     #[test]
     fn index_array() {
         let expr: Expr = parse_str("arr[0, 5]", Rule::expression);
-        assert!(matches!(expr, Expr::IndexInto));
+        assert!(matches!(expr, Expr::IndexInto(_, _)));
+        if let Expr::Call(id, args) = expr {
+            assert_eq!(id.name, "arr");
+            assert_eq!(args.0.len(), 2);
+            assert!(matches!(args.0[0], Expr::Lit(_)));
+            assert!(matches!(args.0[1], Expr::Lit(_)));
+        }
     }
 
+    // #[test]
+    // fn call_fn_then_index_result() {
+    //     let expr: Expr = parse_str("fun(1)[2]", Rule::expression);
+    //     assert!(matches!(expr, Expr::CallThenIndexInto));
+    // }
+    //
+    // #[test]
+    // fn index_array_and_call() {
+    //     let expr: Expr = parse_str("arr[0](1)", Rule::expression);
+    //     assert!(matches!(expr, Expr::IndexIntoThenCall));
+    // }
 }

@@ -28,6 +28,7 @@ pub enum ParseErrorKind {
     FloatParseError,
     IntParseError,
     MalformedResourcePath,
+    WrongAccessModifier,
 }
 
 #[derive(Error, Debug)]

@@ -3,7 +3,7 @@ use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
 use crate::ast::naming::{XpiKeyName, XpiUriNamedPart};
-use crate::error::ParseErrorKind;
+use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
 // macro_rules! function {
@@ -131,28 +131,54 @@ pub enum XpiResourceAccessMode {
     Rw,
     Ro,
     Wo,
-    Const
+    Const,
+    RwStream,
+    RoStream,
+    WoStream,
 }
 
 impl<'i> Parse<'i> for XpiResourceAccessMode {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        // dbg!(function!());
-        match input.pairs.peek() {
-            Some(pair) => {
-                if pair.as_rule() == Rule::access_mod {
-                    let access_mod = input.pairs.next().unwrap();
-                    match access_mod.as_str() {
-                        "rw" => Ok(XpiResourceAccessMode::Rw),
-                        "ro" => Ok(XpiResourceAccessMode::Ro),
-                        "wo" => Ok(XpiResourceAccessMode::Wo),
-                        "const" => Ok(XpiResourceAccessMode::Const),
-                        _ => Err(ParseErrorSource::internal("unexpected access modifier"))
-                    }
+        let mut input = ParseInput::fork(input.expect1(Rule::access_mod)?, input);
+        let access_kind = input.expect1(Rule::access_kind)?;
+        let is_stream = input.pairs.peek().is_some();
+        match access_kind.as_str() {
+            "const" => {
+                if is_stream {
+                    input.errors.push(ParseError {
+                        kind: ParseErrorKind::WrongAccessModifier,
+                        rule: Rule::access_mod,
+                        span: (access_kind.as_span().start(), access_kind.as_span().end())
+                    });
+                    Err(ParseErrorSource::UserError)
                 } else {
-                    Err(ParseErrorSource::UnexpectedInput)
+                    Ok(XpiResourceAccessMode::Const)
                 }
             }
-            None => Err(ParseErrorSource::UnexpectedInput)
+            "rw" => {
+                if is_stream {
+                    Ok(XpiResourceAccessMode::RwStream)
+                } else {
+                    Ok(XpiResourceAccessMode::Rw)
+                }
+            }
+            "wo" => {
+                if is_stream {
+                    Ok(XpiResourceAccessMode::WoStream)
+                } else {
+                    Ok(XpiResourceAccessMode::Wo)
+                }
+            }
+            "ro" => {
+                if is_stream {
+                    Ok(XpiResourceAccessMode::RoStream)
+                } else {
+                    Ok(XpiResourceAccessMode::Ro)
+                }
+            }
+            _ => {
+                Err(ParseErrorSource::internal("wrong access_mod rule"))
+            }
         }
     }
 }

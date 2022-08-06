@@ -2,6 +2,7 @@ file = { SOI ~ file_item* ~ EOI }
 file_item = _{ definition | inner_attribute }
 
 // Number traits
+// TODO: make non-atomic + add lint warning instead of failing here
 /// 1, 2, 3, 4, 5, ...
 natural_number = @{ '1'..'9' ~ ASCII_DIGIT* }
 /// 0, 1, 2, 3, 4, 5, ...
@@ -57,7 +58,9 @@ fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }
 
 /// Access modifier
-access_mod = { "const" | "rw" | "ro" | "wo" }
+access_kind = { "const" | "rw" | "ro" | "wo" }
+access_stream = { "stream" } // Makes properties observable
+access_mod = { access_kind ~ ("+" ~ access_stream)? }
 
 // Definitions
 /// Alias type

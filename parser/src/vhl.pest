@@ -30,13 +30,17 @@ fixed_signed_ty = @{ "q" ~ ((whole_number ~ "." ~ whole_number) | generics) }
 fixed_unsigned_ty = @{ "uq" ~ ((whole_number ~ "." ~ whole_number) | generics) }
 fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
 
-num_bound = { "unbound" | "max" ~ dec_lit | expression_list }
-
 /// Floating point number types
 floating_any_ty = { ("f32" | "f64") ~ si_expr_ticked? }
 
 /// Textual types
 textual_any_ty = { "char" | "str" }
+
+// Numerical bounds (subtypes)
+num_unbound = { "?" }
+num_bound_max = { "max" ~ dec_lit_raw } // sugar for 0..=max
+num_bound_list = { expression_list } // 8, 16, 24..=32, 48
+num_bound = { num_unbound | num_bound_max | num_bound_list }
 
 // Sequence types
 /// Unit: ()
@@ -124,6 +128,9 @@ string_lit = ${ "\"" ~ string_inner ~ "\"" }
 string_inner = @{ char* }
 /// Tuple literal
 // tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
+
+// String bounds
+string_bound = { "TODO" }
 
 /// All possible literals
 tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }

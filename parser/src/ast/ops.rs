@@ -23,6 +23,7 @@ pub enum BinaryOp {
     Gt,
     Lte,
     Lt,
+    Path,
 }
 
 impl BinaryOp {
@@ -53,6 +54,7 @@ impl BinaryOp {
             Rule::op_gt => Ok(BinaryOp::Gt),
             Rule::op_lte => Ok(BinaryOp::Lte),
             Rule::op_lt => Ok(BinaryOp::Lt),
+            Rule::op_path => Ok(BinaryOp::Path),
             _ => Err(ParseErrorSource::internal("expected op_binary"))
         }
     }
@@ -71,6 +73,7 @@ impl BinaryOp {
             Plus | Minus => (17, 18),
             Mul | Div | Rem => (19, 20),
             Dot => (21, 22),
+            Path => (23, 24),
         }
     }
 
@@ -97,6 +100,7 @@ impl BinaryOp {
             BinaryOp::Gt => ">",
             BinaryOp::Lte => "<=",
             BinaryOp::Lt => "<",
+            BinaryOp::Path => "::",
         }
     }
 }

@@ -310,6 +310,12 @@ mod test {
         }
     }
 
+    #[test]
+    fn path_to_xpi_block() {
+        let expr: Expr = parse_str("crate::log::#/full", Rule::expression);
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+    }
+
     // #[test]
     // fn call_fn_then_index_result() {
     //     let expr: Expr = parse_str("fun(1)[2]", Rule::expression);

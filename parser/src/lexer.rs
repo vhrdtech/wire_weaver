@@ -633,4 +633,13 @@ mod test {
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
     }
+
+    #[test]
+    fn path_to_xpi_block() {
+        let input = "log::#/full";
+        let span1 = "^---------^";
+        let expected1 = [Rule::expression];
+        let parsed = Lexer::parse(Rule::expression, input).unwrap();
+        assert!(verify(parsed.clone(), vec![], span1, expected1));
+    }
 }

@@ -70,19 +70,20 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
 #[derive(Debug)]
 pub struct XpiBody<'i> {
     pub kv_list: XpiBlockKVList<'i>,
+    pub implements: XpiBlockTraits<'i>,
     pub children: XpiBlockChildren<'i>,
 }
 
 impl<'i> Parse<'i> for XpiBody<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        // dbg!(function!());
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_body)?,
             input
         );
-
+        // TODO: sort pairs somehow before parsing
         Ok(XpiBody {
             kv_list: input.parse()?,
+            implements: input.parse()?,
             children: input.parse()?
         })
     }
@@ -225,6 +226,20 @@ impl<'i> Parse<'i> for XpiBlockKVList<'i> {
 }
 
 #[derive(Debug)]
+pub struct XpiBlockTraits<'i> {
+    pub traits: Vec<Expr<'i>>,
+}
+
+impl<'i> Parse<'i> for XpiBlockTraits<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_impl)?, input);
+        Ok(XpiBlockTraits {
+            traits: input.parse()?,
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct XpiBlockKeyValue<'i> {
     pub key: XpiKeyName<'i>,
     pub value: XpiValue<'i>,
@@ -269,5 +284,18 @@ impl<'i> Parse<'i> for XpiBlockChildren<'i> {
             children.push(child);
         }
         Ok(XpiBlockChildren(children))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ast::test::parse_str;
+    use crate::lexer::Rule;
+    use super::DefXpiBlock;
+
+    #[test]
+    fn impl_interface() {
+        let xpi: DefXpiBlock = parse_str("/main{ impl log::#/full; }", Rule::xpi_block);
+        assert_eq!(xpi.body.implements.traits.len(), 1);
     }
 }

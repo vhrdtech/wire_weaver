@@ -18,6 +18,8 @@ use super::prelude::*;
 // }
 
 pub struct DefXpiBlock<'i> {
+    pub docs: Doc<'i>,
+    pub attrs: Attrs<'i>,
     pub uri: XpiUri<'i>,
     pub resource_ty: Option<XpiResourceTy<'i>>,
     pub body: XpiBody<'i>,
@@ -30,6 +32,8 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
         // crate::util::pest_print_tree(input.pairs.clone());
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_block)?, input);
         Ok(DefXpiBlock {
+            docs: input.parse()?,
+            attrs: input.parse()?,
             uri: input.parse()?,
             resource_ty: input.parse_or_skip()?,
             body: input.parse()?

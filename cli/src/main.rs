@@ -1,3 +1,4 @@
+use std::env;
 use parser::ast::expr::Expr;
 use parser::ast::file::File;
 use parser::ast::visit::Visit;
@@ -13,7 +14,10 @@ impl<'ast, 'input> Visit<'ast, 'input> for ExprVisitor {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
-    let input = std::fs::read_to_string("/Users/roman/git/vhl_hw/led_ctrl/led_ctrl.vhl")?;
+    let args: Vec<String> = env::args().collect();
+    let filename = &args[1];
+
+    let input = std::fs::read_to_string(filename)?;
     // let s = parser::util::pest_file_parse_tree(&input);
     // println!("{}", s);
 

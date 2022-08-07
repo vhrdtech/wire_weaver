@@ -69,9 +69,9 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
 
 #[derive(Debug)]
 pub struct XpiBody<'i> {
-    pub kv_list: XpiBlockKVList<'i>,
-    pub implements: XpiBlockTraits<'i>,
-    pub children: XpiBlockChildren<'i>,
+    pub kv_list: Vec<XpiBlockKeyValue<'i>>,
+    pub implements: Vec<Expr<'i>>,
+    pub children: Vec<DefXpiBlock<'i>>,
 }
 
 impl<'i> Parse<'i> for XpiBody<'i> {
@@ -80,11 +80,32 @@ impl<'i> Parse<'i> for XpiBody<'i> {
             input.expect1(Rule::xpi_body)?,
             input
         );
-        // TODO: sort pairs somehow before parsing
+        let mut kv_list = Vec::new();
+        let mut implements = Vec::new();
+        let mut children = Vec::new();
+
+        while let Some(p) = input.pairs.peek() {
+            match p.as_rule() {
+                Rule::xpi_field => {
+                    kv_list.push(input.parse()?);
+                }
+                Rule::xpi_impl => {
+                    let mut input = ParseInput::fork(input.expect1(Rule::xpi_impl)?, &mut input);
+                    implements.push(input.parse()?);
+                }
+                Rule::xpi_block => {
+                    children.push(input.parse()?);
+                }
+                _ => {
+                    return Err(ParseErrorSource::internal("unexpected xpi_body element"));
+                }
+            }
+        }
+
         Ok(XpiBody {
-            kv_list: input.parse()?,
-            implements: input.parse()?,
-            children: input.parse()?
+            kv_list,
+            implements,
+            children
         })
     }
 }
@@ -212,45 +233,6 @@ impl<'i> Parse<'i> for XpiSerial {
 }
 
 #[derive(Debug)]
-pub struct XpiBlockKVList<'i>(pub Vec<XpiBlockKeyValue<'i>>);
-
-impl<'i> Parse<'i> for XpiBlockKVList<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut kv_list = Vec::new();
-        while let Some(p) = input.pairs.peek() {
-            if p.as_rule() == Rule::xpi_field {
-                kv_list.push(input.parse()?);
-            } else {
-                break;
-            }
-        }
-        Ok(XpiBlockKVList(kv_list))
-    }
-}
-
-#[derive(Debug)]
-pub struct XpiBlockTraits<'i> {
-    pub traits: Vec<Expr<'i>>,
-}
-
-impl<'i> Parse<'i> for XpiBlockTraits<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut traits = Vec::new();
-        while let Some(p) = input.pairs.peek() {
-            if p.as_rule() == Rule::xpi_impl {
-                let mut input = ParseInput::fork(input.expect1(Rule::xpi_impl)?, input);
-                traits.push(input.parse()?);
-            } else {
-                break;
-            }
-        }
-        Ok(XpiBlockTraits {
-            traits,
-        })
-    }
-}
-
-#[derive(Debug)]
 pub struct XpiBlockKeyValue<'i> {
     pub key: XpiKeyName<'i>,
     pub value: XpiValue<'i>,
@@ -279,23 +261,6 @@ impl<'i> Parse<'i> for XpiValue<'i> {
             Some(stmt) => Ok(XpiValue::Stmt(stmt)),
             None => Ok(XpiValue::Expr(input.parse()?))
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct XpiBlockChildren<'i>(pub Vec<DefXpiBlock<'i>>);
-
-impl<'i> Parse<'i> for XpiBlockChildren<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut children = Vec::new();
-        while let Some(p) = input.pairs.peek() {
-            if p.as_rule() == Rule::xpi_block {
-               children.push(input.parse()?);
-            } else {
-                break;
-            }
-        }
-        Ok(XpiBlockChildren(children))
     }
 }
 

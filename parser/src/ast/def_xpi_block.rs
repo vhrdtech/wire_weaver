@@ -43,7 +43,13 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
 
 impl<'i> Debug for DefXpiBlock<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\n\x1b[36mDefXpiBlock(uri: {:?} ty: {:?})\x1b[0m", self.uri, self.resource_ty)?;
+        writeln!(f,
+                 "\n\x1b[32m{}\x1b[33m{:?}\n\x1b[36mDefXpiBlock(uri: {:?} ty: {:?})\x1b[0m",
+                 self.docs,
+                 self.attrs,
+                 self.uri,
+                 self.resource_ty
+        )?;
         writeln!(f, "{:?}", self.body)
     }
 }

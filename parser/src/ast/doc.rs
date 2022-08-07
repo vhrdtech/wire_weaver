@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -22,5 +23,15 @@ impl<'i> Parse<'i> for Doc<'i> {
         Ok(Doc {
             lines
         })
+    }
+}
+
+impl<'i> Display for Doc<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "\x1b[32m")?;
+        for l in &self.lines {
+            writeln!(f, "/// {}", l)?;
+        };
+        write!(f, "\x1b[0m")
     }
 }

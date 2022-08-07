@@ -229,7 +229,7 @@ token_except_delimiters = _{ keyword | identifier | any_lit | punctuation }
 token = _{ token_except_delimiters | delimiter }
 
 // xPI Blocks
-xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
+xpi_block = { "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier?) | expression_ticked ~ identifier? }
 xpi_resource_ty = { "<" ~ (access_mod? ~ any_ty)? ~ ("," ~ xpi_serial)? ~ ">" }
 xpi_serial = @{ "'" ~ dec_lit_raw }

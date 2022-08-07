@@ -67,7 +67,7 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct XpiBody<'i> {
     pub kv_list: Vec<XpiBlockKeyValue<'i>>,
     pub implements: Vec<Expr<'i>>,
@@ -76,6 +76,9 @@ pub struct XpiBody<'i> {
 
 impl<'i> Parse<'i> for XpiBody<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        if input.pairs.peek().is_none() {
+            return Ok(XpiBody::default());
+        }
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_body)?,
             input
@@ -90,7 +93,10 @@ impl<'i> Parse<'i> for XpiBody<'i> {
                     kv_list.push(input.parse()?);
                 }
                 Rule::xpi_impl => {
-                    let mut input = ParseInput::fork(input.expect1(Rule::xpi_impl)?, &mut input);
+                    let mut input = ParseInput::fork(
+                        input.expect1(Rule::xpi_impl)?,
+                        &mut input
+                    );
                     implements.push(input.parse()?);
                 }
                 Rule::xpi_block => {

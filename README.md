@@ -75,6 +75,9 @@ Simple checked numbers where only a range of values is allowed:
 Set of allowed values:
 * `u8<0..=8, 12, 16, 20, 24, 32, 48, 64>`
 
+Modulo numbers:
+* `u8<mod 127>`
+
 Number classes/traits?:
 * Natural: 1, 2, 3, 4, 5, ...
 * Whole: 0, 1, 2, 3, 4, 5, ...
@@ -100,36 +103,38 @@ where T is any type and `numbound` is a special type holding allowed values desc
 ### SI support
 
 Specify any SI unit for any number, define derived and custom units, define unit relations.
-* `current: q3.12 [A]`
-* `velocity: f32 [m/s]`
+* current: q3.12 \`A`
+* velocity: f32 \`m/s`
+
+Units are enclosed inside a backtick character: `
 
 Custom units with optional shortened name:
 ```
-unit Byte = [1, "B"];
+unit Byte = `1, "B"`;
 
-unit Ki = [1024];
-unit Mi = [1024 * Ki];
-unit Gi = [1024 * Mi];
+unit Ki = `1024`;
+unit Mi = `1024 * Ki`;
+unit Gi = `1024 * Mi`;
 
-unit Frame = [1];
-unit Packet = [1];
+unit Frame = `1`;
+unit Packet = `1`;
 ```
 
 Generic struct with related units, `rate` unit must be `U`'s unit divided by Seconds:
 ```
-struct RateCounter<T: WholeNumber[U]> {
-    current: T[U], 
-    rate: f32[U/s]
+struct RateCounter<T: WholeNumber`U`> {
+    current: T `U`, 
+    rate: f32 `U/s`
 }
 
 struct ByteCounters {
-  ingress: RateCounter<u64[Byte]>,
-  egress: RateCounter<u64[Byte]>,
+  ingress: RateCounter<u64 `Byte`>,
+  egress: RateCounter<u64 `Byte`>,
 }
 
 struct FrameCounters {
-  ingress: RateCounter<u64[Frame]>,
-  egress: RateCounter<u64[Frame]>,
+  ingress: RateCounter<u64 `Frame`>,
+  egress: RateCounter<u64 `Frame`>,
 }
 ```
 

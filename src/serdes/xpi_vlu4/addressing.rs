@@ -6,51 +6,10 @@ use crate::serdes::DeserializeBits;
 use crate::serdes::traits::{SerializeBits, SerializeVlu4};
 use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::{Uri, MultiUri};
+use crate::discrete::max_bound_number;
 
-macro_rules! max_bound_number {
-    ($type_name: ident, $base_type: ty, $max: literal, $fmt: literal) => {
-        #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-        pub struct $type_name($base_type);
-        impl $type_name {
-            pub const fn new(x: $base_type) -> Option<$type_name> {
-                if x <= $max {
-                    Some($type_name(x))
-                } else {
-                    None
-                }
-            }
 
-            pub unsafe fn new_unchecked(x: $base_type) -> $type_name {
-                $type_name(x)
-            }
-
-            pub const fn inner(&self) -> $base_type {
-                self.0
-            }
-        }
-
-        impl Display for $type_name {
-            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-                if f.alternate() {
-                    write!(f, "{}", self.0)
-                } else {
-                    write!(f, $fmt, self.0)
-                }
-            }
-        }
-    };
-}
-
-max_bound_number!(NodeId, u8, 127, "N:{}");
-impl<'i> DeserializeBits<'i> for NodeId {
-    type Error = crate::serdes::bit_buf::Error;
-
-    fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
-        let id = rdr.get_up_to_8(7)?;
-        // NOTE(unsafe): get_up_to_8(7) is guaranteed to return only 7 bits in u8 at positions 6:0
-        Ok(NodeId(id))
-    }
-}
+max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
 
 // Each outgoing request must be marked with an increasing number in order to distinguish
 // requests of the same kind and map responses.
@@ -119,7 +78,7 @@ impl<'i> SerializeBits for NodeSet<'i> {
         match self {
             NodeSet::Unicast(id) => {
                 wgr.put_up_to_8(2, 0b00)?;
-                wgr.put(id)?;
+                wgr.put(*id)?;
             }
             NodeSet::UnicastTraits { .. } => {
                 wgr.put_up_to_8(2, 0b01)?;
@@ -137,7 +96,7 @@ impl<'i> SerializeBits for NodeSet<'i> {
 impl<'i> SerializeVlu4 for NodeSet<'i> {
     type Error = crate::serdes::nibble_buf::Error;
 
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+    fn ser_vlu4(&self, _wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
             NodeSet::Unicast(_) => {
                 // Unicast was already serialized into header, no need to add anything
@@ -183,6 +142,27 @@ pub enum XpiResourceSet<'i> {
 
     /// Selects any set of resources at any depths at once.
     MultiUri(MultiUri<'i>),
+}
+
+impl<'i> SerializeBits for XpiResourceSet<'i> {
+    type Error = crate::serdes::bit_buf::Error;
+
+    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        let kind = match self {
+            XpiResourceSet::Uri(uri) => {
+                match uri {
+                    Uri::OnePart4(_) => 0,
+                    Uri::TwoPart44(_, _) => 1,
+                    Uri::ThreePart444(_, _, _) => 2,
+                    Uri::ThreePart633(_, _, _) => 3,
+                    Uri::ThreePart664(_, _, _) => 4,
+                    Uri::MultiPart(_) => 5,
+                }
+            }
+            XpiResourceSet::MultiUri(_) => 6
+        };
+        wgr.put_up_to_8(4, kind)
+    }
 }
 
 impl<'i> Display for XpiResourceSet<'i> {

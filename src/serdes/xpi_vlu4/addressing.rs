@@ -1,7 +1,9 @@
 // use hash32_derive::Hash32;
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf};
+use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::DeserializeBits;
+use crate::serdes::traits::{SerializeBits, SerializeVlu4};
 use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::{Uri, MultiUri};
 
@@ -107,6 +109,49 @@ impl<'i> DeserializeBits<'i> for NodeSet<'i> {
 
     fn des_bits<'di>(_rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
         todo!() // deserialize UnicastTraits or Multicast
+    }
+}
+
+impl<'i> SerializeBits for NodeSet<'i> {
+    type Error = crate::serdes::bit_buf::Error;
+
+    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        match self {
+            NodeSet::Unicast(id) => {
+                wgr.put_up_to_8(2, 0b00)?;
+                wgr.put(id)?;
+            }
+            NodeSet::UnicastTraits { .. } => {
+                wgr.put_up_to_8(2, 0b01)?;
+                todo!()
+            }
+            NodeSet::Multicast { .. } => {
+                wgr.put_up_to_8(2, 0b10)?;
+                todo!()
+            }
+        };
+        Ok(())
+    }
+}
+
+impl<'i> SerializeVlu4 for NodeSet<'i> {
+    type Error = crate::serdes::nibble_buf::Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        match self {
+            NodeSet::Unicast(_) => {
+                // Unicast was already serialized into header, no need to add anything
+                return Ok(());
+            }
+            NodeSet::UnicastTraits { .. } => {
+
+                todo!()
+            }
+            NodeSet::Multicast { .. } => {
+
+                todo!()
+            }
+        }
     }
 }
 

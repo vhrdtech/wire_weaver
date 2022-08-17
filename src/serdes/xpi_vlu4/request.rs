@@ -198,20 +198,20 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
             return Err(XpiVlu4Error::NotARequest);
         }
 
-        // UAVCAN reserved bit 23, discard if 0
+        // UAVCAN reserved bit 23, discard if 0 (UAVCAN discards if 1).
         let reserved_23 = bits_rdr.get_bit()?;
         if !reserved_23 {
             return Err(XpiVlu4Error::ReservedDiscard);
         }
 
-        // bits 22:21
-        let destination_kind = bits_rdr.get_up_to_8(2)?;
-
-        // bits 20:17
+        // bits 22:19
         let request_kind = bits_rdr.get_up_to_8(4)?;
 
-        // bits 16:14
+        // bits 18:16
         let uri_type = bits_rdr.get_up_to_8(3)?;
+
+        // bits 15:14
+        let destination_kind = bits_rdr.get_up_to_8(2)?;
 
         // bits 13:7 and reads from rdr if traits are used
         let destination = des_destination(destination_kind, &mut bits_rdr, rdr)?;
@@ -339,7 +339,7 @@ mod test {
     #[test]
     fn call_request() {
         let buf = [
-            0b000_100_11, 0b1_00_00000, 0b001_101010, 0b1_0101010,
+            0b000_100_11, 0b1_0000_001, 0b00_101010, 0b1_0101010,
             0b0011_1100, 0b0001_0010, 0xaa, 0xbb, 0b000_11011
         ];
         let mut rdr = NibbleBuf::new_all(&buf);

@@ -1,5 +1,6 @@
 // use thiserror::Error;
 use crate::serdes::{DeserializeBits, NibbleBufMut};
+use crate::serdes::traits::SerializeBits;
 
 /// Buffer reader that treats input as a stream of bits
 #[derive(Copy, Clone)]
@@ -255,6 +256,11 @@ impl<'i> BitBufMut<'i> {
             self.bit_idx = bits_to_idx_plus_1;
             Ok(())
         }
+    }
+
+    /// Put any type that implements SerializeBits into this buffer.
+    pub fn put<E, T: SerializeBits<Error = E>>(&mut self, t: T) -> Result<(), E> {
+        t.ser_bits(self)
     }
 
     pub fn finish(self) -> (&'i mut [u8], usize, usize) {

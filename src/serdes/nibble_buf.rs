@@ -3,6 +3,7 @@ use crate::serdes::bit_buf::BitBufMut;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::{BitBuf, DeserializeVlu4};
+use crate::serdes::traits::SerializeVlu4;
 
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
@@ -250,6 +251,64 @@ impl<'i> NibbleBufMut<'i> {
         }
     }
 
+    /// Convert to BitBufMut and call f closure with it.
+    /// Closure must leave BitBufMut at 4 bit boundary, otherwise UnalignedAccess error is returned.
+    /// If closure fails, it's error is returned. Since there are 2 kind of errors being used,
+    /// user error must implement From<bit_buf::Error>, see example.
+    ///
+    /// # Example
+    /// ```
+    /// use vhl_stdlib::serdes::NibbleBufMut;
+    /// use vhl_stdlib::serdes::bit_buf::Error as BitBufError;
+    ///
+    /// #[derive(Debug)]
+    /// enum MyError {
+    ///     BitBufError(BitBufError),
+    /// }
+    /// impl From<BitBufError> for MyError {
+    /// fn from(e: BitBufError) -> Self {
+    ///         MyError::BitBufError(e)
+    ///     }
+    /// }
+    ///
+    /// let mut buf = [0u8; 1];
+    /// let mut wgr = NibbleBufMut::new_all(&mut buf);
+    /// wgr.put_nibble(0b1010);
+    ///
+    /// wgr.as_bit_buf::<MyError, _>(|bit_wgr| {
+    ///     bit_wgr.put_bit(true)?;
+    ///     bit_wgr.put_bit(false)?;
+    ///     bit_wgr.put_up_to_8(2, 0b11)?;
+    ///     Ok(())
+    /// }).unwrap();
+    ///
+    /// let (buf, _, _) = wgr.finish();
+    /// assert_eq!(buf[0], 0b1010_1011);
+    /// ```
+    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E> where
+        E: From<crate::serdes::bit_buf::Error>,
+        F: Fn(&mut BitBufMut) -> Result<(), E>
+    {
+        let bit_idx = if self.is_at_byte_boundary {
+            0
+        } else {
+            4
+        };
+        let mut bit_buf = BitBufMut {
+            buf: self.buf,
+            len_bits: self.len_nibbles * 4,
+            idx: self.idx,
+            bit_idx
+        };
+        f(&mut bit_buf)?;
+        if bit_buf.bit_idx != 0 && bit_buf.bit_idx != 4 {
+            return Err(E::from(crate::serdes::bit_buf::Error::UnalignedAccess));
+        }
+        self.idx = bit_buf.bit_idx;
+        self.is_at_byte_boundary = bit_buf.bit_idx == 0;
+        Ok(())
+    }
+
     pub fn nibbles_pos(&self) -> usize {
         if self.is_at_byte_boundary {
             self.idx * 2
@@ -333,6 +392,11 @@ impl<'i> NibbleBufMut<'i> {
             unsafe { *self.buf.get_unchecked_mut(self.idx) = val << 4; }
         }
         Ok(())
+    }
+
+    /// Put any type that implements SerializeVlu4 into this buffer.
+    pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: T) -> Result<(), E> {
+        t.ser_vlu4(self)
     }
 }
 

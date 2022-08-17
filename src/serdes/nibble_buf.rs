@@ -1,16 +1,18 @@
 use core::fmt::{Debug, Display, Formatter};
+use crate::serdes::bit_buf::BitBufMut;
 // use thiserror::Error;
-use crate::serdes::BitBuf;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
-use crate::serdes::DeserializeVlu4;
+use crate::serdes::{BitBuf, DeserializeVlu4};
 
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
 pub struct NibbleBuf<'i> {
     buf: &'i [u8],
+    // Maximum number of nibbles to read (not whole buf might be available)
     len_nibbles: usize,
-    // Position in bytes
+    // Next byte to read
     idx: usize,
+    // Next nibble to read
     is_at_byte_boundary: bool,
 }
 
@@ -204,17 +206,47 @@ impl<'i> Debug for NibbleBuf<'i> {
     }
 }
 
+/// Buffer writer that supports 4 bit (nibble) level operations
 pub struct NibbleBufMut<'i> {
-    buf: &'i mut [u8],
-    idx: usize,
-    is_at_byte_boundary: bool,
-    is_past_end: bool,
+    pub(crate) buf: &'i mut [u8],
+    // Maximum number of nibbles available (not whole slice might be available)
+    pub(crate) len_nibbles: usize,
+    // Next byte to write to
+    pub(crate) idx: usize,
+    // Next nibble to write to
+    pub(crate) is_at_byte_boundary: bool,
 }
 
 impl<'i> NibbleBufMut<'i> {
-    pub fn new(buf: &'i mut [u8]) -> Self {
+    pub fn new(buf: &'i mut [u8], len_nibbles: usize) -> Result<Self, Error> {
+        if len_nibbles > buf.len() * 2 {
+            Err(Error::OutOfBounds)
+        } else {
+            Ok(NibbleBufMut {
+                buf, len_nibbles, idx: 0, is_at_byte_boundary: true,
+            })
+        }
+    }
+
+    pub fn new_all(buf: &'i mut [u8]) -> Self {
+        let len_nibbles = buf.len() * 2;
         NibbleBufMut {
-            buf, idx: 0, is_at_byte_boundary: true, is_past_end: false,
+            buf, len_nibbles, idx: 0, is_at_byte_boundary: true
+        }
+    }
+
+    /// Convert self to BitBufMut from the current position to continue writing in bits
+    pub fn to_bit_buf(self) -> BitBufMut<'i> {
+        let bit_idx = if self.is_at_byte_boundary {
+            0
+        } else {
+            4
+        };
+        BitBufMut {
+            buf: self.buf,
+            len_bits: self.len_nibbles * 4,
+            idx: self.idx,
+            bit_idx
         }
     }
 
@@ -227,25 +259,24 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     pub fn nibbles_left(&self) -> usize {
-        self.buf.len() * 2 - self.nibbles_pos()
+        if !self.is_at_end() {
+            self.len_nibbles - self.nibbles_pos()
+        } else {
+            0
+        }
     }
 
     pub fn is_at_end(&self) -> bool {
-        self.idx >= self.buf.len()
+        self.nibbles_pos() >= self.len_nibbles
     }
 
-    pub fn is_past_end(&self) -> bool {
-        self.is_past_end
+    pub fn finish(self) -> (&'i mut [u8], usize, bool) {
+        (self.buf, self.idx, self.is_at_byte_boundary)
     }
 
-    pub fn finish(self) -> &'i [u8] {
-        &self.buf[0..self.idx]
-    }
-
-    pub fn put_nibble(&mut self, nib: u8) {
-        if self.is_at_end() {
-            self.is_past_end = true;
-            return;
+    pub fn put_nibble(&mut self, nib: u8) -> Result<(), Error> {
+        if self.nibbles_left() == 0 {
+            return Err(Error::OutOfBounds);
         }
         if self.is_at_byte_boundary {
             unsafe { *self.buf.get_unchecked_mut(self.idx) = nib << 4; }
@@ -255,19 +286,16 @@ impl<'i> NibbleBufMut<'i> {
             self.is_at_byte_boundary = true;
             self.idx += 1;
         }
+        Ok(())
     }
 
-    pub fn put_vlu4_u32(&mut self, val: u32) {
-        if self.is_at_end() {
-            self.is_past_end = true;
-            return;
-        }
+    pub fn put_vlu4_u32(&mut self, val: u32) -> Result<(), Error> {
         let mut val = val;
         let mut msb_found = false;
         let nib = (val >> 30) as u8; // get bits 31:30
         if nib != 0 {
             // println!("put 31 30");
-            self.put_nibble(nib | 0b1000);
+            self.put_nibble(nib | 0b1000)?;
             msb_found = true;
         }
         val <<= 2;
@@ -276,25 +304,25 @@ impl<'i> NibbleBufMut<'i> {
                 let nib = (val >> 29) as u8;
                 if i == 9 {
                     // println!("put last");
-                    self.put_nibble(nib);
+                    self.put_nibble(nib)?;
                 } else {
                     // println!("put mid");
-                    self.put_nibble(nib | 0b1000);
+                    self.put_nibble(nib | 0b1000)?;
                 }
                 msb_found = true;
             }
             if i == 9 && !msb_found {
                 // println!("put 0");
-                self.put_nibble(0);
+                self.put_nibble(0)?;
             }
             val <<= 3;
         }
+        Ok(())
     }
 
-    pub fn put_u8(&mut self, val: u8) {
+    pub fn put_u8(&mut self, val: u8) -> Result<(), Error> {
         if self.nibbles_left() < 2 {
-            self.is_past_end = true;
-            return;
+            return Err(Error::OutOfBounds);
         }
         if self.is_at_byte_boundary {
             unsafe { *self.buf.get_unchecked_mut(self.idx) = val; }
@@ -304,6 +332,7 @@ impl<'i> NibbleBufMut<'i> {
             self.idx += 1;
             unsafe { *self.buf.get_unchecked_mut(self.idx) = val << 4; }
         }
+        Ok(())
     }
 }
 
@@ -411,49 +440,50 @@ mod test {
     #[test]
     fn write_nibbles() {
         let mut buf = [0u8; 2];
-        {
-            let mut wgr = NibbleBufMut::new(&mut buf);
-            wgr.put_nibble(1);
-            wgr.put_nibble(2);
-            wgr.put_nibble(3);
-            wgr.put_nibble(4);
-            assert!(wgr.is_at_end());
-            wgr.put_nibble(0);
-            assert!(wgr.is_past_end());
-        }
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_nibble(1).unwrap();
+        wgr.put_nibble(2).unwrap();
+        wgr.put_nibble(3).unwrap();
+        wgr.put_nibble(4).unwrap();
+        assert!(wgr.is_at_end());
+        assert_eq!(wgr.put_nibble(0), Err(Error::OutOfBounds));
+        let (buf, byte_pos, is_at_byte_boundary) = wgr.finish();
         assert_eq!(buf[0] , 0x12);
         assert_eq!(buf[1] , 0x34);
+        assert_eq!(byte_pos, 2);
+        assert_eq!(is_at_byte_boundary, true);
     }
 
     #[test]
     fn write_vlu4_u32_3() {
         let mut buf = [0u8; 4];
-        let mut wgr = NibbleBufMut::new(&mut buf);
-        wgr.put_vlu4_u32(3);
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_vlu4_u32(3).unwrap();
         assert_eq!(wgr.nibbles_pos(), 1);
         assert_eq!(buf[0], 0b0011_0000);
     }
 
     // ≈ 1.5M/s on Core i7 8700K
     // ≈ 47min to complete on all 32 bit numbers
-    // #[test]
-    // fn round_trip_vlu4_u32() {
-    //     let mut buf = [0u8; 11];
-    //     for i in 0..u32::MAX {
-    //         {
-    //             let mut wgr = NibbleBufMut::new(&mut buf);
-    //             wgr.put_vlu4_u32(i);
-    //             assert!(!wgr.is_at_end());
-    //         }
-    //         if i % 10_000_000 == 0 {
-    //             println!("{}", i);
-    //             std::io::stdout().flush().unwrap();
-    //         }
-    //
-    //         let mut rgr = NibbleBuf::new(&mut buf);
-    //         assert_eq!(rgr.get_vlu4_u32(), Some(i));
-    //     }
-    // }
+    #[test]
+    fn round_trip_vlu4_u32() {
+        let mut buf = [0u8; 11];
+        let numbers = [0, 7, 8, 63, 64, 511, 512, u32::MAX - 1, u32::MAX];
+        for i in numbers {
+            {
+                let mut wgr = NibbleBufMut::new_all(&mut buf);
+                wgr.put_vlu4_u32(i).unwrap();
+                assert!(!wgr.is_at_end());
+            }
+            // if i % 10_000_000 == 0 {
+            //     println!("{}", i);
+            //     std::io::stdout().flush().unwrap();
+            // }
+
+            let mut rgr = NibbleBuf::new_all(&mut buf);
+            assert_eq!(rgr.get_vlu4_u32(), Ok(i));
+        }
+    }
 
     #[test]
     fn buf_display() {
@@ -509,5 +539,22 @@ mod test {
 
         assert_eq!(rgr.get_u8(), Ok(0x78));
         assert!(rgr.is_at_end());
+    }
+
+    #[test]
+    fn to_bit_buf() {
+        let mut buf = [0u8; 2];
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_nibble(0b1010).unwrap();
+
+        let mut wgr = wgr.to_bit_buf();
+        wgr.put_up_to_8(8, 0b1111_1010).unwrap();
+        wgr.put_up_to_8(4, 0b0011).unwrap();
+
+        let (buf, byte_pos, bit_pos) = wgr.finish();
+        assert_eq!(buf[0], 0b1010_1111);
+        assert_eq!(buf[1], 0b1010_0011);
+        assert_eq!(byte_pos, 2);
+        assert_eq!(bit_pos, 0);
     }
 }

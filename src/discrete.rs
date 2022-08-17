@@ -1,4 +1,6 @@
 use crate::serdes::{BitBuf, DeserializeBits};
+use crate::serdes::bit_buf::BitBufMut;
+use crate::serdes::traits::SerializeBits;
 
 /// 3 bit unsigned integer
 #[derive(Copy, Clone, Debug)]
@@ -88,5 +90,13 @@ impl<'i> DeserializeBits<'i> for U2Sp1 {
     fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
         let bits_1_0 = rdr.get_up_to_8(2)?;
         Ok(U2Sp1(bits_1_0))
+    }
+}
+
+impl SerializeBits for U2Sp1 {
+    type Error = crate::serdes::bit_buf::Error;
+
+    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        wgr.put_up_to_8(2, self.0)
     }
 }

@@ -1,7 +1,8 @@
 use core::fmt::{Display, Formatter};
 use crate::discrete::U2Sp1;
 use crate::serdes::{BitBuf, DeserializeBits};
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::bit_buf::BitBufMut;
+use crate::serdes::traits::SerializeBits;
 
 
 /// Priority selection: lossy or lossless (to an extent).
@@ -32,7 +33,7 @@ pub enum Priority {
 }
 
 impl<'i> DeserializeBits<'i> for Priority {
-    type Error = XpiVlu4Error;
+    type Error = crate::serdes::bit_buf::Error;
 
     fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
         let is_lossless = rdr.get_bit()?;
@@ -41,6 +42,19 @@ impl<'i> DeserializeBits<'i> for Priority {
         } else {
             Ok(Priority::Lossy(rdr.des_bits()?))
         }
+    }
+}
+
+impl SerializeBits for Priority {
+    type Error = crate::serdes::bit_buf::Error;
+
+    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        let (is_lossless, level) = match self {
+            Priority::Lossy(level) => (false, level),
+            Priority::Lossless(level) => (true, level)
+        };
+        wgr.put_bit(is_lossless)?;
+        wgr.put(*level)
     }
 }
 

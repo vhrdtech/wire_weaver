@@ -1,5 +1,6 @@
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
+use crate::discrete::{U3, U4, U6};
 use crate::serdes::{DeserializeVlu4, NibbleBuf};
 use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
@@ -8,40 +9,53 @@ use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 /// If there is a group in the uri with not numerical index - it must be mapped into numbers.
 #[derive(Copy, Clone)]
 pub enum Uri<'i> {
-    /// Points to one of the root resources /i
-    OnePart(u8),
-    /// Points to one of the root child resources /i/j
-    TwoPart(u8, u8),
-    /// Points into third level of the resource tree /i/j/k
-    ThreePart(u8, u8, u8),
-    /// Point to any resource in the resources tree
+    /// Points to one of the root resources /i, i <= 15; takes 1 nibble
+    OnePart4(U4),
+
+    /// Points to one of the root child resources /i/j, i,j <= 15; takes 2 nibbles
+    TwoPart44(U4, U4),
+
+    /// Points into third level of the resource tree /i/j/k, i,j,k <= 15; takes 3 nibbles
+    ThreePart444(U4, U4, U4),
+
+    /// Points into third level of the resource tree /i/j/k, i <= 63, j,k <= 7; takes 3 nibbles
+    ThreePart633(U6, U3, U3),
+
+    /// Points into third level of the resource tree /i/j/k, i,j <= 63, k <= 15; takes 4 nibbles
+    ThreePart664(U6, U6, U4),
+
+    /// Point to any resource in the resources tree, any numbers up to u32::MAX; variable size
     MultiPart(Vlu4U32Array<'i>)
 }
 
 impl<'i> Uri<'i> {
     pub fn iter(&self) -> UriIter<'i> {
         match self {
-            Uri::OnePart(i) => {
-                UriIter::UpToThree {
-                    parts: [*i, 0, 0],
-                    len: 1,
-                    pos: 0
-                }
-            }
-            Uri::TwoPart(i, j) => {
-                UriIter::UpToThree {
-                    parts: [*i, *j, 0],
-                    len: 2,
-                    pos: 0
-                }
-            }
-            Uri::ThreePart(i, j, k) => {
-                UriIter::UpToThree {
-                    parts: [*i, *j, *k],
-                    len: 3,
-                    pos: 0
-                }
-            }
+            Uri::OnePart4(a) => UriIter::UpToThree {
+                parts: [a.inner(), 0, 0],
+                len: 1,
+                pos: 0
+            },
+            Uri::TwoPart44(a, b) => UriIter::UpToThree {
+                parts: [a.inner(), b.inner(), 0],
+                len: 2,
+                pos: 0
+            },
+            Uri::ThreePart444(a, b, c) => UriIter::UpToThree {
+                parts: [a.inner(), b.inner(), c.inner()],
+                len: 3,
+                pos: 0
+            },
+            Uri::ThreePart633(a, b, c) => UriIter::UpToThree {
+                parts: [a.inner(), b.inner(), c.inner()],
+                len: 3,
+                pos: 0
+            },
+            Uri::ThreePart664(a, b, c) => UriIter::UpToThree {
+                parts: [a.inner(), b.inner(), c.inner()],
+                len: 3,
+                pos: 0
+            },
             Uri::MultiPart(arr) => {
                 UriIter::ArrIter(arr.iter())
             }
@@ -189,6 +203,7 @@ mod test {
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4U32Array = buf.des_vlu4().unwrap();
         let uri = Uri::MultiPart(arr);
-        assert_eq!(format!("{}", uri), "Uri(/1/2/3/4/5)");
+        assert_eq!(format!("{:#}", uri), "Uri(/1/2/3/4/5)");
+        assert_eq!(format!("{}", uri), "/1/2/3/4/5");
     }
 }

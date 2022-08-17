@@ -258,29 +258,29 @@ fn des_resource_set<'di, 'i>(
     rdr: &'di mut NibbleBuf<'i>
 ) -> Result<XpiResourceSet<'i>, XpiVlu4Error> {
     match uri_type {
-        0 => Ok(XpiResourceSet::Uri( Uri::OnePart(rdr.get_nibble()?)) ),
-        1 => Ok(XpiResourceSet::Uri( Uri::TwoPart(
-            rdr.get_nibble()?, rdr.get_nibble()?))
+        0 => Ok(XpiResourceSet::Uri( Uri::OnePart4(rdr.des_vlu4()?)) ),
+        1 => Ok(XpiResourceSet::Uri( Uri::TwoPart44(
+            rdr.des_vlu4()?, rdr.des_vlu4()?))
         ),
-        2 => Ok(XpiResourceSet::Uri( Uri::ThreePart(
-            rdr.get_nibble()?,
-            rdr.get_nibble()?,
-            rdr.get_nibble()?
+        2 => Ok(XpiResourceSet::Uri( Uri::ThreePart444(
+            rdr.des_vlu4()?,
+            rdr.des_vlu4()?,
+            rdr.des_vlu4()?
         ))),
         3 => {
             let mut bits = rdr.get_bit_buf(3)?;
-            Ok(XpiResourceSet::Uri(Uri::ThreePart(
-                bits.get_up_to_8(6)?,
-                bits.get_up_to_8(3)?,
-                bits.get_up_to_8(3)?,
+            Ok(XpiResourceSet::Uri(Uri::ThreePart633(
+                bits.des_bits()?,
+                bits.des_bits()?,
+                bits.des_bits()?,
             )))
         }
         4 => {
             let mut bits = rdr.get_bit_buf(4)?;
-            Ok(XpiResourceSet::Uri(Uri::ThreePart(
-                bits.get_up_to_8(6)?,
-                bits.get_up_to_8(6)?,
-                bits.get_up_to_8(4)?,
+            Ok(XpiResourceSet::Uri(Uri::ThreePart664(
+                bits.des_bits()?,
+                bits.des_bits()?,
+                bits.des_bits()?,
             )))
         }
         5 => Ok( XpiResourceSet::Uri(rdr.des_vlu4()?) ),

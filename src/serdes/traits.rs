@@ -33,3 +33,33 @@ pub trait DeserializeBits<'i>: Sized {
 
     fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error>;
 }
+
+/// Deserialize trait implemented by all types that can be deserialized from 2 places at once.
+///
+/// For example one reader can be used to read from a packet header, while
+/// the second one to read associated data from the same packet's data portion.
+/// same packet.
+pub trait DeserializeCoupledBitsVlu4<'i>: Sized {
+    type Error;
+
+    fn des_coupled_bits_vlu4<'di>(
+        bits_rdr: &'di mut BitBuf<'i>,
+        vlu4_rdr: &'di mut NibbleBuf<'i>,
+    ) -> Result<Self, Self::Error>;
+}
+
+// pub trait DeserializeCoupledReadersTupleVlu4Bits<'i, T> {
+//     type Error;
+//
+//     fn des_coupled_vlu4_bits<'di>(&mut self) -> Result<T, Self::Error>;
+// }
+//
+// impl<'i, T> DeserializeCoupledReadersTupleVlu4Bits<'i, T> for (&&mut BitBuf<'i>, &&mut NibbleBuf<'i>)
+//     where T: DeserializeCoupledVlu4Bits<'i>
+// {
+//     type Error = <T as DeserializeCoupledVlu4Bits<'i>>::Error;
+//
+//     fn des_coupled_vlu4_bits<'di>(&mut self) -> Result<T, Self::Error> {
+//         T::des_coupled_vlu4_bits(*self.0, *self.1)
+//     }
+// }

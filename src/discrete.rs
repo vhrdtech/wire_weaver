@@ -43,7 +43,7 @@ macro_rules! max_bound_number {
             type Error = crate::serdes::bit_buf::Error;
 
             fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-                wgr.put_up_to_8($bit_count, self.0)
+                wgr.$ser($bit_count, self.0)
             }
         }
 

@@ -204,23 +204,17 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
             return Err(XpiVlu4Error::ReservedDiscard);
         }
 
-        // bits 22:19
-        let request_kind = bits_rdr.get_up_to_8(4)?;
-
-        // bits 18:16
-        let uri_type = bits_rdr.get_up_to_8(3)?;
-
-        // bits 15:14
-        let destination_kind = bits_rdr.get_up_to_8(2)?;
-
-        // bits 13:7 and reads from rdr if traits are used
-        let destination = des_destination(destination_kind, &mut bits_rdr, rdr)?;
-
-        // bits 6:0
+        // bits: 22:16
         let source: NodeId = bits_rdr.des_bits()?;
 
-        let resource_set = des_resource_set(uri_type, rdr)?;
-        let kind = des_request_kind(request_kind, rdr)?;
+        // bits: 15:7 + variable nibbles if not NodeSet::Unicast
+        let destination = NodeSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+
+        // bits 6:4 + 1/2/3/4 nibbles for Uri::OnePart4/TwoPart44/ThreePart* or variable otherwise
+        let resource_set = XpiResourceSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+
+        // bits 3:0
+        let kind = XpiRequestKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
 
         // tail byte should be at byte boundary, if not 4b padding is added
         if !rdr.is_at_byte_boundary() {
@@ -286,7 +280,7 @@ mod test {
     #[test]
     fn call_request() {
         let buf = [
-            0b000_100_11, 0b1_0000_001, 0b00_101010, 0b1_0101010,
+            0b000_100_11, 0b1_0101010, 0b00_101010, 0b1_001_0000,
             0b0011_1100, 0b0001_0010, 0xaa, 0xbb, 0b000_11011
         ];
         let mut rdr = NibbleBuf::new_all(&buf);
@@ -301,7 +295,11 @@ mod test {
         }
         assert!(matches!(req.resource_set, XpiResourceSet::Uri(_)));
         if let XpiResourceSet::Uri(uri) = req.resource_set {
-            assert!(matches!(uri, Uri::TwoPart(3, 12)));
+            assert!(matches!(uri, Uri::TwoPart44(_, _)));
+            if let Uri::TwoPart44(a, b) = uri {
+                assert_eq!(a.inner(), 3);
+                assert_eq!(b.inner(), 12);
+            }
         }
         assert!(matches!(req.kind, XpiRequestKind::Call { .. }));
         if let XpiRequestKind::Call { args } = req.kind {

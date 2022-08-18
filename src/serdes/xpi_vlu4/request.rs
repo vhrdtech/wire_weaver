@@ -7,8 +7,8 @@ use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Vlu4RateArray;
-use crate::serdes::xpi_vlu4::Uri;
 use super::NodeId;
+use crate::serdes::traits::DeserializeCoupledBitsVlu4;
 
 /// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
 /// One or several Responses are sent back for each kind of request.
@@ -239,88 +239,35 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
     }
 }
 
-fn des_destination<'di, 'i>(
-    destination_kind: u8,
-    bits_rdr: &'di mut BitBuf<'i>,
-    _rdr: &'di mut NibbleBuf<'i>
-) -> Result<NodeSet<'i>, XpiVlu4Error> {
-    match destination_kind {
-        0 => Ok(NodeSet::Unicast(bits_rdr.des_bits()?)),
-        1 => Err(XpiVlu4Error::Unimplemented),
-        2 => Err(XpiVlu4Error::Unimplemented),
-        3 => Err(XpiVlu4Error::ReservedDiscard),
-        _ => Err(XpiVlu4Error::InternalError)
-    }
-}
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
+    type Error = XpiVlu4Error;
 
-fn des_resource_set<'di, 'i>(
-    uri_type: u8,
-    rdr: &'di mut NibbleBuf<'i>
-) -> Result<XpiResourceSet<'i>, XpiVlu4Error> {
-    match uri_type {
-        0 => Ok(XpiResourceSet::Uri( Uri::OnePart4(rdr.des_vlu4()?)) ),
-        1 => Ok(XpiResourceSet::Uri( Uri::TwoPart44(
-            rdr.des_vlu4()?, rdr.des_vlu4()?))
-        ),
-        2 => Ok(XpiResourceSet::Uri( Uri::ThreePart444(
-            rdr.des_vlu4()?,
-            rdr.des_vlu4()?,
-            rdr.des_vlu4()?
-        ))),
-        3 => {
-            let mut bits = rdr.get_bit_buf(3)?;
-            Ok(XpiResourceSet::Uri(Uri::ThreePart633(
-                bits.des_bits()?,
-                bits.des_bits()?,
-                bits.des_bits()?,
-            )))
+    fn des_coupled_bits_vlu4<'di>(bits_rdr: &'di mut BitBuf<'i>, vlu4_rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let kind = bits_rdr.get_up_to_8(4)?;
+        use XpiRequestKind::*;
+        match kind {
+            0 => Ok(Call {
+                args: vlu4_rdr.des_vlu4()?
+            }),
+            1 => Ok(Read),
+            2 => Ok(Write {
+                values: vlu4_rdr.des_vlu4()?
+            }),
+            3 => Ok(OpenStreams),
+            4 => Ok(CloseStreams),
+            5 => Ok(Subscribe {
+                rates: vlu4_rdr.des_vlu4()?
+            }),
+            6 => Ok(Unsubscribe),
+            7 => Ok(Borrow),
+            8 => Ok(Release),
+            9 => Ok(Introspect),
+            10 => Ok(ChainCall {
+                args: vlu4_rdr.des_vlu4()?
+            }),
+            11..=15 => Err(XpiVlu4Error::ReservedDiscard),
+            _ => Err(XpiVlu4Error::InternalError)
         }
-        4 => {
-            let mut bits = rdr.get_bit_buf(4)?;
-            Ok(XpiResourceSet::Uri(Uri::ThreePart664(
-                bits.des_bits()?,
-                bits.des_bits()?,
-                bits.des_bits()?,
-            )))
-        }
-        5 => Ok( XpiResourceSet::Uri(rdr.des_vlu4()?) ),
-        6 => Ok( XpiResourceSet::MultiUri(rdr.des_vlu4()?) ),
-        7 => {
-            Err(XpiVlu4Error::ReservedDiscard)
-        }
-        _ => {
-            Err(XpiVlu4Error::InternalError)
-        }
-    }
-}
-
-fn des_request_kind<'di, 'i>(
-    request_kind: u8,
-    rdr: &'di mut NibbleBuf<'i>
-) -> Result<XpiRequestKind<'i>, XpiVlu4Error> {
-    use XpiRequestKind::*;
-    match request_kind {
-        0 => Ok(Call {
-                args: rdr.des_vlu4()?
-        }),
-        1 => Ok(Read),
-        2 => Ok(Write {
-            values: rdr.des_vlu4()?
-        }),
-        3 => Ok(OpenStreams),
-        4 => Ok(CloseStreams),
-        5 => Ok(Subscribe {
-            rates: rdr.des_vlu4()?
-        }),
-        6 => Ok(Unsubscribe),
-        7 => Ok(Borrow),
-        8 => Ok(Release),
-        9 => Ok(Introspect),
-        10 => Ok(ChainCall {
-            args: rdr.des_vlu4()?
-        }),
-        11..=15 => Err(XpiVlu4Error::ReservedDiscard),
-        _ => Err(XpiVlu4Error::InternalError)
     }
 }
 

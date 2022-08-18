@@ -1,7 +1,8 @@
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use crate::discrete::{U3, U4, U6};
-use crate::serdes::{DeserializeVlu4, NibbleBuf};
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
@@ -68,6 +69,47 @@ impl<'i> DeserializeVlu4<'i> for Uri<'i> {
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         Ok(Uri::MultiPart(rdr.des_vlu4()?))
+    }
+}
+
+impl<'i> SerializeVlu4 for Uri<'i> {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        match self {
+            Uri::OnePart4(a) => {
+                wgr.put_nibble(a.inner())?;
+            }
+            Uri::TwoPart44(a, b) => {
+                wgr.put_nibble(a.inner())?;
+                wgr.put_nibble(b.inner())?;
+            }
+            Uri::ThreePart444(a, b, c) => {
+                wgr.put_nibble(a.inner())?;
+                wgr.put_nibble(b.inner())?;
+                wgr.put_nibble(c.inner())?;
+            }
+            Uri::ThreePart633(a, b, c) => {
+               wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
+                   wgr.put_up_to_8(6, a.inner())?;
+                   wgr.put_up_to_8(3, b.inner())?;
+                   wgr.put_up_to_8(3, c.inner())?;
+                   Ok(())
+               })?;
+            }
+            Uri::ThreePart664(a, b, c) => {
+                wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
+                    wgr.put_up_to_8(6, a.inner())?;
+                    wgr.put_up_to_8(6, b.inner())?;
+                    wgr.put_up_to_8(4, c.inner())?;
+                    Ok(())
+                })?;
+            }
+            Uri::MultiPart(arr) => {
+                wgr.put(*arr)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -150,6 +192,7 @@ impl<'i> Debug for Uri<'i> {
 mod test {
     extern crate std;
     use std::format;
+    use crate::discrete::{U3, U4, U6};
 
     use crate::serdes::NibbleBuf;
     use super::Uri;
@@ -157,7 +200,7 @@ mod test {
 
     #[test]
     fn one_part_uri_iter() {
-        let uri = Uri::OnePart(1);
+        let uri = Uri::OnePart4(U4::new(1).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), None);
@@ -165,7 +208,7 @@ mod test {
 
     #[test]
     fn two_part_uri_iter() {
-        let uri = Uri::TwoPart(1, 2);
+        let uri = Uri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), Some(2));
@@ -174,9 +217,13 @@ mod test {
 
     #[test]
     fn three_part_uri_iter() {
-        let uri = Uri::ThreePart(1, 2, 3);
+        let uri = Uri::ThreePart633(
+            U6::new(35).unwrap(),
+            U3::new(4).unwrap(),
+            U3::new(3).unwrap()
+        );
         let mut uri_iter = uri.iter();
-        assert_eq!(uri_iter.next(), Some(1));
+        assert_eq!(uri_iter.next(), Some(35));
         assert_eq!(uri_iter.next(), Some(2));
         assert_eq!(uri_iter.next(), Some(3));
         assert_eq!(uri_iter.next(), None);

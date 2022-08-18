@@ -1,5 +1,6 @@
 use core::fmt::{Display, Formatter};
-use crate::serdes::{NibbleBuf, DeserializeVlu4};
+use crate::serdes::{NibbleBuf, DeserializeVlu4, NibbleBufMut};
+use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
@@ -55,15 +56,10 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
                 Ok(UriMask::ByBitfield8(rdr.get_u8()?))
             },
             1 => {
-                let mask = ((rdr.get_u8()? as u16) << 8) | rdr.get_u8()? as u16;
-                Ok(UriMask::ByBitfield16(mask))
+                Ok(UriMask::ByBitfield16(rdr.get_u16_be()?))
             },
             2 => {
-                let mask = ((rdr.get_u8()? as u32) << 24) |
-                    ((rdr.get_u8()? as u32) << 16) |
-                    ((rdr.get_u8()? as u32) << 8) |
-                    rdr.get_u8()? as u32;
-                Ok(UriMask::ByBitfield32(mask))
+                Ok(UriMask::ByBitfield32(rdr.get_u32_be()?))
             },
             3 => {
                 // u64
@@ -88,6 +84,36 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
                 Err(XpiVlu4Error::InternalError)
             }
         }
+    }
+}
+
+impl<'i> SerializeVlu4 for UriMask<'i> {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        match self {
+            UriMask::ByBitfield8(b) => {
+                wgr.put_nibble(0)?;
+                wgr.put_u8(*b)?;
+            }
+            UriMask::ByBitfield16(b) => {
+                wgr.put_nibble(1)?;
+                wgr.put_u16_be(*b)?;
+            }
+            UriMask::ByBitfield32(b) => {
+                wgr.put_nibble(2)?;
+                wgr.put_u32_be(*b)?;
+            }
+            UriMask::ByIndices(arr) => {
+                wgr.put_nibble(5)?;
+                wgr.put(*arr)?;
+            }
+            UriMask::All(max) => {
+                wgr.put_nibble(6)?;
+                wgr.put_vlu4_u32(*max)?;
+            }
+        }
+        Ok(())
     }
 }
 

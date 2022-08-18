@@ -25,6 +25,25 @@ pub enum FailReason {
     StreamIsAlreadyClosed,
     /// When trying to write into a const or ro property, write into stream_out or read from stream_in.
     OperationNotSupported,
+    Internal,
+}
+
+impl FailReason {
+    pub fn from_u32(value: u32) -> Self {
+        use FailReason::*;
+        match value {
+            1 => Timeout,
+            2 => DeviceRebooted,
+            3 => PriorityLoss,
+            4 => ShaperReject,
+            5 => ResourceIsAlreadyBorrowed,
+            6 => AlreadyUnsubscribed,
+            7 => StreamIsAlreadyOpen,
+            8 => StreamIsAlreadyClosed,
+            9 => OperationNotSupported,
+            _ => Internal
+        }
+    }
 }
 
 impl SerializeVlu4 for FailReason {
@@ -41,6 +60,7 @@ impl SerializeVlu4 for FailReason {
             FailReason::StreamIsAlreadyOpen => 7,
             FailReason::StreamIsAlreadyClosed => 8,
             FailReason::OperationNotSupported => 9,
+            FailReason::Internal => 10,
         };
         wgr.put_vlu4_u32(discriminant)?;
         Ok(())
@@ -62,6 +82,7 @@ pub enum XpiVlu4Error {
 
     // #[error("Expected request")]
     NotARequest,
+    NotAResponse,
     // #[error("Unsupported reserved value, not ignorable.")]
     ReservedDiscard,
 

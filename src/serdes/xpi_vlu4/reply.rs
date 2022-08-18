@@ -1,6 +1,6 @@
 use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::NibbleBufMut;
-use crate::serdes::traits::{SerializeBits, SerializeVlu4};
+use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4};
 use crate::serdes::vlu4::slice::Vlu4Slice;
 use crate::serdes::vlu4::Vlu4SliceArray;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
@@ -109,6 +109,7 @@ impl<'i> SerializeBits for XpiReplyKind<'i> {
         Ok(())
     }
 }
+
 impl<'i> SerializeVlu4 for XpiReplyKind<'i> {
     type Error = XpiVlu4Error;
 
@@ -171,6 +172,19 @@ impl<'i> SerializeVlu4 for XpiReplyKind<'i> {
     }
 }
 
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
+    type Error = XpiVlu4Error;
+
+    fn des_coupled_bits_vlu4<'di>(bits_rdr: &'di mut BitBuf<'i>, vlu4_rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let kind = bits_rdr.get_up_to_8(4)?;
+        use XpiReplyKind::*;
+        match kind {
+            0 => Ok(CallComplete(vlu4_rdr.des_vlu4_if_ok(FailReason::from_u32)?)),
+            _ => Err(XpiVlu4Error::Unimplemented)
+        }
+    }
+}
+
 impl<'i> SerializeVlu4 for XpiReply<'i> {
     type Error = XpiVlu4Error;
 
@@ -195,12 +209,69 @@ impl<'i> SerializeVlu4 for XpiReply<'i> {
     }
 }
 
+impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
+    type Error = XpiVlu4Error;
+
+    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        // get first 32 bits as BitBuf
+        let mut bits_rdr = rdr.get_bit_buf(8)?;
+        let _absent_31_29 = bits_rdr.get_up_to_8(3);
+
+        // bits 28:26
+        let priority: Priority = bits_rdr.des_bits()?;
+
+        // bit 25
+        let is_unicast = bits_rdr.get_bit()?;
+        if !is_unicast {
+            return Err(XpiVlu4Error::NotAResponse);
+        }
+
+        // bit 24
+        let is_response = !bits_rdr.get_bit()?;
+        if !is_response {
+            return Err(XpiVlu4Error::NotAResponse);
+        }
+
+        // UAVCAN reserved bit 23, discard if 0 (UAVCAN discards if 1).
+        let reserved_23 = bits_rdr.get_bit()?;
+        if !reserved_23 {
+            return Err(XpiVlu4Error::ReservedDiscard);
+        }
+
+        // bits: 22:16
+        let source: NodeId = bits_rdr.des_bits()?;
+
+        // bits: 15:7 + variable nibbles if not NodeSet::Unicast
+        let destination = NodeSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+
+        // bits 6:4 + 1/2/3/4 nibbles for Uri::OnePart4/TwoPart44/ThreePart* or variable otherwise
+        let resource_set = XpiResourceSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+
+        // bits 3:0
+        let kind = XpiReplyKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+
+        // tail byte should be at byte boundary, if not 4b padding is added
+        if !rdr.is_at_byte_boundary() {
+            let _ = rdr.get_nibble()?;
+        }
+        let request_id: RequestId = rdr.des_vlu4()?;
+
+        Ok(XpiReply {
+            source,
+            destination,
+            resource_set,
+            kind,
+            request_id,
+            priority
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     extern crate std;
-    use std::println;
     use crate::discrete::{U2Sp1, U4};
-    use crate::serdes::NibbleBufMut;
+    use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::vlu4::slice::Vlu4Slice;
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
@@ -208,7 +279,7 @@ mod test {
     use crate::serdes::xpi_vlu4::reply::{XpiReply, XpiReplyKind};
 
     #[test]
-    fn call_reply() {
+    fn call_reply_ser() {
         let mut buf = [0u8; 32];
         let mut wgr = NibbleBufMut::new_all(&mut buf);
 
@@ -233,5 +304,36 @@ mod test {
             1, 2, 3, // reply_data
             5 // tail
         ]);
+    }
+
+    #[test]
+    fn call_reply_des() {
+        let buf = [0b000_000_10, 0b1_0100001, 0b00100110, 0b1_001_0000, 0x48, 0x03, 1, 2, 3, 5];
+        let mut rgr = NibbleBuf::new_all(&buf);
+
+        let reply: XpiReply = rgr.des_vlu4().unwrap();
+
+        assert_eq!(reply.source, NodeId::new(33).unwrap());
+        if let NodeSet::Unicast(id) = reply.destination {
+            assert_eq!(id, NodeId::new(77).unwrap());
+        } else {
+            panic!("Expected NodeSet::Unicast(_)");
+        }
+        if let XpiResourceSet::Uri(uri) = reply.resource_set {
+            let mut iter = uri.iter();
+            assert_eq!(iter.next(), Some(4));
+            assert_eq!(iter.next(), Some(8));
+            assert_eq!(iter.next(), None);
+        } else {
+            panic!("Expected XpiResourceSet::Uri(_)");
+        }
+        if let XpiReplyKind::CallComplete(result) = reply.kind {
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().slice, [1, 2, 3]);
+        } else {
+            panic!("Expected XpiReplyKind::CallComplete(_)");
+        }
+        assert_eq!(reply.request_id, RequestId::new(5).unwrap());
+        assert_eq!(reply.priority, Priority::Lossy(U2Sp1::new(1).unwrap()));
     }
 }

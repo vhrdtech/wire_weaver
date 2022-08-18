@@ -167,6 +167,17 @@ impl<'i> NibbleBuf<'i> {
         }
     }
 
+    pub fn get_u16_be(&mut self) -> Result<u16, Error> {
+        Ok(((self.get_u8()? as u16) << 8) | self.get_u8()? as u16)
+    }
+
+    pub fn get_u32_be(&mut self) -> Result<u32, Error> {
+        Ok(((self.get_u8()? as u32) << 24) |
+            ((self.get_u8()? as u32) << 16) |
+            ((self.get_u8()? as u32) << 8) |
+            self.get_u8()? as u32)
+    }
+
     pub fn get_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         if !self.is_at_byte_boundary {
             return Err(UnalignedAccess);
@@ -329,6 +340,10 @@ impl<'i> NibbleBufMut<'i> {
         self.nibbles_pos() >= self.len_nibbles
     }
 
+    pub fn is_at_byte_boundary(&self) -> bool {
+        self.is_at_byte_boundary
+    }
+
     pub fn finish(self) -> (&'i mut [u8], usize, bool) {
         (self.buf, self.idx, self.is_at_byte_boundary)
     }
@@ -391,6 +406,30 @@ impl<'i> NibbleBufMut<'i> {
             self.idx += 1;
             unsafe { *self.buf.get_unchecked_mut(self.idx) = val << 4; }
         }
+        Ok(())
+    }
+
+    pub fn put_u16_be(&mut self, val: u16) -> Result<(), Error> {
+        self.put_u8((val >> 8) as u8)?;
+        self.put_u8((val & 0xff) as u8)
+    }
+
+    pub fn put_u32_be(&mut self, val: u32) -> Result<(), Error> {
+        self.put_u8((val >> 24) as u8)?;
+        self.put_u8((val >> 16) as u8)?;
+        self.put_u8((val >> 8) as u8)?;
+        self.put_u8((val & 0xff) as u8)
+    }
+
+    pub fn put_slice(&mut self, slice: &[u8]) -> Result<(), Error> {
+        if self.nibbles_left() < slice.len() * 2 {
+            return Err(Error::OutOfBounds);
+        }
+        if !self.is_at_byte_boundary() {
+            return Err(Error::UnalignedAccess);
+        }
+        self.buf[self.idx .. self.idx + slice.len()].copy_from_slice(slice);
+        self.idx += slice.len();
         Ok(())
     }
 

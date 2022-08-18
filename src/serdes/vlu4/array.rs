@@ -1,6 +1,7 @@
 use core::iter::FusedIterator;
-use crate::serdes::{NibbleBuf, };
+use crate::serdes::{NibbleBuf, NibbleBufMut};
 use crate::serdes::DeserializeVlu4;
+use crate::serdes::traits::SerializeVlu4;
 
 /// Variable length array of u32 numbers based on vlu4 encoding without allocations.
 #[derive(Copy, Clone, Debug)]
@@ -49,6 +50,18 @@ impl<'i> DeserializeVlu4<'i> for Vlu4U32Array<'i> {
             rdr: rdr_before_elements,
             len
         })
+    }
+}
+
+impl<'i> SerializeVlu4 for Vlu4U32Array<'i> {
+    type Error = crate::serdes::nibble_buf::Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        wgr.put_vlu4_u32(self.len as u32)?;
+        for e in self.iter() {
+            wgr.put_vlu4_u32(e)?;
+        }
+        Ok(())
     }
 }
 

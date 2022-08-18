@@ -1,7 +1,9 @@
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
-use crate::serdes::NibbleBuf;
+use crate::serdes::{NibbleBuf, NibbleBufMut};
 use crate::serdes::DeserializeVlu4;
+use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Variable size array of u8 slices, aligned to byte boundary.
 ///
@@ -15,6 +17,14 @@ pub struct Vlu4SliceArray<'i> {
 }
 
 impl<'i> Vlu4SliceArray<'i> {
+    pub fn new(len: usize, lengths: NibbleBuf<'i>, slices: NibbleBuf<'i>) -> Self {
+        Self {
+            rdr_lengths: lengths,
+            rdr_slices: slices,
+            len
+        }
+    }
+
     pub fn iter(&self) -> Vlu4SliceArrayIter {
         Vlu4SliceArrayIter {
             array: self.clone(), pos: 0
@@ -82,8 +92,26 @@ impl<'i> Iterator for Vlu4SliceArrayIter<'i> {
 
 impl<'i> FusedIterator for Vlu4SliceArrayIter<'i> {}
 
+impl<'i> SerializeVlu4 for Vlu4SliceArray<'i> {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        wgr.put_vlu4_u32(self.len as u32)?;
+        for s in self.iter() {
+            wgr.put_vlu4_u32(s.len() as u32)?;
+        }
+        if !wgr.is_at_byte_boundary() {
+            wgr.put_nibble(0)?;
+        }
+        for s in self.iter() {
+            wgr.put_slice(s)?;
+        }
+        Ok(())
+    }
+}
+
 impl<'i> DeserializeVlu4<'i> for Vlu4SliceArray<'i> {
-    type Error = crate::serdes::nibble_buf::Error;
+    type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let len = rdr.get_vlu4_u32()? as usize;

@@ -3,10 +3,11 @@ use core::fmt::{Display, Formatter, Result as FmtResult};
 use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::DeserializeBits;
-use crate::serdes::traits::{SerializeBits, SerializeVlu4};
+use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4};
 use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::{Uri, MultiUri};
 use crate::discrete::max_bound_number;
+use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
@@ -63,11 +64,18 @@ pub enum NodeSet<'i> {
     // Broadcast,
 }
 
-impl<'i> DeserializeBits<'i> for NodeSet<'i> {
-    type Error = crate::serdes::bit_buf::Error;
+impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
+    type Error = XpiVlu4Error;
 
-    fn des_bits<'di>(_rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
-        todo!() // deserialize UnicastTraits or Multicast
+    fn des_coupled_bits_vlu4<'di>(bits_rdr: &'di mut BitBuf<'i>, _vlu4_rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let kind = bits_rdr.get_up_to_8(2)?;
+        match kind {
+            0 => Ok(NodeSet::Unicast(bits_rdr.des_bits()?)),
+            1 => Err(XpiVlu4Error::Unimplemented),
+            2 => Err(XpiVlu4Error::Unimplemented),
+            3 => Err(XpiVlu4Error::ReservedDiscard),
+            _ => Err(XpiVlu4Error::InternalError)
+        }
     }
 }
 
@@ -161,7 +169,63 @@ impl<'i> SerializeBits for XpiResourceSet<'i> {
             }
             XpiResourceSet::MultiUri(_) => 6
         };
-        wgr.put_up_to_8(4, kind)
+        wgr.put_up_to_8(3, kind)
+    }
+}
+impl<'i> SerializeVlu4 for XpiResourceSet<'i> {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        match self {
+            XpiResourceSet::Uri(uri) => wgr.put(*uri),
+            XpiResourceSet::MultiUri(multi_uri) => wgr.put(*multi_uri)
+        }
+    }
+}
+
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
+    type Error = XpiVlu4Error;
+
+    fn des_coupled_bits_vlu4<'di>(
+        bits_rdr: &'di mut BitBuf<'i>,
+        vlu4_rdr: &'di mut NibbleBuf<'i>,
+    ) -> Result<Self, Self::Error> {
+        let uri_type = bits_rdr.get_up_to_8(3)?;
+        match uri_type {
+            0 => Ok(XpiResourceSet::Uri( Uri::OnePart4(vlu4_rdr.des_vlu4()?)) ),
+            1 => Ok(XpiResourceSet::Uri( Uri::TwoPart44(
+                vlu4_rdr.des_vlu4()?, vlu4_rdr.des_vlu4()?))
+            ),
+            2 => Ok(XpiResourceSet::Uri( Uri::ThreePart444(
+                vlu4_rdr.des_vlu4()?,
+                vlu4_rdr.des_vlu4()?,
+                vlu4_rdr.des_vlu4()?
+            ))),
+            3 => {
+                let mut bits = vlu4_rdr.get_bit_buf(3)?;
+                Ok(XpiResourceSet::Uri(Uri::ThreePart633(
+                    bits.des_bits()?,
+                    bits.des_bits()?,
+                    bits.des_bits()?,
+                )))
+            }
+            4 => {
+                let mut bits = vlu4_rdr.get_bit_buf(4)?;
+                Ok(XpiResourceSet::Uri(Uri::ThreePart664(
+                    bits.des_bits()?,
+                    bits.des_bits()?,
+                    bits.des_bits()?,
+                )))
+            }
+            5 => Ok( XpiResourceSet::Uri(vlu4_rdr.des_vlu4()?) ),
+            6 => Ok( XpiResourceSet::MultiUri(vlu4_rdr.des_vlu4()?) ),
+            7 => {
+                Err(XpiVlu4Error::ReservedDiscard)
+            }
+            _ => {
+                Err(XpiVlu4Error::InternalError)
+            }
+        }
     }
 }
 

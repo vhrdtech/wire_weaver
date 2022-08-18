@@ -193,6 +193,23 @@ impl<'i> NibbleBuf<'i> {
     pub fn des_vlu4<'di, T: DeserializeVlu4<'i>>(&'di mut self) -> Result<T, T::Error> {
         T::des_vlu4(self)
     }
+
+    /// Read result code as vlu4, if 0 => deserialize T and return Ok(Ok(T)),
+    /// otherwise return Ok(Err(f(code))).
+    /// If deserialization of T fails, return Err(T::Error)
+    pub fn des_vlu4_if_ok<'di, T, F, E>(&'di mut self, f: F) -> Result<Result<T, E>, T::Error>
+        where
+            T: DeserializeVlu4<'i>, // type to deserialize
+            F: Fn(u32) -> E, // result error mapping closure
+            T::Error: From<Error>, // deserialization error of T
+    {
+        let code = self.get_vlu4_u32()?;
+        if code == 0 {
+            T::des_vlu4(self).map(|t| Ok(t))
+        } else {
+            Ok(Err(f(code)))
+        }
+    }
 }
 
 impl<'i> Display for NibbleBuf<'i> {

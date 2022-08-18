@@ -224,7 +224,7 @@ mod test {
         );
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(35));
-        assert_eq!(uri_iter.next(), Some(2));
+        assert_eq!(uri_iter.next(), Some(4));
         assert_eq!(uri_iter.next(), Some(3));
         assert_eq!(uri_iter.next(), None);
     }

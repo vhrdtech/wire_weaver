@@ -1,5 +1,6 @@
 // use thiserror::Error;
-use crate::serdes::{nibble_buf, bit_buf};
+use crate::serdes::{nibble_buf, bit_buf, NibbleBufMut};
+use crate::serdes::traits::SerializeVlu4;
 
 #[derive(Copy, Clone, Debug)]
 pub enum FailReason {
@@ -24,6 +25,26 @@ pub enum FailReason {
     StreamIsAlreadyClosed,
     /// When trying to write into a const or ro property, write into stream_out or read from stream_in.
     OperationNotSupported,
+}
+
+impl SerializeVlu4 for FailReason {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        let discriminant = match self {
+            FailReason::Timeout => 1, // 0 is no error
+            FailReason::DeviceRebooted => 2,
+            FailReason::PriorityLoss => 3,
+            FailReason::ShaperReject => 4,
+            FailReason::ResourceIsAlreadyBorrowed => 5,
+            FailReason::AlreadyUnsubscribed => 6,
+            FailReason::StreamIsAlreadyOpen => 7,
+            FailReason::StreamIsAlreadyClosed => 8,
+            FailReason::OperationNotSupported => 9,
+        };
+        wgr.put_vlu4_u32(discriminant)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

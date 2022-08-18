@@ -1,6 +1,7 @@
 use core::fmt::{Display, Formatter};
-use crate::serdes::NibbleBuf;
+use crate::serdes::{NibbleBuf, NibbleBufMut};
 use crate::serdes::DeserializeVlu4;
+use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::xpi_vlu4::{Uri, UriMask};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
@@ -70,6 +71,19 @@ impl<'i> DeserializeVlu4<'i> for MultiUri<'i> {
             rdr: rdr_before_elements,
             len,
         })
+    }
+}
+
+impl<'i> SerializeVlu4 for MultiUri<'i> {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        wgr.put_vlu4_u32(self.len as u32)?;
+        for (uri, mask) in self.iter() {
+            wgr.put(uri)?;
+            wgr.put(mask)?;
+        }
+        Ok(())
     }
 }
 

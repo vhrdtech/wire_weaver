@@ -18,12 +18,24 @@ max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
 // Should pause in that case or cancel all old requests. Overflow is ignored for subscriptions.
 max_bound_number!(RequestId, u8, 31, "Req:{}");
 impl<'i> DeserializeVlu4<'i> for RequestId {
-    type Error = crate::serdes::nibble_buf::Error;
+    type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let tail_byte = rdr.get_u8()?;
         let request_id = tail_byte & 0b0001_1111;
         Ok(RequestId(request_id & 0b0001_1111))
+    }
+}
+impl SerializeVlu4 for RequestId {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        if !wgr.is_at_byte_boundary() {
+            // since request id is a part of a tail byte, put padding before it to align
+            wgr.put_nibble(0)?;
+        }
+        wgr.put_u8(self.inner())?;
+        Ok(())
     }
 }
 

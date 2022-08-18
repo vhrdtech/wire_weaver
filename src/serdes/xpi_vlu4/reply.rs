@@ -18,13 +18,13 @@ pub struct XpiReply<'rep> {
     pub source: NodeId,
     /// Destination node or nodes
     pub destination: NodeSet<'rep>,
-    /// Kind of reply
-    pub kind: XpiReplyKind<'rep>,
     /// Set of resources that are considered in this reply
     pub resource_set: XpiResourceSet<'rep>,
+    /// Kind of reply
+    pub kind: XpiReplyKind<'rep>,
     /// Original request id used to map responses to requests.
-    /// None for StreamsUpdates kind.
-    pub request_id: Option<RequestId>,
+    /// For StreamsUpdates use previous id + 1 and do not map to requests.
+    pub request_id: RequestId,
     /// Most same priority as initial XpiRequest
     pub priority: Priority,
 }
@@ -116,7 +116,10 @@ impl<'i> SerializeVlu4 for XpiReplyKind<'i> {
         match *self {
             XpiReplyKind::CallComplete(call_result) => {
                 match call_result {
-                    Ok(return_value) => wgr.put(return_value),
+                    Ok(return_value) => {
+                        wgr.put_nibble(0)?;
+                        wgr.put(return_value)
+                    },
                     Err(e) => wgr.put(e)
                 }
             }
@@ -187,13 +190,15 @@ impl<'i> SerializeVlu4 for XpiReply<'i> {
         wgr.put(self.destination)?;
         wgr.put(self.resource_set)?;
         wgr.put(self.kind)?;
-
+        wgr.put(self.request_id)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
+    extern crate std;
+    use std::println;
     use crate::discrete::{U2Sp1, U4};
     use crate::serdes::NibbleBufMut;
     use crate::serdes::vlu4::slice::Vlu4Slice;
@@ -212,14 +217,21 @@ mod test {
         let reply = XpiReply {
             source: NodeId::new(33).unwrap(),
             destination: NodeSet::Unicast(NodeId::new(77).unwrap()),
-            kind: reply_kind,
             resource_set: XpiResourceSet::Uri(Uri::TwoPart44(
                 U4::new(4).unwrap(), U4::new(8).unwrap())),
-            request_id: Some(RequestId::new(5).unwrap()),
+            kind: reply_kind,
+            request_id: RequestId::new(5).unwrap(),
             priority: Priority::Lossy(U2Sp1::new(1).unwrap())
         };
         wgr.put(reply).unwrap();
         let (buf, byte_pos, _) = wgr.finish();
-        assert_eq!(byte_pos, 11);
+        assert_eq!(byte_pos, 10);
+        assert_eq!(buf[0..10], [
+            0b000_000_10, 0b1_0100001, 0b00100110, 0b1_001_0000,
+            0x48, // uri
+            0x03, // 0 - Ok, 3 - len(reply_data)
+            1, 2, 3, // reply_data
+            5 // tail
+        ]);
     }
 }

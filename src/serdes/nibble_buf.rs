@@ -315,7 +315,7 @@ impl<'i> NibbleBufMut<'i> {
         if bit_buf.bit_idx != 0 && bit_buf.bit_idx != 4 {
             return Err(E::from(crate::serdes::bit_buf::Error::UnalignedAccess));
         }
-        self.idx = bit_buf.bit_idx;
+        self.idx = bit_buf.idx;
         self.is_at_byte_boundary = bit_buf.bit_idx == 0;
         Ok(())
     }

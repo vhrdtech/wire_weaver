@@ -122,13 +122,18 @@ impl<'i> IntoIterator for Uri<'i> {
     }
 }
 
+#[derive(Clone)]
 pub enum UriIter<'i> {
     UpToThree {
         parts: [u8; 3],
         len: u8,
         pos: u8,
     },
-    ArrIter(Vlu4U32ArrayIter<'i>)
+    ArrIter(Vlu4U32ArrayIter<'i>),
+    ArrIterChain {
+        arr_iter: Vlu4U32ArrayIter<'i>,
+        last: Option<u32>
+    },
 }
 
 impl<'i> Iterator for UriIter<'i> {
@@ -147,6 +152,20 @@ impl<'i> Iterator for UriIter<'i> {
             UriIter::ArrIter(arr_iter) => {
                 arr_iter.next()
             }
+            UriIter::ArrIterChain { arr_iter, last} => {
+                match arr_iter.next() {
+                    Some(p) => Some(p),
+                    None => {
+                        match *last {
+                            Some(p) => {
+                                *last = None;
+                                Some(p)
+                            }
+                            None => None
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -154,15 +173,19 @@ impl<'i> Iterator for UriIter<'i> {
         match self {
             UriIter::UpToThree { len, .. } => (*len as usize, Some(*len as usize)),
             UriIter::ArrIter(arr_iter) => arr_iter.size_hint(),
+            UriIter::ArrIterChain { arr_iter, .. } => {
+                let size = arr_iter.size_hint().0;
+                (size + 1, Some(size + 1))
+            }
         }
     }
 }
 
 impl<'i> FusedIterator for UriIter<'i> {}
 
-impl<'i> Display for Uri<'i> {
+impl<'i> Display for UriIter<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let mut uri_iter = self.iter().peekable();
+        let mut uri_iter = self.clone().peekable();
         if f.alternate() {
             write!(f, "Uri(/")?;
         } else {
@@ -179,6 +202,12 @@ impl<'i> Display for Uri<'i> {
         } else {
             write!(f, "")
         }
+    }
+}
+
+impl<'i> Display for Uri<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.iter())
     }
 }
 

@@ -149,6 +149,15 @@ macro_rules! next_one_bit {
     };
 }
 
+impl<'i> IntoIterator for UriMask<'i> {
+    type Item = u32;
+    type IntoIter = UriMaskIter<'i>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl<'i> Iterator for UriMaskIter<'i> {
     type Item = u32;
 
@@ -168,11 +177,36 @@ impl<'i> Iterator for UriMaskIter<'i> {
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            UriMaskIter::ByBitfield8 { mask, .. } => count_ones(*mask as u32),
+            UriMaskIter::ByBitfield16 { mask, .. } => count_ones(*mask as u32),
+            UriMaskIter::ByBitfield32 { mask, .. } => count_ones(*mask),
+            UriMaskIter::ByIndices { iter } => iter.size_hint(),
+            UriMaskIter::All { count, .. } => (*count as usize, Some(*count as usize)),
+        }
+    }
+}
+
+fn count_ones(mut num: u32) -> (usize, Option<usize>) {
+    let mut count = 0;
+    for _ in 0..32 {
+        if num & 0b1 != 0 {
+            count += 1;
+        }
+        num >>= 1;
+    }
+    (count, Some(count))
 }
 
 impl<'i> Display for UriMask<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "UriMask(")?;
+        if f.alternate() {
+            write!(f, "{{")?;
+        } else {
+            write!(f, "UriMask(")?;
+        }
         let iter = self.iter();
         let len = iter.size_hint().0;
         for (i, id) in iter.enumerate() {
@@ -181,7 +215,11 @@ impl<'i> Display for UriMask<'i> {
                 write!(f, ", ")?;
             }
         }
-        write!(f, ")")
+        if f.alternate() {
+            write!(f, "}}")
+        } else {
+            write!(f, ")")
+        }
     }
 }
 
@@ -195,6 +233,7 @@ mod test {
     fn test_mask_u8() {
         let mask = UriMask::ByBitfield8(0b1010_0001);
         let mut mask_iter = mask.iter();
+        assert_eq!(mask_iter.size_hint(), (3, Some(3)));
         assert_eq!(mask_iter.next(), Some(0));
         assert_eq!(mask_iter.next(), Some(2));
         assert_eq!(mask_iter.next(), Some(7));
@@ -205,6 +244,7 @@ mod test {
     fn test_mask_u32() {
         let mask = UriMask::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
         let mut mask_iter = mask.iter();
+        assert_eq!(mask_iter.size_hint(), (3, Some(3)));
         assert_eq!(mask_iter.next(), Some(0));
         assert_eq!(mask_iter.next(), Some(12));
         assert_eq!(mask_iter.next(), Some(31));
@@ -218,6 +258,7 @@ mod test {
         let arr: Vlu4U32Array = buf.des_vlu4().unwrap();
         let mask = UriMask::ByIndices(arr);
         let mut mask_iter = mask.iter();
+        assert_eq!(mask_iter.size_hint(), (2, Some(2)));
         assert_eq!(mask_iter.next(), Some(63));
         assert_eq!(mask_iter.next(), Some(1));
         assert_eq!(mask_iter.next(), None);
@@ -227,6 +268,7 @@ mod test {
     fn test_mask_all() {
         let mask = UriMask::All(4);
         let mut mask_iter = mask.iter();
+        assert_eq!(mask_iter.size_hint(), (4, Some(4)));
         assert_eq!(mask_iter.next(), Some(0));
         assert_eq!(mask_iter.next(), Some(1));
         assert_eq!(mask_iter.next(), Some(2));

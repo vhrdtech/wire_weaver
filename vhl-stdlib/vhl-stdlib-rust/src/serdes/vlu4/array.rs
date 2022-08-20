@@ -16,6 +16,12 @@ impl<'i> Vlu4U32Array<'i> {
     //     let len = rdr.get_vlu4_u32() as usize;
     //     Vlu4U32Array { rdr, len }
     // }
+    pub fn empty() -> Self {
+        Vlu4U32Array {
+            rdr: NibbleBuf::new_all(&[]),
+            len: 0
+        }
+    }
 
     pub fn iter(&self) -> Vlu4U32ArrayIter<'i> {
         Vlu4U32ArrayIter {
@@ -74,6 +80,7 @@ impl<'i> IntoIterator for Vlu4U32Array<'i> {
     }
 }
 
+#[derive(Clone)]
 pub struct Vlu4U32ArrayIter<'i> {
     array: Vlu4U32Array<'i>,
     pos: usize,

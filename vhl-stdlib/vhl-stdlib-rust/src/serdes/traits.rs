@@ -1,5 +1,22 @@
 use crate::serdes::{NibbleBuf, NibbleBufMut, BitBuf};
 use crate::serdes::bit_buf::BitBufMut;
+use crate::serdes::buf::{Buf, BufMut};
+
+pub trait SerializeBytes {
+    type Error;
+
+    fn ser_bytes(&self, wgr: &mut BufMut) -> Result<(), Self::Error>;
+}
+
+/// Deserialize trait implemented by all types that support deserializing from buffer of bytes.
+/// 'i lifetime refers to the byte slice used when creating NibbleBuf.
+/// 'di lifetime is for mutably borrowing NibbleBuf only while deserializing,
+///     deserialized objects can hold non mutable links to the original buffer ('i).
+pub trait DeserializeBytes<'i>: Sized {
+    type Error;
+
+    fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error>;
+}
 
 pub trait SerializeVlu4 {
     type Error;

@@ -28,9 +28,9 @@ macro_rules! max_bound_number {
         impl core::fmt::Display for $type_name {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 if f.alternate() {
-                    write!(f, $fmt, self.0)
-                } else {
                     write!(f, "{}", self.0)
+                } else {
+                    write!(f, $fmt, self.0)
                 }
             }
         }

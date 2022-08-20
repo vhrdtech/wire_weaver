@@ -16,6 +16,7 @@
       <sourceFolder url="file://$MODULE_DIR$/codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mquote/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mtoken/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/vhl-stdlib-rust/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/vhapi-cli/target" />
     </content>

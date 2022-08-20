@@ -40,7 +40,7 @@ impl<'i> Display for XpiRequest<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "XpiRequest<@{:#} {}> {{ {} -> {}{:#} {:?} }}",
+            "XpiRequest<@{} {}> {{ {} -> {} {:#} {:?} }}",
             self.request_id,
             self.priority,
             self.source,

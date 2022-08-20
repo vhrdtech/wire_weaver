@@ -71,7 +71,7 @@ pub enum XpiRequestKind<'req> {
     Call {
         /// Arguments must be serialized with the chosen [Wire Format](https://github.com/vhrdtech/vhl/blob/master/book/src/wire_formats/wire_formats.md)
         /// Need to get buffer for serializing from user code, which decides how to handle memory
-        args: Vlu4SliceArray<'req>,
+        args_set: Vlu4SliceArray<'req>,
     },
 
     /// Perform f(g(h(... (args) ...))) call on the destination node, saving
@@ -286,7 +286,7 @@ impl<'i> SerializeVlu4 for XpiRequestKind<'i> {
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match *self {
-            XpiRequestKind::Call { args } => {
+            XpiRequestKind::Call { args_set: args } => {
                 wgr.put(args)?;
             }
             XpiRequestKind::Write { values } => {
@@ -314,7 +314,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
         use XpiRequestKind::*;
         match kind {
             0 => Ok(Call {
-                args: vlu4_rdr.des_vlu4()?
+                args_set: vlu4_rdr.des_vlu4()?
             }),
             1 => Ok(Read),
             2 => Ok(Write {
@@ -376,7 +376,7 @@ mod test {
             }
         }
         assert!(matches!(req.kind, XpiRequestKind::Call { .. }));
-        if let XpiRequestKind::Call { args } = req.kind {
+        if let XpiRequestKind::Call { args_set: args } = req.kind {
             assert_eq!(args.len(), 1);
             let slice = args.iter().next().unwrap();
             assert_eq!(slice.len(), 2);
@@ -392,7 +392,7 @@ mod test {
         let mut wgr = NibbleBufMut::new_all(&mut buf);
 
         let request_data = [0x20, 0xaa, 0xbb];
-        let request_kind = XpiRequestKind::Call { args: Vlu4SliceArray::new(
+        let request_kind = XpiRequestKind::Call { args_set: Vlu4SliceArray::new(
             1,
             NibbleBuf::new(&request_data[0..1], 1).unwrap(),
             NibbleBuf::new(&request_data[1..=2], 4).unwrap()

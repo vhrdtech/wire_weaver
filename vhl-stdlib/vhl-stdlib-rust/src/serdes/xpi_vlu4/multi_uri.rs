@@ -269,4 +269,13 @@ mod test {
         assert_eq!(format!("{}", flat_iter.next().unwrap()), "/5/6/1");
         assert!(flat_iter.next().is_none());
     }
+
+    #[test]
+    fn at_root_level() {
+        let multi_uri: MultiUri = NibbleBuf::new_all(&[0x10, 0x52, 0x34]).des_vlu4().unwrap();
+        let mut iter = multi_uri.flat_iter();
+        assert_eq!(format!("{}", iter.next().unwrap()), "/3");
+        assert_eq!(format!("{}", iter.next().unwrap()), "/4");
+        assert!(iter.next().is_none());
+    }
 }

@@ -207,10 +207,13 @@ impl<'i> Display for UriIter<'i> {
 
 impl<'i> Display for Uri<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.iter())
+        if f.alternate() {
+            write!(f, "{:#}", self.iter())
+        } else {
+            write!(f, "{}", self.iter())
+        }
     }
 }
-
 impl<'i> Debug for Uri<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self)

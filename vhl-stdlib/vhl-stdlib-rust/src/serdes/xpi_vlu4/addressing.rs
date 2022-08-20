@@ -8,6 +8,7 @@ use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::{Uri, MultiUri};
 use crate::discrete::max_bound_number;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::xpi_vlu4::multi_uri::MultiUriFlatIter;
 
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
@@ -162,6 +163,17 @@ pub enum XpiResourceSet<'i> {
 
     /// Selects any set of resources at any depths at once.
     MultiUri(MultiUri<'i>),
+}
+
+impl<'i> XpiResourceSet<'i> {
+    pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {
+        match self {
+            XpiResourceSet::Uri(uri) => {
+                MultiUriFlatIter::OneUri(Some(uri.iter()))
+            }
+            XpiResourceSet::MultiUri(multi_uri) => multi_uri.flat_iter()
+        }
+    }
 }
 
 impl<'i> SerializeBits for XpiResourceSet<'i> {

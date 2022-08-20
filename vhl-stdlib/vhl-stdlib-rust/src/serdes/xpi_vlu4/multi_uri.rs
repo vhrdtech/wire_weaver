@@ -2,7 +2,8 @@ use core::fmt::{Display, Formatter};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use crate::serdes::DeserializeVlu4;
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::xpi_vlu4::{Uri, UriMask};
+use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
+use crate::serdes::xpi_vlu4::{Uri, UriIter, UriMask, UriMaskIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Allows to select any combination of resources in order to perform read/write or stream
@@ -36,6 +37,23 @@ impl<'i> MultiUri<'i> {
             pos: 0,
         }
     }
+
+    pub fn flat_iter(&self) -> MultiUriFlatIter {
+        let mut rdr_clone = self.rdr.clone();
+        let uri_arr: Vlu4U32Array = rdr_clone
+            .des_vlu4()
+            .unwrap_or(Vlu4U32Array::empty());
+        let mask: UriMask = rdr_clone
+            .des_vlu4().
+            unwrap_or(UriMask::ByIndices(Vlu4U32Array::empty()));
+        MultiUriFlatIter::MultiUri {
+            rdr: rdr_clone,
+            len: self.len,
+            pos: 1,
+            uri_iter: uri_arr.iter(),
+            mask_iter: mask.iter()
+        }
+    }
 }
 
 pub struct MultiUriIter<'i> {
@@ -55,6 +73,66 @@ impl<'i> Iterator for MultiUriIter<'i> {
 
         Some((Uri::MultiPart(self.rdr.des_vlu4().ok()?), self.rdr.des_vlu4().ok()?))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+pub enum MultiUriFlatIter<'i> {
+    OneUri(Option<UriIter<'i>>),
+    MultiUri {
+        rdr: NibbleBuf<'i>,
+        len: usize,
+        pos: usize,
+        uri_iter: Vlu4U32ArrayIter<'i>,
+        mask_iter: UriMaskIter<'i>
+    }
+}
+
+impl<'i> Iterator for MultiUriFlatIter<'i> {
+    type Item = UriIter<'i>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            MultiUriFlatIter::OneUri(iter) => {
+                iter.take()
+            }
+            MultiUriFlatIter::MultiUri {
+                rdr,
+                len,
+                pos,
+                uri_iter,
+                mask_iter
+            } => {
+                if *pos > *len {
+                    return None;
+                }
+                match mask_iter.next() {
+                    Some(m) => {
+                        Some(UriIter::ArrIterChain { arr_iter: uri_iter.clone(), last: Some(m) })
+                    }
+                    None => {
+                        if *pos == *len {
+                            *pos += 1;
+                            return None;
+                        }
+                        *pos += 1;
+
+                        let uri_arr: Vlu4U32Array = rdr.des_vlu4().ok()?;
+                        let mask: UriMask = rdr.des_vlu4().ok()?;
+                        *uri_iter = uri_arr.iter();
+                        *mask_iter = mask.iter();
+
+                        Some(UriIter::ArrIterChain {
+                            arr_iter: uri_iter.clone(),
+                            last: mask_iter.next()
+                        })
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl<'i> DeserializeVlu4<'i> for MultiUri<'i> {
@@ -64,6 +142,7 @@ impl<'i> DeserializeVlu4<'i> for MultiUri<'i> {
         let len = rdr.get_vlu4_u32()? as usize;
         let rdr_before_elements = rdr.clone();
         for _ in 0..len {
+            // TODO: implement skip_vlu4() to not read data?
             let _uri_len: Uri = rdr.des_vlu4()?;
             let _mask: UriMask = rdr.des_vlu4()?;
         }
@@ -90,8 +169,13 @@ impl<'i> SerializeVlu4 for MultiUri<'i> {
 impl<'i> Display for MultiUri<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "MultiUri(")?;
-        for (uri, mask) in self.iter() {
-            write!(f, "{} {}", uri, mask)?;
+        let iter = self.iter();
+        let len = iter.size_hint().0;
+        for (i, (uri, mask)) in iter.enumerate() {
+            write!(f, "{}/{:#}", uri, mask)?;
+            if i < len - 1 {
+                write!(f, ", ")?;
+            }
         }
         write!(f, ")")
     }
@@ -99,6 +183,8 @@ impl<'i> Display for MultiUri<'i> {
 
 #[cfg(test)]
 mod test {
+    extern crate std;
+    use std::format;
     use crate::serdes::NibbleBuf;
     use crate::serdes::xpi_vlu4::multi_uri::MultiUri;
     use crate::serdes::xpi_vlu4::UriMask;
@@ -168,5 +254,19 @@ mod test {
         assert_eq!(uri_iter.next(), None);
 
         assert!(matches!(mask1, UriMask::All(7)));
+    }
+
+    #[test]
+    fn flat_iter() {
+        let buf = [0x22, 0x12, 0x63, 0x25, 0x66, 0x20];
+        let mut rdr = NibbleBuf::new_all(&buf);
+        let multi_uri: MultiUri = rdr.des_vlu4().unwrap();
+        let mut flat_iter = multi_uri.flat_iter();
+        assert_eq!(format!("{}", flat_iter.next().unwrap()), "/1/2/0");
+        assert_eq!(format!("{}", flat_iter.next().unwrap()), "/1/2/1");
+        assert_eq!(format!("{}", flat_iter.next().unwrap()), "/1/2/2");
+        assert_eq!(format!("{}", flat_iter.next().unwrap()), "/5/6/0");
+        assert_eq!(format!("{}", flat_iter.next().unwrap()), "/5/6/1");
+        assert!(flat_iter.next().is_none());
     }
 }

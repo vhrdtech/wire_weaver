@@ -10,13 +10,13 @@ use crate::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
 pub struct NibbleBuf<'i> {
-    buf: &'i [u8],
+    pub(crate) buf: &'i [u8],
     // Maximum number of nibbles to read (not whole buf might be available)
-    len_nibbles: usize,
+    pub(crate) len_nibbles: usize,
     // Next byte to read
-    idx: usize,
+    pub(crate) idx: usize,
     // Next nibble to read
-    is_at_byte_boundary: bool,
+    pub(crate) is_at_byte_boundary: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -530,13 +530,17 @@ impl<'i> NibbleBufMut<'i> {
     ///
     /// wgr.put_slice(&[1, 2, 3]).unwrap();
     /// wgr.put_slice(&[4, 5]).unwrap();
-    /// let wgr: NibbleBufMut = wgr.finish();
+    /// let wgr: NibbleBufMut = wgr.finish().unwrap();
     /// let (buf, _, _) = wgr.finish();
     /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
     /// ```
     pub fn put_slice_array(self) -> Vlu4SliceArrayBuilder<'i> {
+        let idx_before = self.idx;
+        let is_at_byte_boundary_before = self.is_at_byte_boundary;
         Vlu4SliceArrayBuilder {
             wgr: self,
+            idx_before,
+            is_at_byte_boundary_before,
             stride_len: 0,
             stride_len_idx_nibbles: 0,
             slices_written: 0

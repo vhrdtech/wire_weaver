@@ -190,6 +190,9 @@ impl<'i> DeserializeVlu4<'i> for Vlu4SliceArray<'i> {
 /// Create an instance through [NibbleBufMut::put_slice_array()]
 pub struct Vlu4SliceArrayBuilder<'i> {
     pub(crate) wgr: NibbleBufMut<'i>,
+    pub(crate) idx_before: usize,
+    pub(crate) is_at_byte_boundary_before: bool,
+
     pub(crate) stride_len: u8,
     pub(crate) stride_len_idx_nibbles: usize,
     pub(crate) slices_written: usize,
@@ -271,7 +274,7 @@ impl<'i> Vlu4SliceArrayBuilder<'i> {
     ///          // write 8 bytes into slice with the help of BufMut, NibbleBufMut, BitBufMut or others.
     ///          Ok(())
     ///      }).unwrap();
-    ///      wgr.finish_as_slice_array()
+    ///      wgr.finish_as_slice_array().unwrap()
     ///  };
     /// ```
     pub fn put_exact<E, F>(&mut self, len: usize, f: F) -> Result<(), E> where
@@ -289,21 +292,37 @@ impl<'i> Vlu4SliceArrayBuilder<'i> {
     }
 
     /// Finish writing slices and get original NibbleBufMut back to continue writing to it.
-    pub fn finish(self) -> NibbleBufMut<'i> {
-        self.wgr
+    /// If no slices were provided, one 0 nibble is written to indicate an empty array.
+    pub fn finish(mut self) -> Result<NibbleBufMut<'i>, crate::serdes::nibble_buf::Error> {
+        if self.slices_written == 0 {
+            self.wgr.put_nibble(0)?;
+        }
+        Ok(self.wgr)
     }
 
     /// Finish writing slices ang get Vlu4SliceArray right away, without deserialization.
-    pub fn finish_as_slice_array(self) -> Vlu4SliceArray<'i> {
-        Vlu4SliceArray {
-            rdr: NibbleBuf::new_all(self.wgr.buf),
-            total_len: self.slices_written
+    /// If no slices were provided, one 0 nibble is written to indicate an empty array.
+    pub fn finish_as_slice_array(mut self) -> Result<Vlu4SliceArray<'i>, crate::serdes::nibble_buf::Error> {
+        if self.slices_written == 0 {
+            self.wgr.put_nibble(0)?;
         }
+        let len_nibbles = (self.wgr.idx - self.idx_before) * 2;
+        Ok(Vlu4SliceArray {
+            rdr: NibbleBuf {
+                buf: &self.wgr.buf[self.idx_before .. self.wgr.idx],
+                len_nibbles,
+                idx: 0,
+                is_at_byte_boundary: self.is_at_byte_boundary_before
+            },
+            total_len: self.slices_written
+        })
     }
 }
 
 #[cfg(test)]
 mod test {
+    // extern crate std;
+    // use std::println;
     use hex_literal::hex;
     use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::vlu4::Vlu4SliceArray;
@@ -381,10 +400,63 @@ mod test {
         wgr.put_slice(&[4, 5, 6]).unwrap();
         wgr.put_slice(&[7, 8, 9]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
-        let wgr = wgr.finish();
+        let wgr = wgr.finish().unwrap();
         assert_eq!(wgr.nibbles_pos(), 24);
         let (buf, len, _) = wgr.finish();
         assert_eq!(&buf[0..len], hex!("33 01 02 03 30 04 05 06 30 07 08 09"));
+    }
+
+    #[test]
+    fn slice_array_builder_finish_as_slice_array_unaligned() {
+        let mut buf = [0u8; 32];
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_u8(0xaa).unwrap();
+        wgr.put_nibble(0xb).unwrap();
+
+        let mut wgr = wgr.put_slice_array();
+        assert_eq!(wgr.wgr.nibbles_pos(), 3);
+        wgr.put_slice(&[1, 2, 3]).unwrap();
+        wgr.put_slice(&[4, 5, 6]).unwrap();
+        wgr.put_slice(&[7, 8, 9]).unwrap();
+        assert_eq!(wgr.slices_written(), 3);
+        assert_eq!(&wgr.wgr.buf[0..14], hex!("aa b3 30 01 02 03 30 04 05 06 30 07 08 09"));
+        assert_eq!(wgr.wgr.nibbles_pos(), 28);
+
+        let slice_array = wgr.finish_as_slice_array().unwrap();
+        assert_eq!(slice_array.total_len, 3);
+        assert_eq!(slice_array.rdr.buf[0], 0xb3); // should start from correct position, not the start
+        assert_eq!(slice_array.rdr.nibbles_left(), 25);
+        let mut iter = slice_array.iter();
+        assert_eq!(iter.next(), Some(&[1, 2, 3][..]));
+        assert_eq!(iter.next(), Some(&[4, 5, 6][..]));
+        assert_eq!(iter.next(), Some(&[7, 8, 9][..]));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn slice_array_builder_finish_as_slice_array_aligned() {
+        let mut buf = [0u8; 32];
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_u8(0xaa).unwrap();
+
+        let mut wgr = wgr.put_slice_array();
+        assert_eq!(wgr.wgr.nibbles_pos(), 2);
+        wgr.put_slice(&[1, 2, 3]).unwrap();
+        wgr.put_slice(&[4, 5, 6]).unwrap();
+        wgr.put_slice(&[7, 8, 9]).unwrap();
+        assert_eq!(wgr.slices_written(), 3);
+        assert_eq!(&wgr.wgr.buf[0..13], hex!("aa 33 01 02 03 30 04 05 06 30 07 08 09"));
+        assert_eq!(wgr.wgr.nibbles_pos(), 26);
+
+        let slice_array = wgr.finish_as_slice_array().unwrap();
+        assert_eq!(slice_array.total_len, 3);
+        assert_eq!(slice_array.rdr.buf[0], 0x33); // should start from correct position, not the start
+        assert_eq!(slice_array.rdr.nibbles_left(), 24);
+        let mut iter = slice_array.iter();
+        assert_eq!(iter.next(), Some(&[1, 2, 3][..]));
+        assert_eq!(iter.next(), Some(&[4, 5, 6][..]));
+        assert_eq!(iter.next(), Some(&[7, 8, 9][..]));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
@@ -396,7 +468,7 @@ mod test {
             wgr.put_slice(&[i, i + 1, i + 2]).unwrap();
         }
         assert_eq!(wgr.slices_written(), 20);
-        let wgr = wgr.finish();
+        let wgr = wgr.finish().unwrap();
 
         let (buf, pos, is_at_byte_boundary) = wgr.finish();
         let len_nibbles = if is_at_byte_boundary {

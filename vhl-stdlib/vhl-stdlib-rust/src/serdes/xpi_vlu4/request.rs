@@ -391,12 +391,9 @@ mod test {
         let mut buf = [0u8; 32];
         let mut wgr = NibbleBufMut::new_all(&mut buf);
 
-        let request_data = [0x20, 0xaa, 0xbb];
-        let request_kind = XpiRequestKind::Call { args_set: Vlu4SliceArray::new(
-            1,
-            NibbleBuf::new(&request_data[0..1], 1).unwrap(),
-            NibbleBuf::new(&request_data[1..=2], 4).unwrap()
-        ) };
+        let args_set = [0x12, 0xaa, 0xbb];
+        let args_set: Vlu4SliceArray = NibbleBuf::new_all(&args_set).des_vlu4().unwrap();
+        let request_kind = XpiRequestKind::Call { args_set };
         let request = XpiRequest {
             source: NodeId::new(42).unwrap(),
             destination: NodeSet::Unicast(NodeId::new(85).unwrap()),

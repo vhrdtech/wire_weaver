@@ -5,34 +5,39 @@ use crate::serdes::DeserializeVlu4;
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
-/// Variable size array of u8 slices, aligned to byte boundary.
-///
-/// 4 bit padding is inserted and skipped if needed before the slices data start.
+/// Variable size array of u8 slices (each aligned to byte boundary).
+/// Optimised for ease of writing in place - slice amount is written as 4 bits, with 0b1111 meaning
+/// that there are more than 15 slices.
+/// 4 bit slice count ~ (vlu4 slice len ~ padding? ~ u8 slice data)+ ~ (self)*
 #[derive(Copy, Clone)]
 pub struct Vlu4SliceArray<'i> {
-    rdr_lengths: NibbleBuf<'i>,
-    rdr_slices: NibbleBuf<'i>,
-    // number of [u8] slices serialized
-    len: usize,
+    rdr: NibbleBuf<'i>,
+    // total number of [u8] slices serialized
+    total_len: usize,
 }
 
 impl<'i> Vlu4SliceArray<'i> {
-    pub fn new(len: usize, lengths: NibbleBuf<'i>, slices: NibbleBuf<'i>) -> Self {
-        Self {
-            rdr_lengths: lengths,
-            rdr_slices: slices,
-            len
-        }
-    }
-
     pub fn iter(&self) -> Vlu4SliceArrayIter {
+        let mut rdr_clone = self.rdr.clone();
+        // NOTE: unwrap_or: should not happen, checked in DeserializeVlu4
+        let mut stride_len = rdr_clone.get_nibble().unwrap_or(0) as usize;
+        let is_last_stride = if stride_len <= 14 {
+            true
+        } else {
+            stride_len -= 1;
+            false
+        };
         Vlu4SliceArrayIter {
-            array: self.clone(), pos: 0
+            total_len: self.total_len,
+            rdr: rdr_clone,
+            stride_len,
+            pos: 0,
+            is_last_stride,
         }
     }
 
     pub fn len(&self) -> usize {
-        self.len
+        self.total_len
     }
 }
 
@@ -48,7 +53,7 @@ impl<'i> Vlu4SliceArray<'i> {
 impl<'i> Display for Vlu4SliceArray<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let iter = self.iter();
-        write!(f, "Vlu4SliceArray[{}]( ", self.len)?;
+        write!(f, "Vlu4SliceArray[{}]( ", self.total_len)?;
         for s in iter {
             write!(f, "{}:{:2x?} ", s.len(), s)?;
         }
@@ -63,30 +68,55 @@ impl<'i> Debug for Vlu4SliceArray<'i> {
 }
 
 pub struct Vlu4SliceArrayIter<'i> {
-    array: Vlu4SliceArray<'i>,
+    total_len: usize,
+    rdr: NibbleBuf<'i>,
+    stride_len: usize,
     pos: usize,
+    is_last_stride: bool,
 }
 
 impl<'i> Iterator for Vlu4SliceArrayIter<'i> {
     type Item = &'i [u8];
 
     fn next(&mut self) -> Option<&'i [u8]> {
-        if self.pos >= self.array.len {
+        if self.pos >= self.stride_len && self.is_last_stride {
             None
         } else {
+            if self.pos >= self.stride_len {
+                self.pos = 0;
+                self.stride_len = self.rdr.get_nibble().unwrap_or(0) as usize;
+                self.is_last_stride = if self.stride_len == 0 {
+                    self.is_last_stride = true;
+                    return None;
+                } else if self.stride_len <= 14 {
+                    true
+                } else {
+                    self.stride_len -= 1;
+                    false
+                };
+            }
             self.pos += 1;
-            let slice_len = self.array.rdr_lengths
+            let slice_len = self.rdr
                 .get_vlu4_u32()
                 .or_else(|e| {
-                    self.pos = self.array.len; // stop reading corrupt data
+                    self.pos = self.stride_len; // stop reading corrupt data, shouldn't be possible
+                    self.is_last_stride = true;
                     Err(e)
                 }).ok()?;
-            Some(self.array.rdr_slices.get_slice(slice_len as usize).ok()?)
+            match self.rdr.align_to_byte() {
+                Ok(()) => {},
+                Err(_) => {
+                    self.pos = self.stride_len;
+                    self.is_last_stride = true;
+                    return None;
+                }
+            }
+            Some(self.rdr.get_slice(slice_len as usize).ok()?)
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.array.len, Some(self.array.len))
+        (self.total_len, Some(self.total_len))
     }
 }
 
@@ -96,7 +126,7 @@ impl<'i> SerializeVlu4 for Vlu4SliceArray<'i> {
     type Error = XpiVlu4Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        wgr.put_vlu4_u32(self.len as u32)?;
+        wgr.put_vlu4_u32(self.total_len as u32)?;
         for s in self.iter() {
             wgr.put_vlu4_u32(s.len() as u32)?;
         }
@@ -114,25 +144,32 @@ impl<'i> DeserializeVlu4<'i> for Vlu4SliceArray<'i> {
     type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let len = rdr.get_vlu4_u32()? as usize;
-        let rdr_before_lengths = rdr.clone();
-        for _ in 0..len {
-            let _slice_len = rdr.get_vlu4_u32()? as usize;
-        }
-        if !rdr.is_at_byte_boundary() {
-            let _padding = rdr.get_nibble()?;
-        }
-        let rdr_before_slices = rdr.clone();
-        let mut rdr_before_lengths_clone = rdr_before_lengths.clone();
-        for _ in 0..len {
-            let slice_len = rdr_before_lengths_clone.get_vlu4_u32()? as usize;
-            let _slice = rdr.get_slice(slice_len)?;
+        let rdr_clone = rdr.clone();
+
+        let mut total_len = 0;
+        loop {
+            // allow stride of len 15 followed by 0 for now, but do not create on purpose
+            let mut len = rdr.get_nibble()? as usize;
+            let is_last_stride = if len <= 14 {
+                true
+            } else {
+                len -= 1;
+                false
+            };
+            total_len += len;
+            for _ in 0..len {
+                let slice_len = rdr.get_vlu4_u32()? as usize;
+                rdr.align_to_byte()?;
+                rdr.skip(slice_len * 2)?;
+            }
+            if is_last_stride {
+                break;
+            }
         }
 
         Ok(Vlu4SliceArray {
-            rdr_lengths: rdr_before_lengths,
-            rdr_slices: rdr_before_slices,
-            len
+            rdr: rdr_clone,
+            total_len: total_len
         })
     }
 }
@@ -145,14 +182,14 @@ mod test {
 
     #[test]
     fn aligned_start() {
-        let input_buf = hex!("32 32 ab cd ef ed cb ab cd /* slices end */ 11 22");
+        let input_buf = hex!("33 ab cd ef 20 ed cb 20 ab cd /* slices end */ 11 22");
         let mut buf = NibbleBuf::new_all(&input_buf);
 
         let slices: Vlu4SliceArray = buf.des_vlu4().unwrap();
         let mut iter = slices.iter();
-        assert_eq!(iter.next(), Some(&input_buf[2..=3]));
-        assert_eq!(iter.next(), Some(&input_buf[4..=6]));
-        assert_eq!(iter.next(), Some(&input_buf[7..=8]));
+        assert_eq!(iter.next(), Some(&input_buf[1..=3]));
+        assert_eq!(iter.next(), Some(&input_buf[5..=6]));
+        assert_eq!(iter.next(), Some(&input_buf[8..=9]));
         assert_eq!(iter.next(), None);
 
         assert_eq!(buf.get_u8(), Ok(0x11));
@@ -160,7 +197,7 @@ mod test {
 
     #[test]
     fn unaligned_start() {
-        let input_buf = hex!("12 22 ab cd ef fe 11");
+        let input_buf = hex!("12 20 ab cd 20 ef fe 11");
         let mut buf = NibbleBuf::new_all(&input_buf);
 
         assert_eq!(buf.get_nibble(), Ok(1));
@@ -168,7 +205,7 @@ mod test {
         let slices: Vlu4SliceArray = buf.des_vlu4().unwrap();
         let mut iter = slices.iter();
         assert_eq!(iter.next(), Some(&input_buf[2..=3]));
-        assert_eq!(iter.next(), Some(&input_buf[4..=5]));
+        assert_eq!(iter.next(), Some(&input_buf[5..=6]));
         assert_eq!(iter.next(), None);
 
         assert_eq!(buf.get_u8(), Ok(0x11));

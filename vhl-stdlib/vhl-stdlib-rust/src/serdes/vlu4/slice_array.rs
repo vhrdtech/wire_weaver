@@ -283,6 +283,7 @@ impl<'i> Vlu4SliceArrayBuilder<'i> {
     {
         self.start_putting_slice(len)?;
         f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len])?;
+        self.wgr.idx += len;
         self.finish_putting_slice()?;
         Ok(())
     }
@@ -325,6 +326,7 @@ mod test {
     // use std::println;
     use hex_literal::hex;
     use crate::serdes::{NibbleBuf, NibbleBufMut};
+    use crate::serdes::buf::BufMut;
     use crate::serdes::vlu4::Vlu4SliceArray;
 
     #[test]
@@ -485,5 +487,49 @@ mod test {
             assert_eq!(slice.len(), 3);
             assert_eq!(slice, &[i, i + 1, i + 2]);
         }
+    }
+
+    use crate::serdes::nibble_buf::Error as NibbleBufError;
+    use crate::serdes::buf::Error as BufError;
+
+    #[derive(Debug)]
+    enum MyError {
+        NibbleBufError(NibbleBufError),
+        BufError(BufError),
+    }
+
+    impl From<NibbleBufError> for MyError {
+        fn from(e: NibbleBufError) -> Self {
+            MyError::NibbleBufError(e)
+        }
+    }
+
+    impl From<BufError> for MyError {
+        fn from(e: BufError) -> Self {
+            MyError::BufError(e)
+        }
+    }
+
+    #[test]
+    fn put_exact() {
+        let mut args_set = [0u8; 128];
+        let args_set = {
+            let wgr = NibbleBufMut::new_all(&mut args_set);
+            let mut wgr = wgr.put_slice_array();
+            wgr.put_exact::<MyError, _>(4, |slice| {
+                let mut wgr = BufMut::new(slice);
+                wgr.put_u16_le(0x1234)?;
+                wgr.put_u16_le(0x5678)?;
+                Ok(())
+            }).unwrap();
+            assert_eq!(&wgr.wgr.buf[0..5], hex!("14 34 12 78 56"));
+            wgr.finish_as_slice_array().unwrap()
+        };
+        assert_eq!(args_set.total_len, 1);
+        assert_eq!(args_set.rdr.nibbles_pos(), 0);
+        assert_eq!(args_set.rdr.nibbles_left(), 10);
+        let mut iter = args_set.iter();
+        assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
+        assert_eq!(iter.next(), None);
     }
 }

@@ -1,8 +1,9 @@
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use crate::serdes::{NibbleBuf, NibbleBufMut};
+use crate::serdes::buf::BufMut;
 use crate::serdes::DeserializeVlu4;
-use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::traits::{SerializeBytes, SerializeVlu4};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Variable size array of u8 slices (each aligned to byte boundary).
@@ -183,8 +184,9 @@ impl<'i> DeserializeVlu4<'i> for Vlu4SliceArray<'i> {
     }
 }
 
-/// Writes any number of slices of any length into NibbleBufMut without relocations and excessive
-/// copies.
+/// Allows to create a [Vlu4SliceArray] with unknown amount of slices with unknown lengths in place,
+/// without making copies or data relocations.
+///
 /// Create an instance through [NibbleBufMut::put_slice_array()]
 pub struct Vlu4SliceArrayBuilder<'i> {
     pub(crate) wgr: NibbleBufMut<'i>,
@@ -194,19 +196,26 @@ pub struct Vlu4SliceArrayBuilder<'i> {
 }
 
 impl<'i> Vlu4SliceArrayBuilder<'i> {
+    /// Write a slice and create correct [Vlu4SliceArray] layout at the same time.
     pub fn put_slice(&mut self, slice: &[u8]) -> Result<(), crate::serdes::nibble_buf::Error> {
+        self.start_putting_slice(slice.len())?;
+        self.wgr.put_slice(slice)?;
+        self.finish_putting_slice()
+    }
+
+    fn start_putting_slice(&mut self, len: usize) -> Result<(), crate::serdes::nibble_buf::Error> {
         if self.stride_len == 0 {
             self.stride_len_idx_nibbles = self.wgr.nibbles_pos();
             self.wgr.put_nibble(0)?;
         }
 
-        self.wgr.put_vlu4_u32(slice.len() as u32)?;
-        self.wgr.align_to_byte()?;
-        self.wgr.put_slice(slice)?;
+        self.wgr.put_vlu4_u32(len as u32)?;
+        self.wgr.align_to_byte()
+    }
 
+    fn finish_putting_slice(&mut self) -> Result<(), crate::serdes::nibble_buf::Error> {
         self.stride_len += 1;
         self.slices_written += 1;
-
 
         if self.stride_len == 14 {
             self.wgr.replace_nibble(self.stride_len_idx_nibbles, 0xf)?;
@@ -217,12 +226,79 @@ impl<'i> Vlu4SliceArrayBuilder<'i> {
         Ok(())
     }
 
+    /// Serialize any type that implements SerializeBytes as a slice into this buffer.
+    pub fn put_bytes<E, T: SerializeBytes<Error = E>>(&mut self, t: &T) -> Result<(), E>
+        where E: From<crate::serdes::nibble_buf::Error>,
+    {
+        self.start_putting_slice(t.len_bytes())?;
+        let mut wgr = BufMut::new(
+            &mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + t.len_bytes()]
+        );
+        wgr.put(t)?;
+        let (_, pos) = wgr.finish();
+        if pos != t.len_bytes() {
+            return Err(crate::serdes::nibble_buf::Error::InvalidByteSizeEstimate.into());
+        }
+        self.wgr.idx += t.len_bytes();
+        self.finish_putting_slice()?;
+        Ok(())
+    }
+
+    /// Get a mutable slice of requested length inside a closure. Slice is created in exactly the
+    /// right spot, while adhering to the layout of Vlu4SliceArray.
+    ///
+    /// Example:
+    /// ```
+    /// use vhl_stdlib::serdes::NibbleBufMut;
+    /// use vhl_stdlib::serdes::nibble_buf::Error as NibbleBufError;
+    /// use vhl_stdlib::serdes::vlu4::Vlu4SliceArray;
+    ///
+    /// #[derive(Debug)]
+    /// enum MyError {
+    ///     NibbleBufError(NibbleBufError),
+    /// }
+    /// impl From<NibbleBufError> for MyError {
+    /// fn from(e: NibbleBufError) -> Self {
+    ///         MyError::NibbleBufError(e)
+    ///     }
+    /// }
+    ///
+    ///  let mut args_set = [0u8; 128];
+    ///  let args_set: Vlu4SliceArray = {
+    ///      let wgr = NibbleBufMut::new_all(&mut args_set);
+    ///      let mut wgr = wgr.put_slice_array();
+    ///      wgr.put_exact::<MyError, _>(8, |slice| {
+    ///          // write 8 bytes into slice with the help of BufMut, NibbleBufMut, BitBufMut or others.
+    ///          Ok(())
+    ///      }).unwrap();
+    ///      wgr.finish_as_slice_array()
+    ///  };
+    /// ```
+    pub fn put_exact<E, F>(&mut self, len: usize, f: F) -> Result<(), E> where
+        F: Fn(&mut [u8]) -> Result<(), E>,
+        E: From<crate::serdes::nibble_buf::Error>
+    {
+        self.start_putting_slice(len)?;
+        f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len])?;
+        self.finish_putting_slice()?;
+        Ok(())
+    }
+
     pub fn slices_written(&self) -> usize {
         self.slices_written
     }
 
+    /// Finish writing slices and get original NibbleBufMut back to continue writing to it.
     pub fn finish(self) -> NibbleBufMut<'i> {
         self.wgr
+    }
+
+    /// Finish writing slices ang get Vlu4SliceArray right away, without deserialization.
+    pub fn finish_as_slice_array(self) -> Vlu4SliceArray<'i> {
+        Vlu4SliceArray {
+            rdr: NibbleBuf::new_all(self.wgr.buf),
+            total_len: self.slices_written
+        }
     }
 }
 

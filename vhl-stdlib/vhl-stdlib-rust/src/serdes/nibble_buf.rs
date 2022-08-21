@@ -27,6 +27,7 @@ pub enum Error {
     MalformedVlu4U32,
     // #[error("Unaligned access for slice")]
     UnalignedAccess,
+    InvalidByteSizeEstimate,
 }
 
 impl<'i> NibbleBuf<'i> {

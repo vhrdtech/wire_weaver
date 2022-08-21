@@ -14,7 +14,15 @@ pub struct Buf<'i> {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     OutOfBounds,
+    // TODO: replace by one common error in ll-buf crate
+    NibbleBufError(crate::serdes::nibble_buf::Error),
     // UnalignedAccess,
+}
+
+impl From<crate::serdes::nibble_buf::Error> for Error {
+    fn from(e: crate::serdes::nibble_buf::Error) -> Self {
+        Error::NibbleBufError(e)
+    }
 }
 
 impl<'i> Buf<'i> {
@@ -231,7 +239,7 @@ impl<'i> BufMut<'i> {
     }
 
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeBytes<Error = E>>(&mut self, t: T) -> Result<(), E> {
+    pub fn put<E, T: SerializeBytes<Error = E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_bytes(self)
     }
 }

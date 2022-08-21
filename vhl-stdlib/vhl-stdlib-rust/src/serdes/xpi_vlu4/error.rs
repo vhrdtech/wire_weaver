@@ -73,6 +73,8 @@ pub enum XpiVlu4Error {
     NibbleBuf(nibble_buf::Error),
     // #[error("Bit buf reader error")]
     BitBuf(bit_buf::Error),
+    //
+    Vlu4SliceArray,
     // #[error("Unreachable reached")]
     InternalError,
     // #[error("Reserved uri mask type")]

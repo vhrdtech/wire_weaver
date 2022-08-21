@@ -6,6 +6,9 @@ pub trait SerializeBytes {
     type Error;
 
     fn ser_bytes(&self, wgr: &mut BufMut) -> Result<(), Self::Error>;
+
+    /// Size of the object serialized in bytes
+    fn len_bytes(&self) -> usize;
 }
 
 /// Deserialize trait implemented by all types that support deserializing from buffer of bytes.

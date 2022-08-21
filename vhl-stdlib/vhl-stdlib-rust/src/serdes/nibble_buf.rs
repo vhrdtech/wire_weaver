@@ -1,4 +1,5 @@
 use core::fmt::{Debug, Display, Formatter};
+use core::ptr::copy_nonoverlapping;
 use crate::serdes::bit_buf::BitBufMut;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
@@ -101,19 +102,32 @@ impl<'i> NibbleBuf<'i> {
         self.is_at_byte_boundary
     }
 
+    /// Limit size of data for reading at the current position of another instance of self
+    pub fn shrink_to_pos_of(&mut self, advanced_self: &NibbleBuf) -> Result<(), Error> {
+        if self.buf != advanced_self.buf {
+            return Err(Error::OutOfBounds);
+        }
+        self.len_nibbles = advanced_self.nibbles_pos();
+        Ok(())
+    }
+
     pub fn get_nibble(&mut self) -> Result<u8, Error> {
         if self.is_at_end() {
             return Err(OutOfBounds);
         }
+        Ok(unsafe { self.get_nibble_unchecked() })
+    }
+
+    pub unsafe fn get_nibble_unchecked(&mut self) -> u8 {
         if self.is_at_byte_boundary {
-            let val = unsafe { *self.buf.get_unchecked(self.idx) };
+            let val = *self.buf.get_unchecked(self.idx);
             self.is_at_byte_boundary = false;
-            Ok((val & 0xf0) >> 4)
+            (val & 0xf0) >> 4
         } else {
-            let val = unsafe { *self.buf.get_unchecked(self.idx) };
+            let val = self.buf.get_unchecked(self.idx);
             self.is_at_byte_boundary = true;
             self.idx += 1;
-            Ok(val & 0xf)
+            val & 0xf
         }
     }
 
@@ -388,15 +402,19 @@ impl<'i> NibbleBufMut<'i> {
         if self.nibbles_left() == 0 {
             return Err(Error::OutOfBounds);
         }
+        unsafe { self.put_nibble_unchecked(nib); }
+        Ok(())
+    }
+
+    pub unsafe fn put_nibble_unchecked(&mut self, nib: u8) {
         if self.is_at_byte_boundary {
-            unsafe { *self.buf.get_unchecked_mut(self.idx) = nib << 4; }
+            *self.buf.get_unchecked_mut(self.idx) = nib << 4;
             self.is_at_byte_boundary = false;
         } else {
-            unsafe { *self.buf.get_unchecked_mut(self.idx) |= nib & 0xf; }
+            *self.buf.get_unchecked_mut(self.idx) |= nib & 0xf;
             self.is_at_byte_boundary = true;
             self.idx += 1;
         }
-        Ok(())
     }
 
     pub fn put_vlu4_u32(&mut self, val: u32) -> Result<(), Error> {
@@ -476,6 +494,52 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
+    pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {
+        if self.nibbles_left() < other.nibbles_left() {
+            return Err(Error::OutOfBounds);
+        }
+        if self.is_at_byte_boundary && other.is_at_byte_boundary {
+            let bytes_to_copy = if other.nibbles_left() % 2 == 0 {
+                other.nibbles_left() / 2
+            } else {
+                self.is_at_byte_boundary = false;
+                other.nibbles_left() / 2 + 1
+            };
+            unsafe {
+                copy_nonoverlapping(
+                    other.buf.as_ptr().offset(other.idx as isize),
+                    self.buf.as_mut_ptr().offset(self.idx as isize),
+                    bytes_to_copy
+                );
+            }
+        } else if !self.is_at_byte_boundary && !other.is_at_byte_boundary {
+            unsafe { self.put_nibble_unchecked(*other.buf.get_unchecked(other.idx) & 0x0f); }
+            let other_nibbles_left = other.nibbles_left() - 1;
+            let bytes_to_copy = if other_nibbles_left % 2 == 0 {
+                other_nibbles_left / 2
+            } else {
+                self.is_at_byte_boundary = false;
+                other_nibbles_left / 2 + 1
+            };
+            unsafe {
+                copy_nonoverlapping(
+                    other.buf.as_ptr().offset(other.idx as isize + 1),
+                    self.buf.as_mut_ptr().offset(self.idx as isize),
+                    bytes_to_copy
+                );
+            }
+        } else {
+            let mut other_clone = other.clone();
+            while !other_clone.is_at_end() {
+                unsafe {
+                    self.put_nibble_unchecked(other_clone.get_nibble_unchecked())
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Put any type that implements SerializeVlu4 into this buffer.
     pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: T) -> Result<(), E> {
         t.ser_vlu4(self)
@@ -486,6 +550,7 @@ impl<'i> NibbleBufMut<'i> {
 mod test {
     extern crate std;
     use std::format;
+    use hex_literal::hex;
 
     use crate::serdes::nibble_buf::Error;
     use super::{NibbleBuf, NibbleBufMut};
@@ -702,5 +767,69 @@ mod test {
         assert_eq!(buf[1], 0b1010_0011);
         assert_eq!(byte_pos, 2);
         assert_eq!(bit_pos, 0);
+    }
+
+    #[test]
+    fn put_nibble_buf_both_byte_aligned() {
+        let rgr_buf = [1, 2, 3];
+        let rgr = NibbleBuf::new_all(&rgr_buf);
+
+        let mut wgr_buf = [0u8; 5];
+        let mut wgr = NibbleBufMut::new_all(&mut wgr_buf);
+        wgr.put_u8(9).unwrap();
+        wgr.put_u8(8).unwrap();
+
+        wgr.put_nibble_buf(&rgr).unwrap();
+        let (wgr_buf, _, _) = wgr.finish();
+        assert_eq!(wgr_buf, &[9, 8, 1, 2, 3]);
+    }
+
+    #[test]
+    fn put_nibble_buf_both_nibble_aligned() {
+        let rgr_buf = hex!("ab cd ef");
+        let mut rgr = NibbleBuf::new_all(&rgr_buf);
+        let _ = rgr.get_nibble().unwrap();
+
+        let mut wgr_buf = [0u8; 4];
+        let mut wgr = NibbleBufMut::new_all(&mut wgr_buf);
+        wgr.put_u8(0xff).unwrap();
+        wgr.put_nibble(1).unwrap();
+
+        wgr.put_nibble_buf(&rgr).unwrap();
+        let (wgr_buf, _, _) = wgr.finish();
+        assert_eq!(wgr_buf, &[0xff, 0x1b, 0xcd, 0xef]);
+    }
+
+    #[test]
+    fn put_nibble_buf_wgr_unaligned() {
+        let rgr_buf = hex!("ab cd ef");
+        let rgr = NibbleBuf::new_all(&rgr_buf);
+
+        let mut wgr_buf = [0u8; 4];
+        let mut wgr = NibbleBufMut::new_all(&mut wgr_buf);
+        wgr.put_nibble(1).unwrap();
+
+        wgr.put_nibble_buf(&rgr).unwrap();
+        let (wgr_buf, pos, is_at_byte_boundary) = wgr.finish();
+        assert_eq!(wgr_buf, &[0x1a, 0xbc, 0xde, 0xf0]);
+        assert_eq!(pos, 3);
+        assert_eq!(is_at_byte_boundary, false);
+    }
+
+    #[test]
+    fn put_nibble_buf_rgr_unaligned() {
+        let rgr_buf = hex!("ab cd ef");
+        let mut rgr = NibbleBuf::new_all(&rgr_buf);
+        let _ = rgr.get_nibble().unwrap();
+
+        let mut wgr_buf = [0u8; 4];
+        let mut wgr = NibbleBufMut::new_all(&mut wgr_buf);
+        wgr.put_u8(0xff).unwrap();
+
+        wgr.put_nibble_buf(&rgr).unwrap();
+        let (wgr_buf, pos, is_at_byte_boundary) = wgr.finish();
+        assert_eq!(wgr_buf, &[0xff, 0xbc, 0xde, 0xf0]);
+        assert_eq!(pos, 3);
+        assert_eq!(is_at_byte_boundary, false);
     }
 }

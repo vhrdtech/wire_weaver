@@ -50,20 +50,12 @@ impl<'i> NibbleBuf<'i> {
         }
         let buf_before_consuming = &self.buf[self.idx..];
         let offset = if self.is_at_byte_boundary {
-            if nibble_count % 2 != 0 {
-                self.is_at_byte_boundary = false;
-            }
-            self.idx += nibble_count / 2;
             0
         } else {
-            if nibble_count % 2 != 0 {
-                self.is_at_byte_boundary = true;
-                self.idx += nibble_count / 2 + 1;
-            } else {
-                self.idx += nibble_count / 2;
-            }
             4
         };
+        self.skip(nibble_count)?;
+
         BitBuf::new_with_offset(
             buf_before_consuming,
             offset,
@@ -148,6 +140,33 @@ impl<'i> NibbleBuf<'i> {
 
     pub fn skip_vlu4_u32(&mut self) -> Result<(), Error> {
         while self.get_nibble()? & 0b1000 != 0 {}
+        Ok(())
+    }
+
+    pub fn skip(&mut self, nibble_count: usize) -> Result<(), Error> {
+        if self.nibbles_left() < nibble_count {
+            return Err(Error::OutOfBounds);
+        }
+        if self.is_at_byte_boundary {
+            if nibble_count % 2 != 0 {
+                self.is_at_byte_boundary = false;
+            }
+            self.idx += nibble_count / 2;
+        } else {
+            if nibble_count % 2 != 0 {
+                self.is_at_byte_boundary = true;
+                self.idx += nibble_count / 2 + 1;
+            } else {
+                self.idx += nibble_count / 2;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn align_to_byte(&mut self) -> Result<(), Error> {
+        if !self.is_at_byte_boundary {
+            let _padding = self.get_nibble()?;
+        }
         Ok(())
     }
 
@@ -407,6 +426,13 @@ impl<'i> NibbleBufMut<'i> {
                 self.put_nibble(0)?;
             }
             val <<= 3;
+        }
+        Ok(())
+    }
+
+    pub fn align_to_byte(&mut self) -> Result<(), Error> {
+        if !self.is_at_byte_boundary {
+            self.put_nibble(0)?;
         }
         Ok(())
     }

@@ -5,6 +5,7 @@ use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::{BitBuf, DeserializeVlu4};
 use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
 
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
@@ -494,6 +495,53 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
+    pub fn replace_nibble(&mut self, nibble_pos: usize, nib: u8) -> Result<(), Error> {
+        if nibble_pos >= self.len_nibbles {
+            return Err(Error::OutOfBounds);
+        }
+        let is_at_byte_boundary = nibble_pos % 2 == 0;
+        let idx = nibble_pos / 2;
+        if is_at_byte_boundary {
+            unsafe {
+                *self.buf.get_unchecked_mut(idx) &= 0x0f;
+                *self.buf.get_unchecked_mut(idx) |= nib << 4;
+            }
+        } else {
+            unsafe {
+                *self.buf.get_unchecked_mut(idx) &= 0xf0;
+                *self.buf.get_unchecked_mut(idx) |= nib & 0xf;
+            }
+        }
+        Ok(())
+    }
+
+    /// Write any number of slices into this buffer using [Vlu4SliceArrayBuilder].
+    ///
+    /// Example:
+    /// ```
+    /// use vhl_stdlib::serdes::NibbleBufMut;
+    /// use vhl_stdlib::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
+    /// use hex_literal::hex;
+    ///
+    /// let mut buf = [0u8; 128];
+    /// let wgr = NibbleBufMut::new_all(&mut buf);
+    /// let mut wgr: Vlu4SliceArrayBuilder = wgr.put_slice_array();
+    ///
+    /// wgr.put_slice(&[1, 2, 3]).unwrap();
+    /// wgr.put_slice(&[4, 5]).unwrap();
+    /// let wgr: NibbleBufMut = wgr.finish();
+    /// let (buf, _, _) = wgr.finish();
+    /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
+    /// ```
+    pub fn put_slice_array(self) -> Vlu4SliceArrayBuilder<'i> {
+        Vlu4SliceArrayBuilder {
+            wgr: self,
+            stride_len: 0,
+            stride_len_idx_nibbles: 0,
+            slices_written: 0
+        }
+    }
+
     pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {
         if self.nibbles_left() < other.nibbles_left() {
             return Err(Error::OutOfBounds);
@@ -831,5 +879,22 @@ mod test {
         assert_eq!(wgr_buf, &[0xff, 0xbc, 0xde, 0xf0]);
         assert_eq!(pos, 3);
         assert_eq!(is_at_byte_boundary, false);
+    }
+
+    #[test]
+    fn replace_nibble() {
+        let mut buf = [0u8; 4];
+        let mut wgr = NibbleBufMut::new_all(&mut buf);
+        wgr.put_u8(0x00).unwrap();
+        wgr.put_u8(0xab).unwrap();
+        wgr.put_u8(0xcd).unwrap();
+        wgr.replace_nibble(0, 0xe).unwrap();
+        wgr.replace_nibble(2, 0xf).unwrap();
+        wgr.replace_nibble(5, 1).unwrap();
+
+        wgr.replace_nibble(6, 0xf).unwrap();
+        wgr.put_u8(0x12).unwrap();
+        let (buf, _, _) = wgr.finish();
+        assert_eq!(buf, hex!("e0 fb c1 12"));
     }
 }

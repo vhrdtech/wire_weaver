@@ -1,7 +1,7 @@
 use core::ptr::copy_nonoverlapping;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::traits::DeserializeBytes;
+use crate::serdes::traits::{DeserializeBytes, SerializeBytes};
 
 /// Buffer reader that treats input as a stream of bytes
 #[derive(Copy, Clone)]
@@ -95,7 +95,24 @@ impl<'i> Buf<'i> {
         Ok(val)
     }
 
-    pub fn des_vlu4<'di, T: DeserializeBytes<'i>>(&'di mut self) -> Result<T, T::Error> {
+    pub fn get_u16_le(&mut self) -> Result<u16, Error> {
+        if self.bytes_left() < 2 {
+            return Err(Error::OutOfBounds);
+        }
+        let mut bytes = [0u8; 2];
+        unsafe {
+            copy_nonoverlapping(
+                self.buf.as_ptr().offset(self.idx as isize),
+                bytes.as_mut_ptr(),
+                2
+            );
+        }
+        let val = u16::from_le_bytes(bytes);
+        self.idx += 2;
+        Ok(val)
+    }
+
+    pub fn des_bytes<'di, T: DeserializeBytes<'i>>(&'di mut self) -> Result<T, T::Error> {
         T::des_bytes(self)
     }
 }
@@ -168,6 +185,10 @@ impl<'i> BufMut<'i> {
         self.idx >= self.buf.len()
     }
 
+    pub fn finish(self) -> (&'i mut [u8], usize) {
+        (self.buf, self.idx)
+    }
+
     pub fn put_u8(&mut self, val: u8) -> Result<(), Error> {
         if self.bytes_left() < 1 {
             return Err(Error::OutOfBounds);
@@ -191,5 +212,26 @@ impl<'i> BufMut<'i> {
         }
         self.idx += 2;
         Ok(())
+    }
+
+    pub fn put_u16_le(&mut self, val: u16) -> Result<(), Error> {
+        if self.bytes_left() < 2 {
+            return Err(Error::OutOfBounds);
+        }
+        let bytes = val.to_le_bytes();
+        unsafe {
+            copy_nonoverlapping(
+                bytes.as_ptr(),
+                self.buf.as_mut_ptr().offset(self.idx as isize),
+                2
+            );
+        }
+        self.idx += 2;
+        Ok(())
+    }
+
+    /// Put any type that implements SerializeVlu4 into this buffer.
+    pub fn put<E, T: SerializeBytes<Error = E>>(&mut self, t: T) -> Result<(), E> {
+        t.ser_bytes(self)
     }
 }

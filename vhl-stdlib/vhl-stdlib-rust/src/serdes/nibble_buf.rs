@@ -438,6 +438,24 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
+    pub fn save_state(&self) -> NibbleBufMutState {
+        NibbleBufMutState {
+            buf_ptr: self.buf.as_ptr(),
+            idx: self.idx,
+            is_at_byte_boundary: self.is_at_byte_boundary
+        }
+    }
+
+    pub fn restore_state(&mut self, state: NibbleBufMutState) -> Result<(), Error> {
+        // do not restore state from another buffer (still possible, but harder to trick this check)
+        if self.buf.as_ptr() != state.buf_ptr {
+            return Err(Error::OutOfBounds);
+        }
+        self.idx = state.idx;
+        self.is_at_byte_boundary = state.is_at_byte_boundary;
+        Ok(())
+    }
+
     pub fn put_nibble(&mut self, nib: u8) -> Result<(), Error> {
         if self.nibbles_left() == 0 {
             return Err(Error::OutOfBounds);
@@ -635,6 +653,12 @@ impl<'i> NibbleBufMut<'i> {
     pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: T) -> Result<(), E> {
         t.ser_vlu4(self)
     }
+}
+
+pub struct NibbleBufMutState {
+    buf_ptr: *const u8,
+    idx: usize,
+    is_at_byte_boundary: bool,
 }
 
 #[cfg(test)]
@@ -955,5 +979,18 @@ mod test {
         let (buf, _, _) = wrr.finish();
         assert_eq!(buf[0], 0x12);
         assert_eq!(buf[1], 0xaa);
+    }
+
+    #[test]
+    fn save_and_restore() {
+        let mut buf = [0u8; 4];
+        let mut wrr = NibbleBufMut::new_all(&mut buf);
+        wrr.put_u8(0xaa).unwrap();
+        wrr.put_u8(0xbb).unwrap();
+        let state = wrr.save_state();
+        wrr.put_u8(0x11).unwrap();
+        wrr.put_u8(0x22).unwrap();
+        wrr.restore_state(state).unwrap();
+        assert_eq!(wrr.nibbles_pos(), 4);
     }
 }

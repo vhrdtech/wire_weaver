@@ -172,7 +172,10 @@ impl<'i> Display for MultiUri<'i> {
         let iter = self.iter();
         let len = iter.size_hint().0;
         for (i, (uri, mask)) in iter.enumerate() {
-            write!(f, "{}/{:#}", uri, mask)?;
+            if uri.iter().size_hint().0 != 0 {
+                write!(f, "{}", uri)?;
+            }
+            write!(f, "/{:#}", mask)?;
             if i < len - 1 {
                 write!(f, ", ")?;
             }
@@ -276,6 +279,15 @@ mod test {
         let mut iter = multi_uri.flat_iter();
         assert_eq!(format!("{}", iter.next().unwrap()), "/3");
         assert_eq!(format!("{}", iter.next().unwrap()), "/4");
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn two_at_root_separate() {
+        let multi_uri: MultiUri = NibbleBuf::new_all(&[0x20, 0x51, 0x50, 0x51, 0x50]).des_vlu4().unwrap();
+        let mut iter = multi_uri.flat_iter();
+        assert_eq!(format!("{}", iter.next().unwrap()), "/5");
+        assert_eq!(format!("{}", iter.next().unwrap()), "/5");
         assert!(iter.next().is_none());
     }
 }

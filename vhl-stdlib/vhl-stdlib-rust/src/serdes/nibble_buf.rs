@@ -400,6 +400,44 @@ impl<'i> NibbleBufMut<'i> {
         (self.buf, self.idx, self.is_at_byte_boundary)
     }
 
+    pub fn skip(&mut self, nibble_count: usize) -> Result<(), Error> {
+        if self.nibbles_left() < nibble_count {
+            return Err(Error::OutOfBounds);
+        }
+        if self.is_at_byte_boundary {
+            if nibble_count % 2 != 0 {
+                self.is_at_byte_boundary = false;
+            }
+            self.idx += nibble_count / 2;
+        } else {
+            if nibble_count % 2 != 0 {
+                self.is_at_byte_boundary = true;
+                self.idx += nibble_count / 2 + 1;
+            } else {
+                self.idx += nibble_count / 2;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn rewind<F, E>(&mut self, to_nibbles_pos: usize, f: F) -> Result<(), E>
+        where
+            F: Fn(&mut Self) -> Result<(), E>,
+            E: From<Error>,
+    {
+        if to_nibbles_pos >= self.len_nibbles {
+            return Err(Error::OutOfBounds.into());
+        }
+        let idx_before = self.idx;
+        let is_at_byte_boundary_before = self.is_at_byte_boundary;
+        self.idx = to_nibbles_pos / 2;
+        self.is_at_byte_boundary = to_nibbles_pos % 2 == 0;
+        f(self)?;
+        self.idx = idx_before;
+        self.is_at_byte_boundary = is_at_byte_boundary_before;
+        Ok(())
+    }
+
     pub fn put_nibble(&mut self, nib: u8) -> Result<(), Error> {
         if self.nibbles_left() == 0 {
             return Err(Error::OutOfBounds);
@@ -901,5 +939,21 @@ mod test {
         wgr.put_u8(0x12).unwrap();
         let (buf, _, _) = wgr.finish();
         assert_eq!(buf, hex!("e0 fb c1 12"));
+    }
+
+    #[test]
+    fn rewind() {
+        let mut buf = [0u8; 2];
+        let mut wrr = NibbleBufMut::new_all(&mut buf);
+        wrr.skip(2).unwrap();
+        wrr.put_u8(0xaa).unwrap();
+        wrr.rewind::<_, super::Error>(0, |wrr| {
+            wrr.put_nibble(1)?;
+            wrr.put_nibble(2)?;
+            Ok(())
+        }).unwrap();
+        let (buf, _, _) = wrr.finish();
+        assert_eq!(buf[0], 0x12);
+        assert_eq!(buf[1], 0xaa);
     }
 }

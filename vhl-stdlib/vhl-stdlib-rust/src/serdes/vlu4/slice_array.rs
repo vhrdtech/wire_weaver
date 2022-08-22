@@ -288,6 +288,31 @@ impl<'i> Vlu4SliceArrayBuilder<'i> {
         Ok(())
     }
 
+    /// Get a mutable slice of requested length inside a closure. Slice is created in exactly the
+    /// right spot, while adhering to the layout of Vlu4SliceArray.
+    /// If closure returns an error, restore state as it was before calling this functions.
+    pub fn put_exact_or_rewind<E, F>(&mut self, len: usize, f: F)
+        -> Result<Result<(), E>, crate::serdes::nibble_buf::Error> where
+        F: Fn(&mut [u8]) -> Result<(), E>,
+        E: From<crate::serdes::nibble_buf::Error>
+    {
+        let state = self.wgr.save_state();
+        let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
+        self.start_putting_slice(len)?;
+        match f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len]) {
+            Ok(_) => {
+                self.wgr.idx += len;
+                self.finish_putting_slice()?;
+                Ok(Ok(()))
+            }
+            Err(e) => {
+                self.wgr.restore_state(state)?;
+                self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
+                return Ok(Err(e))
+            }
+        }
+    }
+
     pub fn slices_written(&self) -> usize {
         self.slices_written
     }
@@ -492,10 +517,11 @@ mod test {
     use crate::serdes::nibble_buf::Error as NibbleBufError;
     use crate::serdes::buf::Error as BufError;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq)]
     enum MyError {
         NibbleBufError(NibbleBufError),
         BufError(BufError),
+        Fake,
     }
 
     impl From<NibbleBufError> for MyError {
@@ -531,5 +557,47 @@ mod test {
         let mut iter = args_set.iter();
         assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn put_exact_or_rewind_ok() {
+        let mut args_set = [0u8; 128];
+        let args_set = {
+            let wgr = NibbleBufMut::new_all(&mut args_set);
+            let mut wgr = wgr.put_slice_array();
+            wgr.put_exact_or_rewind::<MyError, _>(4, |slice| {
+                let mut wgr = BufMut::new(slice);
+                wgr.put_u16_le(0x1234)?;
+                wgr.put_u16_le(0x5678)?;
+                Ok(())
+            }).unwrap();
+            assert_eq!(&wgr.wgr.buf[0..5], hex!("14 34 12 78 56"));
+            wgr.finish_as_slice_array().unwrap()
+        };
+        assert_eq!(args_set.total_len, 1);
+        assert_eq!(args_set.rdr.nibbles_pos(), 0);
+        assert_eq!(args_set.rdr.nibbles_left(), 10);
+        let mut iter = args_set.iter();
+        assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn put_exact_or_rewind_err() {
+        let mut args_set = [0u8; 128];
+        let args_set = {
+            let wgr = NibbleBufMut::new_all(&mut args_set);
+            let mut wgr = wgr.put_slice_array();
+            let r = wgr.put_exact_or_rewind::<MyError, _>(4, |slice| {
+                let mut wgr = BufMut::new(slice);
+                wgr.put_u16_le(0x1234)?;
+                wgr.put_u16_le(0x5678)?;
+                Err(MyError::Fake)
+            }).unwrap();
+            assert_eq!(wgr.slices_written, 0);
+            assert_eq!(r, Err(MyError::Fake));
+            wgr.finish_as_slice_array().unwrap()
+        };
+        assert_eq!(args_set.total_len, 0);
     }
 }

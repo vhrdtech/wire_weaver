@@ -25,7 +25,16 @@ pub enum FailReason {
     StreamIsAlreadyClosed,
     /// When trying to write into a const or ro property, write into stream_out or read from stream_in.
     OperationNotSupported,
+    /// Returned by dispatcher if 0 len Uri is provided
+    BadUri,
+    /// Returned by dispatcher if trying to call a resource which is not a method
+    NotAMethod,
+
+    /// Unexpected internal error, reported instead of all were to be panic/unwrap/unreachable.
     Internal,
+    InternalBufError,
+    InternalNibbleBufError,
+    InternalBitBufError,
 }
 
 impl FailReason {
@@ -41,28 +50,62 @@ impl FailReason {
             7 => StreamIsAlreadyOpen,
             8 => StreamIsAlreadyClosed,
             9 => OperationNotSupported,
+            10 => Internal,
+            11 => BadUri,
+            12 => NotAMethod,
+            13 => InternalBufError,
+            14 => InternalNibbleBufError,
+            15 => InternalBitBufError,
             _ => Internal
         }
     }
+
+    pub fn to_u32(&self) -> u32 {
+        use FailReason::*;
+        match self {
+            Timeout => 1, // 0 is no error
+            DeviceRebooted => 2,
+            PriorityLoss => 3,
+            ShaperReject => 4,
+            ResourceIsAlreadyBorrowed => 5,
+            AlreadyUnsubscribed => 6,
+            StreamIsAlreadyOpen => 7,
+            StreamIsAlreadyClosed => 8,
+            OperationNotSupported => 9,
+            Internal => 10,
+            BadUri => 11,
+            NotAMethod => 12,
+            InternalBufError => 13,
+            InternalNibbleBufError => 14,
+            InternalBitBufError => 15,
+        }
+    }
 }
+
+impl From<crate::serdes::buf::Error> for FailReason {
+    fn from(_: crate::serdes::buf::Error) -> Self {
+        FailReason::InternalBufError
+    }
+}
+
+impl From<crate::serdes::nibble_buf::Error> for FailReason {
+    fn from(_: crate::serdes::nibble_buf::Error) -> Self {
+        FailReason::InternalNibbleBufError
+    }
+}
+
+impl From<crate::serdes::bit_buf::Error> for FailReason {
+    fn from(_: crate::serdes::bit_buf::Error) -> Self {
+        FailReason::InternalBitBufError
+    }
+}
+
 
 impl SerializeVlu4 for FailReason {
     type Error = XpiVlu4Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        let discriminant = match self {
-            FailReason::Timeout => 1, // 0 is no error
-            FailReason::DeviceRebooted => 2,
-            FailReason::PriorityLoss => 3,
-            FailReason::ShaperReject => 4,
-            FailReason::ResourceIsAlreadyBorrowed => 5,
-            FailReason::AlreadyUnsubscribed => 6,
-            FailReason::StreamIsAlreadyOpen => 7,
-            FailReason::StreamIsAlreadyClosed => 8,
-            FailReason::OperationNotSupported => 9,
-            FailReason::Internal => 10,
-        };
-        wgr.put_vlu4_u32(discriminant)?;
+        wgr.put_vlu4_u32(self.to_u32())?;
         Ok(())
     }
 }

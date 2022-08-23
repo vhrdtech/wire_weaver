@@ -36,7 +36,9 @@ pub struct XpiReply<'rep> {
 #[derive(Copy, Clone, Debug)]
 pub enum XpiReplyKind<'rep> {
     /// Result of an each call
-    CallComplete(Result<Vlu4Slice<'rep>, FailReason>),
+    /// TODO: should be Array<Result<Vlu4Slice, FailReason>> = Vlu4ResultSliceArray or just treat as?
+    /// the only difference is saving one nibble when slice len + result gives aligned slice next
+    CallComplete(Vlu4SliceArray<'rep>),
 
     /// Result of an each read.
     ReadComplete(Result<Vlu4SliceArray<'rep>, FailReason>),
@@ -115,14 +117,15 @@ impl<'i> SerializeVlu4 for XpiReplyKind<'i> {
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match *self {
-            XpiReplyKind::CallComplete(call_result) => {
-                match call_result {
-                    Ok(return_value) => {
-                        wgr.put_nibble(0)?;
-                        wgr.put(return_value)
-                    },
-                    Err(e) => wgr.put(e)
-                }
+            XpiReplyKind::CallComplete(call_results) => {
+                // match call_result {
+                //     Ok(return_value) => {
+                //         wgr.put_nibble(0)?;
+                //         wgr.put(return_value)
+                //     },
+                //     Err(e) => wgr.put(e)
+                // }
+                wgr.put(call_results)
             }
             XpiReplyKind::ReadComplete(_) => {
                 todo!()
@@ -179,7 +182,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
         let kind = bits_rdr.get_up_to_8(4)?;
         use XpiReplyKind::*;
         match kind {
-            0 => Ok(CallComplete(vlu4_rdr.des_vlu4_if_ok(FailReason::from_u32)?)),
+            0 => Ok(CallComplete(vlu4_rdr.des_vlu4()?)),
             _ => Err(XpiVlu4Error::Unimplemented)
         }
     }
@@ -208,6 +211,23 @@ impl<'i> SerializeVlu4 for XpiReply<'i> {
         Ok(())
     }
 }
+
+// pub struct XpiReplyBuilder<'i> {
+//     wrr: &'i mut NibbleBufMut<'i>,
+// }
+//
+// impl<'i> XpiReplyBuilder<'i> {
+//     pub fn new(
+//         wrr: &mut NibbleBufMut<'i>,
+//     ) -> Result<Self, XpiVlu4Error> {
+//         wrr.skip(8)?;
+//         Ok(Self {
+//             wrr
+//         })
+//     }
+//
+//
+// }
 
 impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
     type Error = XpiVlu4Error;
@@ -283,8 +303,14 @@ mod test {
         let mut buf = [0u8; 32];
         let mut wgr = NibbleBufMut::new_all(&mut buf);
 
-        let reply_data = [1, 2, 3];
-        let reply_kind = XpiReplyKind::CallComplete(Ok(Vlu4Slice { slice: &reply_data }));
+        let mut call_results = [0u8; 128];
+        let call_results = {
+            let wrr = NibbleBufMut::new_all(&mut call_results);
+            let mut wrr = wrr.put_slice_array();
+            wrr.put_slice(&[0, 1, 2, 3]);
+            wrr.finish_as_slice_array().unwrap()
+        };
+        let reply_kind = XpiReplyKind::CallComplete(call_results);
         let reply = XpiReply {
             source: NodeId::new(33).unwrap(),
             destination: NodeSet::Unicast(NodeId::new(77).unwrap()),
@@ -301,6 +327,7 @@ mod test {
             0b000_000_10, 0b1_0100001, 0b00100110, 0b1_001_0000,
             0x48, // uri
             0x03, // 0 - Ok, 3 - len(reply_data)
+            0, //
             1, 2, 3, // reply_data
             5 // tail
         ]);
@@ -328,8 +355,9 @@ mod test {
             panic!("Expected XpiResourceSet::Uri(_)");
         }
         if let XpiReplyKind::CallComplete(result) = reply.kind {
-            assert!(result.is_ok());
-            assert_eq!(result.unwrap().slice, [1, 2, 3]);
+            todo!();
+            // assert!(result.is_ok());
+            // assert_eq!(result.unwrap().slice, [1, 2, 3]);
         } else {
             panic!("Expected XpiReplyKind::CallComplete(_)");
         }

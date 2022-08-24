@@ -2,7 +2,8 @@ use core::fmt::{Display, Formatter};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use crate::serdes::DeserializeVlu4;
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
+use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::xpi_vlu4::{Uri, UriIter, UriMask, UriMaskIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
@@ -21,34 +22,34 @@ use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 #[derive(Copy, Clone, Debug)]
 pub struct MultiUri<'i> {
     rdr: NibbleBuf<'i>,
-    len: usize,
+    parts_count: usize,
 }
 
 impl<'i> MultiUri<'i> {
     /// Returns the amount of (Uri, UriMask) pairs
     pub fn len(&self) -> usize {
-        self.len
+        self.parts_count
     }
 
     pub fn iter(&self) -> MultiUriIter {
         MultiUriIter {
             rdr: self.rdr.clone(),
-            len: self.len,
+            len: self.parts_count,
             pos: 0,
         }
     }
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_arr: Vlu4U32Array = rdr_clone
+        let uri_arr: Vlu4Vec<Vlu32> = rdr_clone
             .des_vlu4()
-            .unwrap_or(Vlu4U32Array::empty());
+            .unwrap_or(Vlu4Vec::<Vlu32>::empty());
         let mask: UriMask = rdr_clone
             .des_vlu4().
-            unwrap_or(UriMask::ByIndices(Vlu4U32Array::empty()));
+            unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
         MultiUriFlatIter::MultiUri {
             rdr: rdr_clone,
-            len: self.len,
+            len: self.parts_count,
             pos: 1,
             uri_iter: uri_arr.iter(),
             mask_iter: mask.iter()
@@ -85,7 +86,7 @@ pub enum MultiUriFlatIter<'i> {
         rdr: NibbleBuf<'i>,
         len: usize,
         pos: usize,
-        uri_iter: Vlu4U32ArrayIter<'i>,
+        uri_iter: Vlu4VecIter<'i, Vlu32>,
         mask_iter: UriMaskIter<'i>
     }
 }
@@ -119,7 +120,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                         }
                         *pos += 1;
 
-                        let uri_arr: Vlu4U32Array = rdr.des_vlu4().ok()?;
+                        let uri_arr: Vlu4Vec<Vlu32> = rdr.des_vlu4().ok()?;
                         let mask: UriMask = rdr.des_vlu4().ok()?;
                         *uri_iter = uri_arr.iter();
                         *mask_iter = mask.iter();
@@ -139,16 +140,17 @@ impl<'i> DeserializeVlu4<'i> for MultiUri<'i> {
     type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let len = rdr.get_vlu4_u32()? as usize;
-        let rdr_before_elements = rdr.clone();
-        for _ in 0..len {
-            // TODO: implement skip_vlu4() to not read data?
+        let parts_count = rdr.get_vlu4_u32()? as usize;
+        let mut rdr_before_elements = rdr.clone();
+        for _ in 0..parts_count {
+            // TODO: implement skip_vlu4() to not read data
             let _uri_len: Uri = rdr.des_vlu4()?;
             let _mask: UriMask = rdr.des_vlu4()?;
         }
+        rdr_before_elements.shrink_to_pos_of(rdr)?;
         Ok(MultiUri {
             rdr: rdr_before_elements,
-            len,
+            parts_count,
         })
     }
 }
@@ -157,12 +159,16 @@ impl<'i> SerializeVlu4 for MultiUri<'i> {
     type Error = XpiVlu4Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        wgr.put_vlu4_u32(self.len as u32)?;
+        wgr.put_vlu4_u32(self.parts_count as u32)?;
         for (uri, mask) in self.iter() {
-            wgr.put(uri)?;
-            wgr.put(mask)?;
+            wgr.put(&uri)?;
+            wgr.put(&mask)?;
         }
         Ok(())
+    }
+
+    fn len_nibbles(&self) -> usize {
+        self.rdr.nibbles_left()
     }
 }
 
@@ -191,6 +197,7 @@ mod test {
     use crate::serdes::NibbleBuf;
     use crate::serdes::xpi_vlu4::multi_uri::MultiUri;
     use crate::serdes::xpi_vlu4::UriMask;
+    use crate::serdes::vlu4::vlu32::Vlu32;
 
     #[test]
     fn one_pair_mask_u16() {
@@ -227,8 +234,8 @@ mod test {
         assert!(matches!(mask, UriMask::ByIndices(_)));
         if let UriMask::ByIndices(indices) = mask {
             let mut indices_iter = indices.iter();
-            assert_eq!(indices_iter.next(), Some(3));
-            assert_eq!(indices_iter.next(), Some(5));
+            assert_eq!(indices_iter.next(), Some(Vlu32(3)));
+            assert_eq!(indices_iter.next(), Some(Vlu32(5)));
             assert_eq!(indices_iter.next(), None);
         }
     }
@@ -249,14 +256,14 @@ mod test {
         assert_eq!(uri_iter.next(), Some(2));
         assert_eq!(uri_iter.next(), None);
 
-        assert!(matches!(mask0, UriMask::All(3)));
+        assert!(matches!(mask0, UriMask::All(Vlu32(3))));
 
         let mut uri_iter = uri1.iter();
         assert_eq!(uri_iter.next(), Some(5));
         assert_eq!(uri_iter.next(), Some(6));
         assert_eq!(uri_iter.next(), None);
 
-        assert!(matches!(mask1, UriMask::All(7)));
+        assert!(matches!(mask1, UriMask::All(Vlu32(7))));
     }
 
     #[test]

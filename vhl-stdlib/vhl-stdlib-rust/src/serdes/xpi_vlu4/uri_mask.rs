@@ -1,7 +1,8 @@
 use core::fmt::{Display, Formatter};
 use crate::serdes::{NibbleBuf, DeserializeVlu4, NibbleBufMut};
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
+use crate::serdes::vlu4::vlu32::Vlu32;
+use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
@@ -28,10 +29,10 @@ pub enum UriMask<'i> {
     // ByBitfield64(u64),
     // ByBitfield128(u128),
     /// Allows to choose one or more resource by their indices
-    ByIndices(Vlu4U32Array<'i>),
+    ByIndices(Vlu4Vec<'i, Vlu32>),
     /// Select all resources, either resource count must to be known, or endless iterator must be
     /// stopped later
-    All(u32)
+    All(Vlu32)
 }
 
 impl<'i> UriMask<'i> {
@@ -41,7 +42,7 @@ impl<'i> UriMask<'i> {
             UriMask::ByBitfield16(mask) => UriMaskIter::ByBitfield16 { mask, pos: 0 },
             UriMask::ByBitfield32(mask) => UriMaskIter::ByBitfield32 { mask, pos:0 },
             UriMask::ByIndices(iter) => UriMaskIter::ByIndices { iter: iter.iter() },
-            UriMask::All(count) => UriMaskIter::All { count, pos: 0 }
+            UriMask::All(count) => UriMaskIter::All { count: count.0, pos: 0 }
         }
     }
 }
@@ -74,7 +75,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
             },
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
-                Ok(UriMask::All(amount))
+                Ok(UriMask::All(Vlu32(amount)))
             },
             7 => {
                 Err(XpiVlu4Error::UriMaskReserved)
@@ -106,14 +107,24 @@ impl<'i> SerializeVlu4 for UriMask<'i> {
             }
             UriMask::ByIndices(arr) => {
                 wgr.put_nibble(5)?;
-                wgr.put(*arr)?;
+                wgr.put(arr)?;
             }
             UriMask::All(max) => {
                 wgr.put_nibble(6)?;
-                wgr.put_vlu4_u32(*max)?;
+                wgr.put(max)?;
             }
         }
         Ok(())
+    }
+
+    fn len_nibbles(&self) -> usize {
+        match self {
+            UriMask::ByBitfield8(_) => 3,
+            UriMask::ByBitfield16(_) => 5,
+            UriMask::ByBitfield32(_) => 9,
+            UriMask::ByIndices(arr) => arr.len_nibbles(),
+            UriMask::All(max) => max.len_nibbles(),
+        }
     }
 }
 
@@ -121,7 +132,7 @@ pub enum UriMaskIter<'i> {
     ByBitfield8 { mask: u8, pos: u32 },
     ByBitfield16 { mask: u16, pos: u32 },
     ByBitfield32 { mask: u32, pos: u32 },
-    ByIndices { iter: Vlu4U32ArrayIter<'i> },
+    ByIndices { iter: Vlu4VecIter<'i, Vlu32> },
     All { count: u32, pos: u32 }
 }
 
@@ -166,7 +177,7 @@ impl<'i> Iterator for UriMaskIter<'i> {
             UriMaskIter::ByBitfield8 { mask, pos } => next_one_bit!(mask, pos, 8),
             UriMaskIter::ByBitfield16 { mask, pos } => next_one_bit!(mask, pos, 16),
             UriMaskIter::ByBitfield32 { mask, pos } => next_one_bit!(mask, pos, 32),
-            UriMaskIter::ByIndices { iter } => iter.next(),
+            UriMaskIter::ByIndices { iter } => iter.next().map(|x| x.0),
             UriMaskIter::All { count, pos } => {
                 if *pos < *count {
                     *pos += 1;
@@ -255,7 +266,7 @@ mod test {
     fn test_mask_array() {
         let buf = [0b0010_1111, 0b0111_0001];
         let mut buf = NibbleBuf::new_all(&buf);
-        let arr: Vlu4U32Array = buf.des_vlu4().unwrap();
+        let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
         let mask = UriMask::ByIndices(arr);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (2, Some(2)));
@@ -266,7 +277,7 @@ mod test {
 
     #[test]
     fn test_mask_all() {
-        let mask = UriMask::All(4);
+        let mask = UriMask::All(Vlu32(4));
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (4, Some(4)));
         assert_eq!(mask_iter.next(), Some(0));

@@ -12,6 +12,13 @@ use crate::serdes::xpi_vlu4::multi_uri::MultiUriFlatIter;
 
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
+impl<'i> DeserializeVlu4<'i> for NodeId {
+    type Error = XpiVlu4Error;
+
+    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        Ok(NodeId::new(rdr.get_u8()?).ok_or_else(|| XpiVlu4Error::NodeId)?)
+    }
+}
 
 // Each outgoing request must be marked with an increasing number in order to distinguish
 // requests of the same kind and map responses.
@@ -27,18 +34,22 @@ impl<'i> DeserializeVlu4<'i> for RequestId {
         Ok(RequestId(request_id & 0b0001_1111))
     }
 }
-impl SerializeVlu4 for RequestId {
-    type Error = XpiVlu4Error;
-
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        if !wgr.is_at_byte_boundary() {
-            // since request id is a part of a tail byte, put padding before it to align
-            wgr.put_nibble(0)?;
-        }
-        wgr.put_u8(self.inner())?;
-        Ok(())
-    }
-}
+// impl SerializeVlu4 for RequestId {
+//     type Error = XpiVlu4Error;
+//
+//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+//         if !wgr.is_at_byte_boundary() {
+//             // since request id is a part of a tail byte, put padding before it to align
+//             wgr.put_nibble(0)?;
+//         }
+//         wgr.put_u8(self.inner())?;
+//         Ok(())
+//     }
+//
+//     fn len_nibbles(&self) -> usize {
+//         2
+//     }
+// }
 
 #[derive(Copy, Clone, Debug)]
 pub enum NodeSet<'i> {
@@ -133,6 +144,10 @@ impl<'i> SerializeVlu4 for NodeSet<'i> {
             }
         }
     }
+
+    fn len_nibbles(&self) -> usize {
+        0
+    }
 }
 
 impl<'i> Display for NodeSet<'i> {
@@ -201,8 +216,15 @@ impl<'i> SerializeVlu4 for XpiResourceSet<'i> {
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            XpiResourceSet::Uri(uri) => wgr.put(*uri),
-            XpiResourceSet::MultiUri(multi_uri) => wgr.put(*multi_uri)
+            XpiResourceSet::Uri(uri) => wgr.put(uri),
+            XpiResourceSet::MultiUri(multi_uri) => wgr.put(multi_uri)
+        }
+    }
+
+    fn len_nibbles(&self) -> usize {
+        match self {
+            XpiResourceSet::Uri(uri) => uri.len_nibbles(),
+            XpiResourceSet::MultiUri(multi_uri) => multi_uri.len_nibbles(),
         }
     }
 }

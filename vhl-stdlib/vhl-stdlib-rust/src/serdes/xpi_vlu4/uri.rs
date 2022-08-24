@@ -3,7 +3,8 @@ use core::iter::FusedIterator;
 use crate::discrete::{U3, U4, U6};
 use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu4U32Array, Vlu4U32ArrayIter};
+use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Sequence of numbers uniquely identifying one of the resources.
@@ -26,7 +27,7 @@ pub enum Uri<'i> {
     ThreePart664(U6, U6, U4),
 
     /// Point to any resource in the resources tree, any numbers up to u32::MAX; variable size
-    MultiPart(Vlu4U32Array<'i>)
+    MultiPart(Vlu4Vec<'i, Vlu32>)
 }
 
 impl<'i> Uri<'i> {
@@ -106,7 +107,7 @@ impl<'i> SerializeVlu4 for Uri<'i> {
                 })?;
             }
             Uri::MultiPart(arr) => {
-                wgr.put(*arr)?;
+                wgr.put(arr)?;
             }
         }
         Ok(())
@@ -129,9 +130,9 @@ pub enum UriIter<'i> {
         len: u8,
         pos: u8,
     },
-    ArrIter(Vlu4U32ArrayIter<'i>),
+    ArrIter(Vlu4VecIter<'i, Vlu32>),
     ArrIterChain {
-        arr_iter: Vlu4U32ArrayIter<'i>,
+        arr_iter: Vlu4VecIter<'i, Vlu32>,
         last: Option<u32>
     },
 }
@@ -150,11 +151,11 @@ impl<'i> Iterator for UriIter<'i> {
                 }
             }
             UriIter::ArrIter(arr_iter) => {
-                arr_iter.next()
+                arr_iter.next().map(|x| x.0)
             }
             UriIter::ArrIterChain { arr_iter, last} => {
                 match arr_iter.next() {
-                    Some(p) => Some(p),
+                    Some(p) => Some(p.0),
                     None => {
                         match *last {
                             Some(p) => {
@@ -227,8 +228,9 @@ mod test {
     use crate::discrete::{U3, U4, U6};
 
     use crate::serdes::NibbleBuf;
+    use crate::serdes::vlu4::vlu32::Vlu32;
+    use crate::serdes::vlu4::Vlu4Vec;
     use super::Uri;
-    use crate::serdes::vlu4::Vlu4U32Array;
 
     #[test]
     fn one_part_uri_iter() {
@@ -265,7 +267,7 @@ mod test {
     fn multi_part_uri_iter() {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
-        let arr: Vlu4U32Array = buf.des_vlu4().unwrap();
+        let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
         let uri = Uri::MultiPart(arr);
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
@@ -280,7 +282,7 @@ mod test {
     fn uri_display() {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
-        let arr: Vlu4U32Array = buf.des_vlu4().unwrap();
+        let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
         let uri = Uri::MultiPart(arr);
         assert_eq!(format!("{:#}", uri), "Uri(/1/2/3/4/5)");
         assert_eq!(format!("{}", uri), "/1/2/3/4/5");

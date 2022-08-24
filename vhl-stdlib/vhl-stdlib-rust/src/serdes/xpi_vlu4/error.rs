@@ -1,8 +1,10 @@
 // use thiserror::Error;
-use crate::serdes::{nibble_buf, bit_buf, NibbleBufMut};
+use crate::serdes::{nibble_buf, bit_buf, NibbleBufMut, DeserializeVlu4, NibbleBuf};
 use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::vlu4::vlu32::Vlu32;
+use crate::serdes::nibble_buf::Error as NibbleBufError;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FailReason {
     /// No response was received in time
     Timeout,
@@ -100,13 +102,41 @@ impl From<crate::serdes::bit_buf::Error> for FailReason {
     }
 }
 
+impl From<u32> for FailReason {
+    fn from(e: u32) -> Self {
+        FailReason::from_u32(e)
+    }
+}
+
+// impl Into<Vlu32> for FailReason {
+//     fn into(self) -> Vlu32 {
+//         Vlu32(self.to_u32())
+//     }
+// }
 
 impl SerializeVlu4 for FailReason {
-    type Error = XpiVlu4Error;
+    type Error = NibbleBufError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         wgr.put_vlu4_u32(self.to_u32())?;
         Ok(())
+    }
+
+    fn len_nibbles(&self) -> usize {
+        Vlu32(self.to_u32()).len_nibbles()
+    }
+}
+
+impl<'i> DeserializeVlu4<'i> for Result<(), FailReason> {
+    type Error = crate::serdes::nibble_buf::Error;
+
+    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let code = rdr.get_vlu4_u32()?;
+        if code == 0 {
+            Ok(Ok(()))
+        } else {
+            Ok(Err(FailReason::from_u32(code)))
+        }
     }
 }
 
@@ -132,7 +162,8 @@ pub enum XpiVlu4Error {
     ReservedDiscard,
 
     // #[error("Feature is not yet implemented")]
-    Unimplemented
+    Unimplemented,
+    NodeId
 }
 
 impl From<nibble_buf::Error> for XpiVlu4Error {

@@ -5,7 +5,6 @@ use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::{BitBuf, DeserializeVlu4};
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
 
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
@@ -28,6 +27,7 @@ pub enum Error {
     // #[error("Unaligned access for slice")]
     UnalignedAccess,
     InvalidByteSizeEstimate,
+    Vlu4Vec,
 }
 
 impl<'i> NibbleBuf<'i> {
@@ -163,6 +163,11 @@ impl<'i> NibbleBuf<'i> {
         if self.nibbles_left() < nibble_count {
             return Err(Error::OutOfBounds);
         }
+        unsafe { self.skip_unchecked(nibble_count); }
+        Ok(())
+    }
+
+    pub unsafe fn skip_unchecked(&mut self, nibble_count: usize) {
         if self.is_at_byte_boundary {
             if nibble_count % 2 != 0 {
                 self.is_at_byte_boundary = false;
@@ -176,7 +181,6 @@ impl<'i> NibbleBuf<'i> {
                 self.idx += nibble_count / 2;
             }
         }
-        Ok(())
     }
 
     pub fn align_to_byte(&mut self) -> Result<(), Error> {
@@ -223,6 +227,28 @@ impl<'i> NibbleBuf<'i> {
         let slice = &self.buf[self.idx .. self.idx + len];
         self.idx += len;
         Ok(slice)
+    }
+
+    pub fn get_buf_slice(&mut self, len_nibbles: usize) -> Result<Self, Error> {
+        if self.nibbles_left() < len_nibbles {
+            return Err(Error::OutOfBounds);
+        }
+
+        let idx_before = self.idx;
+        let is_at_byte_boundary_before = self.is_at_byte_boundary;
+        unsafe { self.skip_unchecked(len_nibbles); }
+
+        let len_nibbles = if is_at_byte_boundary_before {
+            len_nibbles
+        } else {
+            len_nibbles + 1
+        };
+        Ok(NibbleBuf {
+            buf: &self.buf[idx_before..],
+            len_nibbles,
+            idx: 0,
+            is_at_byte_boundary: is_at_byte_boundary_before
+        })
     }
 
     pub fn des_vlu4<'di, T: DeserializeVlu4<'i>>(&'di mut self) -> Result<T, T::Error> {
@@ -572,36 +598,36 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
-    /// Write any number of slices into this buffer using [Vlu4SliceArrayBuilder].
-    ///
-    /// Example:
-    /// ```
-    /// use vhl_stdlib::serdes::NibbleBufMut;
-    /// use vhl_stdlib::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
-    /// use hex_literal::hex;
-    ///
-    /// let mut buf = [0u8; 128];
-    /// let wgr = NibbleBufMut::new_all(&mut buf);
-    /// let mut wgr: Vlu4SliceArrayBuilder = wgr.put_slice_array();
-    ///
-    /// wgr.put_slice(&[1, 2, 3]).unwrap();
-    /// wgr.put_slice(&[4, 5]).unwrap();
-    /// let wgr: NibbleBufMut = wgr.finish().unwrap();
-    /// let (buf, _, _) = wgr.finish();
-    /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
-    /// ```
-    pub fn put_slice_array(self) -> Vlu4SliceArrayBuilder<'i> {
-        let idx_before = self.idx;
-        let is_at_byte_boundary_before = self.is_at_byte_boundary;
-        Vlu4SliceArrayBuilder {
-            wgr: self,
-            idx_before,
-            is_at_byte_boundary_before,
-            stride_len: 0,
-            stride_len_idx_nibbles: 0,
-            slices_written: 0
-        }
-    }
+    // /// Write any number of slices into this buffer using [Vlu4SliceArrayBuilder].
+    // ///
+    // /// Example:
+    // /// ```
+    // /// use vhl_stdlib::serdes::NibbleBufMut;
+    // /// use vhl_stdlib::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
+    // /// use hex_literal::hex;
+    // ///
+    // /// let mut buf = [0u8; 128];
+    // /// let wgr = NibbleBufMut::new_all(&mut buf);
+    // /// let mut wgr: Vlu4SliceArrayBuilder = wgr.put_slice_array();
+    // ///
+    // /// wgr.put_slice(&[1, 2, 3]).unwrap();
+    // /// wgr.put_slice(&[4, 5]).unwrap();
+    // /// let wgr: NibbleBufMut = wgr.finish().unwrap();
+    // /// let (buf, _, _) = wgr.finish();
+    // /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
+    // /// ```
+    // pub fn put_slice_array(self) -> Vlu4SliceArrayBuilder<'i> {
+    //     let idx_before = self.idx;
+    //     let is_at_byte_boundary_before = self.is_at_byte_boundary;
+    //     Vlu4SliceArrayBuilder {
+    //         wgr: self,
+    //         idx_before,
+    //         is_at_byte_boundary_before,
+    //         stride_len: 0,
+    //         stride_len_idx_nibbles: 0,
+    //         slices_written: 0
+    //     }
+    // }
 
     pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {
         if self.nibbles_left() < other.nibbles_left() {
@@ -650,7 +676,7 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: T) -> Result<(), E> {
+    pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_vlu4(self)
     }
 }
@@ -992,5 +1018,40 @@ mod test {
         wrr.put_u8(0x22).unwrap();
         wrr.restore_state(state).unwrap();
         assert_eq!(wrr.nibbles_pos(), 4);
+    }
+
+    #[test]
+    fn get_buf_slice() {
+        let input = hex!("aa bb cc dd ee ff 11");
+        let mut nrd = NibbleBuf::new_all(&input);
+
+        let mut nrd_aa = nrd.get_buf_slice(2).unwrap();
+        assert_eq!(nrd_aa.nibbles_left(), 2);
+        assert_eq!(nrd_aa.get_u8(), Ok(0xaa));
+
+        assert_eq!(nrd.get_nibble(), Ok(0xb));
+
+        let mut nrd_bcc = nrd.get_buf_slice(3).unwrap();
+        assert_eq!(nrd_bcc.nibbles_left(), 3);
+        assert_eq!(nrd_bcc.get_u8(), Ok(0xbc));
+        assert_eq!(nrd_bcc.get_nibble(), Ok(0xc));
+
+        assert_eq!(nrd.get_nibble(), Ok(0xd));
+
+        let mut nrd_de = nrd.get_buf_slice(2).unwrap();
+        assert_eq!(nrd_de.nibbles_left(), 2);
+        assert_eq!(nrd_de.get_u8(), Ok(0xde));
+
+        let mut nrd_e = nrd.get_buf_slice(1).unwrap();
+        assert_eq!(nrd_e.nibbles_left(), 1);
+        assert_eq!(nrd_e.get_nibble(), Ok(0xe));
+
+        let mut nrd_ff1 = nrd.get_buf_slice(3).unwrap();
+        assert_eq!(nrd_ff1.nibbles_left(), 3);
+        assert_eq!(nrd_ff1.get_u8(), Ok(0xff));
+        assert_eq!(nrd_ff1.get_nibble(), Ok(0x1));
+
+        assert_eq!(nrd.get_nibble(), Ok(0x1));
+        assert!(nrd.is_at_end());
     }
 }

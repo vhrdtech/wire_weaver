@@ -147,6 +147,10 @@ impl<'i> SerializeVlu4 for Vlu4SliceArray<'i> {
         }
         Ok(())
     }
+
+    fn len_nibbles(&self) -> usize {
+        todo!()
+    }
 }
 
 impl<'i> DeserializeVlu4<'i> for Vlu4SliceArray<'i> {

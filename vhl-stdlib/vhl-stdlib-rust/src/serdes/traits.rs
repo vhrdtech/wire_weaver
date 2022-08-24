@@ -25,6 +25,9 @@ pub trait SerializeVlu4 {
     type Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error>;
+
+    /// Size of the object serialized in nibbles
+    fn len_nibbles(&self) -> usize;
 }
 
 /// Deserialize trait implemented by all types that support deserializing from buffer of nibbles.

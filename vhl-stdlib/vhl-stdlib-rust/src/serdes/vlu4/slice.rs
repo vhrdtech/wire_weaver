@@ -35,4 +35,8 @@ impl<'i> SerializeVlu4 for Vlu4Slice<'i> {
         wgr.put_slice(self.slice)?;
         Ok(())
     }
+
+    fn len_nibbles(&self) -> usize {
+        todo!()
+    }
 }

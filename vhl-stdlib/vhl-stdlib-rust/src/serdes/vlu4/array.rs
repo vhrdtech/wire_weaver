@@ -69,6 +69,10 @@ impl<'i> SerializeVlu4 for Vlu4U32Array<'i> {
         }
         Ok(())
     }
+
+    fn len_nibbles(&self) -> usize {
+        todo!()
+    }
 }
 
 impl<'i> IntoIterator for Vlu4U32Array<'i> {
@@ -82,7 +86,7 @@ impl<'i> IntoIterator for Vlu4U32Array<'i> {
 
 #[derive(Clone)]
 pub struct Vlu4U32ArrayIter<'i> {
-    array: Vlu4U32Array<'i>,
+    array: Vlu4Vec<'i, u32>,
     pos: usize,
 }
 

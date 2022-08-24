@@ -112,6 +112,17 @@ impl<'i> SerializeVlu4 for Uri<'i> {
         }
         Ok(())
     }
+
+    fn len_nibbles(&self) -> usize {
+        match self {
+            Uri::OnePart4(_) => 1,
+            Uri::TwoPart44(_, _) => 2,
+            Uri::ThreePart444(_, _, _) => 3,
+            Uri::ThreePart633(_, _, _) => 3,
+            Uri::ThreePart664(_, _, _) => 4,
+            Uri::MultiPart(arr) => arr.len_nibbles()
+        }
+    }
 }
 
 impl<'i> IntoIterator for Uri<'i> {

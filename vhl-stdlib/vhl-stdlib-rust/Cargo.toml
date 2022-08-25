@@ -11,3 +11,5 @@ edition = "2021"
 
 [dev-dependencies]
 hex-literal = "^0.3.4"
+rand = "^0.8.5"
+rand_chacha = "^0.3.1"

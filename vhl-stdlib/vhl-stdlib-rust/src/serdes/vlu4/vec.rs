@@ -568,7 +568,7 @@ impl<'i> DeserializeVlu4<'i> for u32 {
 
 #[cfg(test)]
 mod test {
-    // extern crate std;
+    extern crate std;
     // use std::println;
     use hex_literal::hex;
     use crate::serdes::xpi_vlu4::error::FailReason;
@@ -802,8 +802,42 @@ mod test {
     }
 
     #[test]
-    fn longer_slices() {
+    fn long_slices_builder() {
+        use rand::prelude::*;
+        use rand_chacha::ChaCha8Rng;
+        use rand_chacha::rand_core::SeedableRng;
+        use std::vec::Vec;
 
+        const START_LEN: usize = 16;
+        const ITERATIONS: usize = 10;
+
+        let mut buf = [0u8; 20_000];
+        let mut vb = Vlu4VecBuilder::<&[u8]>::new(&mut buf);
+        let mut len = START_LEN;
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        for _ in 0..ITERATIONS {
+            let mut slice = Vec::new();
+            slice.reserve(len);
+            for _ in 0..len {
+                slice.push(rng.gen_range(0..255u8));
+            }
+            vb.put_aligned(&slice).unwrap();
+            len *= 2;
+        }
+
+        let vec = vb.finish_as_vec().unwrap();
+        assert_eq!(vec.len(), ITERATIONS);
+        let mut iter = vec.iter();
+        let mut len = START_LEN;
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        for _ in 0..ITERATIONS {
+            let slice = iter.next().unwrap();
+            assert_eq!(slice.len(), len);
+            for i in 0..len {
+                assert_eq!(slice[i], rng.gen_range(0..255u8));
+            }
+            len *= 2;
+        }
     }
 
     #[test]
@@ -903,46 +937,4 @@ mod test {
         assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
         assert_eq!(iter.next(), None);
     }
-    //
-    // #[test]
-    // fn put_exact_or_rewind_ok() {
-    //     let mut args_set = [0u8; 128];
-    //     let args_set = {
-    //         let wgr = NibbleBufMut::new_all(&mut args_set);
-    //         let mut wgr = wgr.put_slice_array();
-    //         wgr.put_exact_or_rewind::<MyError, _>(4, |slice| {
-    //             let mut wgr = BufMut::new(slice);
-    //             wgr.put_u16_le(0x1234)?;
-    //             wgr.put_u16_le(0x5678)?;
-    //             Ok(())
-    //         }).unwrap();
-    //         assert_eq!(&wgr.wgr.buf[0..5], hex!("14 34 12 78 56"));
-    //         wgr.finish_as_slice_array().unwrap()
-    //     };
-    //     assert_eq!(args_set.total_len, 1);
-    //     assert_eq!(args_set.rdr.nibbles_pos(), 0);
-    //     assert_eq!(args_set.rdr.nibbles_left(), 10);
-    //     let mut iter = args_set.iter();
-    //     assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
-    //     assert_eq!(iter.next(), None);
-    // }
-    //
-    // #[test]
-    // fn put_exact_or_rewind_err() {
-    //     let mut args_set = [0u8; 128];
-    //     let args_set = {
-    //         let wgr = NibbleBufMut::new_all(&mut args_set);
-    //         let mut wgr = wgr.put_slice_array();
-    //         let r = wgr.put_exact_or_rewind::<MyError, _>(4, |slice| {
-    //             let mut wgr = BufMut::new(slice);
-    //             wgr.put_u16_le(0x1234)?;
-    //             wgr.put_u16_le(0x5678)?;
-    //             Err(MyError::Fake)
-    //         }).unwrap();
-    //         assert_eq!(wgr.slices_written, 0);
-    //         assert_eq!(r, Err(MyError::Fake));
-    //         wgr.finish_as_slice_array().unwrap()
-    //     };
-    //     assert_eq!(args_set.total_len, 0);
-    // }
 }

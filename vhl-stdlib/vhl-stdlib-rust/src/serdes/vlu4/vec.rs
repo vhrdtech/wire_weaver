@@ -409,55 +409,51 @@ impl<'i> Vlu4VecBuilder<'i, &'i[u8]> {
         self.finish_putting_element()?;
         Ok(())
     }
-
-    // /// Get a mutable aligned u8 slice of requested length inside a closure.
-    // /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
-    // /// If closure returns an error, state is restored as it was before calling this function.
-    // pub fn put_aligned_or_rewind<E, F>(&mut self, len: usize, f: F)
-    //     -> Result<Result<(), E>, NibbleBufError>
-    //     where
-    //         F: Fn(&mut [u8]) -> Result<(), E>,
-    //         E: From<crate::serdes::nibble_buf::Error>
-    // {
-    //     let state = self.wgr.save_state();
-    //     let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
-    //     self.start_putting_slice(len)?;
-    //     match f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len]) {
-    //         Ok(_) => {
-    //             self.wgr.idx += len;
-    //             self.finish_putting_slice()?;
-    //             Ok(Ok(()))
-    //         }
-    //         Err(e) => {
-    //             self.wgr.restore_state(state)?;
-    //             self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
-    //             return Ok(Err(e))
-    //         }
-    //     }
-    // }
 }
 
-// impl<'i> Vlu4SliceArrayBuilder<'i> {
-    //
-    // /// Serialize any type that implements SerializeBytes as a slice into this buffer.
-    // pub fn put_bytes<E, T: SerializeBytes<Error = E>>(&mut self, t: &T) -> Result<(), E>
-    //     where E: From<crate::serdes::nibble_buf::Error>,
-    // {
-    //     self.start_putting_slice(t.len_bytes())?;
-    //     let mut wgr = BufMut::new(
-    //         &mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + t.len_bytes()]
-    //     );
-    //     wgr.put(t)?;
-    //     let (_, pos) = wgr.finish();
-    //     if pos != t.len_bytes() {
-    //         return Err(crate::serdes::nibble_buf::Error::InvalidByteSizeEstimate.into());
-    //     }
-    //     self.wgr.idx += t.len_bytes();
-    //     self.finish_putting_slice()?;
-    //     Ok(())
-    // }
-    //
-// }
+impl<'i, E, SE> Vlu4VecBuilder<'i, Result<&'i[u8], E>>
+    where
+        E: SerializeVlu4<Error = SE>,
+        SE: From<NibbleBufError>
+{
+    fn put_result_with_slice(&mut self, result: Result<&'i[u8], E>) -> Result<(), SE> {
+        self.start_putting_element()?;
+        match result {
+            Ok(slice) => {
+                self.wgr.put_nibble(0)?;
+                if slice.len() == 0 {
+                    self.wgr.put_nibble(0)?;
+                    self.finish_putting_element()?;
+                    return Ok(());
+                }
+                let len_len = Vlu32(slice.len() as u32).len_nibbles();
+                let len = if self.wgr.is_at_byte_boundary() {
+                    if len_len % 2 == 0 {
+                        slice.len() * 2
+                    } else {
+                        slice.len() * 2 + 1
+                    }
+                } else {
+                    if len_len % 2 != 0 {
+                        slice.len() * 2
+                    } else {
+                        slice.len() * 2 + 1
+                    }
+                };
+                self.wgr.put(&Vlu32(len as u32))?;
+                self.wgr.align_to_byte()?;
+                self.wgr.put_slice(slice)?;
+                self.finish_putting_element()?;
+                Ok(())
+            }
+            Err(e) => {
+                self.wgr.put(&e)?;
+                self.finish_putting_element()?;
+                Ok(())
+            }
+        }
+    }
+}
 
 impl<'i> DeserializeVlu4<'i> for &'i [u8] {
     type Error = NibbleBufError;
@@ -472,38 +468,38 @@ impl<'i> DeserializeVlu4<'i> for &'i [u8] {
     }
 }
 
-impl<'i> SerializeVlu4 for &'i [u8] {
-    type Error = NibbleBufError;
-
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        if self.len() == 0 {
-            wgr.put_nibble(0)?;
-            return Ok(());
-        }
-        let len_len = Vlu32(self.len() as u32).len_nibbles();
-        let len = if wgr.is_at_byte_boundary() {
-            if len_len % 2 == 0 {
-                self.len() * 2
-            } else {
-                self.len() * 2 + 1
-            }
-        } else {
-            if len_len % 2 != 0 {
-                self.len() * 2
-            } else {
-                self.len() * 2 + 1
-            }
-        };
-        wgr.put(&Vlu32(len as u32))?;
-        wgr.align_to_byte()?;
-        wgr.put_slice(self)?;
-        Ok(())
-    }
-
-    fn len_nibbles(&self) -> usize {
-        todo!()
-    }
-}
+// impl<'i> SerializeVlu4 for &'i [u8] {
+//     type Error = NibbleBufError;
+//
+//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+//         if self.len() == 0 {
+//             wgr.put_nibble(0)?;
+//             return Ok(());
+//         }
+//         let len_len = Vlu32(self.len() as u32).len_nibbles();
+//         let len = if wgr.is_at_byte_boundary() {
+//             if len_len % 2 == 0 {
+//                 self.len() * 2
+//             } else {
+//                 self.len() * 2 + 1
+//             }
+//         } else {
+//             if len_len % 2 != 0 {
+//                 self.len() * 2
+//             } else {
+//                 self.len() * 2 + 1
+//             }
+//         };
+//         wgr.put(&Vlu32(len as u32))?;
+//         wgr.align_to_byte()?;
+//         wgr.put_slice(self)?;
+//         Ok(())
+//     }
+//
+//     fn len_nibbles(&self) -> usize {
+//         // no way to return correct len, because it depends on buffer state which is unknown here
+//     }
+// }
 
 impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
     where T: DeserializeVlu4<'i, Error = NibbleBufError>, E: From<u32>
@@ -664,12 +660,26 @@ mod test {
         assert_eq!(iter.next(), None);
     }
 
-    // #[test]
-    // fn vec_of_slice_results_builder() {
-    //     let mut buf = [0u8; 64];
-    //     let mut vb = Vlu4VecBuilder::<Result<&[u8], FailReason>>::new(&mut buf);
-    //     vb.put(Ok(&[1, 2, 3])).unwrap();
-    // }
+    #[test]
+    fn vec_of_slice_results_builder() {
+        let mut buf = [0u8; 64];
+        let mut vb = Vlu4VecBuilder::<Result<&[u8], FailReason>>::new(&mut buf);
+        vb.put_result_with_slice(Ok(&[1, 2, 3])).unwrap();
+        vb.put_result_with_slice(Ok(&[4, 5])).unwrap();
+        vb.put_result_with_slice(Err(FailReason::Timeout)).unwrap();
+        vb.put_result_with_slice(Ok(&[])).unwrap();
+        vb.put_result_with_slice(Err(FailReason::Timeout)).unwrap();
+
+        let vec = vb.finish_as_vec().unwrap();
+        assert_eq!(&vec.rdr.buf[..10], hex!("50 70 01 02 03 04 04 05 10 01"));
+
+        let mut iter = vec.iter();
+        assert_eq!(iter.next(), Some( Ok(&[1, 2, 3][..]) ));
+        assert_eq!(iter.next(), Some( Ok(&[4, 5][..]) ));
+        assert_eq!(iter.next(), Some( Err(FailReason::Timeout) ));
+        assert_eq!(iter.next(), Some( Ok(&[][..]) ));
+        assert_eq!(iter.next(), Some( Err(FailReason::Timeout) ));
+    }
 
     #[test]
     fn vec_of_vlu32() {
@@ -714,38 +724,39 @@ mod test {
         assert_eq!(buf.get_u8(), Ok(0x11));
     }
 
-    #[test]
-    fn round_trip() {
-        let input_buf = hex!("24 ab cd 50 ef fe /* slices end */ aa bb");
-        let mut buf = NibbleBuf::new_all(&input_buf);
-        let slices: Vlu4Vec<&[u8]> = buf.des_vlu4().unwrap();
-        assert_eq!(slices.total_len, 2);
-        assert_eq!(slices.rdr.nibbles_left(), 12);
+    // can work if SerializeVlu4 is implemented for &[u8], len_nibbles() in which doesn't make sense
+    // #[test]
+    // fn round_trip() {
+    //     let input_buf = hex!("24 ab cd 50 ef fe /* slices end */ aa bb");
+    //     let mut buf = NibbleBuf::new_all(&input_buf);
+    //     let slices: Vlu4Vec<&[u8]> = buf.des_vlu4().unwrap();
+    //     assert_eq!(slices.total_len, 2);
+    //     assert_eq!(slices.rdr.nibbles_left(), 12);
+    //
+    //     let mut output_buf = [0u8; 6];
+    //     let mut wgr = NibbleBufMut::new_all(&mut output_buf);
+    //     wgr.put(&slices).unwrap();
+    //     let (output_buf, _, is_at_byte_boundary) = wgr.finish();
+    //     assert_eq!(output_buf, &[0x24, 0xab, 0xcd, 0x50, 0xef, 0xfe]);
+    //     assert_eq!(is_at_byte_boundary, true);
+    // }
 
-        let mut output_buf = [0u8; 6];
-        let mut wgr = NibbleBufMut::new_all(&mut output_buf);
-        wgr.put(&slices).unwrap();
-        let (output_buf, _, is_at_byte_boundary) = wgr.finish();
-        assert_eq!(output_buf, &[0x24, 0xab, 0xcd, 0x50, 0xef, 0xfe]);
-        assert_eq!(is_at_byte_boundary, true);
-    }
-
-    #[test]
-    fn round_trip_unaligned() {
-        let input_buf = hex!("24 ab cd 50 ef fe /* slices end */ aa bb");
-        let mut buf = NibbleBuf::new_all(&input_buf);
-        let slices: Vlu4Vec<&[u8]> = buf.des_vlu4().unwrap();
-        assert_eq!(slices.total_len, 2);
-        assert_eq!(slices.rdr.nibbles_left(), 12);
-
-        let mut output_buf = [0u8; 7];
-        let mut wgr = NibbleBufMut::new_all(&mut output_buf);
-        wgr.put_nibble(0x7).unwrap();
-        wgr.put(&slices).unwrap();
-        let (output_buf, _, is_at_byte_boundary) = wgr.finish();
-        assert_eq!(output_buf, hex!("72 50 ab cd 50 ef fe"));
-        assert_eq!(is_at_byte_boundary, true);
-    }
+    // #[test]
+    // fn round_trip_unaligned() {
+    //     let input_buf = hex!("24 ab cd 50 ef fe /* slices end */ aa bb");
+    //     let mut buf = NibbleBuf::new_all(&input_buf);
+    //     let slices: Vlu4Vec<&[u8]> = buf.des_vlu4().unwrap();
+    //     assert_eq!(slices.total_len, 2);
+    //     assert_eq!(slices.rdr.nibbles_left(), 12);
+    //
+    //     let mut output_buf = [0u8; 7];
+    //     let mut wgr = NibbleBufMut::new_all(&mut output_buf);
+    //     wgr.put_nibble(0x7).unwrap();
+    //     wgr.put(&slices).unwrap();
+    //     let (output_buf, _, is_at_byte_boundary) = wgr.finish();
+    //     assert_eq!(output_buf, hex!("72 50 ab cd 50 ef fe"));
+    //     assert_eq!(is_at_byte_boundary, true);
+    // }
 
     #[test]
     fn slice_array_builder_len_3() {

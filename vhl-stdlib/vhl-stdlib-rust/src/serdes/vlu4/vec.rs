@@ -154,6 +154,9 @@ impl<'i, T, E> SerializeVlu4 for Vlu4Vec<'i, T>
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         let mut elements_left = self.total_len;
         let mut elements_iter = self.iter();
+        if elements_left == 0 {
+            wgr.put_nibble(0)?;
+        }
         while elements_left > 0 {
             let stride_len = if elements_left <= 14 {
                 wgr.put_nibble(elements_left as u8)?;
@@ -464,38 +467,39 @@ impl<'i> DeserializeVlu4<'i> for &'i [u8] {
     }
 }
 
-// impl<'i> SerializeVlu4 for &'i [u8] {
-//     type Error = NibbleBufError;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         if self.len() == 0 {
-//             wgr.put_nibble(0)?;
-//             return Ok(());
-//         }
-//         let len_len = Vlu32(self.len() as u32).len_nibbles();
-//         let len = if wgr.is_at_byte_boundary() {
-//             if len_len % 2 == 0 {
-//                 self.len() * 2
-//             } else {
-//                 self.len() * 2 + 1
-//             }
-//         } else {
-//             if len_len % 2 != 0 {
-//                 self.len() * 2
-//             } else {
-//                 self.len() * 2 + 1
-//             }
-//         };
-//         wgr.put(&Vlu32(len as u32))?;
-//         wgr.align_to_byte()?;
-//         wgr.put_slice(self)?;
-//         Ok(())
-//     }
-//
-//     fn len_nibbles(&self) -> usize {
-//         // no way to return correct len, because it depends on buffer state which is unknown here
-//     }
-// }
+impl<'i> SerializeVlu4 for &'i [u8] {
+    type Error = NibbleBufError;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        if self.len() == 0 {
+            wgr.put_nibble(0)?;
+            return Ok(());
+        }
+        let len_len = Vlu32(self.len() as u32).len_nibbles();
+        let len = if wgr.is_at_byte_boundary() {
+            if len_len % 2 == 0 {
+                self.len() * 2
+            } else {
+                self.len() * 2 + 1
+            }
+        } else {
+            if len_len % 2 != 0 {
+                self.len() * 2
+            } else {
+                self.len() * 2 + 1
+            }
+        };
+        wgr.put(&Vlu32(len as u32))?;
+        wgr.align_to_byte()?;
+        wgr.put_slice(self)?;
+        Ok(())
+    }
+
+    fn len_nibbles(&self) -> usize {
+        // no way to return correct len, because it depends on buffer state which is unknown here
+        panic!("<&[u8] as SerializeVlu4>::len_nibbles() is incorrect to call");
+    }
+}
 
 impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
     where T: DeserializeVlu4<'i, Error = NibbleBufError>, E: From<u32>

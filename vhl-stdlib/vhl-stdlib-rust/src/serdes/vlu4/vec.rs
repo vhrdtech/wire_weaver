@@ -265,6 +265,30 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         Ok(())
     }
 
+    fn put_len_bytes_and_align(&mut self, len_bytes: usize) -> Result<(), NibbleBufError> {
+        if len_bytes == 0 {
+            self.wgr.put_nibble(0)?;
+            return Ok(());
+        }
+        let len_len = Vlu32(len_bytes as u32).len_nibbles();
+        let len = if self.wgr.is_at_byte_boundary() {
+            if len_len % 2 == 0 {
+                len_bytes * 2
+            } else {
+                len_bytes * 2 + 1
+            }
+        } else {
+            if len_len % 2 != 0 {
+                len_bytes * 2
+            } else {
+                len_bytes * 2 + 1
+            }
+        };
+        self.wgr.put(&Vlu32(len as u32))?;
+        self.wgr.align_to_byte()?;
+        Ok(())
+    }
+
     fn finish_putting_element(&mut self) -> Result<(), NibbleBufError> {
         self.stride_len += 1;
         self.slices_written += 1;
@@ -354,27 +378,7 @@ impl<'i> Vlu4VecBuilder<'i, &'i[u8]> {
         SE: From<NibbleBufError>
     {
         self.start_putting_element()?;
-        if len_bytes == 0 {
-            self.wgr.put_nibble(0)?;
-            self.finish_putting_element()?;
-            return Ok(());
-        }
-        let len_len = Vlu32(len_bytes as u32).len_nibbles();
-        let len = if self.wgr.is_at_byte_boundary() {
-            if len_len % 2 == 0 {
-                len_bytes * 2
-            } else {
-                len_bytes * 2 + 1
-            }
-        } else {
-            if len_len % 2 != 0 {
-                len_bytes * 2
-            } else {
-                len_bytes * 2 + 1
-            }
-        };
-        self.wgr.put(&Vlu32(len as u32))?;
-        self.wgr.align_to_byte()?;
+        self.put_len_bytes_and_align(len_bytes)?;
         f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len_bytes])?;
         self.wgr.idx += len_bytes;
         self.finish_putting_element()?;
@@ -384,28 +388,10 @@ impl<'i> Vlu4VecBuilder<'i, &'i[u8]> {
     /// Put u8 slice into Vlu4Vec. Padding is added if necessary.
     pub fn put_aligned(&mut self, slice: &[u8]) -> Result<(), NibbleBufError> {
         self.start_putting_element()?;
-        if slice.len() == 0 {
-            self.wgr.put_nibble(0)?;
-            self.finish_putting_element()?;
-            return Ok(());
+        self.put_len_bytes_and_align(slice.len())?;
+        if slice.len() != 0 {
+            self.wgr.put_slice(slice)?;
         }
-        let len_len = Vlu32(slice.len() as u32).len_nibbles();
-        let len = if self.wgr.is_at_byte_boundary() {
-            if len_len % 2 == 0 {
-                slice.len() * 2
-            } else {
-                slice.len() * 2 + 1
-            }
-        } else {
-            if len_len % 2 != 0 {
-                slice.len() * 2
-            } else {
-                slice.len() * 2 + 1
-            }
-        };
-        self.wgr.put(&Vlu32(len as u32))?;
-        self.wgr.align_to_byte()?;
-        self.wgr.put_slice(slice)?;
         self.finish_putting_element()?;
         Ok(())
     }
@@ -416,33 +402,15 @@ impl<'i, E, SE> Vlu4VecBuilder<'i, Result<&'i[u8], E>>
         E: SerializeVlu4<Error = SE>,
         SE: From<NibbleBufError>
 {
-    fn put_result_with_slice(&mut self, result: Result<&'i[u8], E>) -> Result<(), SE> {
+    pub fn put_result_with_slice(&mut self, result: Result<&'i[u8], E>) -> Result<(), SE> {
         self.start_putting_element()?;
         match result {
             Ok(slice) => {
                 self.wgr.put_nibble(0)?;
-                if slice.len() == 0 {
-                    self.wgr.put_nibble(0)?;
-                    self.finish_putting_element()?;
-                    return Ok(());
+                self.put_len_bytes_and_align(slice.len())?;
+                if slice.len() != 0 {
+                    self.wgr.put_slice(slice)?;
                 }
-                let len_len = Vlu32(slice.len() as u32).len_nibbles();
-                let len = if self.wgr.is_at_byte_boundary() {
-                    if len_len % 2 == 0 {
-                        slice.len() * 2
-                    } else {
-                        slice.len() * 2 + 1
-                    }
-                } else {
-                    if len_len % 2 != 0 {
-                        slice.len() * 2
-                    } else {
-                        slice.len() * 2 + 1
-                    }
-                };
-                self.wgr.put(&Vlu32(len as u32))?;
-                self.wgr.align_to_byte()?;
-                self.wgr.put_slice(slice)?;
                 self.finish_putting_element()?;
                 Ok(())
             }
@@ -450,6 +418,34 @@ impl<'i, E, SE> Vlu4VecBuilder<'i, Result<&'i[u8], E>>
                 self.wgr.put(&e)?;
                 self.finish_putting_element()?;
                 Ok(())
+            }
+        }
+    }
+
+    /// Get a mutable slice of requested length inside a closure. Put is as Ok(&[u8]) if f returns
+    /// Ok(()) or as Err(E) otherwise.
+    ///
+    /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
+    pub fn put_result_with_slice_from<F>(&mut self, len_bytes: usize, f: F) -> Result<(), SE>
+        where F: Fn(&mut [u8]) -> Result<(), E>
+    {
+        let state = self.wgr.save_state();
+        let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
+        self.start_putting_element()?;
+        self.wgr.put_nibble(0)?;
+
+        self.put_len_bytes_and_align(len_bytes)?;
+        match f(&mut self.wgr.buf[self.wgr.idx .. self.wgr.idx + len_bytes]) {
+            Ok(_) => {
+                self.wgr.idx += len_bytes;
+                self.finish_putting_element()?;
+                Ok(())
+            }
+            Err(e) => {
+                self.wgr.restore_state(state)?;
+                self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
+                self.wgr.put(&e)?;
+                return Ok(())
             }
         }
     }

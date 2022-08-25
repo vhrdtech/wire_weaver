@@ -1,10 +1,12 @@
 use core::fmt::{Debug, Display, Formatter};
+use core::marker::PhantomData;
 use core::ptr::copy_nonoverlapping;
 use crate::serdes::bit_buf::BitBufMut;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::{BitBuf, DeserializeVlu4};
 use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::vlu4::Vlu4VecBuilder;
 
 /// Buffer reader that treats input as a stream of nibbles
 #[derive(Copy, Clone)]
@@ -598,36 +600,37 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
-    // /// Write any number of slices into this buffer using [Vlu4SliceArrayBuilder].
-    // ///
-    // /// Example:
-    // /// ```
-    // /// use vhl_stdlib::serdes::NibbleBufMut;
-    // /// use vhl_stdlib::serdes::vlu4::slice_array::Vlu4SliceArrayBuilder;
-    // /// use hex_literal::hex;
-    // ///
-    // /// let mut buf = [0u8; 128];
-    // /// let wgr = NibbleBufMut::new_all(&mut buf);
-    // /// let mut wgr: Vlu4SliceArrayBuilder = wgr.put_slice_array();
-    // ///
-    // /// wgr.put_slice(&[1, 2, 3]).unwrap();
-    // /// wgr.put_slice(&[4, 5]).unwrap();
-    // /// let wgr: NibbleBufMut = wgr.finish().unwrap();
-    // /// let (buf, _, _) = wgr.finish();
-    // /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
-    // /// ```
-    // pub fn put_slice_array(self) -> Vlu4SliceArrayBuilder<'i> {
-    //     let idx_before = self.idx;
-    //     let is_at_byte_boundary_before = self.is_at_byte_boundary;
-    //     Vlu4SliceArrayBuilder {
-    //         wgr: self,
-    //         idx_before,
-    //         is_at_byte_boundary_before,
-    //         stride_len: 0,
-    //         stride_len_idx_nibbles: 0,
-    //         slices_written: 0
-    //     }
-    // }
+    /// Create a Vlu4VecBuilder from the rest of this buffer.
+    ///
+    /// Example:
+    /// ```
+    /// use vhl_stdlib::serdes::NibbleBufMut;
+    /// use vhl_stdlib::serdes::vlu4::Vlu4VecBuilder;
+    /// use hex_literal::hex;
+    ///
+    /// let mut buf = [0u8; 128];
+    /// let wgr = NibbleBufMut::new_all(&mut buf);
+    /// let mut wgr = wgr.put_vec::<&[u8]>();
+    ///
+    /// wgr.put_aligned(&[1, 2, 3]).unwrap();
+    /// wgr.put_aligned(&[4, 5]).unwrap();
+    /// let wgr: NibbleBufMut = wgr.finish().unwrap();
+    /// let (buf, _, _) = wgr.finish();
+    /// assert_eq!(&buf[0..=6], hex!("23 01 02 03 20 04 05"));
+    /// ```
+    pub fn put_vec<T>(self) -> Vlu4VecBuilder<'i, T> {
+        let idx_before = self.idx;
+        let is_at_byte_boundary_before = self.is_at_byte_boundary;
+        Vlu4VecBuilder {
+            wgr: self,
+            idx_before,
+            is_at_byte_boundary_before,
+            stride_len: 0,
+            stride_len_idx_nibbles: 0,
+            slices_written: 0,
+            _phantom: PhantomData
+        }
+    }
 
     pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {
         if self.nibbles_left() < other.nibbles_left() {

@@ -54,7 +54,7 @@ impl SerializeBits for Priority {
             Priority::Lossless(level) => (true, level)
         };
         wgr.put_bit(is_lossless)?;
-        wgr.put(*level)
+        wgr.put(level)
     }
 }
 

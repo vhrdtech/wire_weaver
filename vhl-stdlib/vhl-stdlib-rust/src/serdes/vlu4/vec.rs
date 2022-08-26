@@ -432,9 +432,9 @@ impl<'i, E, SE> Vlu4VecBuilder<'i, Result<&'i[u8], E>>
     pub fn put_result_with_slice_from<F>(&mut self, len_bytes: usize, f: F) -> Result<(), SE>
         where F: Fn(&mut [u8]) -> Result<(), E>
     {
+        self.start_putting_element()?;
         let state = self.wgr.save_state();
         let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
-        self.start_putting_element()?;
         self.wgr.put_nibble(0)?;
 
         self.put_len_bytes_and_align(len_bytes)?;
@@ -448,6 +448,7 @@ impl<'i, E, SE> Vlu4VecBuilder<'i, Result<&'i[u8], E>>
                 self.wgr.restore_state(state)?;
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
                 self.wgr.put(&e)?;
+                self.finish_putting_element()?;
                 return Ok(())
             }
         }

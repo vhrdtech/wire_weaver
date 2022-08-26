@@ -34,22 +34,20 @@ impl<'i> DeserializeVlu4<'i> for RequestId {
         Ok(RequestId(request_id & 0b0001_1111))
     }
 }
-// impl SerializeVlu4 for RequestId {
-//     type Error = XpiVlu4Error;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         if !wgr.is_at_byte_boundary() {
-//             // since request id is a part of a tail byte, put padding before it to align
-//             wgr.put_nibble(0)?;
-//         }
-//         wgr.put_u8(self.inner())?;
-//         Ok(())
-//     }
-//
-//     fn len_nibbles(&self) -> usize {
-//         2
-//     }
-// }
+impl SerializeVlu4 for RequestId {
+    type Error = XpiVlu4Error;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        // since request id is a part of a tail byte, put padding before it to align
+        wgr.align_to_byte()?;
+        wgr.put_u8(self.inner())?;
+        Ok(())
+    }
+
+    fn len_nibbles(&self) -> usize {
+        2
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum NodeSet<'i> {
@@ -110,7 +108,7 @@ impl<'i> SerializeBits for NodeSet<'i> {
         match self {
             NodeSet::Unicast(id) => {
                 wgr.put_up_to_8(2, 0b00)?;
-                wgr.put(*id)?;
+                wgr.put(id)?;
             }
             NodeSet::UnicastTraits { .. } => {
                 wgr.put_up_to_8(2, 0b01)?;

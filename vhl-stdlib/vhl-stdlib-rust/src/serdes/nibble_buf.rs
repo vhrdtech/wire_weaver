@@ -684,6 +684,38 @@ impl<'i> NibbleBufMut<'i> {
     }
 }
 
+impl<'i> Display for NibbleBufMut<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "NibbleBufMut(")?;
+        let mut nrd = NibbleBuf {
+            buf: self.buf,
+            len_nibbles: self.nibbles_pos(),
+            idx: 0,
+            is_at_byte_boundary: true
+        };
+        let mut i = 0;
+        while !nrd.is_at_end() {
+            write!(f, "{:01x}", nrd.get_nibble().unwrap_or(0))?;
+            if i == 7 {
+                write!(f, " ")?;
+                i = 0;
+            } else {
+                i += 1;
+            }
+        }
+        if self.nibbles_left() > 0 {
+            write!(f, ">{}>", self.nibbles_left())?;
+        }
+        write!(f, ")")
+    }
+}
+
+impl<'i> Debug for NibbleBufMut<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 pub struct NibbleBufMutState {
     buf_ptr: *const u8,
     idx: usize,

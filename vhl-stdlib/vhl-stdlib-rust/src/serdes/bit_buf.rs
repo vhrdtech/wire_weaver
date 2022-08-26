@@ -259,7 +259,7 @@ impl<'i> BitBufMut<'i> {
     }
 
     /// Put any type that implements SerializeBits into this buffer.
-    pub fn put<E, T: SerializeBits<Error = E>>(&mut self, t: T) -> Result<(), E> {
+    pub fn put<E, T: SerializeBits<Error = E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_bits(self)
     }
 

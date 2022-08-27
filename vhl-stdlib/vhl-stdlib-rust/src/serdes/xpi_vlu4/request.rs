@@ -1,9 +1,9 @@
 use core::fmt::{Display, Formatter};
-use crate::serdes::{BitBuf, NibbleBuf};
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::serdes::{DeserializeVlu4};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Rate;
 use super::NodeId;
@@ -175,6 +175,20 @@ pub enum XpiRequestKind<'req> {
     Introspect,
 }
 
+pub enum XpiRequestKindKind {
+    Call,
+    Read,
+    Write,
+    OpenStreams,
+    CloseStreams,
+    Subscribe,
+    Unsubscribe,
+    Borrow,
+    Release,
+    Introspect,
+    ChainCall,
+}
+
 
 // impl<'i> SerializeVlu4 for XpiRequest<'i> {
 //     type Error = XpiVlu4Error;
@@ -262,25 +276,81 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
     }
 }
 
-impl<'i> SerializeBits for XpiRequestKind<'i> {
-    type Error = XpiVlu4Error;
+impl<'i> SerializeBits for XpiRequestKindKind {
+    type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        use XpiRequestKindKind::*;
         let kind = match self {
-            XpiRequestKind::Call { .. } => 0,
-            XpiRequestKind::Read => 1,
-            XpiRequestKind::Write { .. } => 2,
-            XpiRequestKind::OpenStreams => 3,
-            XpiRequestKind::CloseStreams => 4,
-            XpiRequestKind::Subscribe { .. } => 5,
-            XpiRequestKind::Unsubscribe => 6,
-            XpiRequestKind::Borrow => 7,
-            XpiRequestKind::Release => 8,
-            XpiRequestKind::Introspect => 9,
-            XpiRequestKind::ChainCall { .. } => 10,
+            Call => 0,
+            Read => 1,
+            Write => 2,
+            OpenStreams => 3,
+            CloseStreams => 4,
+            Subscribe => 5,
+            Unsubscribe => 6,
+            Borrow => 7,
+            Release => 8,
+            Introspect => 9,
+            ChainCall => 10,
         };
         wgr.put_up_to_8(4, kind)?;
         Ok(())
+    }
+}
+
+pub struct XpiRequestBuilder<'i> {
+    nwr: NibbleBufMut<'i>,
+    source: NodeId,
+    destination: NodeSet<'i>,
+    resource_set: XpiResourceSet<'i>,
+    request_id: RequestId,
+    priority: Priority,
+}
+
+impl<'i> XpiRequestBuilder<'i> {
+    pub fn new(
+        mut nwr: NibbleBufMut<'i>,
+        source: NodeId,
+        destination: NodeSet<'i>,
+        resource_set: XpiResourceSet<'i>,
+        request_id: RequestId,
+        priority: Priority,
+    ) -> Result<Self, XpiVlu4Error> {
+        nwr.skip(8)?;
+        nwr.put(&destination)?;
+        nwr.put(&resource_set)?;
+        Ok(XpiRequestBuilder {
+            nwr,
+            source,
+            destination,
+            resource_set,
+            request_id,
+            priority
+        })
+    }
+
+    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
+        where F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestKindKind, NibbleBufMut<'i>), FailReason>
+    {
+        let (kind, mut nwr) = f(self.nwr)?;
+        nwr.put(&self.request_id).unwrap();
+        nwr.rewind::<_, FailReason>(0, |nwr| {
+            nwr.as_bit_buf::<FailReason, _>(|bwr| {
+                bwr.put_up_to_8(3, 0b000)?; // unused 31:29
+                bwr.put(&self.priority)?; // bits 28:26
+                bwr.put_bit(true)?; // bit 25, is_unicast
+                bwr.put_bit(true)?; // bit 24, is_request
+                bwr.put_bit(true)?; // bit 23, reserved
+                bwr.put(&self.source)?; // bits 22:16
+                bwr.put(&self.destination)?; // bits 15:7 - destination node or node set
+                bwr.put(&self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
+                bwr.put(&kind)?; // bits 3:0 - discriminant of XpiReplyKind
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        Ok(nwr)
     }
 }
 

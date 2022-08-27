@@ -37,6 +37,7 @@ pub enum FailReason {
     InternalBufError,
     InternalNibbleBufError,
     InternalBitBufError,
+    ReplyBuilderError,
 }
 
 impl FailReason {
@@ -58,6 +59,7 @@ impl FailReason {
             13 => InternalBufError,
             14 => InternalNibbleBufError,
             15 => InternalBitBufError,
+            16 => ReplyBuilderError,
             _ => Internal
         }
     }
@@ -80,6 +82,7 @@ impl FailReason {
             InternalBufError => 13,
             InternalNibbleBufError => 14,
             InternalBitBufError => 15,
+            ReplyBuilderError => 16,
         }
     }
 }

@@ -8,6 +8,9 @@ edition = "2021"
 #hash32-derive = "^0.1.1"
 #semver = { version = "1.0.13", default-features = false }
 #thiserror = "^1.0.32"
+#enum-kinds = { version = "^0.5.1", features = ["no-stdlib"] }
+#enum-primitive-derive = "^0.1"
+#num-traits = "^0.1"
 
 [dev-dependencies]
 hex-literal = "^0.3.4"

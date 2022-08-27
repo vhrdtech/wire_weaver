@@ -1,5 +1,5 @@
 use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf};
+use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
 use crate::serdes::vlu4::vec::Vlu4Vec;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
@@ -7,6 +7,8 @@ use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::NodeId;
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
+// use enum_kinds::EnumKind;
+// use enum_primitive_derive::Primitive;
 
 /// Replies are sent to the Link in response to requests.
 /// One request can result in one or more replies.
@@ -33,6 +35,7 @@ pub struct XpiReply<'rep> {
 /// request id that was sent initially
 /// Source node id
 #[derive(Copy, Clone, Debug)]
+// #[enum_kind(XpiReplyKindKind)] simple enough to do by hand and helps with code completion
 pub enum XpiReplyKind<'rep> {
     /// Result of an each call
     CallComplete(Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>),
@@ -87,23 +90,39 @@ pub enum XpiReplyKind<'rep> {
     Introspect(Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>),
 }
 
-impl<'i> SerializeBits for XpiReplyKind<'i> {
-    type Error = XpiVlu4Error;
+pub enum XpiReplyKindKind {
+    CallComplete,
+    ReadComplete,
+    WriteComplete,
+    OpenStream,
+    StreamUpdate,
+    CloseStream,
+    Subscribe,
+    RateChange,
+    Unsubscribe,
+    Borrow,
+    Release,
+    Introspect,
+}
+
+impl<'i> SerializeBits for XpiReplyKindKind {
+    type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        use XpiReplyKindKind::*;
         let kind = match self {
-            XpiReplyKind::CallComplete(_) => 0,
-            XpiReplyKind::ReadComplete(_) => 1,
-            XpiReplyKind::WriteComplete(_) => 2,
-            XpiReplyKind::OpenStream(_) => 3,
-            XpiReplyKind::StreamUpdate(_) => 4,
-            XpiReplyKind::CloseStream(_) => 5,
-            XpiReplyKind::Subscribe(_) => 6,
-            XpiReplyKind::RateChange(_) => 7,
-            XpiReplyKind::Unsubscribe(_) => 8,
-            XpiReplyKind::Borrow(_) => 9,
-            XpiReplyKind::Release(_) => 10,
-            XpiReplyKind::Introspect(_) => 11,
+            CallComplete => 0,
+            ReadComplete => 1,
+            WriteComplete => 2,
+            OpenStream => 3,
+            StreamUpdate => 4,
+            CloseStream => 5,
+            Subscribe => 6,
+            RateChange => 7,
+            Unsubscribe => 8,
+            Borrow => 9,
+            Release => 10,
+            Introspect => 11,
         };
         wgr.put_up_to_8(4, kind)?;
         Ok(())
@@ -210,22 +229,60 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
 //     }
 // }
 
-// pub struct XpiReplyBuilder<'i> {
-//     wrr: &'i mut NibbleBufMut<'i>,
-// }
-//
-// impl<'i> XpiReplyBuilder<'i> {
-//     pub fn new(
-//         wrr: &mut NibbleBufMut<'i>,
-//     ) -> Result<Self, XpiVlu4Error> {
-//         wrr.skip(8)?;
-//         Ok(Self {
-//             wrr
-//         })
-//     }
-//
-//
-// }
+pub struct XpiReplyBuilder<'i> {
+    nwr: NibbleBufMut<'i>,
+    source: NodeId,
+    destination: NodeSet<'i>,
+    resource_set: XpiResourceSet<'i>,
+    request_id: RequestId,
+    priority: Priority,
+}
+
+impl<'i> XpiReplyBuilder<'i> {
+    pub fn new(
+        mut nwr: NibbleBufMut<'i>,
+        source: NodeId,
+        destination: NodeSet<'i>,
+        resource_set: XpiResourceSet<'i>,
+        request_id: RequestId,
+        priority: Priority,
+    ) -> Result<Self, XpiVlu4Error> {
+        nwr.skip(8)?;
+        nwr.put(&destination)?;
+        nwr.put(&resource_set)?;
+        Ok(XpiReplyBuilder {
+            nwr,
+            source,
+            destination,
+            resource_set,
+            request_id,
+            priority
+        })
+    }
+
+    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
+        where F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyKindKind, NibbleBufMut<'i>), FailReason>
+    {
+        let (kind, mut nwr) = f(self.nwr)?;
+        nwr.put(&self.request_id).unwrap();
+        nwr.rewind::<_, FailReason>(0, |nwr| {
+            nwr.as_bit_buf::<FailReason, _>(|bwr| {
+                bwr.put_up_to_8(3, 0b000)?; // unused 31:29
+                bwr.put(&self.priority)?; // bits 28:26
+                bwr.put_bit(true)?; // bit 25, is_unicast
+                bwr.put_bit(false)?; // bit 24, is_request
+                bwr.put_bit(true)?; // bit 23, reserved
+                bwr.put(&self.source)?; // bits 22:16
+                bwr.put(&self.destination)?; // bits 15:7 - destination node or node set
+                bwr.put(&self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
+                bwr.put(&kind)?; // bits 3:0 - discriminant of XpiReplyKind
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        Ok(nwr)
+    }
+}
 
 impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
     type Error = XpiVlu4Error;

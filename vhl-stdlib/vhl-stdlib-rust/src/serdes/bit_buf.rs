@@ -3,6 +3,8 @@ use crate::serdes::{DeserializeBits, NibbleBufMut};
 use crate::serdes::traits::SerializeBits;
 
 /// Buffer reader that treats input as a stream of bits
+///
+/// Use `brd` as short name: let mut brd = BitBuf::new(..);
 #[derive(Copy, Clone)]
 pub struct BitBuf<'i> {
     buf: &'i [u8],
@@ -135,6 +137,8 @@ impl<'i> BitBuf<'i> {
 }
 
 /// Buffer writer that supports bit level operations
+///
+/// Use `bwr` as short name: let mut bwr = BitBufMut::new(..);
 pub struct BitBufMut<'i> {
     pub(crate) buf: &'i mut [u8],
     // Maximum number of bits available (not whole slice might be available)

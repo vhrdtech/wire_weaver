@@ -8,7 +8,9 @@ use crate::serdes::{BitBuf, DeserializeVlu4};
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::Vlu4VecBuilder;
 
-/// Buffer reader that treats input as a stream of nibbles
+/// Buffer reader that treats input as a stream of nibbles.
+///
+/// Use `nrd` as short name: let mut nrd = NibbleBuf::new(..);
 #[derive(Copy, Clone)]
 pub struct NibbleBuf<'i> {
     pub(crate) buf: &'i [u8],
@@ -299,6 +301,8 @@ impl<'i> Debug for NibbleBuf<'i> {
 }
 
 /// Buffer writer that supports 4 bit (nibble) level operations
+///
+/// Use `nwr` as short name: let mut nwr = NibbleBufMut::new(..);
 pub struct NibbleBufMut<'i> {
     pub(crate) buf: &'i mut [u8],
     // Maximum number of nibbles available (not whole slice might be available)

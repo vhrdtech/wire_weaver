@@ -4,6 +4,8 @@ use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::{DeserializeBytes, SerializeBytes};
 
 /// Buffer reader that treats input as a stream of bytes
+///
+/// Use `rd` as short name: let mut rd = Buf::new(..);
 #[derive(Copy, Clone)]
 pub struct Buf<'i> {
     buf: &'i [u8],
@@ -126,6 +128,8 @@ impl<'i> Buf<'i> {
 }
 
 /// Buffer writer that treats input as a stream of bytes
+///
+/// Use `wr` as short name: let mut wr = BufMut::new(..);
 pub struct BufMut<'i> {
     buf: &'i mut [u8],
     // Next byte to write

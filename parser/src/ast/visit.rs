@@ -40,7 +40,7 @@ pub fn visit_definition<'ast, 'input, V>(v: &mut V, node: &'ast Definition<'inpu
     match &node {
         Definition::Const(_) => {},
         Definition::Enum(_) => {},
-        Definition::Struct() => {},
+        Definition::Struct(_) => {},
         Definition::Function(fun) => v.visit_function(fun),
         Definition::TypeAlias(_) => {},
         Definition::XpiBlock(_) => {},

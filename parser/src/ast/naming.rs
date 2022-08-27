@@ -69,6 +69,21 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
     }
 }
 
+#[derive(Debug)]
+pub struct StructFieldName<'i> {
+    pub name: &'i str,
+}
+
+impl<'i> Parse<'i> for StructFieldName<'i> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let ident = input.expect1(Rule::identifier)?;
+        //check_lower_snake_case(&ident, &mut input.warnings);
+        Ok(StructFieldName {
+            name: ident.as_str()
+        })
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct XpiUriNamedPart<'i> {
     pub name: &'i str

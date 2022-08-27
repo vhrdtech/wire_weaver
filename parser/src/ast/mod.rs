@@ -18,6 +18,7 @@ pub mod generics;
 pub mod visit;
 pub mod num_bound;
 pub mod paths;
+pub mod def_struct;
 
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};

@@ -39,7 +39,8 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
             Ty::Tuple(_) => {}
             Ty::Fn { .. } => {}
             Ty::Generic { .. } => {}
-            Ty::Textual(_) => {}
+            Ty::Char => {}
+            Ty::String => {}
             Ty::Sequence => {}
             Ty::UserDefined(_) => {}
             Ty::AutoNumber(_) => {}

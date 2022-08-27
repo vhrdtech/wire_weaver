@@ -34,7 +34,7 @@ fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
 floating_any_ty = { ("f32" | "f64") ~ si_expr_ticked? }
 
 /// Textual types
-textual_any_ty = { "char" | "str" }
+textual_any_ty = { "char" | "String" }
 
 // Numerical bounds (subtypes)
 num_unbound = { "?" }

@@ -41,7 +41,8 @@ pub enum Ty<'i> {
         name: Typename<'i>,
         params: Generics<'i>,
     },
-    Textual(&'i str),
+    Char,
+    String,
     Sequence,
     UserDefined(Typename<'i>),
     Derive,
@@ -80,7 +81,13 @@ impl<'i> Parse<'i> for Ty<'i> {
                 Err(ParseErrorSource::Unimplemented("floating ty"))
             }
             Rule::textual_any_ty => {
-                Err(ParseErrorSource::Unimplemented("textual ty"))
+                if ty.as_str() == "char" {
+                    Ok(Ty::Char)
+                } else if ty.as_str() == "String" {
+                    Ok(Ty::String)
+                } else {
+                    Err(ParseErrorSource::Unimplemented("textual ty"))
+                }
             }
             Rule::tuple_ty => {
                 parse_tuple_ty(&mut ParseInput::fork(ty, input))

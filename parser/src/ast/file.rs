@@ -28,11 +28,12 @@ impl std::error::Error for FileError {}
 
 #[derive(Debug, Clone)]
 pub struct File<'i> {
-    pub defs: Vec<Definition<'i>>
+    pub defs: Vec<Definition<'i>>,
+    pub warnings: Vec<ParseWarning>,
 }
 
 impl<'i> File<'i> {
-    pub fn parse(input: &'i str) -> Result<(Self, Vec<ParseWarning>), FileError> {
+    pub fn parse(input: &'i str) -> Result<Self, FileError> {
         let mut pi = <Lexer as pest::Parser<Rule>>::parse(Rule::file, input)?;
         let mut items = Vec::new();
         let mut warnings = Vec::new();
@@ -89,9 +90,10 @@ impl<'i> File<'i> {
             None => {}
         }
         if errors.is_empty() {
-            Ok((File {
-                defs: items
-            }, warnings))
+            Ok(File {
+                defs: items,
+                warnings
+            })
         } else {
             Err(FileError::ParserError(errors))
         }

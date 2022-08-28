@@ -4,18 +4,21 @@ use parser::ast::ty::TyKind as TyKindParser;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ty {
-    kind: TyKind,
-    span: Span,
+    pub kind: TyKind,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TyKind {
     Boolean,
-    Discrete {
-        is_signed: bool,
-        bits: u32,
-        shift: u128,
-    },
+    Discrete(DiscreteTy)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DiscreteTy {
+    is_signed: bool,
+    bits: u32,
+    shift: u128,
 }
 
 impl<'i> From<TyParser<'i>> for Ty {
@@ -31,7 +34,7 @@ impl<'i> From<TyKindParser<'i>> for TyKind {
     fn from(kind: TyKindParser<'i>) -> Self {
         match kind {
             TyKindParser::Boolean => TyKind::Boolean,
-            TyKindParser::Discrete { is_signed, bits, shift } => TyKind::Discrete { is_signed, bits, shift },
+            TyKindParser::Discrete { is_signed, bits, shift } => TyKind::Discrete(DiscreteTy { is_signed, bits, shift } ),
             _ => todo!()
             // TyKindParser::FixedPoint { is_signed, m, n, shift } => TyKind::
             // TyKindParser::FloatingPoint { bits } => {}

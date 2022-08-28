@@ -1,14 +1,15 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
+use std::path::PathBuf;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
     pub origin: SpanOrigin,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum SpanOrigin {
     Parser(SourceOrigin),
     Coder
@@ -16,7 +17,7 @@ pub enum SpanOrigin {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum SourceOrigin {
-    File(Rc<String>),
+    File(Rc<PathBuf>),
     Registry(/*RegistryUri*/),
     DescriptorBlock(/*NodeUid*/),
 
@@ -24,14 +25,51 @@ pub enum SourceOrigin {
     ImplFrom,
 }
 
-impl Debug for SourceOrigin {
+impl Display for SpanOrigin {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SourceOrigin::File(_) => write!(f, "file"),
+            SpanOrigin::Parser(origin) => write!(f, "Parser:{}", origin),
+            SpanOrigin::Coder => write!(f, "Coder:"),
+        }
+    }
+}
+impl Debug for SpanOrigin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Display for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "{}:{}", self.start, self.end)
+        } else {
+            write!(f, "{}:{}:{}", self.origin, self.start, self.end)
+        }
+    }
+}
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Display for SourceOrigin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceOrigin::File(path) => write!(
+                f,
+                "file:{}",
+                path.file_name().map(|p| p.to_str().unwrap_or("?")).unwrap_or("?")),
             SourceOrigin::Registry() => write!(f, "registry"),
             SourceOrigin::DescriptorBlock() => write!(f, "descriptor"),
             SourceOrigin::ImplFrom => write!(f, "impl From")
         }
+    }
+}
+impl Debug for SourceOrigin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

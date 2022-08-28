@@ -1,7 +1,8 @@
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use crate::span::Span;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Identifier {
     pub symbols: Rc<String>,
     pub context: IdentifierContext,
@@ -81,3 +82,23 @@ impl_from_parser_struct!(StructFieldName);
 impl_from_parser_struct!(EnumTyName);
 impl_from_parser_struct!(EnumFieldName);
 impl_from_parser_struct!(GenericName);
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "Id(\x1b[35m{}\x1b[0m @{:#})", self.symbols, self.span)
+        } else {
+            write!(f, "Id<{:?}>(\x1b[35m{}\x1b[0m @{})", self.context, self.symbols, self.span)
+        }
+    }
+}
+
+impl Debug for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "{:#}", self)
+        } else {
+            write!(f, "{}", self)
+        }
+    }
+}

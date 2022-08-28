@@ -1,4 +1,5 @@
 use std::env;
+use std::path::Path;
 use std::rc::Rc;
 use parser::ast::expr::Expr;
 use parser::ast::file::File;
@@ -18,8 +19,9 @@ impl<'ast, 'input> Visit<'ast, 'input> for ExprVisitor {
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
+    let filepath = Path::new(filename);
 
-    let input = std::fs::read_to_string(filename)?;
+    let input = std::fs::read_to_string(filepath)?;
     // let s = parser::util::pest_file_parse_tree(&input);
     // println!("{}", s);
 
@@ -29,9 +31,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         println!("\x1b[45mD:\x1b[0m\t{:?}\n", def);
     }
     // println!("File: {:?}", file.0);
-    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(filename.clone())));
+    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(filepath.to_path_buf())));
     let ast_core = vhl::ast::file::File::from_parser_ast(file, origin);
-    println!("{:?}", ast_core);
+    println!("{:#?}", ast_core);
 
     // let mut expr_visitor = ExprVisitor {};
     // expr_visitor.visit_file(&file.0);

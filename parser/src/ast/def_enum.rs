@@ -1,13 +1,13 @@
 use super::prelude::*;
 use crate::ast::tuple::TupleFieldsTy;
-use crate::ast::naming::EnumEntryName;
+use crate::ast::naming::{EnumFieldName, EnumTyName};
 use crate::error::ParseErrorSource;
 
 #[derive(Debug)]
 pub struct DefEnum<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub typename: Typename<'i>,
+    pub typename: Identifier<'i, EnumTyName>,
     pub entries: EnumItems<'i>
 }
 
@@ -20,7 +20,7 @@ pub struct EnumItems<'i> {
 pub struct EnumItem<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub name: EnumEntryName<'i>,
+    pub name: Identifier<'i, EnumFieldName>,
     pub kind: Option<EnumItemKind<'i>>
 }
 

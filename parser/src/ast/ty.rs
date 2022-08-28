@@ -3,11 +3,11 @@ use crate::ast::def_fn::{FnArguments, FnRetTy};
 use crate::ast::expr::Expr;
 use crate::ast::generics::Generics;
 use crate::ast::lit::Lit;
-use crate::ast::naming::BuiltinTypename;
 use crate::ast::num_bound::NumBound;
 use crate::ast::ops::BinaryOp;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use pest::Span;
+use crate::ast::naming::{GenericName, UserTyName};
 
 #[derive(Debug, Clone)]
 pub struct Ty<'i> {
@@ -44,13 +44,13 @@ pub enum TyKind<'i> {
     AutoNumber(AutoNumber<'i>),
     IndexOf(Expr<'i>),
     Generic {
-        name: Typename<'i>,
+        name: Identifier<'i, GenericName>,
         params: Generics<'i>,
     },
     Char,
     String,
     Sequence,
-    UserDefined(Typename<'i>),
+    UserDefined(Identifier<'i, UserTyName>),
     Derive,
 }
 
@@ -117,10 +117,7 @@ impl<'i> Parse<'i> for Ty<'i> {
             Rule::tuple_ty => parse_tuple_ty(&mut ParseInput::fork(ty, input)),
             Rule::array_ty => parse_array_ty(&mut ParseInput::fork(ty, input)),
             Rule::identifier => Ok(Ty {
-                kind: TyKind::UserDefined(Typename {
-                    name: ty.as_str(),
-                    span: ty.as_span(),
-                }),
+                kind: TyKind::UserDefined(Identifier::from(ty)),
                 span,
             }),
             Rule::generic_ty => {
@@ -162,7 +159,7 @@ fn parse_generic_ty<'i, 'm>(
     input: &mut ParseInput<'i, 'm>,
     span: Span<'i>,
 ) -> Result<Ty<'i>, ParseErrorSource> {
-    let typename: BuiltinTypename = input.parse()?;
+    let typename: Identifier<'i, GenericName> = input.parse()?;
     match typename.name {
         "autonum" => parse_autonum_ty(
             &mut ParseInput::fork(input.expect1(Rule::generics)?, input),

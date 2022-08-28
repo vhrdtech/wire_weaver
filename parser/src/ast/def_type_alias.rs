@@ -1,3 +1,4 @@
+use crate::ast::naming::UserTyName;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
@@ -5,7 +6,7 @@ use super::prelude::*;
 pub struct DefTypeAlias<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub typename: Typename<'i>,
+    pub typename: Identifier<'i, UserTyName>,
     pub r#type: Ty<'i>,
 }
 

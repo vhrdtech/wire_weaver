@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::lit::Lit;
-use crate::ast::naming::Identifier;
+use crate::ast::naming::{FnName, Identifier, VariableRefName};
 use crate::ast::ops::{BinaryOp, UnaryOp};
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
@@ -10,13 +10,13 @@ use super::prelude::*;
 /// Atoms is everything except Cons variant, pre-processed by pest.
 #[derive(Debug, Clone)]
 pub enum Expr<'i> {
-    Call(Identifier<'i>, CallArguments<'i>),
-    IndexInto(Identifier<'i>, IndexArguments<'i>),
+    Call(Identifier<'i, FnName>, CallArguments<'i>),
+    IndexInto(Identifier<'i, VariableRefName>, IndexArguments<'i>),
     // CallThenIndexInto(CallArguments<'i>, IndexArguments<'i>),
     // IndexIntoThenCall(IndexArguments<'i>, CallArguments<'i>),
     Lit(Lit<'i>),
     TupleOfExprs,
-    Id(Identifier<'i>),
+    Id(Identifier<'i, VariableRefName>),
     ResourcePath {
         kind: ResourcePathKind,
         parts: Vec<ResourcePathPart<'i>>,

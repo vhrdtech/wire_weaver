@@ -23,7 +23,7 @@ pub mod def_struct;
 mod prelude {
     pub use crate::parse::{ParseInput, Parse};
     pub use crate::lexer::Rule;
-    pub use crate::ast::naming::Typename;
+    pub use crate::ast::naming::Identifier;
     pub use crate::ast::doc::Doc;
     pub use crate::ast::attrs::Attrs;
     pub use crate::error::ParseErrorSource;

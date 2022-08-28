@@ -25,7 +25,7 @@ impl<'i> Parse<'i> for Attrs<'i> {
 
 #[derive(Debug, Clone)]
 pub struct Attr<'i> {
-    pub path: Vec<PathSegment<'i>>,
+    pub path: Vec<Identifier<'i, PathSegment>>,
     pub input: bool,
 }
 

@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::expr::{CallArguments, IndexArguments};
-use crate::ast::naming::XpiUriNamedPart;
+use crate::ast::naming::{Identifier, XpiUriSegmentName};
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ impl<'i> Parse<'i> for ResourcePathKind {
 
 #[derive(Debug, Clone)]
 pub enum ResourcePathPart<'i> {
-    Reference(XpiUriNamedPart<'i>),
+    Reference(Identifier<'i, XpiUriSegmentName>),
     IndexInto(IndexIntoResource<'i>)
 }
 
@@ -69,7 +69,7 @@ impl<'i> TryFrom<ResourcePathTail<'i>> for ResourcePathPart<'i> {
 
 #[derive(Debug, Clone)]
 pub enum ResourcePathTail<'i> {
-    Reference(XpiUriNamedPart<'i>),
+    Reference(Identifier<'i, XpiUriSegmentName>),
     Call(CallResource<'i>),
     IndexInto(IndexIntoResource<'i>),
 }
@@ -86,7 +86,7 @@ impl<'i> Display for ResourcePathTail<'i> {
 
 #[derive(Debug, Clone)]
 pub struct CallResource<'i> {
-    pub name: XpiUriNamedPart<'i>,
+    pub name: Identifier<'i, XpiUriSegmentName>,
     pub args: CallArguments<'i>,
 }
 
@@ -112,7 +112,7 @@ impl<'i> Display for CallResource<'i> {
 
 #[derive(Debug, Clone)]
 pub struct IndexIntoResource<'i> {
-    pub name: XpiUriNamedPart<'i>,
+    pub name: Identifier<'i, XpiUriSegmentName>,
     pub args: IndexArguments<'i>,
 }
 

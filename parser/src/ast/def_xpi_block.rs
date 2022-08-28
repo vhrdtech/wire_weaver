@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
-use crate::ast::naming::{XpiKeyName, XpiUriNamedPart};
+use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
 use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
@@ -129,13 +129,13 @@ impl<'i> Parse<'i> for XpiBody<'i> {
 #[derive(Debug)]
 pub enum XpiUri<'i> {
     /// `/main`
-    OneNamedPart(XpiUriNamedPart<'i>),
+    OneNamedPart(Identifier<'i, XpiUriSegmentName>),
     /// /\`'a'..'c'\`_ctrl
-    ExprThenNamedPart(Expr<'i>, XpiUriNamedPart<'i>),
+    ExprThenNamedPart(Expr<'i>, Identifier<'i, XpiUriSegmentName>),
     /// /velocity_\`'x'..'z'\`
-    NamedPartThenExpr(XpiUriNamedPart<'i>, Expr<'i>),
+    NamedPartThenExpr(Identifier<'i, XpiUriSegmentName>, Expr<'i>),
     /// /register_\`'0'..'9'\`_b
-    Full(XpiUriNamedPart<'i>, Expr<'i>, XpiUriNamedPart<'i>)
+    Full(Identifier<'i, XpiUriSegmentName>, Expr<'i>, Identifier<'i, XpiUriSegmentName>)
 }
 
 impl<'i> Parse<'i> for XpiUri<'i> {
@@ -250,7 +250,7 @@ impl<'i> Parse<'i> for XpiSerial {
 
 #[derive(Debug)]
 pub struct XpiBlockKeyValue<'i> {
-    pub key: XpiKeyName<'i>,
+    pub key: Identifier<'i, XpiKeyName>,
     pub value: XpiValue<'i>,
 }
 

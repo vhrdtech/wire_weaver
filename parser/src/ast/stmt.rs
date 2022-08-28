@@ -1,5 +1,5 @@
 use crate::ast::expr::Expr;
-use crate::ast::naming::LetStmtName;
+use crate::ast::naming::VariableDefName;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
@@ -28,7 +28,7 @@ impl<'i> Parse<'i> for Stmt<'i> {
 
 #[derive(Debug)]
 pub struct LetStmt<'i> {
-    pub ident: LetStmtName<'i>,
+    pub ident: Identifier<'i, VariableDefName>,
     pub type_ascription: Option<Ty<'i>>,
     pub expr: Expr<'i>
 }

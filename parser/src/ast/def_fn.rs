@@ -8,7 +8,7 @@ use super::prelude::*;
 pub struct DefFn<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub name: FnName<'i>,
+    pub name: Identifier<'i, FnName>,
     pub generics: Option<Generics<'i>>,
     pub arguments: FnArguments<'i>,
     pub ret_ty: Option<FnRetTy<'i>>,
@@ -52,7 +52,7 @@ impl<'i> Parse<'i> for FnArguments<'i> {
 
 #[derive(Debug, Clone)]
 pub struct FnArg<'i> {
-    pub name: FnArgName<'i>,
+    pub name: Identifier<'i, FnArgName>,
     pub ty: Ty<'i>,
 }
 

@@ -1,5 +1,5 @@
 use pest::Span;
-use crate::ast::naming::StructFieldName;
+use crate::ast::naming::{StructFieldName, StructTyName};
 use crate::ast::prelude::*;
 use crate::ast::ty::Ty;
 
@@ -7,7 +7,7 @@ use crate::ast::ty::Ty;
 pub struct DefStruct<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub typename: Typename<'i>,
+    pub typename: Identifier<'i, StructTyName>,
     pub fields: StructFields<'i>,
     pub span: Span<'i>
 }
@@ -21,7 +21,7 @@ pub struct StructFields<'i> {
 pub struct StructField<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
-    pub name: StructFieldName<'i>,
+    pub name: Identifier<'i, StructFieldName>,
     pub ty: Ty<'i>,
     pub span: Span<'i>
 }

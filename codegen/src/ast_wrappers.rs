@@ -1,8 +1,8 @@
-use parser::ast::naming::Typename;
+use parser::ast::naming::Identifier;
 use mtoken::{ToTokens, TokenStream, Ident, Span, ext::TokenStreamExt};
 
 pub struct CGTypename<'i, 'c> {
-    pub inner: &'c Typename<'i>
+    pub inner: &'c Identifier<'i>
 }
 
 impl<'i, 'c> ToTokens for CGTypename<'i, 'c> {

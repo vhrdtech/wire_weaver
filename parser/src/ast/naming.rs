@@ -1,210 +1,72 @@
+use std::fmt::{Debug, Formatter};
+use pest::iterators::Pair;
 use pest::Span;
 use super::prelude::*;
 
-#[derive(Debug, Clone)]
-pub struct Typename<'i> {
+#[derive(Clone)]
+pub struct Identifier<'i, K> {
     pub name: &'i str,
-    pub span: Span<'i>
+    pub span: Span<'i>,
+    pub kind: K
 }
 
-impl<'i> Parse<'i> for Typename<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Typename<'i>, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        //check_camel_case(&ident, &mut input.warnings);
-        Ok(Typename {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-/// Builtin types such as u8<...>, autonum<...>, indexof<...>
-#[derive(Debug)]
-pub struct BuiltinTypename<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for BuiltinTypename<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<BuiltinTypename<'i>, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        //check_camel_case(&ident, &mut input.warnings);
-        Ok(BuiltinTypename {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-impl<'i> From<BuiltinTypename<'i>> for Typename<'i> {
-    fn from(other: BuiltinTypename<'i>) -> Self {
-        Typename {
-            name: other.name,
-            span: other.span
+macro_rules! identifier_kind {
+    ($kind: ident) => {
+        #[derive(Clone, Debug)]
+        pub struct $kind {}
+        impl sealed::IdentifierKind for $kind {
+            fn new() -> Self {
+                Self {}
+            }
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PathSegment<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
+identifier_kind!(UserTyName);
+identifier_kind!(BuiltinTyName);
+identifier_kind!(PathSegment);
+identifier_kind!(XpiUriSegmentName);
+identifier_kind!(XpiKeyName);
+identifier_kind!(FnName);
+identifier_kind!(FnArgName);
+identifier_kind!(VariableDefName);
+identifier_kind!(VariableRefName);
+identifier_kind!(StructTyName);
+identifier_kind!(StructFieldName);
+identifier_kind!(EnumTyName);
+identifier_kind!(EnumFieldName);
+identifier_kind!(GenericName);
 
-impl<'i> Parse<'i> for PathSegment<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        //check_lower_snake_case(&ident, &mut input.warnings);
-        Ok(PathSegment {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
+impl<'i, K: sealed::IdentifierKind + Debug> Debug for Identifier<'i, K> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Id<{:?}>(\x1b[35m{}\x1b[0m @{}:{})", self.kind, self.name, self.span.start(), self.span.end())
     }
 }
 
-#[derive(Debug)]
-pub struct EnumEntryName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for EnumEntryName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        //check_lower_snake_case(&ident, &mut input.warnings);
-        Ok(EnumEntryName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
+mod sealed {
+    pub trait IdentifierKind {
+        fn new() -> Self;
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct StructFieldName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for StructFieldName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        //check_lower_snake_case(&ident, &mut input.warnings);
-        Ok(StructFieldName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct XpiUriNamedPart<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for XpiUriNamedPart<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        Ok(XpiUriNamedPart {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct XpiKeyName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for XpiKeyName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        Ok(XpiKeyName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct FnName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for FnName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnName<'i>, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        Ok(FnName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-
-#[derive(Debug, Clone)]
-pub struct FnArgName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for FnArgName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnArgName<'i>, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        Ok(FnArgName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct LetStmtName<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for LetStmtName<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<LetStmtName<'i>, ParseErrorSource> {
-        let ident = input.expect1(Rule::identifier)?;
-        Ok(LetStmtName {
-            name: ident.as_str(),
-            span: ident.as_span()
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Identifier<'i> {
-    pub name: &'i str,
-    pub span: Span<'i>
-}
-
-impl<'i> Parse<'i> for Identifier<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<'i>, ParseErrorSource> {
+impl<'i, K: sealed::IdentifierKind> Parse<'i> for Identifier<'i, K> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<'i, K>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(Identifier {
             name: ident.as_str(),
-            span: ident.as_span()
+            span: ident.as_span(),
+            kind: K::new()
         })
     }
 }
 
-
-// fn check_camel_case(pair: &Pair<Rule>, warnings: &mut Vec<ParseWarning>) {
-//     let contains_underscore = pair.as_str().find("_").map(|_| true).unwrap_or(false);
-//     if pair.as_str().chars().next().unwrap().is_lowercase() || contains_underscore {
-//         warnings.push(ParseWarning {
-//             kind: ParseWarningKind::NonCamelCaseTypename,
-//             rule: pair.as_rule(),
-//             span: (pair.as_span().start(), pair.as_span().end())
-//         });
-//     }
-// }
-//
-// fn check_lower_snake_case(_pair: &Pair<Rule>, _warnings: &mut Vec<ParseWarning>) {
-//
-// }
+use sealed::IdentifierKind;
+impl<'i> From<Pair<'i, crate::lexer::Rule>> for Identifier<'i, UserTyName> {
+    fn from(p: Pair<'i, crate::lexer::Rule>) -> Self {
+        Identifier {
+            name: p.as_str(),
+            span: p.as_span(),
+            kind: UserTyName::new()
+        }
+    }
+}

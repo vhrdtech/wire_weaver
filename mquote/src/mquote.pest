@@ -103,6 +103,7 @@ punctuation = {
     punct_dot |
     punct_comma |
     punct_semicolon |
+    punct_double_colon |
     punct_colon |
     punct_rarrow |
     punct_larrow |

@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use parser::ast::naming::{StructFieldName, Typename};
 use crate::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,4 +46,24 @@ pub enum IdentifierContext {
 
     /// enum MyEnum { **Field1**, **Field2** }
     EnumFieldName,
+}
+
+impl<'i> From<Typename<'i>> for Identifier {
+    fn from(t: Typename<'i>) -> Self {
+        Identifier {
+            symbols: Rc::new(t.typename.to_string()),
+            context: IdentifierContext::UserTyName,
+            span: t.span.into()
+        }
+    }
+}
+
+impl<'i> From<StructFieldName<'i>> for Identifier {
+    fn from(t: StructFieldName<'i>) -> Self {
+        Identifier {
+            symbols: Rc::new(t.name.to_string()),
+            context: IdentifierContext::UserTyName,
+            span: t.span.into()
+        }
+    }
 }

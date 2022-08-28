@@ -1,7 +1,7 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token | delim_token_tree }
-token = { interpolate | interpolate_repetition | ident | punctuation | literal }
+token = { interpolate | interpolate_repetition | ident | punctuation | literal | delimiter }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }
@@ -12,7 +12,11 @@ interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_
 repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 interpolate_repetition = {
     "#" ~ "(" ~
-    (!"#" ~ token_tree)* ~ interpolate ~ (!"#" ~ token_tree)* ~ interpolate? ~ (!"#" ~ token_tree)* ~
+    (!"#" ~ token_tree)* ~
+    interpolate ~
+    (!"#" ~ token_tree)* ~
+    interpolate? ~
+    (!"#" ~ token_tree)* ~
     ")" ~ repetition_separator? ~ "*"
 }
 
@@ -52,6 +56,7 @@ punct_star = _{ "*" }
 punct_percent = _{ "%" }
 
 punct_caret = _{ "^" }
+punct_single_quote = _{ "'" }
 punct_and = _{ "&" }
 punct_or = _{ "|" }
 
@@ -96,6 +101,7 @@ punctuation = {
     punct_star |
     punct_percent |
     punct_caret |
+    punct_single_quote |
     punct_and |
     punct_or |
     punct_at |
@@ -112,6 +118,8 @@ punctuation = {
     punct_question |
     punct_newline
 }
+
+delimiter = { "\\\\(" | "\\\\)" | "\\\\{" | "\\\\}" | "\\\\[" | "\\\\]" }
 
 literal = { "123" }
 

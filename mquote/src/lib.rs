@@ -146,12 +146,13 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                 }
             }
             // eprintln!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}", prefix_ts, interpolate_or_key, infix_ts, interpolate_or_value, postfix_ts, separator);
+            // #( #fields ),*
             if interpolate_or_value.is_none() { // interpolate over iterator
-                let interpolate_path_expr = interpolate_or_key.unwrap();
+                let interpolate_iter1 = interpolate_or_key.unwrap();
                 ts_builder.append_all(quote! {
                     let prefix = { #prefix_ts ts };
                     let postfix = { #infix_ts ts };
-                    let interpolate = #interpolate_path_expr.into_iter().map(|token_or_stream| {
+                    let interpolate = #interpolate_iter1.into_iter().map(|token_or_stream| {
                         let mut its = mtoken::TokenStream::new();
                         its.append_all(prefix.clone());
                         token_or_stream.to_tokens(&mut its);
@@ -161,8 +162,27 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                     let separator = { #separator ts };
                     ts.append_separated(interpolate, separator);
                 });
-            } else { // interpolate over key-value iterator
-                todo!()
+            } else { // #( #field_ser_methods( self.#field_names )?; )*
+                let interpolate_iter1 = interpolate_or_key.unwrap();
+                let interpolate_iter2 = interpolate_or_value.unwrap();
+                ts_builder.append_all(quote! {
+                    let prefix = { #prefix_ts ts };
+                    let infix = { #infix_ts ts };
+                    let postfix = { #postfix_ts ts };
+                    let interpolate = #interpolate_iter1.into_iter()
+                        .zip(#interpolate_iter2.into_iter())
+                        .map(|(token_or_stream_1, token_or_stream_2)| {
+                            let mut its = mtoken::TokenStream::new();
+                            its.append_all(prefix.clone());
+                            token_or_stream_1.to_tokens(&mut its);
+                            its.append_all(infix.clone());
+                            token_or_stream_2.to_tokens(&mut its);
+                            its.append_all(postfix.clone());
+                            its
+                        });
+                    let separator = { #separator ts };
+                    ts.append_separated(interpolate, separator);
+                });
             }
         },
         Rule::ident => {
@@ -199,6 +219,21 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                     ts.append(mtoken::Punct::new(#punct_lit2, mtoken::Spacing::Alone));
                 })
             }
+        },
+        Rule::delimiter => {
+            let delim = match token.as_str() {
+                "\\\\(" => "ParenOpen",
+                "\\\\)" => "ParenClose",
+                "\\\\{" => "BraceOpen",
+                "\\\\}" => "BraceClose",
+                "\\\\[" => "BracketOpen",
+                "\\\\]" => "BracketClose",
+                _ => panic!("Unexpected delimiter")
+            };
+            let delim = Ident::new(delim, Span::call_site());
+            ts_builder.append_all(quote! {
+                ts.append(mtoken::token::DelimiterRaw::#delim);
+            })
         },
         Rule::literal => {
 

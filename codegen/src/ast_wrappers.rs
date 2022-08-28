@@ -7,7 +7,7 @@ pub struct CGTypename<'i, 'c> {
 
 impl<'i, 'c> ToTokens for CGTypename<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(self.inner.typename, Span::call_site()));
+        tokens.append(Ident::new(self.inner.name, Span::call_site()));
     }
 }
 

@@ -6,7 +6,7 @@ pub mod token_tree;
 pub mod token_stream;
 pub mod ext;
 
-pub use token::{Ident, Punct, Literal, Comment, CommentFlavor, Span, Spacing};
+pub use token::{Ident, Punct, Literal, Comment, CommentFlavor, Spacing};
 pub use token_tree::{Delimiter, Group, TokenTree};
 pub use token_stream::{TokenStream, ToTokens};
 

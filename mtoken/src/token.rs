@@ -1,31 +1,61 @@
 use std::fmt;
 use std::fmt::Display;
+use std::rc::Rc;
 use crate::{ToTokens, TokenStream, TokenTree};
+use vhl::span::Span;
 
 /// A word of code, which may be a keyword or legal variable name
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ident {
-    sym: String,
+    sym: Rc<String>,
     span: Span,
     flavor: IdentFlavor
 }
 
 impl Ident {
-    pub fn new(string: &str, span: Span) -> Self {
+    pub fn new(sym: Rc<String>, flavor: IdentFlavor, span: Span,) -> Self {
         Ident {
-            sym: string.to_owned(),
+            sym,
             span,
-            flavor: IdentFlavor::Plain
+            flavor
         }
     }
 }
 
 impl Display for Ident {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.flavor == IdentFlavor::RustRaw {
-            f.write_str("r#")?;
+        match self.flavor {
+            IdentFlavor::Plain => {}
+            IdentFlavor::RustAutoRaw => {
+                if is_rust_keyword(self.sym.as_str()) {
+                    f.write_str("r#")?;
+                }
+            }
+            IdentFlavor::DartAutoRaw => {
+                if is_dart_keyword(self.sym.as_str()) {
+                    f.write_str("r_")?;
+                }
+            }
         }
         Display::fmt(&self.sym, f)
+    }
+}
+
+fn is_rust_keyword(ident: &str) -> bool {
+    // TODO: Add full list or Rust keywords
+    match ident {
+        "type" => true,
+
+        _ => false,
+    }
+}
+
+fn is_dart_keyword(ident: &str) -> bool {
+    // TODO: Add full list of Dart keywords
+    match ident {
+        "part" => true,
+
+        _ => false,
     }
 }
 
@@ -38,10 +68,11 @@ impl ToTokens for Ident {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IdentFlavor {
     Plain,
-    RustRaw
+    RustAutoRaw,
+    DartAutoRaw,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Punct {
     ch: char,
     spacing: Spacing,
@@ -49,7 +80,7 @@ pub struct Punct {
 }
 
 impl Punct {
-    pub fn new(ch: char, spacing: Spacing) -> Self {
+    pub fn new(ch: char, spacing: Spacing, ) -> Self {
         Punct {
             ch,
             spacing,
@@ -148,15 +179,4 @@ pub enum CommentFlavor {
     DoubleSlash,
     TripleSlash,
     SlashStarMultiline
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Span {
-
-}
-
-impl Span {
-    pub fn call_site() -> Self {
-        Span {}
-    }
 }

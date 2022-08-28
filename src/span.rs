@@ -9,6 +9,16 @@ pub struct Span {
     pub origin: SpanOrigin,
 }
 
+impl Span {
+    pub fn call_site() -> Self {
+        Span {
+            start: 0,
+            end: 0,
+            origin: SpanOrigin::Coder
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub enum SpanOrigin {
     Parser(SourceOrigin),

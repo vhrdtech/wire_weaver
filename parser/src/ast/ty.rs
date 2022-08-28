@@ -83,7 +83,7 @@ impl<'i> Parse<'i> for Ty<'i> {
             Rule::textual_any_ty => {
                 if ty.as_str() == "char" {
                     Ok(Ty::Char)
-                } else if ty.as_str() == "String" {
+                } else if ty.as_str() == "str" {
                     Ok(Ty::String)
                 } else {
                     Err(ParseErrorSource::Unimplemented("textual ty"))
@@ -96,7 +96,7 @@ impl<'i> Parse<'i> for Ty<'i> {
                 parse_array_ty(&mut ParseInput::fork(ty, input))
             }
             Rule::identifier => {
-                Ok(Ty::UserDefined(Typename { typename: ty.as_str() }))
+                Ok(Ty::UserDefined(Typename { typename: ty.as_str(), span: ty.as_span() }))
             }
             Rule::generic_ty => {
                parse_generic_ty(&mut ParseInput::fork(ty.clone(), input), ty.as_span())

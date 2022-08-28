@@ -4,6 +4,7 @@ use super::prelude::*;
 #[derive(Debug)]
 pub struct Typename<'i> {
     pub typename: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for Typename<'i> {
@@ -11,7 +12,8 @@ impl<'i> Parse<'i> for Typename<'i> {
         let ident = input.expect1(Rule::identifier)?;
         //check_camel_case(&ident, &mut input.warnings);
         Ok(Typename {
-            typename: ident.as_str()
+            typename: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -20,6 +22,7 @@ impl<'i> Parse<'i> for Typename<'i> {
 #[derive(Debug)]
 pub struct BuiltinTypename<'i> {
     pub typename: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for BuiltinTypename<'i> {
@@ -27,7 +30,8 @@ impl<'i> Parse<'i> for BuiltinTypename<'i> {
         let ident = input.expect1(Rule::identifier)?;
         //check_camel_case(&ident, &mut input.warnings);
         Ok(BuiltinTypename {
-            typename: ident.as_str()
+            typename: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -35,7 +39,8 @@ impl<'i> Parse<'i> for BuiltinTypename<'i> {
 impl<'i> From<BuiltinTypename<'i>> for Typename<'i> {
     fn from(other: BuiltinTypename<'i>) -> Self {
         Typename {
-            typename: other.typename
+            typename: other.typename,
+            span: other.span
         }
     }
 }
@@ -43,6 +48,7 @@ impl<'i> From<BuiltinTypename<'i>> for Typename<'i> {
 #[derive(Debug)]
 pub struct PathSegment<'i> {
     pub segment: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for PathSegment<'i> {
@@ -50,7 +56,8 @@ impl<'i> Parse<'i> for PathSegment<'i> {
         let ident = input.expect1(Rule::identifier)?;
         //check_lower_snake_case(&ident, &mut input.warnings);
         Ok(PathSegment {
-            segment: ident.as_str()
+            segment: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -58,6 +65,7 @@ impl<'i> Parse<'i> for PathSegment<'i> {
 #[derive(Debug)]
 pub struct EnumEntryName<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for EnumEntryName<'i> {
@@ -65,7 +73,8 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
         let ident = input.expect1(Rule::identifier)?;
         //check_lower_snake_case(&ident, &mut input.warnings);
         Ok(EnumEntryName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -87,30 +96,34 @@ impl<'i> Parse<'i> for StructFieldName<'i> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct XpiUriNamedPart<'i> {
-    pub name: &'i str
+    pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for XpiUriNamedPart<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(XpiUriNamedPart {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
 
 #[derive(Debug)]
 pub struct XpiKeyName<'i> {
-    pub name: &'i str
+    pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for XpiKeyName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(XpiKeyName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -118,13 +131,15 @@ impl<'i> Parse<'i> for XpiKeyName<'i> {
 #[derive(Debug)]
 pub struct FnName<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for FnName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(FnName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -133,13 +148,15 @@ impl<'i> Parse<'i> for FnName<'i> {
 #[derive(Debug)]
 pub struct FnArgName<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for FnArgName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<FnArgName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(FnArgName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -147,13 +164,15 @@ impl<'i> Parse<'i> for FnArgName<'i> {
 #[derive(Debug)]
 pub struct LetStmtName<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for LetStmtName<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<LetStmtName<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(LetStmtName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }
@@ -161,13 +180,15 @@ impl<'i> Parse<'i> for LetStmtName<'i> {
 #[derive(Debug, Clone)]
 pub struct Identifier<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for Identifier<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<'i>, ParseErrorSource> {
         let ident = input.expect1(Rule::identifier)?;
         Ok(Identifier {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }

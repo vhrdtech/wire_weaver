@@ -1,6 +1,5 @@
-use crate::multilang::docs::CGDocs;
+use vhl::ast::struct_def::StructDef;
 
-pub struct SerDesStruct<'i> {
-    pub docs: CGDocs<'i>,
-
+pub struct SerDesStruct {
+    pub inner: StructDef
 }

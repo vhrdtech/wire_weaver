@@ -57,6 +57,7 @@ dependencies = [
  "mquote",
  "mtoken",
  "parser",
+ "vhl",
 ]
 
 [[package]]
@@ -126,6 +127,9 @@ dependencies = [
 [[package]]
 name = "mtoken"
 version = "0.1.0"
+dependencies = [
+ "vhl",
+]
 
 [[package]]
 name = "opaque-debug"

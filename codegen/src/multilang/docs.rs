@@ -1,9 +1,8 @@
-use parser::ast::doc::Doc;
 use mtoken::{ToTokens, TokenStream, Span, Comment, CommentFlavor, ext::TokenStreamExt};
 use mquote::mquote;
 
-pub struct CGDocs<'i, 'c> {
-    pub inner: &'c Doc<'i>,
+pub struct Doc {
+    pub inner: vhl::ast::doc::Doc,
     pub flavor: CommentFlavor,
 }
 

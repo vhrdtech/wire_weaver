@@ -1,13 +1,20 @@
-use parser::ast::naming::Identifier;
-use mtoken::{ToTokens, TokenStream, Ident, Span, ext::TokenStreamExt};
 
-pub struct CGTypename<'i, 'c> {
-    pub inner: &'c Identifier<'i>
-}
+//
+// impl ToTokens for Identifier {
+//     fn to_tokens<Rust, AnyMod, AnySubMod>(&self, tokens: &mut TokenStream) {
+//         tokens.append(Ident::new(
+//             Rc::clone(&self.inner.symbols),
+//             IdentFlavor::DartAutoRaw,
+//             self.inner.span.clone()
+//         ));
+//     }
+// }
 
-impl<'i, 'c> ToTokens for CGTypename<'i, 'c> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(self.inner.name, Span::call_site()));
-    }
-}
-
+// #[cfg(test)]
+// mod test {
+//     use vhl::ast::identifier::IdentifierContext;
+//     use vhl::span::Span;
+//     use super::*;
+//
+//
+// }

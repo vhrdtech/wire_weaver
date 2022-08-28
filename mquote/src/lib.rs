@@ -167,12 +167,12 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
         },
         Rule::ident => {
             let ident_lit = Literal::string(token.as_str());
-            let flavor = ident_flavor(language);
+            let _flavor = ident_flavor(language);
             ts_builder.append_all(quote! {
                 ts.append(
                     mtoken::Ident::new(
                         Rc::new(#ident_lit.to_owned()),
-                        IdentFlavor::#flavor,
+                        IdentFlavor::Plain,
                         Span::call_site()
                     )
                 );

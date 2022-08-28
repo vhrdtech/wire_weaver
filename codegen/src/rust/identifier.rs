@@ -3,6 +3,7 @@ use mtoken::{Ident, TokenStream, ToTokens};
 use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
 
+#[derive(Clone)]
 pub struct Identifier {
     pub inner: vhl::ast::identifier::Identifier,
 }
@@ -14,6 +15,14 @@ impl ToTokens for Identifier {
             IdentFlavor::RustAutoRaw,
             self.inner.span.clone()
         ));
+    }
+}
+
+impl From<vhl::ast::identifier::Identifier> for Identifier {
+    fn from(id: vhl::ast::identifier::Identifier) -> Self {
+        Identifier {
+            inner: id
+        }
     }
 }
 

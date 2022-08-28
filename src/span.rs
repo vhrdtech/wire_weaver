@@ -33,6 +33,8 @@ pub enum SourceOrigin {
 
     /// Replaced with actual origin after whole tree is created
     ImplFrom,
+
+    Str,
 }
 
 impl Display for SpanOrigin {
@@ -73,7 +75,8 @@ impl Display for SourceOrigin {
                 path.file_name().map(|p| p.to_str().unwrap_or("?")).unwrap_or("?")),
             SourceOrigin::Registry() => write!(f, "registry"),
             SourceOrigin::DescriptorBlock() => write!(f, "descriptor"),
-            SourceOrigin::ImplFrom => write!(f, "impl From")
+            SourceOrigin::ImplFrom => write!(f, "impl From"),
+            SourceOrigin::Str => write!(f, "str")
         }
     }
 }

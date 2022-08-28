@@ -16,9 +16,9 @@ pub enum TyKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DiscreteTy {
-    is_signed: bool,
-    bits: u32,
-    shift: u128,
+    pub is_signed: bool,
+    pub bits: u32,
+    pub shift: u128,
 }
 
 impl<'i> From<TyParser<'i>> for Ty {

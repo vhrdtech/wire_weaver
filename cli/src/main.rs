@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // println!("File: {:?}", file.0);
     let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(filepath.to_path_buf())));
     let ast_core = vhl::ast::file::File::from_parser_ast(file, origin);
-    println!("{:#?}", ast_core);
+    println!("{:?}", ast_core);
 
     // let mut expr_visitor = ExprVisitor {};
     // expr_visitor.visit_file(&file.0);

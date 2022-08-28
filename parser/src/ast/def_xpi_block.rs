@@ -17,6 +17,7 @@ use super::prelude::*;
 //     }}
 // }
 
+#[derive(Clone)]
 pub struct DefXpiBlock<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
@@ -54,7 +55,7 @@ impl<'i> Debug for DefXpiBlock<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
     pub access: Option<XpiResourceAccessMode>,
     pub r#type: Option<XpiBlockType<'i>>,
@@ -77,7 +78,7 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct XpiBody<'i> {
     pub kv_list: Vec<XpiBlockKeyValue<'i>>,
     pub implements: Vec<Expr<'i>>,
@@ -126,7 +127,7 @@ impl<'i> Parse<'i> for XpiBody<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum XpiUri<'i> {
     /// `/main`
     OneNamedPart(Identifier<'i, XpiUriSegmentName>),
@@ -164,7 +165,7 @@ impl<'i> Parse<'i> for XpiUri<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum XpiResourceAccessMode {
     Rw,
     Ro,
@@ -221,7 +222,7 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XpiBlockType<'i>(pub Option<Ty<'i>>);
 
 impl<'i> Parse<'i> for XpiBlockType<'i> {
@@ -231,7 +232,7 @@ impl<'i> Parse<'i> for XpiBlockType<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XpiSerial(pub u32);
 
 impl<'i> Parse<'i> for XpiSerial {
@@ -248,7 +249,7 @@ impl<'i> Parse<'i> for XpiSerial {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XpiBlockKeyValue<'i> {
     pub key: Identifier<'i, XpiKeyName>,
     pub value: XpiValue<'i>,
@@ -264,7 +265,7 @@ impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum XpiValue<'i> {
     Stmt(Stmt<'i>),
     Expr(Expr<'i>),

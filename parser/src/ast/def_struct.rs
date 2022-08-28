@@ -3,7 +3,7 @@ use crate::ast::naming::{StructFieldName, StructTyName};
 use crate::ast::prelude::*;
 use crate::ast::ty::Ty;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefStruct<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
@@ -12,7 +12,7 @@ pub struct DefStruct<'i> {
     pub span: Span<'i>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructFields<'i> {
     pub fields: Vec<StructField<'i>>,
 }

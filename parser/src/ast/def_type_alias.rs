@@ -2,7 +2,7 @@ use crate::ast::naming::UserTyName;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefTypeAlias<'i> {
     pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,

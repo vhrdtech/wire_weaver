@@ -23,10 +23,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let file = File::parse(&input)?;
     println!("\x1b[33mWarnings: {:?}\x1b[0m", file.1);
-    for def in file.0.defs {
+    for def in file.0.clone().defs {
         println!("\x1b[45mD:\x1b[0m\t{:?}\n", def);
     }
     // println!("File: {:?}", file.0);
+    let file_ast_core: vhl::ast::file::File = file.0.into();
+    println!("{:?}", file_ast_core);
 
     // let mut expr_visitor = ExprVisitor {};
     // expr_visitor.visit_file(&file.0);

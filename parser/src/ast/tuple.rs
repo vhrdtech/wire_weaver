@@ -1,7 +1,7 @@
 use super::prelude::*;
 use super::ty::Ty;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TupleFieldsTy<'i> {
     pub fields: Vec<Ty<'i>>
 }

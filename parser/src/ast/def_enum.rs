@@ -3,7 +3,7 @@ use crate::ast::tuple::TupleFieldsTy;
 use crate::ast::naming::{EnumFieldName, EnumTyName};
 use crate::error::ParseErrorSource;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefEnum<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
@@ -11,12 +11,12 @@ pub struct DefEnum<'i> {
     pub entries: EnumItems<'i>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumItems<'i> {
     pub entries: Vec<EnumItem<'i>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumItem<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
@@ -24,7 +24,7 @@ pub struct EnumItem<'i> {
     pub kind: Option<EnumItemKind<'i>>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EnumItemKind<'i> {
     Tuple(TupleFieldsTy<'i>),
     Struct,

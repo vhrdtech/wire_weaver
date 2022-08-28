@@ -3,7 +3,7 @@ use crate::ast::naming::VariableDefName;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt<'i> {
     Let(LetStmt<'i>),
     Expr(Expr<'i>)
@@ -26,7 +26,7 @@ impl<'i> Parse<'i> for Stmt<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStmt<'i> {
     pub ident: Identifier<'i, VariableDefName>,
     pub type_ascription: Option<Ty<'i>>,

@@ -7,7 +7,7 @@ use crate::ast::def_xpi_block::DefXpiBlock;
 use crate::error::ParseErrorSource;
 use super::def_enum::DefEnum;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Definition<'i> {
     Const(DefConst),
     Enum(DefEnum<'i>),

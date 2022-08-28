@@ -4,7 +4,7 @@ use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefFn<'i> {
     pub docs: Doc<'i>,
     pub attrs: Attrs<'i>,
@@ -66,7 +66,7 @@ impl<'i> Parse<'i> for FnArg<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnStmts<'i> {
     pub stmts: Vec<Stmt<'i>>
 }

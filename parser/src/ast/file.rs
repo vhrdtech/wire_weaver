@@ -26,7 +26,7 @@ impl Display for FileError {
 
 impl std::error::Error for FileError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct File<'i> {
     pub defs: Vec<Definition<'i>>
 }

@@ -47,6 +47,7 @@ version = "0.2.0"
 dependencies = [
  "codegen",
  "parser",
+ "vhl",
 ]
 
 [[package]]

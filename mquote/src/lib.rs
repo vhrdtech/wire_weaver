@@ -14,7 +14,7 @@ use proc_macro::{TokenTree, TokenStream};
 use crate::pest::Parser;
 use lexer::{Rule, MQuoteLexer};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Language {
     Rust,
     Dart,
@@ -207,9 +207,16 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
         Rule::punctuation => {
             let punct = token.as_str().to_string();
             if punct.len() == 1 {
-                let punct_lit = Literal::character(punct.chars().next().unwrap());
+                let ch = punct.chars().next().unwrap();
+                // handle 'lifetime for Rust
+                let spacing = if language == Language::Rust && ch == '\'' {
+                    Ident::new("Joint", Span::call_site())
+                } else {
+                    Ident::new("Alone", Span::call_site())
+                };
+                let punct_lit = Literal::character(ch);
                 ts_builder.append_all(quote! {
-                    ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Alone));
+                    ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::#spacing));
                 })
             } else if punct.len() == 2 {
                 let punct_lit = Literal::character(punct.chars().next().unwrap());

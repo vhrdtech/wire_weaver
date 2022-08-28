@@ -1,7 +1,7 @@
 use crate::ast::naming::PathSegment;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attrs<'i> {
     pub attributes: Vec<Attr<'i>>
 }
@@ -23,7 +23,7 @@ impl<'i> Parse<'i> for Attrs<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attr<'i> {
     pub path: Vec<PathSegment<'i>>,
     pub input: bool,

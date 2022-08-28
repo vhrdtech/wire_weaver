@@ -57,10 +57,11 @@ impl<'i> File<'i> {
                         // }
                         _ => {
                             let pair = pi.next().unwrap();
+                            let pair_span = pair.as_span();
                             let rule = pair.as_rule();
                             let span = (pair.as_span().start(), pair.as_span().end());
                             // println!("deferring to others {:?}", pair);
-                            match ParseInput::new(pair.into_inner(), &mut warnings, &mut errors).parse() {
+                            match ParseInput::new(pair.into_inner(), pair_span, &mut warnings, &mut errors).parse() {
                                 Ok(item) => {
                                     items.push(item);
                                 },

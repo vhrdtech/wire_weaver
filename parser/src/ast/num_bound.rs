@@ -2,7 +2,7 @@ use crate::ast::expr::Expr;
 use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NumBound<'i> {
     Unbound,
     MaxBound(u64),

@@ -1,20 +1,20 @@
 use mtoken::{ToTokens, TokenStream, Span, Ident, ext::TokenStreamExt};
 use mquote::mquote;
-use parser::ast::ty::Ty;
+use parser::ast::ty::TyKind;
 use std::marker::PhantomData;
 
 pub struct CGTy<'i, 'c> {
-    pub inner: &'c Ty<'i>,
+    pub inner: &'c TyKind<'i>,
     pub _p: &'i PhantomData<()>
 }
 
 impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self.inner {
-            Ty::Boolean => {
+            TyKind::Boolean => {
                 tokens.append(Ident::new("bool", Span::call_site()));
             }
-            Ty::Discrete { is_signed, bits, .. } => {
+            TyKind::Discrete { is_signed, bits, .. } => {
                 let is_signed = if is_native_discrete(*bits) {
                     if *is_signed {
                         "i"
@@ -33,19 +33,19 @@ impl<'i, 'c> ToTokens for CGTy<'i, 'c> {
                     #discrete
                 "#));
             }
-            Ty::FixedPoint { .. } => {}
-            Ty::FloatingPoint { .. } => {}
-            Ty::Array { .. } => {}
-            Ty::Tuple(_) => {}
-            Ty::Fn { .. } => {}
-            Ty::Generic { .. } => {}
-            Ty::Char => {}
-            Ty::String => {}
-            Ty::Sequence => {}
-            Ty::UserDefined(_) => {}
-            Ty::AutoNumber(_) => {}
-            Ty::IndexOf(_) => {}
-            Ty::Derive => {}
+            TyKind::FixedPoint { .. } => {}
+            TyKind::FloatingPoint { .. } => {}
+            TyKind::Array { .. } => {}
+            TyKind::Tuple(_) => {}
+            TyKind::Fn { .. } => {}
+            TyKind::Generic { .. } => {}
+            TyKind::Char => {}
+            TyKind::String => {}
+            TyKind::Sequence => {}
+            TyKind::UserDefined(_) => {}
+            TyKind::AutoNumber(_) => {}
+            TyKind::IndexOf(_) => {}
+            TyKind::Derive => {}
         }
     }
 }

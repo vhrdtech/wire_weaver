@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use pest::Span;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Doc<'i> {
     pub lines: Vec<(&'i str, Span<'i>)>
 }

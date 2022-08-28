@@ -1,13 +1,15 @@
+use pest::Span;
 use crate::ast::naming::StructFieldName;
 use crate::ast::prelude::*;
 use crate::ast::ty::Ty;
 
 #[derive(Debug)]
 pub struct DefStruct<'i> {
-    pub docs: Doc<'i>,
+    pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub typename: Typename<'i>,
-    pub fields: StructFields<'i>
+    pub fields: StructFields<'i>,
+    pub span: Span<'i>
 }
 
 #[derive(Debug)]
@@ -15,12 +17,13 @@ pub struct StructFields<'i> {
     pub fields: Vec<StructField<'i>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructField<'i> {
-    pub docs: Doc<'i>,
+    pub doc: Doc<'i>,
     pub attrs: Attrs<'i>,
     pub name: StructFieldName<'i>,
-    pub ty: Ty<'i>
+    pub ty: Ty<'i>,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for DefStruct<'i> {
@@ -28,10 +31,11 @@ impl<'i> Parse<'i> for DefStruct<'i> {
         let mut input = ParseInput::fork(input.expect1(Rule::struct_def)?, input);
 
         Ok(DefStruct {
-            docs: input.parse()?,
+            doc: input.parse()?,
             attrs: input.parse()?,
             typename: input.parse()?,
-            fields: input.parse()?
+            fields: input.parse()?,
+            span: input.span
         })
     }
 }
@@ -52,11 +56,13 @@ impl<'i> Parse<'i> for StructFields<'i> {
 
 impl<'i> Parse<'i> for StructField<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let span = input.span.clone();
         Ok(StructField {
-            docs: input.parse()?,
+            doc: input.parse()?,
             attrs: input.parse()?,
             name: input.parse()?,
-            ty: input.parse()?
+            ty: input.parse()?,
+            span
         })
     }
 }

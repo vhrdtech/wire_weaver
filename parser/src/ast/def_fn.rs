@@ -31,7 +31,7 @@ impl<'i> Parse<'i> for DefFn<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnArguments<'i> {
     pub args: Vec<FnArg<'i>>
 }
@@ -50,7 +50,7 @@ impl<'i> Parse<'i> for FnArguments<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnArg<'i> {
     pub name: FnArgName<'i>,
     pub ty: Ty<'i>,
@@ -83,7 +83,7 @@ impl<'i> Parse<'i> for FnStmts<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnRetTy<'i>(pub Ty<'i>);
 
 impl<'i> Parse<'i> for FnRetTy<'i> {

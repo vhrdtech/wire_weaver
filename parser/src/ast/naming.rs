@@ -1,7 +1,7 @@
 use pest::Span;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Typename<'i> {
     pub typename: &'i str,
     pub span: Span<'i>
@@ -45,7 +45,7 @@ impl<'i> From<BuiltinTypename<'i>> for Typename<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PathSegment<'i> {
     pub segment: &'i str,
     pub span: Span<'i>
@@ -79,7 +79,7 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructFieldName<'i> {
     pub name: &'i str,
     pub span: Span<'i>
@@ -145,7 +145,7 @@ impl<'i> Parse<'i> for FnName<'i> {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnArgName<'i> {
     pub name: &'i str,
     pub span: Span<'i>

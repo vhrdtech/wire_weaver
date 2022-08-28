@@ -2,10 +2,10 @@ use crate::ast::expr::Expr;
 use crate::ast::ty::Ty;
 use super::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Generics<'i>(pub Vec<GenericParam<'i>>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GenericParam<'i> {
     Ty(Ty<'i>),
     Expr(Expr<'i>)

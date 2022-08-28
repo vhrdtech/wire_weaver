@@ -2,7 +2,7 @@ mod lexer;
 
 use quote::{quote, TokenStreamExt, format_ident};
 
-use proc_macro2::Literal;
+use proc_macro2::{Ident, Literal, Span};
 
 extern crate pest;
 #[macro_use]
@@ -14,12 +14,23 @@ use proc_macro::{TokenTree, TokenStream};
 use crate::pest::Parser;
 use lexer::{Rule, MQuoteLexer};
 
+#[derive(Copy, Clone)]
+enum Language {
+    Rust,
+    Dart,
+
+}
+
 #[proc_macro]
 pub fn mquote(ts: TokenStream) -> TokenStream {
     let mut ts = ts.into_iter();
-    let _language = match ts.next().unwrap() {
+    let language = match ts.next().unwrap() {
         TokenTree::Ident(ident) => {
-            ident.to_string()
+            match ident.to_string().as_str() {
+                "rust" => Language::Rust,
+                "dart" => Language::Dart,
+                _ => panic!("Unsupported language: {}", ident)
+            }
         },
         _ => panic!("Expected language name")
     };
@@ -35,7 +46,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
 
     let mut ts_builder = new_ts_builder();
     for token in mquote_ts {
-        tt_append(token, &mut ts_builder);
+        tt_append(token, &mut ts_builder, language);
     }
     let ts_builder = quote! {
         {
@@ -63,19 +74,26 @@ fn interpolate_path(token: pest::iterators::Pair<Rule>) -> proc_macro2::TokenStr
     }
 }
 
-fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
+fn ident_flavor(language: Language) -> Ident {
+    match language {
+        Language::Rust => Ident::new("RustAutoRaw", Span::call_site()),
+        Language::Dart => Ident::new("DartAutoRaw", Span::call_site()),
+    }
+}
+
+fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream, language: Language) {
     // eprintln!("tt_append: {:?}", token);
     match token.as_rule() {
         Rule::delim_token_tree => {
             let delimiter = match token.as_str().chars().next().unwrap() {
-                '(' => proc_macro2::Ident::new("Parenthesis", proc_macro2::Span::call_site()),
-                '{' => proc_macro2::Ident::new("Brace", proc_macro2::Span::call_site()),
-                '[' => proc_macro2::Ident::new("Bracket", proc_macro2::Span::call_site()),
+                '(' => proc_macro2::Ident::new("Parenthesis", Span::call_site()),
+                '{' => proc_macro2::Ident::new("Brace", Span::call_site()),
+                '[' => proc_macro2::Ident::new("Bracket", Span::call_site()),
                 _ => panic!("Internal error, expected delimiter")
             };
             let mut delim_stream = new_ts_builder();
             for token in token.into_inner() {
-                tt_append(token, &mut delim_stream);
+                tt_append(token, &mut delim_stream, language);
             }
             ts_builder.append_all(quote! {
                 let delim_stream = { #delim_stream ts };
@@ -83,7 +101,7 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
             })
         },
         Rule::token => {
-            tt_append(token.into_inner().next().unwrap(), ts_builder);
+            tt_append(token.into_inner().next().unwrap(), ts_builder, language);
         },
         Rule::interpolate => {
             let path = interpolate_path(token);
@@ -104,12 +122,12 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                     Rule::token => {
                         let token = interpolate_token.into_inner().next().unwrap();
                         if interpolate_or_key.is_none() {
-                            tt_append(token, &mut prefix_ts);
+                            tt_append(token, &mut prefix_ts, language);
                         } else {
                             if interpolate_or_value.is_none() {
-                                tt_append(token, &mut infix_ts);
+                                tt_append(token, &mut infix_ts, language);
                             } else {
-                                tt_append(token, &mut postfix_ts);
+                                tt_append(token, &mut postfix_ts, language);
                             }
                         }
                     },
@@ -122,7 +140,7 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                         }
                     },
                     Rule::repetition_separator => {
-                        tt_append(interpolate_token.into_inner().next().unwrap(), &mut separator);
+                        tt_append(interpolate_token.into_inner().next().unwrap(), &mut separator, language);
                     },
                     _ => panic!("Internal error: unexpected token in interpolate repetition: {:?}", interpolate_token),
                 }
@@ -149,8 +167,15 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
         },
         Rule::ident => {
             let ident_lit = Literal::string(token.as_str());
+            let flavor = ident_flavor(language);
             ts_builder.append_all(quote! {
-                ts.append(mtoken::Ident::new(#ident_lit, mtoken::Span::call_site()));
+                ts.append(
+                    mtoken::Ident::new(
+                        Rc::new(#ident_lit.to_owned()),
+                        IdentFlavor::#flavor,
+                        Span::call_site()
+                    )
+                );
             });
         },
         // Rule::ds_comment => {

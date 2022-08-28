@@ -1,3 +1,4 @@
+use pest::Span;
 use super::prelude::*;
 
 #[derive(Debug)]
@@ -72,6 +73,7 @@ impl<'i> Parse<'i> for EnumEntryName<'i> {
 #[derive(Debug)]
 pub struct StructFieldName<'i> {
     pub name: &'i str,
+    pub span: Span<'i>
 }
 
 impl<'i> Parse<'i> for StructFieldName<'i> {
@@ -79,7 +81,8 @@ impl<'i> Parse<'i> for StructFieldName<'i> {
         let ident = input.expect1(Rule::identifier)?;
         //check_lower_snake_case(&ident, &mut input.warnings);
         Ok(StructFieldName {
-            name: ident.as_str()
+            name: ident.as_str(),
+            span: ident.as_span()
         })
     }
 }

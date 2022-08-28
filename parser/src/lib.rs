@@ -11,6 +11,8 @@ pub mod error;
 pub mod warning;
 pub mod util;
 
-extern crate pest;
+// extern crate pest;
 #[macro_use]
 extern crate pest_derive;
+
+pub use pest;

@@ -1,8 +1,9 @@
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use crate::{ToTokens, TokenStream, TokenTree};
 use vhl::span::Span;
+use crate::ext::TokenStreamExt;
 
 /// A word of code, which may be a keyword or legal variable name
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -105,6 +106,37 @@ impl ToTokens for Punct {
     }
 }
 
+/// () {} or [] only in interpolations, otherwise token_tree is yielded by pest parser
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DelimiterRaw {
+    ParenOpen,
+    ParenClose,
+    BraceOpen,
+    BraceClose,
+    BracketOpen,
+    BracketClose,
+}
+
+impl ToTokens for DelimiterRaw {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.inner.push(TokenTree::DelimiterRaw(self.clone()))
+    }
+}
+
+impl Display for DelimiterRaw {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let d = match self {
+            DelimiterRaw::ParenOpen => '(',
+            DelimiterRaw::ParenClose => ')',
+            DelimiterRaw::BraceOpen => '{',
+            DelimiterRaw::BraceClose => '}',
+            DelimiterRaw::BracketOpen => '[',
+            DelimiterRaw::BracketClose => ']'
+        };
+        write!(f, "{}", d)
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Spacing {
     Alone,
@@ -179,4 +211,14 @@ pub enum CommentFlavor {
     DoubleSlash,
     TripleSlash,
     SlashStarMultiline
+}
+
+impl ToTokens for String {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Ident::new(
+            Rc::new(self.clone()),
+            IdentFlavor::Plain,
+            Span::call_site()
+        ));
+    }
 }

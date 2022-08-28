@@ -42,6 +42,7 @@ impl Display for TokenStream {
                     joint = tt.spacing() == Spacing::Joint;
                     Display::fmt(tt, f)
                 }
+                TokenTree::DelimiterRaw(tt) => Display::fmt(tt, f),
                 TokenTree::Literal(tt) => Display::fmt(tt, f),
                 TokenTree::Comment(tt) => Display::fmt(tt, f),
             }?;

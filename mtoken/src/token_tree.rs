@@ -1,5 +1,5 @@
 use crate::token_stream::TokenStream;
-use crate::token::{Ident, Punct, Literal, Comment};
+use crate::token::{Ident, Punct, Literal, Comment, DelimiterRaw};
 use std::fmt;
 use std::fmt::{Display, Debug};
 use crate::ToTokens;
@@ -13,6 +13,8 @@ pub enum TokenTree {
     Ident(Ident),
     /// A single punctuation character (`+`, `,`, `$`, etc.).
     Punct(Punct),
+    /// () {} or [] only in interpolate
+    DelimiterRaw(DelimiterRaw),
     /// A literal character (`'a'`), string (`"hello"`), number (`2.3`), etc.
     Literal(Literal),
     /// A comment //, ///, #[doc = ""],
@@ -75,6 +77,10 @@ impl From<Punct> for TokenTree {
     }
 }
 
+impl From<DelimiterRaw> for TokenTree {
+    fn from(delim: DelimiterRaw) -> Self { TokenTree::DelimiterRaw(delim) }
+}
+
 impl From<Literal> for TokenTree {
     fn from(lit: Literal) -> Self {
         TokenTree::Literal(lit)
@@ -93,6 +99,7 @@ impl Display for TokenTree {
             TokenTree::Group(t) => Display::fmt(t, f),
             TokenTree::Ident(t) => Display::fmt(t, f),
             TokenTree::Punct(t) => Display::fmt(t, f),
+            TokenTree::DelimiterRaw(t) => Display::fmt(t, f),
             TokenTree::Literal(t) => Display::fmt(t, f),
             TokenTree::Comment(t) => Display::fmt(t, f),
         }

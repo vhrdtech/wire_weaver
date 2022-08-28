@@ -12,5 +12,8 @@ readme = "README.md"
 name = "vhl"
 path = "src/lib.rs"
 
+[dependencies]
+parser = { path = "./parser" }
+
 [workspace]
 members = ["parser", "cli", "codegen", "mtoken", "mquote", "vhl-stdlib/vhl-stdlib-rust"]

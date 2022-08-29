@@ -68,7 +68,7 @@ fn is_dart_keyword(ident: &str) -> bool {
 
 impl ToTokens for Ident {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(TokenTree::Ident(self.clone()))
+        tokens.inner.push_back(TokenTree::Ident(self.clone()))
     }
 }
 
@@ -119,12 +119,12 @@ impl Debug for Punct {
 
 impl ToTokens for Punct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(TokenTree::Punct(self.clone()))
+        tokens.inner.push_back(TokenTree::Punct(self.clone()))
     }
 }
 
 /// () {} or [] only in interpolations, otherwise token_tree is yielded by pest parser
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum DelimiterRaw {
     ParenOpen,
     ParenClose,
@@ -134,9 +134,31 @@ pub enum DelimiterRaw {
     BracketClose,
 }
 
+impl DelimiterRaw {
+    pub fn is_open(&self) -> bool {
+        use DelimiterRaw::*;
+        match self {
+            ParenOpen | BraceOpen | BracketOpen => true,
+            _ => false
+        }
+    }
+
+    pub fn is_same_kind(&self, other: Self) -> bool {
+        use DelimiterRaw::*;
+        match self {
+            ParenOpen => other == ParenClose,
+            ParenClose => other == ParenOpen,
+            BraceOpen => other == BraceClose,
+            BraceClose => other == BraceOpen,
+            BracketOpen => other == BracketClose,
+            BracketClose => other == BracketOpen
+        }
+    }
+}
+
 impl ToTokens for DelimiterRaw {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(TokenTree::DelimiterRaw(self.clone()))
+        tokens.inner.push_back(TokenTree::DelimiterRaw(self.clone()))
     }
 }
 
@@ -180,7 +202,7 @@ impl Display for Literal {
 
 impl ToTokens for Literal {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(TokenTree::Literal(self.clone()))
+        tokens.inner.push_back(TokenTree::Literal(self.clone()))
     }
 }
 
@@ -225,7 +247,7 @@ impl Display for Comment {
 
 impl ToTokens for Comment {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(TokenTree::Comment(self.clone()))
+        tokens.inner.push_back(TokenTree::Comment(self.clone()))
     }
 }
 

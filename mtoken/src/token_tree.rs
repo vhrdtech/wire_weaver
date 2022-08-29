@@ -27,8 +27,8 @@ pub enum TokenTree {
 /// `Delimiter`s.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Group {
-    delimiter: Delimiter,
-    stream: TokenStream,
+    pub(crate) delimiter: Delimiter,
+    pub(crate) stream: TokenStream,
 }
 
 impl Group {
@@ -73,6 +73,16 @@ impl Delimiter {
             Delimiter::Parenthesis => ')',
             Delimiter::Brace => '}',
             Delimiter::Bracket => ']'
+        }
+    }
+}
+
+impl From<DelimiterRaw> for Delimiter {
+    fn from(d: DelimiterRaw) -> Self {
+        match d {
+            DelimiterRaw::ParenOpen | DelimiterRaw::ParenClose => Delimiter::Parenthesis,
+            DelimiterRaw::BraceOpen | DelimiterRaw::BraceClose => Delimiter::Brace,
+            DelimiterRaw::BracketOpen | DelimiterRaw::BracketClose => Delimiter::Bracket
         }
     }
 }
@@ -178,6 +188,6 @@ impl Debug for Group {
 
 impl ToTokens for TokenTree {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push(self.clone())
+        tokens.inner.push_back(self.clone());
     }
 }

@@ -1,12 +1,14 @@
+use std::collections::VecDeque;
 use crate::token_tree::TokenTree;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
-use crate::Spacing;
+use crate::{Group, Spacing};
 use std::iter::FromIterator;
+use crate::token::DelimiterRaw;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TokenStream {
-    pub(crate) inner: Vec<TokenTree>
+    pub(crate) inner: VecDeque<TokenTree>
 }
 
 pub trait ToTokens {
@@ -16,15 +18,71 @@ pub trait ToTokens {
 impl TokenStream {
     pub fn new() -> Self {
         TokenStream {
-            inner: Vec::new()
+            inner: VecDeque::new()
         }
     }
 
-    // pub fn append<U>(&mut self, token: U)
-    //     where U: Into<TokenTree>
-    // {
-    //     self.inner.push(token.into());
-    // }
+    /// Recreate proper tree structure after using interpolation with escaped delimiters.
+    ///
+    /// For example if `#( #methods \\( #names \\) ?; )*` construction was used in mquote macro,
+    /// token stream will contain DelimiterRaw tokens flat with other tokens (no nested groups):
+    /// `Id(fun1) DR( Id(self) P. Id(x) DR) P; Id(fun2) DR( Id(self) P. Id(y) DR) P;`
+    /// will be turned into
+    /// `Id(fun1) G( Id(self) P. Id(x)  ) P; Id(fun2) G( Id(self) P. Id(y)  ) P;`
+    /// Note that first token stream is flat while the second has two nested groups.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// * Unterminated opening or closing raw delimiter is encountered.
+    /// * Non matching closing delimiter is encountered.
+    pub fn recreate_trees(&mut self) {
+        self.inner = Self::collect_inner(self, None);
+    }
+
+    fn collect_inner(ts: &mut TokenStream, raw: Option<DelimiterRaw>) -> VecDeque<TokenTree> {
+        let mut tts_reassemble = VecDeque::new();
+        while let Some(t) = ts.inner.pop_front() {
+            match t {
+                TokenTree::DelimiterRaw(delim) => {
+                    if delim.is_open() {
+                        tts_reassemble.push_back(TokenTree::Group(Group {
+                            delimiter: delim.clone().into(),
+                            stream: TokenStream { inner: Self::collect_inner(ts, Some(delim)) }
+                        }));
+                    } else {
+                        match raw {
+                            Some(open_raw_delim) => {
+                                if !open_raw_delim.is_same_kind(delim) {
+                                    panic!(
+                                        "Open delimiter was: {:?} got non matching closing: {:?}",
+                                        open_raw_delim,
+                                        delim
+                                    )
+                                }
+                            }
+                            None => panic!("Unexpected closing raw delimiter: {:?}", delim)
+                        }
+                        return tts_reassemble;
+                    }
+                }
+                TokenTree::Group(mut group) => {
+                    tts_reassemble.push_back(TokenTree::Group(Group {
+                        delimiter: group.delimiter,
+                        stream: TokenStream { inner: Self::collect_inner(&mut group.stream, None) }
+                    }));
+                }
+                any_else => {
+                    tts_reassemble.push_back(any_else);
+                }
+            }
+        }
+        match raw {
+            Some(open_raw_delim) => panic!("Unterminated raw delimiter: {:?}", open_raw_delim),
+            None => {}
+        }
+        tts_reassemble
+    }
 }
 
 impl Display for TokenStream {
@@ -56,7 +114,7 @@ impl From<TokenTree> for TokenStream {
     fn from(tree: TokenTree) -> TokenStream {
         let mut stream = TokenStream::new();
         // stream.push_token(tree);
-        stream.inner.push(tree);
+        stream.inner.push_back(tree);
         stream
     }
 }
@@ -71,7 +129,7 @@ impl FromIterator<TokenTree> for TokenStream {
 
 impl FromIterator<TokenStream> for TokenStream {
     fn from_iter<I: IntoIterator<Item = TokenStream>>(streams: I) -> Self {
-        let mut v = Vec::new();
+        let mut v = VecDeque::new();
 
         for stream in streams {
             v.extend(stream.inner);
@@ -83,7 +141,7 @@ impl FromIterator<TokenStream> for TokenStream {
 
 impl Extend<TokenTree> for TokenStream {
     fn extend<T: IntoIterator<Item=TokenTree>>(&mut self, tokens: T) {
-        tokens.into_iter().for_each(|tt| self.inner.push(tt));
+        tokens.into_iter().for_each(|tt| self.inner.push_back(tt));
     }
 }
 
@@ -99,7 +157,7 @@ impl ToTokens for TokenStream {
     }
 }
 
-pub(crate) type TokenTreeIter = std::vec::IntoIter<TokenTree>;
+pub(crate) type TokenTreeIter = std::collections::vec_deque::IntoIter<TokenTree>;
 
 impl IntoIterator for TokenStream {
     type Item = TokenTree;

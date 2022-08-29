@@ -21,6 +21,18 @@ pub struct DiscreteTy {
     pub shift: u128,
 }
 
+impl DiscreteTy {
+    pub fn is_standard(&self) -> bool {
+        if self.shift != 0 {
+            return false;
+        }
+        if [8, 16, 32, 64, 128].contains(&self.bits) {
+            return true;
+        }
+        false
+    }
+}
+
 impl<'i> From<TyParser<'i>> for Ty {
     fn from(ty: TyParser<'i>) -> Self {
         Ty {

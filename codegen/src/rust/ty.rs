@@ -1,21 +1,12 @@
 use crate::prelude::*;
 use vhl::ast::ty::TyKind;
-use crate::rust::identifier::Identifier;
 
 #[derive(Clone)]
-pub struct Ty {
-    pub inner: vhl::ast::ty::Ty
+pub struct CGTy<'ast> {
+    pub inner: &'ast vhl::ast::ty::Ty
 }
 
-impl From<vhl::ast::ty::Ty> for Ty {
-    fn from(ty: vhl::ast::ty::Ty) -> Self {
-        Ty {
-            inner: ty,
-        }
-    }
-}
-
-impl ToTokens for Ty {
+impl<'ast> ToTokens for CGTy<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.inner.kind {
             TyKind::Boolean => {
@@ -41,13 +32,7 @@ impl ToTokens for Ty {
                         "VU"
                     }
                 };
-                let discrete = Identifier {
-                    inner: vhl::ast::identifier::Identifier {
-                        symbols: Rc::new(format!("{}{}", is_signed, discrete.bits)),
-                        context: IdentifierContext::UserTyName,
-                        span: self.inner.span.clone()
-                    }
-                };
+                let discrete = format!("{}{}", is_signed, discrete.bits);
                 tokens.append_all(mquote!(rust r#"
                     #discrete
                 "#));

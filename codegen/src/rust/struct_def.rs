@@ -1,56 +1,68 @@
+use vhl::ast::struct_def::StructDef;
 use crate::prelude::*;
-use crate::rust::identifier::Identifier;
-use crate::rust::ty::Ty;
+use crate::rust::identifier::CGIdentifier;
+use crate::rust::ty::CGTy;
 
-pub struct StructDef {
-    pub typename: Identifier,
-    pub fields: Vec<StructField>,
+pub struct CGStructDef<'ast> {
+    pub typename: CGIdentifier<'ast>,
+    pub inner: &'ast StructDef
+    // pub fields: Vec<CGStructField>,
 }
 
-impl StructDef {
-    pub fn new(struct_def: &vhl::ast::struct_def::StructDef) -> Self {
-        StructDef {
-            typename: struct_def.typename.clone().into(),
-            fields: struct_def.fields.fields.iter()
-                .map(|item| item.clone().into())
-                .collect()
+impl<'ast> CGStructDef<'ast> {
+    pub fn new(struct_def: &'ast vhl::ast::struct_def::StructDef) -> Self {
+        CGStructDef {
+            typename: CGIdentifier { inner: &struct_def.typename },
+            inner: struct_def
+            // fields: struct_def.fields.fields.iter()
+            //     .map(|item| item.clone().into())
+            //     .collect()
         }
     }
 }
 
-#[derive(Clone)]
-pub struct StructField {
-    pub name: Identifier,
-    pub ty: Ty,
-}
+// #[derive(Clone)]
+// pub struct CGStructField {
+//     pub name: Identifier,
+//     pub ty: Ty,
+// }
+//
+// impl From<vhl::ast::struct_def::StructField> for CGStructField {
+//     fn from(field: vhl::ast::struct_def::StructField) -> Self {
+//         CGStructField {
+//             name: field.name.into(),
+//             ty: field.ty.into(),
+//         }
+//     }
+// }
 
-impl From<vhl::ast::struct_def::StructField> for StructField {
-    fn from(field: vhl::ast::struct_def::StructField) -> Self {
-        StructField {
-            name: field.name.into(),
-            ty: field.ty.into(),
-        }
-    }
-}
-
-impl ToTokens for StructDef {
+impl<'ast> ToTokens for CGStructDef<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let fields = self.fields.clone();
+        let field_names = self.inner.fields.fields
+            .iter()
+            .map(|f| {
+                CGIdentifier { inner: &f.name }
+            });
+        let field_types = self.inner.fields.fields
+            .iter()
+            .map(|f| {
+                CGTy { inner: &f.ty }
+            });
         tokens.append_all(mquote!(rust r#"
             struct #{self.typename} {
-                #( #fields ),*
+                #( #field_names : #field_types ),*
             }
         "#));
     }
 }
 
-impl ToTokens for StructField {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append_all(mquote!(rust r#"
-            pub #{self.name}: #{self.ty}
-        "#));
-    }
-}
+// impl ToTokens for CGStructField {
+//     fn to_tokens(&self, tokens: &mut TokenStream) {
+//         tokens.append_all(mquote!(rust r#"
+//             pub #{self.name}: #{self.ty}
+//         "#));
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -67,7 +79,7 @@ mod test {
         let ast_core = vhl::ast::file::File::from_parser_ast(ast_parser, origin);
         match &ast_core.items[0] {
             Definition::Struct(struct_def) => {
-                let cg_struct_def = super::StructDef::new(struct_def);
+                let cg_struct_def = super::CGStructDef::new(struct_def);
                 let ts = mquote!(rust r#" #cg_struct_def "#);
                 println!("{}", ts);
             }

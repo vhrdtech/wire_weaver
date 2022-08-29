@@ -1,11 +1,11 @@
 use crate::token_stream::TokenStream;
 use crate::token::{Ident, Punct, Literal, Comment, DelimiterRaw};
 use std::fmt;
-use std::fmt::{Display, Debug};
+use std::fmt::{Display, Debug, Formatter};
 use crate::ToTokens;
 
 /// A single token or a delimited sequence of token trees (e.g. `[1, (), ..]`).
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum TokenTree {
     /// A token stream surrounded by bracket delimiters.
     Group(Group),
@@ -59,6 +59,24 @@ pub enum Delimiter {
     // None,
 }
 
+impl Delimiter {
+    pub fn open_char(&self) -> char {
+        match self {
+            Delimiter::Parenthesis => '(',
+            Delimiter::Brace => '{',
+            Delimiter::Bracket => '['
+        }
+    }
+
+    pub fn close_char(&self) -> char {
+        match self {
+            Delimiter::Parenthesis => ')',
+            Delimiter::Brace => '}',
+            Delimiter::Bracket => ']'
+        }
+    }
+}
+
 impl From<Group> for TokenTree {
     fn from(group: Group) -> Self {
         TokenTree::Group(group)
@@ -106,6 +124,25 @@ impl Display for TokenTree {
     }
 }
 
+impl Debug for TokenTree {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenTree::Group(t) => {
+                if f.alternate() {
+                    write!(f, "{:#?}", t)
+                } else {
+                    write!(f, "{:?}", t)
+                }
+            },
+            TokenTree::Ident(t) => write!(f, "{:?}", t),
+            TokenTree::Punct(t) => write!(f, "{:?}", t),
+            TokenTree::DelimiterRaw(t) => write!(f, "{:?}", t),
+            TokenTree::Literal(t) => write!(f, "{:?}", t),
+            TokenTree::Comment(t) => write!(f, "{:?}", t),
+        }
+    }
+}
+
 impl Display for Group {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (open, close) = match self.delimiter {
@@ -127,12 +164,15 @@ impl Display for Group {
 }
 
 impl Debug for Group {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let mut debug = fmt.debug_struct("Group");
-        debug.field("delimiter", &self.delimiter);
-        debug.field("stream", &self.stream);
-        // debug_span_field_if_nontrivial(&mut debug, self.span);
-        debug.finish()
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // if f.alternate() {
+        //     writeln!(f, "")?;
+        // }
+        write!(f, "G\x1b[34m{}\x1b[0m {:?} \x1b[34m{}\x1b[0m",
+               self.delimiter.open_char(),
+               self.stream,
+               self.delimiter.close_char()
+        )
     }
 }
 

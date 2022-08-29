@@ -1,12 +1,12 @@
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use crate::{ToTokens, TokenStream, TokenTree};
 use vhl::span::Span;
 use crate::ext::TokenStreamExt;
 
 /// A word of code, which may be a keyword or legal variable name
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Ident {
     sym: Rc<String>,
     span: Span,
@@ -42,6 +42,12 @@ impl Display for Ident {
     }
 }
 
+impl Debug for Ident {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Id(\x1b[35m{}\x1b[0m)", self.sym)
+    }
+}
+
 fn is_rust_keyword(ident: &str) -> bool {
     // TODO: Add full list or Rust keywords
     match ident {
@@ -73,7 +79,7 @@ pub enum IdentFlavor {
     DartAutoRaw,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Punct {
     ch: char,
     spacing: Spacing,
@@ -100,6 +106,17 @@ impl Display for Punct {
     }
 }
 
+impl Debug for Punct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let joint = if self.spacing == Spacing::Joint {
+            "J"
+        } else {
+            ""
+        };
+        write!(f, "P{}\x1b[33m{}\x1b[0m", joint, self.ch)
+    }
+}
+
 impl ToTokens for Punct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.inner.push(TokenTree::Punct(self.clone()))
@@ -107,7 +124,7 @@ impl ToTokens for Punct {
 }
 
 /// () {} or [] only in interpolations, otherwise token_tree is yielded by pest parser
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum DelimiterRaw {
     ParenOpen,
     ParenClose,
@@ -134,6 +151,12 @@ impl Display for DelimiterRaw {
             DelimiterRaw::BracketClose => ']'
         };
         write!(f, "{}", d)
+    }
+}
+
+impl Debug for DelimiterRaw {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "DR\x1b[31m{}\x1b[0m", self)
     }
 }
 

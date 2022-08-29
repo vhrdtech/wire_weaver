@@ -1,10 +1,10 @@
 use crate::token_tree::TokenTree;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 use crate::Spacing;
 use std::iter::FromIterator;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct TokenStream {
     pub(crate) inner: Vec<TokenTree>
 }
@@ -107,5 +107,22 @@ impl IntoIterator for TokenStream {
 
     fn into_iter(self) -> TokenTreeIter {
         self.inner.into_iter()
+    }
+}
+
+impl Debug for TokenStream {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.inner.is_empty() {
+            write!(f, "∅")?;
+        } else {
+            for t in &self.inner {
+                if f.alternate() {
+                    write!(f, "{:#?} ", t)?;
+                } else {
+                    write!(f, "{:?} ", t)?;
+                }
+            }
+        }
+        Ok(())
     }
 }

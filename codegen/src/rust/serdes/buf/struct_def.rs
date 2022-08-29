@@ -172,6 +172,9 @@ mod test {
                         }
                     }
                 "#);
+
+                println!("{:#?}\n\n{:#?}", ts, ts_should_be);
+
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
             _ => panic!("Expected struct definition")

@@ -1,1 +1,1 @@
-pub mod serdes_struct;
+pub mod struct_def;

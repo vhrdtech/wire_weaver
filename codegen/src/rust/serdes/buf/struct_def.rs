@@ -91,7 +91,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
 }
 
 impl<'ast> ToTokens for StructSer<'ast> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+    fn to_tokens(&self, ts: &mut TokenStream) {
         let field_names = self.inner.inner.fields.fields
             .iter()
             .map(|field| {
@@ -102,7 +102,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
             .map(|f| StructSerField {
                 ty: CGTy { inner: &f.ty },
             });
-        tokens.append_all(mquote!(rust r#"
+        ts.append_all(mquote!(rust r#"
             impl SerializeBytes for #{self.inner.typename} {
                 type Error = BufError;
 
@@ -112,6 +112,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
                 }
             }
         "#));
+        ts.recreate_trees();
     }
 }
 
@@ -173,8 +174,6 @@ mod test {
                     }
                 "#);
 
-                println!("{:#?}\n\n{:#?}", ts, ts_should_be);
-
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
             _ => panic!("Expected struct definition")
@@ -193,11 +192,18 @@ mod test {
                 let cg_struct_serdes = super::StructDes { inner: cg_struct_def };
                 let ts = mquote!(rust r#" #cg_struct_serdes "#);
 
-                println!("{}", ts);
-                // let ts_should_be = mquote!(rust r#"
-                //
-                // "#);
-                // assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
+                let ts_should_be = mquote!(rust r#"
+                    impl<'i> DeserializeBytes<'i> for Point {
+                        type Error = BufError;
+                        fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
+                            Ok(Point {
+                                x: get_u16_le()?,
+                                y: get_u16_le()?
+                            })
+                        }
+                    }
+                "#);
+                assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
             _ => panic!("Expected struct definition")
         }

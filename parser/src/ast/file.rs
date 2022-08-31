@@ -1,14 +1,16 @@
+use thiserror::Error;
 use crate::parse::{ParseInput};
 use crate::ast::definition::Definition;
 use crate::lexer::{Lexer, Rule};
 use pest::error::Error;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::warning::ParseWarning;
-use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum FileError {
+    #[error("Source contains syntax errors")]
     Lexer(pest::error::Error<Rule>),
+    #[error("Source contains structural errors")]
     ParserError(Vec<ParseError>)
 }
 
@@ -17,14 +19,6 @@ impl From<pest::error::Error<Rule>> for FileError {
         FileError::Lexer(e)
     }
 }
-
-impl Display for FileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for FileError {}
 
 #[derive(Debug, Clone)]
 pub struct File<'i> {

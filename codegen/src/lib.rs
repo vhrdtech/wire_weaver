@@ -1,7 +1,10 @@
+pub mod error;
 // pub mod multilang;
 pub mod rust;
 pub mod ast_wrappers;
 pub mod dart;
+pub mod file;
+pub mod dependencies;
 
 pub mod prelude {
     pub use mquote::mquote;

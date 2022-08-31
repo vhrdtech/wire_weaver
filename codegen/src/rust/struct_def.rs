@@ -1,8 +1,10 @@
 use vhl::ast::struct_def::StructDef;
+use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
 
+#[derive(Clone)]
 pub struct CGStructDef<'ast> {
     pub typename: CGIdentifier<'ast>,
     pub inner: &'ast StructDef
@@ -53,6 +55,15 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
                 #( #field_names : #field_types ),*
             }
         "#));
+    }
+}
+
+impl<'ast> Depends for CGStructDef<'ast> {
+    fn dependencies(&self) -> Dependencies {
+        Dependencies {
+            depends: vec![],
+            uses: vec![]
+        }
     }
 }
 

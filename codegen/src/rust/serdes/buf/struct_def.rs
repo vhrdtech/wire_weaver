@@ -1,4 +1,6 @@
+use semver::VersionReq;
 use vhl::ast::ty::TyKind;
+use crate::dependencies::{Import, Dependencies, Package, RustCrateSource, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::struct_def::CGStructDef;
@@ -116,6 +118,36 @@ impl<'ast> ToTokens for StructSer<'ast> {
     }
 }
 
+impl<'ast> Depends for StructSer<'ast> {
+    fn dependencies(&self) -> Dependencies {
+        let depends = vec![Package::RustCrate(
+            RustCrateSource::Crates("vhl-stdlib".to_string()),
+            VersionReq::parse("0.1.0").unwrap()
+        )];
+        let uses = vec![
+            Import::Submodule(
+                "vhl_stdlib", Box::new(Import::Submodule(
+                    "serdes", Box::new(Import::Entities(vec![
+                        Import::Submodule("traits", Box::new(Import::Entity(
+                            "SerializeBytes"
+                        ))),
+
+                        Import::Submodule("buf", Box::new(Import::Entities(vec![
+                            Import::Entity("BufMut"),
+                            Import::EntityAs("Error", "BufError")
+                        ])))
+                    ])
+                    ))
+                ))
+        ];
+
+        Dependencies {
+            depends,
+            uses
+        }
+    }
+}
+
 impl<'ast> ToTokens for StructDes<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let field_names = self.inner.inner.fields.fields
@@ -139,6 +171,36 @@ impl<'ast> ToTokens for StructDes<'ast> {
                 }
             }
         "#));
+    }
+}
+
+impl<'ast> Depends for StructDes<'ast> {
+    fn dependencies(&self) -> Dependencies {
+        let depends = vec![Package::RustCrate(
+            RustCrateSource::Crates("vhl-stdlib".to_string()),
+            VersionReq::parse("0.1.0").unwrap()
+        )];
+        let uses = vec![
+            Import::Submodule(
+                "vhl_stdlib", Box::new(Import::Submodule(
+                    "serdes", Box::new(Import::Entities(vec![
+                        Import::Submodule("traits", Box::new(Import::Entity(
+                            "DeserializeBytes"
+                        ))),
+
+                        Import::Submodule("buf", Box::new(Import::Entities(vec![
+                            Import::Entity("Buf"),
+                            Import::EntityAs("Error", "BufError")
+                        ])))
+                    ])
+                    ))
+                ))
+        ];
+
+        Dependencies {
+            depends,
+            uses
+        }
     }
 }
 

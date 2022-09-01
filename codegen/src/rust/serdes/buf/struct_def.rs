@@ -124,22 +124,18 @@ impl<'ast> Depends for StructSer<'ast> {
             RustCrateSource::Crates("vhl-stdlib".to_string()),
             VersionReq::parse("0.1.0").unwrap()
         )];
-        let uses = vec![
-            Import::Submodule(
-                "vhl_stdlib", Box::new(Import::Submodule(
-                    "serdes", Box::new(Import::Entities(vec![
-                        Import::Submodule("traits", Box::new(Import::Entity(
-                            "SerializeBytes"
-                        ))),
 
-                        Import::Submodule("buf", Box::new(Import::Entities(vec![
-                            Import::Entity("BufMut"),
-                            Import::EntityAs("Error", "BufError")
-                        ])))
-                    ])
-                    ))
-                ))
-        ];
+        use Import::*;
+        let uses = vec![Submodule("vhl_stdlib", vec![
+            Submodule("serdes", vec![
+                Submodule("traits", vec![
+                    Entity("SerializeBytes")
+                ]),
+                Submodule("buf", vec![
+                    Entity("BufMut"), EntityAs("Error", "BufError")
+                ])
+            ])
+        ])];
 
         Dependencies {
             depends,
@@ -180,22 +176,17 @@ impl<'ast> Depends for StructDes<'ast> {
             RustCrateSource::Crates("vhl-stdlib".to_string()),
             VersionReq::parse("0.1.0").unwrap()
         )];
-        let uses = vec![
-            Import::Submodule(
-                "vhl_stdlib", Box::new(Import::Submodule(
-                    "serdes", Box::new(Import::Entities(vec![
-                        Import::Submodule("traits", Box::new(Import::Entity(
-                            "DeserializeBytes"
-                        ))),
-
-                        Import::Submodule("buf", Box::new(Import::Entities(vec![
-                            Import::Entity("Buf"),
-                            Import::EntityAs("Error", "BufError")
-                        ])))
-                    ])
-                    ))
-                ))
-        ];
+        use Import::*;
+        let uses = vec![Submodule("vhl_stdlib", vec![
+            Submodule("serdes", vec![
+                Submodule("traits", vec![
+                    Entity("DeserializeBytes")
+                ]),
+                Submodule("buf", vec![
+                    Entity("Buf"), EntityAs("Error", "BufError")
+                ])
+            ])
+        ])];
 
         Dependencies {
             depends,

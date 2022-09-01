@@ -10,6 +10,24 @@ pub struct StructSer<'ast> {
     pub inner: CGStructDef<'ast>
 }
 
+impl<'ast> StructSer<'ast> {
+    pub fn len_bytes(&self) -> Option<usize> {
+        let mut len = 0;
+        for f in &self.inner.inner.fields.fields {
+            if !f.ty.is_sized() {
+                return None;
+            }
+            len += match &f.ty.kind {
+                TyKind::Boolean => 1,
+                TyKind::Discrete(discrete) => {
+                    (discrete.bits / 8 + if discrete.bits % 2 != 0 { 1 } else { 0 }) as usize
+                }
+            };
+        }
+        Some(len)
+    }
+}
+
 pub struct StructDes<'ast> {
     pub inner: CGStructDef<'ast>
 }
@@ -62,7 +80,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
         match &self.ty.inner.kind {
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
-                    get_bool()?
+                    rdr.get_bool()?
                 "#));
             }
             TyKind::Discrete(discrete) => {
@@ -79,12 +97,12 @@ impl<'ast> ToTokens for StructDesField<'ast> {
                     };
                     let method = format!("get_{}{}{}", sign, discrete.bits, is_le);
                     tokens.append_all(mquote!(rust r#"
-                        #method()?
+                        rdr.#method()?
                     "#));
                 } else {
                     // Ix / Ux / UxSpy / UxSny / IxSpy / IxSny, use generic des<T: DeserializeBuf>()
                     tokens.append_all(mquote!(rust r#"
-                        des()?
+                        rdr.des_bytes()?
                     "#));
                 }
             }
@@ -104,6 +122,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
             .map(|f| StructSerField {
                 ty: CGTy { inner: &f.ty },
             });
+        let len_bytes = self.len_bytes().unwrap();
         ts.append_all(mquote!(rust r#"
             impl SerializeBytes for #{self.inner.typename} {
                 type Error = BufError;
@@ -111,6 +130,10 @@ impl<'ast> ToTokens for StructSer<'ast> {
                 fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error> {
                     #( #field_ser_methods \\( self.#field_names \\) ?; )*
                     Ok(())
+                }
+
+                fn len_bytes(&self) -> usize {
+                    #len_bytes
                 }
             }
         "#));

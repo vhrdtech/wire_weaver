@@ -58,3 +58,14 @@ impl<'i> From<StructFieldParser<'i>> for StructField {
         }
     }
 }
+
+impl StructDef {
+    pub fn is_sized(&self) -> bool {
+        for f in &self.fields.fields {
+            if !f.ty.is_sized() {
+                return false;
+            }
+        }
+        true
+    }
+}

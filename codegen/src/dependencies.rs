@@ -49,7 +49,7 @@ impl Import {
                         write!(s, ", ").unwrap();
                     }
                 }
-                write!(s, "}}").unwrap();
+                write!(s, "}};").unwrap();
             }
         }
         s

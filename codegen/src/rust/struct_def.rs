@@ -50,9 +50,11 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
             .map(|f| {
                 CGTy { inner: &f.ty }
             });
+        let derives = "#[derive(Copy, Clone, Eq, PartialEq, Debug)]"; // TODO: make automatic and configurable
         tokens.append_all(mquote!(rust r#"
-            struct #{self.typename} {
-                #( #field_names : #field_types ),*
+            #derives
+            pub struct #{self.typename} {
+                #( pub #field_names : #field_types ),*
             }
         "#));
     }

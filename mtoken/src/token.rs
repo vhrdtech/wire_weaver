@@ -267,3 +267,22 @@ impl ToTokens for String {
         ));
     }
 }
+
+impl ToTokens for &str {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Ident::new(
+            Rc::new(self.to_string()),
+            IdentFlavor::Plain,
+            Span::call_site()
+        ));
+    }
+}
+
+impl ToTokens for usize {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Literal {
+            repr: self.to_string(),
+            span: Span::call_site()
+        })
+    }
+}

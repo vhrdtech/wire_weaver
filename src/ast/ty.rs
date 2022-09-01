@@ -64,3 +64,13 @@ impl<'i> From<TyKindParser<'i>> for TyKind {
         }
     }
 }
+
+impl Ty {
+    pub fn is_sized(&self) -> bool {
+        match self.kind {
+            TyKind::Boolean => true,
+            TyKind::Discrete(_) => true,
+            _ => todo!(),
+        }
+    }
+}

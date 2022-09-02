@@ -15,6 +15,12 @@ pub fn pest_print_tree(pairs: Pairs<Rule>) {
     println!("{}", s);
 }
 
+pub fn pest_tree(pairs: Pairs<Rule>) -> String {
+    let mut s = String::new();
+    pest_print_tree_inner(pairs, true,&mut s);
+    s
+}
+
 fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Write) {
     let all_input = pairs.as_str().clone();
     let mut level = 0;

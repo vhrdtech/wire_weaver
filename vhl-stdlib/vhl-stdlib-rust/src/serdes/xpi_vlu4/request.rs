@@ -437,12 +437,12 @@ mod test {
     extern crate std;
     use std::println;
 
-    use crate::discrete::{U2Sp1};
-    use crate::serdes::{NibbleBuf};
+    use crate::discrete::{U2Sp1, U4};
+    use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::xpi_vlu4::priority::Priority;
-    use crate::serdes::xpi_vlu4::request::{XpiRequest, XpiRequestKind};
+    use crate::serdes::xpi_vlu4::request::{XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestKindKind};
 
     #[test]
     fn call_request_des() {
@@ -479,32 +479,36 @@ mod test {
         assert!(rdr.is_at_end());
     }
 
-    // #[test]
-    // fn call_request_ser() {
-    //     let mut buf = [0u8; 32];
-    //     let mut wgr = NibbleBufMut::new_all(&mut buf);
-    //
-    //     let args_set = [0x12, 0xaa, 0xbb];
-    //     let args_set: Vlu4SliceArray = NibbleBuf::new_all(&args_set).des_vlu4().unwrap();
-    //     let request_kind = XpiRequestKind::Call { args_set };
-    //     let request = XpiRequest {
-    //         source: NodeId::new(42).unwrap(),
-    //         destination: NodeSet::Unicast(NodeId::new(85).unwrap()),
-    //         resource_set: XpiResourceSet::Uri(Uri::TwoPart44(
-    //             U4::new(3).unwrap(), U4::new(12).unwrap())),
-    //         kind: request_kind,
-    //         request_id: RequestId::new(27).unwrap(),
-    //         priority: Priority::Lossless(U2Sp1::new(1).unwrap())
-    //     };
-    //     wgr.put(request).unwrap();
-    //     let (buf, byte_pos, _) = wgr.finish();
-    //     assert_eq!(byte_pos, 9);
-    //     assert_eq!(buf[0..9], [
-    //         0b000_100_11, 0b1_0101010, 0b00_101010, 0b1_001_0000,
-    //         0x3c, // uri
-    //         0x12, // 1 - slice, 2 - len
-    //         0xaa, 0xbb, // request data
-    //         27 // tail
-    //     ]);
-    // }
+    #[test]
+    fn call_request_ser() {
+        let mut buf = [0u8; 32];
+        let request_builder = XpiRequestBuilder::new(
+            NibbleBufMut::new_all(&mut buf),
+            NodeId::new(42).unwrap(),
+            NodeSet::Unicast(NodeId::new(85).unwrap()),
+            XpiResourceSet::Uri(
+                Uri::TwoPart44(
+                    U4::new(3).unwrap(),
+                    U4::new(12).unwrap()
+                )),
+            RequestId::new(27).unwrap(),
+            Priority::Lossless(U2Sp1::new(1).unwrap())
+        ).unwrap();
+        let nwr = request_builder.build_kind_with(|nwr| {
+            let mut vb = nwr.put_vec::<&[u8]>();
+
+            vb.put_aligned(&[0xaa, 0xbb])?;
+
+            let nwr = vb.finish()?;
+            Ok((XpiRequestKindKind::Call, nwr))
+        }).unwrap();
+
+        let (buf, len, _) = nwr.finish();
+        assert_eq!(len, 9);
+        let buf_expected = [
+            0b000_100_11, 0b1_0101010, 0b00_101010, 0b1_001_0000,
+            0b0011_1100, 0b0001_0010, 0xaa, 0xbb, 0b000_11011
+        ];
+        assert_eq!(&buf[0..len], &buf_expected);
+    }
 }

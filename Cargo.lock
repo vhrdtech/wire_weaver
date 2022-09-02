@@ -117,6 +117,7 @@ dependencies = [
  "clap",
  "codegen",
  "parser",
+ "pathsearch",
  "subprocess",
  "vhl",
 ]
@@ -274,6 +275,16 @@ name = "parser-test"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5bed1fb3690a73af8b4e91406f8392c51b2602a740eedf873a2726253c4267a7"
+
+[[package]]
+name = "pathsearch"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da983bc5e582ab17179c190b4b66c7d76c5943a69c6d34df2a2b6bf8a2977b05"
+dependencies = [
+ "anyhow",
+ "libc",
+]
 
 [[package]]
 name = "pest"

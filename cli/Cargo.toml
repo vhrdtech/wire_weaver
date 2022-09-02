@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 anyhow = "^1.0.63"
 clap = { version = "^3.2.19", features = ["derive"] }
+subprocess = "^0.2.9"
 vhl = { path = ".." }
 parser = { path = "../parser" }
 codegen = { path = "../codegen" }

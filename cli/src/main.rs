@@ -2,10 +2,13 @@ mod commands;
 use clap::Parser;
 
 use std::env;
+use std::io::{Read, Write};
 use std::path::Path;
+use std::process::Stdio;
 use std::rc::Rc;
 use anyhow::{
     Context, Result};
+use subprocess::{Exec, Redirection};
 use parser::ast::expr::Expr;
 use parser::ast::file::File;
 use parser::ast::visit::Visit;
@@ -54,7 +57,41 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            println!("{}", cg_file.render()?.0);
+            let rendered_file = cg_file.render()?.0;
+            // let mut fmt = std::process::Command::new("rustfmt")
+            //     .stdin(Stdio::piped())
+            //     .stdout(Stdio::piped())
+            //     .spawn()?;
+            // fmt.stdin.as_mut().unwrap().write(rendered_file.as_bytes())?;
+            // let fmt_result = fmt.wait_with_output()?;
+            // println!("{}", String::from_utf8(fmt_result.stdout)?);
+            let formatted = Exec::cmd("rustfmt")
+                .stdin(rendered_file.as_str())
+                .stdout(Redirection::Pipe)
+                .capture().context("failed to rustfmt")?
+                .stdout_str();
+            // let colorized = Exec::cmd("/usr/local/bin/highlight")
+            //     .args(&[
+            //         "--syntax-by-name", "rust",
+            //         "--out-format", "truecolor",
+            //         // "--out-format", "xterm256",
+            //         "--style", "moria",
+            //     ])
+            //     .stdin(formatted.as_str())
+            //     .stdout(Redirection::Pipe)
+            //     .capture()?
+            //     .stdout_str();
+            let colorized = Exec::cmd("/usr/local/bin/pygmentize")
+                .args(&[
+                    "-l", "rust",
+                    "-O", "style=monokai"
+                ])
+                .stdin(formatted.as_str())
+                .stdout(Redirection::Pipe)
+                .capture().context("failed to highlight with pygmentize")?
+                .stdout_str();
+
+            println!("{}", colorized);
         }
         None => {}
     }

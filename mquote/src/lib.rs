@@ -60,7 +60,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
 
 fn new_ts_builder() -> proc_macro2::TokenStream {
     quote! {
-          let mut ts = mtoken::TokenStream::new();
+        let mut ts = mtoken::TokenStream::new();
     }
 }
 
@@ -187,12 +187,13 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
         },
         Rule::ident => {
             let ident_lit = Literal::string(token.as_str());
-            let _flavor = ident_flavor(language);
+            let flavor = ident_flavor(language);
             ts_builder.append_all(quote! {
                 ts.append(
                     mtoken::Ident::new(
                         Rc::new(#ident_lit.to_owned()),
-                        IdentFlavor::Plain,
+                        // IdentFlavor::Plain,
+                        mtoken::token::IdentFlavor::#flavor,
                         Span::call_site()
                     )
                 );
@@ -243,7 +244,12 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
             })
         },
         Rule::literal => {
-
+            let repr = Literal::string(token.as_str());
+            ts_builder.append_all(quote! {
+                ts.append(
+                    mtoken::Literal::new(#repr.to_string())
+                );
+            });
         },
         Rule::EOI => {},
         _ => panic!("Internal error: expected a token tree, got: {:?}", token),

@@ -121,7 +121,8 @@ punctuation = {
 
 delimiter = { "\\\\(" | "\\\\)" | "\\\\{" | "\\\\}" | "\\\\[" | "\\\\]" }
 
-literal = { "123" }
+dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
+literal = { dec_lit_raw }
 
 //ds_comment = @{ !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 //ts_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }

@@ -324,7 +324,7 @@ mod test {
         let input = "/channel_count<const indexof<#./channel>> {}";
         let span1 = "^------------------------------------------^";
         let span2 = " ^-----------^^-------------------------^ ^^";
-        let span3 = "               ^---^ ^-----------------^    ";
+        let span3 = "               ^----^^-----------------^    ";
         let expected1 = [Rule::xpi_block];
         let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
         let expected3 = [Rule::access_mod, Rule::generic_ty];

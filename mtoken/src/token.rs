@@ -194,6 +194,15 @@ pub struct Literal {
     span: Span,
 }
 
+impl Literal {
+    pub fn new(repr: String) -> Self {
+        Self {
+            repr,
+            span: Span::call_site()
+        }
+    }
+}
+
 impl Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.repr, f)

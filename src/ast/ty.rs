@@ -70,7 +70,6 @@ impl Ty {
         match self.kind {
             TyKind::Boolean => true,
             TyKind::Discrete(_) => true,
-            _ => todo!(),
         }
     }
 }

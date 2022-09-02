@@ -290,6 +290,6 @@ mod test {
     #[test]
     fn impl_interface() {
         let xpi: DefXpiBlock = parse_str("/main{ impl log::#/full; }", Rule::xpi_block);
-        assert_eq!(xpi.body.implements.traits.len(), 1);
+        assert_eq!(xpi.body.implements.len(), 1);
     }
 }

@@ -39,7 +39,8 @@ pub(crate) mod test {
         let pairs = Lexer::parse(as_rule, input).unwrap();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
-        let mut input = ParseInput::new(pairs, &mut warnings, &mut errors);
+        let pair_peek = pairs.peek().unwrap();
+        let mut input = ParseInput::new(pairs, pair_peek.as_span(), &mut warnings, &mut errors);
         let result: T = input.parse().unwrap();
         assert!(warnings.is_empty());
         assert!(errors.is_empty());

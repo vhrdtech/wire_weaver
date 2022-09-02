@@ -225,7 +225,7 @@ mod test {
     use vhl::span::{SourceOrigin, SpanOrigin};
     use mtoken::ToTokens;
     use mtoken::ext::TokenStreamExt;
-    use crate::prelude::{Span, IdentFlavor, Rc};
+    use crate::prelude::{Span, Rc};
 
     #[test]
     fn struct_ser_buf() {
@@ -247,12 +247,16 @@ mod test {
                             wr.put_u16_le(self.y)?;
                             Ok(())
                         }
+
+                        fn len_bytes(&self) -> usize {
+                            4
+                        }
                     }
                 "#);
 
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
-            _ => panic!("Expected struct definition")
+            // _ => panic!("Expected struct definition")
         }
     }
 
@@ -273,15 +277,15 @@ mod test {
                         type Error = BufError;
                         fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                             Ok(Point {
-                                x: get_u16_le()?,
-                                y: get_u16_le()?
+                                x: rdr.get_u16_le()?,
+                                y: rdr.get_u16_le()?
                             })
                         }
                     }
                 "#);
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
-            _ => panic!("Expected struct definition")
+            // _ => panic!("Expected struct definition")
         }
     }
 }

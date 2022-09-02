@@ -96,7 +96,7 @@ mod test {
                 let ts = mquote!(rust r#" #cg_struct_def "#);
                 println!("{}", ts);
             }
-            _ => panic!("Expected struct definition")
+            // _ => panic!("Expected struct definition")
         }
     }
 }

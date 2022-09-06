@@ -79,7 +79,7 @@ impl<'i> Display for Expr<'i> {
             } => {
                 write!(f, "{}", kind.to_str())?;
                 for part in parts {
-                    write!(f, "{}", part)?;
+                    write!(f, "{}/", part)?;
                 }
                 write!(f, "{}", tail)
             }

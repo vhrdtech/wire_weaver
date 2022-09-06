@@ -21,8 +21,8 @@ pub trait Visit<'ast, 'input> {
         visit_statement(self, i);
     }
 
-    fn visit_expression(&mut self, i: &'ast Expr<'input>) {
-        visit_expression(self, i);
+    fn visit_expression(&mut self, i: &'ast Expr<'input>, semicolon_present: bool) {
+        visit_expression(self, i, semicolon_present);
     }
 }
 
@@ -60,11 +60,11 @@ pub fn visit_statement<'ast, 'input, V>(v: &mut V, node: &'ast Stmt<'input>)
 {
     match &node {
         Stmt::Let(_) => {},
-        Stmt::Expr(ex) => v.visit_expression(ex),
+        Stmt::Expr(ex, semicolon_present) => v.visit_expression(ex, *semicolon_present),
     }
 }
 
-pub fn visit_expression<'ast, 'input, V>(_v: &mut V, _node: &'ast Expr<'input>)
+pub fn visit_expression<'ast, 'input, V>(_v: &mut V, _node: &'ast Expr<'input>, _semicolon_present: bool)
     where V: Visit<'ast, 'input> + ?Sized
 {
 

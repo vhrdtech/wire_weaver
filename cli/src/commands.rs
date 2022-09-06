@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, Args};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -33,5 +33,16 @@ pub enum Commands {
         /// Source file path, local path starting with /, file:, git: or reg:
         #[clap(value_parser)]
         vhl_source: String,
-    }
+    },
+
+    /// REPL
+    #[clap(alias = "rxpi")]
+    ReplXpi(ReplXpi)
+}
+
+#[derive(Args)]
+pub struct ReplXpi {
+    /// Source file path, local path starting with /, file:, git: or reg:
+    #[clap(value_parser)]
+    pub vhl_source: String,
 }

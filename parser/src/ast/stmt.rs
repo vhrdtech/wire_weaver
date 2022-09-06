@@ -1,12 +1,52 @@
 use crate::ast::expr::Expr;
+use crate::ast::file::FileError;
 use crate::ast::naming::VariableDefName;
 use crate::ast::ty::Ty;
+use crate::error::{ParseError, ParseErrorKind};
 use super::prelude::*;
+use crate::lexer::{Lexer, Rule};
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'i> {
     Let(LetStmt<'i>),
-    Expr(Expr<'i>)
+    Expr(Expr<'i>, bool)
+}
+
+
+impl<'i> Stmt<'i> {
+    pub fn parse(input: &'i str) -> Result<Self, FileError> {
+        let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input)?;
+        // println!("{:?}", pairs);
+        // TODO: Improve this
+        let pair = pairs.peek().unwrap();
+        let span = (pair.as_span().start(), pair.as_span().end());
+        let rule = pair.as_rule();
+        let pair_span = pair.as_span();
+        let mut warnings = Vec::new();
+        let mut errors = Vec::new();
+        match ParseInput::new(pairs, pair_span, &mut warnings, &mut errors).parse() {
+            Ok(stmt) => {
+                Ok(stmt)
+            },
+            Err(e) => {
+                let kind = match e {
+                    #[cfg(feature = "backtrace")]
+                    ParseErrorSource::InternalError{ rule, backtrace } => ParseErrorKind::InternalError{rule, backtrace: backtrace.to_string()},
+                    #[cfg(not(feature = "backtrace"))]
+                    ParseErrorSource::InternalError{ rule, message } => ParseErrorKind::InternalError{rule, message},
+                    ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
+                    ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
+                    ParseErrorSource::UserError => ParseErrorKind::UserError
+                };
+                errors.push(ParseError {
+                    kind,
+                    rule,
+                    span
+                });
+                Err(FileError::ParserError(errors))
+            }
+        }
+    }
 }
 
 impl<'i> Parse<'i> for Stmt<'i> {
@@ -17,7 +57,12 @@ impl<'i> Parse<'i> for Stmt<'i> {
             Rule::let_stmt => Ok(Stmt::Let(input.parse()?)),
             Rule::expr_stmt => {
                 let mut input = ParseInput::fork(s, &mut input);
-                Ok(Stmt::Expr(input.parse()?))
+                let expr: Expr = input.parse()?;
+                let semicolon_present = input.pairs
+                    .peek()
+                    .map(|p| p.as_rule() == Rule::punct_semicolon)
+                    .unwrap_or(false);
+                Ok(Stmt::Expr(expr, semicolon_present))
             },
             _ => {
                 Err(ParseErrorSource::internal_with_rule(s.as_rule(), "Stmt::parse: unexpected rule"))

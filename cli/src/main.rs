@@ -1,5 +1,6 @@
 mod commands;
 mod util;
+mod handlers;
 
 use clap::Parser;
 
@@ -115,6 +116,9 @@ fn main() -> Result<()> {
                     }
                 }
             }
+        }
+        Some(Commands::ReplXpi(repl_xpi)) => {
+            handlers::repl_xpi::repl_xpi_cmd(repl_xpi);
         }
         None => {}
     }

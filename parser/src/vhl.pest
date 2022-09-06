@@ -92,8 +92,9 @@ fn_ret_ty = { "->" ~ any_ty }
 definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 
 // Statements
-let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression }
-expr_stmt = { expression ~ ";"? }
+let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression ~ ";" }
+punct_semicolon = { ";" }
+expr_stmt = { expression ~ punct_semicolon? }
 statement = { let_stmt | expr_stmt | braced_statement }
 braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 

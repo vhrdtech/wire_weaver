@@ -12,6 +12,8 @@ pathsearch = "0.2.0"
 vhl = { path = ".." }
 parser = { path = "../parser" }
 codegen = { path = "../codegen" }
+rustyline = "^10.0.0"
+rustyline-derive = "^0.7.0"
 
 [features]
 backtrace = ["parser/backtrace"]

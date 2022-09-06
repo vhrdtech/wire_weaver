@@ -52,10 +52,13 @@ impl<'i> Stmt<'i> {
 impl<'i> Parse<'i> for Stmt<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::statement)?, input);
-        let s = input.pairs.next().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
+        let s = input.pairs.peek().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match s.as_rule() {
-            Rule::let_stmt => Ok(Stmt::Let(input.parse()?)),
+            Rule::let_stmt => {
+                Ok(Stmt::Let(input.parse()?))
+            },
             Rule::expr_stmt => {
+                let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);
                 let expr: Expr = input.parse()?;
                 let semicolon_present = input.pairs
@@ -80,6 +83,7 @@ pub struct LetStmt<'i> {
 
 impl<'i> Parse<'i> for LetStmt<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        println!("{:?}", input.pairs);
         let mut input = ParseInput::fork(input.expect1(Rule::let_stmt)?, input);
         Ok(LetStmt {
             ident: input.parse()?,

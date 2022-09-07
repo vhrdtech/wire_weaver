@@ -38,6 +38,9 @@ pub enum FailReason {
     InternalNibbleBufError,
     InternalBitBufError,
     ReplyBuilderError,
+
+    /// Method call or property write was expecting a slice with arguments, but it wasn't provided.
+    NoArgumentsProvided,
 }
 
 impl FailReason {
@@ -60,6 +63,7 @@ impl FailReason {
             14 => InternalNibbleBufError,
             15 => InternalBitBufError,
             16 => ReplyBuilderError,
+            17 => NoArgumentsProvided,
             _ => Internal
         }
     }
@@ -83,6 +87,7 @@ impl FailReason {
             InternalNibbleBufError => 14,
             InternalBitBufError => 15,
             ReplyBuilderError => 16,
+            NoArgumentsProvided => 17,
         }
     }
 }

@@ -117,7 +117,7 @@ impl<'i> Parse<'i> for BinaryOp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UnaryOp {
     Minus,
     Plus,

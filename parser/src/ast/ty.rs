@@ -62,10 +62,10 @@ pub enum TyKind<'i> {
 
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let ty = input
-            .pairs
+        let any_ty = input.expect1(Rule::any_ty)?;
+        let ty = any_ty.into_inner()
             .next()
-            .ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
+            .ok_or_else(|| ParseErrorSource::internal("Wrong any_ty grammar"))?;
         let span = ty.as_span();
         match ty.clone().as_rule() {
             Rule::bool_ty => Ok(Ty {
@@ -141,7 +141,7 @@ impl<'i> Parse<'i> for Ty<'i> {
             }
             _ => Err(ParseErrorSource::internal_with_rule(
                 ty.as_rule(),
-                "Ty::parse: expected any_ty",
+                "Ty::parse: unimplemented ty",
             )),
         }
     }

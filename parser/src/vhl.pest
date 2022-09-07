@@ -59,7 +59,7 @@ generic_ty = { identifier ~ (generics) }
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
 /// Any supported type without access modifier
-any_ty = _{ bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }
+any_ty = { bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }
 
 /// Access modifier
 access_kind = { "const" | "rw" | "ro" | "wo" }

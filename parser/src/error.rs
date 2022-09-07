@@ -21,6 +21,7 @@ pub enum ParseErrorKind {
     Unimplemented(&'static str),
     UnhandledUnexpectedInput,
     UserError,
+    UnexpectedUnconsumedInput,
 
     AutonumWrongForm,
     AutonumWrongArguments,

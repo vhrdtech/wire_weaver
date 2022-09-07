@@ -16,15 +16,27 @@ pub enum Stmt<'i> {
 impl<'i> Stmt<'i> {
     pub fn parse(input: &'i str) -> Result<Self, FileError> {
         let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input)?;
+        let mut errors = Vec::new();
+
+        let input_parsed_str = pairs.as_str();
+        if input_parsed_str != input {
+            errors.push(ParseError {
+                kind: ParseErrorKind::UnhandledUnexpectedInput,
+                rule: Rule::statement,
+                span: (input_parsed_str.len(), input.len())
+            });
+            return Err(FileError::ParserError(errors));
+        }
         // println!("{:?}", pairs);
+
         // TODO: Improve this
         let pair = pairs.peek().unwrap();
         let span = (pair.as_span().start(), pair.as_span().end());
         let rule = pair.as_rule();
         let pair_span = pair.as_span();
         let mut warnings = Vec::new();
-        let mut errors = Vec::new();
-        match ParseInput::new(pairs, pair_span, &mut warnings, &mut errors).parse() {
+        let mut input = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
+        match input.parse() {
             Ok(stmt) => {
                 Ok(stmt)
             },
@@ -61,10 +73,7 @@ impl<'i> Parse<'i> for Stmt<'i> {
                 let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);
                 let expr: Expr = input.parse()?;
-                let semicolon_present = input.pairs
-                    .peek()
-                    .map(|p| p.as_rule() == Rule::punct_semicolon)
-                    .unwrap_or(false);
+                let semicolon_present = input.pairs.next().is_some();
                 Ok(Stmt::Expr(expr, semicolon_present))
             },
             _ => {
@@ -83,7 +92,6 @@ pub struct LetStmt<'i> {
 
 impl<'i> Parse<'i> for LetStmt<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        println!("{:?}", input.pairs);
         let mut input = ParseInput::fork(input.expect1(Rule::let_stmt)?, input);
         Ok(LetStmt {
             ident: input.parse()?,

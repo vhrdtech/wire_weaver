@@ -7,11 +7,11 @@ pub enum Lit<'i> {
     BoolLit(bool),
     UDecLit {
         bits: u32,
-        lit: u128,
+        val: u128,
     },
     IDecLit {
         bits: u32,
-        lit: i128,
+        val: i128,
     },
     HexLit(u128),
     OctLit(u128),
@@ -82,7 +82,7 @@ impl<'i> Parse<'i> for Lit<'i> {
                 })?;
                 Ok(Lit::UDecLit {
                     bits: 32,
-                    lit: num as u128
+                    val: num as u128
                 })
             }
             Rule::hex_lit => {

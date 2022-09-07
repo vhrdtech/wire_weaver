@@ -58,7 +58,7 @@ impl<'i> Debug for DefXpiBlock<'i> {
 #[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
     pub access: Option<XpiResourceAccessMode>,
-    pub r#type: Option<XpiBlockType<'i>>,
+    pub r#type: Option<Ty<'i>>,
     pub serial: Option<XpiSerial>,
 }
 
@@ -165,7 +165,7 @@ impl<'i> Parse<'i> for XpiUri<'i> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum XpiResourceAccessMode {
     Rw,
     Ro,
@@ -222,15 +222,15 @@ impl<'i> Parse<'i> for XpiResourceAccessMode {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct XpiBlockType<'i>(pub Option<Ty<'i>>);
-
-impl<'i> Parse<'i> for XpiBlockType<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        // dbg!(function!());
-        Ok(XpiBlockType(input.parse_or_skip()?))
-    }
-}
+// #[derive(Debug, Clone)]
+// pub struct XpiBlockType<'i>(pub Option<Ty<'i>>);
+//
+// impl<'i> Parse<'i> for XpiBlockType<'i> {
+//     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+//         // dbg!(function!());
+//         Ok(XpiBlockType(input.parse_or_skip()?))
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct XpiSerial(pub u32);

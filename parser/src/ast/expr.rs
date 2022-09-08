@@ -49,8 +49,21 @@ impl<'i> Parse<'i> for CallArguments<'i> {
 
 impl<'i> Parse<'i> for Expr<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
-        pratt_parser(&mut input, 0)
+        match input.pairs.peek() {
+            Some(p) => {
+                if p.as_rule() == Rule::expression_ticked {
+                    let mut input = ParseInput::fork(input.expect1(Rule::expression_ticked)?, input);
+                    let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
+                    pratt_parser(&mut input, 0)
+                } else {
+                    let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
+                    pratt_parser(&mut input, 0)
+                }
+            },
+            None => {
+                return Err(ParseErrorSource::UnexpectedInput);
+            }
+        }
     }
 }
 

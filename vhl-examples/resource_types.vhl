@@ -1,0 +1,70 @@
+/main {
+	/// Constant. Initialized on node start and then stays the same.
+	/version<const str>
+
+	/incorrect1<const+stream str>
+	/incorrect2<const+observe str>
+
+	/// Resource that can only be read, also default mode.
+	/temperature<ro u16`K`>
+
+	/// Resource that can only be written, read or observe is blocked
+	/register<wo u8>
+
+	/// Read write register
+	/value<rw u8>
+
+	/// Observable resource, notifications are sent on value change
+	/speed<ro+observe u8`m/s`>
+
+	/// Observable resource that can also be changed from other nodes
+	/set_point<rw+observe u8`m`>
+
+	/// Write only resources cannot be observed as well
+	/incorrect3<wo+observe u8>
+
+	/// Stream consisting of many u8 values, notifications are sent when one or more new values are available.
+	/// In contrast to observable resources, streams have a beginning and possible an end.
+	/// In order to start receiving stream data, one must subscribe and open it.
+	/binary_blob<ro+stream u8>
+	
+	/// Stream with 128 byte array as an element
+	/binary_blob_chunked<ro+stream [u8; 128]>
+
+	/// Streaming input 
+	/binary_sink<wo+stream u8>
+
+	/// Is there a use for it? It's basically 2 separate streams in one.
+	/bidirectional_stream<rw+stream u8>
+
+	/// Only one node can borrow resource for writing. All can read.
+	/protected<Cell<rw u8>>
+
+	/// Borrow checked and write only.
+	/protected_wo<Cell<wo u8>>
+
+	/// No need for a Cell
+	/redundant1<Cell<ro u8>>
+
+	// By default resource inside a Cell is read-write
+	/default_cell_rw<Cell<u8>>
+
+	/// Only one node can borrow this stream for writing
+	/protected_o_stream<Cell<wo+stream u8>>
+
+	/// Multiple nodes can subscribe to the same screen without a Cell.
+	/// Subscribe all frist, then open?
+	/redundant2<Cell<ro+stream u8>>
+
+	/// Same question as bidirectional_stream
+	/bidirectional_protected<Cell<rw+stream u8>>
+
+	/// Only one node can borrow and write, all other can subscribe for updates
+	/protected_observable<Cell<rw+observe u8>>
+
+	/// Same as incorrect3
+	/incorrect4<Cell<wo+observe u8>>
+
+	/// No need for a cell for read only resource
+	/redundant3<Cell<ro+observe u8>>
+}

@@ -1,0 +1,59 @@
+/main {
+	/// Three resources will be created at compile time with names 'acceleration_x', 'acceleration_y' and 'acceleration_z'
+	/acceleration_`'x'..'z'`<u8>
+
+	/// Three resources will be created at compile time with names 'a_ctrl', 'b_ctrl' and 'c_ctrl'
+	/`'a'..'c'`_ctrl<u8>
+
+	/// 9 resources will be created at compile time with names 'register0_b', 'register1_b' .. 'register8_b'
+	/register`0..9`0<u8>
+
+	/// Array of 4 u8 values
+	/values<rw [u8; 4]>
+
+	/// Array with a size >=4 and <12 of u8 values. Nodes can request actual size at run time.
+	/values_variable_size<rw [u8; 4..12]>
+
+	/// Array with a dynamic size
+	/values_unbound<rw [u8; ?]>
+
+	/// Group of resources with run time indexing is created. User code will contain only one handler for each resource and will receive an index being accessed.
+	/channels<[_; 4]> {
+		// 4 instances exist, can be accessed as /channels[0]/value, /channels[1]/value, ...
+		/value<u8>
+		/config<u8>
+	}
+
+	/// Group of resources with run time indexing with dynamic, but bound size
+	/channels_bound<[_; max 12]> {}
+
+	/// Group of resources with run time unbound size
+	/channels_unbound<[_; ?]> {}
+
+	// Non numerical or multi-dimensional indexes is supported by lexer, but currently not parsed
+	// /channels_matrix<[_; 3..10, 3..10] {}
+	// /char_matrix<[_; 'a'..'c', 'x'..'z'] {}
+
+	/// Cell guarded group, usefull if several resources are logically connected and it makes sense to borrow them all at once
+	/streams<Cell<_>> {
+		/in_a<wo+stream u8>
+		/in_b<wo+stream u8>
+		/control<fn(x: u8, y: u8)>
+	}
+
+	/// Array of Cell gorups is also allowed. Different nodes can borrow one ore more Cell's out of an array and gain mutable access.
+	/// Need to be rw or allow borrowing from ro array?
+	/uart<rw [Cell<_>; 4]> {
+		// Borrow one out of 4 UART channels and use it's input streams for writing data as raw bytes, chunks or Frame's.
+
+		/uart_in<wo+stream u8>
+		/uart_in_block<wo+stream [u8; 128]>
+		/uart_in_frame<wo+stream Frame>
+
+		/uart_out<ro+stream u8>
+	}
+
+	// Not yet supported
+	// /array_of_cells<rw [Cell<u8>; 4]>  <-- this actually can work, assuming default rw access mode
+	// /array_of_wo_cells<rw [Cell<ro u8>; 4]>  <-- because of this 'ro u8' breaking syntax
+}

@@ -98,8 +98,13 @@ impl<'i> Parse<'i> for Lit<'i> {
                 Err(ParseErrorSource::Unimplemented("oct_lit"))
             }
             Rule::char_lit => {
-
-                Err(ParseErrorSource::Unimplemented("char lit"))
+                let c = x_lit
+                    .as_str()
+                    .chars()
+                    .skip(1)
+                    .next()
+                    .ok_or(ParseErrorSource::internal("char_lit grammar error"))?;
+                Ok(Lit::CharLit(c))
             }
             Rule::string_lit => {
                 let string_inner = x_lit.into_inner().next().ok_or_else(|| ParseErrorSource::internal("wrong string_lit rule"))?;

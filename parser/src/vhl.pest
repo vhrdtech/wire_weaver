@@ -61,11 +61,6 @@ fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 /// Any supported type without access modifier
 any_ty = { bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }
 
-/// Access modifier
-access_kind = { "const" | "rw" | "ro" | "wo" }
-access_stream = { "stream" } // Makes properties observable
-access_mod = { access_kind ~ ("+" ~ access_stream)? }
-
 // Definitions
 /// Alias type
 type_alias_def = { doc_attr ~ "type" ~ identifier ~ "=" ~ any_ty ~ ";" }
@@ -239,12 +234,19 @@ token = _{ token_except_delimiters | delimiter }
 // xPI Blocks
 xpi_block = { doc_attr ~ "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier?) | expression_ticked ~ identifier? }
-xpi_resource_ty = { "<" ~ (access_mod? ~ any_ty)? ~ ("," ~ xpi_serial)? ~ ">" }
+resource_cell_ty = { "Cell" ~ "<" ~ xpi_resource_kind? ~ any_ty ~ ">" } // sugar to allow Cell<rw+observe u8> and similar
+xpi_resource_ty = { "<" ~ (xpi_resource_kind? ~ (resource_cell_ty | any_ty))? ~ ("," ~ xpi_serial)? ~ ">" }
 xpi_serial = @{ "'" ~ dec_lit_raw }
 xpi_body = { "{" ~ xpi_body_inner* ~ "}" }
 xpi_body_inner = _{ xpi_field | xpi_impl | xpi_block }
 xpi_field = { identifier ~ ":" ~ expression ~ ";" }
 xpi_impl = { "impl" ~ expression ~ ";" }
+
+// Resource kind modifier
+access_mode = { "const" | "rw" | "ro" | "wo" }
+mod_stream = { "stream" } // Turns resource into a stream, valid with ro or wo (rw?)
+mod_observe = { "observe" } // Makes property observable, valid with rw or ro
+xpi_resource_kind = { access_mode ~ ("+" ~ (mod_stream | mod_observe))? }
 
 // SI units
 si_expr = { si_infix_expr | si_expr_inner }

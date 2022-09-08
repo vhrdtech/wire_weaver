@@ -1,9 +1,10 @@
 use std::fmt::{Debug, Formatter};
+use either::Either;
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
 use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
-use crate::error::{ParseError, ParseErrorKind};
+use crate::error::{ParseErrorKind};
 use super::prelude::*;
 
 // macro_rules! function {
@@ -57,22 +58,45 @@ impl<'i> Debug for DefXpiBlock<'i> {
 
 #[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
-    pub access: Option<XpiResourceAccessMode>,
-    pub r#type: Option<Ty<'i>>,
+    pub kind: Option<XpiResourceKind>,
+    pub ty: Option<Either< XpiCellTy<'i>, Ty<'i> >>,
     pub serial: Option<XpiSerial>,
 }
 
+#[derive(Debug, Clone)]
+pub struct XpiCellTy<'i> (Option<XpiResourceKind>, Ty<'i>);
+
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        // dbg!(function!());
         let mut input = ParseInput::fork(
             input.expect1(Rule::xpi_resource_ty)?,
             input
         );
+        let kind = input.parse_or_skip()?;
+        let ty = match input.pairs.peek() {
+            Some(p) => {
+                match p.as_rule() {
+                    Rule::resource_cell_ty => {
+                        let mut input = ParseInput::fork(
+                            input.expect1(Rule::resource_cell_ty)?,
+                            &mut input
+                        );
+                        let kind = input.parse_or_skip()?;
+                        let ty = input.parse()?;
+                        Some(Either::Left(XpiCellTy(kind, ty)))
+                    }
+                    Rule::any_ty => {
+                        Some(Either::Right(input.parse()?))
+                    }
+                    _ => None
+                }
+            }
+            None => None
+        };
 
         Ok(XpiResourceTy {
-            access: input.parse_or_skip()?,
-            r#type: input.parse_or_skip()?,
+            kind,
+            ty,
             serial: input.parse_or_skip()?
         })
     }
@@ -166,59 +190,55 @@ impl<'i> Parse<'i> for XpiUri<'i> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum XpiResourceAccessMode {
+pub enum AccessMode {
     Rw,
     Ro,
     Wo,
     Const,
-    RwStream,
-    RoStream,
-    WoStream,
 }
 
-impl<'i> Parse<'i> for XpiResourceAccessMode {
+impl<'i> Parse<'i> for AccessMode {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::access_mod)?, input);
-        let access_kind = input.expect1(Rule::access_kind)?;
-        let is_stream = input.pairs.peek().is_some();
-        match access_kind.as_str() {
-            "const" => {
-                if is_stream {
-                    input.errors.push(ParseError {
-                        kind: ParseErrorKind::WrongAccessModifier,
-                        rule: Rule::access_mod,
-                        span: (access_kind.as_span().start(), access_kind.as_span().end())
-                    });
-                    Err(ParseErrorSource::UserError)
-                } else {
-                    Ok(XpiResourceAccessMode::Const)
-                }
-            }
-            "rw" => {
-                if is_stream {
-                    Ok(XpiResourceAccessMode::RwStream)
-                } else {
-                    Ok(XpiResourceAccessMode::Rw)
-                }
-            }
-            "wo" => {
-                if is_stream {
-                    Ok(XpiResourceAccessMode::WoStream)
-                } else {
-                    Ok(XpiResourceAccessMode::Wo)
-                }
-            }
-            "ro" => {
-                if is_stream {
-                    Ok(XpiResourceAccessMode::RoStream)
-                } else {
-                    Ok(XpiResourceAccessMode::Ro)
-                }
-            }
+        let access_mode = input.expect1(Rule::access_mode)?;
+        match access_mode.as_str() {
+            "rw" => Ok(AccessMode::Rw),
+            "ro" => Ok(AccessMode::Ro),
+            "wo" => Ok(AccessMode::Wo),
+            "const" => Ok(AccessMode::Const),
             _ => {
                 Err(ParseErrorSource::internal("wrong access_mod rule"))
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum XpiResourceModifier {
+    Observe,
+    Stream
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct XpiResourceKind {
+    pub access: AccessMode,
+    pub modifier: Option<XpiResourceModifier>,
+}
+
+impl<'i> Parse<'i> for XpiResourceKind {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_kind)?, input);
+        let access = input.parse()?;
+        let modifier = input.pairs.next().map(|p| {
+            if p.as_rule() == Rule::mod_stream {
+                XpiResourceModifier::Stream
+            } else {
+                XpiResourceModifier::Observe
+            }
+        });
+        Ok(XpiResourceKind {
+            access,
+            modifier,
+        })
     }
 }
 

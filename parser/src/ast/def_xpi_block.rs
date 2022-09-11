@@ -138,6 +138,8 @@ impl<'i> Parse<'i> for XpiBody<'i> {
 pub enum XpiUri<'i> {
     /// `/main`
     OneNamedPart(Identifier<'i, XpiUriSegmentName>),
+    /// `\`get_names()\``
+    ExprOnly(Expr<'i>),
     /// /\`'a'..'c'\`_ctrl
     ExprThenNamedPart(Expr<'i>, Identifier<'i, XpiUriSegmentName>),
     /// /velocity_\`'x'..'z'\`
@@ -166,7 +168,11 @@ impl<'i> Parse<'i> for XpiUri<'i> {
                 Ok(XpiUri::ExprThenNamedPart(input.parse()?, input.parse()?))
             }
         } else if p1.is_some() {
-            Ok(XpiUri::OneNamedPart(input.parse()?))
+            if p1.unwrap().as_rule() == Rule::identifier {
+                Ok(XpiUri::OneNamedPart(input.parse()?))
+            } else {
+                Ok(XpiUri::ExprOnly(input.parse()?))
+            }
         } else {
             Err(ParseErrorSource::internal("wrong xpi_uri rule"))
         }

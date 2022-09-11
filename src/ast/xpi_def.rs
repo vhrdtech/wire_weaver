@@ -69,6 +69,7 @@ impl<'i> From<XpiUriParser<'i>> for XpiUri {
     fn from(uri: XpiUriParser<'i>) -> Self {
         match uri {
             XpiUriParser::OneNamedPart(id) => XpiUri::Resolved(id.into()),
+            XpiUriParser::ExprOnly(expr) => XpiUri::ExprOnly(expr.into()),
             XpiUriParser::ExprThenNamedPart(expr, id) => {
                 XpiUri::ExprThenNamedPart(expr.into(), id.into())
             }

@@ -272,6 +272,6 @@ multi_line_comment = { "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 COMMENT = _{ single_line_comment | multi_line_comment }
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-punct_ll = { "(" | ")" | "{" | "}" | "[" | "]" | "<" | ">" }
+punct_ll = { "(" | ")" | "{" | "}" | "[" | "]"/* | "<" | ">" */}
 file_ll_item = { doc_comment | punct_ll | (!punct_ll ~ ANY)+ }
 file_ll = { (COMMENT | file_ll_item)* }

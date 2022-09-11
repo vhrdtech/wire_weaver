@@ -56,13 +56,13 @@ impl<'i> Debug for DefXpiBlock<'i> {
 
 #[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
-    pub kind: Option<XpiResourceKind>,
+    pub transform: Option<XpiResourceTransform>,
     pub ty: Option<Either<XpiCellTy<'i>, Ty<'i>>>,
     pub serial: Option<XpiSerial>,
 }
 
 #[derive(Debug, Clone)]
-pub struct XpiCellTy<'i>(Option<XpiResourceKind>, Ty<'i>);
+pub struct XpiCellTy<'i>(Option<XpiResourceTransform>, Ty<'i>);
 
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -84,7 +84,7 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
         };
 
         Ok(XpiResourceTy {
-            kind,
+            transform: kind,
             ty,
             serial: input.parse_or_skip()?,
         })
@@ -201,14 +201,14 @@ pub enum XpiResourceModifier {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct XpiResourceKind {
+pub struct XpiResourceTransform {
     pub access: AccessMode,
     pub modifier: Option<XpiResourceModifier>,
 }
 
-impl<'i> Parse<'i> for XpiResourceKind {
+impl<'i> Parse<'i> for XpiResourceTransform {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_kind)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_transform)?, input);
         let access = input.parse()?;
         let modifier = input.pairs.next().map(|p| {
             if p.as_rule() == Rule::mod_stream {
@@ -217,7 +217,7 @@ impl<'i> Parse<'i> for XpiResourceKind {
                 XpiResourceModifier::Observe
             }
         });
-        Ok(XpiResourceKind { access, modifier })
+        Ok(XpiResourceTransform { access, modifier })
     }
 }
 

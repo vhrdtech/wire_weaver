@@ -194,7 +194,7 @@ fn tt_append(token: pest::iterators::Pair<Rule>, ts_builder: &mut proc_macro2::T
                         Rc::new(#ident_lit.to_owned()),
                         // IdentFlavor::Plain,
                         mtoken::token::IdentFlavor::#flavor,
-                        Span::call_site()
+                        //Span::call_site()
                     )
                 );
             });

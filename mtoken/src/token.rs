@@ -2,22 +2,20 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use crate::{ToTokens, TokenStream, TokenTree};
-use vhl::span::Span;
 use crate::ext::TokenStreamExt;
 
 /// A word of code, which may be a keyword or legal variable name
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ident {
     sym: Rc<String>,
-    span: Span,
+    // span: Span,
     flavor: IdentFlavor
 }
 
 impl Ident {
-    pub fn new(sym: Rc<String>, flavor: IdentFlavor, span: Span,) -> Self {
+    pub fn new(sym: Rc<String>, flavor: IdentFlavor) -> Self {
         Ident {
             sym,
-            span,
             flavor
         }
     }
@@ -83,7 +81,7 @@ pub enum IdentFlavor {
 pub struct Punct {
     ch: char,
     spacing: Spacing,
-    span: Span,
+    // span: Span,
 }
 
 impl Punct {
@@ -91,7 +89,7 @@ impl Punct {
         Punct {
             ch,
             spacing,
-            span: Span::call_site()
+            // span: Span::call_site()
         }
     }
 
@@ -191,14 +189,14 @@ pub enum Spacing {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Literal {
     repr: String,
-    span: Span,
+    // span: Span,
 }
 
 impl Literal {
     pub fn new(repr: String) -> Self {
         Self {
             repr,
-            span: Span::call_site()
+            // span: Span::call_site()
         }
     }
 }
@@ -219,15 +217,14 @@ impl ToTokens for Literal {
 pub struct Comment {
     line: String,
     flavor: CommentFlavor,
-    span: Span,
+    // span: Span,
 }
 
 impl Comment {
-    pub fn new(line: &str, flavor: CommentFlavor, span: Span) -> Self {
+    pub fn new(line: &str, flavor: CommentFlavor) -> Self {
         Self {
             line: line.to_owned(),
             flavor,
-            span
         }
     }
 }
@@ -272,7 +269,7 @@ impl ToTokens for String {
         tokens.append(Ident::new(
             Rc::new(self.clone()),
             IdentFlavor::Plain,
-            Span::call_site()
+            // Span::call_site()
         ));
     }
 }
@@ -282,7 +279,7 @@ impl ToTokens for &str {
         tokens.append(Ident::new(
             Rc::new(self.to_string()),
             IdentFlavor::Plain,
-            Span::call_site()
+            // Span::call_site()
         ));
     }
 }
@@ -291,7 +288,7 @@ impl ToTokens for usize {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.append(Literal {
             repr: self.to_string(),
-            span: Span::call_site()
+            // span: Span::call_site()
         })
     }
 }

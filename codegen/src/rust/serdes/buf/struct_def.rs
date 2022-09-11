@@ -18,6 +18,7 @@ impl<'ast> StructSer<'ast> {
                 return None;
             }
             len += match &f.ty.kind {
+                TyKind::Unit => 0,
                 TyKind::Boolean => 1,
                 TyKind::Discrete(discrete) => {
                     (discrete.bits / 8 + if discrete.bits % 2 != 0 { 1 } else { 0 }) as usize
@@ -39,6 +40,7 @@ struct StructSerField<'ast> {
 impl<'ast> ToTokens for StructSerField<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.ty.inner.kind {
+            TyKind::Unit => {},
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
                     wr.put_bool
@@ -70,6 +72,7 @@ struct StructDesField<'ast> {
 impl<'ast> ToTokens for StructDesField<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.ty.inner.kind {
+            TyKind::Unit => {},
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
                     rdr.get_bool()?

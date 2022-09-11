@@ -9,6 +9,7 @@ pub struct CGTy<'ast> {
 impl<'ast> ToTokens for CGTy<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.inner.kind {
+            TyKind::Unit => {},
             TyKind::Boolean => {
                 tokens.append(mtoken::Ident::new(
                     Rc::new("bool".to_string()),

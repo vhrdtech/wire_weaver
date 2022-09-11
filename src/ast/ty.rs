@@ -10,6 +10,7 @@ pub struct Ty {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TyKind {
+    Unit,
     Boolean,
     Discrete(DiscreteTy),
 }
@@ -24,12 +25,10 @@ pub struct DiscreteTy {
 impl DiscreteTy {
     pub fn is_standard(&self) -> bool {
         if self.shift != 0 {
-            return false;
+            false
+        } else {
+            [8, 16, 32, 64, 128].contains(&self.bits)
         }
-        if [8, 16, 32, 64, 128].contains(&self.bits) {
-            return true;
-        }
-        false
     }
 }
 
@@ -75,6 +74,7 @@ impl<'i> From<TyKindParser<'i>> for TyKind {
 impl Ty {
     pub fn is_sized(&self) -> bool {
         match self.kind {
+            TyKind::Unit => true,
             TyKind::Boolean => true,
             TyKind::Discrete(_) => true,
         }

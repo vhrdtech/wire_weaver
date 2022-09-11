@@ -10,13 +10,13 @@ pub struct File {
 }
 
 impl File {
-    pub fn from_parser_ast(file: ParserFile, origin: SpanOrigin) -> Self {
-        let mut file = File {
+    pub fn from_parser_ast(file: ParserFile) -> Self {
+        let mut file_core_ast = File {
             items: file.defs.iter().map(|def| def.clone().into()).collect(),
         };
-        let mut modifier = SpanOriginModifier { to: origin };
-        modifier.visit_file(&mut file);
-        file
+        let mut modifier = SpanOriginModifier { to: file.origin };
+        modifier.visit_file(&mut file_core_ast);
+        file_core_ast
     }
 }
 

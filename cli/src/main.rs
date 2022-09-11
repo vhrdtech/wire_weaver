@@ -29,9 +29,15 @@ fn main() -> Result<()> {
             let input = std::fs::read_to_string(vhl_source.clone())
                 .context(format!("unable to open '{:?}'", vhl_source))?;
             let origin = SpanOrigin::Parser(SourceOrigin::File(vhl_source.clone()));
-            let file = File::parse(&input, origin.clone())?;
+            let file = match File::parse(&input, origin.clone()) {
+                Ok(file) => file,
+                Err(e) => {
+                    println!("{}", e);
+                    return Err(anyhow!("Input contains syntax errors"));
+                }
+            };
 
-            let ast_core = vhl::ast::file::File::from_parser_ast(file, origin.clone());
+            let ast_core = vhl::ast::file::File::from_parser_ast(file);
             // println!("{:?}", ast_core);
 
             let mut cg_file = codegen::file::File::new();
@@ -120,7 +126,7 @@ fn main() -> Result<()> {
                     }
                 }
             } else if parser {
-                let ast_core = vhl::ast::file::File::from_parser_ast(file, origin.clone());
+                let ast_core = vhl::ast::file::File::from_parser_ast(file);
                 match definition {
                     Some(_name) => {
                         todo!()

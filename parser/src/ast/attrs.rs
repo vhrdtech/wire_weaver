@@ -1,9 +1,9 @@
-use crate::ast::naming::PathSegment;
 use super::prelude::*;
+use crate::ast::naming::PathSegment;
 
 #[derive(Debug, Clone)]
 pub struct Attrs<'i> {
-    pub attributes: Vec<Attr<'i>>
+    pub attributes: Vec<Attr<'i>>,
 }
 
 impl<'i> Parse<'i> for Attrs<'i> {
@@ -12,14 +12,14 @@ impl<'i> Parse<'i> for Attrs<'i> {
         while let Some(a) = input.pairs.peek() {
             if a.as_rule() == Rule::outer_attribute || a.as_rule() == Rule::inner_attribute {
                 let a = input.pairs.next().unwrap();
-                ParseInput::fork(a, input).parse().map(|attr| attributes.push(attr))?;
+                ParseInput::fork(a, input)
+                    .parse()
+                    .map(|attr| attributes.push(attr))?;
             } else {
                 break;
             }
         }
-        Ok(Attrs {
-            attributes
-        })
+        Ok(Attrs { attributes })
     }
 }
 

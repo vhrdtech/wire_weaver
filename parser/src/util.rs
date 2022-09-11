@@ -1,23 +1,25 @@
-use std::fmt::Write;
-use pest::iterators::{Pair, Pairs};
 use crate::lexer::{Lexer, Rule};
+use pest::iterators::{Pair, Pairs};
+use std::fmt::Write;
 
 #[allow(unused_macros)]
 macro_rules! ppt {
-        ($p:expr) => { crate::util::pest_print_tree($p.clone()); }
+    ($p:expr) => {
+        crate::util::pest_print_tree($p.clone());
+    };
 }
 #[allow(unused_imports)]
 pub(crate) use ppt;
 
 pub fn pest_print_tree(pairs: Pairs<Rule>) {
     let mut s = String::new();
-    pest_print_tree_inner(pairs, true,&mut s);
+    pest_print_tree_inner(pairs, true, &mut s);
     println!("{}", s);
 }
 
 pub fn pest_tree(pairs: Pairs<Rule>) -> String {
     let mut s = String::new();
-    pest_print_tree_inner(pairs, true,&mut s);
+    pest_print_tree_inner(pairs, true, &mut s);
     s
 }
 
@@ -26,7 +28,15 @@ fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Writ
     let mut level = 0;
     let all_input_index_shift = pairs.peek().map(|p| p.as_span().start()).unwrap_or(0);
     for p in pairs {
-        pest_print_pair(p, all_input, all_input_index_shift, print_input, 0, vec![level], w);
+        pest_print_pair(
+            p,
+            all_input,
+            all_input_index_shift,
+            print_input,
+            0,
+            vec![level],
+            w,
+        );
         level = level + 1;
     }
 }
@@ -38,21 +48,40 @@ pub fn pest_file_parse_tree(input: &str) -> String {
     s
 }
 
-fn pest_print_pair(pair: Pair<Rule>, all_input: &str, all_input_index_shift: usize, print_input: bool, indent: u32, level: Vec<u32>, w: &mut dyn Write) {
+fn pest_print_pair(
+    pair: Pair<Rule>,
+    all_input: &str,
+    all_input_index_shift: usize,
+    print_input: bool,
+    indent: u32,
+    level: Vec<u32>,
+    w: &mut dyn Write,
+) {
     print_n_tabs(indent, w);
     write!(
         w,
         "\x1b[35m{:?}\x1b[0m \x1b[1m{:?} ({}, {})\x1b[0m: ",
         level,
         pair.as_rule(),
-        pair.as_span().start(), pair.as_span().end()
-    ).ok();
+        pair.as_span().start(),
+        pair.as_span().end()
+    )
+    .ok();
 
     if print_input {
-        highlight_span(all_input, pair.as_span().start() - all_input_index_shift, pair.as_span().end() - all_input_index_shift, w);
+        highlight_span(
+            all_input,
+            pair.as_span().start() - all_input_index_shift,
+            pair.as_span().end() - all_input_index_shift,
+            w,
+        );
         writeln!(w).ok();
     } else {
-        let source_no_line_feeds = pair.as_str().chars().filter(|c| *c != '\n' && *c != '\r' ).collect::<String>();
+        let source_no_line_feeds = pair
+            .as_str()
+            .chars()
+            .filter(|c| *c != '\n' && *c != '\r')
+            .collect::<String>();
         if source_no_line_feeds.len() < 100 {
             writeln!(w, "{}", source_no_line_feeds).ok();
         } else {
@@ -64,7 +93,15 @@ fn pest_print_pair(pair: Pair<Rule>, all_input: &str, all_input_index_shift: usi
     for p in pair.into_inner() {
         let mut level = level.clone();
         level.push(child);
-        pest_print_pair(p, all_input, all_input_index_shift, print_input, indent + 1, level, w);
+        pest_print_pair(
+            p,
+            all_input,
+            all_input_index_shift,
+            print_input,
+            indent + 1,
+            level,
+            w,
+        );
         child = child + 1;
     }
 }

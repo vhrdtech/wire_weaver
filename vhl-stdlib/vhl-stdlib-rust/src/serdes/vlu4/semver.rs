@@ -8,9 +8,7 @@ pub struct GlobalTypeId {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct SemVer {
-
-}
+pub struct SemVer {}
 
 /// Semver requirement
 #[derive(Copy, Clone, Debug)]

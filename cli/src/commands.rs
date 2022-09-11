@@ -1,20 +1,18 @@
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
-use clap::{Parser, Subcommand, Args};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 pub struct Cli {
     #[clap(subcommand)]
-    pub command: Option<Commands>
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
     /// Generate some code
     #[clap(aliases = &["g", "gen"])]
-    Generate {
-        vhl_source: PathBuf
-    },
+    Generate { vhl_source: PathBuf },
 
     /// Developer tools
     Dev {
@@ -37,7 +35,7 @@ pub enum Commands {
 
     /// REPL
     #[clap(alias = "rxpi")]
-    ReplXpi(ReplXpi)
+    ReplXpi(ReplXpi),
 }
 
 #[derive(Args)]

@@ -1,6 +1,6 @@
-use crate::serdes::{BitBuf, DeserializeBits, DeserializeVlu4, NibbleBuf};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::SerializeBits;
+use crate::serdes::{BitBuf, DeserializeBits, DeserializeVlu4, NibbleBuf};
 
 #[macro_export]
 macro_rules! max_bound_number {
@@ -54,7 +54,7 @@ macro_rules! max_bound_number {
                 Ok($type_name(rdr.$des($bit_count)?))
             }
         }
-    }
+    };
 }
 pub use max_bound_number;
 

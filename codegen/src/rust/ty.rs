@@ -3,19 +3,17 @@ use vhl::ast::ty::TyKind;
 
 #[derive(Clone)]
 pub struct CGTy<'ast> {
-    pub inner: &'ast vhl::ast::ty::Ty
+    pub inner: &'ast vhl::ast::ty::Ty,
 }
 
 impl<'ast> ToTokens for CGTy<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.inner.kind {
             TyKind::Boolean => {
-                tokens.append(
-                    mtoken::Ident::new(
-                        Rc::new("bool".to_string()),
-                        IdentFlavor::Plain,
-                    )
-                );
+                tokens.append(mtoken::Ident::new(
+                    Rc::new("bool".to_string()),
+                    IdentFlavor::Plain,
+                ));
             }
             TyKind::Discrete(discrete) => {
                 let is_signed = if is_native_discrete(discrete.bits) {

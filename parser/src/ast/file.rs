@@ -181,7 +181,9 @@ impl Display for FileError {
                             f,
                             " --> {}\n\x1b[31m{}\x1b[0m",
                             self.origin,
-                            pest_err.clone().renamed_rules(|r| crate::user_readable::rule_names(r))
+                            pest_err
+                                .clone()
+                                .renamed_rules(|r| crate::user_readable::rule_names(r))
                         )
                     }
                     Err(e) => {

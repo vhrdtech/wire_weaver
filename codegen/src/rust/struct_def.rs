@@ -1,24 +1,24 @@
-use vhl::ast::struct_def::StructDef;
 use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
+use vhl::ast::struct_def::StructDef;
 
 #[derive(Clone)]
 pub struct CGStructDef<'ast> {
     pub typename: CGIdentifier<'ast>,
-    pub inner: &'ast StructDef
-    // pub fields: Vec<CGStructField>,
+    pub inner: &'ast StructDef, // pub fields: Vec<CGStructField>,
 }
 
 impl<'ast> CGStructDef<'ast> {
     pub fn new(struct_def: &'ast vhl::ast::struct_def::StructDef) -> Self {
         CGStructDef {
-            typename: CGIdentifier { inner: &struct_def.typename },
-            inner: struct_def
-            // fields: struct_def.fields.fields.iter()
-            //     .map(|item| item.clone().into())
-            //     .collect()
+            typename: CGIdentifier {
+                inner: &struct_def.typename,
+            },
+            inner: struct_def, // fields: struct_def.fields.fields.iter()
+                               //     .map(|item| item.clone().into())
+                               //     .collect()
         }
     }
 }
@@ -40,16 +40,18 @@ impl<'ast> CGStructDef<'ast> {
 
 impl<'ast> ToTokens for CGStructDef<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let field_names = self.inner.fields.fields
+        let field_names = self
+            .inner
+            .fields
+            .fields
             .iter()
-            .map(|f| {
-                CGIdentifier { inner: &f.name }
-            });
-        let field_types = self.inner.fields.fields
+            .map(|f| CGIdentifier { inner: &f.name });
+        let field_types = self
+            .inner
+            .fields
+            .fields
             .iter()
-            .map(|f| {
-                CGTy { inner: &f.ty }
-            });
+            .map(|f| CGTy { inner: &f.ty });
         let derives = "#[derive(Copy, Clone, Eq, PartialEq, Debug)]"; // TODO: make automatic and configurable
         tokens.append_all(mquote!(rust r#"
             #derives
@@ -64,7 +66,7 @@ impl<'ast> Depends for CGStructDef<'ast> {
     fn dependencies(&self) -> Dependencies {
         Dependencies {
             depends: vec![],
-            uses: vec![]
+            uses: vec![],
         }
     }
 }
@@ -80,9 +82,9 @@ impl<'ast> Depends for CGStructDef<'ast> {
 #[cfg(test)]
 mod test {
     use mquote::mquote;
+    use mtoken::ToTokens;
     use vhl::ast::file::Definition;
     use vhl::span::{SourceOrigin, SpanOrigin};
-    use mtoken::ToTokens;
 
     #[test]
     fn struct_def() {
@@ -95,8 +97,7 @@ mod test {
                 let cg_struct_def = super::CGStructDef::new(struct_def);
                 let ts = mquote!(rust r#" #cg_struct_def "#);
                 println!("{}", ts);
-            }
-            // _ => panic!("Expected struct definition")
+            } // _ => panic!("Expected struct definition")
         }
     }
 }

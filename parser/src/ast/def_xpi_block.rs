@@ -1,11 +1,11 @@
-use std::fmt::{Debug, Formatter};
-use either::Either;
+use super::prelude::*;
 use crate::ast::expr::Expr;
+use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
-use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
-use crate::error::{ParseErrorKind};
-use super::prelude::*;
+use crate::error::ParseErrorKind;
+use either::Either;
+use std::fmt::{Debug, Formatter};
 
 // macro_rules! function {
 //     () => {{
@@ -38,19 +38,17 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
             attrs: input.parse()?,
             uri: input.parse()?,
             resource_ty: input.parse_or_skip()?,
-            body: input.parse()?
+            body: input.parse()?,
         })
     }
 }
 
 impl<'i> Debug for DefXpiBlock<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f,
-                 "\n\x1b[32m{}\x1b[33m{:?}\n\x1b[36mDefXpiBlock(uri: {:?} ty: {:?})\x1b[0m",
-                 self.docs,
-                 self.attrs,
-                 self.uri,
-                 self.resource_ty
+        writeln!(
+            f,
+            "\n\x1b[32m{}\x1b[33m{:?}\n\x1b[36mDefXpiBlock(uri: {:?} ty: {:?})\x1b[0m",
+            self.docs, self.attrs, self.uri, self.resource_ty
         )?;
         writeln!(f, "{:?}", self.body)
     }
@@ -59,45 +57,36 @@ impl<'i> Debug for DefXpiBlock<'i> {
 #[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
     pub kind: Option<XpiResourceKind>,
-    pub ty: Option<Either< XpiCellTy<'i>, Ty<'i> >>,
+    pub ty: Option<Either<XpiCellTy<'i>, Ty<'i>>>,
     pub serial: Option<XpiSerial>,
 }
 
 #[derive(Debug, Clone)]
-pub struct XpiCellTy<'i> (Option<XpiResourceKind>, Ty<'i>);
+pub struct XpiCellTy<'i>(Option<XpiResourceKind>, Ty<'i>);
 
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(
-            input.expect1(Rule::xpi_resource_ty)?,
-            input
-        );
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_ty)?, input);
         let kind = input.parse_or_skip()?;
         let ty = match input.pairs.peek() {
-            Some(p) => {
-                match p.as_rule() {
-                    Rule::resource_cell_ty => {
-                        let mut input = ParseInput::fork(
-                            input.expect1(Rule::resource_cell_ty)?,
-                            &mut input
-                        );
-                        let kind = input.parse_or_skip()?;
-                        let ty = input.parse()?;
-                        Some(Either::Left(XpiCellTy(kind, ty)))
-                    }
-                    Rule::any_ty => {
-                        Some(Either::Right(input.parse()?))
-                    }
-                    _ => None
+            Some(p) => match p.as_rule() {
+                Rule::resource_cell_ty => {
+                    let mut input =
+                        ParseInput::fork(input.expect1(Rule::resource_cell_ty)?, &mut input);
+                    let kind = input.parse_or_skip()?;
+                    let ty = input.parse()?;
+                    Some(Either::Left(XpiCellTy(kind, ty)))
                 }
-            }
-            None => None
+                Rule::any_ty => Some(Either::Right(input.parse()?)),
+                _ => None,
+            },
+            None => None,
         };
 
         Ok(XpiResourceTy {
             kind,
             ty,
-            serial: input.parse_or_skip()?
+            serial: input.parse_or_skip()?,
         })
     }
 }
@@ -114,10 +103,7 @@ impl<'i> Parse<'i> for XpiBody<'i> {
         if input.pairs.peek().is_none() {
             return Ok(XpiBody::default());
         }
-        let mut input = ParseInput::fork(
-            input.expect1(Rule::xpi_body)?,
-            input
-        );
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_body)?, input);
         let mut kv_list = Vec::new();
         let mut implements = Vec::new();
         let mut children = Vec::new();
@@ -128,10 +114,7 @@ impl<'i> Parse<'i> for XpiBody<'i> {
                     kv_list.push(input.parse()?);
                 }
                 Rule::xpi_impl => {
-                    let mut input = ParseInput::fork(
-                        input.expect1(Rule::xpi_impl)?,
-                        &mut input
-                    );
+                    let mut input = ParseInput::fork(input.expect1(Rule::xpi_impl)?, &mut input);
                     implements.push(input.parse()?);
                 }
                 Rule::xpi_block => {
@@ -146,7 +129,7 @@ impl<'i> Parse<'i> for XpiBody<'i> {
         Ok(XpiBody {
             kv_list,
             implements,
-            children
+            children,
         })
     }
 }
@@ -160,16 +143,17 @@ pub enum XpiUri<'i> {
     /// /velocity_\`'x'..'z'\`
     NamedPartThenExpr(Identifier<'i, XpiUriSegmentName>, Expr<'i>),
     /// /register_\`'0'..'9'\`_b
-    Full(Identifier<'i, XpiUriSegmentName>, Expr<'i>, Identifier<'i, XpiUriSegmentName>)
+    Full(
+        Identifier<'i, XpiUriSegmentName>,
+        Expr<'i>,
+        Identifier<'i, XpiUriSegmentName>,
+    ),
 }
 
 impl<'i> Parse<'i> for XpiUri<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // dbg!(function!());
-        let mut input = ParseInput::fork(
-            input.expect1(Rule::xpi_uri_segment)?,
-            input
-        );
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_uri_segment)?, input);
 
         let mut input_peek = input.pairs.clone();
         let (p1, p2, p3) = (input_peek.next(), input_peek.next(), input_peek.next());
@@ -205,9 +189,7 @@ impl<'i> Parse<'i> for AccessMode {
             "ro" => Ok(AccessMode::Ro),
             "wo" => Ok(AccessMode::Wo),
             "const" => Ok(AccessMode::Const),
-            _ => {
-                Err(ParseErrorSource::internal("wrong access_mod rule"))
-            }
+            _ => Err(ParseErrorSource::internal("wrong access_mod rule")),
         }
     }
 }
@@ -215,7 +197,7 @@ impl<'i> Parse<'i> for AccessMode {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum XpiResourceModifier {
     Observe,
-    Stream
+    Stream,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -235,10 +217,7 @@ impl<'i> Parse<'i> for XpiResourceKind {
                 XpiResourceModifier::Observe
             }
         });
-        Ok(XpiResourceKind {
-            access,
-            modifier,
-        })
+        Ok(XpiResourceKind { access, modifier })
     }
 }
 
@@ -259,12 +238,16 @@ impl<'i> Parse<'i> for XpiSerial {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // dbg!(function!());
         let xpi_serial = input.expect1(Rule::xpi_serial)?;
-        Ok(XpiSerial(xpi_serial.as_str().strip_prefix('\'')
+        Ok(XpiSerial(
+            xpi_serial
+                .as_str()
+                .strip_prefix('\'')
                 .ok_or_else(|| ParseErrorSource::internal("xpi_serial: wrong rule"))?
-                .parse().map_err(|_| {
+                .parse()
+                .map_err(|_| {
                     input.push_error(&xpi_serial, ParseErrorKind::IntParseError);
                     ParseErrorSource::UserError
-                })?
+                })?,
         ))
     }
 }
@@ -280,7 +263,7 @@ impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_field)?, input);
         Ok(XpiBlockKeyValue {
             key: input.parse()?,
-            value: input.parse()?
+            value: input.parse()?,
         })
     }
 }
@@ -296,16 +279,16 @@ impl<'i> Parse<'i> for XpiValue<'i> {
         let try_stmt: Option<Stmt<'i>> = input.parse_or_skip()?;
         match try_stmt {
             Some(stmt) => Ok(XpiValue::Stmt(stmt)),
-            None => Ok(XpiValue::Expr(input.parse()?))
+            None => Ok(XpiValue::Expr(input.parse()?)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::DefXpiBlock;
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
-    use super::DefXpiBlock;
 
     #[test]
     fn impl_interface() {

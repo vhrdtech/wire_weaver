@@ -1,9 +1,8 @@
-use core::fmt::{Display, Formatter};
 use crate::discrete::U2Sp1;
-use crate::serdes::{BitBuf, DeserializeBits};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::SerializeBits;
-
+use crate::serdes::{BitBuf, DeserializeBits};
+use core::fmt::{Display, Formatter};
 
 /// Priority selection: lossy or lossless (to an extent).
 /// Truly lossless mode is not achievable, for example if connection is physically lost mid-transfer,
@@ -51,7 +50,7 @@ impl SerializeBits for Priority {
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let (is_lossless, level) = match self {
             Priority::Lossy(level) => (false, level),
-            Priority::Lossless(level) => (true, level)
+            Priority::Lossless(level) => (true, level),
         };
         wgr.put_bit(is_lossless)?;
         wgr.put(level)

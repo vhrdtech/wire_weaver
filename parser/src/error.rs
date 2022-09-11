@@ -1,13 +1,13 @@
+use crate::lexer::Rule;
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 use thiserror::Error;
-use crate::lexer::Rule;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseError {
     pub kind: ParseErrorKind,
     pub rule: crate::lexer::Rule,
-    pub span: (usize, usize)
+    pub span: (usize, usize),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -48,7 +48,9 @@ pub enum ParseErrorSource {
     },
     /// Parser feature unimplemented
     /// TODO: add link to feature status on github here
-    #[error("Parser feature unimplemented, consider contributing or look at features status here: _")]
+    #[error(
+        "Parser feature unimplemented, consider contributing or look at features status here: _"
+    )]
     Unimplemented(&'static str),
     /// Not enough input or unexpected rule (because expected one is absent).
     /// Might not be an error like in enum with only discriminant values.
@@ -59,16 +61,16 @@ pub enum ParseErrorSource {
     UnexpectedInput,
     /// User provided erroneous input, invalid number for example.
     #[error("User provided erroneous input, invalid number for example")]
-    UserError
+    UserError,
 }
 
 impl ParseErrorSource {
-    pub fn internal(message: &'static str,) -> ParseErrorSource {
+    pub fn internal(message: &'static str) -> ParseErrorSource {
         ParseErrorSource::InternalError {
             #[cfg(feature = "backtrace")]
             backtrace: Backtrace::capture(),
             rule: None,
-            message
+            message,
         }
     }
 

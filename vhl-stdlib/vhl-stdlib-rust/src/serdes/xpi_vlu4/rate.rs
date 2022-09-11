@@ -1,7 +1,7 @@
 use crate::q_numbers::UqC;
+use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::{DeserializeVlu4, NibbleBuf};
 use crate::units::UnitStatic;
-use crate::serdes::nibble_buf::Error as NibbleBufError;
 
 // #[derive(Copy, Clone, Debug)]
 // pub struct Vlu4RateArray<'i> {
@@ -18,8 +18,6 @@ use crate::serdes::nibble_buf::Error as NibbleBufError;
 //     }
 // }
 //
-
-
 
 /// Observing or publishing rate in [Hz].
 #[derive(Copy, Clone, Debug)]

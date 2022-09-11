@@ -1,11 +1,11 @@
+use crate::discrete::{U3, U4, U6};
+use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::vlu4::vlu32::Vlu32;
+use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
-use crate::discrete::{U3, U4, U6};
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
-use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 
 /// Sequence of numbers uniquely identifying one of the resources.
 /// If there is a group in the uri with not numerical index - it must be mapped into numbers.
@@ -27,7 +27,7 @@ pub enum Uri<'i> {
     ThreePart664(U6, U6, U4),
 
     /// Point to any resource in the resources tree, any numbers up to u32::MAX; variable size
-    MultiPart(Vlu4Vec<'i, Vlu32>)
+    MultiPart(Vlu4Vec<'i, Vlu32>),
 }
 
 impl<'i> Uri<'i> {
@@ -36,31 +36,29 @@ impl<'i> Uri<'i> {
             Uri::OnePart4(a) => UriIter::UpToThree {
                 parts: [a.inner(), 0, 0],
                 len: 1,
-                pos: 0
+                pos: 0,
             },
             Uri::TwoPart44(a, b) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), 0],
                 len: 2,
-                pos: 0
+                pos: 0,
             },
             Uri::ThreePart444(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
-                pos: 0
+                pos: 0,
             },
             Uri::ThreePart633(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
-                pos: 0
+                pos: 0,
             },
             Uri::ThreePart664(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
-                pos: 0
+                pos: 0,
             },
-            Uri::MultiPart(arr) => {
-                UriIter::ArrIter(arr.iter())
-            }
+            Uri::MultiPart(arr) => UriIter::ArrIter(arr.iter()),
         }
     }
 }
@@ -91,12 +89,12 @@ impl<'i> SerializeVlu4 for Uri<'i> {
                 wgr.put_nibble(c.inner())?;
             }
             Uri::ThreePart633(a, b, c) => {
-               wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
-                   wgr.put_up_to_8(6, a.inner())?;
-                   wgr.put_up_to_8(3, b.inner())?;
-                   wgr.put_up_to_8(3, c.inner())?;
-                   Ok(())
-               })?;
+                wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
+                    wgr.put_up_to_8(6, a.inner())?;
+                    wgr.put_up_to_8(3, b.inner())?;
+                    wgr.put_up_to_8(3, c.inner())?;
+                    Ok(())
+                })?;
             }
             Uri::ThreePart664(a, b, c) => {
                 wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
@@ -120,7 +118,7 @@ impl<'i> SerializeVlu4 for Uri<'i> {
             Uri::ThreePart444(_, _, _) => 3,
             Uri::ThreePart633(_, _, _) => 3,
             Uri::ThreePart664(_, _, _) => 4,
-            Uri::MultiPart(arr) => arr.len_nibbles()
+            Uri::MultiPart(arr) => arr.len_nibbles(),
         }
     }
 }
@@ -144,7 +142,7 @@ pub enum UriIter<'i> {
     ArrIter(Vlu4VecIter<'i, Vlu32>),
     ArrIterChain {
         arr_iter: Vlu4VecIter<'i, Vlu32>,
-        last: Option<u32>
+        last: Option<u32>,
     },
 }
 
@@ -161,23 +159,17 @@ impl<'i> Iterator for UriIter<'i> {
                     None
                 }
             }
-            UriIter::ArrIter(arr_iter) => {
-                arr_iter.next().map(|x| x.0)
-            }
-            UriIter::ArrIterChain { arr_iter, last} => {
-                match arr_iter.next() {
-                    Some(p) => Some(p.0),
-                    None => {
-                        match *last {
-                            Some(p) => {
-                                *last = None;
-                                Some(p)
-                            }
-                            None => None
-                        }
+            UriIter::ArrIter(arr_iter) => arr_iter.next().map(|x| x.0),
+            UriIter::ArrIterChain { arr_iter, last } => match arr_iter.next() {
+                Some(p) => Some(p.0),
+                None => match *last {
+                    Some(p) => {
+                        *last = None;
+                        Some(p)
                     }
-                }
-            }
+                    None => None,
+                },
+            },
         }
     }
 
@@ -235,13 +227,13 @@ impl<'i> Debug for Uri<'i> {
 #[cfg(test)]
 mod test {
     extern crate std;
-    use std::format;
     use crate::discrete::{U3, U4, U6};
+    use std::format;
 
-    use crate::serdes::NibbleBuf;
+    use super::Uri;
     use crate::serdes::vlu4::vlu32::Vlu32;
     use crate::serdes::vlu4::Vlu4Vec;
-    use super::Uri;
+    use crate::serdes::NibbleBuf;
 
     #[test]
     fn one_part_uri_iter() {
@@ -265,7 +257,7 @@ mod test {
         let uri = Uri::ThreePart633(
             U6::new(35).unwrap(),
             U3::new(4).unwrap(),
-            U3::new(3).unwrap()
+            U3::new(3).unwrap(),
         );
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(35));

@@ -1,8 +1,6 @@
 use core::marker::PhantomData;
 
-pub struct Unit {
-
-}
+pub struct Unit {}
 
 #[derive(Copy, Clone, Debug)]
 pub struct UnitStatic<
@@ -14,7 +12,7 @@ pub struct UnitStatic<
     const I: isize,
     const O: isize,
     const N: isize,
-    const J: isize
+    const J: isize,
 > {
     _phantom: PhantomData<X>,
 }

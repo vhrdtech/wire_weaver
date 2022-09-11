@@ -1,13 +1,13 @@
-use std::fmt::{Debug, Formatter};
+use super::prelude::*;
 use pest::iterators::Pair;
 use pest::Span;
-use super::prelude::*;
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone)]
 pub struct Identifier<'i, K> {
     pub name: &'i str,
     pub span: Span<'i>,
-    pub kind: K
+    pub kind: K,
 }
 
 macro_rules! identifier_kind {
@@ -19,7 +19,7 @@ macro_rules! identifier_kind {
                 Self {}
             }
         }
-    }
+    };
 }
 
 identifier_kind!(UserTyName);
@@ -41,12 +41,25 @@ pub struct XpiUriSegmentName;
 
 impl<'i, K: sealed::IdentifierKind + Debug> Debug for Identifier<'i, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Id<{:?}>(\x1b[35m{}\x1b[0m @{}:{})", self.kind, self.name, self.span.start(), self.span.end())
+        write!(
+            f,
+            "Id<{:?}>(\x1b[35m{}\x1b[0m @{}:{})",
+            self.kind,
+            self.name,
+            self.span.start(),
+            self.span.end()
+        )
     }
 }
 impl<'i> Debug for Identifier<'i, XpiUriSegmentName> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Id<XpiUriSegmentName>(\x1b[35m{}\x1b[0m @{}:{})", self.name, self.span.start(), self.span.end())
+        write!(
+            f,
+            "Id<XpiUriSegmentName>(\x1b[35m{}\x1b[0m @{}:{})",
+            self.name,
+            self.span.start(),
+            self.span.end()
+        )
     }
 }
 
@@ -62,24 +75,24 @@ impl<'i, K: sealed::IdentifierKind> Parse<'i> for Identifier<'i, K> {
         Ok(Identifier {
             name: ident.as_str(),
             span: ident.as_span(),
-            kind: K::new()
+            kind: K::new(),
         })
     }
 }
 impl<'i> Parse<'i> for Identifier<'i, XpiUriSegmentName> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<'i, XpiUriSegmentName>, ParseErrorSource> {
+    fn parse<'m>(
+        input: &mut ParseInput<'i, 'm>,
+    ) -> Result<Identifier<'i, XpiUriSegmentName>, ParseErrorSource> {
         let ident = match input.pairs.peek() {
-            Some(p) => {
-                match p.as_rule() {
-                    Rule::identifier | Rule::identifier_continue => {
-                        let _ = input.pairs.next();
-                        p
-                    }
-                    _ => {
-                        return Err(ParseErrorSource::UnexpectedInput);
-                    }
+            Some(p) => match p.as_rule() {
+                Rule::identifier | Rule::identifier_continue => {
+                    let _ = input.pairs.next();
+                    p
                 }
-            }
+                _ => {
+                    return Err(ParseErrorSource::UnexpectedInput);
+                }
+            },
             None => {
                 return Err(ParseErrorSource::UnexpectedInput);
             }
@@ -87,7 +100,7 @@ impl<'i> Parse<'i> for Identifier<'i, XpiUriSegmentName> {
         Ok(Identifier {
             name: ident.as_str(),
             span: ident.as_span(),
-            kind: XpiUriSegmentName {}
+            kind: XpiUriSegmentName {},
         })
     }
 }
@@ -98,7 +111,7 @@ impl<'i> From<Pair<'i, crate::lexer::Rule>> for Identifier<'i, UserTyName> {
         Identifier {
             name: p.as_str(),
             span: p.as_span(),
-            kind: UserTyName::new()
+            kind: UserTyName::new(),
         }
     }
 }

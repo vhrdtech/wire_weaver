@@ -48,7 +48,8 @@ pub trait VisitMut {
 }
 
 pub fn visit_file<V>(v: &mut V, node: &mut File)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     for def in &mut node.items {
         v.visit_definition(def);
@@ -56,7 +57,8 @@ pub fn visit_file<V>(v: &mut V, node: &mut File)
 }
 
 pub fn visit_definition<V>(v: &mut V, node: &mut Definition)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     match node {
         Definition::Struct(struct_def) => v.visit_struct(struct_def),
@@ -64,7 +66,8 @@ pub fn visit_definition<V>(v: &mut V, node: &mut Definition)
 }
 
 pub fn visit_struct<V>(v: &mut V, node: &mut StructDef)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     v.visit_doc(&mut node.doc);
     v.visit_identifier(&mut node.typename);
@@ -75,17 +78,21 @@ pub fn visit_struct<V>(v: &mut V, node: &mut StructDef)
 }
 
 pub fn visit_doc<V>(_v: &mut V, _node: &mut Doc)
-    where V: VisitMut + ?Sized
-{}
+where
+    V: VisitMut + ?Sized,
+{
+}
 
 pub fn visit_identifier<V>(v: &mut V, node: &mut Identifier)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     v.visit_span(&mut node.span);
 }
 
 pub fn visit_struct_field<V>(v: &mut V, node: &mut StructField)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     v.visit_doc(&mut node.doc);
     v.visit_identifier(&mut node.name);
@@ -94,11 +101,14 @@ pub fn visit_struct_field<V>(v: &mut V, node: &mut StructField)
 }
 
 pub fn visit_span<V>(_v: &mut V, _node: &mut Span)
-    where V: VisitMut + ?Sized
-{}
+where
+    V: VisitMut + ?Sized,
+{
+}
 
 pub fn visit_ty<V>(v: &mut V, node: &mut Ty)
-    where V: VisitMut + ?Sized
+where
+    V: VisitMut + ?Sized,
 {
     match &mut node.kind {
         TyKind::Boolean => v.visit_bool_ty(&mut node.span),
@@ -108,9 +118,13 @@ pub fn visit_ty<V>(v: &mut V, node: &mut Ty)
 }
 
 pub fn visit_bool_ty<V>(_v: &mut V, _span: &Span)
-    where V: VisitMut + ?Sized
-{}
+where
+    V: VisitMut + ?Sized,
+{
+}
 
 pub fn visit_discrete_ty<V>(_v: &mut V, _discrete: &DiscreteTy, _span: &Span)
-    where V: VisitMut + ?Sized
-{}
+where
+    V: VisitMut + ?Sized,
+{
+}

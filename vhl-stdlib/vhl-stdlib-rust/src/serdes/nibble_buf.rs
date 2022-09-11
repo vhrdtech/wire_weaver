@@ -1,12 +1,12 @@
+use crate::serdes::bit_buf::BitBufMut;
 use core::fmt::{Debug, Display, Formatter};
 use core::marker::PhantomData;
 use core::ptr::copy_nonoverlapping;
-use crate::serdes::bit_buf::BitBufMut;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
-use crate::serdes::{BitBuf, DeserializeVlu4};
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::Vlu4VecBuilder;
+use crate::serdes::{BitBuf, DeserializeVlu4};
 
 /// Buffer reader that treats input as a stream of nibbles.
 ///
@@ -40,14 +40,20 @@ impl<'i> NibbleBuf<'i> {
             Err(Error::OutOfBounds)
         } else {
             Ok(NibbleBuf {
-                buf, len_nibbles, idx: 0, is_at_byte_boundary: true,
+                buf,
+                len_nibbles,
+                idx: 0,
+                is_at_byte_boundary: true,
             })
         }
     }
 
     pub fn new_all(buf: &'i [u8]) -> Self {
         NibbleBuf {
-            buf, len_nibbles: buf.len() * 2, idx: 0, is_at_byte_boundary: true
+            buf,
+            len_nibbles: buf.len() * 2,
+            idx: 0,
+            is_at_byte_boundary: true,
         }
     }
 
@@ -56,18 +62,11 @@ impl<'i> NibbleBuf<'i> {
             return Err(OutOfBounds);
         }
         let buf_before_consuming = &self.buf[self.idx..];
-        let offset = if self.is_at_byte_boundary {
-            0
-        } else {
-            4
-        };
+        let offset = if self.is_at_byte_boundary { 0 } else { 4 };
         self.skip(nibble_count)?;
 
-        BitBuf::new_with_offset(
-            buf_before_consuming,
-            offset,
-            nibble_count * 4
-        ).map_err(|_| Error::OutOfBounds)
+        BitBuf::new_with_offset(buf_before_consuming, offset, nibble_count * 4)
+            .map_err(|_| Error::OutOfBounds)
     }
 
     // pub fn new_with_offset(buf: &'i [u8], offset_nibbles: usize) -> Result<Self, Error> {
@@ -167,7 +166,9 @@ impl<'i> NibbleBuf<'i> {
         if self.nibbles_left() < nibble_count {
             return Err(Error::OutOfBounds);
         }
-        unsafe { self.skip_unchecked(nibble_count); }
+        unsafe {
+            self.skip_unchecked(nibble_count);
+        }
         Ok(())
     }
 
@@ -215,10 +216,10 @@ impl<'i> NibbleBuf<'i> {
     }
 
     pub fn get_u32_be(&mut self) -> Result<u32, Error> {
-        Ok(((self.get_u8()? as u32) << 24) |
-            ((self.get_u8()? as u32) << 16) |
-            ((self.get_u8()? as u32) << 8) |
-            self.get_u8()? as u32)
+        Ok(((self.get_u8()? as u32) << 24)
+            | ((self.get_u8()? as u32) << 16)
+            | ((self.get_u8()? as u32) << 8)
+            | self.get_u8()? as u32)
     }
 
     pub fn get_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
@@ -228,7 +229,7 @@ impl<'i> NibbleBuf<'i> {
         if self.nibbles_left() < len * 2 {
             return Err(OutOfBounds);
         }
-        let slice = &self.buf[self.idx .. self.idx + len];
+        let slice = &self.buf[self.idx..self.idx + len];
         self.idx += len;
         Ok(slice)
     }
@@ -240,7 +241,9 @@ impl<'i> NibbleBuf<'i> {
 
         let idx_before = self.idx;
         let is_at_byte_boundary_before = self.is_at_byte_boundary;
-        unsafe { self.skip_unchecked(len_nibbles); }
+        unsafe {
+            self.skip_unchecked(len_nibbles);
+        }
 
         let len_nibbles = if is_at_byte_boundary_before {
             len_nibbles
@@ -251,7 +254,7 @@ impl<'i> NibbleBuf<'i> {
             buf: &self.buf[idx_before..],
             len_nibbles,
             idx: 0,
-            is_at_byte_boundary: is_at_byte_boundary_before
+            is_at_byte_boundary: is_at_byte_boundary_before,
         })
     }
 
@@ -263,10 +266,10 @@ impl<'i> NibbleBuf<'i> {
     /// otherwise return Ok(Err(f(code))).
     /// If deserialization of T fails, return Err(T::Error)
     pub fn des_vlu4_if_ok<'di, T, F, E>(&'di mut self, f: F) -> Result<Result<T, E>, T::Error>
-        where
-            T: DeserializeVlu4<'i>, // type to deserialize
-            F: Fn(u32) -> E, // result error mapping closure
-            T::Error: From<Error>, // deserialization error of T
+    where
+        T: DeserializeVlu4<'i>, // type to deserialize
+        F: Fn(u32) -> E,        // result error mapping closure
+        T::Error: From<Error>,  // deserialization error of T
     {
         let code = self.get_vlu4_u32()?;
         if code == 0 {
@@ -319,7 +322,10 @@ impl<'i> NibbleBufMut<'i> {
             Err(Error::OutOfBounds)
         } else {
             Ok(NibbleBufMut {
-                buf, len_nibbles, idx: 0, is_at_byte_boundary: true,
+                buf,
+                len_nibbles,
+                idx: 0,
+                is_at_byte_boundary: true,
             })
         }
     }
@@ -327,22 +333,21 @@ impl<'i> NibbleBufMut<'i> {
     pub fn new_all(buf: &'i mut [u8]) -> Self {
         let len_nibbles = buf.len() * 2;
         NibbleBufMut {
-            buf, len_nibbles, idx: 0, is_at_byte_boundary: true
+            buf,
+            len_nibbles,
+            idx: 0,
+            is_at_byte_boundary: true,
         }
     }
 
     /// Convert self to BitBufMut from the current position to continue writing in bits
     pub fn to_bit_buf(self) -> BitBufMut<'i> {
-        let bit_idx = if self.is_at_byte_boundary {
-            0
-        } else {
-            4
-        };
+        let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };
         BitBufMut {
             buf: self.buf,
             len_bits: self.len_nibbles * 4,
             idx: self.idx,
-            bit_idx
+            bit_idx,
         }
     }
 
@@ -380,20 +385,17 @@ impl<'i> NibbleBufMut<'i> {
     /// let (buf, _, _) = wgr.finish();
     /// assert_eq!(buf[0], 0b1010_1011);
     /// ```
-    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E> where
+    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E>
+    where
         E: From<crate::serdes::bit_buf::Error>,
-        F: Fn(&mut BitBufMut) -> Result<(), E>
+        F: Fn(&mut BitBufMut) -> Result<(), E>,
     {
-        let bit_idx = if self.is_at_byte_boundary {
-            0
-        } else {
-            4
-        };
+        let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };
         let mut bit_buf = BitBufMut {
             buf: self.buf,
             len_bits: self.len_nibbles * 4,
             idx: self.idx,
-            bit_idx
+            bit_idx,
         };
         f(&mut bit_buf)?;
         if bit_buf.bit_idx != 0 && bit_buf.bit_idx != 4 {
@@ -453,9 +455,9 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     pub fn rewind<F, E>(&mut self, to_nibbles_pos: usize, f: F) -> Result<(), E>
-        where
-            F: Fn(&mut Self) -> Result<(), E>,
-            E: From<Error>,
+    where
+        F: Fn(&mut Self) -> Result<(), E>,
+        E: From<Error>,
     {
         if to_nibbles_pos >= self.len_nibbles {
             return Err(Error::OutOfBounds.into());
@@ -474,7 +476,7 @@ impl<'i> NibbleBufMut<'i> {
         NibbleBufMutState {
             buf_ptr: self.buf.as_ptr(),
             idx: self.idx,
-            is_at_byte_boundary: self.is_at_byte_boundary
+            is_at_byte_boundary: self.is_at_byte_boundary,
         }
     }
 
@@ -492,7 +494,9 @@ impl<'i> NibbleBufMut<'i> {
         if self.nibbles_left() == 0 {
             return Err(Error::OutOfBounds);
         }
-        unsafe { self.put_nibble_unchecked(nib); }
+        unsafe {
+            self.put_nibble_unchecked(nib);
+        }
         Ok(())
     }
 
@@ -550,12 +554,18 @@ impl<'i> NibbleBufMut<'i> {
             return Err(Error::OutOfBounds);
         }
         if self.is_at_byte_boundary {
-            unsafe { *self.buf.get_unchecked_mut(self.idx) = val; }
+            unsafe {
+                *self.buf.get_unchecked_mut(self.idx) = val;
+            }
             self.idx += 1;
         } else {
-            unsafe { *self.buf.get_unchecked_mut(self.idx) |= val >> 4; }
+            unsafe {
+                *self.buf.get_unchecked_mut(self.idx) |= val >> 4;
+            }
             self.idx += 1;
-            unsafe { *self.buf.get_unchecked_mut(self.idx) = val << 4; }
+            unsafe {
+                *self.buf.get_unchecked_mut(self.idx) = val << 4;
+            }
         }
         Ok(())
     }
@@ -579,7 +589,7 @@ impl<'i> NibbleBufMut<'i> {
         if !self.is_at_byte_boundary() {
             return Err(Error::UnalignedAccess);
         }
-        self.buf[self.idx .. self.idx + slice.len()].copy_from_slice(slice);
+        self.buf[self.idx..self.idx + slice.len()].copy_from_slice(slice);
         self.idx += slice.len();
         Ok(())
     }
@@ -632,7 +642,7 @@ impl<'i> NibbleBufMut<'i> {
             stride_len: 0,
             stride_len_idx_nibbles: 0,
             slices_written: 0,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
 
@@ -651,11 +661,13 @@ impl<'i> NibbleBufMut<'i> {
                 copy_nonoverlapping(
                     other.buf.as_ptr().offset(other.idx as isize),
                     self.buf.as_mut_ptr().offset(self.idx as isize),
-                    bytes_to_copy
+                    bytes_to_copy,
                 );
             }
         } else if !self.is_at_byte_boundary && !other.is_at_byte_boundary {
-            unsafe { self.put_nibble_unchecked(*other.buf.get_unchecked(other.idx) & 0x0f); }
+            unsafe {
+                self.put_nibble_unchecked(*other.buf.get_unchecked(other.idx) & 0x0f);
+            }
             let other_nibbles_left = other.nibbles_left() - 1;
             let bytes_to_copy = if other_nibbles_left % 2 == 0 {
                 other_nibbles_left / 2
@@ -667,15 +679,13 @@ impl<'i> NibbleBufMut<'i> {
                 copy_nonoverlapping(
                     other.buf.as_ptr().offset(other.idx as isize + 1),
                     self.buf.as_mut_ptr().offset(self.idx as isize),
-                    bytes_to_copy
+                    bytes_to_copy,
                 );
             }
         } else {
             let mut other_clone = other.clone();
             while !other_clone.is_at_end() {
-                unsafe {
-                    self.put_nibble_unchecked(other_clone.get_nibble_unchecked())
-                }
+                unsafe { self.put_nibble_unchecked(other_clone.get_nibble_unchecked()) }
             }
         }
 
@@ -695,7 +705,7 @@ impl<'i> Display for NibbleBufMut<'i> {
             buf: self.buf,
             len_nibbles: self.nibbles_pos(),
             idx: 0,
-            is_at_byte_boundary: true
+            is_at_byte_boundary: true,
         };
         let mut i = 0;
         while !nrd.is_at_end() {
@@ -729,11 +739,11 @@ pub struct NibbleBufMutState {
 #[cfg(test)]
 mod test {
     extern crate std;
-    use std::format;
     use hex_literal::hex;
+    use std::format;
 
-    use crate::serdes::nibble_buf::Error;
     use super::{NibbleBuf, NibbleBufMut};
+    use crate::serdes::nibble_buf::Error;
 
     #[test]
     fn read_nibbles() {
@@ -839,8 +849,8 @@ mod test {
         assert!(wgr.is_at_end());
         assert_eq!(wgr.put_nibble(0), Err(Error::OutOfBounds));
         let (buf, byte_pos, is_at_byte_boundary) = wgr.finish();
-        assert_eq!(buf[0] , 0x12);
-        assert_eq!(buf[1] , 0x34);
+        assert_eq!(buf[0], 0x12);
+        assert_eq!(buf[1], 0x34);
         assert_eq!(byte_pos, 2);
         assert_eq!(is_at_byte_boundary, true);
     }
@@ -1040,7 +1050,8 @@ mod test {
             wrr.put_nibble(1)?;
             wrr.put_nibble(2)?;
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         let (buf, _, _) = wrr.finish();
         assert_eq!(buf[0], 0x12);
         assert_eq!(buf[1], 0xaa);

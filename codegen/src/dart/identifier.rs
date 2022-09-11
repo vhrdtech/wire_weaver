@@ -1,7 +1,7 @@
-use std::rc::Rc;
-use mtoken::{Ident, TokenStream, ToTokens};
 use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
+use mtoken::{Ident, ToTokens, TokenStream};
+use std::rc::Rc;
 
 pub struct Identifier {
     pub inner: vhl::ast::identifier::Identifier,
@@ -18,9 +18,9 @@ impl ToTokens for Identifier {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use mquote::mquote;
     use vhl::span::Span;
-    use super::*;
 
     #[test]
     fn identifier_autoraw_mquote() {

@@ -1,8 +1,8 @@
+use super::prelude::*;
 use crate::ast::generics::Generics;
 use crate::ast::naming::{FnArgName, FnName};
 use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
-use super::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct DefFn<'i> {
@@ -26,14 +26,14 @@ impl<'i> Parse<'i> for DefFn<'i> {
             generics: input.parse_or_skip()?,
             arguments: input.parse()?,
             ret_ty: input.parse_or_skip()?,
-            statements: input.parse()?
+            statements: input.parse()?,
         })
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct FnArguments<'i> {
-    pub args: Vec<FnArg<'i>>
+    pub args: Vec<FnArg<'i>>,
 }
 
 impl<'i> Parse<'i> for FnArguments<'i> {
@@ -44,9 +44,7 @@ impl<'i> Parse<'i> for FnArguments<'i> {
         while let Some(_) = input.pairs.peek() {
             args.push(input.parse()?);
         }
-        Ok(FnArguments {
-            args
-        })
+        Ok(FnArguments { args })
     }
 }
 
@@ -61,14 +59,14 @@ impl<'i> Parse<'i> for FnArg<'i> {
         let mut input = ParseInput::fork(input.expect1(Rule::named_ty)?, input);
         Ok(FnArg {
             name: input.parse()?,
-            ty: input.parse()?
+            ty: input.parse()?,
         })
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct FnStmts<'i> {
-    pub stmts: Vec<Stmt<'i>>
+    pub stmts: Vec<Stmt<'i>>,
 }
 
 impl<'i> Parse<'i> for FnStmts<'i> {
@@ -77,9 +75,7 @@ impl<'i> Parse<'i> for FnStmts<'i> {
         while let Some(_) = input.pairs.peek() {
             stmts.push(input.parse()?);
         }
-        Ok(FnStmts {
-            stmts
-        })
+        Ok(FnStmts { stmts })
     }
 }
 

@@ -1,23 +1,20 @@
+use crate::ext::TokenStreamExt;
+use crate::{ToTokens, TokenStream, TokenTree};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use crate::{ToTokens, TokenStream, TokenTree};
-use crate::ext::TokenStreamExt;
 
 /// A word of code, which may be a keyword or legal variable name
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ident {
     sym: Rc<String>,
     // span: Span,
-    flavor: IdentFlavor
+    flavor: IdentFlavor,
 }
 
 impl Ident {
     pub fn new(sym: Rc<String>, flavor: IdentFlavor) -> Self {
-        Ident {
-            sym,
-            flavor
-        }
+        Ident { sym, flavor }
     }
 }
 
@@ -85,7 +82,7 @@ pub struct Punct {
 }
 
 impl Punct {
-    pub fn new(ch: char, spacing: Spacing, ) -> Self {
+    pub fn new(ch: char, spacing: Spacing) -> Self {
         Punct {
             ch,
             spacing,
@@ -137,7 +134,7 @@ impl DelimiterRaw {
         use DelimiterRaw::*;
         match self {
             ParenOpen | BraceOpen | BracketOpen => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -149,14 +146,16 @@ impl DelimiterRaw {
             BraceOpen => other == BraceClose,
             BraceClose => other == BraceOpen,
             BracketOpen => other == BracketClose,
-            BracketClose => other == BracketOpen
+            BracketClose => other == BracketOpen,
         }
     }
 }
 
 impl ToTokens for DelimiterRaw {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.inner.push_back(TokenTree::DelimiterRaw(self.clone()))
+        tokens
+            .inner
+            .push_back(TokenTree::DelimiterRaw(self.clone()))
     }
 }
 
@@ -168,7 +167,7 @@ impl Display for DelimiterRaw {
             DelimiterRaw::BraceOpen => '{',
             DelimiterRaw::BraceClose => '}',
             DelimiterRaw::BracketOpen => '[',
-            DelimiterRaw::BracketClose => ']'
+            DelimiterRaw::BracketClose => ']',
         };
         write!(f, "{}", d)
     }
@@ -183,7 +182,7 @@ impl Debug for DelimiterRaw {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Spacing {
     Alone,
-    Joint
+    Joint,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -261,7 +260,7 @@ impl ToTokens for Comment {
 pub enum CommentFlavor {
     DoubleSlash,
     TripleSlash,
-    SlashStarMultiline
+    SlashStarMultiline,
 }
 
 impl ToTokens for String {

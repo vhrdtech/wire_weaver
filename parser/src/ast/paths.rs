@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
+use super::prelude::*;
 use crate::ast::expr::{CallArguments, IndexArguments};
 use crate::ast::naming::{Identifier, XpiUriSegmentName};
-use super::prelude::*;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ResourcePathKind {
@@ -15,7 +15,7 @@ impl ResourcePathKind {
         match self {
             ResourcePathKind::FromRoot => "#",
             ResourcePathKind::FromParent => "#..",
-            ResourcePathKind::FromSelf => "#."
+            ResourcePathKind::FromSelf => "#.",
         }
     }
 }
@@ -27,9 +27,7 @@ impl<'i> Parse<'i> for ResourcePathKind {
             "#.." => Ok(ResourcePathKind::FromParent),
             "#." => Ok(ResourcePathKind::FromSelf),
             "#" => Ok(ResourcePathKind::FromRoot),
-            _ => {
-                return Err(ParseErrorSource::internal("ResourcePathKind::parse"))
-            }
+            _ => return Err(ParseErrorSource::internal("ResourcePathKind::parse")),
         }
     }
 }
@@ -37,7 +35,7 @@ impl<'i> Parse<'i> for ResourcePathKind {
 #[derive(Debug, Clone)]
 pub enum ResourcePathPart<'i> {
     Reference(Identifier<'i, XpiUriSegmentName>),
-    IndexInto(IndexIntoResource<'i>)
+    IndexInto(IndexIntoResource<'i>),
 }
 
 impl<'i> Display for ResourcePathPart<'i> {
@@ -62,7 +60,7 @@ impl<'i> TryFrom<ResourcePathTail<'i>> for ResourcePathPart<'i> {
         match tail {
             ResourcePathTail::Reference(named) => Ok(ResourcePathPart::Reference(named)),
             ResourcePathTail::Call(_) => Err(ParseErrorSource::UserError),
-            ResourcePathTail::IndexInto(idx) => Ok(ResourcePathPart::IndexInto(idx))
+            ResourcePathTail::IndexInto(idx) => Ok(ResourcePathPart::IndexInto(idx)),
         }
     }
 }

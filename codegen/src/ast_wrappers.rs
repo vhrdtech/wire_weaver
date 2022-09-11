@@ -1,4 +1,3 @@
-
 //
 // impl ToTokens for Identifier {
 //     fn to_tokens<Rust, AnyMod, AnySubMod>(&self, tokens: &mut TokenStream) {

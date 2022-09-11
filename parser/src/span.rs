@@ -13,7 +13,7 @@ impl Span {
         Span {
             start: 0,
             end: 0,
-            origin: SpanOrigin::Coder
+            origin: SpanOrigin::Coder,
         }
     }
 }
@@ -21,7 +21,7 @@ impl Span {
 #[derive(Clone, Eq, PartialEq)]
 pub enum SpanOrigin {
     Parser(SourceOrigin),
-    Coder
+    Coder,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -84,14 +84,16 @@ impl Display for SourceOrigin {
                     write!(
                         f,
                         "file:{}",
-                        path.file_name().map(|p| p.to_str().unwrap_or("?")).unwrap_or("?")
+                        path.file_name()
+                            .map(|p| p.to_str().unwrap_or("?"))
+                            .unwrap_or("?")
                     )
                 }
-            },
+            }
             SourceOrigin::Registry() => write!(f, "registry"),
             SourceOrigin::DescriptorBlock() => write!(f, "descriptor"),
             SourceOrigin::ImplFrom => write!(f, "impl From"),
-            SourceOrigin::Str => write!(f, "str")
+            SourceOrigin::Str => write!(f, "str"),
         }
     }
 }
@@ -106,7 +108,7 @@ impl<'i> From<pest::Span<'i>> for Span {
         Span {
             start: s.start(),
             end: s.end(),
-            origin: SpanOrigin::Parser(SourceOrigin::ImplFrom)
+            origin: SpanOrigin::Parser(SourceOrigin::ImplFrom),
         }
     }
 }

@@ -1,7 +1,10 @@
 use crate::ast::doc::Doc;
 use crate::ast::expr::Expr;
 use crate::ast::identifier::Identifier;
-use parser::ast::def_xpi_block::{XpiBody as XpiBodyParser, AccessMode, XpiResourceTy as XpiResourceTyParser, XpiUri as XpiUriParser};
+use parser::ast::def_xpi_block::{
+    AccessMode, XpiBody as XpiBodyParser, XpiResourceTy as XpiResourceTyParser,
+    XpiUri as XpiUriParser,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
@@ -72,9 +75,7 @@ impl<'i> From<XpiUriParser<'i>> for XpiUri {
             XpiUriParser::NamedPartThenExpr(id, expr) => {
                 XpiUri::NamedPartThenExpr(id.into(), expr.into())
             }
-            XpiUriParser::Full(id1, expr, id2) => {
-                XpiUri::Full(id1.into(), expr.into(), id2.into())
-            }
+            XpiUriParser::Full(id1, expr, id2) => XpiUri::Full(id1.into(), expr.into(), id2.into()),
         }
     }
 }

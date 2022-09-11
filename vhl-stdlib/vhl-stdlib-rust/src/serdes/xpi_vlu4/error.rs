@@ -1,8 +1,8 @@
 // use thiserror::Error;
-use crate::serdes::{nibble_buf, bit_buf, NibbleBufMut, DeserializeVlu4, NibbleBuf};
+use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::nibble_buf::Error as NibbleBufError;
+use crate::serdes::{bit_buf, nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FailReason {
@@ -64,7 +64,7 @@ impl FailReason {
             15 => InternalBitBufError,
             16 => ReplyBuilderError,
             17 => NoArgumentsProvided,
-            _ => Internal
+            _ => Internal,
         }
     }
 
@@ -171,7 +171,7 @@ pub enum XpiVlu4Error {
 
     // #[error("Feature is not yet implemented")]
     Unimplemented,
-    NodeId
+    NodeId,
 }
 
 impl From<nibble_buf::Error> for XpiVlu4Error {

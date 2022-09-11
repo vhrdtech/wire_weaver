@@ -1,12 +1,12 @@
-use std::fmt::{Display, Formatter};
-use pest::{Position, Span};
 use crate::lexer::{Lexer, Rule};
 use crate::span::SpanOrigin;
+use pest::{Position, Span};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum LLItem<'i> {
     Punct(char, Position<'i>),
-    Str(Span<'i>)
+    Str(Span<'i>),
 }
 
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ pub struct LLFile<'i> {
 #[derive(Debug, Clone)]
 pub struct DelimError {
     origin: SpanOrigin,
-    kind: DelimErrorKind
+    kind: DelimErrorKind,
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +40,7 @@ pub enum DelimErrorKind {
         open_delim: char,
         open_line_col: (usize, usize),
         open_line: String,
-    }
+    },
 }
 
 impl<'i> LLFile<'i> {
@@ -48,34 +48,35 @@ impl<'i> LLFile<'i> {
         let mut pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::file_ll, input)
             .expect("Rule::file_ll shouldn't fail");
         let mut items = Vec::new();
-        for p in pairs.next().expect("Wrong file_ll grammar rule").into_inner() {
+        for p in pairs
+            .next()
+            .expect("Wrong file_ll grammar rule")
+            .into_inner()
+        {
             match p.as_rule() {
                 Rule::file_ll_item => {
                     match p.clone().into_inner().peek() {
                         Some(p) => {
                             match p.as_rule() {
-                                Rule::doc_comment => {}, // ignore doc comments
+                                Rule::doc_comment => {} // ignore doc comments
                                 Rule::punct_ll => {
                                     items.push(LLItem::Punct(
                                         p.as_str().chars().next().expect("Wrong punct_ll rule"),
-                                        p.as_span().start_pos()
+                                        p.as_span().start_pos(),
                                     ));
-                                },
-                                _ => unreachable!()
+                                }
+                                _ => unreachable!(),
                             }
                         }
                         None => {
                             items.push(LLItem::Str(p.as_span()));
                         }
                     }
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             }
         }
-        LLFile {
-            items,
-            origin
-        }
+        LLFile { items, origin }
     }
 
     pub fn check_delimiters(&self) -> Result<(), DelimError> {
@@ -91,22 +92,28 @@ impl<'i> LLFile<'i> {
                             if is_matching_delim(**c_open, *c) {
                                 delims.remove(delims.len() - 1);
                             } else {
-                                return Err(DelimError { kind: DelimErrorKind::Unmatched {
-                                    open_delim: **c_open,
-                                    open_line_col: open_pos.line_col(),
-                                    open_line: open_pos.line_of().to_owned(),
-                                    close_delim: *c,
-                                    close_line_col: pos.line_col(),
-                                    close_line: pos.line_of().to_owned()
-                                }, origin: self.origin.clone()})
+                                return Err(DelimError {
+                                    kind: DelimErrorKind::Unmatched {
+                                        open_delim: **c_open,
+                                        open_line_col: open_pos.line_col(),
+                                        open_line: open_pos.line_of().to_owned(),
+                                        close_delim: *c,
+                                        close_line_col: pos.line_col(),
+                                        close_line: pos.line_of().to_owned(),
+                                    },
+                                    origin: self.origin.clone(),
+                                });
                             }
-                        },
+                        }
                         None => {
-                            return Err(DelimError {kind:DelimErrorKind::UnexpectedClosing {
-                                delim: *c,
-                                line_col: pos.line_col(),
-                                line: pos.line_of().to_owned()
-                            }, origin: self.origin.clone()})
+                            return Err(DelimError {
+                                kind: DelimErrorKind::UnexpectedClosing {
+                                    delim: *c,
+                                    line_col: pos.line_col(),
+                                    line: pos.line_of().to_owned(),
+                                },
+                                origin: self.origin.clone(),
+                            })
                         }
                     }
                 }
@@ -114,14 +121,15 @@ impl<'i> LLFile<'i> {
         }
 
         match delims.last() {
-            Some((delim, pos)) => {
-               Err(DelimError{kind:DelimErrorKind::ClosingNotFound {
-                   open_delim: **delim,
-                   open_line_col: pos.line_col(),
-                   open_line: pos.line_of().to_owned(),
-               }, origin: self.origin.clone()})
-            },
-            None => Ok(())
+            Some((delim, pos)) => Err(DelimError {
+                kind: DelimErrorKind::ClosingNotFound {
+                    open_delim: **delim,
+                    open_line_col: pos.line_col(),
+                    open_line: pos.line_of().to_owned(),
+                },
+                origin: self.origin.clone(),
+            }),
+            None => Ok(()),
         }
     }
 }
@@ -132,7 +140,7 @@ fn is_matching_delim(first: char, second: char) -> bool {
         '(' => second == ')',
         '[' => second == ']',
         '<' => second == '>',
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -141,7 +149,11 @@ impl DelimError {
         let spacing = self.spacing();
         let origin = format!("{:#}", self.origin);
         match &self.kind {
-            DelimErrorKind::UnexpectedClosing { delim, line_col, line } => {
+            DelimErrorKind::UnexpectedClosing {
+                delim,
+                line_col,
+                line,
+            } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{l}:{c}\n\
@@ -162,7 +174,14 @@ impl DelimError {
                     r = "\x1b[0m"
                 )
             }
-            DelimErrorKind::Unmatched { open_delim, open_line_col, open_line, close_delim, close_line_col, close_line } => {
+            DelimErrorKind::Unmatched {
+                open_delim,
+                open_line_col,
+                open_line,
+                close_delim,
+                close_line_col,
+                close_line,
+            } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{ol}:{oc}\n\
@@ -190,7 +209,11 @@ impl DelimError {
                     r = "\x1b[0m"
                 )
             }
-            DelimErrorKind::ClosingNotFound { open_delim, open_line_col, open_line } => {
+            DelimErrorKind::ClosingNotFound {
+                open_delim,
+                open_line_col,
+                open_line,
+            } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{l}:{c}\n\

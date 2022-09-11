@@ -1,9 +1,9 @@
-use core::fmt::{Display, Formatter};
-use crate::serdes::{NibbleBuf, DeserializeVlu4, NibbleBufMut};
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use core::fmt::{Display, Formatter};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
 /// select the level to which UriMask applies.
@@ -32,7 +32,7 @@ pub enum UriMask<'i> {
     ByIndices(Vlu4Vec<'i, Vlu32>),
     /// Select all resources, either resource count must to be known, or endless iterator must be
     /// stopped later
-    All(Vlu32)
+    All(Vlu32),
 }
 
 impl<'i> UriMask<'i> {
@@ -40,9 +40,12 @@ impl<'i> UriMask<'i> {
         match *self {
             UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 { mask, pos: 0 },
             UriMask::ByBitfield16(mask) => UriMaskIter::ByBitfield16 { mask, pos: 0 },
-            UriMask::ByBitfield32(mask) => UriMaskIter::ByBitfield32 { mask, pos:0 },
+            UriMask::ByBitfield32(mask) => UriMaskIter::ByBitfield32 { mask, pos: 0 },
             UriMask::ByIndices(iter) => UriMaskIter::ByIndices { iter: iter.iter() },
-            UriMask::All(count) => UriMaskIter::All { count: count.0, pos: 0 }
+            UriMask::All(count) => UriMaskIter::All {
+                count: count.0,
+                pos: 0,
+            },
         }
     }
 }
@@ -53,33 +56,23 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let mask_kind = rdr.get_nibble()?;
         match mask_kind {
-            0 => {
-                Ok(UriMask::ByBitfield8(rdr.get_u8()?))
-            },
-            1 => {
-                Ok(UriMask::ByBitfield16(rdr.get_u16_be()?))
-            },
-            2 => {
-                Ok(UriMask::ByBitfield32(rdr.get_u32_be()?))
-            },
+            0 => Ok(UriMask::ByBitfield8(rdr.get_u8()?)),
+            1 => Ok(UriMask::ByBitfield16(rdr.get_u16_be()?)),
+            2 => Ok(UriMask::ByBitfield32(rdr.get_u32_be()?)),
             3 => {
                 // u64
                 Err(XpiVlu4Error::UriMaskUnsupportedType)
-            },
+            }
             4 => {
                 // u128
                 Err(XpiVlu4Error::UriMaskUnsupportedType)
-            },
-            5 => {
-                Ok(UriMask::ByIndices(rdr.des_vlu4()?))
-            },
+            }
+            5 => Ok(UriMask::ByIndices(rdr.des_vlu4()?)),
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
                 Ok(UriMask::All(Vlu32(amount)))
-            },
-            7 => {
-                Err(XpiVlu4Error::UriMaskReserved)
-            },
+            }
+            7 => Err(XpiVlu4Error::UriMaskReserved),
             _ => {
                 // unreachable!()
                 Err(XpiVlu4Error::InternalError)
@@ -133,7 +126,7 @@ pub enum UriMaskIter<'i> {
     ByBitfield16 { mask: u16, pos: u32 },
     ByBitfield32 { mask: u32, pos: u32 },
     ByIndices { iter: Vlu4VecIter<'i, Vlu32> },
-    All { count: u32, pos: u32 }
+    All { count: u32, pos: u32 },
 }
 
 macro_rules! next_one_bit {
@@ -234,11 +227,10 @@ impl<'i> Display for UriMask<'i> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use crate::serdes::NibbleBuf;
     use super::*;
+    use crate::serdes::NibbleBuf;
 
     #[test]
     fn test_mask_u8() {

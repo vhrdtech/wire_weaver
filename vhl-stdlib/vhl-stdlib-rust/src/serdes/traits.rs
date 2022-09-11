@@ -1,6 +1,6 @@
-use crate::serdes::{NibbleBuf, NibbleBufMut, BitBuf};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::buf::{Buf, BufMut};
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 
 pub trait SerializeBytes {
     type Error;

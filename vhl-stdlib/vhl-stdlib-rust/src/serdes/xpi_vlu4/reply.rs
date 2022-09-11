@@ -1,12 +1,12 @@
 use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
 use crate::serdes::vlu4::vec::Vlu4Vec;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
-use crate::serdes::xpi_vlu4::NodeId;
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
+use crate::serdes::xpi_vlu4::NodeId;
+use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 // use enum_kinds::EnumKind;
 // use enum_primitive_derive::Primitive;
 
@@ -195,12 +195,15 @@ impl<'i> SerializeBits for XpiReplyKindKind {
 impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
     type Error = XpiVlu4Error;
 
-    fn des_coupled_bits_vlu4<'di>(bits_rdr: &'di mut BitBuf<'i>, vlu4_rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+    fn des_coupled_bits_vlu4<'di>(
+        bits_rdr: &'di mut BitBuf<'i>,
+        vlu4_rdr: &'di mut NibbleBuf<'i>,
+    ) -> Result<Self, Self::Error> {
         let kind = bits_rdr.get_up_to_8(4)?;
         use XpiReplyKind::*;
         match kind {
             0 => Ok(CallComplete(vlu4_rdr.des_vlu4()?)),
-            _ => Err(XpiVlu4Error::Unimplemented)
+            _ => Err(XpiVlu4Error::Unimplemented),
         }
     }
 }
@@ -256,12 +259,13 @@ impl<'i> XpiReplyBuilder<'i> {
             destination,
             resource_set,
             request_id,
-            priority
+            priority,
         })
     }
 
     pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
-        where F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyKindKind, NibbleBufMut<'i>), FailReason>
+    where
+        F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyKindKind, NibbleBufMut<'i>), FailReason>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
@@ -337,7 +341,7 @@ impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
             resource_set,
             kind,
             request_id,
-            priority
+            priority,
         })
     }
 }
@@ -346,14 +350,16 @@ impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
 mod test {
     extern crate std;
 
-    use hex_literal::hex;
     use crate::discrete::{U2Sp1, U4};
-    use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::xpi_vlu4::error::FailReason;
     use crate::serdes::xpi_vlu4::priority::Priority;
-    use crate::serdes::xpi_vlu4::reply::{XpiReply, XpiReplyBuilder, XpiReplyKind, XpiReplyKindKind};
+    use crate::serdes::xpi_vlu4::reply::{
+        XpiReply, XpiReplyBuilder, XpiReplyKind, XpiReplyKindKind,
+    };
+    use crate::serdes::xpi_vlu4::{NodeId, Uri};
+    use crate::serdes::{NibbleBuf, NibbleBufMut};
+    use hex_literal::hex;
 
     #[test]
     fn call_reply_ser() {
@@ -364,15 +370,18 @@ mod test {
             NodeSet::Unicast(NodeId::new(33).unwrap()),
             XpiResourceSet::Uri(Uri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
             RequestId::new(27).unwrap(),
-            Priority::Lossy(U2Sp1::new(1).unwrap())
-        ).unwrap();
-        let nwr = reply_builder.build_kind_with(|nwr| {
-            let mut vb = nwr.put_vec::<Result<&[u8], FailReason>>();
-            vb.put_result_with_slice(Ok(&[0xaa, 0xbb][..]))?;
-            vb.put_result_with_slice(Ok(&[0xcc, 0xdd][..]))?;
-            let nwr = vb.finish()?;
-            Ok((XpiReplyKindKind::CallComplete, nwr))
-        }).unwrap();
+            Priority::Lossy(U2Sp1::new(1).unwrap()),
+        )
+        .unwrap();
+        let nwr = reply_builder
+            .build_kind_with(|nwr| {
+                let mut vb = nwr.put_vec::<Result<&[u8], FailReason>>();
+                vb.put_result_with_slice(Ok(&[0xaa, 0xbb][..]))?;
+                vb.put_result_with_slice(Ok(&[0xcc, 0xdd][..]))?;
+                let nwr = vb.finish()?;
+                Ok((XpiReplyKindKind::CallComplete, nwr))
+            })
+            .unwrap();
 
         let (buf, len, _) = nwr.finish();
         assert_eq!(len, len);

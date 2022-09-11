@@ -1,8 +1,8 @@
+use crate::token::{Comment, DelimiterRaw, Ident, Literal, Punct};
 use crate::token_stream::TokenStream;
-use crate::token::{Ident, Punct, Literal, Comment, DelimiterRaw};
-use std::fmt;
-use std::fmt::{Display, Debug, Formatter};
 use crate::ToTokens;
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 
 /// A single token or a delimited sequence of token trees (e.g. `[1, (), ..]`).
 #[derive(Clone, Eq, PartialEq)]
@@ -33,10 +33,7 @@ pub struct Group {
 
 impl Group {
     pub fn new(delimiter: Delimiter, stream: TokenStream) -> Self {
-        Self {
-            delimiter,
-            stream
-        }
+        Self { delimiter, stream }
     }
 }
 
@@ -64,7 +61,7 @@ impl Delimiter {
         match self {
             Delimiter::Parenthesis => '(',
             Delimiter::Brace => '{',
-            Delimiter::Bracket => '['
+            Delimiter::Bracket => '[',
         }
     }
 
@@ -72,7 +69,7 @@ impl Delimiter {
         match self {
             Delimiter::Parenthesis => ')',
             Delimiter::Brace => '}',
-            Delimiter::Bracket => ']'
+            Delimiter::Bracket => ']',
         }
     }
 }
@@ -82,7 +79,7 @@ impl From<DelimiterRaw> for Delimiter {
         match d {
             DelimiterRaw::ParenOpen | DelimiterRaw::ParenClose => Delimiter::Parenthesis,
             DelimiterRaw::BraceOpen | DelimiterRaw::BraceClose => Delimiter::Brace,
-            DelimiterRaw::BracketOpen | DelimiterRaw::BracketClose => Delimiter::Bracket
+            DelimiterRaw::BracketOpen | DelimiterRaw::BracketClose => Delimiter::Bracket,
         }
     }
 }
@@ -106,7 +103,9 @@ impl From<Punct> for TokenTree {
 }
 
 impl From<DelimiterRaw> for TokenTree {
-    fn from(delim: DelimiterRaw) -> Self { TokenTree::DelimiterRaw(delim) }
+    fn from(delim: DelimiterRaw) -> Self {
+        TokenTree::DelimiterRaw(delim)
+    }
 }
 
 impl From<Literal> for TokenTree {
@@ -143,7 +142,7 @@ impl Debug for TokenTree {
                 } else {
                     write!(f, "{:?}", t)
                 }
-            },
+            }
             TokenTree::Ident(t) => write!(f, "{:?}", t),
             TokenTree::Punct(t) => write!(f, "{:?}", t),
             TokenTree::DelimiterRaw(t) => write!(f, "{:?}", t),
@@ -178,10 +177,12 @@ impl Debug for Group {
         // if f.alternate() {
         //     writeln!(f, "")?;
         // }
-        write!(f, "G\x1b[34m{}\x1b[0m {:?} \x1b[34m{}\x1b[0m",
-               self.delimiter.open_char(),
-               self.stream,
-               self.delimiter.close_char()
+        write!(
+            f,
+            "G\x1b[34m{}\x1b[0m {:?} \x1b[34m{}\x1b[0m",
+            self.delimiter.open_char(),
+            self.stream,
+            self.delimiter.close_char()
         )
     }
 }

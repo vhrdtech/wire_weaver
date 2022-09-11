@@ -1,11 +1,10 @@
-use parser::ast::def_struct::{
-    DefStruct as StructDefParser,
-    StructFields as StructFieldsParser,
-    StructField as StructFieldParser,
-};
 use crate::ast::doc::Doc;
 use crate::ast::identifier::Identifier;
 use crate::ast::ty::Ty;
+use parser::ast::def_struct::{
+    DefStruct as StructDefParser, StructField as StructFieldParser,
+    StructFields as StructFieldsParser,
+};
 use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,7 +42,7 @@ impl<'i> From<StructDefParser<'i>> for StructDef {
 impl<'i> From<StructFieldsParser<'i>> for StructFields {
     fn from(sfs: StructFieldsParser<'i>) -> Self {
         StructFields {
-            fields: sfs.fields.iter().map(|sf| sf.clone().into()).collect()
+            fields: sfs.fields.iter().map(|sf| sf.clone().into()).collect(),
         }
     }
 }

@@ -55,7 +55,7 @@ impl BinaryOp {
             Rule::op_lte => Ok(BinaryOp::Lte),
             Rule::op_lt => Ok(BinaryOp::Lt),
             Rule::op_path => Ok(BinaryOp::Path),
-            _ => Err(ParseErrorSource::internal("expected op_binary"))
+            _ => Err(ParseErrorSource::internal("expected op_binary")),
         }
     }
 
@@ -108,11 +108,11 @@ impl BinaryOp {
 impl<'i> Parse<'i> for BinaryOp {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let op = input.expect1(Rule::op_binary)?;
-        Ok(BinaryOp::from_rule(op
-            .into_inner()
-            .next()
-            .ok_or_else(|| ParseErrorSource::internal("wrong op_binary rule"))?
-            .as_rule()
+        Ok(BinaryOp::from_rule(
+            op.into_inner()
+                .next()
+                .ok_or_else(|| ParseErrorSource::internal("wrong op_binary rule"))?
+                .as_rule(),
         )?)
     }
 }
@@ -130,7 +130,7 @@ impl UnaryOp {
             Rule::op_minus => Ok(UnaryOp::Minus),
             Rule::op_plus => Ok(UnaryOp::Plus),
             Rule::op_not => Ok(UnaryOp::Not),
-            _ => Err(ParseErrorSource::internal("expected op_unary rule"))
+            _ => Err(ParseErrorSource::internal("expected op_unary rule")),
         }
     }
 
@@ -152,11 +152,11 @@ impl UnaryOp {
 impl<'i> Parse<'i> for UnaryOp {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let op = input.expect1(Rule::op_unary)?;
-        Ok(UnaryOp::from_rule(op
-            .into_inner()
-            .next()
-            .ok_or_else(|| ParseErrorSource::internal("wrong op_unary rule"))?
-            .as_rule()
+        Ok(UnaryOp::from_rule(
+            op.into_inner()
+                .next()
+                .ok_or_else(|| ParseErrorSource::internal("wrong op_unary rule"))?
+                .as_rule(),
         )?)
     }
 }

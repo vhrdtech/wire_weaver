@@ -1,11 +1,11 @@
+use super::def_enum::DefEnum;
+use super::prelude::*;
 use crate::ast::def_const::DefConst;
 use crate::ast::def_fn::DefFn;
 use crate::ast::def_struct::DefStruct;
-use super::prelude::*;
 use crate::ast::def_type_alias::DefTypeAlias;
 use crate::ast::def_xpi_block::DefXpiBlock;
 use crate::error::ParseErrorSource;
-use super::def_enum::DefEnum;
 
 #[derive(Debug, Clone)]
 pub enum Definition<'i> {
@@ -27,32 +27,18 @@ impl<'i> Parse<'i> for Definition<'i> {
             }
         };
         match rule.as_rule() {
-            Rule::enum_def => {
-                input.parse().map(|enum_def| Definition::Enum(enum_def))
-            }
-            Rule::struct_def => {
-                input.parse().map(|struct_def| Definition::Struct(struct_def))
-            }
-            Rule::type_alias_def => {
-                input.parse()
-                    .map(|item_type_alias| Definition::TypeAlias(item_type_alias))
-            }
-            Rule::xpi_block => {
-                input.parse()
-                    .map(|item_xpi_block| Definition::XpiBlock(item_xpi_block))
-            }
-            Rule::def_fn => {
-                input.parse().map(|def_fn| Definition::Function(def_fn))
-            }
-            _ => {
-                Err(ParseErrorSource::internal("unexpected definition"))
-            }
+            Rule::enum_def => input.parse().map(|enum_def| Definition::Enum(enum_def)),
+            Rule::struct_def => input
+                .parse()
+                .map(|struct_def| Definition::Struct(struct_def)),
+            Rule::type_alias_def => input
+                .parse()
+                .map(|item_type_alias| Definition::TypeAlias(item_type_alias)),
+            Rule::xpi_block => input
+                .parse()
+                .map(|item_xpi_block| Definition::XpiBlock(item_xpi_block)),
+            Rule::def_fn => input.parse().map(|def_fn| Definition::Function(def_fn)),
+            _ => Err(ParseErrorSource::internal("unexpected definition")),
         }
     }
 }
-
-
-
-
-
-

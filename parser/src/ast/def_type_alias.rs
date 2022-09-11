@@ -1,6 +1,6 @@
+use super::prelude::*;
 use crate::ast::naming::UserTyName;
 use crate::ast::ty::Ty;
-use super::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct DefTypeAlias<'i> {
@@ -17,7 +17,7 @@ impl<'i> Parse<'i> for DefTypeAlias<'i> {
             doc: input.parse()?,
             attrs: input.parse()?,
             typename: input.parse()?,
-            r#type: input.parse()?
+            r#type: input.parse()?,
         })
     }
 }

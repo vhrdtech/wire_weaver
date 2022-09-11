@@ -1,14 +1,14 @@
-use std::collections::VecDeque;
+use crate::token::DelimiterRaw;
 use crate::token_tree::TokenTree;
+use crate::{Group, Spacing};
+use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Group, Spacing};
 use std::iter::FromIterator;
-use crate::token::DelimiterRaw;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TokenStream {
-    pub(crate) inner: VecDeque<TokenTree>
+    pub(crate) inner: VecDeque<TokenTree>,
 }
 
 pub trait ToTokens {
@@ -18,7 +18,7 @@ pub trait ToTokens {
 impl TokenStream {
     pub fn new() -> Self {
         TokenStream {
-            inner: VecDeque::new()
+            inner: VecDeque::new(),
         }
     }
 
@@ -48,7 +48,9 @@ impl TokenStream {
                     if delim.is_open() {
                         tts_reassemble.push_back(TokenTree::Group(Group {
                             delimiter: delim.clone().into(),
-                            stream: TokenStream { inner: Self::collect_inner(ts, Some(delim)) }
+                            stream: TokenStream {
+                                inner: Self::collect_inner(ts, Some(delim)),
+                            },
                         }));
                     } else {
                         match raw {
@@ -56,12 +58,11 @@ impl TokenStream {
                                 if !open_raw_delim.is_same_kind(delim) {
                                     panic!(
                                         "Open delimiter was: {:?} got non matching closing: {:?}",
-                                        open_raw_delim,
-                                        delim
+                                        open_raw_delim, delim
                                     )
                                 }
                             }
-                            None => panic!("Unexpected closing raw delimiter: {:?}", delim)
+                            None => panic!("Unexpected closing raw delimiter: {:?}", delim),
                         }
                         return tts_reassemble;
                     }
@@ -69,7 +70,9 @@ impl TokenStream {
                 TokenTree::Group(mut group) => {
                     tts_reassemble.push_back(TokenTree::Group(Group {
                         delimiter: group.delimiter,
-                        stream: TokenStream { inner: Self::collect_inner(&mut group.stream, None) }
+                        stream: TokenStream {
+                            inner: Self::collect_inner(&mut group.stream, None),
+                        },
                     }));
                 }
                 any_else => {
@@ -140,7 +143,7 @@ impl FromIterator<TokenStream> for TokenStream {
 }
 
 impl Extend<TokenTree> for TokenStream {
-    fn extend<T: IntoIterator<Item=TokenTree>>(&mut self, tokens: T) {
+    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, tokens: T) {
         tokens.into_iter().for_each(|tt| self.inner.push_back(tt));
     }
 }

@@ -1,7 +1,7 @@
-use pest::Span;
 use crate::ast::naming::{StructFieldName, StructTyName};
 use crate::ast::prelude::*;
 use crate::ast::ty::Ty;
+use pest::Span;
 
 #[derive(Debug, Clone)]
 pub struct DefStruct<'i> {
@@ -9,7 +9,7 @@ pub struct DefStruct<'i> {
     pub attrs: Attrs<'i>,
     pub typename: Identifier<'i, StructTyName>,
     pub fields: StructFields<'i>,
-    pub span: Span<'i>
+    pub span: Span<'i>,
 }
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ pub struct StructField<'i> {
     pub attrs: Attrs<'i>,
     pub name: Identifier<'i, StructFieldName>,
     pub ty: Ty<'i>,
-    pub span: Span<'i>
+    pub span: Span<'i>,
 }
 
 impl<'i> Parse<'i> for DefStruct<'i> {
@@ -35,7 +35,7 @@ impl<'i> Parse<'i> for DefStruct<'i> {
             attrs: input.parse()?,
             typename: input.parse()?,
             fields: input.parse()?,
-            span: input.span
+            span: input.span,
         })
     }
 }
@@ -48,9 +48,7 @@ impl<'i> Parse<'i> for StructFields<'i> {
             fields.push(input.parse()?);
         }
 
-        Ok(StructFields {
-            fields
-        })
+        Ok(StructFields { fields })
     }
 }
 
@@ -62,7 +60,7 @@ impl<'i> Parse<'i> for StructField<'i> {
             attrs: input.parse()?,
             name: input.parse()?,
             ty: input.parse()?,
-            span
+            span,
         })
     }
 }

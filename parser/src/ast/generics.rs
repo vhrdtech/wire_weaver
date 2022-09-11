@@ -1,6 +1,6 @@
+use super::prelude::*;
 use crate::ast::expr::Expr;
 use crate::ast::ty::Ty;
-use super::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Generics<'i>(pub Vec<GenericParam<'i>>);
@@ -8,7 +8,7 @@ pub struct Generics<'i>(pub Vec<GenericParam<'i>>);
 #[derive(Debug, Clone)]
 pub enum GenericParam<'i> {
     Ty(Ty<'i>),
-    Expr(Expr<'i>)
+    Expr(Expr<'i>),
 }
 
 impl<'i> Parse<'i> for Generics<'i> {

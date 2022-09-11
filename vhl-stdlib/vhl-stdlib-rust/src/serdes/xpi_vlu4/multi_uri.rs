@@ -1,11 +1,11 @@
-use core::fmt::{Display, Formatter};
-use crate::serdes::{NibbleBuf, NibbleBufMut};
-use crate::serdes::DeserializeVlu4;
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::xpi_vlu4::{Uri, UriIter, UriMask, UriMaskIter};
+use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
+use crate::serdes::xpi_vlu4::{Uri, UriIter, UriMask, UriMaskIter};
+use crate::serdes::DeserializeVlu4;
+use crate::serdes::{NibbleBuf, NibbleBufMut};
+use core::fmt::{Display, Formatter};
 
 /// Allows to select any combination of resources in order to perform read/write or stream
 /// operations on them all at once. Operations are performed sequentially in order of the resources
@@ -41,18 +41,16 @@ impl<'i> MultiUri<'i> {
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_arr: Vlu4Vec<Vlu32> = rdr_clone
-            .des_vlu4()
-            .unwrap_or(Vlu4Vec::<Vlu32>::empty());
+        let uri_arr: Vlu4Vec<Vlu32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<Vlu32>::empty());
         let mask: UriMask = rdr_clone
-            .des_vlu4().
-            unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
+            .des_vlu4()
+            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
         MultiUriFlatIter::MultiUri {
             rdr: rdr_clone,
             len: self.parts_count,
             pos: 1,
             uri_iter: uri_arr.iter(),
-            mask_iter: mask.iter()
+            mask_iter: mask.iter(),
         }
     }
 }
@@ -72,7 +70,10 @@ impl<'i> Iterator for MultiUriIter<'i> {
         }
         self.pos += 1;
 
-        Some((Uri::MultiPart(self.rdr.des_vlu4().ok()?), self.rdr.des_vlu4().ok()?))
+        Some((
+            Uri::MultiPart(self.rdr.des_vlu4().ok()?),
+            self.rdr.des_vlu4().ok()?,
+        ))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -87,8 +88,8 @@ pub enum MultiUriFlatIter<'i> {
         len: usize,
         pos: usize,
         uri_iter: Vlu4VecIter<'i, Vlu32>,
-        mask_iter: UriMaskIter<'i>
-    }
+        mask_iter: UriMaskIter<'i>,
+    },
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
@@ -96,23 +97,22 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            MultiUriFlatIter::OneUri(iter) => {
-                iter.take()
-            }
+            MultiUriFlatIter::OneUri(iter) => iter.take(),
             MultiUriFlatIter::MultiUri {
                 rdr,
                 len,
                 pos,
                 uri_iter,
-                mask_iter
+                mask_iter,
             } => {
                 if *pos > *len {
                     return None;
                 }
                 match mask_iter.next() {
-                    Some(m) => {
-                        Some(UriIter::ArrIterChain { arr_iter: uri_iter.clone(), last: Some(m) })
-                    }
+                    Some(m) => Some(UriIter::ArrIterChain {
+                        arr_iter: uri_iter.clone(),
+                        last: Some(m),
+                    }),
                     None => {
                         if *pos == *len {
                             *pos += 1;
@@ -127,7 +127,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 
                         Some(UriIter::ArrIterChain {
                             arr_iter: uri_iter.clone(),
-                            last: mask_iter.next()
+                            last: mask_iter.next(),
                         })
                     }
                 }
@@ -193,11 +193,11 @@ impl<'i> Display for MultiUri<'i> {
 #[cfg(test)]
 mod test {
     extern crate std;
-    use std::format;
-    use crate::serdes::NibbleBuf;
+    use crate::serdes::vlu4::vlu32::Vlu32;
     use crate::serdes::xpi_vlu4::multi_uri::MultiUri;
     use crate::serdes::xpi_vlu4::UriMask;
-    use crate::serdes::vlu4::vlu32::Vlu32;
+    use crate::serdes::NibbleBuf;
+    use std::format;
 
     #[test]
     fn one_pair_mask_u16() {
@@ -291,7 +291,9 @@ mod test {
 
     #[test]
     fn two_at_root_separate() {
-        let multi_uri: MultiUri = NibbleBuf::new_all(&[0x20, 0x51, 0x50, 0x51, 0x50]).des_vlu4().unwrap();
+        let multi_uri: MultiUri = NibbleBuf::new_all(&[0x20, 0x51, 0x50, 0x51, 0x50])
+            .des_vlu4()
+            .unwrap();
         let mut iter = multi_uri.flat_iter();
         assert_eq!(format!("{}", iter.next().unwrap()), "/5");
         assert_eq!(format!("{}", iter.next().unwrap()), "/5");

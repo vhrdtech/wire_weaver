@@ -1,7 +1,7 @@
-use std::rc::Rc;
-use mtoken::{Ident, TokenStream, ToTokens};
 use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
+use mtoken::{Ident, ToTokens, TokenStream};
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct CGIdentifier<'ast> {
@@ -19,21 +19,19 @@ impl<'ast> ToTokens for CGIdentifier<'ast> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use mquote::mquote;
     use vhl::ast::identifier::IdentifierContext;
     use vhl::span::Span;
-    use super::*;
 
     #[test]
     fn identifier() {
         let ast_ident = vhl::ast::identifier::Identifier {
             symbols: Rc::new("value".to_string()),
             context: IdentifierContext::UserTyName,
-            span: Span::call_site()
+            span: Span::call_site(),
         };
-        let cg_ident = CGIdentifier {
-            inner: &ast_ident
-        };
+        let cg_ident = CGIdentifier { inner: &ast_ident };
         let mut ts = TokenStream::new();
         cg_ident.to_tokens(&mut ts);
         assert_eq!(format!("{}", ts), "value");
@@ -44,11 +42,9 @@ mod test {
         let ast_ident = vhl::ast::identifier::Identifier {
             symbols: Rc::new("value".to_string()),
             context: IdentifierContext::UserTyName,
-            span: Span::call_site()
+            span: Span::call_site(),
         };
-        let cg_ident = CGIdentifier {
-            inner: &ast_ident
-        };
+        let cg_ident = CGIdentifier { inner: &ast_ident };
         let ts = mquote!(rust r#"
             #cg_ident
         "#);

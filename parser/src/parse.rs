@@ -1,8 +1,8 @@
-use crate::warning::ParseWarning;
-use crate::lexer::Rule;
-use pest::iterators::{Pairs, Pair};
-use pest::Span;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
+use crate::lexer::Rule;
+use crate::warning::ParseWarning;
+use pest::iterators::{Pair, Pairs};
+use pest::Span;
 
 pub struct ParseInput<'i, 'm> {
     pub pairs: Pairs<'i, Rule>,
@@ -16,10 +16,13 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         pairs: Pairs<'i, Rule>,
         span: Span<'i>,
         warnings: &'m mut Vec<ParseWarning>,
-        errors: &'m mut Vec<ParseError>
+        errors: &'m mut Vec<ParseError>,
     ) -> Self {
         ParseInput {
-            pairs, span, warnings, errors
+            pairs,
+            span,
+            warnings,
+            errors,
         }
     }
 
@@ -33,13 +36,13 @@ impl<'i, 'm> ParseInput<'i, 'm> {
     /// Use fork(input.expect1(rule_a)?, input) if rula_a is expected to be the next rule to parse.
     /// Otherwise UnexpectedInput error will be return, that can be ignored by `parse_or_skip()`
     /// or propagated and recorded.
-    pub fn fork(
-        pair: Pair<'i, Rule>,
-        prev_input: &'m mut ParseInput,
-    ) -> Self {
+    pub fn fork(pair: Pair<'i, Rule>, prev_input: &'m mut ParseInput) -> Self {
         let span = pair.as_span();
         ParseInput {
-            pairs: pair.into_inner(), span, warnings: prev_input.warnings, errors: prev_input.errors
+            pairs: pair.into_inner(),
+            span,
+            warnings: prev_input.warnings,
+            errors: prev_input.errors,
         }
     }
 
@@ -54,12 +57,16 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 } else {
                     Err(ParseErrorSource::UnexpectedInput)
                 }
-            },
-            None => Err(ParseErrorSource::UnexpectedInput)
+            }
+            None => Err(ParseErrorSource::UnexpectedInput),
         }
     }
 
-    pub fn expect2(&mut self, rule1: Rule, rule2: Rule) -> Result<(Pair<'i, Rule>, Pair<'i, Rule>), ParseErrorSource> {
+    pub fn expect2(
+        &mut self,
+        rule1: Rule,
+        rule2: Rule,
+    ) -> Result<(Pair<'i, Rule>, Pair<'i, Rule>), ParseErrorSource> {
         Ok((self.expect1(rule1)?, self.expect1(rule2)?))
     }
 
@@ -67,7 +74,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         self.errors.push(ParseError {
             kind,
             rule: on_pair.as_rule(),
-            span: (on_pair.as_span().start(), on_pair.as_span().end())
+            span: (on_pair.as_span().start(), on_pair.as_span().end()),
         })
     }
 }
@@ -95,14 +102,12 @@ impl<'i, 'm> ParseInput<'i, 'm> {
     pub fn parse_or_skip<T: Parse<'i>>(&mut self) -> Result<Option<T>, ParseErrorSource> {
         match T::parse(self) {
             Ok(t) => Ok(Some(t)),
-            Err(e) => {
-                match e {
-                    e @ ParseErrorSource::InternalError{..} => Err(e),
-                    e @ ParseErrorSource::Unimplemented(_) => Err(e),
-                    ParseErrorSource::UnexpectedInput => Ok(None),
-                    e @ ParseErrorSource::UserError => Err(e)
-                }
-            }
+            Err(e) => match e {
+                e @ ParseErrorSource::InternalError { .. } => Err(e),
+                e @ ParseErrorSource::Unimplemented(_) => Err(e),
+                ParseErrorSource::UnexpectedInput => Ok(None),
+                e @ ParseErrorSource::UserError => Err(e),
+            },
         }
     }
 }

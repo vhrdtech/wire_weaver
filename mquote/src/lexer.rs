@@ -4,11 +4,12 @@ pub struct MQuoteLexer;
 
 #[cfg(test)]
 mod tests {
+    use super::{MQuoteLexer, Rule};
     use crate::pest::Parser;
-    use super::{Rule, MQuoteLexer};
 
     fn verify_inner<I>(rule: Rule, input: &str, spans: &str, expected: I) -> bool
-        where I: IntoIterator<Item = Rule>,
+    where
+        I: IntoIterator<Item = Rule>,
     {
         let mut output = MQuoteLexer::parse(rule, input).unwrap();
         // println!("{:?}", output);
@@ -17,7 +18,7 @@ mod tests {
             parser_test::TestToken {
                 start: span.start(),
                 end: span.end() - 1,
-                rule: t.as_rule()
+                rule: t.as_rule(),
             }
         });
         parser_test::test(output, expected, spans)
@@ -28,7 +29,12 @@ mod tests {
         let input = "#(#items)*";
         let spans = "  ^----^  ";
         let expected = [Rule::interpolate];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -36,7 +42,12 @@ mod tests {
         let input = "# ( # items ) *";
         let spans = "    ^-----^   ";
         let expected = [Rule::interpolate];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -44,7 +55,12 @@ mod tests {
         let input = "#(#{self.items})*";
         let spans = "  ^-----------^ ";
         let expected = [Rule::interpolate];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -52,7 +68,12 @@ mod tests {
         let input = "#(#items),*";
         let spans = "  ^----^ ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -60,7 +81,12 @@ mod tests {
         let input = "#(#items) , *";
         let spans = "  ^----^  ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -68,7 +94,12 @@ mod tests {
         let input = "#(#items)**";
         let spans = "  ^----^ ^ ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -76,7 +107,12 @@ mod tests {
         let input = "#(#items) * *";
         let spans = "  ^----^  ^  ";
         let expected = [Rule::interpolate, Rule::repetition_separator];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -90,7 +126,12 @@ mod tests {
             Rule::token,
             Rule::token,
         ];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 
     #[test]
@@ -105,8 +146,13 @@ mod tests {
             Rule::token,
             Rule::interpolate,
             Rule::token,
-            Rule::repetition_separator
+            Rule::repetition_separator,
         ];
-        assert!(verify_inner(Rule::interpolate_repetition, input, spans, expected));
+        assert!(verify_inner(
+            Rule::interpolate_repetition,
+            input,
+            spans,
+            expected
+        ));
     }
 }

@@ -9,7 +9,7 @@ pub struct Dependencies {
     /// Creates/modules/packages to depend on
     pub depends: Vec<Package>,
     /// Things to use/include/import from crates
-    pub uses: Vec<Import>
+    pub uses: Vec<Import>,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
@@ -28,19 +28,19 @@ pub enum RustCrateSource {
 pub enum Import {
     Entity(&'static str),
     EntityAs(&'static str, &'static str),
-    Submodule(&'static str, Vec<Import>)
+    Submodule(&'static str, Vec<Import>),
 }
 
 impl Import {
-    pub fn render(&self, /*language: */) -> String {
+    pub fn render(&self /*language: */) -> String {
         let mut s = String::new();
         match self {
             Import::Entity(e) => {
                 write!(s, "use {};", e).unwrap();
-            },
+            }
             Import::EntityAs(e, r#as) => {
                 write!(s, "use {} as {};", e, r#as).unwrap();
-            },
+            }
             Import::Submodule(r#mod, e) => {
                 write!(s, "use {}::{{", r#mod).unwrap();
                 for (i, import) in e.iter().enumerate() {
@@ -60,10 +60,10 @@ impl Import {
         match self {
             Import::Entity(e) => {
                 write!(s, "{}", e).unwrap();
-            },
+            }
             Import::EntityAs(e, r#as) => {
                 write!(s, "{} as {}", e, r#as).unwrap();
-            },
+            }
             Import::Submodule(r#mod, e) => {
                 write!(s, "{}::{{", r#mod).unwrap();
                 for (i, import) in e.iter().enumerate() {
@@ -85,9 +85,7 @@ pub struct ImportMerger {
 
 impl ImportMerger {
     pub fn new() -> Self {
-        Self {
-            uses: Vec::new()
-        }
+        Self { uses: Vec::new() }
     }
 
     pub fn merge(&mut self, other: &Vec<Import>) {
@@ -117,16 +115,13 @@ impl ImportMerger {
                     }
                 }
                 if !found {
-                    to.push(Import::Submodule(
-                        name_merging,
-                        entities_merging.clone()
-                    ))
+                    to.push(Import::Submodule(name_merging, entities_merging.clone()))
                 }
             }
         }
     }
 
-    pub fn render(&self, /*language: Language*/) -> String {
+    pub fn render(&self /*language: Language*/) -> String {
         let mut s = String::new();
         for i in &self.uses {
             write!(s, "{}", i.render()).unwrap();

@@ -1,6 +1,6 @@
+use parser::span::Span;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use parser::span::Span;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Identifier {
@@ -61,11 +61,11 @@ macro_rules! impl_from_parser_struct {
                 Identifier {
                     symbols: Rc::new(t.name.to_string()),
                     context: IdentifierContext::$kind,
-                    span: t.span.into()
+                    span: t.span.into(),
                 }
             }
         }
-    }
+    };
 }
 use parser::ast::naming::*;
 impl_from_parser_struct!(UserTyName);
@@ -88,7 +88,11 @@ impl Display for Identifier {
         if f.alternate() {
             write!(f, "Id(\x1b[35m{}\x1b[0m @{:#})", self.symbols, self.span)
         } else {
-            write!(f, "Id<{:?}>(\x1b[35m{}\x1b[0m @{})", self.context, self.symbols, self.span)
+            write!(
+                f,
+                "Id<{:?}>(\x1b[35m{}\x1b[0m @{})",
+                self.context, self.symbols, self.span
+            )
         }
     }
 }

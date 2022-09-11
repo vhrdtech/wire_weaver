@@ -1,6 +1,6 @@
 use crate::commands::ReplXpi;
 use anyhow::{anyhow, Result};
-use std::borrow::Cow::{self, Borrowed, Owned};
+use parser::span::{SourceOrigin, SpanOrigin};
 use rustyline::completion::FilenameCompleter;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -8,7 +8,7 @@ use rustyline::hint::HistoryHinter;
 use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, CompletionType, Config, EditMode, Editor, KeyEvent};
 use rustyline_derive::{Completer, Helper, Hinter, Validator};
-use parser::span::{SourceOrigin, SpanOrigin};
+use std::borrow::Cow::{self, Borrowed, Owned};
 
 #[derive(Helper, Completer, Hinter, Validator)]
 struct MyHelper {

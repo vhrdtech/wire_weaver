@@ -48,7 +48,8 @@ pub trait Visit {
 }
 
 pub fn visit_file<V>(v: &mut V, node: &File)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     for def in &node.items {
         v.visit_definition(def);
@@ -56,7 +57,8 @@ pub fn visit_file<V>(v: &mut V, node: &File)
 }
 
 pub fn visit_definition<V>(v: &mut V, node: &Definition)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     match node {
         Definition::Struct(struct_def) => v.visit_struct(struct_def),
@@ -64,7 +66,8 @@ pub fn visit_definition<V>(v: &mut V, node: &Definition)
 }
 
 pub fn visit_struct<V>(v: &mut V, node: &StructDef)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     v.visit_doc(&node.doc);
     v.visit_identifier(&node.typename);
@@ -75,17 +78,21 @@ pub fn visit_struct<V>(v: &mut V, node: &StructDef)
 }
 
 pub fn visit_doc<V>(_v: &mut V, _node: &Doc)
-    where V: Visit + ?Sized
-{}
+where
+    V: Visit + ?Sized,
+{
+}
 
 pub fn visit_identifier<V>(v: &mut V, node: &Identifier)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     v.visit_span(&node.span);
 }
 
 pub fn visit_struct_field<V>(v: &mut V, node: &StructField)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     v.visit_doc(&node.doc);
     v.visit_identifier(&node.name);
@@ -94,11 +101,14 @@ pub fn visit_struct_field<V>(v: &mut V, node: &StructField)
 }
 
 pub fn visit_span<V>(_v: &mut V, _node: &Span)
-    where V: Visit + ?Sized
-{}
+where
+    V: Visit + ?Sized,
+{
+}
 
 pub fn visit_ty<V>(v: &mut V, node: &Ty)
-    where V: Visit + ?Sized
+where
+    V: Visit + ?Sized,
 {
     match &node.kind {
         TyKind::Boolean => v.visit_bool_ty(&node.span),
@@ -108,9 +118,13 @@ pub fn visit_ty<V>(v: &mut V, node: &Ty)
 }
 
 pub fn visit_bool_ty<V>(_v: &mut V, _span: &Span)
-    where V: Visit + ?Sized
-{}
+where
+    V: Visit + ?Sized,
+{
+}
 
 pub fn visit_discrete_ty<V>(_v: &mut V, _discrete: &DiscreteTy, _span: &Span)
-    where V: Visit + ?Sized
-{}
+where
+    V: Visit + ?Sized,
+{
+}

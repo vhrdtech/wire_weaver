@@ -1,6 +1,6 @@
 // use thiserror::Error;
-use crate::serdes::{DeserializeBits, NibbleBufMut};
 use crate::serdes::traits::SerializeBits;
+use crate::serdes::{DeserializeBits, NibbleBufMut};
 
 /// Buffer reader that treats input as a stream of bits
 ///
@@ -33,7 +33,7 @@ impl<'i> BitBuf<'i> {
             buf,
             len_bits,
             idx: 0,
-            bit_idx: 0
+            bit_idx: 0,
         })
     }
 
@@ -42,11 +42,15 @@ impl<'i> BitBuf<'i> {
             buf,
             len_bits: buf.len() * 8,
             idx: 0,
-            bit_idx: 0
+            bit_idx: 0,
         }
     }
 
-    pub fn new_with_offset(buf: &'i [u8], offset_bits: usize, len_bits: usize) -> Result<Self, Error> {
+    pub fn new_with_offset(
+        buf: &'i [u8],
+        offset_bits: usize,
+        len_bits: usize,
+    ) -> Result<Self, Error> {
         if (offset_bits + len_bits) > buf.len() * 8 || offset_bits > len_bits {
             return Err(Error::OutOfBounds);
         }
@@ -94,9 +98,9 @@ impl<'i> BitBuf<'i> {
         let left_in_current_byte = 8 - self.bit_idx;
         let requested_mask = 0b1111_1111 >> (8 - bit_count);
         if bit_count <= left_in_current_byte {
-            let bits = unsafe {
-                *self.buf.get_unchecked(self.idx) >> (left_in_current_byte - bit_count)
-            } & requested_mask;
+            let bits =
+                unsafe { *self.buf.get_unchecked(self.idx) >> (left_in_current_byte - bit_count) }
+                    & requested_mask;
             self.bit_idx += bit_count;
             if self.bit_idx >= 8 {
                 self.bit_idx = 0;
@@ -105,13 +109,12 @@ impl<'i> BitBuf<'i> {
             Ok(bits)
         } else {
             let bits_left_at_idx_plus_1 = bit_count - left_in_current_byte;
-            let bits_left_at_idx = unsafe {
-                *self.buf.get_unchecked(self.idx) << bits_left_at_idx_plus_1
-            } & requested_mask;
+            let bits_left_at_idx =
+                unsafe { *self.buf.get_unchecked(self.idx) << bits_left_at_idx_plus_1 }
+                    & requested_mask;
             self.idx += 1;
-            let bits_at_idx_plus_1 = unsafe {
-                *self.buf.get_unchecked(self.idx) >> (8 - bits_left_at_idx_plus_1)
-            };
+            let bits_at_idx_plus_1 =
+                unsafe { *self.buf.get_unchecked(self.idx) >> (8 - bits_left_at_idx_plus_1) };
             self.bit_idx = bits_left_at_idx_plus_1;
             Ok(bits_left_at_idx | bits_at_idx_plus_1)
         }
@@ -129,7 +132,6 @@ impl<'i> BitBuf<'i> {
             Ok(self.get_up_to_8(bit_count)? as u16)
         }
     }
-
 
     pub fn des_bits<'di, T: DeserializeBits<'i>>(&'di mut self) -> Result<T, T::Error> {
         T::des_bits(self)
@@ -158,7 +160,7 @@ impl<'i> BitBufMut<'i> {
             buf,
             len_bits,
             idx: 0,
-            bit_idx: 0
+            bit_idx: 0,
         })
     }
 
@@ -168,7 +170,7 @@ impl<'i> BitBufMut<'i> {
             buf,
             len_bits,
             idx: 0,
-            bit_idx: 0
+            bit_idx: 0,
         }
     }
 
@@ -180,11 +182,15 @@ impl<'i> BitBufMut<'i> {
             buf: self.buf,
             len_nibbles: self.len_bits / 4,
             idx: self.idx,
-            is_at_byte_boundary: self.bit_idx == 0
+            is_at_byte_boundary: self.bit_idx == 0,
         })
     }
 
-    pub fn new_with_offset(buf: &'i mut [u8], offset_bits: usize, len_bits: usize) -> Result<Self, Error> {
+    pub fn new_with_offset(
+        buf: &'i mut [u8],
+        offset_bits: usize,
+        len_bits: usize,
+    ) -> Result<Self, Error> {
         if (offset_bits + len_bits) > buf.len() * 8 || offset_bits > len_bits {
             return Err(Error::OutOfBounds);
         }
@@ -195,7 +201,6 @@ impl<'i> BitBufMut<'i> {
             bit_idx: offset_bits % 8,
         })
     }
-
 
     pub fn bit_pos(&self) -> usize {
         self.idx * 8 + self.bit_idx
@@ -222,11 +227,7 @@ impl<'i> BitBufMut<'i> {
     }
 
     pub fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
-        let bit = if bit {
-            1u8
-        } else {
-            0u8
-        };
+        let bit = if bit { 1u8 } else { 0u8 };
         self.put_up_to_8(1, bit)
     }
 
@@ -274,8 +275,8 @@ impl<'i> BitBufMut<'i> {
 
 #[cfg(test)]
 mod test {
-    use crate::serdes::bit_buf::BitBufMut;
     use super::{BitBuf, Error};
+    use crate::serdes::bit_buf::BitBufMut;
 
     #[test]
     fn get_up_to_8() {

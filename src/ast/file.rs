@@ -1,8 +1,8 @@
-use crate::ast::struct_def::{StructDef};
-use parser::ast::file::File as ParserFile;
-use parser::ast::definition::Definition as ParserDefinition;
-use parser::span::{Span, SpanOrigin};
+use crate::ast::struct_def::StructDef;
 use crate::ast::visit_mut::VisitMut;
+use parser::ast::definition::Definition as ParserDefinition;
+use parser::ast::file::File as ParserFile;
+use parser::span::{Span, SpanOrigin};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct File {
@@ -12,11 +12,9 @@ pub struct File {
 impl File {
     pub fn from_parser_ast(file: ParserFile, origin: SpanOrigin) -> Self {
         let mut file = File {
-            items: file.defs.iter().map(|def| def.clone().into()).collect()
+            items: file.defs.iter().map(|def| def.clone().into()).collect(),
         };
-        let mut modifier = SpanOriginModifier {
-            to: origin
-        };
+        let mut modifier = SpanOriginModifier { to: origin };
         modifier.visit_file(&mut file);
         file
     }

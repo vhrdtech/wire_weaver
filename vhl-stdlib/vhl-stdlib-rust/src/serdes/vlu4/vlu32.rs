@@ -1,8 +1,8 @@
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
-use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::nibble_buf::Error as NibbleBufError;
+use crate::serdes::traits::SerializeVlu4;
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, )]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vlu32(pub u32);
 
 impl SerializeVlu4 for Vlu32 {

@@ -5,8 +5,5 @@ pub mod semver;
 pub mod vec;
 pub mod vlu32;
 
-pub use vec::{Vlu4Vec, Vlu4VecIter, Vlu4VecBuilder};
 pub use semver::{SemVer, SemVerReq, TraitSet};
-
-
-
+pub use vec::{Vlu4Vec, Vlu4VecBuilder, Vlu4VecIter};

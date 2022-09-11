@@ -1,14 +1,14 @@
-use crate::serdes::{DeserializeVlu4, NibbleBuf};
-use crate::serdes::vlu4::Vlu4Vec;
-use crate::serdes::xpi_vlu4::NodeId;
-use crate::serdes::xpi_vlu4::rate::Rate;
 use crate::serdes::nibble_buf::Error as NibbleBufError;
+use crate::serdes::vlu4::Vlu4Vec;
+use crate::serdes::xpi_vlu4::rate::Rate;
+use crate::serdes::xpi_vlu4::NodeId;
+use crate::serdes::{DeserializeVlu4, NibbleBuf};
 
 #[derive(Copy, Clone, Debug)]
 pub enum ResourceInfo<'i> {
     FreeResource,
     BorrowedResource {
-        borrowed_by: NodeId
+        borrowed_by: NodeId,
     },
     ClosedStream,
     OpenStream {
@@ -38,7 +38,7 @@ pub enum ResourceInfo<'i> {
     },
     Array {
         size: u32,
-    }
+    },
 }
 
 impl<'i> DeserializeVlu4<'i> for ResourceInfo<'i> {

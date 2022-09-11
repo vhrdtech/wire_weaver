@@ -1,14 +1,14 @@
-use core::fmt::{Display, Formatter};
-use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
-use crate::serdes::{DeserializeVlu4};
+use super::NodeId;
 use crate::serdes::bit_buf::BitBufMut;
+use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
+use crate::serdes::vlu4::Vlu4Vec;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Rate;
-use super::NodeId;
-use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use crate::serdes::vlu4::Vlu4Vec;
+use crate::serdes::DeserializeVlu4;
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
+use core::fmt::{Display, Formatter};
 
 /// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
 /// One or several Responses are sent back for each kind of request.
@@ -80,9 +80,7 @@ pub enum XpiRequestKind<'req> {
     /// May not be supported by all nodes.
     /// Do not cover all the weird use cases, so maybe better be replaced with full-blown expression
     /// executor only were applicable and really needed?
-    ChainCall {
-        args: &'req [u8],
-    },
+    ChainCall { args: &'req [u8] },
 
     /// Read one or more resources.
     /// Reading several resources at once is more efficient as only one req-rep is needed in best case.
@@ -132,7 +130,6 @@ pub enum XpiRequestKind<'req> {
     //     /// For each uri there must be a specified [Rate] provided.
     //     rates: &'req [Rate],
     // },
-
     /// Unsubscribe from one or many resources, unsubscribing from a stream do not close it,
     /// but releases a borrow, so that someone else can subscribe and continue receiving data.
     Unsubscribe,
@@ -188,7 +185,6 @@ pub enum XpiRequestKindKind {
     Introspect,
     ChainCall,
 }
-
 
 // impl<'i> SerializeVlu4 for XpiRequest<'i> {
 //     type Error = XpiVlu4Error;
@@ -271,7 +267,7 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
             resource_set,
             kind,
             request_id,
-            priority
+            priority,
         })
     }
 }
@@ -326,12 +322,13 @@ impl<'i> XpiRequestBuilder<'i> {
             destination,
             resource_set,
             request_id,
-            priority
+            priority,
         })
     }
 
     pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
-        where F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestKindKind, NibbleBufMut<'i>), FailReason>
+    where
+        F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestKindKind, NibbleBufMut<'i>), FailReason>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
@@ -399,35 +396,37 @@ impl<'i> XpiRequestBuilder<'i> {
 //     }
 // }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i>
-{
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
     type Error = XpiVlu4Error;
 
-    fn des_coupled_bits_vlu4<'di>(bits_rdr: &'di mut BitBuf<'i>, vlu4_rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+    fn des_coupled_bits_vlu4<'di>(
+        bits_rdr: &'di mut BitBuf<'i>,
+        vlu4_rdr: &'di mut NibbleBuf<'i>,
+    ) -> Result<Self, Self::Error> {
         let kind = bits_rdr.get_up_to_8(4)?;
         use XpiRequestKind::*;
         match kind {
             0 => Ok(Call {
-                args_set: vlu4_rdr.des_vlu4()?
+                args_set: vlu4_rdr.des_vlu4()?,
             }),
             1 => Ok(Read),
             2 => Ok(Write {
-                values: vlu4_rdr.des_vlu4()?
+                values: vlu4_rdr.des_vlu4()?,
             }),
             3 => Ok(OpenStreams),
             4 => Ok(CloseStreams),
             5 => Ok(Subscribe {
-                rates: vlu4_rdr.des_vlu4()?
+                rates: vlu4_rdr.des_vlu4()?,
             }),
             6 => Ok(Unsubscribe),
             7 => Ok(Borrow),
             8 => Ok(Release),
             9 => Ok(Introspect),
             10 => Ok(ChainCall {
-                args: vlu4_rdr.des_vlu4()?
+                args: vlu4_rdr.des_vlu4()?,
             }),
             11..=15 => Err(XpiVlu4Error::ReservedDiscard),
-            _ => Err(XpiVlu4Error::InternalError)
+            _ => Err(XpiVlu4Error::InternalError),
         }
     }
 }
@@ -438,17 +437,26 @@ mod test {
     use std::println;
 
     use crate::discrete::{U2Sp1, U4};
-    use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::xpi_vlu4::priority::Priority;
-    use crate::serdes::xpi_vlu4::request::{XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestKindKind};
+    use crate::serdes::xpi_vlu4::request::{
+        XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestKindKind,
+    };
+    use crate::serdes::xpi_vlu4::{NodeId, Uri};
+    use crate::serdes::{NibbleBuf, NibbleBufMut};
 
     #[test]
     fn call_request_des() {
         let buf = [
-            0b000_100_11, 0b1_0101010, 0b00_101010, 0b1_001_0000,
-            0b0011_1100, 0b0001_0010, 0xaa, 0xbb, 0b000_11011
+            0b000_100_11,
+            0b1_0101010,
+            0b00_101010,
+            0b1_001_0000,
+            0b0011_1100,
+            0b0001_0010,
+            0xaa,
+            0xbb,
+            0b000_11011,
         ];
         let mut rdr = NibbleBuf::new_all(&buf);
         let req: XpiRequest = rdr.des_vlu4().unwrap();
@@ -486,28 +494,34 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),
-            XpiResourceSet::Uri(
-                Uri::TwoPart44(
-                    U4::new(3).unwrap(),
-                    U4::new(12).unwrap()
-                )),
+            XpiResourceSet::Uri(Uri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
             RequestId::new(27).unwrap(),
-            Priority::Lossless(U2Sp1::new(1).unwrap())
-        ).unwrap();
-        let nwr = request_builder.build_kind_with(|nwr| {
-            let mut vb = nwr.put_vec::<&[u8]>();
+            Priority::Lossless(U2Sp1::new(1).unwrap()),
+        )
+        .unwrap();
+        let nwr = request_builder
+            .build_kind_with(|nwr| {
+                let mut vb = nwr.put_vec::<&[u8]>();
 
-            vb.put_aligned(&[0xaa, 0xbb])?;
+                vb.put_aligned(&[0xaa, 0xbb])?;
 
-            let nwr = vb.finish()?;
-            Ok((XpiRequestKindKind::Call, nwr))
-        }).unwrap();
+                let nwr = vb.finish()?;
+                Ok((XpiRequestKindKind::Call, nwr))
+            })
+            .unwrap();
 
         let (buf, len, _) = nwr.finish();
         assert_eq!(len, 9);
         let buf_expected = [
-            0b000_100_11, 0b1_0101010, 0b00_101010, 0b1_001_0000,
-            0b0011_1100, 0b0001_0010, 0xaa, 0xbb, 0b000_11011
+            0b000_100_11,
+            0b1_0101010,
+            0b00_101010,
+            0b1_001_0000,
+            0b0011_1100,
+            0b0001_0010,
+            0xaa,
+            0xbb,
+            0b000_11011,
         ];
         assert_eq!(&buf[0..len], &buf_expected);
     }

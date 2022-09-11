@@ -1,10 +1,10 @@
-use std::fmt::{Display, Formatter};
+use super::prelude::*;
 use crate::ast::lit::Lit;
 use crate::ast::naming::{FnName, Identifier, VariableRefName};
 use crate::ast::ops::{BinaryOp, UnaryOp};
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
-use super::prelude::*;
+use std::fmt::{Display, Formatter};
 
 /// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
 /// Atoms is everything except Cons variant, pre-processed by pest.
@@ -24,7 +24,7 @@ pub enum Expr<'i> {
     },
 
     ConsU(UnaryOp, Box<Expr<'i>>),
-    ConsB(BinaryOp, Box<(Expr<'i>, Expr<'i>)>)
+    ConsB(BinaryOp, Box<(Expr<'i>, Expr<'i>)>),
 }
 
 #[derive(Debug, Clone)]
@@ -52,14 +52,15 @@ impl<'i> Parse<'i> for Expr<'i> {
         match input.pairs.peek() {
             Some(p) => {
                 if p.as_rule() == Rule::expression_ticked {
-                    let mut input = ParseInput::fork(input.expect1(Rule::expression_ticked)?, input);
+                    let mut input =
+                        ParseInput::fork(input.expect1(Rule::expression_ticked)?, input);
                     let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
                     pratt_parser(&mut input, 0)
                 } else {
                     let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
                     pratt_parser(&mut input, 0)
                 }
-            },
+            }
             None => {
                 return Err(ParseErrorSource::UnexpectedInput);
             }
@@ -80,16 +81,24 @@ impl<'i> Parse<'i> for Vec<Expr<'i>> {
 impl<'i> Display for Expr<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Call(id, args) => { write!(f, "{}({:?})", id.name, args) }
-            Expr::IndexInto(id, args) => { write!(f, "{}[{:?}]", id.name, args) }
+            Expr::Call(id, args) => {
+                write!(f, "{}({:?})", id.name, args)
+            }
+            Expr::IndexInto(id, args) => {
+                write!(f, "{}[{:?}]", id.name, args)
+            }
             // Expr::CallThenIndexInto(call, index) => { write!(f, "call_index") }
             // Expr::IndexIntoThenCall(index, call) => { write!(f, "index_call") }
-            Expr::Lit(lit) => { write!(f, "{:?}", lit) }
-            Expr::TupleOfExprs => { write!(f, "tuple_of_exprs") }
-            Expr::Id(ident) => { write!(f, "{}", ident.name) }
-            Expr::ResourcePath {
-                kind, parts, tail
-            } => {
+            Expr::Lit(lit) => {
+                write!(f, "{:?}", lit)
+            }
+            Expr::TupleOfExprs => {
+                write!(f, "tuple_of_exprs")
+            }
+            Expr::Id(ident) => {
+                write!(f, "{}", ident.name)
+            }
+            Expr::ResourcePath { kind, parts, tail } => {
                 write!(f, "{}", kind.to_str())?;
                 for part in parts {
                     write!(f, "{}/", part)?;
@@ -106,8 +115,14 @@ impl<'i> Display for Expr<'i> {
 }
 
 // Inspired by: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Expr<'i>, ParseErrorSource> {
-    let pair = input.pairs.peek().ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected input"))?;
+fn pratt_parser<'i, 'm>(
+    input: &mut ParseInput<'i, 'm>,
+    min_bp: u8,
+) -> Result<Expr<'i>, ParseErrorSource> {
+    let pair = input
+        .pairs
+        .peek()
+        .ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected input"))?;
     let mut lhs = match pair.as_rule() {
         // Atoms
         Rule::call_expr => {
@@ -127,18 +142,12 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
             let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
             Expr::ConsU(op, Box::new(pratt_parser(&mut input, 0)?))
         }
-        Rule::any_lit => {
-            Expr::Lit(input.parse()?)
-        }
+        Rule::any_lit => Expr::Lit(input.parse()?),
         Rule::tuple_of_expressions => {
             return Err(ParseErrorSource::Unimplemented("tuple_of_expressions"))
         }
-        Rule::identifier => {
-            Expr::Id(input.parse()?)
-        }
-        Rule::resource_path_start => {
-            consume_resource_path(input)?
-        }
+        Rule::identifier => Expr::Id(input.parse()?),
+        Rule::resource_path_start => consume_resource_path(input)?,
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
@@ -148,24 +157,28 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
 
         // Op
         Rule::op_binary => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), "pratt_parser: expected atom, got op_binary"));
+            return Err(ParseErrorSource::internal_with_rule(
+                pair.as_rule(),
+                "pratt_parser: expected atom, got op_binary",
+            ));
         }
 
         _ => {
-            return Err(ParseErrorSource::internal_with_rule(pair.as_rule(), "pratt_parser: expected atom"));
+            return Err(ParseErrorSource::internal_with_rule(
+                pair.as_rule(),
+                "pratt_parser: expected atom",
+            ));
         }
     };
 
     loop {
         let op = match input.pairs.peek() {
-            Some(p) => {
-                BinaryOp::from_rule(p
-                    .into_inner()
+            Some(p) => BinaryOp::from_rule(
+                p.into_inner()
                     .next()
                     .ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected binary op"))?
-                    .as_rule()
-                )?
-            }
+                    .as_rule(),
+            )?,
             None => {
                 break;
             }
@@ -184,7 +197,9 @@ fn pratt_parser<'i, 'm>(input: &mut ParseInput<'i, 'm>, min_bp: u8) -> Result<Ex
     Ok(lhs)
 }
 
-fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<'i>, ParseErrorSource> {
+fn consume_resource_path<'i, 'm>(
+    input: &mut ParseInput<'i, 'm>,
+) -> Result<Expr<'i>, ParseErrorSource> {
     let kind: ResourcePathKind = input.parse()?;
     let mut tails = Vec::new();
     loop {
@@ -202,27 +217,25 @@ fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<
         }
 
         match input.pairs.peek() {
-            Some(p) => {
-                match p.as_rule() {
-                    Rule::identifier => {
-                        tails.push(ResourcePathTail::Reference(input.parse()?));
-                    }
-                    Rule::index_into_expr => {
-                        tails.push(ResourcePathTail::IndexInto(input.parse()?));
-                    }
-                    Rule::call_expr => {
-                        tails.push(ResourcePathTail::Call(input.parse()?));
-                    }
-                    _ => {
-                        input.errors.push(ParseError {
-                            kind: ParseErrorKind::MalformedResourcePath,
-                            rule: p.as_rule(),
-                            span: (p.as_span().start(), p.as_span().end())
-                        });
-                        return Err(ParseErrorSource::UserError);
-                    }
+            Some(p) => match p.as_rule() {
+                Rule::identifier => {
+                    tails.push(ResourcePathTail::Reference(input.parse()?));
                 }
-            }
+                Rule::index_into_expr => {
+                    tails.push(ResourcePathTail::IndexInto(input.parse()?));
+                }
+                Rule::call_expr => {
+                    tails.push(ResourcePathTail::Call(input.parse()?));
+                }
+                _ => {
+                    input.errors.push(ParseError {
+                        kind: ParseErrorKind::MalformedResourcePath,
+                        rule: p.as_rule(),
+                        span: (p.as_span().start(), p.as_span().end()),
+                    });
+                    return Err(ParseErrorSource::UserError);
+                }
+            },
             None => {
                 return Err(ParseErrorSource::internal("consume_resource_path"));
             }
@@ -230,15 +243,20 @@ fn consume_resource_path<'i, 'm>(input: &mut ParseInput<'i, 'm>) -> Result<Expr<
     }
 }
 
-fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) -> Result<Expr, ParseErrorSource> {
+fn finish_resource_path(
+    kind: ResourcePathKind,
+    tails: Vec<ResourcePathTail>,
+) -> Result<Expr, ParseErrorSource> {
     if tails.is_empty() {
-        Err(ParseErrorSource::internal("finish_resource_path: empty_tails"))
+        Err(ParseErrorSource::internal(
+            "finish_resource_path: empty_tails",
+        ))
     } else {
         if tails.len() == 1 {
             Ok(Expr::ResourcePath {
                 kind,
                 parts: Vec::new(),
-                tail: tails[0].clone()
+                tail: tails[0].clone(),
             })
         } else {
             let mut parts = Vec::new();
@@ -248,10 +266,12 @@ fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) ->
                     parts.push(t.try_into()?);
                 } else {
                     return Ok(Expr::ResourcePath {
-                        kind, parts, tail: t.clone()
-                    })
+                        kind,
+                        parts,
+                        tail: t.clone(),
+                    });
                 }
-            };
+            }
             unreachable!()
         }
     }
@@ -259,10 +279,10 @@ fn finish_resource_path(kind: ResourcePathKind, tails: Vec<ResourcePathTail>) ->
 
 #[cfg(test)]
 mod test {
+    use super::Expr;
     use crate::ast::ops::{BinaryOp, UnaryOp};
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
-    use super::Expr;
 
     #[test]
     fn single_lit() {

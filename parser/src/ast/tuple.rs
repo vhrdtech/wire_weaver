@@ -3,7 +3,7 @@ use super::ty::Ty;
 
 #[derive(Debug, Clone)]
 pub struct TupleFieldsTy<'i> {
-    pub fields: Vec<Ty<'i>>
+    pub fields: Vec<Ty<'i>>,
 }
 
 impl<'i> Parse<'i> for TupleFieldsTy<'i> {
@@ -15,8 +15,6 @@ impl<'i> Parse<'i> for TupleFieldsTy<'i> {
             input.parse().map(|ty| fields.push(ty))?;
         }
 
-        Ok(TupleFieldsTy {
-            fields
-        })
+        Ok(TupleFieldsTy { fields })
     }
 }

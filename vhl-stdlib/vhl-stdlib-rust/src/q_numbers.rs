@@ -7,6 +7,4 @@ pub struct Uq {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct UqC<const M: usize, const N: usize> {
-
-}
+pub struct UqC<const M: usize, const N: usize> {}

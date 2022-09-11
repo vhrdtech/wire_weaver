@@ -3,11 +3,11 @@ use crate::ast::def_fn::{FnArguments, FnRetTy};
 use crate::ast::expr::Expr;
 use crate::ast::generics::Generics;
 use crate::ast::lit::Lit;
+use crate::ast::naming::{GenericName, UserTyName};
 use crate::ast::num_bound::NumBound;
 use crate::ast::ops::BinaryOp;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use pest::Span;
-use crate::ast::naming::{GenericName, UserTyName};
 
 #[derive(Debug, Clone)]
 pub struct Ty<'i> {
@@ -63,7 +63,8 @@ pub enum TyKind<'i> {
 impl<'i> Parse<'i> for Ty<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let any_ty = input.expect1(Rule::any_ty)?;
-        let ty = any_ty.into_inner()
+        let ty = any_ty
+            .into_inner()
             .next()
             .ok_or_else(|| ParseErrorSource::internal("Wrong any_ty grammar"))?;
         let span = ty.as_span();

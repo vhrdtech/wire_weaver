@@ -1,7 +1,7 @@
-use core::ptr::copy_nonoverlapping;
-use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::{DeserializeBytes, SerializeBytes};
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
+use core::ptr::copy_nonoverlapping;
 
 /// Buffer reader that treats input as a stream of bytes
 ///
@@ -29,10 +29,7 @@ impl From<crate::serdes::nibble_buf::Error> for Error {
 
 impl<'i> Buf<'i> {
     pub fn new(buf: &'i [u8]) -> Self {
-        Buf {
-            buf,
-            idx: 0,
-        }
+        Buf { buf, idx: 0 }
     }
 
     pub fn get_bit_buf(&mut self, byte_count: usize) -> Result<BitBuf<'i>, Error> {
@@ -42,7 +39,8 @@ impl<'i> Buf<'i> {
         let bit_buf = BitBuf::new_all(unsafe {
             &*core::ptr::slice_from_raw_parts(
                 self.buf.as_ptr().offset(self.idx as isize),
-                byte_count)
+                byte_count,
+            )
         });
         self.idx += byte_count;
 
@@ -56,7 +54,8 @@ impl<'i> Buf<'i> {
         let nibble_buf = NibbleBuf::new_all(unsafe {
             &*core::ptr::slice_from_raw_parts(
                 self.buf.as_ptr().offset(self.idx as isize),
-                byte_count)
+                byte_count,
+            )
         });
         self.idx += byte_count;
 
@@ -95,9 +94,9 @@ impl<'i> Buf<'i> {
         let mut bytes = [0u8; 2];
         unsafe {
             copy_nonoverlapping(
-            self.buf.as_ptr().offset(self.idx as isize),
-            bytes.as_mut_ptr(),
-            2
+                self.buf.as_ptr().offset(self.idx as isize),
+                bytes.as_mut_ptr(),
+                2,
             );
         }
         let val = u16::from_be_bytes(bytes);
@@ -114,7 +113,7 @@ impl<'i> Buf<'i> {
             copy_nonoverlapping(
                 self.buf.as_ptr().offset(self.idx as isize),
                 bytes.as_mut_ptr(),
-                2
+                2,
             );
         }
         let val = u16::from_le_bytes(bytes);
@@ -138,21 +137,20 @@ pub struct BufMut<'i> {
 
 impl<'i> BufMut<'i> {
     pub fn new(buf: &'i mut [u8]) -> Self {
-        BufMut {
-            buf, idx: 0
-        }
+        BufMut { buf, idx: 0 }
     }
 
-    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E> where
+    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E>
+    where
         E: From<crate::serdes::bit_buf::Error>,
-        F: Fn(&mut BitBufMut) -> Result<(), E>
+        F: Fn(&mut BitBufMut) -> Result<(), E>,
     {
         let len_bits = self.buf.len() * 8;
         let mut bit_buf = BitBufMut {
             buf: self.buf,
             len_bits,
             idx: self.idx,
-            bit_idx: 0
+            bit_idx: 0,
         };
         f(&mut bit_buf)?;
         if bit_buf.bit_idx != 0 {
@@ -162,16 +160,17 @@ impl<'i> BufMut<'i> {
         Ok(())
     }
 
-    pub fn as_nibble_buf<E, F>(&mut self, f: F) -> Result<(), E> where
+    pub fn as_nibble_buf<E, F>(&mut self, f: F) -> Result<(), E>
+    where
         E: From<crate::serdes::nibble_buf::Error>,
-        F: Fn(&mut NibbleBufMut) -> Result<(), E>
+        F: Fn(&mut NibbleBufMut) -> Result<(), E>,
     {
         let len_nibbles = self.buf.len() * 2;
         let mut nibble_buf = NibbleBufMut {
             buf: self.buf,
             len_nibbles,
             idx: self.idx,
-            is_at_byte_boundary: true
+            is_at_byte_boundary: true,
         };
         f(&mut nibble_buf)?;
         if !nibble_buf.is_at_byte_boundary {
@@ -205,7 +204,9 @@ impl<'i> BufMut<'i> {
         if self.bytes_left() < 1 {
             return Err(Error::OutOfBounds);
         }
-        unsafe { *self.buf.get_unchecked_mut(self.idx) = val; }
+        unsafe {
+            *self.buf.get_unchecked_mut(self.idx) = val;
+        }
         self.idx += 1;
         Ok(())
     }
@@ -219,7 +220,7 @@ impl<'i> BufMut<'i> {
             copy_nonoverlapping(
                 bytes.as_ptr(),
                 self.buf.as_mut_ptr().offset(self.idx as isize),
-                2
+                2,
             );
         }
         self.idx += 2;
@@ -235,7 +236,7 @@ impl<'i> BufMut<'i> {
             copy_nonoverlapping(
                 bytes.as_ptr(),
                 self.buf.as_mut_ptr().offset(self.idx as isize),
-                2
+                2,
             );
         }
         self.idx += 2;

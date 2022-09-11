@@ -27,7 +27,8 @@ pub trait Visit<'ast, 'input> {
 }
 
 pub fn visit_file<'ast, 'input, V>(v: &mut V, node: &'ast File<'input>)
-    where V: Visit<'ast, 'input> + ?Sized
+where
+    V: Visit<'ast, 'input> + ?Sized,
 {
     for d in &node.defs {
         v.visit_definition(d);
@@ -35,20 +36,22 @@ pub fn visit_file<'ast, 'input, V>(v: &mut V, node: &'ast File<'input>)
 }
 
 pub fn visit_definition<'ast, 'input, V>(v: &mut V, node: &'ast Definition<'input>)
-    where V: Visit<'ast, 'input> + ?Sized
+where
+    V: Visit<'ast, 'input> + ?Sized,
 {
     match &node {
-        Definition::Const(_) => {},
-        Definition::Enum(_) => {},
-        Definition::Struct(_) => {},
+        Definition::Const(_) => {}
+        Definition::Enum(_) => {}
+        Definition::Struct(_) => {}
         Definition::Function(fun) => v.visit_function(fun),
-        Definition::TypeAlias(_) => {},
-        Definition::XpiBlock(_) => {},
+        Definition::TypeAlias(_) => {}
+        Definition::XpiBlock(_) => {}
     }
 }
 
 pub fn visit_function<'ast, 'input, V>(v: &mut V, node: &'ast DefFn<'input>)
-    where V: Visit<'ast, 'input> + ?Sized
+where
+    V: Visit<'ast, 'input> + ?Sized,
 {
     for stmt in &node.statements.stmts {
         v.visit_statement(stmt);
@@ -56,16 +59,20 @@ pub fn visit_function<'ast, 'input, V>(v: &mut V, node: &'ast DefFn<'input>)
 }
 
 pub fn visit_statement<'ast, 'input, V>(v: &mut V, node: &'ast Stmt<'input>)
-    where V: Visit<'ast, 'input> + ?Sized
+where
+    V: Visit<'ast, 'input> + ?Sized,
 {
     match &node {
-        Stmt::Let(_) => {},
+        Stmt::Let(_) => {}
         Stmt::Expr(ex, semicolon_present) => v.visit_expression(ex, *semicolon_present),
     }
 }
 
-pub fn visit_expression<'ast, 'input, V>(_v: &mut V, _node: &'ast Expr<'input>, _semicolon_present: bool)
-    where V: Visit<'ast, 'input> + ?Sized
+pub fn visit_expression<'ast, 'input, V>(
+    _v: &mut V,
+    _node: &'ast Expr<'input>,
+    _semicolon_present: bool,
+) where
+    V: Visit<'ast, 'input> + ?Sized,
 {
-
 }

@@ -1,8 +1,8 @@
-use std::collections::HashSet;
-use mtoken::{TokenStream, ToTokens};
-use parser::span::Span;
 use crate::dependencies::{Dependencies, Depends, ImportMerger, Package};
 use crate::error::CodegenError;
+use mtoken::{ToTokens, TokenStream};
+use parser::span::Span;
+use std::collections::HashSet;
 
 /// Collection of code blocks with dependencies and source information.
 ///
@@ -15,7 +15,7 @@ pub struct File {
 impl File {
     pub fn new() -> Self {
         File {
-            code_pieces: vec![]
+            code_pieces: vec![],
         }
     }
 
@@ -47,9 +47,7 @@ impl File {
 
         let whole_file = format!(
             "{}\n{}\n{}",
-            generator_comment,
-            import_statements,
-            code_pieces
+            generator_comment, import_statements, code_pieces
         );
 
         Ok((whole_file, depends_on))

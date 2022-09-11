@@ -1,15 +1,15 @@
 mod commands;
-mod util;
 mod handlers;
+mod util;
 
 use clap::Parser;
 
-use std::path::PathBuf;
+use crate::commands::Commands;
 use anyhow::{anyhow, Context, Result};
 use parser::ast::file::File;
 use parser::span::{SourceOrigin, SpanOrigin};
+use std::path::PathBuf;
 use vhl::ast::file::Definition;
-use crate::commands::Commands;
 
 // struct ExprVisitor {}
 //
@@ -39,8 +39,12 @@ fn main() -> Result<()> {
                 match item {
                     Definition::Struct(struct_def) => {
                         let cg_struct_def = codegen::rust::struct_def::CGStructDef::new(struct_def);
-                        let cg_struct_ser = codegen::rust::serdes::buf::struct_def::StructSer { inner: cg_struct_def.clone() };
-                        let cg_struct_des = codegen::rust::serdes::buf::struct_def::StructDes { inner: cg_struct_def.clone() };
+                        let cg_struct_ser = codegen::rust::serdes::buf::struct_def::StructSer {
+                            inner: cg_struct_def.clone(),
+                        };
+                        let cg_struct_des = codegen::rust::serdes::buf::struct_def::StructDes {
+                            inner: cg_struct_def.clone(),
+                        };
                         cg_file.push(&cg_struct_def, struct_def.span.clone());
                         cg_file.push(&cg_struct_ser, struct_def.span.clone());
                         cg_file.push(&cg_struct_des, struct_def.span.clone());
@@ -67,7 +71,12 @@ fn main() -> Result<()> {
             };
             println!("{}", colorized_file);
         }
-        Some(Commands::Dev { lexer, parser, definition, vhl_source }) => {
+        Some(Commands::Dev {
+            lexer,
+            parser,
+            definition,
+            vhl_source,
+        }) => {
             let local_path = PathBuf::from(vhl_source.clone());
             let input = std::fs::read_to_string(local_path.clone())
                 .context(format!("unable to open '{:?}'", vhl_source))?;

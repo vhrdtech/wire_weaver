@@ -1,6 +1,6 @@
-use std::rc::Rc;
 use parser::ast::doc::Doc as ParserDoc;
 use parser::span::Span;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Doc {
@@ -10,10 +10,11 @@ pub struct Doc {
 impl<'i> From<ParserDoc<'i>> for Doc {
     fn from(pd: ParserDoc<'i>) -> Self {
         Doc {
-            lines: pd.lines
+            lines: pd
+                .lines
                 .iter()
                 .map(|l| (Rc::new(String::from(l.0)), l.1.clone().into()))
-                .collect()
+                .collect(),
         }
     }
 }

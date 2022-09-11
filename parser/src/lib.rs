@@ -10,6 +10,9 @@ pub mod ast;
 pub mod error;
 pub mod warning;
 pub mod util;
+pub mod user_readable;
+pub mod file_ll;
+pub mod span;
 
 // extern crate pest;
 #[macro_use]

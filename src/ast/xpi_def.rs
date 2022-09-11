@@ -1,13 +1,13 @@
 use crate::ast::doc::Doc;
 use crate::ast::expr::Expr;
 use crate::ast::identifier::Identifier;
-use parser::ast::def_xpi_block::{XpiBody as XpiBodyParser, XpiResourceAccessMode, XpiResourceTy as XpiResourceTyParser, XpiUri as XpiUriParser};
+use parser::ast::def_xpi_block::{XpiBody as XpiBodyParser, AccessMode, XpiResourceTy as XpiResourceTyParser, XpiUri as XpiUriParser};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
     pub doc: Doc,
     pub uri: XpiUri,
-    pub access: Option<XpiResourceAccessMode>,
+    // pub access: Option<XpiResourceAccessMode>,
     // pub ty:
     // pub ty: Option<XpiResourceTy>,
     // pub body: XpiBody,
@@ -35,7 +35,8 @@ pub enum XpiKind {
     Stream,
     /// `/borrowable_group<Cell<_>> { /child<rw u8> }`
     /// `/borrowable_property<Cell<u8>>` - implicitly rw, otherwise no reason for a Cell
-    /// `/borrowable_stream<Cell< stream<ro, u8> >>` - change modifiers to types to make more consistent syntax
+    /// `/write_only_cell<Cell< wo u8> >>`
+    /// `/borrowable_stream<Cell< ro+stream u8 >>`
     Cell,
     /// Callable method. `/method<fn ()>`, `/with_args_and_ret<fn (u8) -> u8>`
     Method,

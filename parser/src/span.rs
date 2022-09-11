@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Span {
@@ -27,7 +26,7 @@ pub enum SpanOrigin {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum SourceOrigin {
-    File(Rc<PathBuf>),
+    File(PathBuf),
     Registry(/*RegistryUri*/),
     DescriptorBlock(/*NodeUid*/),
 
@@ -102,8 +101,8 @@ impl Debug for SourceOrigin {
     }
 }
 
-impl<'i> From<parser::pest::Span<'i>> for Span {
-    fn from(s: parser::pest::Span<'i>) -> Self {
+impl<'i> From<pest::Span<'i>> for Span {
+    fn from(s: pest::Span<'i>) -> Self {
         Span {
             start: s.start(),
             end: s.end(),

@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use crate::span::Span;
+use parser::span::Span;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Identifier {

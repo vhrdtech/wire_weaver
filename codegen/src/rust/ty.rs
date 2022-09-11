@@ -14,7 +14,6 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     mtoken::Ident::new(
                         Rc::new("bool".to_string()),
                         IdentFlavor::Plain,
-                        self.inner.span.clone()
                     )
                 );
             }

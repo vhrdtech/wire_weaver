@@ -6,7 +6,7 @@ use parser::ast::def_struct::{
 use crate::ast::doc::Doc;
 use crate::ast::identifier::Identifier;
 use crate::ast::ty::Ty;
-use crate::span::Span;
+use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructDef {

@@ -1,7 +1,6 @@
 use crate::commands::ReplXpi;
 use anyhow::{anyhow, Result};
 use std::borrow::Cow::{self, Borrowed, Owned};
-
 use rustyline::completion::FilenameCompleter;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -9,6 +8,7 @@ use rustyline::hint::HistoryHinter;
 use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, CompletionType, Config, EditMode, Editor, KeyEvent};
 use rustyline_derive::{Completer, Helper, Hinter, Validator};
+use parser::span::{SourceOrigin, SpanOrigin};
 
 #[derive(Helper, Completer, Hinter, Validator)]
 struct MyHelper {
@@ -50,6 +50,7 @@ impl Highlighter for MyHelper {
 
 pub fn repl_xpi_cmd(repl_xpi: ReplXpi) -> Result<()> {
     println!("Loading: {}", repl_xpi.vhl_source);
+    let origin = SpanOrigin::Parser(SourceOrigin::File(repl_xpi.vhl_source.into()));
 
     let rl_config = Config::builder()
         .history_ignore_space(true)
@@ -95,7 +96,7 @@ pub fn repl_xpi_cmd(repl_xpi: ReplXpi) -> Result<()> {
             }
         };
 
-        match parser::ast::stmt::Stmt::parse(stmt.as_str()) {
+        match parser::ast::stmt::Stmt::parse(stmt.as_str(), origin.clone()) {
             Ok(stmt) => {
                 println!("{:?}", stmt);
             }

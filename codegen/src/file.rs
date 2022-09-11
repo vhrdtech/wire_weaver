@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use mtoken::{TokenStream, ToTokens};
-use vhl::span::Span;
+use parser::span::Span;
 use crate::dependencies::{Dependencies, Depends, ImportMerger, Package};
 use crate::error::CodegenError;
 
@@ -20,10 +20,10 @@ impl File {
     }
 
     /// Adds code piece into this file
-    pub fn push<T: ToTokens + Depends>(&mut self, tokens: &T, source: vhl::span::Span) {
+    pub fn push<T: ToTokens + Depends>(&mut self, tokens: &T, origin: Span) {
         let mut ts = TokenStream::new();
         tokens.to_tokens(&mut ts);
-        self.code_pieces.push((ts, tokens.dependencies(), source))
+        self.code_pieces.push((ts, tokens.dependencies(), origin))
     }
 
     pub fn render(&self) -> Result<(String, HashSet<Package>), CodegenError> {

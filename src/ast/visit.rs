@@ -3,7 +3,7 @@ use crate::ast::file::{Definition, File};
 use crate::ast::identifier::Identifier;
 use crate::ast::struct_def::{StructDef, StructField};
 use crate::ast::ty::{DiscreteTy, Ty, TyKind};
-use crate::span::Span;
+use parser::span::Span;
 
 pub trait Visit {
     fn visit_file(&mut self, i: &File) {

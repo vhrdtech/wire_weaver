@@ -12,7 +12,6 @@ impl ToTokens for Identifier {
         tokens.append(Ident::new(
             Rc::clone(&self.inner.symbols),
             IdentFlavor::DartAutoRaw,
-            self.inner.span.clone()
         ));
     }
 }

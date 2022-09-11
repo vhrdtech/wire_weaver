@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use parser::ast::doc::Doc as ParserDoc;
-use crate::span::Span;
+use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Doc {

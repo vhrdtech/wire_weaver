@@ -13,7 +13,6 @@ impl<'ast> ToTokens for CGIdentifier<'ast> {
         tokens.append(Ident::new(
             Rc::clone(&self.inner.symbols),
             IdentFlavor::RustAutoRaw,
-            self.inner.span.clone()
         ));
     }
 }

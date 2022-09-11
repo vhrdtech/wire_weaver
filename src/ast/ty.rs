@@ -1,4 +1,4 @@
-use crate::span::Span;
+use parser::span::Span;
 use parser::ast::ty::Ty as TyParser;
 use parser::ast::ty::TyKind as TyKindParser;
 

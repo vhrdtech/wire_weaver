@@ -13,5 +13,4 @@ pub mod prelude {
     pub use std::rc::Rc;
     pub use mtoken::token::IdentFlavor;
     pub use vhl::ast::identifier::IdentifierContext;
-    pub use vhl::span::Span;
 }

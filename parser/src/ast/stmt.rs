@@ -1,21 +1,26 @@
+use super::prelude::*;
 use crate::ast::expr::Expr;
-use crate::ast::file::FileError;
+use crate::ast::file::{FileError, FileErrorKind};
 use crate::ast::naming::VariableDefName;
 use crate::ast::ty::Ty;
 use crate::error::{ParseError, ParseErrorKind};
-use super::prelude::*;
 use crate::lexer::{Lexer, Rule};
+use crate::span::SpanOrigin;
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'i> {
     Let(LetStmt<'i>),
-    Expr(Expr<'i>, bool)
+    Expr(Expr<'i>, bool),
 }
 
-
 impl<'i> Stmt<'i> {
-    pub fn parse(input: &'i str) -> Result<Self, FileError> {
-        let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input)?;
+    pub fn parse(input: &'i str, origin: SpanOrigin) -> Result<Self, FileError> {
+        let pairs =
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
+                kind: FileErrorKind::Lexer(e),
+                origin: origin.clone(),
+                input: input.to_owned(),
+            })?;
         let mut errors = Vec::new();
 
         let input_parsed_str = pairs.as_str();
@@ -23,9 +28,13 @@ impl<'i> Stmt<'i> {
             errors.push(ParseError {
                 kind: ParseErrorKind::UnhandledUnexpectedInput,
                 rule: Rule::statement,
-                span: (input_parsed_str.len(), input.len())
+                span: (input_parsed_str.len(), input.len()),
             });
-            return Err(FileError::ParserError(errors));
+            return Err(FileError {
+                kind: FileErrorKind::Parser(errors),
+                origin,
+                input: input.to_owned(),
+            });
         }
         // println!("{:?}", pairs);
 
@@ -35,27 +44,32 @@ impl<'i> Stmt<'i> {
         let rule = pair.as_rule();
         let pair_span = pair.as_span();
         let mut warnings = Vec::new();
-        let mut input = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
-        match input.parse() {
-            Ok(stmt) => {
-                Ok(stmt)
-            },
+        let mut input_parse = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
+        match input_parse.parse() {
+            Ok(stmt) => Ok(stmt),
             Err(e) => {
                 let kind = match e {
                     #[cfg(feature = "backtrace")]
-                    ParseErrorSource::InternalError{ rule, backtrace } => ParseErrorKind::InternalError{rule, backtrace: backtrace.to_string()},
+                    ParseErrorSource::InternalError { rule, backtrace } => {
+                        ParseErrorKind::InternalError {
+                            rule,
+                            backtrace: backtrace.to_string(),
+                        }
+                    }
                     #[cfg(not(feature = "backtrace"))]
-                    ParseErrorSource::InternalError{ rule, message } => ParseErrorKind::InternalError{rule, message},
+                    ParseErrorSource::InternalError { rule, message } => {
+                        ParseErrorKind::InternalError { rule, message }
+                    }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
                     ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
-                    ParseErrorSource::UserError => ParseErrorKind::UserError
+                    ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
-                errors.push(ParseError {
-                    kind,
-                    rule,
-                    span
-                });
-                Err(FileError::ParserError(errors))
+                errors.push(ParseError { kind, rule, span });
+                Err(FileError {
+                    kind: FileErrorKind::Parser(errors),
+                    origin,
+                    input: input.to_owned(),
+                })
             }
         }
     }
@@ -64,21 +78,23 @@ impl<'i> Stmt<'i> {
 impl<'i> Parse<'i> for Stmt<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::statement)?, input);
-        let s = input.pairs.peek().ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
+        let s = input
+            .pairs
+            .peek()
+            .ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match s.as_rule() {
-            Rule::let_stmt => {
-                Ok(Stmt::Let(input.parse()?))
-            },
+            Rule::let_stmt => Ok(Stmt::Let(input.parse()?)),
             Rule::expr_stmt => {
                 let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);
                 let expr: Expr = input.parse()?;
                 let semicolon_present = input.pairs.next().is_some();
                 Ok(Stmt::Expr(expr, semicolon_present))
-            },
-            _ => {
-                Err(ParseErrorSource::internal_with_rule(s.as_rule(), "Stmt::parse: unexpected rule"))
             }
+            _ => Err(ParseErrorSource::internal_with_rule(
+                s.as_rule(),
+                "Stmt::parse: unexpected rule",
+            )),
         }
     }
 }
@@ -87,7 +103,7 @@ impl<'i> Parse<'i> for Stmt<'i> {
 pub struct LetStmt<'i> {
     pub ident: Identifier<'i, VariableDefName>,
     pub type_ascription: Option<Ty<'i>>,
-    pub expr: Expr<'i>
+    pub expr: Expr<'i>,
 }
 
 impl<'i> Parse<'i> for LetStmt<'i> {
@@ -96,7 +112,7 @@ impl<'i> Parse<'i> for LetStmt<'i> {
         Ok(LetStmt {
             ident: input.parse()?,
             type_ascription: input.parse_or_skip()?,
-            expr: input.parse()?
+            expr: input.parse()?,
         })
     }
 }

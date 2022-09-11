@@ -174,6 +174,7 @@ impl Display for FileError {
             FileErrorKind::Lexer(pest_err) => {
                 let ll_file =
                     crate::file_ll::LLFile::parse(self.input.as_str(), self.origin.clone());
+                // println!("{:?}", ll_file);
                 match ll_file.check_delimiters() {
                     Ok(()) => {
                         // TODO: colorize pest error in the same way
@@ -189,6 +190,15 @@ impl Display for FileError {
                     Err(e) => {
                         // Input contains unmatched delimiters, display extensive information about them
                         writeln!(f, "{}", e)
+
+                        // writeln!(
+                        //     f,
+                        //     " --> {}\n\x1b[31m{}\x1b[0m",
+                        //     self.origin,
+                        //     pest_err
+                        //         .clone()
+                        //         .renamed_rules(|r| crate::user_readable::rule_names(r))
+                        // )
                     }
                 }
             }

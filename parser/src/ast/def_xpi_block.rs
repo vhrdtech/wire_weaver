@@ -1,11 +1,11 @@
 use super::prelude::*;
 use crate::ast::expr::Expr;
 use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
-use crate::ast::stmt::Stmt;
 use crate::ast::ty::Ty;
 use crate::error::ParseErrorKind;
 use either::Either;
 use std::fmt::{Debug, Formatter};
+use pest::Span;
 
 // macro_rules! function {
 //     () => {{
@@ -25,6 +25,7 @@ pub struct DefXpiBlock<'i> {
     pub uri: XpiUri<'i>,
     pub resource_ty: Option<XpiResourceTy<'i>>,
     pub body: XpiBody<'i>,
+    pub span: Span<'i>,
 }
 
 impl<'i> Parse<'i> for DefXpiBlock<'i> {
@@ -39,6 +40,7 @@ impl<'i> Parse<'i> for DefXpiBlock<'i> {
             uri: input.parse()?,
             resource_ty: input.parse_or_skip()?,
             body: input.parse()?,
+            span: input.span,
         })
     }
 }
@@ -56,37 +58,44 @@ impl<'i> Debug for DefXpiBlock<'i> {
 
 #[derive(Debug, Clone)]
 pub struct XpiResourceTy<'i> {
-    pub transform: Option<XpiResourceTransform>,
-    pub ty: Option<Either<XpiCellTy<'i>, Ty<'i>>>,
+    pub ty: Option<Either<XpiCellTy<'i>, XpiPlainTy<'i>>>,
     pub serial: Option<XpiSerial>,
+    pub span: Span<'i>,
 }
 
 #[derive(Debug, Clone)]
-pub struct XpiCellTy<'i>(Option<XpiResourceTransform>, Ty<'i>);
+pub struct XpiCellTy<'i>(pub Option<XpiResourceTransform>, pub Ty<'i>);
+
+#[derive(Debug, Clone)]
+pub struct XpiPlainTy<'i>(pub Option<XpiResourceTransform>, pub Ty<'i>);
 
 impl<'i> Parse<'i> for XpiResourceTy<'i> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_ty)?, input);
-        let kind = input.parse_or_skip()?;
         let ty = match input.pairs.peek() {
             Some(p) => match p.as_rule() {
                 Rule::resource_cell_ty => {
                     let mut input =
                         ParseInput::fork(input.expect1(Rule::resource_cell_ty)?, &mut input);
-                    let kind = input.parse_or_skip()?;
+                    let transform = input.parse_or_skip()?;
                     let ty = input.parse()?;
-                    Some(Either::Left(XpiCellTy(kind, ty)))
+                    Some(Either::Left(XpiCellTy(transform, ty)))
                 }
-                Rule::any_ty => Some(Either::Right(input.parse()?)),
+                Rule::xpi_resource_transform => {
+                    let transform = input.parse()?;
+                    let ty = input.parse()?;
+                    Some(Either::Right(XpiPlainTy(Some(transform), ty)))
+                }
+                Rule::any_ty => Some(Either::Right(XpiPlainTy(None, input.parse()?))),
                 _ => None,
             },
             None => None,
         };
 
         Ok(XpiResourceTy {
-            transform: kind,
             ty,
             serial: input.parse_or_skip()?,
+            span: input.span
         })
     }
 }
@@ -179,7 +188,7 @@ impl<'i> Parse<'i> for XpiUri<'i> {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum AccessMode {
     Rw,
     Ro,
@@ -200,13 +209,13 @@ impl<'i> Parse<'i> for AccessMode {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum XpiResourceModifier {
     Observe,
     Stream,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct XpiResourceTransform {
     pub access: AccessMode,
     pub modifier: Option<XpiResourceModifier>,
@@ -261,7 +270,7 @@ impl<'i> Parse<'i> for XpiSerial {
 #[derive(Debug, Clone)]
 pub struct XpiBlockKeyValue<'i> {
     pub key: Identifier<'i, XpiKeyName>,
-    pub value: XpiValue<'i>,
+    pub value: Expr<'i>,
 }
 
 impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
@@ -274,21 +283,21 @@ impl<'i> Parse<'i> for XpiBlockKeyValue<'i> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum XpiValue<'i> {
-    Stmt(Stmt<'i>),
-    Expr(Expr<'i>),
-}
-
-impl<'i> Parse<'i> for XpiValue<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let try_stmt: Option<Stmt<'i>> = input.parse_or_skip()?;
-        match try_stmt {
-            Some(stmt) => Ok(XpiValue::Stmt(stmt)),
-            None => Ok(XpiValue::Expr(input.parse()?)),
-        }
-    }
-}
+// #[derive(Debug, Clone)]
+// pub enum XpiValue<'i> {
+//     Stmt(Stmt<'i>),
+//     Expr(Expr<'i>),
+// }
+//
+// impl<'i> Parse<'i> for XpiValue<'i> {
+//     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+//         let try_stmt: Option<Stmt<'i>> = input.parse_or_skip()?;
+//         match try_stmt {
+//             Some(stmt) => Ok(XpiValue::Stmt(stmt)),
+//             None => Ok(XpiValue::Expr(input.parse()?)),
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod test {

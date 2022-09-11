@@ -1,8 +1,11 @@
+use std::convert::{TryFrom, TryInto};
 use crate::ast::struct_def::StructDef;
 use crate::ast::visit_mut::VisitMut;
 use parser::ast::definition::Definition as ParserDefinition;
 use parser::ast::file::File as ParserFile;
 use parser::span::{Span, SpanOrigin};
+use crate::ast::xpi_def::XpiDef;
+use crate::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct File {
@@ -12,8 +15,16 @@ pub struct File {
 impl File {
     pub fn from_parser_ast(file: ParserFile) -> Self {
         let mut file_core_ast = File {
-            items: file.defs.iter().map(|def| def.clone().into()).collect(),
+            items: vec![]
         };
+        for d in file.defs {
+            match d.try_into() {
+                Ok(d) => file_core_ast.items.push(d),
+                Err(e) => {
+                    println!("{:?}", e);
+                }
+            }
+        }
         let mut modifier = SpanOriginModifier { to: file.origin };
         modifier.visit_file(&mut file_core_ast);
         file_core_ast
@@ -36,7 +47,7 @@ pub enum Definition {
     Struct(StructDef),
     //Function(FunctionDef),
     //TypeAlias(TypeAliasDef),
-    //XpiBlock(XpiBlockDef),
+    Xpi(XpiDef),
 }
 
 // impl<'i> From<ParserFile<'i>> for File {
@@ -47,15 +58,17 @@ pub enum Definition {
 //     }
 // }
 
-impl<'i> From<ParserDefinition<'i>> for Definition {
-    fn from(pd: ParserDefinition<'i>) -> Self {
+impl<'i> TryFrom<ParserDefinition<'i>> for Definition {
+    type Error = Error;
+
+    fn try_from(pd: ParserDefinition<'i>) -> Result<Self, Self::Error> {
         match pd {
             ParserDefinition::Const(_) => todo!(),
             ParserDefinition::Enum(_) => todo!(),
-            ParserDefinition::Struct(sd) => Definition::Struct(sd.into()),
+            ParserDefinition::Struct(sd) => Ok(Definition::Struct(sd.into())),
             ParserDefinition::Function(_) => todo!(),
             ParserDefinition::TypeAlias(_) => todo!(),
-            ParserDefinition::XpiBlock(_) => todo!(),
+            ParserDefinition::XpiBlock(xpi) => Ok(Definition::Xpi(xpi.try_into()?)),
         }
     }
 }

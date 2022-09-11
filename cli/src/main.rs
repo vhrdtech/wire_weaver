@@ -55,6 +55,7 @@ fn main() -> Result<()> {
                         cg_file.push(&cg_struct_ser, struct_def.span.clone());
                         cg_file.push(&cg_struct_des, struct_def.span.clone());
                     }
+                    _ => todo!(),
                 }
             }
             let rendered_file = cg_file.render()?.0;

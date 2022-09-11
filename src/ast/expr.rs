@@ -19,6 +19,14 @@ pub enum Expr {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VecExpr(pub Vec<Expr>);
 
+/// Expression that is eventually expected to be a literal
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TryEvaluateInto<T> {
+    NotResolved(Expr),
+    Resolved(T),
+    Error
+}
+
 impl<'i> From<ExprParser<'i>> for Expr {
     fn from(expr: ExprParser<'i>) -> Self {
         match expr {

@@ -62,6 +62,7 @@ where
 {
     match node {
         Definition::Struct(struct_def) => v.visit_struct(struct_def),
+        _ => todo!(),
     }
 }
 

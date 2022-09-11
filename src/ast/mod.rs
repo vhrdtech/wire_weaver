@@ -8,3 +8,5 @@ pub mod ty;
 pub mod visit;
 pub mod visit_mut;
 pub mod xpi_def;
+pub mod fn_def;
+pub mod set;

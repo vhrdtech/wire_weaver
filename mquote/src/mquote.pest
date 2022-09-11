@@ -20,7 +20,7 @@ interpolate_repetition = {
     ")" ~ repetition_separator? ~ "*"
 }
 
-ident = @{ XID_START ~ XID_CONTINUE* }
+ident = @{ (XID_START | "!") ~ XID_CONTINUE* } // ! => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
 
 punct_eqeq = _{ "==" }
 punct_assign = _{ "=" }

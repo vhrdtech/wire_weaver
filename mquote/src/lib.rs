@@ -198,13 +198,16 @@ fn tt_append(
             }
         }
         Rule::ident => {
-            let ident_lit = Literal::string(token.as_str());
-            let flavor = ident_flavor(language);
+            let cancel_auto_raw = token.as_str().chars().next().unwrap() == '!';
+            let (ident_lit, flavor) = if cancel_auto_raw {
+                (Literal::string(&token.as_str()[1..]), Ident::new("Plain", Span::call_site()))
+            } else {
+                (Literal::string(token.as_str()), ident_flavor(language))
+            };
             ts_builder.append_all(quote! {
                 ts.append(
                     mtoken::Ident::new(
                         Rc::new(#ident_lit.to_owned()),
-                        // IdentFlavor::Plain,
                         mtoken::token::IdentFlavor::#flavor,
                         //Span::call_site()
                     )

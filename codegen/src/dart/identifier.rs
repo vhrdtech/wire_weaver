@@ -18,9 +18,7 @@ impl ToTokens for Identifier {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use mquote::mquote;
-    use vhl::span::Span;
 
     #[test]
     fn identifier_autoraw_mquote() {

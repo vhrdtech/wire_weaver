@@ -52,7 +52,7 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
             .fields
             .iter()
             .map(|f| CGTy { inner: &f.ty });
-        let derives = "#[derive(Copy, Clone, Eq, PartialEq, Debug)]"; // TODO: make automatic and configurable
+        let derives = mquote!(rust r#"#[derive(Copy, Clone, Eq, PartialEq, Debug)]"#); // TODO: make automatic and configurable
         tokens.append_all(mquote!(rust r#"
             #derives
             pub struct #{self.typename} {
@@ -83,20 +83,28 @@ impl<'ast> Depends for CGStructDef<'ast> {
 mod test {
     use mquote::mquote;
     use mtoken::ToTokens;
+    use parser::span::{SourceOrigin, SpanOrigin};
     use vhl::ast::file::Definition;
-    use vhl::span::{SourceOrigin, SpanOrigin};
 
     #[test]
     fn struct_def() {
         let vhl_input = "struct Point { x: u16, y: u16 }";
         let origin = SpanOrigin::Parser(SourceOrigin::Str);
-        let ast_parser = parser::ast::file::File::parse(vhl_input).unwrap();
-        let ast_core = vhl::ast::file::File::from_parser_ast(ast_parser, origin);
+        let ast_parser = parser::ast::file::File::parse(vhl_input, origin).unwrap();
+        let ast_core = vhl::ast::file::File::from_parser_ast(ast_parser);
         match &ast_core.items[0] {
             Definition::Struct(struct_def) => {
                 let cg_struct_def = super::CGStructDef::new(struct_def);
                 let ts = mquote!(rust r#" #cg_struct_def "#);
-                println!("{}", ts);
+                let ts_should_be = mquote!(rust r#"
+                    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+                    pub struct Point {
+                        pub x: u16,
+                        pub y: u16
+                    }
+                "#);
+
+                assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             } // _ => panic!("Expected struct definition")
         }
     }

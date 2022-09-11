@@ -55,6 +55,8 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
 
 fn new_ts_builder() -> proc_macro2::TokenStream {
     quote! {
+        use std::rc::Rc;
+        use mtoken::ext::TokenStreamExt;
         let mut ts = mtoken::TokenStream::new();
     }
 }

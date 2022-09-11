@@ -21,15 +21,15 @@ impl<'ast> ToTokens for CGIdentifier<'ast> {
 mod test {
     use super::*;
     use mquote::mquote;
+    use parser::span::Span;
     use vhl::ast::identifier::IdentifierContext;
-    use vhl::span::Span;
 
     #[test]
     fn identifier() {
         let ast_ident = vhl::ast::identifier::Identifier {
             symbols: Rc::new("value".to_string()),
             context: IdentifierContext::UserTyName,
-            span: Span::call_site(),
+            span: Span::call_site()
         };
         let cg_ident = CGIdentifier { inner: &ast_ident };
         let mut ts = TokenStream::new();
@@ -42,7 +42,7 @@ mod test {
         let ast_ident = vhl::ast::identifier::Identifier {
             symbols: Rc::new("value".to_string()),
             context: IdentifierContext::UserTyName,
-            span: Span::call_site(),
+            span: Span::call_site()
         };
         let cg_ident = CGIdentifier { inner: &ast_ident };
         let ts = mquote!(rust r#"

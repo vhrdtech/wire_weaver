@@ -211,11 +211,9 @@ impl<'ast> Depends for StructDes<'ast> {
 #[cfg(test)]
 mod test {
     use mquote::mquote;
-    use mtoken::ext::TokenStreamExt;
     use mtoken::ToTokens;
     use parser::span::{SourceOrigin, SpanOrigin};
     use vhl::ast::file::Definition;
-    use std::rc::Rc;
 
     #[test]
     fn struct_ser_buf() {

@@ -6,6 +6,7 @@ pub struct Lexer;
 mod test {
     use super::{Lexer, Rule};
     use crate::pest::{iterators::Pairs, Parser};
+    #[allow(unused_imports)]
     use crate::util::ppt;
 
     fn verify<I>(mut input: Pairs<Rule>, level: Vec<usize>, spans: &str, expected: I) -> bool
@@ -357,12 +358,12 @@ mod test {
         let span2 = "       ^-------^    ";
         let span3 = "            ^-^     ";
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected2 = [Rule::floating_any_ty];
+        let expected2 = [Rule::any_ty];
         let expected3 = [Rule::si_expr];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 1], span2, expected2));
-        assert!(verify(parsed.clone(), vec![0, 1, 0], span3, expected3));
+        assert!(verify(parsed.clone(), vec![0, 1, 0, 0], span3, expected3));
     }
 
     #[test]
@@ -373,7 +374,7 @@ mod test {
         let span3 = "               ^----^^-----------------^    ";
         let expected1 = [Rule::xpi_block];
         let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected3 = [Rule::access_mod, Rule::generic_ty];
+        let expected3 = [Rule::xpi_resource_kind, Rule::any_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
@@ -388,7 +389,7 @@ mod test {
         let span3 = "          ^---------------------------^    ";
         let expected1 = [Rule::xpi_block];
         let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected3 = [Rule::array_ty];
+        let expected3 = [Rule::any_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
@@ -401,7 +402,7 @@ mod test {
         let span1 = "^-------------^";
         let span2 = "       ^--^    ";
         let expected1 = [Rule::xpi_block];
-        let expected2 = [Rule::fn_ty];
+        let expected2 = [Rule::any_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0, 1], span2, expected2));
@@ -461,7 +462,7 @@ mod test {
         let span1 = " ^------^^------^ ^^";
         let span2 = "          ^^  ^^    ";
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected2 = [Rule::discrete_any_ty, Rule::xpi_serial];
+        let expected2 = [Rule::any_ty, Rule::xpi_serial];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
         // println!("{:?}", parsed);
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
@@ -502,7 +503,7 @@ mod test {
         let span1 = "^--^^-^";
         let span2 = "     | ";
         let expected1 = [Rule::identifier, Rule::generics];
-        let expected2 = [Rule::derive];
+        let expected2 = [Rule::any_ty];
         let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed, vec![0, 1], span2, expected2));
@@ -545,7 +546,7 @@ mod test {
         let expected2 = [Rule::any_lit];
         let expected3 = [Rule::any_lit, Rule::any_lit, Rule::any_lit];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        ppt!(parsed);
+        // ppt!(parsed);
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span2, expected2));
         assert!(verify(parsed.clone(), vec![0, 0, 0], span3, expected3));
@@ -663,10 +664,10 @@ mod test {
         let input = "type UserTy = autonum<0, 1 ..= 10>;";
         let span1 = "^---------------------------------^";
         let span2 = "     ^----^   ^------------------^ ";
-        let span3 = "              ^-----^^-----------^ ";
+        let span3 = "              ^------------------^ ";
         let expected1 = [Rule::type_alias_def];
-        let expected2 = [Rule::identifier, Rule::generic_ty];
-        let expected3 = [Rule::identifier, Rule::generics];
+        let expected2 = [Rule::identifier, Rule::any_ty];
+        let expected3 = [Rule::generic_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));

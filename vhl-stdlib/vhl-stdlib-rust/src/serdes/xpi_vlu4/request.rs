@@ -434,7 +434,6 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
 #[cfg(test)]
 mod test {
     extern crate std;
-    use std::println;
 
     use crate::discrete::{U2Sp1, U4};
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
@@ -460,7 +459,7 @@ mod test {
         ];
         let mut rdr = NibbleBuf::new_all(&buf);
         let req: XpiRequest = rdr.des_vlu4().unwrap();
-        println!("{}", req);
+        // println!("{}", req);
         assert_eq!(req.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
         assert_eq!(req.request_id, RequestId::new(27).unwrap());
         assert_eq!(req.source, NodeId::new(42).unwrap());

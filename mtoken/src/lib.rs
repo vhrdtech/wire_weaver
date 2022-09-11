@@ -15,7 +15,6 @@ mod tests {
     use crate::ext::TokenStreamExt;
     use crate::token::IdentFlavor;
     use std::rc::Rc;
-    use vhl::span::Span;
 
     #[test]
     fn it_works() {
@@ -23,13 +22,11 @@ mod tests {
         ts.append(Ident::new(
             Rc::new("x".to_string()),
             IdentFlavor::Plain,
-            Span::call_site(),
         ));
         ts.append(Punct::new('+', Spacing::Alone));
         ts.append(Ident::new(
             Rc::new("y".to_string()),
             IdentFlavor::Plain,
-            Span::call_site(),
         ));
         assert_eq!(format!("{}", ts), "x + y");
     }

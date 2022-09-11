@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use pest::{Position, Span};
 use crate::lexer::{Lexer, Rule};
+use crate::span::SpanOrigin;
 
 #[derive(Debug, Clone)]
 pub enum LLItem<'i> {
@@ -11,10 +12,17 @@ pub enum LLItem<'i> {
 #[derive(Debug, Clone)]
 pub struct LLFile<'i> {
     pub items: Vec<LLItem<'i>>,
+    pub origin: SpanOrigin,
 }
 
 #[derive(Debug, Clone)]
-pub enum DelimError {
+pub struct DelimError {
+    origin: SpanOrigin,
+    kind: DelimErrorKind
+}
+
+#[derive(Debug, Clone)]
+pub enum DelimErrorKind {
     UnexpectedClosing {
         delim: char,
         line_col: (usize, usize),
@@ -36,7 +44,7 @@ pub enum DelimError {
 }
 
 impl<'i> LLFile<'i> {
-    pub fn parse(input: &'i str) -> Self {
+    pub fn parse(input: &'i str, origin: SpanOrigin) -> Self {
         let mut pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::file_ll, input)
             .expect("Rule::file_ll shouldn't fail");
         let mut items = Vec::new();
@@ -65,7 +73,8 @@ impl<'i> LLFile<'i> {
             }
         }
         LLFile {
-            items
+            items,
+            origin
         }
     }
 
@@ -82,22 +91,22 @@ impl<'i> LLFile<'i> {
                             if is_matching_delim(**c_open, *c) {
                                 delims.remove(delims.len() - 1);
                             } else {
-                                return Err(DelimError::Unmatched {
+                                return Err(DelimError { kind: DelimErrorKind::Unmatched {
                                     open_delim: **c_open,
                                     open_line_col: open_pos.line_col(),
                                     open_line: open_pos.line_of().to_owned(),
                                     close_delim: *c,
                                     close_line_col: pos.line_col(),
                                     close_line: pos.line_of().to_owned()
-                                })
+                                }, origin: self.origin.clone()})
                             }
                         },
                         None => {
-                            return Err(DelimError::UnexpectedClosing {
+                            return Err(DelimError {kind:DelimErrorKind::UnexpectedClosing {
                                 delim: *c,
                                 line_col: pos.line_col(),
                                 line: pos.line_of().to_owned()
-                            })
+                            }, origin: self.origin.clone()})
                         }
                     }
                 }
@@ -106,11 +115,11 @@ impl<'i> LLFile<'i> {
 
         match delims.last() {
             Some((delim, pos)) => {
-               Err(DelimError::ClosingNotFound {
+               Err(DelimError{kind:DelimErrorKind::ClosingNotFound {
                    open_delim: **delim,
                    open_line_col: pos.line_col(),
                    open_line: pos.line_of().to_owned(),
-               })
+               }, origin: self.origin.clone()})
             },
             None => Ok(())
         }
@@ -130,8 +139,9 @@ fn is_matching_delim(first: char, second: char) -> bool {
 impl DelimError {
     pub fn format(&self) -> String {
         let spacing = self.spacing();
-        match self {
-            DelimError::UnexpectedClosing { delim, line_col, line } => {
+        let origin = format!("{:#}", self.origin);
+        match &self.kind {
+            DelimErrorKind::UnexpectedClosing { delim, line_col, line } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{l}:{c}\n\
@@ -141,7 +151,7 @@ impl DelimError {
                      {s    }{b} |{r}\n\
                      {s    }{b} = \x1b[39mnote:{r} Unexpected closing delimiter '{cd}'",
                     s = spacing,
-                    p = "path.vhl",
+                    p = origin,
                     l = line_col.0,
                     c = line_col.1,
                     w = spacing.len(),
@@ -152,7 +162,7 @@ impl DelimError {
                     r = "\x1b[0m"
                 )
             }
-            DelimError::Unmatched { open_delim, open_line_col, open_line, close_delim, close_line_col, close_line } => {
+            DelimErrorKind::Unmatched { open_delim, open_line_col, open_line, close_delim, close_line_col, close_line } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{ol}:{oc}\n\
@@ -165,7 +175,7 @@ impl DelimError {
                      {s    }{b} |{r}\n\
                      {s    }{b} = \x1b[39mnote:{r} Open delimiter '{od}' is closed with incorrect '{cd}'",
                     s = spacing,
-                    p = "path.vhl",
+                    p = origin,
                     ol = open_line_col.0,
                     oc = open_line_col.1,
                     cl = close_line_col.0,
@@ -180,7 +190,7 @@ impl DelimError {
                     r = "\x1b[0m"
                 )
             }
-            DelimError::ClosingNotFound { open_delim, open_line_col, open_line } => {
+            DelimErrorKind::ClosingNotFound { open_delim, open_line_col, open_line } => {
                 format!(
                     "\x1b[31m\x1b[1merror\x1b[39m: unmatched delimiters\x1b[0m\n\
                      {s    }{b}-->{r} {p}:{l}:{c}\n\
@@ -190,7 +200,7 @@ impl DelimError {
                      {s    }{b} |{r}\n\
                      {s    }{b} = \x1b[39mnote:{r} Found open delimiter: '{od}', but no closing one for it",
                     s = spacing,
-                    p = "path.vhl",
+                    p = origin,
                     l = open_line_col.0,
                     c = open_line_col.1,
                     w = spacing.len(),
@@ -205,10 +215,10 @@ impl DelimError {
     }
 
     fn spacing(&self) -> String {
-        let line = match self {
-            DelimError::UnexpectedClosing { line_col, .. } => line_col.0,
-            DelimError::Unmatched { close_line_col, .. } => close_line_col.0,
-            DelimError::ClosingNotFound { open_line_col, .. } => open_line_col.0,
+        let line = match self.kind {
+            DelimErrorKind::UnexpectedClosing { line_col, .. } => line_col.0,
+            DelimErrorKind::Unmatched { close_line_col, .. } => close_line_col.0,
+            DelimErrorKind::ClosingNotFound { open_line_col, .. } => open_line_col.0,
         };
 
         let line_str_len = format!("{}", line).len();

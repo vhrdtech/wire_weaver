@@ -5,12 +5,10 @@ mod handlers;
 use clap::Parser;
 
 use std::path::PathBuf;
-use std::rc::Rc;
-use anyhow::{
-    Context, Result};
+use anyhow::{anyhow, Context, Result};
 use parser::ast::file::File;
+use parser::span::{SourceOrigin, SpanOrigin};
 use vhl::ast::file::Definition;
-use vhl::span::{SourceOrigin, SpanOrigin};
 use crate::commands::Commands;
 
 // struct ExprVisitor {}
@@ -30,14 +28,9 @@ fn main() -> Result<()> {
         Some(Commands::Generate { vhl_source }) => {
             let input = std::fs::read_to_string(vhl_source.clone())
                 .context(format!("unable to open '{:?}'", vhl_source))?;
-            let file = File::parse(&input)?;
-            // println!("\x1b[33mWarnings: {:?}\x1b[0m", file.warnings);
-            // for def in file.clone().defs {
-            //     println!("\x1b[45mD:\x1b[0m\t{:?}\n", def);
-            // }
-            // println!("File: {:?}", file.0);
+            let origin = SpanOrigin::Parser(SourceOrigin::File(vhl_source.clone()));
+            let file = File::parse(&input, origin.clone())?;
 
-            let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(vhl_source.clone())));
             let ast_core = vhl::ast::file::File::from_parser_ast(file, origin.clone());
             // println!("{:?}", ast_core);
 
@@ -78,14 +71,27 @@ fn main() -> Result<()> {
             let local_path = PathBuf::from(vhl_source.clone());
             let input = std::fs::read_to_string(local_path.clone())
                 .context(format!("unable to open '{:?}'", vhl_source))?;
-            let file = File::parse(&input)?;
+            let origin = SpanOrigin::Parser(SourceOrigin::File(local_path.clone()));
+            let file = match File::parse(&input, origin.clone()) {
+                Ok(file) => file,
+                Err(e) => {
+                    println!("{}", e);
+                    return Err(anyhow!("Input contains syntax errors"));
+                }
+            };
             if !file.warnings.is_empty() {
                 println!("\x1b[33mLexer warnings: {:?}\x1b[0m", file.warnings);
             }
             if lexer {
                 match definition {
                     Some(name) => {
-                        let tree = File::parse_tree(&input, name.as_str())?;
+                        let tree = match File::parse_tree(&input, name.as_str(), origin.clone()) {
+                            Ok(t) => t,
+                            Err(e) => {
+                                println!("{}", e);
+                                return Err(anyhow!("Input contains syntax errors"));
+                            }
+                        };
                         match tree {
                             Some(tree) => {
                                 println!("{}", tree);
@@ -105,7 +111,6 @@ fn main() -> Result<()> {
                     }
                 }
             } else if parser {
-                let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(local_path.clone())));
                 let ast_core = vhl::ast::file::File::from_parser_ast(file, origin.clone());
                 match definition {
                     Some(_name) => {

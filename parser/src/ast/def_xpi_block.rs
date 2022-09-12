@@ -2,7 +2,7 @@ use super::prelude::*;
 use crate::ast::expr::Expr;
 use crate::ast::naming::{XpiKeyName, XpiUriSegmentName};
 use crate::ast::ty::Ty;
-use crate::error::ParseErrorKind;
+use crate::error::{ParseError, ParseErrorKind};
 use either::Either;
 use std::fmt::{Debug, Formatter};
 use pest::Span;
@@ -83,6 +83,14 @@ impl<'i> Parse<'i> for XpiResourceTy<'i> {
                 }
                 Rule::xpi_resource_transform => {
                     let transform = input.parse()?;
+                    if input.pairs.peek().expect("wrong grammar").as_rule() == Rule::resource_cell_ty {
+                        input.errors.push(ParseError {
+                            kind: ParseErrorKind::CellWithAccessModifier,
+                            rule: p.as_rule(),
+                            span: (p.as_span().start(), p.as_span().end())
+                        });
+                        return Err(ParseErrorSource::UserError);
+                    }
                     let ty = input.parse()?;
                     Some(Either::Right(XpiPlainTy(Some(transform), ty)))
                 }

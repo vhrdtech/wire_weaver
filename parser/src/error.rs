@@ -30,6 +30,7 @@ pub enum ParseErrorKind {
     IntParseError,
     MalformedResourcePath,
     WrongAccessModifier,
+    CellWithAccessModifier,
 }
 
 #[derive(Error, Debug)]

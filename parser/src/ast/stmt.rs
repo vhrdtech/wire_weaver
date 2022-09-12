@@ -16,7 +16,7 @@ pub enum Stmt<'i> {
 impl<'i> Stmt<'i> {
     pub fn parse(input: &'i str, origin: SpanOrigin) -> Result<Self, FileError> {
         let pairs =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
+            <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input).map_err(|e| FileError {
                 kind: FileErrorKind::Lexer(e),
                 origin: origin.clone(),
                 input: input.to_owned(),

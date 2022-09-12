@@ -163,101 +163,93 @@ impl<'i> TryFrom<( Option<Either<XpiCellTy<'i>, XpiPlainTy<'i>>>, Span )> for Xp
     fn try_from(ty: ( Option<Either<XpiCellTy<'i>, XpiPlainTy<'i>>>, Span )) -> Result<Self, Self::Error> {
         match ty.0 {
             Some(Either::Right(plain_ty)) => {
-                let access = plain_ty.0.map(|t| t.access).unwrap_or(AccessMode::Ro);
-                let modifier = plain_ty.0.map(|t| t.modifier).flatten();
-                match modifier {
-                    Some(m) => {
-                        if let TyKindParser::Fn { .. } = plain_ty.1.kind {
-                            return Err(Error {
-                                kind: ErrorKind::FnWithMods,
-                                span: ty.1
-                            });
-                        }
-                        match m {
-                            XpiResourceModifier::Observe => {
-                                if access == AccessMode::Const { // const+observe
-                                    return Err(Error {
-                                        kind: ErrorKind::ConstWithMods,
-                                        span: ty.1
-                                    });
-                                }
-                                if access == AccessMode::Wo { // wo+observe
-                                    return Err(Error {
-                                        kind: ErrorKind::WoObserve,
-                                        span: ty.1
-                                    });
-                                }
-                                Ok(XpiKind::Property {
-                                    access,
-                                    observable: true,
-                                    ty: plain_ty.1.into()
-                                })
-                            },
-                            XpiResourceModifier::Stream => {
-                                if access == AccessMode::Const { // const+stream
-                                    return Err(Error {
-                                        kind: ErrorKind::ConstWithMods,
-                                        span: ty.1
-                                    });
-                                }
-                                Ok(XpiKind::Stream {
-                                    dir: access,
-                                    ty: plain_ty.1.into()
-                                })
-                            }
-                        }
-                    },
-                    None => {
-                        if let TyKindParser::Fn { .. } = plain_ty.1.kind {
-                            unimplemented!("fn resource");
-                        } else {
-                            Ok(XpiKind::Property {
-                                access,
-                                observable: false,
-                                ty: plain_ty.1.into()
-                            })
-                        }
-                    }
-                }
+                Self::try_from_plain_ty(plain_ty, ty.1)
             }
             Some(Either::Left(cell_ty)) => {
-                // by default resource inside a Cell is rw
-                let transform = match cell_ty.0 {
-                    Some(t) => Some(t),
-                    None => Some(XpiResourceTransform {
-                        access: AccessMode::Rw,
-                        modifier: None
-                    })
-                };
-                let inner = ( Some(Either::Right(XpiPlainTy(transform, cell_ty.1))), ty.1.clone() ).try_into()?;
-                match inner {
-                    XpiKind::Property { access, .. } => {
-                        if access == AccessMode::Const || access == AccessMode::Ro {
-                            return Err(Error {
-                                kind: ErrorKind::CellWithConstRo,
-                                span: ty.1
-                            });
-                        }
-                    }
-                    XpiKind::Stream { dir, .. } => {
-                        if dir == AccessMode::Ro {
-                            return Err(Error {
-                                kind: ErrorKind::CellWithRoStream,
-                                span: ty.1
-                            });
-                        }
-                    }
-                    XpiKind::Method { .. } => {}
-
-                    XpiKind::Group | XpiKind::Array | XpiKind::Cell { .. } => unreachable!()
-                }
-                Ok(XpiKind::Cell {
-                    inner: Box::new(inner)
-                })
+                Self::try_from_cell_ty(cell_ty, ty.1)
             }
             None => {
                 Ok(XpiKind::Group)
             }
         }
+    }
+}
+
+impl XpiKind {
+    fn try_from_plain_ty(plain_ty: XpiPlainTy, span: Span) -> Result<XpiKind, Error> {
+        let access = plain_ty.0.map(|t| t.access).unwrap_or(AccessMode::Ro);
+        let modifier = plain_ty.0.map(|t| t.modifier).flatten();
+        match modifier {
+            Some(m) => {
+                if let TyKindParser::Fn { .. } = plain_ty.1.kind {
+                    return Err(Error::new(ErrorKind::FnWithMods, span));
+                }
+                match m {
+                    XpiResourceModifier::Observe => {
+                        if access == AccessMode::Const { // const+observe
+                            return Err(Error::new(ErrorKind::ConstWithMods, span));
+                        }
+                        if access == AccessMode::Wo { // wo+observe
+                            return Err(Error::new(ErrorKind::WoObserve, span));
+                        }
+                        Ok(XpiKind::Property {
+                            access,
+                            observable: true,
+                            ty: plain_ty.1.into()
+                        })
+                    },
+                    XpiResourceModifier::Stream => {
+                        if access == AccessMode::Const { // const+stream
+                            return Err(Error::new(ErrorKind::ConstWithMods, span));
+                        }
+                        Ok(XpiKind::Stream {
+                            dir: access,
+                            ty: plain_ty.1.into()
+                        })
+                    }
+                }
+            },
+            None => {
+                if let TyKindParser::Fn { .. } = plain_ty.1.kind {
+                    unimplemented!("fn resource");
+                } else {
+                    Ok(XpiKind::Property {
+                        access,
+                        observable: false,
+                        ty: plain_ty.1.into()
+                    })
+                }
+            }
+        }
+    }
+
+    fn try_from_cell_ty(cell_ty: XpiCellTy, span: Span) -> Result<XpiKind, Error> {
+        // by default resource inside a Cell is rw
+        let transform = match cell_ty.0 {
+            Some(t) => Some(t),
+            None => Some(XpiResourceTransform {
+                access: AccessMode::Rw,
+                modifier: None
+            })
+        };
+        let inner = (Some(Either::Right(XpiPlainTy(transform, cell_ty.1))), span.clone()).try_into()?;
+        match inner {
+            XpiKind::Property { access, .. } => {
+                if access == AccessMode::Const || access == AccessMode::Ro {
+                    return Err(Error::new(ErrorKind::CellWithConstRo, span));
+                }
+            }
+            XpiKind::Stream { dir, .. } => {
+                if dir == AccessMode::Ro {
+                    return Err(Error::new(ErrorKind::CellWithRoStream, span));
+                }
+            }
+            XpiKind::Method { .. } => {}
+
+            XpiKind::Group | XpiKind::Array | XpiKind::Cell { .. } => unreachable!()
+        }
+        Ok(XpiKind::Cell {
+            inner: Box::new(inner)
+        })
     }
 }

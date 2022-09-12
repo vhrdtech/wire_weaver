@@ -7,6 +7,12 @@ pub struct Error {
     pub span: Span,
 }
 
+impl Error {
+    pub fn new(kind: ErrorKind, span: Span) -> Self {
+        Error { kind, span }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum ErrorKind {
     #[error("No serial number provided for a resource")]

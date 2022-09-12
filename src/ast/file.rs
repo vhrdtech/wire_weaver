@@ -1,4 +1,5 @@
 use std::convert::{TryFrom, TryInto};
+use std::fmt::{Display, Formatter};
 use crate::ast::struct_def::StructDef;
 use crate::ast::visit_mut::VisitMut;
 use parser::ast::definition::Definition as ParserDefinition;
@@ -69,6 +70,25 @@ impl<'i> TryFrom<ParserDefinition<'i>> for Definition {
             ParserDefinition::Function(_) => todo!(),
             ParserDefinition::TypeAlias(_) => todo!(),
             ParserDefinition::XpiBlock(xpi) => Ok(Definition::Xpi(xpi.try_into()?)),
+        }
+    }
+}
+
+impl Display for File {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "File at ",)?;
+        for d in &self.items {
+            writeln!(f, "{}\n", d)?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for Definition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Definition::Struct(s) => writeln!(f, "{}", s),
+            Definition::Xpi(_x) => writeln!(f, "xPI"),
         }
     }
 }

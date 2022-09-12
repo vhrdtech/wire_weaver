@@ -1,9 +1,10 @@
+use std::fmt::{Display, Formatter};
+use termion::{color, style};
 use crate::ast::doc::Doc;
 use crate::ast::identifier::Identifier;
 use crate::ast::ty::Ty;
 use parser::ast::def_struct::{
     DefStruct as StructDefParser, StructField as StructFieldParser,
-    StructFields as StructFieldsParser,
 };
 use parser::span::Span;
 
@@ -53,5 +54,39 @@ impl StructDef {
             }
         }
         true
+    }
+}
+
+impl Display for StructDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "{}{}{}struct{} {:-} {}-->{} {:#}",
+            self.doc,
+            style::Bold,
+            color::Fg(color::Rgb(203, 120, 50)),
+            style::Reset,
+            self.typename,
+            color::Fg(color::Blue),
+            style::Reset,
+            self.span
+        )?;
+        self.fields.iter().try_for_each(|sf| write!(f, "{}", sf))?;
+        Ok(())
+    }
+}
+
+impl Display for StructField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "  {}pub {}{:-}{}: {}",
+            // self.doc,
+            color::Fg(color::Rgb(203, 120, 50)),
+            color::Fg(color::Magenta),
+            self.name,
+            style::Reset,
+            self.ty
+        )
     }
 }

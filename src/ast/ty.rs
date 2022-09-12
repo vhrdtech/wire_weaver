@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use parser::ast::ty::Ty as TyParser;
 use parser::ast::ty::TyKind as TyKindParser;
 use parser::span::Span;
@@ -77,6 +78,31 @@ impl Ty {
             TyKind::Unit => true,
             TyKind::Boolean => true,
             TyKind::Discrete(_) => true,
+        }
+    }
+}
+
+impl Display for Ty {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            TyKind::Unit => write!(f, "()"),
+            TyKind::Boolean => write!(f, "bool"),
+            TyKind::Discrete(d) => write!(f, "{}", d),
+        }
+    }
+}
+
+impl Display for DiscreteTy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let sym = if self.is_signed {
+            'i'
+        } else {
+            'u'
+        };
+        if self.shift == 0 {
+            write!(f, "{}{}", sym, self.bits)
+        } else {
+            write!(f, "{}{}{{{}}}", sym, self.bits, self.shift)
         }
     }
 }

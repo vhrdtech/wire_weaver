@@ -14,6 +14,7 @@ parser = { path = "../parser" }
 codegen = { path = "../codegen" }
 rustyline = "^10.0.0"
 rustyline-derive = "^0.7.0"
+termion = "*"
 
 [features]
 backtrace = ["parser/backtrace"]

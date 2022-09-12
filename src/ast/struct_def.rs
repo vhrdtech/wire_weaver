@@ -11,13 +11,8 @@ use parser::span::Span;
 pub struct StructDef {
     pub doc: Doc,
     pub typename: Identifier,
-    pub fields: StructFields,
-    pub span: Span,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StructFields {
     pub fields: Vec<StructField>,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,16 +28,8 @@ impl<'i> From<StructDefParser<'i>> for StructDef {
         StructDef {
             doc: sd.doc.into(),
             typename: sd.typename.into(),
-            fields: sd.fields.into(),
+            fields: sd.fields.fields.iter().map(|sf| sf.clone().into()).collect(),
             span: sd.span.into(),
-        }
-    }
-}
-
-impl<'i> From<StructFieldsParser<'i>> for StructFields {
-    fn from(sfs: StructFieldsParser<'i>) -> Self {
-        StructFields {
-            fields: sfs.fields.iter().map(|sf| sf.clone().into()).collect(),
         }
     }
 }
@@ -60,7 +47,7 @@ impl<'i> From<StructFieldParser<'i>> for StructField {
 
 impl StructDef {
     pub fn is_sized(&self) -> bool {
-        for f in &self.fields.fields {
+        for f in &self.fields {
             if !f.ty.is_sized() {
                 return false;
             }

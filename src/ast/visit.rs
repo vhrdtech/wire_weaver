@@ -72,7 +72,7 @@ where
 {
     v.visit_doc(&node.doc);
     v.visit_identifier(&node.typename);
-    for field in &node.fields.fields {
+    for field in &node.fields {
         v.visit_struct_field(field);
     }
     v.visit_span(&node.span);

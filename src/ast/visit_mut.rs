@@ -72,7 +72,7 @@ where
 {
     v.visit_doc(&mut node.doc);
     v.visit_identifier(&mut node.typename);
-    for field in &mut node.fields.fields {
+    for field in &mut node.fields {
         v.visit_struct_field(field);
     }
     v.visit_span(&mut node.span);

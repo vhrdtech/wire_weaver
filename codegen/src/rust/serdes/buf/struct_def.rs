@@ -13,7 +13,7 @@ pub struct StructSer<'ast> {
 impl<'ast> StructSer<'ast> {
     pub fn len_bytes(&self) -> Option<usize> {
         let mut len = 0;
-        for f in &self.inner.inner.fields.fields {
+        for f in &self.inner.inner.fields {
             if !f.ty.is_sized() {
                 return None;
             }
@@ -103,13 +103,11 @@ impl<'ast> ToTokens for StructSer<'ast> {
             .inner
             .inner
             .fields
-            .fields
             .iter()
             .map(|field| CGIdentifier { inner: &field.name });
         let field_ser_methods = self
             .inner
             .inner
-            .fields
             .fields
             .iter()
             .map(|f| StructSerField {
@@ -163,13 +161,11 @@ impl<'ast> ToTokens for StructDes<'ast> {
             .inner
             .inner
             .fields
-            .fields
             .iter()
             .map(|field| CGIdentifier { inner: &field.name });
         let field_des_methods = self
             .inner
             .inner
-            .fields
             .fields
             .iter()
             .map(|f| StructDesField {

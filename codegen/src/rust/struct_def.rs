@@ -43,12 +43,10 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
         let field_names = self
             .inner
             .fields
-            .fields
             .iter()
             .map(|f| CGIdentifier { inner: &f.name });
         let field_types = self
             .inner
-            .fields
             .fields
             .iter()
             .map(|f| CGTy { inner: &f.ty });

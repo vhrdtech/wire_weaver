@@ -14,6 +14,7 @@ pub enum TyKind {
     Unit,
     Boolean,
     Discrete(DiscreteTy),
+    // String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -55,7 +56,8 @@ impl<'i> From<TyKindParser<'i>> for TyKind {
                 bits,
                 shift,
             }),
-            _ => todo!(), // TyKindParser::FixedPoint { is_signed, m, n, shift } => TyKind::
+            // TyKindParser::String => TyKind::String,
+            _ => unimplemented!("{:?}", kind), // TyKindParser::FixedPoint { is_signed, m, n, shift } => TyKind::
                           // TyKindParser::FloatingPoint { bits } => {}
                           // TyKindParser::Array { ty, num_bound } => {}
                           // TyKindParser::Tuple(_) => {}

@@ -13,4 +13,12 @@ pub enum ErrorKind {
     NoSerial,
     #[error("Const resource cannot be rw, wo, observe or stream")]
     ConstWithMods,
+    #[error("Method resource cannot be const, ro, rw, wo, observe or stream")]
+    FnWithMods,
+    #[error("Cell holding const or ro resource is redundant")]
+    CellWithConstRo,
+    #[error("Write only resource cannot be observable")]
+    WoObserve,
+    #[error("Cell holding ro+stream is redundant, multiple nodes can subscribe to the same screen")]
+    CellWithRoStream,
 }

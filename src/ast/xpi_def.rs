@@ -6,7 +6,7 @@ use crate::ast::identifier::Identifier;
 use parser::ast::def_xpi_block::{AccessMode, XpiUri as XpiUriParser, DefXpiBlock as XpiDefParser, XpiCellTy, XpiPlainTy, XpiResourceModifier, XpiResourceTransform};
 use crate::ast::fn_def::FnArguments;
 use crate::ast::lit::Lit;
-use crate::ast::ty::Ty;
+use crate::ast::ty::{Ty, TyKind};
 use crate::error::{Error, ErrorKind};
 use either::Either;
 use parser::ast::ty::TyKind as TyKindParser;
@@ -17,7 +17,7 @@ pub struct XpiRootDef {
     pub doc: Doc,
     // pub attrs: Attrs,
     pub id: Identifier,
-    pub kv: HashMap<String, TryEvaluateInto<Lit>>,
+    pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
     // pub implements: Vec<>,
     pub children: Vec<XpiDef>,
 }
@@ -29,7 +29,7 @@ pub struct XpiDef {
     pub uri: XpiUri,
     pub serial: u32,
     pub kind: XpiKind,
-    pub kv: HashMap<String, TryEvaluateInto<Lit>>,
+    pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
     // pub implements: Vec<>,
     pub children: Vec<XpiDef>,
 }
@@ -259,8 +259,13 @@ impl XpiKind {
                 }
             },
             None => {
-                if let TyKindParser::Fn { .. } = plain_ty.1.kind {
-                    unimplemented!("fn resource");
+                if let TyKindParser::Fn { arguments, ret_ty } = plain_ty.1.kind {
+                    Ok(XpiKind::Method {
+                        args: arguments.into(),
+                        ret_ty: ret_ty
+                            .map(|ty| ty.0.into())
+                            .unwrap_or(Ty::new(TyKind::Unit))
+                    })
                 } else {
                     Ok(XpiKind::Property {
                         access,

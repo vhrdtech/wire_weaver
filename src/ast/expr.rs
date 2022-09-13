@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::ast::identifier::Identifier;
 use crate::ast::lit::Lit;
 use parser::ast::expr::{CallArguments, Expr as ExprParser, IndexArguments};
@@ -21,8 +22,8 @@ pub struct VecExpr(pub Vec<Expr>);
 
 /// Expression that is eventually expected to be a literal
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TryEvaluateInto<T> {
-    NotResolved(Expr),
+pub enum TryEvaluateInto<F, T> {
+    NotResolved(F),
     Resolved(T),
     Error
 }
@@ -65,5 +66,48 @@ impl<'i> From<CallArguments<'i>> for VecExpr {
 impl<'i> From<IndexArguments<'i>> for VecExpr {
     fn from(args: IndexArguments<'i>) -> Self {
         VecExpr(args.0.iter().map(|a| a.clone().into()).collect())
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Call { method, args } => {
+                write!(f, "{}({})", method, args)
+            }
+            Expr::Index { object, by } => {
+                write!(f, "{}({})", object, by)
+            }
+            Expr::Lit(lit) => {
+                write!(f, "{}", lit)
+            }
+            Expr::Tuple(exprs) => {
+                write!(f, "{}", exprs)
+            }
+            Expr::Id(ident) => {
+                write!(f, "{}", ident)
+            }
+
+            Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
+            Expr::ConsB(op, a) => {
+                write!(f, "({} {} {})", op.to_str(), a.as_ref().0, a.as_ref().1)
+            }
+        }
+    }
+}
+
+impl Display for VecExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.iter().try_for_each(|expr| write!(f, "{}, ", expr))
+    }
+}
+
+impl<F: Display, T: Display> Display for TryEvaluateInto<F, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TryEvaluateInto::NotResolved(from) => write!(f, "NR({})", from),
+            TryEvaluateInto::Resolved(to) => write!(f, "R({})", to),
+            TryEvaluateInto::Error => write!(f, "ER()"),
+        }
     }
 }

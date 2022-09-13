@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::ast::identifier::Identifier;
 use crate::ast::ty::Ty;
 use parser::ast::def_fn::{
@@ -30,5 +31,11 @@ impl<'i> From<FnArgParser<'i>> for FnArg {
             name: arg.name.into(),
             ty: arg.ty.into()
         }
+    }
+}
+
+impl Display for FnArguments {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.args.iter().try_for_each(|arg| write!(f, "{}: {}, ", arg.name, arg.ty))
     }
 }

@@ -23,6 +23,8 @@ impl<'ast> StructSer<'ast> {
                 TyKind::Discrete(discrete) => {
                     (discrete.bits / 8 + if discrete.bits % 2 != 0 { 1 } else { 0 }) as usize
                 }
+                _ => unimplemented!(), // ?
+
             };
         }
         Some(len)
@@ -61,6 +63,7 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     "#));
                 }
             }
+            _ => unimplemented!()
         }
     }
 }
@@ -93,6 +96,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
                     "#));
                 }
             }
+            _ => unimplemented!()
         }
     }
 }

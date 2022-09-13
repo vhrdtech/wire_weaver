@@ -35,6 +35,7 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     #discrete
                 "#));
             }
+            _ => unimplemented!()
         }
     }
 }

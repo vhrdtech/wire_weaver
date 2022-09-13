@@ -5,7 +5,7 @@ use crate::ast::visit_mut::VisitMut;
 use parser::ast::definition::Definition as ParserDefinition;
 use parser::ast::file::File as ParserFile;
 use parser::span::{Span, SpanOrigin};
-use crate::ast::xpi_def::XpiDef;
+use crate::ast::xpi_def::XpiRootDef;
 use crate::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,7 +48,7 @@ pub enum Definition {
     Struct(StructDef),
     //Function(FunctionDef),
     //TypeAlias(TypeAliasDef),
-    Xpi(XpiDef),
+    Xpi(XpiRootDef),
 }
 
 // impl<'i> From<ParserFile<'i>> for File {

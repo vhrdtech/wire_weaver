@@ -13,6 +13,16 @@ use parser::ast::ty::TyKind as TyKindParser;
 use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct XpiRootDef {
+    pub doc: Doc,
+    // pub attrs: Attrs,
+    pub id: Identifier,
+    pub kv: HashMap<String, TryEvaluateInto<Lit>>,
+    // pub implements: Vec<>,
+    pub children: Vec<XpiDef>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
     pub doc: Doc,
     // pub attrs: Attrs,
@@ -111,6 +121,45 @@ impl<'i> From<XpiUriParser<'i>> for XpiUri {
             }
             XpiUriParser::Full(id1, expr, id2) => XpiUri::Full(id1.into(), expr.into(), id2.into()),
         }
+    }
+}
+
+impl<'i> TryFrom<XpiDefParser<'i>> for XpiRootDef {
+    type Error = Error;
+
+    fn try_from(xd: XpiDefParser<'i>) -> Result<Self, Self::Error> {
+        if xd.resource_ty.is_some() {
+            return Err(Error {
+                kind: ErrorKind::RootWithTyOrSerial,
+                span: xd.span.into(),
+            });
+        }
+        let id = match xd.uri {
+            XpiUriParser::OneNamedPart(id) => id.into(),
+            _ => {
+                return Err(Error {
+                    kind: ErrorKind::RootWithInterpolatedUri,
+                    span: xd.span.into(),
+                });
+            }
+        };
+        let mut children = vec![];
+        for c in xd.body.children {
+            children.push(c.try_into()?);
+        }
+        Ok(XpiRootDef {
+            doc: xd.docs.into(),
+            id,
+            kv: xd.body.kv_list
+                .iter()
+                .map(|kv|
+                    (
+                        kv.key.name.to_string(),
+                        TryEvaluateInto::NotResolved(kv.value.clone().into())
+                    )
+                ).collect(),
+            children
+        })
     }
 }
 

@@ -27,4 +27,8 @@ pub enum ErrorKind {
     WoObserve,
     #[error("Cell holding ro+stream is redundant, multiple nodes can subscribe to the same screen")]
     CellWithRoStream,
+    #[error("Root resource cannot have a type or serial number")]
+    RootWithTyOrSerial,
+    #[error("Root resource uri must be an identifier, not an interpolation")]
+    RootWithInterpolatedUri,
 }

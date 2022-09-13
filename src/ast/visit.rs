@@ -112,9 +112,9 @@ where
     V: Visit + ?Sized,
 {
     match &node.kind {
-        TyKind::Unit => todo!(),
         TyKind::Boolean => v.visit_bool_ty(&node.span),
         TyKind::Discrete(discrete) => v.visit_discrete_ty(discrete, &node.span),
+        _ => {}
     }
     v.visit_span(&node.span);
 }

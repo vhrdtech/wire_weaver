@@ -417,7 +417,7 @@ where
         }
     }
 
-    /// Get a mutable slice of requested length inside a closure. Put is as Ok(&[u8]) if f returns
+    /// Get a mutable slice of requested length inside a closure. Put it as Ok(&[u8]) if f returns
     /// Ok(()) or as Err(E) otherwise.
     ///
     /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.

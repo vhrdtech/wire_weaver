@@ -1,17 +1,19 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use pathsearch::find_executable_in_path;
 use subprocess::{Exec, Redirection};
 
 pub fn format_rust(code: &str) -> Result<String> {
     let rustfmt_path =
         find_executable_in_path("rustfmt").context("Failed to find rustfmt in PATH")?;
-    let formatted = Exec::cmd(rustfmt_path)
+    let rustfmt_run = Exec::cmd(rustfmt_path)
         .stdin(code)
         .stdout(Redirection::Pipe)
         .capture()
-        .context("Failed to run rustfmt, most likely incorrect code?")?
-        .stdout_str();
-    Ok(formatted)
+        .context("Failed to run rustfmt, most likely incorrect code?")?;
+    if !rustfmt_run.exit_status.success() {
+        return Err(anyhow!("rustfmt exited with an error"));
+    }
+    Ok(rustfmt_run.stdout_str())
 }
 
 pub fn colorize(code: &str /*, _language: Language*/) -> Result<String> {

@@ -64,8 +64,7 @@ fn main() -> Result<()> {
                 Ok(formatted_file) => formatted_file,
                 Err(e) => {
                     println!("Failed to format file: {:?}", e);
-                    println!("Raw output:\n{}", rendered_file);
-                    return Ok(());
+                    rendered_file
                 }
             };
             let colorized_file = match util::colorize(formatted_file.as_str()) {

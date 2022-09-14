@@ -55,7 +55,10 @@ fn main() -> Result<()> {
                         cg_file.push(&cg_struct_ser, struct_def.span.clone());
                         cg_file.push(&cg_struct_des, struct_def.span.clone());
                     }
-                    _ => todo!(),
+                    Definition::Xpi(xpi_root_def) => {
+                        let cg_xpi_root_def = codegen::rust::xpi::vlu4::dispatch::DispatchCall { xpi_def: xpi_root_def };
+                        cg_file.push(&cg_xpi_root_def, xpi_root_def.span.clone());
+                    }
                 }
             }
             let rendered_file = cg_file.render()?.0;

@@ -200,9 +200,10 @@ fn tt_append(
             }
         }
         Rule::ident => {
-            let cancel_auto_raw = token.as_str().chars().next().unwrap() == '!';
+            let cancel_auto_raw = token.as_str().chars().next().unwrap() == 'ȸ';
             let (ident_lit, flavor) = if cancel_auto_raw {
-                (Literal::string(&token.as_str()[1..]), Ident::new("Plain", Span::call_site()))
+                let ident_skip: String = token.as_str().chars().skip(1).collect();
+                (Literal::string(ident_skip.as_str()), Ident::new("Plain", Span::call_site()))
             } else {
                 (Literal::string(token.as_str()), ident_flavor(language))
             };

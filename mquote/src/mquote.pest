@@ -20,8 +20,9 @@ interpolate_repetition = {
     ")" ~ repetition_separator? ~ "*"
 }
 
-ident = @{ (XID_START | "!") ~ XID_CONTINUE* } // ! => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
+ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
 
+punct_therefore = _ { "=>" }
 punct_eqeq = _{ "==" }
 punct_assign = _{ "=" }
 
@@ -72,10 +73,12 @@ punct_larrow = _{ "<" }
 punct_pound = _{ "#" }
 punct_dollar = _{ "$" }
 punct_question = _{ "?" }
+punct_underscore = _{ "_" }
 
 punct_newline = _{ "\\n" }
 
 punctuation = {
+    punct_therefore |
     punct_eqeq |
     punct_assign |
     punct_shl |
@@ -116,13 +119,25 @@ punctuation = {
     punct_pound |
     punct_dollar |
     punct_question |
-    punct_newline
+    punct_newline |
+    punct_underscore
 }
 
 delimiter = { "\\\\(" | "\\\\)" | "\\\\{" | "\\\\}" | "\\\\[" | "\\\\]" }
 
+/// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
+char = _{
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "'" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "0")
+    | "\\" ~ ("u{" ~ ASCII_HEX_DIGIT{4, 6} ~ "}")
+}
+char_lit = { "'" ~ char ~ "'" }
+/// String
+string_lit = ${ "\"" ~ string_inner ~ "\"" }
+string_inner = @{ char* }
+
 dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
-literal = { dec_lit_raw }
+literal = { dec_lit_raw | char_lit | string_lit }
 
 //ds_comment = @{ !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 //ts_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }

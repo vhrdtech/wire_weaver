@@ -65,14 +65,18 @@ impl Import {
                 write!(s, "{} as {}", e, r#as).unwrap();
             }
             Import::Submodule(r#mod, e) => {
-                write!(s, "{}::{{", r#mod).unwrap();
-                for (i, import) in e.iter().enumerate() {
-                    write!(s, "{}", import.render_internal()).unwrap();
-                    if i < e.len() - 1 {
-                        write!(s, ", ").unwrap();
+                if e.len() == 1 {
+                    write!(s, "{}::{}", r#mod, e[0].render_internal()).unwrap();
+                } else {
+                    write!(s, "{}::{{", r#mod).unwrap();
+                    for (i, import) in e.iter().enumerate() {
+                        write!(s, "{}", import.render_internal()).unwrap();
+                        if i < e.len() - 1 {
+                            write!(s, ", ").unwrap();
+                        }
                     }
+                    write!(s, "}}").unwrap();
                 }
-                write!(s, "}}").unwrap();
             }
         }
         s

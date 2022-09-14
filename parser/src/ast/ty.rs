@@ -27,7 +27,7 @@ pub enum TyKind<'i> {
         is_signed: bool,
         m: u32,
         n: u32,
-        shift: u128,
+        shift: i128,
     },
     FloatingPoint {
         bits: u32,

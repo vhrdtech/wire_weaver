@@ -10,3 +10,6 @@ pub mod visit_mut;
 pub mod xpi_def;
 pub mod fn_def;
 pub mod set;
+pub mod bound;
+pub mod generics;
+pub mod number;

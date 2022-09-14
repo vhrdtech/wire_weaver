@@ -20,6 +20,7 @@ pub struct XpiRootDef {
     pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
     // pub implements: Vec<>,
     pub children: Vec<XpiDef>,
+    pub span: Span
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -158,7 +159,8 @@ impl<'i> TryFrom<XpiDefParser<'i>> for XpiRootDef {
                         TryEvaluateInto::NotResolved(kv.value.clone().into())
                     )
                 ).collect(),
-            children
+            children,
+            span: xd.span.into()
         })
     }
 }
@@ -307,3 +309,4 @@ impl XpiKind {
         })
     }
 }
+

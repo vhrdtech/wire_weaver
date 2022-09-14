@@ -103,7 +103,8 @@ mod test {
                 "#);
 
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
-            } // _ => panic!("Expected struct definition")
+            }
+            _ => panic!("Expected struct definition")
         }
     }
 }

@@ -1,4 +1,3 @@
-use crate::dependencies::{Dependencies, Depends, Import, Package, RustCrateSource};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::struct_def::CGStructDef;
@@ -120,7 +119,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
         let len_bytes = self.len_bytes().unwrap();
         ts.append_all(mquote!(rust r#"
             impl SerializeBytes for #{self.inner.typename} {
-                !type Error = BufError;
+                ȸtype Error = BufError;
 
                 fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error> {
                     #( #field_ser_methods \\( self.#field_names \\) ?; )*
@@ -177,7 +176,7 @@ impl<'ast> ToTokens for StructDes<'ast> {
             });
         tokens.append_all(mquote!(rust r#"
             impl<'i> DeserializeBytes<'i> for #{self.inner.typename} {
-                !type Error = BufError;
+                ȸtype Error = BufError;
 
                 fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                     Ok(#{self.inner.typename} {
@@ -234,7 +233,8 @@ mod test {
 
                 let ts_should_be = mquote!(rust r#"
                     impl SerializeBytes for Point {
-                        !type Error = BufError;
+                        ȸtype Error = BufError;
+
                         fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error> {
                             wr.put_u16_le(self.x)?;
                             wr.put_u16_le(self.y)?;
@@ -248,7 +248,8 @@ mod test {
                 "#);
 
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
-            } // _ => panic!("Expected struct definition")
+            }
+            _ => panic!("Expected struct definition")
         }
     }
 
@@ -268,7 +269,8 @@ mod test {
 
                 let ts_should_be = mquote!(rust r#"
                     impl<'i> DeserializeBytes<'i> for Point {
-                        !type Error = BufError;
+                        ȸtype Error = BufError;
+
                         fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                             Ok(Point {
                                 x: rdr.get_u16_le()?,
@@ -278,7 +280,8 @@ mod test {
                     }
                 "#);
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
-            } // _ => panic!("Expected struct definition")
+            }
+            _ => panic!("Expected struct definition")
         }
     }
 }

@@ -291,3 +291,12 @@ impl ToTokens for usize {
         })
     }
 }
+
+impl ToTokens for u32 {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Literal {
+            repr: self.to_string(),
+            // span: Span::call_site()
+        })
+    }
+}

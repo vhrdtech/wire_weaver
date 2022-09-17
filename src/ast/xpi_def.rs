@@ -35,6 +35,24 @@ pub struct XpiDef {
     pub children: Vec<XpiDef>,
 }
 
+impl XpiDef {
+    /// Returns true if self is a method or at least one child no matter how deep in the hierarchy is a method
+    pub fn contains_methods(&self) -> bool {
+        if let XpiKind::Method { .. } = self.kind {
+            return true;
+        }
+        for c in &self.children {
+            if let XpiKind::Method { .. } = c.kind {
+                return true;
+            }
+            if c.contains_methods() {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum XpiKind {
     /// Resource without a type is a group, like `/main {}`, used to group things in a logical manner.

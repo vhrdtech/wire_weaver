@@ -1,35 +1,78 @@
+use vhl::ast::fn_def::FnArguments;
+use vhl::ast::ty::Ty;
 use crate::prelude::*;
-use vhl::ast::xpi_def::XpiRootDef;
+use vhl::ast::xpi_def::{XpiDef, XpiKind, XpiRootDef};
 use crate::dependencies::{Dependencies, Depends};
 
 pub struct DispatchCall<'ast> {
-    pub xpi_def: &'ast XpiRootDef
+    pub xpi_root_def: &'ast XpiRootDef,
 }
 
 impl<'ast> ToTokens for DispatchCall<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-
+        let handle_methods = Self::handle_methods(&XpiKind::Group, &self.xpi_root_def.children);
         tokens.append_all(mquote!(rust r#"
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
             {
                 use DispatchCallType::*;
-
                 log_info!(=>T, "dispatch_call({})", uri);
-                let at_root_level = match uri.next() {
-                    Some(p) => p,
-                    None => {
-                        log_error!(=>T, "Expected root level");
-                        return Err(FailReason::BadUri);
-                    }
-                };
-                match at_root_level {
-                    _ => {
-                        log_error!(=>T, "Resource /{} doesn't exist", at_root_level);
-                        Err(FailReason::BadUri)
-                    }
-                }
+
+                #handle_methods
             }
         "#));
+    }
+}
+
+impl<'ast> DispatchCall<'ast> {
+    fn handle_methods(self_kind: &XpiKind, children: &Vec<XpiDef>) -> TokenStream {
+        let self_method = match self_kind {
+            XpiKind::Method { args, ret_ty } => {
+                Self::dispatch_one(args, ret_ty)
+            }
+            _ => {
+                mquote!(rust r#" return Err(FailReason::NotAMethod); "#)
+            }
+        };
+
+        let no_methods_inside: Vec<u32> = children
+            .iter()
+            .filter(|c| !c.contains_methods())
+            .map(|c| c.serial)
+            .collect();
+
+        let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = children
+            .iter()
+            .filter(|c| !no_methods_inside.contains(&c.serial))
+            .map(|c| (c.serial, Self::handle_methods(&c.kind, &c.children)))
+            .unzip();
+        // let (child_serial, child_handle_methods) = (child_serial.into_iter(), child_handle_methods.into_iter());
+
+        let no_methods_inside = if no_methods_inside.is_empty() {
+            TokenStream::new()
+        } else {
+            mquote!(rust r#"
+                Some( #( #no_methods_inside )|* ) => {
+                    return Err(FailReason::NotAMethod);
+                }
+            "#)
+        };
+
+        mquote!(rust r#"
+            match uri.next() {
+                None => {
+                    #self_method
+                }
+                #( Some \\( #child_serial \\) => \\{ #child_handle_methods \\} )*
+                #no_methods_inside
+                Some(_) => {
+                     return Err(FailReason::BadUri);
+                }
+            }
+        "#)
+    }
+
+    fn dispatch_one(args: &FnArguments, ret_ty: &Ty) -> TokenStream {
+        mquote!(rust r#" dispatch_one_here "#)
     }
 }
 

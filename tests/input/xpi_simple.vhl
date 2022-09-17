@@ -1,0 +1,5 @@
+/main {
+    /version<const str, #0>
+    /symbol<rw char, #1>
+    /action<fn (), #2>
+}

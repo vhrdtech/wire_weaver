@@ -1,70 +1,70 @@
-/main<'0> {
+/main {
 	/// Constant. Initialized on node start and then stays the same.
-	/version<const u8, '0>
+	/version<const u8, #0>
 
-	// /incorrect1<const+stream u8, '1>
-	// /incorrect2<const+observe u8, '2>
+	// /incorrect1<const+stream u8, #1>
+	// /incorrect2<const+observe u8, #2>
 
 	/// Resource that can only be read, also default mode.
-	/temperature<ro u16`K`, '3>
+	/temperature<ro u16`K`, #3>
 
 	/// Resource that can only be written, read or observe is blocked
-	/register<wo u8, '4>
+	/register<wo u8, #4>
 
 	/// Read write register
-	/value<rw u8, '5>
+	/value<rw u8, #5>
 
 	/// Observable resource, notifications are sent on value change
-	/speed<ro+observe u8`m/s`, '6>
+	/speed<ro+observe u8`m/s`, #6>
 
 	/// Observable resource that can also be changed from other nodes
-	/set_point<rw+observe u8`m`, '7>
+	/set_point<rw+observe u8`m`, #7>
 
 	// Write only resources cannot be observed as well
-	// incorrect3<wo+observe u8, '8>
+	// incorrect3<wo+observe u8, #8>
 
 	/// Stream consisting of many u8 values, notifications are sent when one or more new values are available.
 	/// In contrast to observable resources, streams have a beginning and possible an end.
 	/// In order to start receiving stream data, one must subscribe and open it.
-	/binary_blob<ro+stream u8, '9>
+	/binary_blob<ro+stream u8, #9>
 	
 	/// Stream with 128 byte array as an element
-	/binary_blob_chunked<ro+stream [u8; 128], '10>
+	/binary_blob_chunked<ro+stream [u8; 128], #10>
 
 	/// Streaming input 
-	/binary_sink<wo+stream u8, '11>
+	/binary_sink<wo+stream u8, #11>
 
 	/// Is there a use for it? It's basically 2 separate streams in one.
-	/bidirectional_stream<rw+stream u8, '12>
+	/bidirectional_stream<rw+stream u8, #12>
 
 	/// Only one node can borrow resource for writing. All can read.
-	/protected<Cell<rw u8>, '13>
+	/protected<Cell<rw u8>, #13>
 
 	/// Borrow checked and write only.
-	/protected_wo<Cell<wo u8>, '14>
+	/protected_wo<Cell<wo u8>, #14>
 
 	// No need for a Cell
-	// /redundant1<Cell<ro u8>, '15>
+	// /redundant1<Cell<ro u8>, #15>
 
 	// By default resource inside a Cell is read-write
-	/default_cell_rw<Cell<u8>, '16>
+	/default_cell_rw<Cell<u8>, #16>
 
 	/// Only one node can borrow this stream for writing
-	/protected_o_stream<Cell<wo+stream u8>, '17>
+	/protected_o_stream<Cell<wo+stream u8>, #17>
 
 	/// Multiple nodes can subscribe to the same screen without a Cell.
 	/// Subscribe all frist, then open?
-	/redundant2<Cell<ro+stream u8>, '18>
+	/redundant2<Cell<ro+stream u8>, #18>
 
 	/// Same question as bidirectional_stream
-	/bidirectional_protected<Cell<rw+stream u8>, '19>
+	/bidirectional_protected<Cell<rw+stream u8>, #19>
 
 	/// Only one node can borrow and write, all other can subscribe for updates
-	/protected_observable<Cell<rw+observe u8>, '20>
+	/protected_observable<Cell<rw+observe u8>, #20>
 
 	// Same as incorrect3
-	// /incorrect4<Cell<wo+observe u8>, '21>
+	// /incorrect4<Cell<wo+observe u8>, #21>
 
 	// No need for a cell for read only resource
-	// /redundant5<Cell<ro+observe u8>, '22>
+	// /redundant5<Cell<ro+observe u8>, #22>
 }

@@ -19,13 +19,15 @@ pub fn format_rust(code: &str) -> Result<String> {
 pub fn colorize(code: &str /*, _language: Language*/) -> Result<String> {
     let pygmentize_path =
         find_executable_in_path("pygmentize").context("Failed to find pygmentize in PATH")?;
-    let colorized = Exec::cmd(pygmentize_path)
-        .args(&["-l", "rust", "-O", "style=monokai"])
+    let pygmentize_run = Exec::cmd(pygmentize_path)
+        .args(&["-l", "rust", "-O", /*"-P",*/ "style=monokai"])
         .stdin(code)
         .stdout(Redirection::Pipe)
         .capture()
-        .context("Failed to colorize with pygmentize")?
-        .stdout_str();
+        .context("Failed to colorize with pygmentize")?;
+    if !pygmentize_run.exit_status.success() {
+        return Err(anyhow!("pygmentize exited with an error"));
+    }
     // let colorized = Exec::cmd(highlight_path)
     //     .args(&[
     //         "--syntax-by-name", "rust",
@@ -37,5 +39,5 @@ pub fn colorize(code: &str /*, _language: Language*/) -> Result<String> {
     //     .stdout(Redirection::Pipe)
     //     .capture()?
     //     .stdout_str();
-    Ok(colorized)
+    Ok(pygmentize_run.stdout_str())
 }

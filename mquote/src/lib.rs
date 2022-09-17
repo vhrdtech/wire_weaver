@@ -37,9 +37,12 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
         _ => panic!("Expected raw string literal with mtoken's"),
     };
     let debug = ts.next().is_some();
+
     // eprintln!("\nParsing mquote str: {}", mquote_ts);
     let mquote_ts = MQuoteLexer::parse(Rule::token_stream, &mquote_ts).unwrap();
-    // eprintln!("Parsed: {:?}", mquote_ts);
+    if debug {
+        eprintln!("Parsed: {:?}", mquote_ts);
+    }
 
     let mut ts_builder = new_ts_builder();
     ts_builder.append_all(quote! {
@@ -48,6 +51,13 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     for token in mquote_ts {
         tt_append(token, &mut ts_builder, language);
     }
+    let print_ts_if_debug = if debug {
+        quote! {
+            println!("{:?}", ts);
+        }
+    } else {
+        quote!()
+    };
     let ts_builder = quote! {
         {
             #ts_builder

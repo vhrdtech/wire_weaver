@@ -22,6 +22,15 @@ impl TokenStream {
         }
     }
 
+    /// Modify spacing of the latest token tree inserted.
+    /// Used to remove spaces with ∅ sign it mquote! when this is important.
+    pub fn modify_last_spacing(&mut self, spacing: Spacing) {
+        match self.inner.back_mut() {
+            Some(tt) => tt.modify_spacing(spacing),
+            None => {}
+        }
+    }
+
     /// Recreate proper tree structure after using interpolation with escaped delimiters.
     ///
     /// For example if `#( #methods \\( #names \\) ?; )*` construction was used in mquote macro,
@@ -98,13 +107,19 @@ impl Display for TokenStream {
             joint = false;
             match tt {
                 TokenTree::Group(tt) => Display::fmt(tt, f),
-                TokenTree::Ident(tt) => Display::fmt(tt, f),
+                TokenTree::Ident(tt) => {
+                    joint = tt.spacing() == Spacing::Joint;
+                    Display::fmt(tt, f)
+                },
                 TokenTree::Punct(tt) => {
                     joint = tt.spacing() == Spacing::Joint;
                     Display::fmt(tt, f)
                 }
                 TokenTree::DelimiterRaw(tt) => Display::fmt(tt, f),
-                TokenTree::Literal(tt) => Display::fmt(tt, f),
+                TokenTree::Literal(tt) => {
+                    joint = tt.spacing() == Spacing::Joint;
+                    Display::fmt(tt, f)
+                },
                 TokenTree::Comment(tt) => Display::fmt(tt, f),
             }?;
         }

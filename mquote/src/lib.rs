@@ -272,6 +272,14 @@ fn tt_append(
                 );
             });
         }
+        Rule::spacing_joint => {
+            ts_builder.append_all(quote! {
+                ts.modify_last_spacing(mtoken::Spacing::Joint);
+            })
+        }
+        Rule::COMMENT => {
+
+        }
         Rule::EOI => {}
         _ => panic!("Internal error: expected a token tree, got: {:?}", token),
     }

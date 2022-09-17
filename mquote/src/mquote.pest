@@ -1,7 +1,7 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token | delim_token_tree }
-token = { interpolate | interpolate_repetition | ident | punctuation | literal | delimiter }
+token = { interpolate | interpolate_repetition | ident | punctuation | literal | delimiter | spacing_joint }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_simple | interpolate_path }
@@ -21,6 +21,7 @@ interpolate_repetition = {
 }
 
 ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
+spacing_joint = { "◡" } // use Spacing::Joint - no spacing between tokens where it matters
 
 punct_therefore = _ { "=>" }
 punct_eqeq = _{ "==" }

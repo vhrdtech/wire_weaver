@@ -12,10 +12,11 @@ impl<'ast> ToTokens for DispatchCall<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let handle_methods = Self::handle_methods(&XpiKind::Group, &self.xpi_root_def.children);
         tokens.append_all(mquote!(rust r#"
+            /// Dispatches a method call to a resource identified by uri.
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
             {
                 use DispatchCallType::*;
-                log_info!(=>T, "dispatch_call({})", uri);
+                log_info◡!◡(=>T, "dispatch_call({})", uri);
 
                 #handle_methods
             }

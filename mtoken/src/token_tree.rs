@@ -1,6 +1,6 @@
 use crate::token::{Comment, DelimiterRaw, Ident, Literal, Punct};
 use crate::token_stream::TokenStream;
-use crate::ToTokens;
+use crate::{Spacing, ToTokens};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -19,6 +19,19 @@ pub enum TokenTree {
     Literal(Literal),
     /// A comment //, ///, #[doc = ""],
     Comment(Comment),
+}
+
+impl TokenTree {
+    pub fn modify_spacing(&mut self, spacing: Spacing) {
+        match self {
+            TokenTree::Group(_) => {}
+            TokenTree::Ident(id) => id.set_spacing(spacing),
+            TokenTree::Punct(p) => p.set_spacing(spacing),
+            TokenTree::DelimiterRaw(_) => {}
+            TokenTree::Literal(lit) => lit.set_spacing(spacing),
+            TokenTree::Comment(_) => {}
+        }
+    }
 }
 
 /// A delimited token stream.

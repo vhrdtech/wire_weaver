@@ -1,19 +1,16 @@
-use vhl::ast::fn_def::FnArguments;
-use vhl::ast::ty::Ty;
 use crate::prelude::*;
-use vhl::ast::xpi_def::{XpiDef, XpiKind, XpiRootDef};
+use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
 
 pub struct DispatchCall<'ast> {
-    pub xpi_root_def: &'ast XpiRootDef,
+    pub xpi_def: &'ast XpiDef,
 }
 
 impl<'ast> ToTokens for DispatchCall<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let handle_methods = Self::handle_methods(
-            &XpiKind::Group,
-            &self.xpi_root_def.children,
-            format!("/{:-}", self.xpi_root_def.id),
+            &self.xpi_def,
+            format!("{}", self.xpi_def.uri),
         );
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
@@ -29,30 +26,29 @@ impl<'ast> ToTokens for DispatchCall<'ast> {
 }
 
 impl<'ast> DispatchCall<'ast> {
-    fn handle_methods(self_kind: &XpiKind, children: &Vec<XpiDef>, uri_base: String) -> TokenStream {
-        let self_method = match self_kind {
-            XpiKind::Method { args, ret_ty } => {
-                Self::dispatch_one(args, ret_ty)
+    fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> TokenStream {
+        let self_method = match &xpi_def.kind {
+            XpiKind::Method { .. } => {
+                Self::dispatch_one(xpi_def)
             }
             _ => {
                 mquote!(rust r#" return Err(FailReason::NotAMethod); "#)
             }
         };
 
-        let no_methods_inside: Vec<u32> = children
+        let no_methods_inside: Vec<u32> = xpi_def.children
             .iter()
             .filter(|c| !c.contains_methods())
             .map(|c| c.serial)
             .collect();
 
-        let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = children
+        let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = xpi_def.children
             .iter()
             .filter(|c| !no_methods_inside.contains(&c.serial))
             .map(|c| (
                 c.serial,
                 Self::handle_methods(
-                    &c.kind,
-                    &c.children,
+                    c,
                     format!("{}/{}", uri_base, c.serial),
                 )
             ))
@@ -76,8 +72,6 @@ impl<'ast> DispatchCall<'ast> {
                     #self_method
                 }
                 #(
-                    /◡/ syntetic ⏎
-                    // regular
                     Some \\( #child_serial \\) => \\{ #child_handle_methods \\}
                 )*
                 #no_methods_inside
@@ -88,7 +82,7 @@ impl<'ast> DispatchCall<'ast> {
         "#)
     }
 
-    fn dispatch_one(args: &FnArguments, ret_ty: &Ty) -> TokenStream {
+    fn dispatch_one(xpi_def: &XpiDef) -> TokenStream {
         mquote!(rust r#" dispatch_one_here "#)
     }
 }

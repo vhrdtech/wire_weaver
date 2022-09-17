@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::fmt::{Display, Formatter};
 use crate::ast::doc::Doc;
 use crate::ast::expr::{Expr, TryEvaluateInto};
 use crate::ast::identifier::Identifier;
@@ -14,26 +15,17 @@ use parser::span::Span;
 use crate::ast::attribute::Attrs;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct XpiRootDef {
-    pub doc: Doc,
-    // pub attrs: Attrs,
-    pub id: Identifier,
-    pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
-    // pub implements: Vec<>,
-    pub children: Vec<XpiDef>,
-    pub span: Span
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
     pub doc: Doc,
     pub attrs: Attrs,
-    pub uri: XpiUri,
+    pub uri: XpiUriPart,
     pub serial: u32,
+    // u32::MAX for root for convenience, not used
     pub kind: XpiKind,
     pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
     // pub implements: Vec<>,
     pub children: Vec<XpiDef>,
+    pub span: Span,
 }
 
 impl XpiDef {
@@ -51,6 +43,57 @@ impl XpiDef {
             }
         }
         false
+    }
+
+    pub fn convert_from_parser(xd: XpiDefParser, is_root: bool) -> Result<Self, Error> {
+        let (serial, ty, span): (_, _, Span) = if is_root {
+            if xd.resource_ty.is_some() {
+                return Err(Error {
+                    kind: ErrorKind::RootWithTyOrSerial,
+                    span: xd.span.into(),
+                });
+            }
+            (u32::MAX, None, xd.span.into())
+        } else {
+            match xd.resource_ty {
+                Some(xty) => {
+                    (xty.serial.map(|s| s.0).ok_or(Error {
+                        kind: ErrorKind::NoSerial,
+                        span: xd.span.into(),
+                    })?, xty.ty, xty.span.into())
+                }
+                None => {
+                    return Err(Error {
+                        kind: ErrorKind::NoSerial,
+                        span: xd.span.into(),
+                    });
+                }
+            }
+        };
+        let kind = (ty, span.clone()).try_into()?;
+        let mut children = vec![];
+        for c in xd.body.children {
+            children.push(Self::convert_from_parser(c, false)?);
+        }
+        // let children: Result<Vec<XpiDef>, Error> = xd.body.children.iter().map(|c| XpiDef::try_from(c.clone())).collect();
+        // let children = children?;
+        Ok(XpiDef {
+            doc: xd.docs.into(),
+            attrs: xd.attrs.try_into()?,
+            uri: xd.uri.into(),
+            serial,
+            kind,
+            kv: xd.body.kv_list
+                .iter()
+                .map(|kv|
+                    (
+                        kv.key.name.to_string(),
+                        TryEvaluateInto::NotResolved(kv.value.clone().into())
+                    )
+                ).collect(),
+            children,
+            span,
+        })
     }
 }
 
@@ -107,7 +150,7 @@ pub enum XpiKind {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum XpiUri {
+pub enum XpiUriPart {
     /// Ready to use resource identifier.
     /// OneNamedPart is already Resolved, other variants need expression resolving pass.
     /// `/main`, `a_ctrl`, `velocity_x`, `register_0_b`
@@ -128,103 +171,19 @@ pub struct XpiResourceTy {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiBody {}
 
-impl<'i> From<XpiUriParser<'i>> for XpiUri {
+impl<'i> From<XpiUriParser<'i>> for XpiUriPart {
     fn from(uri: XpiUriParser<'i>) -> Self {
         match uri {
-            XpiUriParser::OneNamedPart(id) => XpiUri::Resolved(id.into()),
-            XpiUriParser::ExprOnly(expr) => XpiUri::ExprOnly(expr.into()),
+            XpiUriParser::OneNamedPart(id) => XpiUriPart::Resolved(id.into()),
+            XpiUriParser::ExprOnly(expr) => XpiUriPart::ExprOnly(expr.into()),
             XpiUriParser::ExprThenNamedPart(expr, id) => {
-                XpiUri::ExprThenNamedPart(expr.into(), id.into())
+                XpiUriPart::ExprThenNamedPart(expr.into(), id.into())
             }
             XpiUriParser::NamedPartThenExpr(id, expr) => {
-                XpiUri::NamedPartThenExpr(id.into(), expr.into())
+                XpiUriPart::NamedPartThenExpr(id.into(), expr.into())
             }
-            XpiUriParser::Full(id1, expr, id2) => XpiUri::Full(id1.into(), expr.into(), id2.into()),
+            XpiUriParser::Full(id1, expr, id2) => XpiUriPart::Full(id1.into(), expr.into(), id2.into()),
         }
-    }
-}
-
-impl<'i> TryFrom<XpiDefParser<'i>> for XpiRootDef {
-    type Error = Error;
-
-    fn try_from(xd: XpiDefParser<'i>) -> Result<Self, Self::Error> {
-        if xd.resource_ty.is_some() {
-            return Err(Error {
-                kind: ErrorKind::RootWithTyOrSerial,
-                span: xd.span.into(),
-            });
-        }
-        let id = match xd.uri {
-            XpiUriParser::OneNamedPart(id) => id.into(),
-            _ => {
-                return Err(Error {
-                    kind: ErrorKind::RootWithInterpolatedUri,
-                    span: xd.span.into(),
-                });
-            }
-        };
-        let mut children = vec![];
-        for c in xd.body.children {
-            children.push(c.try_into()?);
-        }
-        Ok(XpiRootDef {
-            doc: xd.docs.into(),
-            id,
-            kv: xd.body.kv_list
-                .iter()
-                .map(|kv|
-                    (
-                        kv.key.name.to_string(),
-                        TryEvaluateInto::NotResolved(kv.value.clone().into())
-                    )
-                ).collect(),
-            children,
-            span: xd.span.into()
-        })
-    }
-}
-
-impl<'i> TryFrom<XpiDefParser<'i>> for XpiDef {
-    type Error = Error;
-
-    fn try_from(xd: XpiDefParser<'i>) -> Result<Self, Self::Error> {
-        let (serial, ty, span) = match xd.resource_ty {
-            Some(xty) => {
-                (xty.serial.map(|s| s.0).ok_or(Error {
-                    kind: ErrorKind::NoSerial,
-                    span: xd.span.into(),
-                })?, xty.ty, xty.span.into())
-            }
-            None => {
-                return Err(Error {
-                    kind: ErrorKind::NoSerial,
-                    span: xd.span.into(),
-                });
-            }
-        };
-        let kind = (ty, span).try_into()?;
-        let mut children = vec![];
-        for c in xd.body.children {
-            children.push(c.try_into()?);
-        }
-        // let children: Result<Vec<XpiDef>, Error> = xd.body.children.iter().map(|c| XpiDef::try_from(c.clone())).collect();
-        // let children = children?;
-        Ok(XpiDef {
-            doc: xd.docs.into(),
-            attrs: xd.attrs.try_into()?,
-            uri: xd.uri.into(),
-            serial,
-            kind,
-            kv: xd.body.kv_list
-                .iter()
-                .map(|kv|
-                    (
-                        kv.key.name.to_string(),
-                        TryEvaluateInto::NotResolved(kv.value.clone().into())
-                    )
-                ).collect(),
-            children
-        })
     }
 }
 
@@ -330,3 +289,14 @@ impl XpiKind {
     }
 }
 
+impl Display for XpiUriPart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            XpiUriPart::Resolved(id) => write!(f, "/{:-}", id),
+            XpiUriPart::ExprOnly(expr) => write!(f, "/{}", expr),
+            XpiUriPart::ExprThenNamedPart(expr, id) => write!(f, "/{}{:-}", expr, id),
+            XpiUriPart::NamedPartThenExpr(id, expr) => write!(f, "/{:-}{}", id, expr),
+            XpiUriPart::Full(expr1, id, expr2) => write!(f, "/{}{:-}{}", expr1, id, expr2),
+        }
+    }
+}

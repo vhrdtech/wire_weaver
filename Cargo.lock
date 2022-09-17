@@ -354,9 +354,6 @@ dependencies = [
 [[package]]
 name = "mtoken"
 version = "0.1.0"
-dependencies = [
- "vhl",
-]
 
 [[package]]
 name = "nibble_vec"
@@ -777,6 +774,7 @@ name = "vhl"
 version = "0.3.0"
 dependencies = [
  "either",
+ "mtoken",
  "parser",
  "thiserror",
  "util",

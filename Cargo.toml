@@ -17,6 +17,7 @@ parser = { path = "./parser" }
 thiserror = "^1.0.34"
 either = "1.8"
 util = { path = "./util" }
+mtoken = { path = "./mtoken" }
 
 [workspace]
 members = ["parser", "cli", "codegen", "mtoken", "mquote", "vhl-stdlib/vhl-stdlib-rust"]

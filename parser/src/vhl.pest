@@ -207,12 +207,12 @@ attribute_input = { delim_token_tree | "=" ~ expression }
 doc_attr = _{ doc_comment* ~ outer_attribute* }
 
 // Keywords
-kw_fn = { "fn" }
-kw_let = { "let" }
-kw_struct = { "struct" }
-kw_type = { "type" }
-kw_use = { "use" }
-keyword = { kw_fn | kw_let | kw_struct | kw_type | kw_use }
+// kw_fn = { "fn" }
+// kw_let = { "let" }
+// kw_struct = { "struct" }
+// kw_type = { "type" }
+// kw_use = { "use" }
+// keyword = { kw_fn | kw_let | kw_struct | kw_type | kw_use }
 
 // Punctuation
 punct_plus = { "+" }
@@ -221,16 +221,16 @@ punct_star = { "*" }
 punct_slash = { "/" }
 punct_caret = { "^" }
 punct_not = { "!" }
-punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not }
+punct_path = { "::" }
+punctuation = { punct_plus | punct_minus | punct_star | punct_slash | punct_caret | punct_not | punct_path }
 
 // Delimiters
 delimiter = { "{" | "}" | "[" | "]" | "(" | ")" }
 
-// Tokens
-token_tree = _{ token_except_delimiters | delim_token_tree }
+// Token stream and token tree use in mquote! macro and attributes
+token_tree = _{ token | delim_token_tree }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
-token_except_delimiters = _{ keyword | identifier | any_lit | punctuation }
-token = _{ token_except_delimiters | delimiter }
+token = { identifier | any_lit | punctuation }
 
 // xPI Blocks
 xpi_block = { doc_attr ~ "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }

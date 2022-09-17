@@ -13,7 +13,7 @@ impl<'ast> ToTokens for DispatchCall<'ast> {
         let handle_methods = Self::handle_methods(&XpiKind::Group, &self.xpi_root_def.children);
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
-            fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
+            fn dispatch_call(mut uri: UriIter,/* com */ call_type: DispatchCallType) -> Result<usize, FailReason>
             {
                 use DispatchCallType::*;
                 log_info◡!◡(=>T, "dispatch_call({})", uri);
@@ -60,6 +60,7 @@ impl<'ast> DispatchCall<'ast> {
 
         mquote!(rust r#"
             match uri.next() {
+                // dispatch /1/2/3()
                 None => {
                     #self_method
                 }

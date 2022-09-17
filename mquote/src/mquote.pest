@@ -140,7 +140,11 @@ string_inner = @{ char* }
 dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 literal = { dec_lit_raw | char_lit | string_lit }
 
-//ds_comment = @{ !"///" ~ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
-//ts_comment = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
-
+doc_comment = ${ "///" ~ doc_comment_inner }
+doc_comment_inner = @{ (!NEWLINE ~ ANY)* ~ NEWLINE }
+single_line_comment = ${ !"///" ~ "//" ~ single_line_comment_inner }
+single_line_comment_inner = @{ (!NEWLINE ~ ANY)* ~ NEWLINE }
+multi_line_comment = ${ "/*" ~ multi_line_comment_inner ~ "*/" }
+multi_line_comment_inner = @{ (!"*/" ~ ANY)* }
+COMMENT = { doc_comment | single_line_comment | multi_line_comment }
 WHITESPACE = _{ (" " | "\t" | "\r" | "\n")+ }

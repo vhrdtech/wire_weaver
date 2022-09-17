@@ -10,6 +10,7 @@ extern crate pest_derive;
 
 extern crate proc_macro;
 use proc_macro::{TokenStream, TokenTree};
+use quote::__private::ext::RepToTokensExt;
 
 use crate::pest::Parser;
 use lexer::{MQuoteLexer, Rule};
@@ -278,7 +279,37 @@ fn tt_append(
             })
         }
         Rule::COMMENT => {
-
+            let comment_style = token.into_inner().next().expect("internal: Wrong comment grammar");
+            let flavor = match comment_style.as_rule() {
+                Rule::doc_comment => {
+                    match language {
+                        Language::Rust | Language::Dart => "TripleSlash",
+                    }
+                }
+                Rule::single_line_comment => {
+                    match language {
+                        Language::Rust | Language::Dart => "DoubleSlash",
+                    }
+                }
+                Rule::multi_line_comment => {
+                    match language {
+                        Language::Rust | Language::Dart => "SlashStarMultiline",
+                    }
+                }
+                _ => panic!("internal: Wrong comment grammar kinds")
+            };
+            let contents = comment_style
+                .into_inner()
+                .next()
+                .expect("internal: Wrong comment grammar (no _inner)")
+                .as_str();
+            let contents = Literal::string(contents);
+            let flavor = Ident::new(flavor, Span::call_site());
+            ts_builder.append_all(quote! {
+                ts.append(
+                    mtoken::Comment::new(#contents, mtoken::CommentFlavor::#flavor)
+                );
+            });
         }
         Rule::EOI => {}
         _ => panic!("Internal error: expected a token tree, got: {:?}", token),

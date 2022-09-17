@@ -253,22 +253,13 @@ impl Comment {
 
 impl Display for Comment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.flavor {
-            CommentFlavor::DoubleSlash => {
-                f.write_str("// ")?;
-                Display::fmt(&self.line, f)?;
-                f.write_str("\n")
-            }
-            CommentFlavor::TripleSlash => {
-                f.write_str("/// ")?;
-                Display::fmt(&self.line, f)?;
-                f.write_str("\n")
-            }
-            CommentFlavor::SlashStarMultiline => {
-                f.write_str("/* ")?;
-                Display::fmt(&self.line, f)?;
-                f.write_str(" */")
-            }
+        match &self.flavor {
+            CommentFlavor::DoubleSlash => write!(f, "//{}", self.line),
+            CommentFlavor::TripleSlash => write!(f, "///{}", self.line),
+            CommentFlavor::SlashStarMultiline => write!(f, "/*{}*/", self.line),
+            CommentFlavor::Pound => write!(f, "#{}", self.line),
+            CommentFlavor::TripleQuote => write!(f, "\"\"\"{}\"\"\"", self.line),
+            CommentFlavor::ExclamationMark => write!(f, "!{}", self.line),
         }
     }
 }
@@ -283,7 +274,10 @@ impl ToTokens for Comment {
 pub enum CommentFlavor {
     DoubleSlash,
     TripleSlash,
+    TripleQuote,
     SlashStarMultiline,
+    Pound,
+    ExclamationMark,
 }
 
 impl ToTokens for String {

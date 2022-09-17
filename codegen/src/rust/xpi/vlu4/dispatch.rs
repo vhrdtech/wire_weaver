@@ -85,7 +85,7 @@ impl<'ast> DispatchCall<'ast> {
                      return Err(FailReason::BadUri);
                 }
             }
-        "# debug)
+        "#)
     }
 
     fn dispatch_one(args: &FnArguments, ret_ty: &Ty) -> TokenStream {

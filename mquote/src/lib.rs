@@ -11,7 +11,6 @@ extern crate pest_derive;
 extern crate proc_macro;
 use pest::iterators::Pair;
 use proc_macro::{TokenStream, TokenTree};
-use quote::__private::ext::RepToTokensExt;
 
 use crate::pest::Parser;
 use lexer::{MQuoteLexer, Rule};
@@ -42,6 +41,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     // eprintln!("\nParsing mquote str: {}", mquote_ts);
     let mquote_ts = MQuoteLexer::parse(Rule::token_stream, &mquote_ts).unwrap();
     if debug {
+        // eprintln!("mquote! in {:?}", proc_macro::Span::call_site().source_file());
         eprintln!("Parsed: {:?}", mquote_ts);
     }
 

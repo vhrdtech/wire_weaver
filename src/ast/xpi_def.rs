@@ -11,6 +11,7 @@ use crate::error::{Error, ErrorKind};
 use either::Either;
 use parser::ast::ty::TyKind as TyKindParser;
 use parser::span::Span;
+use crate::ast::attribute::Attrs;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiRootDef {
@@ -26,7 +27,7 @@ pub struct XpiRootDef {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
     pub doc: Doc,
-    // pub attrs: Attrs,
+    pub attrs: Attrs,
     pub uri: XpiUri,
     pub serial: u32,
     pub kind: XpiKind,
@@ -210,6 +211,7 @@ impl<'i> TryFrom<XpiDefParser<'i>> for XpiDef {
         // let children = children?;
         Ok(XpiDef {
             doc: xd.docs.into(),
+            attrs: xd.attrs.try_into()?,
             uri: xd.uri.into(),
             serial,
             kind,

@@ -1,4 +1,5 @@
 use pest::iterators::Pair;
+use crate::ast::expr::Expr;
 use super::prelude::*;
 use crate::ast::naming::PathSegment;
 use crate::lexer::Rule;
@@ -28,7 +29,13 @@ impl<'i> Parse<'i> for Attrs<'i> {
 #[derive(Debug, Clone)]
 pub struct Attr<'i> {
     pub path: Vec<Identifier<'i, PathSegment>>,
-    pub input: Pair<'i, Rule>,
+    pub kind: AttrKind<'i>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AttrKind<'i> {
+    TokenTree(Pair<'i, Rule>),
+    Expression(Expr<'i>),
 }
 
 impl<'i> Parse<'i> for Attr<'i> {
@@ -40,9 +47,23 @@ impl<'i> Parse<'i> for Attr<'i> {
             ParseInput::fork(segment, input).parse().map(|s| path_segments.push(s))?;
         }
 
+        let mut attr_input = ParseInput::fork(attr_input, input);
+        let kind = match attr_input.pairs.peek() {
+            Some(p) => {
+                if p.as_rule() == Rule::expression {
+                    AttrKind::Expression(attr_input.parse()?)
+                } else {
+                    AttrKind::TokenTree(attr_input.pairs.next().unwrap())
+                }
+            }
+            None => {
+                return Err(ParseErrorSource::internal("wrong attribute grammar"));
+            }
+        };
+
         Ok(Attr {
             path: path_segments,
-            input: attr_input,
+            kind,
         })
     }
 }

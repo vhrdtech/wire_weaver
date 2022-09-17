@@ -145,8 +145,12 @@ fn tt_append(
 
             for interpolate_token in token.into_inner() {
                 match interpolate_token.as_rule() {
-                    Rule::token => {
-                        let token = interpolate_token.into_inner().next().unwrap();
+                    Rule::token | Rule::COMMENT => {
+                        let token = if interpolate_token.as_rule() == Rule::token {
+                            interpolate_token.into_inner().next().unwrap()
+                        } else {
+                            interpolate_token
+                        };
                         if interpolate_or_key.is_none() {
                             tt_append(token, &mut prefix_ts, language);
                         } else {
@@ -169,7 +173,7 @@ fn tt_append(
                         tt_append(
                             interpolate_token.into_inner().next().unwrap(),
                             &mut separator,
-                            language,
+                            language
                         );
                     }
                     _ => panic!(

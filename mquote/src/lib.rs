@@ -42,12 +42,19 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     // eprintln!("Parsed: {:?}", mquote_ts);
 
     let mut ts_builder = new_ts_builder();
+    ts_builder.append_all(quote! {
+        let mut recreate_trees_afterwards = false;
+    });
     for token in mquote_ts {
         tt_append(token, &mut ts_builder, language);
     }
     let ts_builder = quote! {
         {
             #ts_builder
+            if recreate_trees_afterwards {
+                ts.recreate_trees();
+            }
+            #print_ts_if_debug
             ts
         }
     };
@@ -263,6 +270,7 @@ fn tt_append(
             let delim = Ident::new(delim, Span::call_site());
             ts_builder.append_all(quote! {
                 ts.append(mtoken::token::DelimiterRaw::#delim);
+                recreate_trees_afterwards = true;
             })
         }
         Rule::literal => {

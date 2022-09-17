@@ -131,7 +131,6 @@ impl<'ast> ToTokens for StructSer<'ast> {
                 }
             }
         "#));
-        ts.recreate_trees();
     }
 }
 

@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use termion::{color, style};
+use util::color;
 use crate::ast::doc::Doc;
 use crate::ast::identifier::Identifier;
 use crate::ast::ty::Ty;
@@ -63,12 +63,12 @@ impl Display for StructDef {
             f,
             "{}{}{}struct{} {:-} {}-->{} {:#}",
             self.doc,
-            style::Bold,
-            color::Fg(color::Rgb(203, 120, 50)),
-            style::Reset,
+            color::BOLD,
+            color::ORANGE,
+            color::DEFAULT,
             self.typename,
-            color::Fg(color::Blue),
-            style::Reset,
+            color::BLUE,
+            color::DEFAULT,
             self.span
         )?;
         self.fields.iter().try_for_each(|sf| write!(f, "{}", sf))?;
@@ -82,10 +82,10 @@ impl Display for StructField {
             f,
             "  {}pub {}{:-}{}: {}",
             // self.doc,
-            color::Fg(color::Rgb(203, 120, 50)),
-            color::Fg(color::Magenta),
+            color::ORANGE,
+            color::MAGENTA,
             self.name,
-            style::Reset,
+            color::DEFAULT,
             self.ty
         )
     }

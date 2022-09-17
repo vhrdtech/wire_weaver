@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use parser::ast::doc::Doc as ParserDoc;
 use parser::span::Span;
 use std::rc::Rc;
-use termion::{color, style};
+use util::color;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Doc {
@@ -24,7 +24,7 @@ impl<'i> From<ParserDoc<'i>> for Doc {
 impl Display for Doc {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for l in &self.lines {
-            writeln!(f, "{}{}{}", color::Fg(color::Green), l.0, style::Reset)?;
+            writeln!(f, "{}{}{}", color::GREEN, l.0, color::DEFAULT)?;
         }
         Ok(())
     }

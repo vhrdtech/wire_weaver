@@ -16,7 +16,7 @@ path = "src/lib.rs"
 parser = { path = "./parser" }
 thiserror = "^1.0.34"
 either = "1.8"
-termion = "*"
+util = { path = "./util" }
 
 [workspace]
 members = ["parser", "cli", "codegen", "mtoken", "mquote", "vhl-stdlib/vhl-stdlib-rust"]

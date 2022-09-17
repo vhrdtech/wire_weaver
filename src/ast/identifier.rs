@@ -1,7 +1,7 @@
 use parser::span::Span;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use termion::{color, style};
+use util::color;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Identifier {
@@ -87,7 +87,7 @@ impl_from_parser_struct!(GenericName);
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            write!(f, "Id({}{}{} @{:#})", color::Fg(color::Magenta), self.symbols, style::Reset, self.span)
+            write!(f, "Id({}{}{} @{:#})", color::MAGENTA, self.symbols, color::DEFAULT, self.span)
         } else if f.sign_minus() {
             write!(f, "{}", self.symbols)
         } else {
@@ -95,9 +95,9 @@ impl Display for Identifier {
                 f,
                 "Id<{:?}>({}{}{} @{})",
                 self.context,
-                color::Fg(color::Magenta),
+                color::MAGENTA,
                 self.symbols,
-                style::Reset,
+                color::DEFAULT,
                 self.span
             )
         }

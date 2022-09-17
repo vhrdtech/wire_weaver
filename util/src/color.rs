@@ -1,0 +1,14 @@
+pub const RED: &'static str = "\x1b[1;31m";
+pub const BRIGHT_RED: &'static str = "\x1b[1;91m";
+pub const GREEN: &'static str = "\x1b[1;32m";
+pub const YELLOW: &'static str = "\x1b[93;33m";
+pub const BLUE: &'static str = "\x1b[93;34m";
+pub const MAGENTA: &'static str = "\x1b[93;35m";
+pub const CYAN: &'static str = "\x1b[96;36m";
+pub const ORANGE: &'static str = "\x1b[38;2;203;120;50m";
+pub const BG_CYAN: &'static str = "\x1b[4;46m";
+pub const BRIGHT_YELLOW: &'static str = "\x1b[93m";
+pub const BRIGHT_MAGENTA: &'static str = "\x1b[95m";
+pub const BRIGHT_CYAN: &'static str = "\x1b[96m";
+pub const DEFAULT: &'static str = "\x1b[0m";
+pub const BOLD: &'static str = "\x1b[1m";

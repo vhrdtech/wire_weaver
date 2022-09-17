@@ -9,6 +9,7 @@ pub fn rule_names(rule: &Rule) -> String {
         Rule::any_ty => "type name".to_owned(),
         Rule::resource_cell_ty => "Cell< (wo|rw)? (+stream|+observe)? type_name >".to_owned(),
         Rule::access_mode => "const|ro|rw|wo".to_owned(),
+        Rule::xpi_serial => "serial number (e.g. #123)".to_owned(),
         _ => format!("{:?}", rule),
     }
 }

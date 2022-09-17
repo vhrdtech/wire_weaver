@@ -249,26 +249,40 @@ fn tt_append(
         //
         // },
         Rule::punctuation => {
-            let punct = token.as_str().to_string();
-            if punct.len() == 1 {
-                let ch = punct.chars().next().unwrap();
-                // handle 'lifetime for Rust
-                let spacing = if language == Language::Rust && ch == '\'' {
-                    Ident::new("Joint", Span::call_site())
-                } else {
-                    Ident::new("Alone", Span::call_site())
-                };
-                let punct_lit = Literal::character(ch);
-                ts_builder.append_all(quote! {
-                    ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::#spacing));
-                })
-            } else if punct.len() == 2 {
-                let punct_lit = Literal::character(punct.chars().next().unwrap());
-                let punct_lit2 = Literal::character(punct.chars().skip(1).next().unwrap());
-                ts_builder.append_all(quote! {
-                    ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Joint));
-                    ts.append(mtoken::Punct::new(#punct_lit2, mtoken::Spacing::Alone));
-                })
+            let punct: Vec<char> = token.as_str().chars().collect();
+            match punct.len() {
+                1 => {
+                    let ch = punct[0];
+                    // handle 'lifetime for Rust
+                    let spacing = if language == Language::Rust && ch == '\'' {
+                        Ident::new("Joint", Span::call_site())
+                    } else {
+                        Ident::new("Alone", Span::call_site())
+                    };
+                    let punct_lit = Literal::character(ch);
+                    ts_builder.append_all(quote! {
+                        ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::#spacing));
+                    })
+                }
+                2 => {
+                    let punct_lit = Literal::character(punct[0]);
+                    let punct_lit2 = Literal::character(punct[1]);
+                    ts_builder.append_all(quote! {
+                        ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Joint));
+                        ts.append(mtoken::Punct::new(#punct_lit2, mtoken::Spacing::Alone));
+                    })
+                }
+                3 => {
+                    let punct_lit = Literal::character(punct[0]);
+                    let punct_lit2 = Literal::character(punct[1]);
+                    let punct_lit3 = Literal::character(punct[2]);
+                    ts_builder.append_all(quote! {
+                        ts.append(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Joint));
+                        ts.append(mtoken::Punct::new(#punct_lit2, mtoken::Spacing::Joint));
+                        ts.append(mtoken::Punct::new(#punct_lit3, mtoken::Spacing::Alone));
+                    })
+                }
+                _ => panic!("internal: Up to 3 chars in a punct is supported")
             }
         }
         Rule::delimiter => {

@@ -374,7 +374,7 @@ mod test {
         let span3 = "               ^----^^-----------------^    ";
         let expected1 = [Rule::xpi_block];
         let expected2 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
-        let expected3 = [Rule::xpi_resource_kind, Rule::any_ty];
+        let expected3 = [Rule::xpi_resource_transform, Rule::any_ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
@@ -458,13 +458,13 @@ mod test {
 
     #[test]
     fn xpi_resource_type_and_serial() {
-        let input = "/resource<u8, '0> {}";
+        let input = "/resource<u8, #0> {}";
         let span1 = " ^------^^------^ ^^";
         let span2 = "          ^^  ^^    ";
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
         let expected2 = [Rule::any_ty, Rule::xpi_serial];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
-        // println!("{:?}", parsed);
+        //println!("{:?}", parsed);
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 1], span2, expected2));
     }

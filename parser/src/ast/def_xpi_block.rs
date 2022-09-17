@@ -264,7 +264,7 @@ impl<'i> Parse<'i> for XpiSerial {
         Ok(XpiSerial(
             xpi_serial
                 .as_str()
-                .strip_prefix('\'')
+                .strip_prefix('#')
                 .ok_or_else(|| ParseErrorSource::internal("xpi_serial: wrong rule"))?
                 .parse()
                 .map_err(|_| {

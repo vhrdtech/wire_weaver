@@ -10,10 +10,14 @@ pub struct DispatchCall<'ast> {
 
 impl<'ast> ToTokens for DispatchCall<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let handle_methods = Self::handle_methods(&XpiKind::Group, &self.xpi_root_def.children);
+        let handle_methods = Self::handle_methods(
+            &XpiKind::Group,
+            &self.xpi_root_def.children,
+            format!("/{:-}", self.xpi_root_def.id),
+        );
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
-            fn dispatch_call(mut uri: UriIter,/* com */ call_type: DispatchCallType) -> Result<usize, FailReason>
+            fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
             {
                 use DispatchCallType::*;
                 log_info◡!◡(=>T, "dispatch_call({})", uri);
@@ -25,7 +29,7 @@ impl<'ast> ToTokens for DispatchCall<'ast> {
 }
 
 impl<'ast> DispatchCall<'ast> {
-    fn handle_methods(self_kind: &XpiKind, children: &Vec<XpiDef>) -> TokenStream {
+    fn handle_methods(self_kind: &XpiKind, children: &Vec<XpiDef>, uri_base: String) -> TokenStream {
         let self_method = match self_kind {
             XpiKind::Method { args, ret_ty } => {
                 Self::dispatch_one(args, ret_ty)
@@ -44,7 +48,14 @@ impl<'ast> DispatchCall<'ast> {
         let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = children
             .iter()
             .filter(|c| !no_methods_inside.contains(&c.serial))
-            .map(|c| (c.serial, Self::handle_methods(&c.kind, &c.children)))
+            .map(|c| (
+                c.serial,
+                Self::handle_methods(
+                    &c.kind,
+                    &c.children,
+                    format!("{}/{}", uri_base, c.serial),
+                )
+            ))
             .unzip();
         // let (child_serial, child_handle_methods) = (child_serial.into_iter(), child_handle_methods.into_iter());
 
@@ -60,17 +71,21 @@ impl<'ast> DispatchCall<'ast> {
 
         mquote!(rust r#"
             match uri.next() {
-                // dispatch /1/2/3()
+                /◡/ dispatch #uri_base◡()⏎
                 None => {
                     #self_method
                 }
-                #( Some \\( #child_serial \\) => \\{ #child_handle_methods \\} )*
+                #(
+                    /◡/ syntetic ⏎
+                    // regular
+                    Some \\( #child_serial \\) => \\{ #child_handle_methods \\}
+                )*
                 #no_methods_inside
                 Some(_) => {
                      return Err(FailReason::BadUri);
                 }
             }
-        "#)
+        "# debug)
     }
 
     fn dispatch_one(args: &FnArguments, ret_ty: &Ty) -> TokenStream {

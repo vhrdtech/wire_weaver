@@ -23,6 +23,7 @@ interpolate_repetition = {
 ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
 spacing_joint = { "◡" } // use Spacing::Joint - no spacing between tokens where it matters
 
+// Up to 3 Unicode char punctuation are supported, if more is needed see mquote/src/lib.rs
 punct_therefore = _ { "=>" }
 punct_eqeq = _{ "==" }
 punct_assign = _{ "=" }
@@ -47,8 +48,9 @@ punct_impl = _ { "->" }
 punct_tilde = _{ "~" }
 punct_excl = _{ "!" }
 
-punct_triple_slash = _{ "///" }
-punct_double_slash = _{ "//" }
+// double and triple slash are handled as comments, use /◡/ or /◡/◡/ instead
+// punct_triple_slash = _{ "///" }
+// punct_double_slash = _{ "//" }
 punct_slash = _{ "/" }
 
 punct_plus = _{ "+" }
@@ -76,7 +78,8 @@ punct_dollar = _{ "$" }
 punct_question = _{ "?" }
 punct_underscore = _{ "_" }
 
-punct_newline = _{ "\\n" }
+punct_verbatim_newline = _{ "\\n" } // \n in mquote! will output verbatim \n
+punct_newline = _{ "⏎" } // will force a newline
 
 punctuation = {
     punct_therefore |
@@ -97,8 +100,8 @@ punctuation = {
     punct_impl |
     punct_tilde |
     punct_excl |
-    punct_triple_slash |
-    punct_double_slash |
+//     punct_triple_slash |
+//     punct_double_slash |
     punct_slash |
     punct_plus |
     punct_minus |
@@ -121,6 +124,7 @@ punctuation = {
     punct_dollar |
     punct_question |
     punct_newline |
+    punct_verbatim_newline |
     punct_underscore
 }
 

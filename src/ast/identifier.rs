@@ -1,5 +1,6 @@
 use parser::span::Span;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Deref;
 use std::rc::Rc;
 use util::color;
 
@@ -111,5 +112,17 @@ impl Debug for Identifier {
         } else {
             write!(f, "{}", self)
         }
+    }
+}
+
+impl PartialEq<String> for Identifier {
+    fn eq(&self, other: &String) -> bool {
+        self.symbols.deref() == other
+    }
+}
+
+impl PartialEq<&str> for Identifier {
+    fn eq(&self, other: &&str) -> bool {
+        self.symbols.deref().as_str() == *other
     }
 }

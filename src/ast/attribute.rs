@@ -6,11 +6,51 @@ use mtoken::ext::TokenStreamExt;
 use crate::ast::identifier::Identifier;
 use parser::ast::attrs::{Attr as AttrParser, Attrs as AttrsParser, AttrKind as AttrKindParser};
 use parser::pest::iterators::{Pair, Pairs};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use parser::lexer::Rule;
+use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Attrs(pub Vec<Attr>);
+pub struct Attrs {
+    attrs: Vec<Attr>,
+    /// Element span to which attributes apply
+    span: Span,
+}
+
+// #[derive(Copy, Clone, Debug)]
+// pub enum Token {
+//     Punct(char),
+//     Ident(u32)
+// }
+//
+// use peg::parser;
+// peg::parser!{
+//     grammar tokenparser() for [Token] {
+//         rule punct_path() = [Token::Punct(':')] *<2>
+//         pub rule path() -> Vec<Token> = x:[Token::Ident(_)] ** punct_path() { x }
+//     }
+// }
+//
+impl Attrs {
+//     pub fn peg_test(&self) {
+//         println!("{:?}", tokenparser::path(&[Token::Ident(0), Token::Punct(':'), Token::Punct(':'), Token::Ident(1), Token::Punct(':'), Token::Punct(':'), Token::Ident(10)]));
+//     }
+
+    /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
+    /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
+    pub fn get_one(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
+        let mut attr = None;
+        for a in &self.attrs {
+            if a.path == path {
+                if attr.is_some() {
+                    return Err(Error::new(ErrorKind::AttributeMustBeUnique, self.span.clone()))
+                }
+                attr = Some(a.kind.clone());
+            }
+        }
+        attr.ok_or(Error::new(ErrorKind::AttributeExpected, self.span.clone()))
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attr {
@@ -32,7 +72,7 @@ impl<'i> TryFrom<AttrsParser<'i>> for Attrs {
         for a in attrs_parser.attributes {
             attrs.push(a.try_into()?);
         }
-        Ok(Attrs(attrs))
+        Ok(Attrs { attrs, span: attrs_parser.span.into() })
     }
 }
 

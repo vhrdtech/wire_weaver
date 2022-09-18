@@ -1,4 +1,5 @@
 use pest::iterators::Pair;
+use pest::Span;
 use crate::ast::expr::Expr;
 use super::prelude::*;
 use crate::ast::naming::PathSegment;
@@ -7,6 +8,7 @@ use crate::lexer::Rule;
 #[derive(Debug, Clone)]
 pub struct Attrs<'i> {
     pub attributes: Vec<Attr<'i>>,
+    pub span: Span<'i>,
 }
 
 impl<'i> Parse<'i> for Attrs<'i> {
@@ -22,7 +24,7 @@ impl<'i> Parse<'i> for Attrs<'i> {
                 break;
             }
         }
-        Ok(Attrs { attributes })
+        Ok(Attrs { attributes, span: input.span.clone() })
     }
 }
 

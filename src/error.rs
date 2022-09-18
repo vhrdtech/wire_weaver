@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use parser::span::Span;
 use thiserror::Error;
 
@@ -12,6 +13,14 @@ impl Error {
         Error { kind, span }
     }
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "vhl::Error({} {})", self.kind, self.span)
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[derive(Error, Debug)]
 pub enum ErrorKind {
@@ -31,4 +40,8 @@ pub enum ErrorKind {
     RootWithTyOrSerial,
     #[error("Root resource uri must be an identifier, not an interpolation")]
     RootWithInterpolatedUri,
+    #[error("Attribute was expected, but not present")]
+    AttributeExpected,
+    #[error("Exactly one attribute was expected, but several provided")]
+    AttributeMustBeUnique,
 }

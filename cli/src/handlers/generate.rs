@@ -35,7 +35,7 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
             }
             Definition::Xpi(xpi_def) => {
                 let cg_xpi_def = codegen::rust::xpi::vlu4::dispatch::DispatchCall { xpi_def };
-                cg_file.push(&cg_xpi_def, xpi_def.span.clone());
+                cg_file.push_cg(&cg_xpi_def, xpi_def.span.clone())?;
             }
         }
     }

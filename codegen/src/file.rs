@@ -3,6 +3,7 @@ use crate::error::CodegenError;
 use mtoken::{ToTokens, TokenStream};
 use parser::span::Span;
 use std::collections::HashSet;
+use crate::Codegen;
 
 /// Collection of code blocks with dependencies and source information.
 ///
@@ -23,7 +24,14 @@ impl File {
     pub fn push<T: ToTokens + Depends>(&mut self, tokens: &T, origin: Span) {
         let mut ts = TokenStream::new();
         tokens.to_tokens(&mut ts);
-        self.code_pieces.push((ts, tokens.dependencies(), origin))
+        self.code_pieces.push((ts, tokens.dependencies(), origin));
+    }
+
+    /// Adds code piece into this file
+    pub fn push_cg<T: Codegen<Error=CodegenError> + Depends>(&mut self, tokens: &T, origin: Span) -> Result<(), CodegenError> {
+        let ts = tokens.codegen()?;
+        self.code_pieces.push((ts, tokens.dependencies(), origin));
+        Ok(())
     }
 
     pub fn render(&self) -> Result<(String, HashSet<Package>), CodegenError> {

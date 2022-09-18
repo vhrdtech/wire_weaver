@@ -6,12 +6,15 @@ pub struct DispatchCall<'ast> {
     pub xpi_def: &'ast XpiDef,
 }
 
-impl<'ast> ToTokens for DispatchCall<'ast> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+impl<'ast> Codegen for DispatchCall<'ast> {
+    type Error = CodegenError;
+
+    fn codegen(&self) -> Result<TokenStream, Self::Error> {
+        let mut tokens = TokenStream::new();
         let handle_methods = Self::handle_methods(
             &self.xpi_def,
             format!("{}", self.xpi_def.uri),
-        );
+        )?;
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
@@ -22,14 +25,15 @@ impl<'ast> ToTokens for DispatchCall<'ast> {
                 #handle_methods
             }
         "#));
+        Ok(tokens)
     }
 }
 
 impl<'ast> DispatchCall<'ast> {
-    fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> TokenStream {
+    fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> Result<TokenStream, CodegenError> {
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
-                Self::dispatch_one(xpi_def)
+                Self::dispatch_one(xpi_def)?
             }
             _ => {
                 mquote!(rust r#" return Err(FailReason::NotAMethod); "#)
@@ -42,17 +46,35 @@ impl<'ast> DispatchCall<'ast> {
             .map(|c| c.serial)
             .collect();
 
-        let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = xpi_def.children
+        // let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = xpi_def.children
+        //     .iter()
+        //     .filter(|c| !no_methods_inside.contains(&c.serial))
+        //     .try_for_each(|c| {
+        //         Ok((
+        //             c.serial,
+        //             Self::handle_methods(
+        //                 c,
+        //                 format!("{}/{}", uri_base, c.serial),
+        //             )?
+        //         ))
+        //     })?
+        //     .unzip();
+        let (child_serials, child_handle_methods) = xpi_def
+            .children
             .iter()
-            .filter(|c| !no_methods_inside.contains(&c.serial))
-            .map(|c| (
-                c.serial,
-                Self::handle_methods(
-                    c,
-                    format!("{}/{}", uri_base, c.serial),
-                )
-            ))
-            .unzip();
+            .try_fold::<_, _, Result<_, CodegenError>>(
+                (vec![], vec![]),
+                |mut prev, c| {
+                    prev.0.push(c.serial);
+                    prev.1.push(
+                        Self::handle_methods(
+                            c,
+                            format!("{}/{}", uri_base, c.serial),
+                        )?
+                    );
+                    Ok(prev)
+                },
+            )?;
         // let (child_serial, child_handle_methods) = (child_serial.into_iter(), child_handle_methods.into_iter());
 
         let no_methods_inside = if no_methods_inside.is_empty() {
@@ -65,25 +87,28 @@ impl<'ast> DispatchCall<'ast> {
             "#)
         };
 
-        mquote!(rust r#"
+        Ok(mquote!(rust r#"
             match uri.next() {
                 /◡/ dispatch #uri_base◡()⏎
                 None => {
                     #self_method
                 }
                 #(
-                    Some \\( #child_serial \\) => \\{ #child_handle_methods \\}
+                    Some \\( #child_serials \\) => \\{ #child_handle_methods \\}
                 )*
                 #no_methods_inside
                 Some(_) => {
                      return Err(FailReason::BadUri);
                 }
             }
-        "#)
+        "#))
     }
 
-    fn dispatch_one(xpi_def: &XpiDef) -> TokenStream {
-        mquote!(rust r#" dispatch_one_here "#)
+    fn dispatch_one(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
+        // println!("attrs: {:?}", xpi_def.attrs);
+        let dispatch = xpi_def.attrs.get_one(vec!["dispatch"])?;
+        println!("{:?}", dispatch);
+        Ok(mquote!(rust r#" dispatch_one_here "#))
     }
 }
 

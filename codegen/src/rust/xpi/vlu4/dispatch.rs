@@ -1,3 +1,6 @@
+use parser::ast::ops::BinaryOp;
+use vhl::ast::attribute::AttrKind;
+use vhl::ast::expr::Expr;
 use crate::prelude::*;
 use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
@@ -107,7 +110,30 @@ impl<'ast> DispatchCall<'ast> {
     fn dispatch_one(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
         // println!("attrs: {:?}", xpi_def.attrs);
         let dispatch = xpi_def.attrs.get_one(vec!["dispatch"])?;
-        println!("{:?}", dispatch);
+        let (kind, flavor, path) = if let AttrKind::Expr(expr) = dispatch {
+            if let Expr::Call { method, args } = expr {
+                let flavor = if let Expr::Id(flavor) = &args.0[0] {
+                    flavor.symbols.clone()
+                } else {
+                    return Err(CodegenError::WrongAttributeSyntax("expected first argument to be: spawn".to_owned()));
+                };
+                let path = if let Expr::ConsB(BinaryOp::Path, cons) = &args.0[1] {
+                    "todo".to_owned()
+                } else {
+                    return Err(CodegenError::WrongAttributeSyntax("expected second argument to be a path".to_owned()));
+                };
+                (method.symbols.clone(), flavor, path)
+            } else {
+                return Err(CodegenError::WrongAttributeSyntax("expected call".to_owned()));
+            }
+        } else {
+            return Err(CodegenError::ExpectedExprAttribute);
+        };
+        println!("{} {} {}", kind, flavor, path);
+        // let call = ?
+        // match on method names and flavors which is the first argument
+        // let path = TryEvaluateInto... from second argument
+        // println!("{:?}", dispatch);
         Ok(mquote!(rust r#" dispatch_one_here "#))
     }
 }

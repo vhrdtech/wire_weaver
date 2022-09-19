@@ -17,7 +17,7 @@ interpolate_repetition = {
     (!"#" ~ token_tree)* ~
     interpolate? ~
     (!"#" ~ token_tree)* ~
-    ")" ~ repetition_separator? ~ "*"
+    ")" ~ repetition_separator? ~ spacing_joint? ~ "*"
 }
 
 ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)

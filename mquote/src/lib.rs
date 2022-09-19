@@ -47,6 +47,8 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
 
     let mut ts_builder = new_ts_builder();
     ts_builder.append_all(quote! {
+        use std::rc::Rc;
+        use mtoken::ext::TokenStreamExt;
         let mut recreate_trees_afterwards = false;
     });
     for token in mquote_ts {
@@ -77,8 +79,6 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
 
 fn new_ts_builder() -> proc_macro2::TokenStream {
     quote! {
-        use std::rc::Rc;
-        use mtoken::ext::TokenStreamExt;
         let mut ts = mtoken::TokenStream::new();
     }
 }
@@ -226,6 +226,13 @@ fn tt_append_repetition(
                     language,
                 );
             }
+            Rule::spacing_joint => {
+                tt_append(
+                    interpolate_token,
+                    &mut separator,
+                    language,
+                );
+            }
             _ => panic!(
                 "Internal error: unexpected token in interpolate repetition: {:?}",
                 interpolate_token
@@ -240,7 +247,7 @@ fn tt_append_repetition(
         ts_builder.append_all(quote! {
             let prefix = { #prefix_ts ts };
             let postfix = { #infix_ts ts };
-            let interpolate = #interpolate_iter1.into_iter().map(|token_or_stream| {
+            let interpolate = #interpolate_iter1.map(|token_or_stream| {
                 let mut its = mtoken::TokenStream::new();
                 its.append_all(prefix.clone());
                 token_or_stream.to_tokens(&mut its);
@@ -258,8 +265,8 @@ fn tt_append_repetition(
             let prefix = { #prefix_ts ts };
             let infix = { #infix_ts ts };
             let postfix = { #postfix_ts ts };
-            let interpolate = #interpolate_iter1.into_iter()
-                .zip(#interpolate_iter2.into_iter())
+            let interpolate = #interpolate_iter1
+                .zip(#interpolate_iter2)
                 .map(|(token_or_stream_1, token_or_stream_2)| {
                     let mut its = mtoken::TokenStream::new();
                     its.append_all(prefix.clone());

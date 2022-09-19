@@ -4,6 +4,8 @@ use crate::ast::lit::Lit;
 use parser::ast::expr::{CallArguments, Expr as ExprParser, IndexArguments};
 use parser::ast::ops::{BinaryOp, UnaryOp};
 use std::ops::Deref;
+use parser::span::Span;
+use crate::error::{Error, ErrorKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr {
@@ -17,15 +19,74 @@ pub enum Expr {
     ConsB(BinaryOp, Box<(Expr, Expr)>),
 }
 
+impl Expr {
+    pub fn expect_ident(&self) -> Result<Identifier, Error> {
+        match self {
+            Expr::Id(ident) => Ok(ident.clone()),
+            _ => Err(Error::new(
+                ErrorKind::ExprExpectedToBe("Id".to_owned(), self.format_kind()),
+                self.span(),
+            ))
+        }
+    }
+
+    pub fn expect_call(&self) -> Result<(Identifier, VecExpr), Error> {
+        match self {
+            Expr::Call { method, args } => Ok((method.clone(), args.clone())),
+            _ => Err(Error::new(
+                ErrorKind::ExprExpectedToBe("Call".to_owned(), self.format_kind()),
+                self.span(),
+            ))
+        }
+    }
+
+
+    pub fn format_kind(&self) -> String {
+        match self {
+            Expr::Call { .. } => "Call",
+            Expr::Index { .. } => "Index",
+            Expr::Lit(_) => "Lit",
+            Expr::Tuple(_) => "Tuple",
+            Expr::Id(_) => "Ident",
+            Expr::ConsU(_, _) => "Unary",
+            Expr::ConsB(_, _) => "Binary",
+        }.to_owned()
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::Call { method, args } => method.span.clone() + args.span(),
+            Expr::Index { object, by } => object.span.clone() + by.span(),
+            Expr::Lit(lit) => lit.span.clone(),
+            Expr::Tuple(t) => t.span(),
+            Expr::Id(id) => id.span.clone(),
+            Expr::ConsU(_, cons) => cons.span(),
+            Expr::ConsB(_, cons) => cons.deref().0.span() + cons.deref().1.span(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VecExpr(pub Vec<Expr>);
+
+impl VecExpr {
+    pub fn span(&self) -> Span {
+        if self.0.is_empty() {
+            panic!("VecExpr::span() called on empty");
+        }
+        self.0
+            .iter()
+            .skip(1)
+            .fold(self.0[0].span().clone(), |prev, expr| prev + expr.span())
+    }
+}
 
 /// Expression that is eventually expected to be a literal
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TryEvaluateInto<F, T> {
     NotResolved(F),
     Resolved(T),
-    Error
+    Error,
 }
 
 impl<'i> From<ExprParser<'i>> for Expr {

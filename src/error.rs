@@ -44,4 +44,8 @@ pub enum ErrorKind {
     AttributeExpected,
     #[error("Exactly one attribute was expected, but several provided")]
     AttributeMustBeUnique,
+    #[error("Expression was expected to be of {} kind but found to be of {}", .0, .1)]
+    ExprExpectedToBe(String, String),
+    #[error("Attribute was expected to be of {} kind but found to be of {}", .0, .1)]
+    AttrExpectedToBe(String, String)
 }

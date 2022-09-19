@@ -149,6 +149,29 @@ pub enum XpiKind {
     // }
 }
 
+impl XpiDef {
+    pub fn expect_method_kind(&self) -> Result<(FnArguments, Ty), Error> {
+        match &self.kind {
+            XpiKind::Method { args, ret_ty } => Ok((args.clone(), ret_ty.clone())),
+            _ => Err(Error::new(
+                ErrorKind::XpiKindExpectedToBe("Method".to_owned(), self.format_kind()),
+                self.span.clone(),
+            ))
+        }
+    }
+
+    pub fn format_kind(&self) -> String {
+        match self.kind {
+            XpiKind::Group => "group",
+            XpiKind::Array => "array",
+            XpiKind::Property { .. } => "property",
+            XpiKind::Stream { .. } => "stream",
+            XpiKind::Cell { .. } => "Cell<_>",
+            XpiKind::Method { .. } => "method"
+        }.to_owned()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum XpiUriPart {
     /// Ready to use resource identifier.

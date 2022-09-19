@@ -47,5 +47,7 @@ pub enum ErrorKind {
     #[error("Expression was expected to be of {} kind but found to be of {}", .0, .1)]
     ExprExpectedToBe(String, String),
     #[error("Attribute was expected to be of {} kind but found to be of {}", .0, .1)]
-    AttrExpectedToBe(String, String)
+    AttrExpectedToBe(String, String),
+    #[error("Resource was expected to be of {} kind but found to be of {}", .0, .1)]
+    XpiKindExpectedToBe(String, String),
 }

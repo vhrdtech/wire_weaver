@@ -34,8 +34,8 @@ pub struct StructDes<'ast> {
     pub inner: CGStructDef<'ast>,
 }
 
-struct StructSerField<'ast> {
-    ty: CGTy<'ast>,
+pub struct StructSerField<'ast> {
+    pub ty: CGTy<'ast>,
 }
 
 impl<'ast> ToTokens for StructSerField<'ast> {
@@ -67,8 +67,8 @@ impl<'ast> ToTokens for StructSerField<'ast> {
     }
 }
 
-struct StructDesField<'ast> {
-    ty: CGTy<'ast>,
+pub struct StructDesField<'ast> {
+    pub ty: CGTy<'ast>,
 }
 
 impl<'ast> ToTokens for StructDesField<'ast> {
@@ -95,7 +95,12 @@ impl<'ast> ToTokens for StructDesField<'ast> {
                     "#));
                 }
             }
-            _ => unimplemented!()
+            TyKind::UserDefined(_) => {
+                tokens.append_all(mquote!(rust r#"
+                    rdr.des_bytes()?
+                "#));
+            }
+            k => unimplemented!("{:?}", k)
         }
     }
 }

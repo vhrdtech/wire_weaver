@@ -3,6 +3,10 @@ use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
 use crate::rust::path::PathCG;
 use itertools::Itertools;
+use vhl::ast::fn_def::FnArguments;
+use crate::rust::identifier::CGIdentifier;
+use crate::rust::serdes::buf::struct_def::StructDesField;
+use crate::rust::ty::CGTy;
 
 pub struct DispatchCall<'ast> {
     pub xpi_def: &'ast XpiDef,
@@ -112,18 +116,24 @@ impl<'ast> DispatchCall<'ast> {
         let path = args.0[0].expect_path()?;
         let path = PathCG { inner: &path };
         let kind = kind.symbols.clone();
+
+        let (args, ret_ty) = xpi_def.expect_method_kind().expect("dispatch_method() must be called only for methods");
+        let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
+
         match kind.as_str() {
             "sync" => {
                 Ok(mquote!(rust r#"
                     // syncronous call
-                    #path();
+                    #des_args
+                    #path(#arg_names);
                     Ok(0)
                 "#))
             }
             "rtic" => {
                 Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
-                    #path::spawn();
+                    #des_args
+                    #path::spawn(#arg_names);
                     Ok(0)
                 "#))
             }
@@ -131,6 +141,29 @@ impl<'ast> DispatchCall<'ast> {
                 Err(CodegenError::UnsupportedDispatchType(k.to_owned()))
             }
         }
+    }
+
+    fn des_args_buf_reader(args: &FnArguments) -> Result<(TokenStream, TokenStream), CodegenError> {
+        let arg_names = args
+            .args
+            .iter()
+            .map(|arg| CGIdentifier { inner: &arg.name });
+        let arg_des_methods = args
+            .args
+            .iter()
+            .map(|f| StructDesField {
+                ty: CGTy { inner: &f.ty },
+            });
+        let arg_names_clone = arg_names.clone();
+        Ok((mquote!(rust r#"
+            let mut rdr = Buf::new(args);
+            #( let #arg_names = #arg_des_methods; )*
+            if !rdr.is_at_end() {
+                log_warn◡!◡(=>T, "Unused {} bytes left after deserializing arguments", rdr.bytes_left());
+            }
+        "#),
+            mquote!(rust r#" #( #arg_names_clone ),* "#)
+        ))
     }
 }
 

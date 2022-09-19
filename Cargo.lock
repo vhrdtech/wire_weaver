@@ -146,6 +146,7 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
+ "itertools",
  "mquote",
  "mtoken",
  "parser",
@@ -306,6 +307,15 @@ name = "io-lifetimes"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ea37f355c05dde75b84bba2d767906ad522e97cd9e2eef2be7a4ab7fb442c06"
+
+[[package]]
+name = "itertools"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8bf247779e67a9082a4790b45e71ac7cfd1321331a5c856a74a9faebdab78d0"
+dependencies = [
+ "either",
+]
 
 [[package]]
 name = "libc"
@@ -774,6 +784,7 @@ name = "vhl"
 version = "0.3.0"
 dependencies = [
  "either",
+ "itertools",
  "mtoken",
  "parser",
  "thiserror",

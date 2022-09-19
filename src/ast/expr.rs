@@ -5,6 +5,7 @@ use parser::ast::expr::{CallArguments, Expr as ExprParser, IndexArguments};
 use parser::ast::ops::{BinaryOp, UnaryOp};
 use std::ops::Deref;
 use parser::span::Span;
+use crate::ast::path::Path;
 use crate::error::{Error, ErrorKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -40,6 +41,36 @@ impl Expr {
         }
     }
 
+    pub fn expect_path(&self) -> Result<Path, Error> {
+        let mut path = Path::new();
+        Self::expect_path_inner(self, &mut path)?;
+        Ok(path)
+    }
+
+    fn expect_path_inner(expr: &Expr, path: &mut Path) -> Result<(), Error> {
+        match &expr {
+            Expr::ConsB(op, cons) => {
+                if *op == BinaryOp::Path {
+                    Self::expect_path_inner(&cons.deref().0, path)?;
+                    Self::expect_path_inner(&cons.deref().1, path)?;
+                    Ok(())
+                } else {
+                    Err(Error::new(
+                        ErrorKind::ExprExpectedToBe("Path".to_owned(), expr.format_kind()),
+                        expr.span())
+                    )
+                }
+            }
+            Expr::Id(ident) => {
+                path.items.push(ident.clone());
+                Ok(())
+            }
+            _ => Err(Error::new(
+                ErrorKind::ExprExpectedToBe("Path".to_owned(), expr.format_kind()),
+                expr.span())
+            )
+        }
+    }
 
     pub fn format_kind(&self) -> String {
         match self {

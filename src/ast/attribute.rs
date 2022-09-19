@@ -64,6 +64,18 @@ pub enum AttrKind {
     Expr(Expr),
 }
 
+impl AttrKind {
+    pub fn expect_expr(&self) -> Result<Expr, Error> {
+        match self {
+            AttrKind::Expr(expr) => Ok(expr.clone()),
+            _ => Err(Error::new(
+                ErrorKind::AttrExpectedToBe("Expr".to_owned(), "TokenTree".to_owned()),
+                Span::call_site(), // TODO: propagate proper span info
+            ))
+        }
+    }
+}
+
 impl<'i> TryFrom<AttrsParser<'i>> for Attrs {
     type Error = Error;
 

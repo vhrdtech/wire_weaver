@@ -1,8 +1,16 @@
 use std::fmt::{Display, Formatter};
 use parser::ast::lit::Lit as LitParser;
+use parser::ast::lit::LitKind as LitKindParser;
+use parser::span::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Lit {
+pub struct Lit {
+    pub kind: LitKind,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LitKind {
     Bool(bool),
     UDec { bits: u32, val: u128 },
     // Float32(f32), Eq needed ?
@@ -16,25 +24,29 @@ pub struct VecLit(pub Vec<Lit>);
 
 impl<'i> From<LitParser<'i>> for Lit {
     fn from(lit: LitParser) -> Self {
-        match lit {
-            LitParser::BoolLit(val) => Lit::Bool(val),
-            LitParser::UDecLit { bits, val } => Lit::UDec { bits, val },
+        let kind = match lit.kind {
+            LitKindParser::BoolLit(val) => LitKind::Bool(val),
+            LitKindParser::UDecLit { bits, val } => LitKind::UDec { bits, val },
             // LitParser::Float32Lit(val) => Lit::Float32(val),
             // LitParser::Float64Lit(val) => Lit::Float64(val),
-            LitParser::CharLit(val) => Lit::Char(val),
-            LitParser::StringLit(val) => Lit::String(String::from(val)),
+            LitKindParser::CharLit(val) => LitKind::Char(val),
+            LitKindParser::StringLit(val) => LitKind::String(String::from(val)),
             _ => unimplemented!(),
+        };
+        Lit {
+            kind,
+            span: lit.span.into(),
         }
     }
 }
 
 impl Display for Lit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Lit::Bool(val) => write!(f, "{}", val),
-            Lit::UDec { val, .. } => write!(f, "{}", val),
-            Lit::Char(c) => write!(f, "'{}'", c),
-            Lit::String(s) => write!(f, "\"{}\"", s),
+        match &self.kind {
+            LitKind::Bool(val) => write!(f, "{}", val),
+            LitKind::UDec { val, .. } => write!(f, "{}", val),
+            LitKind::Char(c) => write!(f, "'{}'", c),
+            LitKind::String(s) => write!(f, "\"{}\"", s),
         }
     }
 }

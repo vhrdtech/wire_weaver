@@ -1,9 +1,16 @@
 use super::prelude::*;
 use crate::error::{ParseError, ParseErrorKind};
 use pest::iterators::Pair;
+use pest::Span;
 
 #[derive(Debug, Clone)]
-pub enum Lit<'i> {
+pub struct Lit<'i> {
+    pub kind: LitKind<'i>,
+    pub span: Span<'i>,
+}
+
+#[derive(Debug, Clone)]
+pub enum LitKind<'i> {
     BoolLit(bool),
     UDecLit { bits: u32, val: u128 },
     IDecLit { bits: u32, val: i128 },
@@ -23,8 +30,8 @@ pub enum Lit<'i> {
 
 impl<'i> Lit<'i> {
     pub fn is_a_number(&self) -> bool {
-        use Lit::*;
-        match self {
+        use LitKind::*;
+        match self.kind {
             UDecLit { .. } => true,
             IDecLit { .. } => true,
             HexLit(_) => true,
@@ -38,7 +45,7 @@ impl<'i> Lit<'i> {
     }
 
     pub fn is_same_kind(&self, other: &Self) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
+        std::mem::discriminant(&self.kind) == std::mem::discriminant(&other.kind)
     }
 }
 
@@ -56,9 +63,13 @@ impl<'i> Parse<'i> for Lit<'i> {
             .pairs
             .next()
             .ok_or_else(|| ParseErrorSource::internal("empty any_lit"))?;
+        let span = input.span.clone();
         let mut input = ParseInput::fork(x_lit.clone(), &mut input);
         match x_lit.as_rule() {
-            Rule::bool_lit => Ok(Lit::BoolLit(x_lit.as_str() == "true")),
+            Rule::bool_lit => Ok(Lit {
+                kind: LitKind::BoolLit(x_lit.as_str() == "true"),
+                span,
+            }),
             Rule::float_lit => parse_float_lit(&mut input, x_lit),
             Rule::discrete_lit => {
                 let num: u32 = x_lit.as_str().parse().map_err(|_| {
@@ -69,9 +80,12 @@ impl<'i> Parse<'i> for Lit<'i> {
                     });
                     ParseErrorSource::UserError
                 })?;
-                Ok(Lit::UDecLit {
-                    bits: 32,
-                    val: num as u128,
+                Ok(Lit {
+                    kind: LitKind::UDecLit {
+                        bits: 32,
+                        val: num as u128,
+                    },
+                    span,
                 })
             }
             Rule::hex_lit => Err(ParseErrorSource::Unimplemented("hex_lit")),
@@ -84,14 +98,20 @@ impl<'i> Parse<'i> for Lit<'i> {
                     .skip(1)
                     .next()
                     .ok_or(ParseErrorSource::internal("char_lit grammar error"))?;
-                Ok(Lit::CharLit(c))
+                Ok(Lit {
+                    kind: LitKind::CharLit(c),
+                    span,
+                })
             }
             Rule::string_lit => {
                 let string_inner = x_lit
                     .into_inner()
                     .next()
                     .ok_or_else(|| ParseErrorSource::internal("wrong string_lit rule"))?;
-                Ok(Lit::StringLit(string_inner.as_str()))
+                Ok(Lit {
+                    kind: LitKind::StringLit(string_inner.as_str()),
+                    span,
+                })
             }
             Rule::tuple_lit => Err(ParseErrorSource::Unimplemented("tuple lit")),
             Rule::struct_lit => Err(ParseErrorSource::Unimplemented("struct lit")),
@@ -130,7 +150,10 @@ fn parse_float_lit<'i, 'm>(
             });
             ParseErrorSource::UserError
         })?;
-        Ok(Lit::Float32Lit(f))
+        Ok(Lit {
+            kind: LitKind::Float32Lit(f),
+            span: input.span.clone(),
+        })
     } else {
         let f: f64 = fx.parse().map_err(|_| {
             input.errors.push(ParseError {
@@ -140,6 +163,9 @@ fn parse_float_lit<'i, 'm>(
             });
             ParseErrorSource::UserError
         })?;
-        Ok(Lit::Float64Lit(f))
+        Ok(Lit {
+            kind: LitKind::Float64Lit(f),
+            span: input.span.clone(),
+        })
     }
 }

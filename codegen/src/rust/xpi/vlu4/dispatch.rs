@@ -1,5 +1,4 @@
 use parser::ast::ops::BinaryOp;
-use vhl::ast::attribute::AttrKind;
 use vhl::ast::expr::Expr;
 use crate::prelude::*;
 use vhl::ast::xpi_def::{XpiDef, XpiKind};
@@ -36,7 +35,7 @@ impl<'ast> DispatchCall<'ast> {
     fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> Result<TokenStream, CodegenError> {
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
-                Self::dispatch_one(xpi_def)?
+                Self::dispatch_one(xpi_def).map_err(|e| e.add_context("dispatch call"))?
             }
             _ => {
                 mquote!(rust r#" return Err(FailReason::NotAMethod); "#)
@@ -49,22 +48,10 @@ impl<'ast> DispatchCall<'ast> {
             .map(|c| c.serial)
             .collect();
 
-        // let (child_serial, child_handle_methods): (Vec<u32>, Vec<TokenStream>) = xpi_def.children
-        //     .iter()
-        //     .filter(|c| !no_methods_inside.contains(&c.serial))
-        //     .try_for_each(|c| {
-        //         Ok((
-        //             c.serial,
-        //             Self::handle_methods(
-        //                 c,
-        //                 format!("{}/{}", uri_base, c.serial),
-        //             )?
-        //         ))
-        //     })?
-        //     .unzip();
         let (child_serials, child_handle_methods) = xpi_def
             .children
             .iter()
+            .filter(|c| !no_methods_inside.contains(&c.serial))
             .try_fold::<_, _, Result<_, CodegenError>>(
                 (vec![], vec![]),
                 |mut prev, c| {
@@ -78,7 +65,6 @@ impl<'ast> DispatchCall<'ast> {
                     Ok(prev)
                 },
             )?;
-        // let (child_serial, child_handle_methods) = (child_serial.into_iter(), child_handle_methods.into_iter());
 
         let no_methods_inside = if no_methods_inside.is_empty() {
             TokenStream::new()
@@ -110,31 +96,33 @@ impl<'ast> DispatchCall<'ast> {
     fn dispatch_one(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
         // println!("attrs: {:?}", xpi_def.attrs);
         let dispatch = xpi_def.attrs.get_one(vec!["dispatch"])?;
-        let (kind, flavor, path) = if let AttrKind::Expr(expr) = dispatch {
-            if let Expr::Call { method, args } = expr {
-                let flavor = if let Expr::Id(flavor) = &args.0[0] {
-                    flavor.symbols.clone()
-                } else {
-                    return Err(CodegenError::WrongAttributeSyntax("expected first argument to be: spawn".to_owned()));
-                };
-                let path = if let Expr::ConsB(BinaryOp::Path, cons) = &args.0[1] {
-                    "todo".to_owned()
-                } else {
-                    return Err(CodegenError::WrongAttributeSyntax("expected second argument to be a path".to_owned()));
-                };
-                (method.symbols.clone(), flavor, path)
-            } else {
-                return Err(CodegenError::WrongAttributeSyntax("expected call".to_owned()));
-            }
+        let expr = dispatch.expect_expr()?;
+        let (kind, args) = expr.expect_call()?;
+        let flavor = args.0[0].expect_ident()?.symbols.clone();
+        let path = if let Expr::ConsB(BinaryOp::Path, cons) = &args.0[1] {
+            "todo".to_owned()
         } else {
-            return Err(CodegenError::ExpectedExprAttribute);
+            return Err(CodegenError::WrongAttributeSyntax("expected second argument to be a path".to_owned()));
         };
-        println!("{} {} {}", kind, flavor, path);
-        // let call = ?
-        // match on method names and flavors which is the first argument
-        // let path = TryEvaluateInto... from second argument
-        // println!("{:?}", dispatch);
-        Ok(mquote!(rust r#" dispatch_one_here "#))
+        let kind = kind.symbols.clone();
+        //println!("{} {} {}", kind, flavor, path);
+        match kind.as_str() {
+            "sync" => {
+                Ok(mquote!(rust r#"
+                    // sync
+                    sync()
+                "#))
+            }
+            "rtic" => {
+                Ok(mquote!(rust r#"
+                    // rtic spawn, TODO: count spawn errors
+                    crate::app::task::spawn();
+                "#))
+            }
+            k => {
+                Err(CodegenError::UnsupportedDispatchType(k.to_owned()))
+            }
+        }
     }
 }
 

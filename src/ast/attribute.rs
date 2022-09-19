@@ -38,7 +38,7 @@ impl Attrs {
 
     /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
     /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
-    pub fn get_one(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
+    pub fn get_unique(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
         let mut attr = None;
         for a in &self.attrs {
             if a.path == path {

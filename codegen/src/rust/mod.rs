@@ -5,3 +5,4 @@ pub mod identifier;
 pub mod serdes;
 pub mod struct_def;
 pub mod xpi;
+pub mod path;

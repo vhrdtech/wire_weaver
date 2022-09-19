@@ -13,3 +13,4 @@ mtoken = { path = "../mtoken" }
 mquote = { path = "../mquote" }
 semver = { version = "^1.0.13", default-features = false }
 #rustfmt-nightly = { path = "../../rustfmt/" }
+itertools = "0.10"

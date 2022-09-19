@@ -1,8 +1,8 @@
-use parser::ast::ops::BinaryOp;
-use vhl::ast::expr::Expr;
 use crate::prelude::*;
 use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
+use crate::rust::path::PathCG;
+use itertools::Itertools;
 
 pub struct DispatchCall<'ast> {
     pub xpi_def: &'ast XpiDef,
@@ -35,18 +35,18 @@ impl<'ast> DispatchCall<'ast> {
     fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> Result<TokenStream, CodegenError> {
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
-                Self::dispatch_one(xpi_def).map_err(|e| e.add_context("dispatch call"))?
+                Self::dispatch_method(xpi_def).map_err(|e| e.add_context("dispatch call"))?
             }
             _ => {
-                mquote!(rust r#" return Err(FailReason::NotAMethod); "#)
+                mquote!(rust r#" Err(FailReason::NotAMethod) "#)
             }
         };
 
-        let no_methods_inside: Vec<u32> = xpi_def.children
+        let (no_methods_inside, no_methods_inside_names): (Vec<u32>, Vec<String>) = xpi_def.children
             .iter()
             .filter(|c| !c.contains_methods())
-            .map(|c| c.serial)
-            .collect();
+            .map(|c| (c.serial, format!("{}", c.uri)))
+            .unzip();
 
         let (child_serials, child_handle_methods) = xpi_def
             .children
@@ -59,21 +59,32 @@ impl<'ast> DispatchCall<'ast> {
                     prev.1.push(
                         Self::handle_methods(
                             c,
-                            format!("{}/{}", uri_base, c.serial),
+                            format!("{}{}", uri_base, c.uri),
                         )?
                     );
                     Ok(prev)
                 },
             )?;
+        let child_serials = child_serials.into_iter();
 
         let no_methods_inside = if no_methods_inside.is_empty() {
             TokenStream::new()
         } else {
+            let comment = Itertools::intersperse(
+                no_methods_inside_names.iter().map(|i| format!("{}{}", uri_base, i)),
+                ",".to_owned(),
+            );
+            let no_methods_inside = no_methods_inside.iter();
             mquote!(rust r#"
-                Some( #( #no_methods_inside )|* ) => {
-                    return Err(FailReason::NotAMethod);
-                }
+                ⏎/◡/ #( #comment )* : not a method and contains no children that are ⏎
+                Some( #( #no_methods_inside )|* ) => Err(FailReason::NotAMethod),
             "#)
+        };
+
+        let wildcard_comment = if xpi_def.children.is_empty() {
+            "has no child resources"
+        } else {
+            "all defined resources are handled"
         };
 
         Ok(mquote!(rust r#"
@@ -86,37 +97,34 @@ impl<'ast> DispatchCall<'ast> {
                     Some \\( #child_serials \\) => \\{ #child_handle_methods \\}
                 )*
                 #no_methods_inside
-                Some(_) => {
-                     return Err(FailReason::BadUri);
-                }
+                ⏎/◡/ #uri_base : #wildcard_comment⏎
+                Some(_) => Err(FailReason::BadUri),
             }
         "#))
     }
 
-    fn dispatch_one(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
+    fn dispatch_method(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
         // println!("attrs: {:?}", xpi_def.attrs);
-        let dispatch = xpi_def.attrs.get_one(vec!["dispatch"])?;
+        let dispatch = xpi_def.attrs.get_unique(vec!["dispatch"])?;
         let expr = dispatch.expect_expr()?;
         let (kind, args) = expr.expect_call()?;
-        let flavor = args.0[0].expect_ident()?.symbols.clone();
-        let path = if let Expr::ConsB(BinaryOp::Path, cons) = &args.0[1] {
-            "todo".to_owned()
-        } else {
-            return Err(CodegenError::WrongAttributeSyntax("expected second argument to be a path".to_owned()));
-        };
+        // let flavor = args.0[0].expect_ident()?.symbols.clone();
+        let path = args.0[0].expect_path()?;
+        let path = PathCG { inner: &path };
         let kind = kind.symbols.clone();
-        //println!("{} {} {}", kind, flavor, path);
         match kind.as_str() {
             "sync" => {
                 Ok(mquote!(rust r#"
-                    // sync
-                    sync()
+                    // syncronous call
+                    #path();
+                    Ok(0)
                 "#))
             }
             "rtic" => {
                 Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
-                    crate::app::task::spawn();
+                    #path::spawn();
+                    Ok(0)
                 "#))
             }
             k => {

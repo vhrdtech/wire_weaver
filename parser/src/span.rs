@@ -1,4 +1,6 @@
+use std::cmp::{max, min};
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Add;
 use std::path::PathBuf;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -14,6 +16,19 @@ impl Span {
             start: 0,
             end: 0,
             origin: SpanOrigin::Coder,
+        }
+    }
+}
+
+impl Add<Span> for Span {
+    type Output = Span;
+
+    fn add(self, rhs: Span) -> Self::Output {
+        assert_eq!(self.origin, rhs.origin);
+        Span {
+            start: min(self.start, rhs.start),
+            end: max(self.end, rhs.end),
+            origin: self.origin.clone(),
         }
     }
 }

@@ -18,7 +18,7 @@ use crate::ast::attribute::Attrs;
 pub struct XpiDef {
     pub doc: Doc,
     pub attrs: Attrs,
-    pub uri: XpiUriPart,
+    pub uri_segment: UriSegmentSeed,
     pub serial: u32,
     // u32::MAX for root for convenience, not used
     pub kind: XpiKind,
@@ -80,7 +80,7 @@ impl XpiDef {
         Ok(XpiDef {
             doc: xd.docs.into(),
             attrs: xd.attrs.try_into()?,
-            uri: xd.uri.into(),
+            uri_segment: xd.uri.into(),
             serial,
             kind,
             kv: xd.body.kv_list
@@ -172,8 +172,9 @@ impl XpiDef {
     }
 }
 
+/// UriSegment that can be interpolated into many segments (over a range or set).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum XpiUriPart {
+pub enum UriSegmentSeed {
     /// Ready to use resource identifier.
     /// OneNamedPart is already Resolved, other variants need expression resolving pass.
     /// `/main`, `a_ctrl`, `velocity_x`, `register_0_b`
@@ -194,18 +195,18 @@ pub struct XpiResourceTy {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiBody {}
 
-impl<'i> From<XpiUriParser<'i>> for XpiUriPart {
+impl<'i> From<XpiUriParser<'i>> for UriSegmentSeed {
     fn from(uri: XpiUriParser<'i>) -> Self {
         match uri {
-            XpiUriParser::OneNamedPart(id) => XpiUriPart::Resolved(id.into()),
-            XpiUriParser::ExprOnly(expr) => XpiUriPart::ExprOnly(expr.into()),
+            XpiUriParser::OneNamedPart(id) => UriSegmentSeed::Resolved(id.into()),
+            XpiUriParser::ExprOnly(expr) => UriSegmentSeed::ExprOnly(expr.into()),
             XpiUriParser::ExprThenNamedPart(expr, id) => {
-                XpiUriPart::ExprThenNamedPart(expr.into(), id.into())
+                UriSegmentSeed::ExprThenNamedPart(expr.into(), id.into())
             }
             XpiUriParser::NamedPartThenExpr(id, expr) => {
-                XpiUriPart::NamedPartThenExpr(id.into(), expr.into())
+                UriSegmentSeed::NamedPartThenExpr(id.into(), expr.into())
             }
-            XpiUriParser::Full(id1, expr, id2) => XpiUriPart::Full(id1.into(), expr.into(), id2.into()),
+            XpiUriParser::Full(id1, expr, id2) => UriSegmentSeed::Full(id1.into(), expr.into(), id2.into()),
         }
     }
 }
@@ -312,14 +313,14 @@ impl XpiKind {
     }
 }
 
-impl Display for XpiUriPart {
+impl Display for UriSegmentSeed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            XpiUriPart::Resolved(id) => write!(f, "/{:-}", id),
-            XpiUriPart::ExprOnly(expr) => write!(f, "/{}", expr),
-            XpiUriPart::ExprThenNamedPart(expr, id) => write!(f, "/{}{:-}", expr, id),
-            XpiUriPart::NamedPartThenExpr(id, expr) => write!(f, "/{:-}{}", id, expr),
-            XpiUriPart::Full(expr1, id, expr2) => write!(f, "/{}{:-}{}", expr1, id, expr2),
+            UriSegmentSeed::Resolved(id) => write!(f, "/{:-}", id),
+            UriSegmentSeed::ExprOnly(expr) => write!(f, "/{}", expr),
+            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "/{}{:-}", expr, id),
+            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "/{:-}{}", id, expr),
+            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "/{}{:-}{}", expr1, id, expr2),
         }
     }
 }

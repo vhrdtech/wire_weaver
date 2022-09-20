@@ -7,7 +7,8 @@ delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ t
 interpolate = { interpolate_simple | interpolate_path }
 interpolate_simple = _{ "#" ~ interpolate_path_segment }
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
-interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ "}" }
+interpolate_call = { "()" }
+interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ interpolate_call? ~ "}" }
 
 repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 interpolate_repetition = {

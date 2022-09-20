@@ -84,16 +84,27 @@ fn new_ts_builder() -> proc_macro2::TokenStream {
 }
 
 fn interpolate_path(token: pest::iterators::Pair<Rule>) -> proc_macro2::TokenStream {
-    let segments = token.into_inner().map(|path_segment| {
-        assert!(
-            path_segment.as_rule() == Rule::interpolate_path_segment,
-            "Internal error: {:?} found instead of interpolate_path_segment",
-            path_segment
-        );
-        format_ident!("{}", path_segment.as_str())
-    });
+    let mut is_tail_call = quote! {};
+    let segments = token
+        .into_inner()
+        .filter(|p| {
+            if p.as_rule() == Rule::interpolate_call {
+                is_tail_call = quote! { () };
+                false
+            } else {
+                true
+            }
+        })
+        .map(|path_segment| {
+            match path_segment.as_rule() {
+                Rule::interpolate_path_segment => {
+                    format_ident!("{}", path_segment.as_str())
+                }
+                r => panic!("{:?} was unexpected in interpolate", r)
+            }
+        });
     quote! {
-        #(#segments).*
+        #(#segments).* #is_tail_call
     }
 }
 

@@ -44,7 +44,7 @@ impl<'ast> ToTokens for StructSerField<'ast> {
             TyKind::Unit => {},
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
-                    wr.put_bool
+                    put_bool
                 "#));
             }
             TyKind::Discrete(discrete) => {
@@ -53,12 +53,12 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     let is_le = if discrete.bits == 8 { "" } else { "_le" };
                     let method = format!("put_{}{}{}", sign, discrete.bits, is_le);
                     tokens.append_all(mquote!(rust r#"
-                        wr.#method
+                        #method
                     "#));
                 } else {
                     // Ix / Ux / UxSpy / UxSny / IxSpy / IxSny, use generic ser<T: SerializeBuf>()
                     tokens.append_all(mquote!(rust r#"
-                        wr.ser
+                        ser_bytes
                     "#));
                 }
             }
@@ -77,7 +77,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
             TyKind::Unit => {},
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
-                    rdr.get_bool()?
+                    get_bool
                 "#));
             }
             TyKind::Discrete(discrete) => {
@@ -86,18 +86,18 @@ impl<'ast> ToTokens for StructDesField<'ast> {
                     let is_le = if discrete.bits == 8 { "" } else { "_le" };
                     let method = format!("get_{}{}{}", sign, discrete.bits, is_le);
                     tokens.append_all(mquote!(rust r#"
-                        rdr.#method()?
+                        #method
                     "#));
                 } else {
                     // Ix / Ux / UxSpy / UxSny / IxSpy / IxSny, use generic des<T: DeserializeBuf>()
                     tokens.append_all(mquote!(rust r#"
-                        rdr.des_bytes()?
+                        des_bytes
                     "#));
                 }
             }
             TyKind::UserDefined(_) => {
                 tokens.append_all(mquote!(rust r#"
-                    rdr.des_bytes()?
+                    des_bytes
                 "#));
             }
             k => unimplemented!("{:?}", k)
@@ -127,7 +127,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
                 ȸtype Error = BufError;
 
                 fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error> {
-                    #( #field_ser_methods \\( self.#field_names \\) ?; )*
+                    #( wr.#field_ser_methods \\( self.#field_names \\) ?; )*
                     Ok(())
                 }
 
@@ -182,9 +182,9 @@ impl<'ast> ToTokens for StructDes<'ast> {
             impl<'i> DeserializeBytes<'i> for #{self.inner.typename} {
                 ȸtype Error = BufError;
 
-                fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
+                fn des_bytes<'di>(rd: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                     Ok(#{self.inner.typename} {
-                        #( #field_names : #field_des_methods ),*
+                        #( #field_names : rd.#field_des_methods\\(\\)? ),*
                     })
                 }
             }
@@ -275,10 +275,10 @@ mod test {
                     impl<'i> DeserializeBytes<'i> for Point {
                         ȸtype Error = BufError;
 
-                        fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
+                        fn des_bytes<'di>(rd: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                             Ok(Point {
-                                x: rdr.get_u16_le()?,
-                                y: rdr.get_u16_le()?
+                                x: rd.get_u16_le()?,
+                                y: rd.get_u16_le()?
                             })
                         }
                     }

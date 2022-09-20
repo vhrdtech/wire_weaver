@@ -2,5 +2,5 @@
     /version<const str, #0>
     /symbol<rw char, #1>
     #[dispatch = sync(crate::fun)]
-    /action<fn (), #2>
+    /action< fn(a: u8, b: u8) -> u8, #2>
 }

@@ -4,8 +4,9 @@ use crate::dependencies::{Dependencies, Depends};
 use crate::rust::path::PathCG;
 use itertools::Itertools;
 use vhl::ast::fn_def::FnArguments;
+use vhl::ast::ty::{Ty, TyKind};
 use crate::rust::identifier::CGIdentifier;
-use crate::rust::serdes::buf::struct_def::StructDesField;
+use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
 use crate::rust::ty::CGTy;
 
 pub struct DispatchCall<'ast> {
@@ -19,7 +20,7 @@ impl<'ast> Codegen for DispatchCall<'ast> {
         let mut tokens = TokenStream::new();
         let handle_methods = Self::handle_methods(
             &self.xpi_def,
-            format!("{}", self.xpi_def.uri),
+            format!("{}", self.xpi_def.uri_segment),
         )?;
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
@@ -46,16 +47,16 @@ impl<'ast> DispatchCall<'ast> {
             }
         };
 
-        let (no_methods_inside, no_methods_inside_names): (Vec<u32>, Vec<String>) = xpi_def.children
+        let (not_methods_serials, not_methods_names): (Vec<u32>, Vec<String>) = xpi_def.children
             .iter()
             .filter(|c| !c.contains_methods())
-            .map(|c| (c.serial, format!("{}", c.uri)))
+            .map(|c| (c.serial, format!("{}", c.uri_segment)))
             .unzip();
 
         let (child_serials, child_handle_methods) = xpi_def
             .children
             .iter()
-            .filter(|c| !no_methods_inside.contains(&c.serial))
+            .filter(|c| !not_methods_serials.contains(&c.serial))
             .try_fold::<_, _, Result<_, CodegenError>>(
                 (vec![], vec![]),
                 |mut prev, c| {
@@ -63,25 +64,23 @@ impl<'ast> DispatchCall<'ast> {
                     prev.1.push(
                         Self::handle_methods(
                             c,
-                            format!("{}{}", uri_base, c.uri),
+                            format!("{}{}", uri_base, c.uri_segment),
                         )?
                     );
                     Ok(prev)
                 },
             )?;
-        let child_serials = child_serials.into_iter();
 
-        let no_methods_inside = if no_methods_inside.is_empty() {
+        let no_methods_recursively = if not_methods_serials.is_empty() {
             TokenStream::new()
         } else {
             let comment = Itertools::intersperse(
-                no_methods_inside_names.iter().map(|i| format!("{}{}", uri_base, i)),
+                not_methods_names.iter().map(|i| format!("{}{}", uri_base, i)),
                 ",".to_owned(),
             );
-            let no_methods_inside = no_methods_inside.iter();
             mquote!(rust r#"
                 ⏎/◡/ #( #comment )* : not a method and contains no children that are ⏎
-                Some( #( #no_methods_inside )|* ) => Err(FailReason::NotAMethod),
+                Some( #( #{not_methods_serials.iter()} )|* ) => Err(FailReason::NotAMethod),
             "#)
         };
 
@@ -98,9 +97,9 @@ impl<'ast> DispatchCall<'ast> {
                     #self_method
                 }
                 #(
-                    Some \\( #child_serials \\) => \\{ #child_handle_methods \\}
+                    Some \\( #{child_serials.iter()} \\) => \\{ #child_handle_methods \\}
                 )*
-                #no_methods_inside
+                #no_methods_recursively
                 ⏎/◡/ #uri_base : #wildcard_comment⏎
                 Some(_) => Err(FailReason::BadUri),
             }
@@ -119,28 +118,40 @@ impl<'ast> DispatchCall<'ast> {
 
         let (args, ret_ty) = xpi_def.expect_method_kind().expect("dispatch_method() must be called only for methods");
         let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
+        let (ser_ret_stmt, ser_ret_buf) = Self::ser_ret_buf_writer(&ret_ty)?;
+        let ret_ty_size = 0u32; // TODO: get size for concrete serdes chosen
 
-        match kind.as_str() {
+        let real_run = match kind.as_str() {
             "sync" => {
                 Ok(mquote!(rust r#"
                     // syncronous call
                     #des_args
-                    #path(#arg_names);
-                    Ok(0)
+                    #ser_ret_stmt #path(#arg_names);
+                    #ser_ret_buf
                 "#))
             }
             "rtic" => {
                 Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
                     #des_args
-                    #path::spawn(#arg_names);
-                    Ok(0)
+                    #ser_ret_stmt #path::spawn(#arg_names);
+                    #ser_ret_buf
                 "#))
             }
             k => {
                 Err(CodegenError::UnsupportedDispatchType(k.to_owned()))
             }
-        }
+        }?;
+        Ok(mquote!(rust r#"
+            match call_type {
+                DispatchCallType::DryRun => {
+                    Ok(#ret_ty_size)
+                }
+                DispatchCallType::RealRun(buf) => {
+                    #real_run
+                }
+            }
+        "#))
     }
 
     fn des_args_buf_reader(args: &FnArguments) -> Result<(TokenStream, TokenStream), CodegenError> {
@@ -156,14 +167,27 @@ impl<'ast> DispatchCall<'ast> {
             });
         let arg_names_clone = arg_names.clone();
         Ok((mquote!(rust r#"
-            let mut rdr = Buf::new(args);
-            #( let #arg_names = #arg_des_methods; )*
-            if !rdr.is_at_end() {
-                log_warn◡!◡(=>T, "Unused {} bytes left after deserializing arguments", rdr.bytes_left());
+            let mut rd = Buf::new(args);
+            #( let #arg_names = rd.#arg_des_methods\\(\\)?; )*
+            if !rd.is_at_end() {
+                log_warn◡!◡(=>T, "Unused {} bytes left after deserializing arguments", rd.bytes_left());
             }
         "#),
             mquote!(rust r#" #( #arg_names_clone ),* "#)
         ))
+    }
+
+    fn ser_ret_buf_writer(ret_ty: &Ty) -> Result<(TokenStream, TokenStream), CodegenError> {
+        if ret_ty.kind == TyKind::Unit {
+            Ok((TokenStream::new(), mquote!(rust r#" Ok(0) "#)))
+        } else {
+            let ser_method = StructSerField { ty: CGTy { inner: &ret_ty } };
+            Ok((mquote!(rust r#" let ret = "#), mquote!(rust r#"
+                let mut wr = BufMut::new(buf);
+                wr.#ser_method(ret)?;
+                Ok(wr.bytes_pos())
+            "#)))
+        }
     }
 }
 

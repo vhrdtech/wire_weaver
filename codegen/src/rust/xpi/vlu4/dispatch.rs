@@ -6,7 +6,9 @@ use itertools::Itertools;
 use vhl::ast::fn_def::FnArguments;
 use vhl::ast::ty::{Ty, TyKind};
 use crate::rust::identifier::CGIdentifier;
+use crate::rust::serdes::buf::size::size_in_buf;
 use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
+use crate::rust::serdes::size::SerDesSizeCG;
 use crate::rust::ty::CGTy;
 
 pub struct DispatchCall<'ast> {
@@ -24,7 +26,7 @@ impl<'ast> Codegen for DispatchCall<'ast> {
         )?;
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
-            fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<usize, FailReason>
+            fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<SerDesSize, FailReason>
             {
                 use DispatchCallType::*;
                 log_info◡!◡(=>T, "dispatch_call({})", uri);
@@ -119,7 +121,7 @@ impl<'ast> DispatchCall<'ast> {
         let (args, ret_ty) = xpi_def.expect_method_kind().expect("dispatch_method() must be called only for methods");
         let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
         let (ser_ret_stmt, ser_ret_buf) = Self::ser_ret_buf_writer(&ret_ty)?;
-        let ret_ty_size = 0u32; // TODO: get size for concrete serdes chosen
+        let ret_ty_size = SerDesSizeCG { inner: size_in_buf(&ret_ty) };
 
         let real_run = match kind.as_str() {
             "sync" => {
@@ -147,7 +149,7 @@ impl<'ast> DispatchCall<'ast> {
                 DispatchCallType::DryRun => {
                     Ok(#ret_ty_size)
                 }
-                DispatchCallType::RealRun(buf) => {
+                DispatchCallType::RealRun(args, result) => {
                     #real_run
                 }
             }
@@ -183,7 +185,7 @@ impl<'ast> DispatchCall<'ast> {
         } else {
             let ser_method = StructSerField { ty: CGTy { inner: &ret_ty } };
             Ok((mquote!(rust r#" let ret = "#), mquote!(rust r#"
-                let mut wr = BufMut::new(buf);
+                let mut wr = BufMut::new(result);
                 wr.#ser_method(ret)?;
                 Ok(wr.bytes_pos())
             "#)))

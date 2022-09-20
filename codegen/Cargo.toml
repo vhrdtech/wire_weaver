@@ -11,6 +11,7 @@ parser = { path = "../parser" }
 #proc-macro2 = "1.0"
 mtoken = { path = "../mtoken" }
 mquote = { path = "../mquote" }
+vhl-stdlib = { path = "../vhl-stdlib/vhl-stdlib-rust" }
 semver = { version = "^1.0.13", default-features = false }
 #rustfmt-nightly = { path = "../../rustfmt/" }
 itertools = "0.10"

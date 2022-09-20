@@ -153,6 +153,7 @@ dependencies = [
  "semver",
  "thiserror",
  "vhl",
+ "vhl-stdlib",
 ]
 
 [[package]]

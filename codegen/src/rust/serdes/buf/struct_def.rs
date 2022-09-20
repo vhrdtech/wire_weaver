@@ -62,6 +62,9 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     "#));
                 }
             }
+            TyKind::UserDefined(_) => {
+                tokens.append_all(mquote!(rust r#"ser_bytes"#))
+            }
             _ => unimplemented!()
         }
     }

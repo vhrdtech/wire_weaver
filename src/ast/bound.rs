@@ -1,13 +1,14 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::expr::{TryEvaluateInto, VecExpr};
-use crate::ast::lit::VecLit;
 use parser::ast::num_bound::NumBound as NumBoundParser;
+use crate::ast::set::Set;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NumBound {
     Unbound,
-    MaxBound(u128),
-    Set(TryEvaluateInto<VecExpr, VecLit>)
+    MaxBound(usize),
+    // Set(TryEvaluateInto<VecExpr, VecLit>),
+    Set(TryEvaluateInto<VecExpr, Set>),
 }
 
 impl<'i> From<NumBoundParser<'i>> for NumBound {

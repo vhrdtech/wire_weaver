@@ -5,7 +5,7 @@ use crate::error::{ParseError, ParseErrorKind};
 #[derive(Debug, Clone)]
 pub enum NumBound<'i> {
     Unbound,
-    MaxBound(u128),
+    MaxBound(usize),
     Set(Vec<Expr<'i>>),
 }
 
@@ -23,7 +23,7 @@ impl<'i> Parse<'i> for NumBound<'i> {
                     .into_inner()
                     .next()
                     .ok_or_else(|| ParseErrorSource::internal("wrong num_bound_list rule"))?;
-                let max: u128 = dec_lit_raw.as_str().parse().map_err(|_| {
+                let max: usize = dec_lit_raw.as_str().parse().map_err(|_| {
                     input.errors.push(ParseError {
                         kind: ParseErrorKind::IntParseError,
                         rule: Rule::dec_lit,

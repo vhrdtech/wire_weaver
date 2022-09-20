@@ -15,3 +15,4 @@ pub mod generics;
 pub mod number;
 pub mod attribute;
 pub mod path;
+pub mod uri;

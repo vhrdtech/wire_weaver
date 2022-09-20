@@ -46,8 +46,11 @@ pub enum TyKind {
         ret_ty: Option<Box<Ty>>,
     },
     AutoNumber(AutoNumber),
+    // TODO: Convert into appropriate type
     IndexTyOf(Expr),
+    // TODO: resolve
     Generic {
+        // TODO: Change to resolved/not resolved
         id: Identifier,
         params: Generics,
     },
@@ -56,6 +59,7 @@ pub enum TyKind {
         len_bound: NumBound,
     },
     UserDefined(Identifier),
+    // TODO: Change to resolved/not resolved
     Derive,
 }
 
@@ -76,7 +80,7 @@ pub struct FixedTy {
 
 impl DiscreteTy {
     pub fn is_standard(&self) -> bool {
-        if self.shift != 0 {
+        if self.shift != 0 { // or numbound present
             false
         } else {
             [8, 16, 32, 64, 128].contains(&self.bits)

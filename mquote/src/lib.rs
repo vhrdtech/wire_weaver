@@ -61,8 +61,8 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
         quote! {}
     } else {
         let mut streams_at_builder = quote! {
-            use std::collections::HashMap;
-            let mut streams_at: HashMap<u32, Vec<mtoken::TokenStream>> = HashMap::new();
+            use std::collections::{HashMap, VecDeque};
+            let mut streams_at: HashMap<u32, VecDeque<mtoken::TokenStream>> = HashMap::new();
         };
         for (path, idx) in repetition_paths {
             let idx = Literal::u32_unsuffixed(idx);

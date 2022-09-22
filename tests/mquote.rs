@@ -23,7 +23,7 @@ mod test {
     #[test]
     pub fn repeat() {
         let numbers = vec![1, 2, 3, 4, 5];
-        let ts = mquote!(rust r#" ⸨ ∀numbers ⸩,* "# debug);
-        println!("{:?}", ts);
+        let ts = mquote!(rust r#" ⸨ ∀numbers ⸩,* "#);
+        assert_eq!(format!("{}", ts), "1 , 2 , 3 , 4 , 5");
     }
 }

@@ -20,6 +20,15 @@ pub struct Uri {
 pub enum UriSegment {
     Ident { ident: Identifier },
     Index { ident: Identifier, by: VecLit },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SerialUri {
+    pub segments: Vec<SerialUriSegment>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SerialUriSegment {
     Serial { serial: u32 },
-    SerialIndex { serial: u32, by: VecLit },
+    SerialIndex { serial: u32, by: u32 },
 }

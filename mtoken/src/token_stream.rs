@@ -31,6 +31,114 @@ impl TokenStream {
         }
     }
 
+    /// Replace all groups that contain [TokenTree::Repetition] inside with many groups, each containing
+    /// it's own tokens.
+    pub fn interpolate_repetitions(&mut self, streams_at: HashMap<u32, VecDeque<TokenStream>>)
+    {
+        // for (idx, streams) in streams_at {
+        //     println!("RI{} = {:?}", idx, streams);
+        // }
+        self.inner = Self::interpolate_repetitions_inner(self, &streams_at);
+    }
+
+    fn interpolate_repetitions_inner(
+        ts: &mut TokenStream,
+        streams_at: &HashMap<u32, VecDeque<TokenStream>>) -> VecDeque<TokenTree>
+    {
+        let mut tts_reassemble = VecDeque::new();
+        while let Some(t) = ts.inner.pop_front() {
+            match t {
+                TokenTree::RepetitionGroup(group_ts, separator) => {
+                    // collect all repetitions only at this group level
+                    let mut streams_in_this_group: HashMap<u32, VecDeque<TokenStream>> = HashMap::new();
+                    let mut streams_len = None;
+                    for t in &group_ts.inner {
+                        if let TokenTree::Repetition(idx) = t {
+                            let streams = streams_at.get(&(*idx as u32)).unwrap().clone();
+                            let next_streams_len = streams.len();
+                            streams_in_this_group.insert(*idx as u32, streams);
+                            streams_len = match streams_len {
+                                Some(len) => {
+                                    if len != next_streams_len {
+                                        panic!("Repetition iterables must be of the same length inside each group, at repetition #{}", idx)
+                                    }
+                                    Some(len)
+                                }
+                                None => Some(next_streams_len)
+                            };
+                        }
+                    }
+                    // iterate over them all in parallel appending to tts_reassemble
+                    let streams_len = streams_len.unwrap();
+                    for i in 0..streams_len {
+                        for t in &group_ts.inner {
+                            match t.clone() {
+                                TokenTree::Repetition(idx) => {
+                                    match streams_in_this_group.get_mut(&(idx as u32)) {
+                                        Some(streams) => {
+                                            match streams.pop_front() {
+                                                Some(repeat_over_ts) => {
+                                                    for t in repeat_over_ts.inner {
+                                                        tts_reassemble.push_back(t);
+                                                    }
+                                                }
+                                                None => {}
+                                            }
+                                        }
+                                        None => {
+                                            panic!("Internal error in interpolate_repetitions_inner: {}", idx)
+                                        }
+                                    }
+                                }
+                                TokenTree::RepetitionGroup(mut group_ts, separator) => {
+                                    for tt in Self::interpolate_repetitions_inner(&mut group_ts, streams_at) {
+                                        tts_reassemble.push_back(tt);
+                                        match separator.clone() {
+                                            Some(p) => tts_reassemble.push_back(p.into()),
+                                            None => {}
+                                        }
+                                    }
+                                }
+                                TokenTree::Group(mut group) => {
+                                    tts_reassemble.push_back(TokenTree::Group(Group {
+                                        delimiter: group.delimiter,
+                                        stream: TokenStream {
+                                            inner: Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
+                                        },
+                                    }));
+                                }
+                                any_else => {
+                                    tts_reassemble.push_back(any_else.clone());
+                                }
+                            }
+                        }
+                        if i < streams_len - 1 {
+                            match separator.clone() {
+                                Some(p) => tts_reassemble.push_back(p.into()),
+                                None => {}
+                            }
+                        }
+                    }
+                }
+                TokenTree::Repetition(_) => {
+                    panic!("Repetition can only be inside a repetition group delimited by ⸨ ⸩");
+                }
+                TokenTree::Group(mut group) => {
+                    tts_reassemble.push_back(TokenTree::Group(Group {
+                        delimiter: group.delimiter,
+                        stream: TokenStream {
+                            inner: Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
+                        },
+                    }));
+                }
+                any_else => {
+                    tts_reassemble.push_back(any_else);
+                }
+            }
+        }
+        tts_reassemble
+    }
+
     // /// Recreate proper tree structure after using interpolation with escaped delimiters.
     // ///
     // /// For example if `#( #methods \\( #names \\) ?; )*` construction was used in mquote macro,

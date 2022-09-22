@@ -1,6 +1,6 @@
 mod lexer;
 
-use quote::{format_ident, quote, TokenStreamExt};
+use quote::{quote, TokenStreamExt, ToTokens};
 
 use proc_macro2::{Ident, Literal, Span};
 
@@ -9,8 +9,11 @@ extern crate pest;
 extern crate pest_derive;
 
 extern crate proc_macro;
+
 use pest::iterators::Pair;
 use proc_macro::{TokenStream, TokenTree};
+use std::collections::HashMap;
+use std::hash::Hash;
 
 use crate::pest::Parser;
 use lexer::{MQuoteLexer, Rule};
@@ -50,9 +53,32 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
         use std::rc::Rc;
         use mtoken::ext::TokenStreamExt;
     });
+    let mut repetition_paths = HashMap::new();
     for token in mquote_ts {
-        tt_append(token, &mut ts_builder, language);
+        tt_append(token, &mut ts_builder, language, &mut repetition_paths);
     }
+    let interpolate_repetitions = if repetition_paths.is_empty() {
+        quote! {}
+    } else {
+        let mut streams_at_builder = quote! {
+            use std::collections::HashMap;
+            let mut streams_at: HashMap<u32, Vec<mtoken::TokenStream>> = HashMap::new();
+        };
+        for (path, idx) in repetition_paths {
+            let idx = Literal::u32_unsuffixed(idx);
+            streams_at_builder.append_all(quote! {
+                streams_at.insert(#idx, #path.iter().map(|t| {
+                    let mut ts = mtoken::TokenStream::new();
+                    t.to_tokens(&mut ts);
+                    ts
+                }).collect());
+            });
+        }
+        quote! {
+            #streams_at_builder
+            ts.interpolate_repetitions(streams_at);
+        }
+    };
     let print_ts_if_debug = if debug {
         quote! {
             println!("{:?}", ts);
@@ -63,6 +89,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     let ts_builder = quote! {
         {
             #ts_builder
+            #interpolate_repetitions
             #print_ts_if_debug
             ts
         }
@@ -79,13 +106,37 @@ fn new_ts_builder() -> proc_macro2::TokenStream {
     }
 }
 
-fn interpolate_path(token: pest::iterators::Pair<Rule>) -> proc_macro2::TokenStream {
-    let mut is_tail_call = quote! {};
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct Path {
+    segments: Vec<String>,
+    is_tail_call: bool,
+}
+
+impl ToTokens for Path {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let is_tail_call = if self.is_tail_call {
+            quote! { () }
+        } else {
+            quote! {}
+        };
+        let segments = self.segments
+            .iter()
+            .map(|s| {
+                Ident::new(s.as_str(), Span::call_site())
+            });
+        tokens.append_all(quote! {
+             #(#segments).* #is_tail_call
+        });
+    }
+}
+
+fn interpolate_path(token: Pair<Rule>) -> Path {
+    let mut is_tail_call = false;
     let segments = token
         .into_inner()
         .filter(|p| {
             if p.as_rule() == Rule::interpolate_call {
-                is_tail_call = quote! { () };
+                is_tail_call = true;
                 false
             } else {
                 true
@@ -94,13 +145,15 @@ fn interpolate_path(token: pest::iterators::Pair<Rule>) -> proc_macro2::TokenStr
         .map(|path_segment| {
             match path_segment.as_rule() {
                 Rule::interpolate_path_segment => {
-                    format_ident!("{}", path_segment.as_str())
+                    path_segment.as_str().to_owned()
                 }
                 r => panic!("{:?} was unexpected in interpolate", r)
             }
-        });
-    quote! {
-        #(#segments).* #is_tail_call
+        })
+        .collect();
+    Path {
+        segments,
+        is_tail_call,
     }
 }
 
@@ -115,12 +168,13 @@ fn tt_append(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
+    repetition_paths: &mut HashMap<Path, u32>,
 ) {
     match token.as_rule() {
-        Rule::delim_token_tree => tt_append_delim_token_tree(token, ts_builder, language),
-        Rule::token => tt_append(token.into_inner().next().unwrap(), ts_builder, language),
-        Rule::interpolate => tt_append_interpolate(token, ts_builder),
-        Rule::interpolate_repetition => tt_append_repetition(token, ts_builder, language),
+        Rule::delim_token_tree => tt_append_delim_token_tree(token, ts_builder, language, repetition_paths),
+        Rule::token => tt_append(token.into_inner().next().unwrap(), ts_builder, language, repetition_paths),
+        Rule::interpolate => tt_append_interpolate(token, ts_builder, repetition_paths),
+        Rule::repeat => tt_append_repetition(token, ts_builder, language, repetition_paths),
         Rule::ident => tt_append_ident(token, ts_builder, language),
         Rule::punctuation => tt_append_punctuation(token, ts_builder, language),
         // Rule::delimiter => tt_append_delimiter(token, ts_builder),
@@ -143,34 +197,37 @@ fn tt_append_literal(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStrea
     });
 }
 
-// fn tt_append_delimiter(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
-//     let delim = match token.as_str() {
-//         "\\\\(" => "ParenOpen",
-//         "\\\\)" => "ParenClose",
-//         "\\\\{" => "BraceOpen",
-//         "\\\\}" => "BraceClose",
-//         "\\\\[" => "BracketOpen",
-//         "\\\\]" => "BracketClose",
-//         _ => panic!("Unexpected delimiter"),
-//     };
-//     let delim = Ident::new(delim, Span::call_site());
-//     ts_builder.append_all(quote! {
-//         ts.append(mtoken::token::DelimiterRaw::#delim);
-//         recreate_trees_afterwards = true;
-//     })
-// }
-
-fn tt_append_interpolate(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
-    let path = interpolate_path(token);
-    ts_builder.append_all(quote! {
-        #path.to_tokens(&mut ts);
-    });
+fn tt_append_interpolate(
+    token: Pair<Rule>,
+    ts_builder: &mut proc_macro2::TokenStream,
+    repetition_paths: &mut HashMap<Path, u32>,
+) {
+    let interpolate = token.into_inner().next().expect("Wrong interpolate grammar");
+    let kind = interpolate.as_rule();
+    let path = interpolate_path(interpolate.into_inner().next().expect("Wrong interpolate grammar"));
+    match kind {
+        Rule::interpolate_one => {
+            ts_builder.append_all(quote! {
+                #path.to_tokens(&mut ts);
+            });
+        }
+        Rule::interpolate_rep => {
+            let paths_count = repetition_paths.len() as u32;
+            let repetition_idx = *repetition_paths.entry(path.clone()).or_insert(paths_count);
+            let repetition_idx = Literal::u32_unsuffixed(repetition_idx);
+            ts_builder.append_all(quote! {
+                ts.append(mtoken::TokenTree::Repetition(#repetition_idx));
+            });
+        }
+        r => panic!("Unexpected {:?}", r)
+    }
 }
 
 fn tt_append_delim_token_tree(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
+    repetition_paths: &mut HashMap<Path, u32>
 ) {
     let delimiter = match token.as_str().chars().next().unwrap() {
         '(' => proc_macro2::Ident::new("Parenthesis", Span::call_site()),
@@ -180,7 +237,7 @@ fn tt_append_delim_token_tree(
     };
     let mut delim_stream = new_ts_builder();
     for token in token.into_inner() {
-        tt_append(token, &mut delim_stream, language);
+        tt_append(token, &mut delim_stream, language, repetition_paths);
     }
     ts_builder.append_all(quote! {
         let delim_stream = { #delim_stream ts };
@@ -192,101 +249,24 @@ fn tt_append_repetition(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
+    repetition_paths: &mut HashMap<Path, u32>
 ) {
-    let mut prefix_ts = new_ts_builder();
-    let mut interpolate_or_key = None;
-    let mut infix_ts = new_ts_builder();
-    let mut interpolate_or_value = None;
-    let mut postfix_ts = new_ts_builder();
-    let mut separator = new_ts_builder();
-
-    for interpolate_token in token.into_inner() {
-        match interpolate_token.as_rule() {
-            Rule::token | Rule::COMMENT => {
-                let token = if interpolate_token.as_rule() == Rule::token {
-                    interpolate_token.into_inner().next().unwrap()
-                } else {
-                    interpolate_token
-                };
-                if interpolate_or_key.is_none() {
-                    tt_append(token, &mut prefix_ts, language);
-                } else {
-                    if interpolate_or_value.is_none() {
-                        tt_append(token, &mut infix_ts, language);
-                    } else {
-                        tt_append(token, &mut postfix_ts, language);
-                    }
-                }
-            }
-            Rule::interpolate => {
-                let interpolate_expr = interpolate_path(interpolate_token);
-                if interpolate_or_key.is_none() {
-                    interpolate_or_key = Some(interpolate_expr);
-                } else {
-                    interpolate_or_value = Some(interpolate_expr);
-                }
-            }
+    let mut separator = quote! { None };
+    let mut delim_stream = new_ts_builder();
+    for token in token.into_inner() {
+        match token.as_rule() {
             Rule::repetition_separator => {
-                tt_append(
-                    interpolate_token.into_inner().next().unwrap(),
-                    &mut separator,
-                    language,
-                );
+                let ch = token.as_str().chars().next().expect("Wrong repetition_separator grammar");
+                let punct_lit = Literal::character(ch);
+                separator = quote! { Some(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Alone)) };
             }
-            Rule::spacing_joint => {
-                tt_append(
-                    interpolate_token,
-                    &mut separator,
-                    language,
-                );
-            }
-            _ => panic!(
-                "Internal error: unexpected token in interpolate repetition: {:?}",
-                interpolate_token
-            ),
+            _ => tt_append(token, &mut delim_stream, language, repetition_paths)
         }
     }
-    // eprintln!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}", prefix_ts, interpolate_or_key, infix_ts, interpolate_or_value, postfix_ts, separator);
-    // #( #fields ),*
-    if interpolate_or_value.is_none() {
-        // interpolate over iterator
-        let interpolate_iter1 = interpolate_or_key.unwrap();
-        ts_builder.append_all(quote! {
-            let prefix = { #prefix_ts ts };
-            let postfix = { #infix_ts ts };
-            let interpolate = #interpolate_iter1.map(|token_or_stream| {
-                let mut its = mtoken::TokenStream::new();
-                its.append_all(prefix.clone());
-                token_or_stream.to_tokens(&mut its);
-                its.append_all(postfix.clone());
-                its
-            });
-            let separator = { #separator ts };
-            ts.append_separated(interpolate, separator);
-        });
-    } else {
-        // #( #field_ser_methods( self.#field_names )?; )*
-        let interpolate_iter1 = interpolate_or_key.unwrap();
-        let interpolate_iter2 = interpolate_or_value.unwrap();
-        ts_builder.append_all(quote! {
-            let prefix = { #prefix_ts ts };
-            let infix = { #infix_ts ts };
-            let postfix = { #postfix_ts ts };
-            let interpolate = #interpolate_iter1
-                .zip(#interpolate_iter2)
-                .map(|(token_or_stream_1, token_or_stream_2)| {
-                    let mut its = mtoken::TokenStream::new();
-                    its.append_all(prefix.clone());
-                    token_or_stream_1.to_tokens(&mut its);
-                    its.append_all(infix.clone());
-                    token_or_stream_2.to_tokens(&mut its);
-                    its.append_all(postfix.clone());
-                    its
-                });
-            let separator = { #separator ts };
-            ts.append_separated(interpolate, separator);
-        });
-    }
+    ts_builder.append_all(quote! {
+        let delim_stream = { #delim_stream ts };
+        ts.append(mtoken::TokenTree::RepetitionGroup(delim_stream, #separator));
+    })
 }
 
 fn tt_append_ident(

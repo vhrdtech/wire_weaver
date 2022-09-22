@@ -1,12 +1,11 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token | delim_token_tree }
-token = { interpolate | interpolate_repetition | ident | punctuation | literal | spacing_joint }
+token = { interpolate | repeat | ident | punctuation | literal | spacing_joint }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
-interpolate = _{ interpolate_one | interpolate_iter | interpolate_rep }
+interpolate = { interpolate_one | interpolate_rep }
 interpolate_one = { "Λ" ~ interpolate_path }
-interpolate_iter = { "∀" ~ interpolate_path }
 interpolate_rep = { "∀" ~ interpolate_path }
 interpolate_path = {
     interpolate_path_segment
@@ -15,11 +14,7 @@ interpolate_path = {
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
 interpolate_call = { "()" }
 
-interpolate_repetition = {
-    "∀(" ~
-    token_tree* ~
-    ")" ~ repetition_separator? ~ spacing_joint? ~ "*"
-}
+repeat = { "⸨" ~ token_tree* ~ "⸩" ~ repetition_separator? ~ "*" }
 repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 
 ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)

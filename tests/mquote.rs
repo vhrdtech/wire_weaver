@@ -24,6 +24,21 @@ mod test {
     pub fn repeat() {
         let numbers = vec![1, 2, 3, 4, 5];
         let ts = mquote!(rust r#" ⸨ ∀numbers ⸩,* "#);
-        assert_eq!(format!("{}", ts), "1 , 2 , 3 , 4 , 5");
+        assert_eq!(format!("{}", ts), "1, 2, 3, 4, 5");
+    }
+
+    #[test]
+    pub fn repeat_inside_group() {
+        let numbers = vec![1, 2, 3, 4, 5];
+        let ts = mquote!(rust r#" [ ⸨ ∀numbers ⸩,* ] "#);
+        assert_eq!(format!("{}", ts), "[1, 2, 3, 4, 5]");
+    }
+
+    #[test]
+    pub fn repeat_over_two() {
+        let numbers1 = vec![1, 2, 3, 4, 5];
+        let numbers2 = vec![6, 7, 8, 9, 0];
+        let ts = mquote!(rust r#" [ ⸨ ∀numbers1 + ∀numbers2 ⸩,* ] "#);
+        assert_eq!(format!("{}", ts), "[1 + 6, 2 + 7, 3 + 8, 4 + 9, 5 + 0]");
     }
 }

@@ -106,6 +106,11 @@ impl Punct {
     pub fn spacing(&self) -> Spacing {
         self.spacing
     }
+
+    // Used to remove space in repetitions before these symbols only
+    pub fn is_sequence_delimiter(&self) -> bool {
+        (self.ch == ',') | (self.ch == ':')
+    }
 }
 
 impl Display for Punct {

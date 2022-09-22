@@ -94,7 +94,12 @@ impl TokenStream {
                                     for tt in Self::interpolate_repetitions_inner(&mut group_ts, streams_at) {
                                         tts_reassemble.push_back(tt);
                                         match separator.clone() {
-                                            Some(p) => tts_reassemble.push_back(p.into()),
+                                            Some(p) => {
+                                                if p.is_sequence_delimiter() {
+                                                    tts_reassemble.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
+                                                }
+                                                tts_reassemble.push_back(p.into())
+                                            },
                                             None => {}
                                         }
                                     }
@@ -114,7 +119,12 @@ impl TokenStream {
                         }
                         if i < streams_len - 1 {
                             match separator.clone() {
-                                Some(p) => tts_reassemble.push_back(p.into()),
+                                Some(p) => {
+                                    if p.is_sequence_delimiter() {
+                                        tts_reassemble.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
+                                    }
+                                    tts_reassemble.push_back(p.into())
+                                },
                                 None => {}
                             }
                         }

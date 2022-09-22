@@ -3,6 +3,7 @@ use crate::token_stream::TokenStream;
 use crate::{Spacing, ToTokens};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
+use util::color;
 
 /// A single token or a delimited sequence of token trees (e.g. `[1, (), ..]`).
 #[derive(Clone, Eq, PartialEq)]
@@ -18,21 +19,27 @@ pub enum TokenTree {
     /// A comment //, ///, #[doc = ""],
     Comment(Comment),
 
-    /// Substitute this token with a call to [to_tokens()](crate::token_stream::ToTokens::to_tokens())
-    /// on a user provided object.
-    ///
-    /// Used internally in mquote! macro and automatically replaced with actual data provided by user.
-    /// Generated from `#name` syntax. One call produces increasing indices, in order
-    /// of appearance. Identical objects are given the same index.
-    Interpolate(usize),
-    /// Delimiter stream of tokens, that can contain interpolations and repetitions inside.
-    /// Will be instantiated multiple times with user provided tokens.
-    RepetitionGroup(Group),
-    /// Replace a group in which this token is found with many similar groups by iterating over
-    /// an user provided object.
+    // /// Substitute this token with a call to [to_tokens()](crate::token_stream::ToTokens::to_tokens())
+    // /// on a user provided object.
+    // ///
+    // /// Used internally in mquote! macro and automatically replaced with actual data provided by user.
+    // /// Generated from `Λname` syntax. One call produces increasing indices, in order
+    // /// of appearance. Identical objects are given the same index.
+    // InterpolateOne(usize),
+    // /// Substitute this token by consuming an iterator with an element that implements ToTokens.
+    // ///
+    // /// Generated from `∀'iter` syntax in mquote! macro
+    // InterpolateIter(usize),
+    /// Replace a repetition group in which this token is found with many similar groups by
+    /// iterating over an one or more user provided iterables. Each iterable must be of the same size.
     ///
     /// Generated from `∀iter` syntax in mquote! macro.
-    Repetition(usize, Option<Punct>),
+    Repetition(usize),
+    /// Delimited stream of tokens, that can contain interpolations and repetitions inside.
+    /// Will be instantiated multiple times with user provided tokens.
+    ///
+    /// Generated from `⸨ tokens ⸩` syntax in mquote! macro.
+    RepetitionGroup(TokenStream, Option<Punct>),
 }
 
 impl TokenTree {
@@ -44,27 +51,12 @@ impl TokenTree {
             // TokenTree::DelimiterRaw(_) => {}
             TokenTree::Literal(lit) => lit.set_spacing(spacing),
             TokenTree::Comment(_) => {}
-            TokenTree::Interpolate(_) => {}
-            TokenTree::RepetitionGroup(_) => {}
-            TokenTree::Repetition(_, _) => {}
+            // TokenTree::InterpolateOne(_) => {}
+            // TokenTree::InterpolateIter(_) => {}
+            TokenTree::Repetition(_) => {}
+            TokenTree::RepetitionGroup(_, _) => {}
         }
     }
-
-    /// Replace all [TokenTree::Interpolate] with provided tokens.
-    pub fn interpolate<I, T>(&mut self, token_streams: I)
-        where
-            I: IntoIterator<Item=T>,
-            T: ToTokens,
-    {}
-
-    /// Replace all groups that contain [TokenTree::Repetition] inside with many groups, each containing
-    /// it's own tokens.
-    pub fn unwind_repetitions<I, J, T>(&mut self, token_stream_iterators: I)
-        where
-            I: IntoIterator<Item=J>,
-            J: IntoIterator<Item=T>,
-            T: ToTokens
-    {}
 }
 
 /// A delimited token stream.
@@ -175,18 +167,10 @@ impl Display for TokenTree {
             // TokenTree::DelimiterRaw(t) => Display::fmt(t, f),
             TokenTree::Literal(t) => Display::fmt(t, f),
             TokenTree::Comment(t) => Display::fmt(t, f),
-            TokenTree::Interpolate(idx) => write!(f, "#{}", idx),
-            TokenTree::RepetitionGroup(g) => write!(f, "RG{}", g),
-            TokenTree::Repetition(idx, punct) => {
-                match punct {
-                    Some(p) => {
-                        write!(f, "#({}){}*", idx, p)
-                    }
-                    None => {
-                        write!(f, "#({})*", idx)
-                    }
-                }
-            },
+            // TokenTree::InterpolateOne(idx) => write!(f, "#{}", idx),
+            // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+            TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
+            TokenTree::RepetitionGroup(g, p) => write!(f, "RG⸨{} {:?}⸩", g, p),
         }
     }
 }
@@ -206,18 +190,18 @@ impl Debug for TokenTree {
             // TokenTree::DelimiterRaw(t) => write!(f, "{:?}", t),
             TokenTree::Literal(t) => write!(f, "{:?}", t),
             TokenTree::Comment(t) => write!(f, "{:?}", t),
-            TokenTree::Interpolate(idx) => write!(f, "I#{}", idx),
-            TokenTree::RepetitionGroup(g) => write!(f, "RG{:?}", g),
-            TokenTree::Repetition(idx, punct) => {
-                match punct {
-                    Some(p) => {
-                        write!(f, "R#({}){}*", idx, p)
-                    }
-                    None => {
-                        write!(f, "R#({})*", idx)
-                    }
-                }
-            },
+            // TokenTree::InterpolateOne(idx) => write!(f, "I#{}", idx),
+            // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+            TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
+            TokenTree::RepetitionGroup(g, p) =>
+                write!(
+                    f,
+                    "{red}RG⸨{def}{} {:?}{red}⸩{def}",
+                    g,
+                    p,
+                    red = color::RED,
+                    def = color::DEFAULT,
+                ),
         }
     }
 }

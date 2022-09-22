@@ -1,6 +1,6 @@
 use crate::token_tree::TokenTree;
-use crate::{Spacing};
-use std::collections::VecDeque;
+use crate::{Group, Spacing};
+use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::FromIterator;
@@ -121,19 +121,10 @@ impl Display for TokenStream {
                     Display::fmt(tt, f)
                 },
                 TokenTree::Comment(tt) => Display::fmt(tt, f),
-
-                TokenTree::Interpolate(idx) => write!(f, "#{}", idx),
-                TokenTree::RepetitionGroup(g) => write!(f, "RG{}", g),
-                TokenTree::Repetition(idx, punct) => {
-                    match punct {
-                        Some(p) => {
-                            write!(f, "#({}){}*", idx, p)
-                        }
-                        None => {
-                            write!(f, "#({})*", idx)
-                        }
-                    }
-                },
+                // TokenTree::InterpolateOne(idx) => write!(f, "#{}", idx),
+                // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+                TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
+                TokenTree::RepetitionGroup(g, p) => write!(f, "RG⸨{} {:?}⸩", g, p),
             }?;
         }
 
@@ -202,8 +193,9 @@ impl IntoIterator for TokenStream {
 impl Debug for TokenStream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.inner.is_empty() {
-            write!(f, "∅")?;
+            write!(f, "TS{{∅}}")?;
         } else {
+            write!(f, "TS{{ ")?;
             for t in &self.inner {
                 if f.alternate() {
                     write!(f, "{:#?} ", t)?;
@@ -211,6 +203,7 @@ impl Debug for TokenStream {
                     write!(f, "{:?} ", t)?;
                 }
             }
+            write!(f, "}}")?;
         }
         Ok(())
     }

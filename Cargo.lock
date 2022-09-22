@@ -365,6 +365,9 @@ dependencies = [
 [[package]]
 name = "mtoken"
 version = "0.1.0"
+dependencies = [
+ "util",
+]
 
 [[package]]
 name = "nibble_vec"

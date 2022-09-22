@@ -317,7 +317,17 @@ impl ToTokens for u32 {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.append(Literal {
             repr: self.to_string(),
-            spacing: Spacing::Alone
+            spacing: Spacing::Alone,
+            // span: Span::call_site()
+        })
+    }
+}
+
+impl ToTokens for i32 {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Literal {
+            repr: self.to_string(),
+            spacing: Spacing::Alone,
             // span: Span::call_site()
         })
     }

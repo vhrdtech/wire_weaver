@@ -786,6 +786,7 @@ version = "0.3.0"
 dependencies = [
  "either",
  "itertools",
+ "mquote",
  "mtoken",
  "parser",
  "thiserror",

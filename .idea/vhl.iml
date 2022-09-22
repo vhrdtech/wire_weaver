@@ -18,6 +18,7 @@
       <sourceFolder url="file://$MODULE_DIR$/mtoken/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/vhl-stdlib-rust/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/util/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/mtoken/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

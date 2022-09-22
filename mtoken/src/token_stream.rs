@@ -1,6 +1,5 @@
-use crate::token::DelimiterRaw;
 use crate::token_tree::TokenTree;
-use crate::{Group, Spacing};
+use crate::{Spacing};
 use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
@@ -12,6 +11,7 @@ pub struct TokenStream {
 }
 
 pub trait ToTokens {
+    /// Convert self into a set of tokens and append them to the provided TokenStream.
     fn to_tokens(&self, tokens: &mut TokenStream);
 }
 
@@ -31,70 +31,70 @@ impl TokenStream {
         }
     }
 
-    /// Recreate proper tree structure after using interpolation with escaped delimiters.
-    ///
-    /// For example if `#( #methods \\( #names \\) ?; )*` construction was used in mquote macro,
-    /// token stream will contain DelimiterRaw tokens flat with other tokens (no nested groups):
-    /// `Id(fun1) DR( Id(self) P. Id(x) DR) P; Id(fun2) DR( Id(self) P. Id(y) DR) P;`
-    /// will be turned into
-    /// `Id(fun1) G( Id(self) P. Id(x)  ) P; Id(fun2) G( Id(self) P. Id(y)  ) P;`
-    /// Note that first token stream is flat while the second has two nested groups.
-    ///
-    /// # Panics
-    ///
-    /// Panics if:
-    /// * Unterminated opening or closing raw delimiter is encountered.
-    /// * Non matching closing delimiter is encountered.
-    pub fn recreate_trees(&mut self) {
-        self.inner = Self::collect_inner(self, None);
-    }
-
-    fn collect_inner(ts: &mut TokenStream, raw: Option<DelimiterRaw>) -> VecDeque<TokenTree> {
-        let mut tts_reassemble = VecDeque::new();
-        while let Some(t) = ts.inner.pop_front() {
-            match t {
-                TokenTree::DelimiterRaw(delim) => {
-                    if delim.is_open() {
-                        tts_reassemble.push_back(TokenTree::Group(Group {
-                            delimiter: delim.clone().into(),
-                            stream: TokenStream {
-                                inner: Self::collect_inner(ts, Some(delim)),
-                            },
-                        }));
-                    } else {
-                        match raw {
-                            Some(open_raw_delim) => {
-                                if !open_raw_delim.is_same_kind(delim) {
-                                    panic!(
-                                        "Open delimiter was: {:?} got non matching closing: {:?}",
-                                        open_raw_delim, delim
-                                    )
-                                }
-                            }
-                            None => panic!("Unexpected closing raw delimiter: {:?}", delim),
-                        }
-                        return tts_reassemble;
-                    }
-                }
-                TokenTree::Group(mut group) => {
-                    tts_reassemble.push_back(TokenTree::Group(Group {
-                        delimiter: group.delimiter,
-                        stream: TokenStream {
-                            inner: Self::collect_inner(&mut group.stream, None),
-                        },
-                    }));
-                }
-                any_else => {
-                    tts_reassemble.push_back(any_else);
-                }
-            }
-        }
-        match raw {
-            Some(open_raw_delim) => panic!("Unterminated raw delimiter: {:?}", open_raw_delim),
-            None => {}
-        }
-        tts_reassemble
-    }
+    // /// Recreate proper tree structure after using interpolation with escaped delimiters.
+    // ///
+    // /// For example if `#( #methods \\( #names \\) ?; )*` construction was used in mquote macro,
+    // /// token stream will contain DelimiterRaw tokens flat with other tokens (no nested groups):
+    // /// `Id(fun1) DR( Id(self) P. Id(x) DR) P; Id(fun2) DR( Id(self) P. Id(y) DR) P;`
+    // /// will be turned into
+    // /// `Id(fun1) G( Id(self) P. Id(x)  ) P; Id(fun2) G( Id(self) P. Id(y)  ) P;`
+    // /// Note that first token stream is flat while the second has two nested groups.
+    // ///
+    // /// # Panics
+    // ///
+    // /// Panics if:
+    // /// * Unterminated opening or closing raw delimiter is encountered.
+    // /// * Non matching closing delimiter is encountered.
+    // pub fn recreate_trees(&mut self) {
+    //     self.inner = Self::collect_inner(self, None);
+    // }
+    //
+    // fn collect_inner(ts: &mut TokenStream, raw: Option<DelimiterRaw>) -> VecDeque<TokenTree> {
+    //     let mut tts_reassemble = VecDeque::new();
+    //     while let Some(t) = ts.inner.pop_front() {
+    //         match t {
+    //             TokenTree::DelimiterRaw(delim) => {
+    //                 if delim.is_open() {
+    //                     tts_reassemble.push_back(TokenTree::Group(Group {
+    //                         delimiter: delim.clone().into(),
+    //                         stream: TokenStream {
+    //                             inner: Self::collect_inner(ts, Some(delim)),
+    //                         },
+    //                     }));
+    //                 } else {
+    //                     match raw {
+    //                         Some(open_raw_delim) => {
+    //                             if !open_raw_delim.is_same_kind(delim) {
+    //                                 panic!(
+    //                                     "Open delimiter was: {:?} got non matching closing: {:?}",
+    //                                     open_raw_delim, delim
+    //                                 )
+    //                             }
+    //                         }
+    //                         None => panic!("Unexpected closing raw delimiter: {:?}", delim),
+    //                     }
+    //                     return tts_reassemble;
+    //                 }
+    //             }
+    //             TokenTree::Group(mut group) => {
+    //                 tts_reassemble.push_back(TokenTree::Group(Group {
+    //                     delimiter: group.delimiter,
+    //                     stream: TokenStream {
+    //                         inner: Self::collect_inner(&mut group.stream, None),
+    //                     },
+    //                 }));
+    //             }
+    //             any_else => {
+    //                 tts_reassemble.push_back(any_else);
+    //             }
+    //         }
+    //     }
+    //     match raw {
+    //         Some(open_raw_delim) => panic!("Unterminated raw delimiter: {:?}", open_raw_delim),
+    //         None => {}
+    //     }
+    //     tts_reassemble
+    // }
 }
 
 impl Display for TokenStream {
@@ -115,12 +115,25 @@ impl Display for TokenStream {
                     joint = tt.spacing() == Spacing::Joint;
                     Display::fmt(tt, f)
                 }
-                TokenTree::DelimiterRaw(tt) => Display::fmt(tt, f),
+                // TokenTree::DelimiterRaw(tt) => Display::fmt(tt, f),
                 TokenTree::Literal(tt) => {
                     joint = tt.spacing() == Spacing::Joint;
                     Display::fmt(tt, f)
                 },
                 TokenTree::Comment(tt) => Display::fmt(tt, f),
+
+                TokenTree::Interpolate(idx) => write!(f, "#{}", idx),
+                TokenTree::RepetitionGroup(g) => write!(f, "RG{}", g),
+                TokenTree::Repetition(idx, punct) => {
+                    match punct {
+                        Some(p) => {
+                            write!(f, "#({}){}*", idx, p)
+                        }
+                        None => {
+                            write!(f, "#({})*", idx)
+                        }
+                    }
+                },
             }?;
         }
 

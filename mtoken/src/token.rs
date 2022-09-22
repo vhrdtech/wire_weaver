@@ -135,66 +135,65 @@ impl ToTokens for Punct {
     }
 }
 
-/// () {} or [] only in interpolations, otherwise token_tree is yielded by pest parser
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum DelimiterRaw {
-    ParenOpen,
-    ParenClose,
-    BraceOpen,
-    BraceClose,
-    BracketOpen,
-    BracketClose,
-}
+// /// () {} or [] only in interpolations, otherwise token_tree is yielded by pest parser
+// #[derive(Copy, Clone, Eq, PartialEq)]
+// pub enum DelimiterRaw {
+//     ParenOpen,
+//     ParenClose,
+//     BraceOpen,
+//     BraceClose,
+//     BracketOpen,
+//     BracketClose,
+// }
+//
+// impl DelimiterRaw {
+//     pub fn is_open(&self) -> bool {
+//         use DelimiterRaw::*;
+//         match self {
+//             ParenOpen | BraceOpen | BracketOpen => true,
+//             _ => false,
+//         }
+//     }
+//
+//     pub fn is_same_kind(&self, other: Self) -> bool {
+//         use DelimiterRaw::*;
+//         match self {
+//             ParenOpen => other == ParenClose,
+//             ParenClose => other == ParenOpen,
+//             BraceOpen => other == BraceClose,
+//             BraceClose => other == BraceOpen,
+//             BracketOpen => other == BracketClose,
+//             BracketClose => other == BracketOpen,
+//         }
+//     }
+// }
+//
+// impl ToTokens for DelimiterRaw {
+//     fn to_tokens(&self, tokens: &mut TokenStream) {
+//         tokens
+//             .inner
+//             .push_back(TokenTree::DelimiterRaw(self.clone()))
+//     }
+// }
 
-impl DelimiterRaw {
-    pub fn is_open(&self) -> bool {
-        use DelimiterRaw::*;
-        match self {
-            ParenOpen | BraceOpen | BracketOpen => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_same_kind(&self, other: Self) -> bool {
-        use DelimiterRaw::*;
-        match self {
-            ParenOpen => other == ParenClose,
-            ParenClose => other == ParenOpen,
-            BraceOpen => other == BraceClose,
-            BraceClose => other == BraceOpen,
-            BracketOpen => other == BracketClose,
-            BracketClose => other == BracketOpen,
-        }
-    }
-}
-
-impl ToTokens for DelimiterRaw {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens
-            .inner
-            .push_back(TokenTree::DelimiterRaw(self.clone()))
-    }
-}
-
-impl Display for DelimiterRaw {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let d = match self {
-            DelimiterRaw::ParenOpen => '(',
-            DelimiterRaw::ParenClose => ')',
-            DelimiterRaw::BraceOpen => '{',
-            DelimiterRaw::BraceClose => '}',
-            DelimiterRaw::BracketOpen => '[',
-            DelimiterRaw::BracketClose => ']',
-        };
-        write!(f, "{}", d)
-    }
-}
-
-impl Debug for DelimiterRaw {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "DR\x1b[31m{}\x1b[0m", self)
-    }
-}
+// impl Display for DelimiterRaw {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         let d = match self {
+//             DelimiterRaw::ParenOpen => '(',
+//             DelimiterRaw::ParenClose => ')',
+//             DelimiterRaw::BraceOpen => '{',
+//             DelimiterRaw::BraceClose => '}',
+//             DelimiterRaw::BracketOpen => '[',
+//             DelimiterRaw::BracketClose => ']',
+//         };
+//         write!(f, "{}", d)
+//     }
+// }
+// impl Debug for DelimiterRaw {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         write!(f, "DR\x1b[31m{}\x1b[0m", self)
+//     }
+// }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Spacing {

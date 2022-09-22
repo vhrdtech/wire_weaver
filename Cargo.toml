@@ -21,5 +21,8 @@ mtoken = { path = "./mtoken" }
 #peg = "0.8.0"
 itertools = "0.10"
 
+[dev-dependencies]
+mquote = { path = "./mquote" }
+
 [workspace]
 members = ["parser", "cli", "codegen", "mtoken", "mquote", "vhl-stdlib/vhl-stdlib-rust"]

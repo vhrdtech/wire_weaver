@@ -1,25 +1,26 @@
 token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
 
 token_tree = _{ token | delim_token_tree }
-token = { interpolate | interpolate_repetition | ident | punctuation | literal | delimiter | spacing_joint }
+token = { interpolate | interpolate_repetition | ident | punctuation | literal | spacing_joint }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
-interpolate = { interpolate_simple | interpolate_path }
-interpolate_simple = _{ "#" ~ interpolate_path_segment }
+interpolate = _{ interpolate_one | interpolate_iter | interpolate_rep }
+interpolate_one = { "Λ" ~ interpolate_path }
+interpolate_iter = { "∀" ~ interpolate_path }
+interpolate_rep = { "∀" ~ interpolate_path }
+interpolate_path = {
+    interpolate_path_segment
+    |( "{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ interpolate_call? ~ "}" )
+}
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
 interpolate_call = { "()" }
-interpolate_path = _{ "#{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ interpolate_call? ~ "}" }
 
-repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 interpolate_repetition = {
-    "#" ~ "(" ~
-    (!"#" ~ token_tree)* ~
-    interpolate ~
-    (!"#" ~ token_tree)* ~
-    interpolate? ~
-    (!"#" ~ token_tree)* ~
+    "∀(" ~
+    token_tree* ~
     ")" ~ repetition_separator? ~ spacing_joint? ~ "*"
 }
+repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 
 ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
 spacing_joint = { "◡" } // use Spacing::Joint - no spacing between tokens where it matters
@@ -129,7 +130,7 @@ punctuation = {
     punct_underscore
 }
 
-delimiter = { "\\\\(" | "\\\\)" | "\\\\{" | "\\\\}" | "\\\\[" | "\\\\]" }
+// delimiter = { "\\\\(" | "\\\\)" | "\\\\{" | "\\\\}" | "\\\\[" | "\\\\]" }
 
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
 char = _{

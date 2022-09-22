@@ -49,7 +49,6 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     ts_builder.append_all(quote! {
         use std::rc::Rc;
         use mtoken::ext::TokenStreamExt;
-        let mut recreate_trees_afterwards = false;
     });
     for token in mquote_ts {
         tt_append(token, &mut ts_builder, language);
@@ -64,9 +63,6 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     let ts_builder = quote! {
         {
             #ts_builder
-            if recreate_trees_afterwards {
-                ts.recreate_trees();
-            }
             #print_ts_if_debug
             ts
         }
@@ -127,7 +123,7 @@ fn tt_append(
         Rule::interpolate_repetition => tt_append_repetition(token, ts_builder, language),
         Rule::ident => tt_append_ident(token, ts_builder, language),
         Rule::punctuation => tt_append_punctuation(token, ts_builder, language),
-        Rule::delimiter => tt_append_delimiter(token, ts_builder),
+        // Rule::delimiter => tt_append_delimiter(token, ts_builder),
         Rule::literal => tt_append_literal(token, ts_builder),
         Rule::spacing_joint => ts_builder.append_all(quote! {
             ts.modify_last_spacing(mtoken::Spacing::Joint);
@@ -147,22 +143,22 @@ fn tt_append_literal(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStrea
     });
 }
 
-fn tt_append_delimiter(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
-    let delim = match token.as_str() {
-        "\\\\(" => "ParenOpen",
-        "\\\\)" => "ParenClose",
-        "\\\\{" => "BraceOpen",
-        "\\\\}" => "BraceClose",
-        "\\\\[" => "BracketOpen",
-        "\\\\]" => "BracketClose",
-        _ => panic!("Unexpected delimiter"),
-    };
-    let delim = Ident::new(delim, Span::call_site());
-    ts_builder.append_all(quote! {
-        ts.append(mtoken::token::DelimiterRaw::#delim);
-        recreate_trees_afterwards = true;
-    })
-}
+// fn tt_append_delimiter(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
+//     let delim = match token.as_str() {
+//         "\\\\(" => "ParenOpen",
+//         "\\\\)" => "ParenClose",
+//         "\\\\{" => "BraceOpen",
+//         "\\\\}" => "BraceClose",
+//         "\\\\[" => "BracketOpen",
+//         "\\\\]" => "BracketClose",
+//         _ => panic!("Unexpected delimiter"),
+//     };
+//     let delim = Ident::new(delim, Span::call_site());
+//     ts_builder.append_all(quote! {
+//         ts.append(mtoken::token::DelimiterRaw::#delim);
+//         recreate_trees_afterwards = true;
+//     })
+// }
 
 fn tt_append_interpolate(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStream) {
     let path = interpolate_path(token);

@@ -215,8 +215,9 @@ impl TokenStream {
 impl Display for TokenStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut joint = false;
+        let mut spacing_is_enabled = true;
         for (i, tt) in self.inner.iter().enumerate() {
-            if i != 0 && !joint {
+            if i != 0 && !joint && spacing_is_enabled {
                 write!(f, " ")?;
             }
             joint = false;
@@ -237,6 +238,10 @@ impl Display for TokenStream {
                     joint = tt.spacing() == Spacing::Joint;
                     write!(f, "{}", tt)
                 },
+                TokenTree::Spacing(is_enabled) => {
+                    spacing_is_enabled = *is_enabled;
+                    Ok(())
+                }
                 TokenTree::Comment(tt) => write!(f, "{}", tt),
                 TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
                 TokenTree::RepetitionGroup(g, p) => write!(f, "RG⸨{} {:?}⸩", g, p),

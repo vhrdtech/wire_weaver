@@ -35,11 +35,23 @@ mod test {
     }
 
     #[test]
+    pub fn spacing_in_mquote_is_ignored() {
+        let ts = mquote!(rust r#" x   y    z "#);
+        assert_eq!(format!("{}", ts), "x y z");
+    }
+
+    #[test]
+    pub fn disable_spacing() {
+        let ts = mquote!(rust r#" ◌ x y z ○ "#);
+        assert_eq!(format!("{}", ts), "xyz");
+    }
+
+    #[test]
     pub fn repeat_and_interpolate() {
         let numbers = vec![1, 2, 3];
         let method = "fun";
         let ts = mquote!(rust r#" ⸨ ∀numbers.Λmethod() ⸩,* "#);
-        assert_eq!(format!("{}", ts), "1 . fun () , 2 . fun () , 3 . fun ()");
+        assert_eq!(format!("{}", ts), "1 . fun (), 2 . fun (), 3 . fun ()");
     }
 
     #[test]

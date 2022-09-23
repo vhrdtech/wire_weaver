@@ -1,12 +1,12 @@
-token_stream = _{ SOI ~ "r#\"" ~ token_tree* ~ "\"#" ~ EOI }
+token_stream = _{ SOI ~ token_tree* ~ EOI }
 
 token_tree = _{ token | delim_token_tree }
-token = { interpolate | repeat | ident | punctuation | literal | spacing_joint }
+token = { interpolate | repeat | ident | punctuation | literal | spacing_mod }
 delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ token_tree* ~ "}" }
 
 interpolate = { interpolate_one | interpolate_rep }
-interpolate_one = { "Λ" ~ interpolate_path }
-interpolate_rep = { "∀" ~ interpolate_path }
+interpolate_one = { "Λ" ~ interpolate_path } // U+039B
+interpolate_rep = { "∀" ~ interpolate_path } // U+2200
 interpolate_path = {
     interpolate_path_segment
     |( "{" ~ interpolate_path_segment ~ ("." ~ interpolate_path_segment)* ~ interpolate_call? ~ "}" )
@@ -14,11 +14,14 @@ interpolate_path = {
 interpolate_path_segment = @{ ASCII_ALPHA_LOWER ~ (ASCII_ALPHANUMERIC | "_")* }
 interpolate_call = { "()" }
 
-repeat = { "⸨" ~ token_tree* ~ "⸩" ~ repetition_separator? ~ "*" }
+repeat = { "⸨" ~ token_tree* ~ "⸩" ~ repetition_separator? ~ "*" } // U+2E28 U+2E29
 repetition_separator = { !"*" ~ punctuation | &("*" ~ "*") ~ punctuation }
 
-ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
-spacing_joint = { "◡" } // use Spacing::Joint - no spacing between tokens where it matters
+ident = @{ (XID_START | "ȸ") ~ XID_CONTINUE* } // ȸ = U+0238 => IdentFlavor::Plain is used to cancel auto raw (e.g. r# in Rust)
+spacing_mod = _{ spacing_joint | spacing_enable | spacing_disable }
+spacing_joint = { "◡" } // U+25E1 use Spacing::Joint - no spacing between tokens where it matters
+spacing_disable = { "◌" } // U+25CC
+spacing_enable = { "○" } // U+25CB
 
 // Up to 3 Unicode char punctuation are supported, if more is needed see mquote/src/lib.rs
 punct_therefore = _ { "=>" }

@@ -41,8 +41,20 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     };
     let debug = ts.next().is_some();
 
-    // eprintln!("\nParsing mquote str: {}", mquote_ts);
-    let mquote_ts = MQuoteLexer::parse(Rule::token_stream, &mquote_ts).unwrap();
+    let mquote_ts = if mquote_ts.starts_with("\"") {
+        &mquote_ts[1..mquote_ts.len() - 1]
+    } else {
+        let mut pound_count = 1;
+        let mquote_ts_ascii = mquote_ts.as_str().as_bytes();
+        while mquote_ts_ascii[pound_count] == '#' as u8 {
+            pound_count += 1;
+        }
+        &mquote_ts[pound_count + 1..mquote_ts.len() - pound_count]
+    };
+    if debug {
+        eprintln!("\nParsing mquote str: '{}'", mquote_ts);
+    }
+    let mquote_ts = MQuoteLexer::parse(Rule::token_stream, mquote_ts).unwrap();
     if debug {
         // eprintln!("mquote! in {:?}", proc_macro::Span::call_site().source_file());
         eprintln!("Parsed: {:?}", mquote_ts);
@@ -181,6 +193,12 @@ fn tt_append(
         Rule::literal => tt_append_literal(token, ts_builder),
         Rule::spacing_joint => ts_builder.append_all(quote! {
             ts.modify_last_spacing(mtoken::Spacing::Joint);
+        }),
+        Rule::spacing_enable => ts_builder.append_all(quote! {
+            ts.append(mtoken::TokenTree::Spacing(true));
+        }),
+        Rule::spacing_disable => ts_builder.append_all(quote! {
+            ts.append(mtoken::TokenTree::Spacing(false));
         }),
         Rule::COMMENT => tt_append_comment(token, ts_builder, language),
         Rule::EOI => {}

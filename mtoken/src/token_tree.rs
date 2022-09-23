@@ -18,6 +18,8 @@ pub enum TokenTree {
     Literal(Literal),
     /// A comment //, ///, #[doc = ""],
     Comment(Comment),
+    /// Disable or enable spacing generation, can be useful to construct for ex. comments
+    Spacing(bool),
 
     // /// Substitute this token with a call to [to_tokens()](crate::token_stream::ToTokens::to_tokens())
     // /// on a user provided object.
@@ -48,11 +50,9 @@ impl TokenTree {
             TokenTree::Group(g) => g.spacing_after = spacing,
             TokenTree::Ident(id) => id.set_spacing(spacing),
             TokenTree::Punct(p) => p.set_spacing(spacing),
-            // TokenTree::DelimiterRaw(_) => {}
             TokenTree::Literal(lit) => lit.set_spacing(spacing),
             TokenTree::Comment(_) => {}
-            // TokenTree::InterpolateOne(_) => {}
-            // TokenTree::InterpolateIter(_) => {}
+            TokenTree::Spacing(_) => {}
             TokenTree::Repetition(_) => {}
             TokenTree::RepetitionGroup(_, _) => {}
         }
@@ -165,11 +165,9 @@ impl Display for TokenTree {
             TokenTree::Group(t) => Display::fmt(t, f),
             TokenTree::Ident(t) => Display::fmt(t, f),
             TokenTree::Punct(t) => Display::fmt(t, f),
-            // TokenTree::DelimiterRaw(t) => Display::fmt(t, f),
             TokenTree::Literal(t) => Display::fmt(t, f),
             TokenTree::Comment(t) => Display::fmt(t, f),
-            // TokenTree::InterpolateOne(idx) => write!(f, "#{}", idx),
-            // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+            TokenTree::Spacing(_) => Ok(()),
             TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
             TokenTree::RepetitionGroup(g, p) => write!(f, "RG⸨{} {:?}⸩", g, p),
         }
@@ -188,11 +186,15 @@ impl Debug for TokenTree {
             }
             TokenTree::Ident(t) => write!(f, "{:?}", t),
             TokenTree::Punct(t) => write!(f, "{:?}", t),
-            // TokenTree::DelimiterRaw(t) => write!(f, "{:?}", t),
             TokenTree::Literal(t) => write!(f, "{:?}", t),
             TokenTree::Comment(t) => write!(f, "{:?}", t),
-            // TokenTree::InterpolateOne(idx) => write!(f, "I#{}", idx),
-            // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+            TokenTree::Spacing(is_enabled) => {
+                if *is_enabled {
+                    write!(f, "SE")
+                } else {
+                    write!(f, "SD")
+                }
+            }
             TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
             TokenTree::RepetitionGroup(g, p) =>
                 write!(

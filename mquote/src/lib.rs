@@ -64,6 +64,7 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     ts_builder.append_all(quote! {
         use std::rc::Rc;
         use mtoken::ext::TokenStreamExt;
+        use mtoken::ToTokens;
     });
     let mut repetition_paths = HashMap::new();
     for token in mquote_ts {
@@ -74,12 +75,12 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     } else {
         let mut streams_at_builder = quote! {
             use std::collections::{HashMap, VecDeque};
-            let mut streams_at: HashMap<u32, VecDeque<mtoken::TokenStream>> = HashMap::new();
+            let mut streams_at: HashMap<usize, VecDeque<mtoken::TokenStream>> = HashMap::new();
         };
         for (path, idx) in repetition_paths {
-            let idx = Literal::u32_unsuffixed(idx);
+            let idx = Literal::usize_unsuffixed(idx);
             streams_at_builder.append_all(quote! {
-                streams_at.insert(#idx, #path.iter().map(|t| {
+                streams_at.insert(#idx, #path.into_iter().map(|t| {
                     let mut ts = mtoken::TokenStream::new();
                     t.to_tokens(&mut ts);
                     ts
@@ -180,7 +181,7 @@ fn tt_append(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
-    repetition_paths: &mut HashMap<Path, u32>,
+    repetition_paths: &mut HashMap<Path, usize>,
 ) {
     match token.as_rule() {
         Rule::delim_token_tree => tt_append_delim_token_tree(token, ts_builder, language, repetition_paths),
@@ -218,7 +219,7 @@ fn tt_append_literal(token: Pair<Rule>, ts_builder: &mut proc_macro2::TokenStrea
 fn tt_append_interpolate(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
-    repetition_paths: &mut HashMap<Path, u32>,
+    repetition_paths: &mut HashMap<Path, usize>,
 ) {
     let interpolate = token.into_inner().next().expect("Wrong interpolate grammar");
     let kind = interpolate.as_rule();
@@ -230,9 +231,9 @@ fn tt_append_interpolate(
             });
         }
         Rule::interpolate_rep => {
-            let paths_count = repetition_paths.len() as u32;
+            let paths_count = repetition_paths.len();
             let repetition_idx = *repetition_paths.entry(path.clone()).or_insert(paths_count);
-            let repetition_idx = Literal::u32_unsuffixed(repetition_idx);
+            let repetition_idx = Literal::usize_unsuffixed(repetition_idx);
             ts_builder.append_all(quote! {
                 ts.append(mtoken::TokenTree::Repetition(#repetition_idx));
             });
@@ -245,7 +246,7 @@ fn tt_append_delim_token_tree(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
-    repetition_paths: &mut HashMap<Path, u32>
+    repetition_paths: &mut HashMap<Path, usize>
 ) {
     let delimiter = match token.as_str().chars().next().unwrap() {
         '(' => proc_macro2::Ident::new("Parenthesis", Span::call_site()),
@@ -267,7 +268,7 @@ fn tt_append_repetition(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
-    repetition_paths: &mut HashMap<Path, u32>
+    repetition_paths: &mut HashMap<Path, usize>
 ) {
     let mut separator = quote! { None };
     let mut delim_stream = new_ts_builder();

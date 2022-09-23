@@ -46,7 +46,7 @@ mod test {
         };
         let cg_ident = CGIdentifier { inner: &ast_ident };
         let ts = mquote!(rust r#"
-            #cg_ident
+            Λcg_ident
         "#);
         assert_eq!(format!("{}", ts), "value");
     }

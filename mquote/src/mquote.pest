@@ -79,7 +79,7 @@ punct_question = _{ "?" }
 punct_underscore = _{ "_" }
 
 punct_verbatim_newline = _{ "\\n" } // \n in mquote! will output verbatim \n
-punct_newline = _{ "⏎" } // will force a newline
+punct_newline = _{ "⏎" } // U+23CE will force a newline
 
 punctuation = {
     punct_therefore |

@@ -32,7 +32,7 @@ impl<'ast> ToTokens for CGTy<'ast> {
                 };
                 let discrete = format!("{}{}", is_signed, discrete.bits);
                 tokens.append_all(mquote!(rust r#"
-                    #discrete
+                    Λdiscrete
                 "#));
             }
             _ => unimplemented!()

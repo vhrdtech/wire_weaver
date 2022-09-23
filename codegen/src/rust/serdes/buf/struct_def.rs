@@ -52,18 +52,14 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     let sign = if discrete.is_signed { 'i' } else { 'u' };
                     let is_le = if discrete.bits == 8 { "" } else { "_le" };
                     let method = format!("put_{}{}{}", sign, discrete.bits, is_le);
-                    tokens.append_all(mquote!(rust r#"
-                        #method
-                    "#));
+                    tokens.append_all(mquote!(rust "Λmethod"));
                 } else {
                     // Ix / Ux / UxSpy / UxSny / IxSpy / IxSny, use generic ser<T: SerializeBuf>()
-                    tokens.append_all(mquote!(rust r#"
-                        ser_bytes
-                    "#));
+                    tokens.append_all(mquote!(rust "ser_bytes"));
                 }
             }
             TyKind::UserDefined(_) => {
-                tokens.append_all(mquote!(rust r#"ser_bytes"#))
+                tokens.append_all(mquote!(rust "ser_bytes"))
             }
             _ => unimplemented!()
         }
@@ -79,29 +75,21 @@ impl<'ast> ToTokens for StructDesField<'ast> {
         match &self.ty.inner.kind {
             TyKind::Unit => {},
             TyKind::Boolean => {
-                tokens.append_all(mquote!(rust r#"
-                    get_bool
-                "#));
+                tokens.append_all(mquote!(rust "get_bool"));
             }
             TyKind::Discrete(discrete) => {
                 if discrete.is_standard() {
                     let sign = if discrete.is_signed { 'i' } else { 'u' };
                     let is_le = if discrete.bits == 8 { "" } else { "_le" };
                     let method = format!("get_{}{}{}", sign, discrete.bits, is_le);
-                    tokens.append_all(mquote!(rust r#"
-                        #method
-                    "#));
+                    tokens.append_all(mquote!(rust "Λmethod"));
                 } else {
                     // Ix / Ux / UxSpy / UxSny / IxSpy / IxSny, use generic des<T: DeserializeBuf>()
-                    tokens.append_all(mquote!(rust r#"
-                        des_bytes
-                    "#));
+                    tokens.append_all(mquote!(rust "des_bytes"));
                 }
             }
             TyKind::UserDefined(_) => {
-                tokens.append_all(mquote!(rust r#"
-                    des_bytes
-                "#));
+                tokens.append_all(mquote!(rust "des_bytes"));
             }
             k => unimplemented!("{:?}", k)
         }
@@ -126,16 +114,16 @@ impl<'ast> ToTokens for StructSer<'ast> {
             });
         let len_bytes = self.len_bytes().unwrap();
         ts.append_all(mquote!(rust r#"
-            impl SerializeBytes for #{self.inner.typename} {
+            impl SerializeBytes for Λ{self.inner.typename} {
                 ȸtype Error = BufError;
 
                 fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error> {
-                    #( wr.#field_ser_methods \\( self.#field_names \\) ?; )*
+                    ⸨ wr.∀field_ser_methods ( self.∀field_names ) ?; ⸩*
                     Ok(())
                 }
 
                 fn len_bytes(&self) -> usize {
-                    #len_bytes
+                    Λlen_bytes
                 }
             }
         "#));
@@ -182,12 +170,12 @@ impl<'ast> ToTokens for StructDes<'ast> {
                 ty: CGTy { inner: &f.ty },
             });
         tokens.append_all(mquote!(rust r#"
-            impl<'i> DeserializeBytes<'i> for #{self.inner.typename} {
+            impl<'i> DeserializeBytes<'i> for Λ{self.inner.typename} {
                 ȸtype Error = BufError;
 
                 fn des_bytes<'di>(rd: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
-                    Ok(#{self.inner.typename} {
-                        #( #field_names : rd.#field_des_methods\\(\\)? ),*
+                    Ok(Λ{self.inner.typename} {
+                        ⸨ ∀field_names : rd.∀field_des_methods()? ⸩,*
                     })
                 }
             }
@@ -220,7 +208,6 @@ impl<'ast> Depends for StructDes<'ast> {
 #[cfg(test)]
 mod test {
     use mquote::mquote;
-    use mtoken::ToTokens;
     use parser::span::{SourceOrigin, SpanOrigin};
     use vhl::ast::file::Definition;
 
@@ -236,7 +223,7 @@ mod test {
                 let cg_struct_serdes = super::StructSer {
                     inner: cg_struct_def,
                 };
-                let ts = mquote!(rust r#" #cg_struct_serdes "#);
+                let ts = mquote!(rust r#" Λcg_struct_serdes "#);
 
                 let ts_should_be = mquote!(rust r#"
                     impl SerializeBytes for Point {
@@ -272,7 +259,7 @@ mod test {
                 let cg_struct_serdes = super::StructDes {
                     inner: cg_struct_def,
                 };
-                let ts = mquote!(rust r#" #cg_struct_serdes "#);
+                let ts = mquote!(rust r#" Λcg_struct_serdes "#);
 
                 let ts_should_be = mquote!(rust r#"
                     impl<'i> DeserializeBytes<'i> for Point {
@@ -280,7 +267,7 @@ mod test {
 
                         fn des_bytes<'di>(rd: &'di mut Buf<'i>) -> Result<Self, Self::Error> {
                             Ok(Point {
-                                x: rd.get_u16_le()?,
+                                x: rd.get_u16_le()?◡,
                                 y: rd.get_u16_le()?
                             })
                         }

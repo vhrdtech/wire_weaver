@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test {
     use mquote::mquote;
-    use mtoken::ToTokens;
 
     #[test]
     pub fn interpolate() {

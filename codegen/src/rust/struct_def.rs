@@ -50,11 +50,11 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
             .fields
             .iter()
             .map(|f| CGTy { inner: &f.ty });
-        let derives = mquote!(rust r#"#[derive(Copy, Clone, Eq, PartialEq, Debug)]"#); // TODO: make automatic and configurable
+        let derives = mquote!(rust " #[derive(Copy, Clone, Eq, PartialEq, Debug)] "); // TODO: make automatic and configurable
         tokens.append_all(mquote!(rust r#"
-            #derives
-            pub struct #{self.typename} {
-                #( pub #field_names : #field_types ),*
+            Λderives
+            pub struct Λ{self.typename} {
+                ⸨ pub ∀field_names : ∀field_types ⸩,*
             }
         "#));
     }
@@ -80,7 +80,6 @@ impl<'ast> Depends for CGStructDef<'ast> {
 #[cfg(test)]
 mod test {
     use mquote::mquote;
-    use mtoken::ToTokens;
     use parser::span::{SourceOrigin, SpanOrigin};
     use vhl::ast::file::Definition;
 
@@ -93,7 +92,7 @@ mod test {
         match &ast_core.items[0] {
             Definition::Struct(struct_def) => {
                 let cg_struct_def = super::CGStructDef::new(struct_def);
-                let ts = mquote!(rust r#" #cg_struct_def "#);
+                let ts = mquote!(rust r#" Λcg_struct_def "#);
                 let ts_should_be = mquote!(rust r#"
                     #[derive(Copy, Clone, Eq, PartialEq, Debug)]
                     pub struct Point {

@@ -31,7 +31,7 @@ impl<'ast> Codegen for DispatchCall<'ast> {
                 use DispatchCallType::*;
                 log_info◡!◡(=>T, "dispatch_call({})", uri);
 
-                #handle_methods
+                Λhandle_methods
             }
         "#));
         Ok(tokens)
@@ -76,13 +76,9 @@ impl<'ast> DispatchCall<'ast> {
         let no_methods_recursively = if not_methods_serials.is_empty() {
             TokenStream::new()
         } else {
-            let comment = Itertools::intersperse(
-                not_methods_names.iter().map(|i| format!("{}{}", uri_base, i)),
-                ",".to_owned(),
-            );
             mquote!(rust r#"
-                ⏎/◡/ #( #comment )* : not a method and contains no children that are ⏎
-                Some( #( #{not_methods_serials.iter()} )|* ) => Err(FailReason::NotAMethod),
+                ⏎/◡/ ⸨ ∀not_methods_names ⸩,* : not a method and contains no children that are ⏎
+                Some( ⸨ ∀not_methods_serials ⸩|* ) => Err(FailReason::NotAMethod),
             "#)
         };
 
@@ -94,15 +90,13 @@ impl<'ast> DispatchCall<'ast> {
 
         Ok(mquote!(rust r#"
             match uri.next() {
-                /◡/ dispatch #uri_base◡()⏎
+                /◡/ dispatch Λuri_base◡()⏎
                 None => {
-                    #self_method
+                    Λself_method
                 }
-                #(
-                    Some \\( #{child_serials.iter()} \\) => \\{ #child_handle_methods \\}
-                )*
-                #no_methods_recursively
-                ⏎/◡/ #uri_base : #wildcard_comment⏎
+                ⸨ Some ( ∀child_serials ) => { ∀child_handle_methods } ⸩*
+                Λno_methods_recursively
+                ⏎/◡/ Λuri_base : Λwildcard_comment⏎
                 Some(_) => Err(FailReason::BadUri),
             }
         "#))
@@ -127,17 +121,17 @@ impl<'ast> DispatchCall<'ast> {
             "sync" => {
                 Ok(mquote!(rust r#"
                     // syncronous call
-                    #des_args
-                    #ser_ret_stmt #path(#arg_names);
-                    #ser_ret_buf
+                    Λdes_args
+                    Λser_ret_stmt Λpath(Λarg_names);
+                    Λser_ret_buf
                 "#))
             }
             "rtic" => {
                 Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
-                    #des_args
-                    #ser_ret_stmt #path::spawn(#arg_names);
-                    #ser_ret_buf
+                    Λdes_args
+                    Λser_ret_stmt Λpath::spawn(Λarg_names);
+                    Λser_ret_buf
                 "#))
             }
             k => {
@@ -147,10 +141,10 @@ impl<'ast> DispatchCall<'ast> {
         Ok(mquote!(rust r#"
             match call_type {
                 DispatchCallType::DryRun => {
-                    Ok(#ret_ty_size)
+                    Ok(Λret_ty_size)
                 }
                 DispatchCallType::RealRun(args, result) => {
-                    #real_run
+                    Λreal_run
                 }
             }
         "#))
@@ -170,12 +164,12 @@ impl<'ast> DispatchCall<'ast> {
         let arg_names_clone = arg_names.clone();
         Ok((mquote!(rust r#"
             let mut rd = Buf::new(args);
-            #( let #arg_names = rd.#arg_des_methods\\(\\)?; )*
+            ⸨ let ∀arg_names = rd.∀arg_des_methods()?; ⸩*
             if !rd.is_at_end() {
                 log_warn◡!◡(=>T, "Unused {} bytes left after deserializing arguments", rd.bytes_left());
             }
         "#),
-            mquote!(rust r#" #( #arg_names_clone ),* "#)
+            mquote!(rust r#" ⸨ ∀arg_names_clone ⸩,* "#)
         ))
     }
 
@@ -186,7 +180,7 @@ impl<'ast> DispatchCall<'ast> {
             let ser_method = StructSerField { ty: CGTy { inner: &ret_ty } };
             Ok((mquote!(rust r#" let ret = "#), mquote!(rust r#"
                 let mut wr = BufMut::new(result);
-                wr.#ser_method(ret)?;
+                wr.Λser_method(ret)?;
                 Ok(wr.bytes_pos())
             "#)))
         }

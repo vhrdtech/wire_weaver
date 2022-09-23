@@ -38,14 +38,15 @@ impl TokenStream {
         // for (idx, streams) in streams_at {
         //     println!("RI{} = {:?}", idx, streams);
         // }
-        self.inner = Self::interpolate_repetitions_inner(self, &streams_at);
+        self.inner = Self::interpolate_repetitions_inner(self, &streams_at).inner;
     }
 
     fn interpolate_repetitions_inner(
         ts: &mut TokenStream,
-        streams_at: &HashMap<u32, VecDeque<TokenStream>>) -> VecDeque<TokenTree>
+        streams_at: &HashMap<u32, VecDeque<TokenStream>>,
+    ) -> TokenStream
     {
-        let mut tts_reassemble = VecDeque::new();
+        let mut tts_reassemble = TokenStream::new();
         while let Some(t) = ts.inner.pop_front() {
             match t {
                 TokenTree::RepetitionGroup(group_ts, separator) => {
@@ -79,7 +80,7 @@ impl TokenStream {
                                             match streams.pop_front() {
                                                 Some(repeat_over_ts) => {
                                                     for t in repeat_over_ts.inner {
-                                                        tts_reassemble.push_back(t);
+                                                        tts_reassemble.inner.push_back(t);
                                                     }
                                                 }
                                                 None => {}
@@ -92,28 +93,26 @@ impl TokenStream {
                                 }
                                 TokenTree::RepetitionGroup(mut group_ts, separator) => {
                                     for tt in Self::interpolate_repetitions_inner(&mut group_ts, streams_at) {
-                                        tts_reassemble.push_back(tt);
+                                        tts_reassemble.inner.push_back(tt);
                                         match separator.clone() {
                                             Some(p) => {
                                                 if p.is_sequence_delimiter() {
-                                                    tts_reassemble.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
+                                                    tts_reassemble.inner.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
                                                 }
-                                                tts_reassemble.push_back(p.into())
+                                                tts_reassemble.inner.push_back(p.into())
                                             },
                                             None => {}
                                         }
                                     }
                                 }
                                 TokenTree::Group(mut group) => {
-                                    tts_reassemble.push_back(TokenTree::Group(Group {
-                                        delimiter: group.delimiter,
-                                        stream: TokenStream {
-                                            inner: Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
-                                        },
-                                    }));
+                                    tts_reassemble.inner.push_back(TokenTree::Group(Group::new(
+                                        group.delimiter,
+                                        Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
+                                    )));
                                 }
                                 any_else => {
-                                    tts_reassemble.push_back(any_else.clone());
+                                    tts_reassemble.inner.push_back(any_else.clone());
                                 }
                             }
                         }
@@ -121,9 +120,9 @@ impl TokenStream {
                             match separator.clone() {
                                 Some(p) => {
                                     if p.is_sequence_delimiter() {
-                                        tts_reassemble.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
+                                        tts_reassemble.inner.back_mut().map(|tt| tt.modify_spacing(Spacing::Joint));
                                     }
-                                    tts_reassemble.push_back(p.into())
+                                    tts_reassemble.inner.push_back(p.into())
                                 },
                                 None => {}
                             }
@@ -134,15 +133,13 @@ impl TokenStream {
                     panic!("Repetition can only be inside a repetition group delimited by ⸨ ⸩");
                 }
                 TokenTree::Group(mut group) => {
-                    tts_reassemble.push_back(TokenTree::Group(Group {
-                        delimiter: group.delimiter,
-                        stream: TokenStream {
-                            inner: Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
-                        },
-                    }));
+                    tts_reassemble.inner.push_back(TokenTree::Group(Group::new(
+                        group.delimiter,
+                        Self::interpolate_repetitions_inner(&mut group.stream, streams_at),
+                    )));
                 }
                 any_else => {
-                    tts_reassemble.push_back(any_else);
+                    tts_reassemble.inner.push_back(any_else);
                 }
             }
         }
@@ -224,23 +221,23 @@ impl Display for TokenStream {
             }
             joint = false;
             match tt {
-                TokenTree::Group(tt) => Display::fmt(tt, f),
+                TokenTree::Group(tt) => {
+                    joint = tt.spacing_after == Spacing::Joint;
+                    write!(f, "{}", tt)
+                },
                 TokenTree::Ident(tt) => {
                     joint = tt.spacing() == Spacing::Joint;
-                    Display::fmt(tt, f)
+                    write!(f, "{}", tt)
                 },
                 TokenTree::Punct(tt) => {
                     joint = tt.spacing() == Spacing::Joint;
-                    Display::fmt(tt, f)
+                    write!(f, "{}", tt)
                 }
-                // TokenTree::DelimiterRaw(tt) => Display::fmt(tt, f),
                 TokenTree::Literal(tt) => {
                     joint = tt.spacing() == Spacing::Joint;
-                    Display::fmt(tt, f)
+                    write!(f, "{}", tt)
                 },
-                TokenTree::Comment(tt) => Display::fmt(tt, f),
-                // TokenTree::InterpolateOne(idx) => write!(f, "#{}", idx),
-                // TokenTree::InterpolateIter(idx) => write!(f, "I{}", idx),
+                TokenTree::Comment(tt) => write!(f, "{}", tt),
                 TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
                 TokenTree::RepetitionGroup(g, p) => write!(f, "RG⸨{} {:?}⸩", g, p),
             }?;

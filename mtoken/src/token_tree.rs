@@ -45,7 +45,7 @@ pub enum TokenTree {
 impl TokenTree {
     pub fn modify_spacing(&mut self, spacing: Spacing) {
         match self {
-            TokenTree::Group(_) => {}
+            TokenTree::Group(g) => g.spacing_after = spacing,
             TokenTree::Ident(id) => id.set_spacing(spacing),
             TokenTree::Punct(p) => p.set_spacing(spacing),
             // TokenTree::DelimiterRaw(_) => {}
@@ -67,11 +67,12 @@ impl TokenTree {
 pub struct Group {
     pub(crate) delimiter: Delimiter,
     pub(crate) stream: TokenStream,
+    pub(crate) spacing_after: Spacing,
 }
 
 impl Group {
     pub fn new(delimiter: Delimiter, stream: TokenStream) -> Self {
-        Self { delimiter, stream }
+        Self { delimiter, stream, spacing_after: Spacing::Alone }
     }
 }
 

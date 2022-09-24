@@ -7,90 +7,34 @@ use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
 use crate::serdes::xpi_vlu4::NodeId;
 use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind};
 // use enum_kinds::EnumKind;
 // use enum_primitive_derive::Primitive;
 
-/// Replies are sent to the Link in response to requests.
-/// One request can result in one or more replies.
-/// For subscriptions and streams many replies will be sent asynchronously.
-#[derive(Copy, Clone, Debug)]
-pub struct XpiReply<'rep> {
-    /// Source node id that yielded reply
-    pub source: NodeId,
-    /// Destination node or nodes
-    pub destination: NodeSet<'rep>,
-    /// Set of resources that are considered in this reply
-    pub resource_set: XpiResourceSet<'rep>,
-    /// Kind of reply
-    pub kind: XpiReplyKind<'rep>,
-    /// Original request id used to map responses to requests.
-    /// For StreamsUpdates use previous id + 1 and do not map to requests.
-    pub request_id: RequestId,
-    /// Most same priority as initial XpiRequest
-    pub priority: Priority,
-}
+/// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
+/// even for variable length arrays or strings.
+/// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
+pub type XpiReply<'rep> = XpiGenericReply<
+    NodeId,
+    NodeSet<'rep>,
+    XpiResourceSet<'rep>,
+    Vlu4Vec<'rep, &'rep [u8]>,
+    Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
+    Vlu4Vec<'rep, Result<(), FailReason>>,
+    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
+    RequestId,
+    Priority
+>;
 
-/// Reply to a previously made request
-/// Each reply must also be linked with:
-/// request id that was sent initially
-/// Source node id
-#[derive(Copy, Clone, Debug)]
-// #[enum_kind(XpiReplyKindKind)] simple enough to do by hand and helps with code completion
-pub enum XpiReplyKind<'rep> {
-    /// Result of an each call
-    CallComplete(Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>),
+/// See [XpiGenericReplyKind](crate::xpi::reply::XpiGenericReplyKind) for detailed information.
+pub type XpiReplyKind<'rep> = XpiGenericReplyKind<
+    Vlu4Vec<'rep, &'rep [u8]>,
+    Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
+    Vlu4Vec<'rep, Result<(), FailReason>>,
+    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
+>;
 
-    /// Result of an each read.
-    ReadComplete(Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>),
-
-    /// Result of an each write (only lossless?)
-    WriteComplete(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Result of an attempt to open a stream.
-    /// If stream was closed before (and inherently not borrowed), Borrow(Ok(())) is received,
-    /// followed by OpenStream(Ok(()))
-    OpenStream(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Changed property or new element of a stream.
-    /// request_id for this case is None, as counter may wrap many times while subscriptions are active.
-    /// Mapping is straight forward without a request_id, since uri for each resource is known.
-    /// Distinguishing between different updates is not needed as in case of 2 function calls vs 1 for example.
-    ///
-    /// Updates may be silently lost if lossy mode is selected, more likely so with lower priority.
-    ///
-    /// Updates are very unlikely to be lost in lossless mode, unless underlying channel is destroyed
-    /// or memory is exceeded, in which case only an error can be reported to flag the issue.
-    /// If lossless channel is affected, CloseStream is yielded with a failure reason indicated in it.
-    StreamUpdate(Vlu4Vec<'rep, &'rep [u8]>),
-
-    /// Result of an attempt to close a stream or unrecoverable loss in lossless mode (priority > 0).
-    /// If stream was open before (and inherently borrowed by self node), Close(Ok(())) is received,
-    /// followed by Release(Ok(())).
-    CloseStream(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Result of an attempt to subscribe to a stream or observable property
-    /// On success Some(current value) is returned for a property, first available item is returned
-    /// for streams, if available during subscription time.
-    /// array of results with 0 len as an option
-    Subscribe(Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>),
-
-    /// Result of a request to change observing / publishing rate.
-    RateChange(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Result of an attempt to unsubscribe from a stream of from an observable property.
-    /// Unsubscribing twice will result in an error.
-    Unsubscribe(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Result of a resource borrow
-    Borrow(Vlu4Vec<'rep, Result<(), FailReason>>),
-    /// Result of a resource release
-    Release(Vlu4Vec<'rep, Result<(), FailReason>>),
-
-    /// Result of an Introspect request
-    Introspect(Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>),
-}
-
-pub enum XpiReplyKindKind {
+pub enum XpiReplyDiscriminant {
     CallComplete,
     ReadComplete,
     WriteComplete,
@@ -105,11 +49,11 @@ pub enum XpiReplyKindKind {
     Introspect,
 }
 
-impl<'i> SerializeBits for XpiReplyKindKind {
+impl<'i> SerializeBits for XpiReplyDiscriminant {
     type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        use XpiReplyKindKind::*;
+        use XpiReplyDiscriminant::*;
         let kind = match self {
             CallComplete => 0,
             ReadComplete => 1,
@@ -200,7 +144,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
         vlu4_rdr: &'di mut NibbleBuf<'i>,
     ) -> Result<Self, Self::Error> {
         let kind = bits_rdr.get_up_to_8(4)?;
-        use XpiReplyKind::*;
+        use XpiGenericReplyKind::*;
         match kind {
             0 => Ok(CallComplete(vlu4_rdr.des_vlu4()?)),
             _ => Err(XpiVlu4Error::Unimplemented),
@@ -264,8 +208,8 @@ impl<'i> XpiReplyBuilder<'i> {
     }
 
     pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
-    where
-        F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyKindKind, NibbleBufMut<'i>), FailReason>,
+        where
+            F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyDiscriminant, NibbleBufMut<'i>), FailReason>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
@@ -355,7 +299,7 @@ mod test {
     use crate::serdes::xpi_vlu4::error::FailReason;
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::reply::{
-        XpiReply, XpiReplyBuilder, XpiReplyKind, XpiReplyKindKind,
+        XpiReply, XpiReplyBuilder, XpiReplyKind, XpiReplyDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
@@ -379,7 +323,7 @@ mod test {
                 vb.put_result_with_slice(Ok(&[0xaa, 0xbb][..]))?;
                 vb.put_result_with_slice(Ok(&[0xcc, 0xdd][..]))?;
                 let nwr = vb.finish()?;
-                Ok((XpiReplyKindKind::CallComplete, nwr))
+                Ok((XpiReplyDiscriminant::CallComplete, nwr))
             })
             .unwrap();
 

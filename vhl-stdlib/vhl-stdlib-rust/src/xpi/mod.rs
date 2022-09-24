@@ -8,6 +8,7 @@ pub mod request;
 pub mod reply;
 pub mod broadcast;
 pub mod addressing;
+pub mod priority;
 
 #[cfg(feature = "std")]
 pub mod owned;

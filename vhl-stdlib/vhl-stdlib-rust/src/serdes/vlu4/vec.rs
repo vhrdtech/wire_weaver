@@ -7,10 +7,7 @@ use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 
-/// Variable size array of u8 slices (each aligned to byte boundary).
-/// Optimised for ease of writing in place - slice amount is written as 4 bits, with 0b1111 meaning
-/// that there are more than 15 slices.
-/// 4 bit slice count ~ (vlu4 slice len ~ padding? ~ u8 slice data)+ ~ (self)*
+/// Zero copy array of things. Supports in-place operations and no_std without alloc.
 #[derive(Copy, Clone)]
 pub struct Vlu4Vec<'i, T> {
     rdr: NibbleBuf<'i>,
@@ -337,9 +334,19 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
 }
 
 /// Implementation of Vlu4VecBuilder for u8 slices, all methods ensure byte alignment.
+///
+/// Optimised for ease of writing in place - slice amount is written as 4 bits, with 0b1111 meaning
+/// that there are more than 15 slices.
+/// 4 bit slice count ~ (vlu4 slice len ~ padding? ~ u8 slice data)+ ~ (self)*
 impl<'i> Vlu4VecBuilder<'i, &'i [u8]> {
     /// Get a mutable, aligned u8 slice of requested length inside a closure.
     /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
+    /// Less than requested amount of bytes can actually be used.
+    /// TODO:
+    /// Closure must return actual used amount of bytes used <= requested. If less than request amount is
+    /// used, some space initially used to represent the size might be replaced with 0's that are
+    /// not carrying any information - but this is a trade-off of being able to construct variable
+    /// arrays in place without copies or allocations.
     ///
     /// Example:
     /// ```
@@ -477,6 +484,7 @@ impl<'i> SerializeVlu4 for &'i [u8] {
 
     fn len_nibbles(&self) -> usize {
         // no way to return correct len, because it depends on buffer state which is unknown here
+        // TODO: is there a way to get rid of panic! here with the new SerDesSize type?
         panic!("<&[u8] as SerializeVlu4>::len_nibbles() is incorrect to call");
     }
 }

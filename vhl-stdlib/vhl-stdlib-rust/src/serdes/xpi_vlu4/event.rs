@@ -1,5 +1,6 @@
 use crate::serdes::{DeserializeVlu4, NibbleBuf};
 use crate::serdes::traits::DeserializeCoupledBitsVlu4;
+use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::broadcast::XpiBroadcastKind;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
@@ -11,7 +12,7 @@ use crate::xpi::event::{XpiGenericEvent, XpiGenericEventKind};
 
 pub type XpiEvent<'ev> = XpiGenericEvent<
     NodeId,
-    NodeSet<'ev>,
+    TraitSet<'ev>,
     XpiRequest<'ev>,
     XpiReply<'ev>,
     XpiBroadcastKind,

@@ -1,7 +1,9 @@
+use crate::xpi::addressing::XpiGenericNodeSet;
+
 /// Root data type exchanged by nodes
 pub struct XpiGenericEvent<
-    SRC,
-    DST,
+    NID,
+    TS,
     RQ,
     RP,
     BR,
@@ -9,9 +11,9 @@ pub struct XpiGenericEvent<
     P,
 > {
     /// Origin node of the request
-    pub source: SRC,
+    pub source: NID,
     /// Destination node or nodes
-    pub destination: DST,
+    pub destination: XpiGenericNodeSet<NID, TS>,
     pub kind: XpiGenericEventKind<RQ, RP, BR, FW>,
     /// Priority selection: lossy or lossless (to an extent).
     pub priority: P,

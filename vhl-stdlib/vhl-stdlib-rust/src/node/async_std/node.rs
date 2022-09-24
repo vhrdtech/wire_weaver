@@ -4,7 +4,6 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Sender, Receiver};
 use futures::{SinkExt, Stream, StreamExt};
-use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::RwLock;
 use crate::node::async_std::error::NodeError;
 
@@ -26,7 +25,7 @@ impl VhNode {
     ///
     /// Created node will contain xPI implementations of: semver, client and will answer to respective
     /// requests. Heartbeats will also be broadcasted.
-    pub async fn new_client(id: u32) -> VhNode {
+    pub async fn new_client(id: u32 /* xPI client, generated or dynamically loaded */) -> VhNode {
         let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(1);
         let nodes = Arc::new(RwLock::new(HashMap::new()));
@@ -43,6 +42,7 @@ impl VhNode {
     }
 
     // pub async fn new_server
+    // pub async fn new_router
     // pub async fn new_tracer
 
     /// Process all the xPI events that may be received from other nodes and send it's own.
@@ -99,8 +99,8 @@ impl VhNode {
                 }
                 _ = heartbeat.next() => {
                     println!("{}: local heartbeat", self_id);
-                    for (id, handle) in &mut nodes {
-                        handle.tx.send(VhLinkEvent { from: self_id }).await;
+                    for (_id, handle) in &mut nodes {
+                        let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
                     }
                 }
                 complete => {

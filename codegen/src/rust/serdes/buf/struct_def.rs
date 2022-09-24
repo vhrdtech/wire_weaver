@@ -12,7 +12,7 @@ pub struct StructSer<'ast> {
 impl<'ast> StructSer<'ast> {
     pub fn len_bytes(&self) -> Option<usize> {
         let mut len = 0;
-        for f in &self.inner.inner.fields {
+        for f in &self.inner.inner.fields { // TODO: use proper size calculation here
             if !f.ty.is_sized() {
                 return None;
             }

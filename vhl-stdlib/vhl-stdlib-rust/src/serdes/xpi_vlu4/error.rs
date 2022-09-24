@@ -163,9 +163,6 @@ pub enum XpiVlu4Error {
     // #[error("Unsupported uri mask type")]
     UriMaskUnsupportedType,
 
-    // #[error("Expected request")]
-    NotARequest,
-    NotAResponse,
     // #[error("Unsupported reserved value, not ignorable.")]
     ReservedDiscard,
 

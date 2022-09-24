@@ -6,7 +6,7 @@ use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
 use crate::serdes::xpi_vlu4::NodeId;
-use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind};
 // use enum_kinds::EnumKind;
 // use enum_primitive_derive::Primitive;
@@ -15,15 +15,12 @@ use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind};
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
 pub type XpiReply<'rep> = XpiGenericReply<
-    NodeId,
-    NodeSet<'rep>,
     XpiResourceSet<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
     Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
     Vlu4Vec<'rep, Result<(), FailReason>>,
     Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
     RequestId,
-    Priority
 >;
 
 /// See [XpiGenericReplyKind](crate::xpi::reply::XpiGenericReplyKind) for detailed information.
@@ -229,64 +226,6 @@ impl<'i> XpiReplyBuilder<'i> {
             Ok(())
         })?;
         Ok(nwr)
-    }
-}
-
-impl<'i> DeserializeVlu4<'i> for XpiReply<'i> {
-    type Error = XpiVlu4Error;
-
-    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        // get first 32 bits as BitBuf
-        let mut bits_rdr = rdr.get_bit_buf(8)?;
-        let _absent_31_29 = bits_rdr.get_up_to_8(3);
-
-        // bits 28:26
-        let priority: Priority = bits_rdr.des_bits()?;
-
-        // bit 25
-        let is_unicast = bits_rdr.get_bit()?;
-        if !is_unicast {
-            return Err(XpiVlu4Error::NotAResponse);
-        }
-
-        // bit 24
-        let is_response = !bits_rdr.get_bit()?;
-        if !is_response {
-            return Err(XpiVlu4Error::NotAResponse);
-        }
-
-        // UAVCAN reserved bit 23, discard if 0 (UAVCAN discards if 1).
-        let reserved_23 = bits_rdr.get_bit()?;
-        if !reserved_23 {
-            return Err(XpiVlu4Error::ReservedDiscard);
-        }
-
-        // bits: 22:16
-        let source: NodeId = bits_rdr.des_bits()?;
-
-        // bits: 15:7 + variable nibbles if not NodeSet::Unicast
-        let destination = NodeSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
-
-        // bits 6:4 + 1/2/3/4 nibbles for Uri::OnePart4/TwoPart44/ThreePart* or variable otherwise
-        let resource_set = XpiResourceSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
-
-        // bits 3:0
-        let kind = XpiReplyKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
-
-        // tail byte should be at byte boundary, if not 4b padding is added
-        if !rdr.is_at_byte_boundary() {
-            let _ = rdr.get_nibble()?;
-        }
-        let request_id: RequestId = rdr.des_vlu4()?;
-
-        Ok(XpiReply {
-            source,
-            destination,
-            resource_set,
-            kind,
-            request_id,
-            priority,
-        })
     }
 }
 

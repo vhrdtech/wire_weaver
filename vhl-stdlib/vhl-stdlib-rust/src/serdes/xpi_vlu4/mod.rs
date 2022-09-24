@@ -76,7 +76,7 @@
 //! May use more space than alpha-epsilon modes.
 //! Size required is variable, most use cases should be in the range of 16-20 bits.
 //! Minimum size is 4 bits for 0 sized Uri (root / resource) - also the way to select
-//! root resource (probably never needed).
+//! root resource
 //! Uri(Uri<'i>),
 //!
 //! Selects any set of resources at any depths at once.
@@ -86,25 +86,7 @@
 //! MultiUri(MultiUri<'i>),
 //! }
 //!
-// impl<'req> SerializeVlu4 for XpiRequest<'req> {
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) {
-//         todo!()
-//     }
-// }
-//
-// impl<'de> DeserializeVlu4 for XpiRequest<'de> {
-//     fn des_vlu4(rdr: &mut NibbleBuf) -> Self {
-//
-//         XpiRequest {
-//             source: 0,
-//             destination: (),
-//             resource_set: (),
-//             kind: XpiRequestKind::Read,
-//             request_id: 0,
-//             priority: ()
-//         }
-//     }
-// }
+pub mod event;
 pub mod addressing;
 pub mod multi_uri;
 pub mod reply;
@@ -113,7 +95,7 @@ pub mod resource_info;
 pub mod uri;
 pub mod uri_mask;
 // pub mod node_info;
-// pub mod broadcast;
+pub mod broadcast;
 pub mod error;
 pub mod priority;
 pub mod rate;
@@ -122,4 +104,3 @@ pub use addressing::NodeId;
 pub use multi_uri::{MultiUri, MultiUriIter};
 pub use uri::{Uri, UriIter};
 pub use uri_mask::{UriMask, UriMaskIter};
-// pub use multi_uri::

@@ -1,8 +1,4 @@
-use crate::serdes::xpi_vlu4::node_info::{HeartbeatInfo, NodeInfo};
-use crate::serdes::xpi_vlu4::NodeId;
+use crate::xpi::broadcast::XpiGenericBroadcastKind;
 
-pub struct XpiBroadcast<'br> {
-    pub source: NodeId,
-    pub kind: XpiBroadcastKind<'br>
-}
+pub type XpiBroadcastKind = XpiGenericBroadcastKind<(), ()>;
 

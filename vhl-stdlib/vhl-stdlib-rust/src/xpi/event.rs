@@ -6,7 +6,6 @@ pub struct XpiGenericEvent<
     RP,
     BR,
     FW,
-    K,
     P,
 > {
     /// Origin node of the request

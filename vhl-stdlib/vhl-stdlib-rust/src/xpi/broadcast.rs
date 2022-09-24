@@ -1,6 +1,6 @@
 /// Bidirectional functionality of the Link. Node discovery and heartbeats.
 #[derive(Copy, Clone, Debug)]
-pub enum XpiBroadcastKind<
+pub enum XpiGenericBroadcastKind<
     N, // Node info
     H, // Heartbeat info
 > {

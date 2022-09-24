@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Check stdlib" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="check" />
+    <option name="command" value="check --features=&quot;std&quot;" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/vhl-stdlib/vhl-stdlib-rust" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />

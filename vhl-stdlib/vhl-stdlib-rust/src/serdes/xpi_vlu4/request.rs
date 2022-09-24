@@ -8,15 +8,15 @@ use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Rate;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
-use crate::serdes::xpi_vlu4::{MultiUri, Uri};
+use crate::serdes::xpi_vlu4::{SerialMultiUri, SerialUri};
 use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
 
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
 pub type XpiRequest<'req> = XpiGenericRequest<
-    Uri<'req>,
-    MultiUri<'req>,
+    SerialUri<'req>,
+    SerialMultiUri<'req>,
     &'req [u8],
     Vlu4Vec<'req, &'req [u8]>,
     Vlu4Vec<'req, Rate>,
@@ -152,7 +152,7 @@ mod test {
     use crate::serdes::xpi_vlu4::request::{
         XpiRequestBuilder, XpiRequestKind, XpiRequestDiscriminant,
     };
-    use crate::serdes::xpi_vlu4::{NodeId, Uri};
+    use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
 
@@ -183,8 +183,8 @@ mod test {
             assert_eq!(request.request_id, RequestId::new(27).unwrap());
             assert!(matches!(request.resource_set, XpiResourceSet::Uri(_)));
             if let XpiResourceSet::Uri(uri) = request.resource_set {
-                assert!(matches!(uri, Uri::TwoPart44(_, _)));
-                if let Uri::TwoPart44(a, b) = uri {
+                assert!(matches!(uri, SerialUri::TwoPart44(_, _)));
+                if let SerialUri::TwoPart44(a, b) = uri {
                     assert_eq!(a.inner(), 3);
                     assert_eq!(b.inner(), 12);
                 }
@@ -210,7 +210,7 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),
-            XpiResourceSet::Uri(Uri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
+            XpiResourceSet::Uri(SerialUri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2Sp1::new(1).unwrap()),
         )

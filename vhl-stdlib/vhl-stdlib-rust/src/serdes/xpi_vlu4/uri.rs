@@ -10,7 +10,7 @@ use core::iter::FusedIterator;
 /// Sequence of numbers uniquely identifying one of the resources.
 /// If there is a group in the uri with not numerical index - it must be mapped into numbers.
 #[derive(Copy, Clone)]
-pub enum Uri<'i> {
+pub enum SerialUri<'i> {
     /// Points to one of the root resources /i, i <= 15; takes 1 nibble
     OnePart4(U4),
 
@@ -30,65 +30,65 @@ pub enum Uri<'i> {
     MultiPart(Vlu4Vec<'i, Vlu32>),
 }
 
-impl<'i> Uri<'i> {
+impl<'i> SerialUri<'i> {
     pub fn iter(&self) -> UriIter<'i> {
         match self {
-            Uri::OnePart4(a) => UriIter::UpToThree {
+            SerialUri::OnePart4(a) => UriIter::UpToThree {
                 parts: [a.inner(), 0, 0],
                 len: 1,
                 pos: 0,
             },
-            Uri::TwoPart44(a, b) => UriIter::UpToThree {
+            SerialUri::TwoPart44(a, b) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), 0],
                 len: 2,
                 pos: 0,
             },
-            Uri::ThreePart444(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart444(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            Uri::ThreePart633(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart633(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            Uri::ThreePart664(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart664(a, b, c) => UriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            Uri::MultiPart(arr) => UriIter::ArrIter(arr.iter()),
+            SerialUri::MultiPart(arr) => UriIter::ArrIter(arr.iter()),
         }
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for Uri<'i> {
+impl<'i> DeserializeVlu4<'i> for SerialUri<'i> {
     type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        Ok(Uri::MultiPart(rdr.des_vlu4()?))
+        Ok(SerialUri::MultiPart(rdr.des_vlu4()?))
     }
 }
 
-impl<'i> SerializeVlu4 for Uri<'i> {
+impl<'i> SerializeVlu4 for SerialUri<'i> {
     type Error = XpiVlu4Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            Uri::OnePart4(a) => {
+            SerialUri::OnePart4(a) => {
                 wgr.put_nibble(a.inner())?;
             }
-            Uri::TwoPart44(a, b) => {
+            SerialUri::TwoPart44(a, b) => {
                 wgr.put_nibble(a.inner())?;
                 wgr.put_nibble(b.inner())?;
             }
-            Uri::ThreePart444(a, b, c) => {
+            SerialUri::ThreePart444(a, b, c) => {
                 wgr.put_nibble(a.inner())?;
                 wgr.put_nibble(b.inner())?;
                 wgr.put_nibble(c.inner())?;
             }
-            Uri::ThreePart633(a, b, c) => {
+            SerialUri::ThreePart633(a, b, c) => {
                 wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(3, b.inner())?;
@@ -96,7 +96,7 @@ impl<'i> SerializeVlu4 for Uri<'i> {
                     Ok(())
                 })?;
             }
-            Uri::ThreePart664(a, b, c) => {
+            SerialUri::ThreePart664(a, b, c) => {
                 wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(6, b.inner())?;
@@ -104,7 +104,7 @@ impl<'i> SerializeVlu4 for Uri<'i> {
                     Ok(())
                 })?;
             }
-            Uri::MultiPart(arr) => {
+            SerialUri::MultiPart(arr) => {
                 wgr.put(arr)?;
             }
         }
@@ -113,17 +113,17 @@ impl<'i> SerializeVlu4 for Uri<'i> {
 
     fn len_nibbles(&self) -> usize {
         match self {
-            Uri::OnePart4(_) => 1,
-            Uri::TwoPart44(_, _) => 2,
-            Uri::ThreePart444(_, _, _) => 3,
-            Uri::ThreePart633(_, _, _) => 3,
-            Uri::ThreePart664(_, _, _) => 4,
-            Uri::MultiPart(arr) => arr.len_nibbles(),
+            SerialUri::OnePart4(_) => 1,
+            SerialUri::TwoPart44(_, _) => 2,
+            SerialUri::ThreePart444(_, _, _) => 3,
+            SerialUri::ThreePart633(_, _, _) => 3,
+            SerialUri::ThreePart664(_, _, _) => 4,
+            SerialUri::MultiPart(arr) => arr.len_nibbles(),
         }
     }
 }
 
-impl<'i> IntoIterator for Uri<'i> {
+impl<'i> IntoIterator for SerialUri<'i> {
     type Item = u32;
     type IntoIter = UriIter<'i>;
 
@@ -209,7 +209,7 @@ impl<'i> Display for UriIter<'i> {
     }
 }
 
-impl<'i> Display for Uri<'i> {
+impl<'i> Display for SerialUri<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "{:#}", self.iter())
@@ -218,7 +218,8 @@ impl<'i> Display for Uri<'i> {
         }
     }
 }
-impl<'i> Debug for Uri<'i> {
+
+impl<'i> Debug for SerialUri<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self)
     }
@@ -230,14 +231,14 @@ mod test {
     use crate::discrete::{U3, U4, U6};
     use std::format;
 
-    use super::Uri;
+    use super::SerialUri;
     use crate::serdes::vlu4::vlu32::Vlu32;
     use crate::serdes::vlu4::Vlu4Vec;
     use crate::serdes::NibbleBuf;
 
     #[test]
     fn one_part_uri_iter() {
-        let uri = Uri::OnePart4(U4::new(1).unwrap());
+        let uri = SerialUri::OnePart4(U4::new(1).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), None);
@@ -245,7 +246,7 @@ mod test {
 
     #[test]
     fn two_part_uri_iter() {
-        let uri = Uri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
+        let uri = SerialUri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), Some(2));
@@ -254,7 +255,7 @@ mod test {
 
     #[test]
     fn three_part_uri_iter() {
-        let uri = Uri::ThreePart633(
+        let uri = SerialUri::ThreePart633(
             U6::new(35).unwrap(),
             U3::new(4).unwrap(),
             U3::new(3).unwrap(),
@@ -271,7 +272,7 @@ mod test {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
-        let uri = Uri::MultiPart(arr);
+        let uri = SerialUri::MultiPart(arr);
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), Some(2));
@@ -286,7 +287,7 @@ mod test {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
-        let uri = Uri::MultiPart(arr);
+        let uri = SerialUri::MultiPart(arr);
         assert_eq!(format!("{:#}", uri), "Uri(/1/2/3/4/5)");
         assert_eq!(format!("{}", uri), "/1/2/3/4/5");
     }

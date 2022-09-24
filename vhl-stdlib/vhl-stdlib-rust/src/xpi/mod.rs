@@ -7,3 +7,7 @@ pub mod event;
 pub mod request;
 pub mod reply;
 pub mod broadcast;
+pub mod addressing;
+
+#[cfg(feature = "std")]
+pub mod owned;

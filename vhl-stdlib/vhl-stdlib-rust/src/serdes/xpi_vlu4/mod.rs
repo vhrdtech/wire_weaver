@@ -101,6 +101,6 @@ pub mod priority;
 pub mod rate;
 
 pub use addressing::NodeId;
-pub use multi_uri::{MultiUri, MultiUriIter};
-pub use uri::{Uri, UriIter};
+pub use multi_uri::{SerialMultiUri, MultiUriIter};
+pub use uri::{SerialUri, UriIter};
 pub use uri_mask::{UriMask, UriMaskIter};

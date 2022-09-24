@@ -5,7 +5,7 @@ use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
-use crate::serdes::xpi_vlu4::{MultiUri, NodeId, Uri};
+use crate::serdes::xpi_vlu4::{SerialMultiUri, NodeId, SerialUri};
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 
@@ -13,8 +13,8 @@ use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscrimina
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
 pub type XpiReply<'rep> = XpiGenericReply<
-    Uri<'rep>,
-    MultiUri<'rep>,
+    SerialUri<'rep>,
+    SerialMultiUri<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
     Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
     Vlu4Vec<'rep, Result<(), FailReason>>,
@@ -122,7 +122,7 @@ mod test {
     use crate::serdes::xpi_vlu4::reply::{
         XpiReplyBuilder, XpiReplyKind, XpiReplyDiscriminant,
     };
-    use crate::serdes::xpi_vlu4::{NodeId, Uri};
+    use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
     use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
@@ -134,7 +134,7 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
             NodeSet::Unicast(NodeId::new(33).unwrap()),
-            XpiResourceSet::Uri(Uri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
+            XpiResourceSet::Uri(SerialUri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2Sp1::new(1).unwrap()),
         )

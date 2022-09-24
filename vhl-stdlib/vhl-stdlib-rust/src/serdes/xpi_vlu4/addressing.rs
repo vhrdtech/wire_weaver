@@ -5,7 +5,7 @@ use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, Serialize
 use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 use crate::serdes::xpi_vlu4::multi_uri::MultiUriFlatIter;
-use crate::serdes::xpi_vlu4::{MultiUri, Uri};
+use crate::serdes::xpi_vlu4::{SerialMultiUri, SerialUri};
 use crate::serdes::DeserializeBits;
 use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter, Result as FmtResult};
@@ -164,7 +164,7 @@ impl<'i> Display for NodeSet<'i> {
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
-pub type XpiResourceSet<'i> = XpiGenericResourceSet<Uri<'i>, MultiUri<'i>>;
+pub type XpiResourceSet<'i> = XpiGenericResourceSet<SerialUri<'i>, SerialMultiUri<'i>>;
 
 impl<'i> XpiResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {
@@ -181,12 +181,12 @@ impl<'i> SerializeBits for XpiResourceSet<'i> {
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let kind = match self {
             XpiResourceSet::Uri(uri) => match uri {
-                Uri::OnePart4(_) => 0,
-                Uri::TwoPart44(_, _) => 1,
-                Uri::ThreePart444(_, _, _) => 2,
-                Uri::ThreePart633(_, _, _) => 3,
-                Uri::ThreePart664(_, _, _) => 4,
-                Uri::MultiPart(_) => 5,
+                SerialUri::OnePart4(_) => 0,
+                SerialUri::TwoPart44(_, _) => 1,
+                SerialUri::ThreePart444(_, _, _) => 2,
+                SerialUri::ThreePart633(_, _, _) => 3,
+                SerialUri::ThreePart664(_, _, _) => 4,
+                SerialUri::MultiPart(_) => 5,
             },
             XpiResourceSet::MultiUri(_) => 6,
         };
@@ -220,19 +220,19 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
     ) -> Result<Self, Self::Error> {
         let uri_type = bits_rdr.get_up_to_8(3)?;
         match uri_type {
-            0 => Ok(XpiResourceSet::Uri(Uri::OnePart4(vlu4_rdr.des_vlu4()?))),
-            1 => Ok(XpiResourceSet::Uri(Uri::TwoPart44(
+            0 => Ok(XpiResourceSet::Uri(SerialUri::OnePart4(vlu4_rdr.des_vlu4()?))),
+            1 => Ok(XpiResourceSet::Uri(SerialUri::TwoPart44(
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
             ))),
-            2 => Ok(XpiResourceSet::Uri(Uri::ThreePart444(
+            2 => Ok(XpiResourceSet::Uri(SerialUri::ThreePart444(
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
             ))),
             3 => {
                 let mut bits = vlu4_rdr.get_bit_buf(3)?;
-                Ok(XpiResourceSet::Uri(Uri::ThreePart633(
+                Ok(XpiResourceSet::Uri(SerialUri::ThreePart633(
                     bits.des_bits()?,
                     bits.des_bits()?,
                     bits.des_bits()?,
@@ -240,7 +240,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
             }
             4 => {
                 let mut bits = vlu4_rdr.get_bit_buf(4)?;
-                Ok(XpiResourceSet::Uri(Uri::ThreePart664(
+                Ok(XpiResourceSet::Uri(SerialUri::ThreePart664(
                     bits.des_bits()?,
                     bits.des_bits()?,
                     bits.des_bits()?,

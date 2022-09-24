@@ -8,6 +8,7 @@ pub mod serdes;
 pub mod units;
 pub mod varint;
 pub mod node;
+pub mod xpi;
 
 #[cfg(test)]
 mod tests {}

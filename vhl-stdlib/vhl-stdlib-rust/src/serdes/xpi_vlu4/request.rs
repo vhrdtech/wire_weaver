@@ -9,31 +9,28 @@ use crate::serdes::xpi_vlu4::rate::Rate;
 use crate::serdes::DeserializeVlu4;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
+use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind};
 
-/// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
-/// One or several Responses are sent back for each kind of request.
-///
-/// In case of subscribing to property updates or streams, responses will continue to arrive
-/// until unsubscribed, stream exhausted or closed or one of the nodes rebooting.
-///
-/// After subscribers node reboot, one or more responses may arrive, until publishing nodes notices
-/// subscribers reboot, unless subscribed again.
-#[derive(Copy, Clone, Debug)]
-pub struct XpiRequest<'req> {
-    /// Origin node of the request
-    pub source: NodeId,
-    /// Destination node or nodes
-    pub destination: NodeSet<'req>,
-    /// Set of resources that are considered in this request
-    pub resource_set: XpiResourceSet<'req>,
-    /// What kind of operation is request on a set of resources
-    pub kind: XpiRequestKind<'req>,
-    /// Modulo number to map responses with requests.
-    /// When wrapping to 0, if there are any outgoing unanswered requests that are not subscriptions.
-    pub request_id: RequestId,
-    /// Priority selection: lossy or lossless (to an extent).
-    pub priority: Priority,
-}
+/// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
+/// even for variable length arrays or strings.
+/// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
+pub type XpiRequest<'req> = XpiGenericRequest<
+    NodeId,
+    NodeSet<'req>,
+    XpiResourceSet<'req>,
+    &'req [u8],
+    Vlu4Vec<'req, &'req [u8]>,
+    Vlu4Vec<'req, Rate>,
+    RequestId,
+    Priority
+>;
+
+/// See [XpiGenericRequestKind](crate::xpi::request::XpiGenericRequestKind) for detailed information.
+pub type XpiRequestKind<'req> = XpiGenericRequestKind<
+    &'req [u8],
+    Vlu4Vec<'req, &'req [u8]>,
+    Vlu4Vec<'req, Rate>
+>;
 
 impl<'i> Display for XpiRequest<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -50,129 +47,7 @@ impl<'i> Display for XpiRequest<'i> {
     }
 }
 
-/// Select what to do with one ore more selected resources.
-#[derive(Copy, Clone, Debug)]
-pub enum XpiRequestKind<'req> {
-    /// Request binary descriptor block from a node.
-    /// Descriptor block is a compiled binary version of a vhL source.
-    /// It carries all the important information that is needed to interact with the node.
-    /// Including:
-    /// * All the data types, also those coming from dependencies
-    /// * Unique IDs of all the dependencies and of itself (everything must be published to the
-    ///     repository before binary block can be compiled or dirty flag can be set for dev)
-    /// * All the xPI blocks with strings (names, descriptions), examples and valid values.
-    ///
-    /// [Format description (notion)](https://www.notion.so/vhrdtech/Descriptor-block-d0fb717035574255a9baebdb18b8a4f2)
-    //GetDescriptorBlock, -> move to a stream_out<chunk> resource, can also add separate const property with a link to the vhL source
-
-    /// Call one or more methods.
-    /// Results in [XpiReply::FnCallFailed] or [XpiReply::FnReturn] for each method.
-    Call {
-        /// Arguments must be serialized with the chosen [Wire Format](https://github.com/vhrdtech/vhl/blob/master/book/src/wire_formats/wire_formats.md)
-        /// Need to get buffer for serializing from user code, which decides how to handle memory
-        args_set: Vlu4Vec<'req, &'req [u8]>,
-    },
-
-    /// Perform f(g(h(... (args) ...))) call on the destination node, saving
-    /// round trip request and replies.
-    /// Arguments must be compatible across all the members of a chain.
-    /// One response is sent back for the outer most function.
-    /// May not be supported by all nodes.
-    /// Do not cover all the weird use cases, so maybe better be replaced with full-blown expression
-    /// executor only were applicable and really needed?
-    ChainCall { args: &'req [u8] },
-
-    /// Read one or more resources.
-    /// Reading several resources at once is more efficient as only one req-rep is needed in best case.
-    /// Resources that support reads are: const, ro, ro + stream, rw, rw + stream
-    Read,
-
-    /// Write one or more resources.
-    /// Resources that support writes are: wo, wo + stream, rw, rw + stream, stream_in<T> when open only.
-    Write {
-        /// Must be exactly the size of non-zero resources selected for writing in order of
-        /// increasing serial numbers, depth first.
-        values: Vlu4Vec<'req, &'req [u8]>,
-    },
-
-    /// Open one or more streams for read, writes, publishing or subscribing.
-    /// stream_in<T> can be written into or published to.
-    /// It is only a hint to codegen to create more useful abstractions, there is no functional
-    /// difference between publishing or writing.
-    ///
-    /// stream_out<T> can be read or subscribed to.
-    /// In contrast with writing vs publishing, reading is different from subscribing, as only
-    /// one result is returned on read, but one or many after subscribing.
-    ///
-    /// Only opened streams can be written into, read from or subscribed to.
-    /// Stream thus have a start and an end in contrast to properties with a +stream modifier.
-    /// Stream are also inherently Borrowable (so writing stream_in<T> is equivalent to Cell<stream_in<T>>).
-    /// When opening a closed stream, it is automatically borrowed. Opening an open stream returns an error.
-    OpenStreams,
-
-    /// Closes one or more streams.
-    /// Can be used as an end mark for writing a file for example.
-    CloseStreams,
-
-    /// Subscribe to property changes or streams.
-    /// Resources must be be rw + stream, ro + stream or stream_out<T>.
-    ///
-    /// To change rates, subscribe again to the same or different set of resources.
-    ///
-    /// Publishers must avoid emitting changes with higher than requested rates.
-    Subscribe {
-        /// For each uri there must be a specified [Rate] provided.
-        rates: Vlu4Vec<'req, Rate>,
-    },
-
-    // /// Request a change in properties observing or stream publishing rates.
-    // ChangeRates {
-    //     /// For each uri there must be a specified [Rate] provided.
-    //     rates: &'req [Rate],
-    // },
-    /// Unsubscribe from one or many resources, unsubscribing from a stream do not close it,
-    /// but releases a borrow, so that someone else can subscribe and continue receiving data.
-    Unsubscribe,
-
-    /// Borrow one or many resources for exclusive use. Only work ons streams and Cell<T> resources.
-    /// Other nodes will receive an error if they attempt to access borrowed resources.
-    ///
-    /// Nodes may implement more logic to allow or block borrowing of a resource.
-    /// For example expecting a correct configuration or a key first.
-    /// /main {
-    ///     /key<wo String> {}
-    ///     /dangerous_things<Cell<_>> {
-    ///         /wipe_data<fn()> {}
-    ///     }
-    /// }
-    /// In this example one would first have to write a correct key and then try to borrow
-    /// /dangerous_things. If the key is incorrect, borrow can be rejected. Stronger security
-    /// algorithms can probably be also implemented to granularly restrict access.
-    /// Link between the nodes can also be encrypted, with a common key or a set of keys between all nodes.
-    /// Encryption is out of scope of this document though.
-    ///
-    /// Might be a good idea to introduce some limitation on how many borrows can be made from one node.
-    /// Depends on the kind of resource. Do not protect against malicious attempts, as node ids can be
-    /// faked, but can prevent bugs.
-    Borrow,
-
-    /// Release resources for others to use.
-    Release,
-
-    /// Get information about resources.
-    /// Type information for all resources.
-    /// In addition:
-    /// * Cell<T>: whether resource is borrowed or not.
-    /// * stream_in<T> or stream_out<T>: whether stream is opened or
-    /// not (when implicit Cell is already borrowed) + subscribers info + rates.
-    /// * +stream: subscribers info + rates
-    /// * fn: nothing at the moment
-    /// * const: nothing at the moment
-    /// * array of resources: size of the array
-    Introspect,
-}
-
-pub enum XpiRequestKindKind {
+pub enum XpiRequestDiscriminant {
     Call,
     Read,
     Write,
@@ -272,11 +147,11 @@ impl<'i> DeserializeVlu4<'i> for XpiRequest<'i> {
     }
 }
 
-impl<'i> SerializeBits for XpiRequestKindKind {
+impl<'i> SerializeBits for XpiRequestDiscriminant {
     type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        use XpiRequestKindKind::*;
+        use XpiRequestDiscriminant::*;
         let kind = match self {
             Call => 0,
             Read => 1,
@@ -327,8 +202,8 @@ impl<'i> XpiRequestBuilder<'i> {
     }
 
     pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
-    where
-        F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestKindKind, NibbleBufMut<'i>), FailReason>,
+        where
+            F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestDiscriminant, NibbleBufMut<'i>), FailReason>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
@@ -404,7 +279,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
         vlu4_rdr: &'di mut NibbleBuf<'i>,
     ) -> Result<Self, Self::Error> {
         let kind = bits_rdr.get_up_to_8(4)?;
-        use XpiRequestKind::*;
+        use XpiGenericRequestKind::*;
         match kind {
             0 => Ok(Call {
                 args_set: vlu4_rdr.des_vlu4()?,
@@ -439,7 +314,7 @@ mod test {
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::request::{
-        XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestKindKind,
+        XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
@@ -505,7 +380,7 @@ mod test {
                 vb.put_aligned(&[0xaa, 0xbb])?;
 
                 let nwr = vb.finish()?;
-                Ok((XpiRequestKindKind::Call, nwr))
+                Ok((XpiRequestDiscriminant::Call, nwr))
             })
             .unwrap();
 

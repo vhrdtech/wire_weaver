@@ -119,11 +119,12 @@ mod test {
     use crate::serdes::xpi_vlu4::error::FailReason;
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::reply::{
-        XpiReply, XpiReplyBuilder, XpiReplyKind, XpiReplyDiscriminant,
+        XpiReplyBuilder, XpiReplyKind, XpiReplyDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
+    use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
 
     #[test]
     fn call_reply_ser() {
@@ -155,33 +156,38 @@ mod test {
     #[test]
     fn call_reply_des() {
         let buf = hex!("02 d5 10 90 45 20 20 aa bb 02 cc dd 1b");
-        let mut rgr = NibbleBuf::new_all(&buf);
+        let mut nrd = NibbleBuf::new_all(&buf);
 
-        let reply: XpiReply = rgr.des_vlu4().unwrap();
+        let event: XpiEvent = nrd.des_vlu4().unwrap();
 
-        assert_eq!(reply.source, NodeId::new(85).unwrap());
-        if let NodeSet::Unicast(id) = reply.destination {
+        assert_eq!(event.source, NodeId::new(85).unwrap());
+        if let NodeSet::Unicast(id) = event.destination {
             assert_eq!(id, NodeId::new(33).unwrap());
         } else {
             panic!("Expected NodeSet::Unicast(_)");
         }
-        if let XpiResourceSet::Uri(uri) = reply.resource_set {
-            let mut iter = uri.iter();
-            assert_eq!(iter.next(), Some(4));
-            assert_eq!(iter.next(), Some(5));
-            assert_eq!(iter.next(), None);
+        if let XpiEventKind::Reply(reply) = event.kind {
+            if let XpiResourceSet::Uri(uri) = reply.resource_set {
+                let mut iter = uri.iter();
+                assert_eq!(iter.next(), Some(4));
+                assert_eq!(iter.next(), Some(5));
+                assert_eq!(iter.next(), None);
+            } else {
+                panic!("Expected XpiResourceSet::Uri(_)");
+            }
+            if let XpiReplyKind::CallComplete(result) = reply.kind {
+                let mut result_iter = result.iter();
+                assert_eq!(result_iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
+                assert_eq!(result_iter.next(), Some(Ok(&[0xcc, 0xdd][..])));
+                assert_eq!(result_iter.next(), None);
+            } else {
+                panic!("Expected XpiReplyKind::CallComplete(_)");
+            }
+            assert_eq!(reply.request_id, RequestId::new(27).unwrap());
         } else {
-            panic!("Expected XpiResourceSet::Uri(_)");
+            panic!("Expected XpiEventKind::Reply(_)");
         }
-        if let XpiReplyKind::CallComplete(result) = reply.kind {
-            let mut result_iter = result.iter();
-            assert_eq!(result_iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
-            assert_eq!(result_iter.next(), Some(Ok(&[0xcc, 0xdd][..])));
-            assert_eq!(result_iter.next(), None);
-        } else {
-            panic!("Expected XpiReplyKind::CallComplete(_)");
-        }
-        assert_eq!(reply.request_id, RequestId::new(27).unwrap());
-        assert_eq!(reply.priority, Priority::Lossy(U2Sp1::new(1).unwrap()));
+        assert_eq!(event.priority, Priority::Lossy(U2Sp1::new(1).unwrap()));
+        assert!(nrd.is_at_end());
     }
 }

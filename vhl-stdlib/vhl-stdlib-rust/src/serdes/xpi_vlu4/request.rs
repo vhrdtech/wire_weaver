@@ -148,10 +148,11 @@ mod test {
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::request::{
-        XpiRequest, XpiRequestBuilder, XpiRequestKind, XpiRequestDiscriminant,
+        XpiRequestBuilder, XpiRequestKind, XpiRequestDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, Uri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
+    use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
 
     #[test]
     fn call_request_des() {
@@ -166,33 +167,38 @@ mod test {
             0xbb,
             0b000_11011,
         ];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        let req: XpiRequest = rdr.des_vlu4().unwrap();
-        // println!("{}", req);
-        assert_eq!(req.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
-        assert_eq!(req.request_id, RequestId::new(27).unwrap());
-        assert_eq!(req.source, NodeId::new(42).unwrap());
-        assert!(matches!(req.destination, NodeSet::Unicast(_)));
-        if let NodeSet::Unicast(id) = req.destination {
+        let mut nrd = NibbleBuf::new_all(&buf);
+        let event: XpiEvent = nrd.des_vlu4().unwrap();
+        // println!("{}", event);
+
+        assert_eq!(event.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
+        assert_eq!(event.source, NodeId::new(42).unwrap());
+        assert!(matches!(event.destination, NodeSet::Unicast(_)));
+        if let NodeSet::Unicast(id) = event.destination {
             assert_eq!(id, NodeId::new(85).unwrap());
         }
-        assert!(matches!(req.resource_set, XpiResourceSet::Uri(_)));
-        if let XpiResourceSet::Uri(uri) = req.resource_set {
-            assert!(matches!(uri, Uri::TwoPart44(_, _)));
-            if let Uri::TwoPart44(a, b) = uri {
-                assert_eq!(a.inner(), 3);
-                assert_eq!(b.inner(), 12);
+        if let XpiEventKind::Request(request) = event.kind {
+            assert_eq!(request.request_id, RequestId::new(27).unwrap());
+            assert!(matches!(request.resource_set, XpiResourceSet::Uri(_)));
+            if let XpiResourceSet::Uri(uri) = request.resource_set {
+                assert!(matches!(uri, Uri::TwoPart44(_, _)));
+                if let Uri::TwoPart44(a, b) = uri {
+                    assert_eq!(a.inner(), 3);
+                    assert_eq!(b.inner(), 12);
+                }
             }
+            assert!(matches!(request.kind, XpiRequestKind::Call { .. }));
+            if let XpiRequestKind::Call { args_set: args } = request.kind {
+                assert_eq!(args.len(), 1);
+                let slice = args.iter().next().unwrap();
+                assert_eq!(slice.len(), 2);
+                assert_eq!(slice[0], 0xaa);
+                assert_eq!(slice[1], 0xbb);
+            }
+        } else {
+            panic!("Expected XpiEventKind::Request(_)");
         }
-        assert!(matches!(req.kind, XpiRequestKind::Call { .. }));
-        if let XpiRequestKind::Call { args_set: args } = req.kind {
-            assert_eq!(args.len(), 1);
-            let slice = args.iter().next().unwrap();
-            assert_eq!(slice.len(), 2);
-            assert_eq!(slice[0], 0xaa);
-            assert_eq!(slice[1], 0xbb);
-        }
-        assert!(rdr.is_at_end());
+        assert!(nrd.is_at_end());
     }
 
     #[test]

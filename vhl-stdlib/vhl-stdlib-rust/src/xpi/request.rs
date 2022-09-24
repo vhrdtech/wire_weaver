@@ -11,11 +11,7 @@
 /// * [vlu4, borrowed, no_std, zero copy](crate::serdes::xpi_vlu4::request::XpiRequest)
 /// * [vlu4, owned, std]()
 #[derive(Copy, Clone, Debug)]
-pub struct XpiGenericRequest<SRC, DST, RS, SL, VSL, VR, ID, P> {
-    /// Origin node of the request
-    pub source: SRC,
-    /// Destination node or nodes
-    pub destination: DST,
+pub struct XpiGenericRequest<RS, SL, VSL, VR, ID> {
     /// Set of resources that are considered in this request
     pub resource_set: RS,
     /// What kind of operation is request on a set of resources
@@ -23,8 +19,6 @@ pub struct XpiGenericRequest<SRC, DST, RS, SL, VSL, VR, ID, P> {
     /// Modulo number to map responses with requests.
     /// When wrapping to 0, if there are any outgoing unanswered requests that are not subscriptions.
     pub request_id: ID,
-    /// Priority selection: lossy or lossless (to an extent).
-    pub priority: P,
 }
 
 /// Select what to do with one ore more selected resources.

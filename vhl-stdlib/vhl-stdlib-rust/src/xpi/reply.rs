@@ -2,11 +2,7 @@
 /// One request can result in one or more replies.
 /// For subscriptions and streams many replies will be sent asynchronously.
 #[derive(Copy, Clone, Debug)]
-pub struct XpiGenericReply<SRC, DST, RS, VSL, VRSL, VRU, VRI, ID, P> {
-    /// Source node id that yielded reply
-    pub source: SRC,
-    /// Destination node or nodes
-    pub destination: DST,
+pub struct XpiGenericReply<RS, VSL, VRSL, VRU, VRI, ID> {
     /// Set of resources that are considered in this reply
     pub resource_set: RS,
     /// Kind of reply
@@ -14,14 +10,12 @@ pub struct XpiGenericReply<SRC, DST, RS, VSL, VRSL, VRU, VRI, ID, P> {
     /// Original request id used to map responses to requests.
     /// For StreamsUpdates use previous id + 1 and do not map to requests.
     pub request_id: ID,
-    /// Most same priority as initial XpiRequest
-    pub priority: P,
 }
 
-/// Reply to a previously made request
-/// Each reply must also be linked with:
-/// request id that was sent initially
-/// Source node id
+/// Reply to a previously made request.
+///
+/// Each request will result in one or more replies (or zero if loss occurred). This is due to:
+/// buffer space available, sync vs async resources, priorities and other factors.
 #[derive(Copy, Clone, Debug)]
 // #[enum_kind(XpiReplyKindKind)] simple enough to do by hand and helps with code completion
 pub enum XpiGenericReplyKind<

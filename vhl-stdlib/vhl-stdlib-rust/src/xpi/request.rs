@@ -1,3 +1,5 @@
+use crate::xpi::addressing::XpiGenericResourceSet;
+
 /// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
 /// One or several Responses are sent back for each kind of request.
 ///
@@ -10,10 +12,10 @@
 /// This is a generic type, see actual implementations:
 /// * [vlu4, borrowed, no_std, zero copy](crate::serdes::xpi_vlu4::request::XpiRequest)
 /// * [vlu4, owned, std]()
-#[derive(Copy, Clone, Debug)]
-pub struct XpiGenericRequest<RS, SL, VSL, VR, ID> {
+#[derive(Clone, Debug)]
+pub struct XpiGenericRequest<U, MU, SL, VSL, VR, ID> {
     /// Set of resources that are considered in this request
-    pub resource_set: RS,
+    pub resource_set: XpiGenericResourceSet<U, MU>,
     /// What kind of operation is request on a set of resources
     pub kind: XpiGenericRequestKind<SL, VSL, VR>,
     /// Modulo number to map responses with requests.

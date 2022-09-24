@@ -1,10 +1,12 @@
+use crate::xpi::addressing::XpiGenericResourceSet;
+
 /// Replies are sent to the Link in response to requests.
 /// One request can result in one or more replies.
 /// For subscriptions and streams many replies will be sent asynchronously.
-#[derive(Copy, Clone, Debug)]
-pub struct XpiGenericReply<RS, VSL, VRSL, VRU, VRI, ID> {
+#[derive(Clone, Debug)]
+pub struct XpiGenericReply<U, MU, VSL, VRSL, VRU, VRI, ID> {
     /// Set of resources that are considered in this reply
-    pub resource_set: RS,
+    pub resource_set: XpiGenericResourceSet<U, MU>,
     /// Kind of reply
     pub kind: XpiGenericReplyKind<VSL, VRSL, VRU, VRI>,
     /// Original request id used to map responses to requests.

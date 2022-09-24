@@ -9,6 +9,7 @@ use crate::serdes::xpi_vlu4::{MultiUri, Uri};
 use crate::serdes::DeserializeBits;
 use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter, Result as FmtResult};
+use crate::xpi::addressing::XpiGenericResourceSet;
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
 impl<'i> DeserializeVlu4<'i> for NodeId {
@@ -161,25 +162,9 @@ impl<'i> Display for NodeSet<'i> {
     }
 }
 
-/// It is possible to perform operations on a set of resources at once for reducing requests and
-/// responses amount.
-///
-/// If operation is only targeted at one resource, there are more efficient ways to select it than
-/// using [MultiUri].
-/// It is possible to select one resource in several different ways for efficiency reasons.
-/// If there are several choices on how to construct the same uri, select the smallest one in size.
-/// If both choices are the same size, choose [Uri].
-///
-/// [MultiUri] is the only way to select several resources at once within one request.
-#[derive(Copy, Clone, Debug)]
-pub enum XpiResourceSet<'i> {
-    /// Select any one resource at any depth.
-    /// Or root resource by providing 0 length Uri (probably never needed).
-    Uri(Uri<'i>),
-
-    /// Selects any set of resources at any depths at once.
-    MultiUri(MultiUri<'i>),
-}
+/// Vlu4 implementation of XpiGenericResourceSet.
+/// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
+pub type XpiResourceSet<'i> = XpiGenericResourceSet<Uri<'i>, MultiUri<'i>>;
 
 impl<'i> XpiResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {

@@ -8,13 +8,15 @@ use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Rate;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
+use crate::serdes::xpi_vlu4::{MultiUri, Uri};
 use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
 
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
 pub type XpiRequest<'req> = XpiGenericRequest<
-    XpiResourceSet<'req>,
+    Uri<'req>,
+    MultiUri<'req>,
     &'req [u8],
     Vlu4Vec<'req, &'req [u8]>,
     Vlu4Vec<'req, Rate>,

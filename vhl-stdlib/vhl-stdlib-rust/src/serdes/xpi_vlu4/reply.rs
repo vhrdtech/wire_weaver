@@ -5,7 +5,7 @@ use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
 use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
-use crate::serdes::xpi_vlu4::NodeId;
+use crate::serdes::xpi_vlu4::{MultiUri, NodeId, Uri};
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 
@@ -13,7 +13,8 @@ use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscrimina
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
 pub type XpiReply<'rep> = XpiGenericReply<
-    XpiResourceSet<'rep>,
+    Uri<'rep>,
+    MultiUri<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
     Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
     Vlu4Vec<'rep, Result<(), FailReason>>,

@@ -76,3 +76,21 @@ pub enum XpiGenericReplyKind<
     /// Result of an Introspect request
     Introspect(VRI),
 }
+
+/// Same as XpiGenericReplyKind but without data.
+#[repr(u8)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum XpiReplyDiscriminant {
+    CallComplete = 0,
+    ReadComplete = 1,
+    WriteComplete = 2,
+    OpenStream = 3,
+    StreamUpdate = 4,
+    CloseStream = 5,
+    Subscribe = 6,
+    RateChange = 7,
+    Unsubscribe = 8,
+    Borrow = 9,
+    Release = 10,
+    Introspect = 11,
+}

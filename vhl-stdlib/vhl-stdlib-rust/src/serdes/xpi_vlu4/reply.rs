@@ -7,9 +7,7 @@ use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
 use crate::serdes::xpi_vlu4::NodeId;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
-use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind};
-// use enum_kinds::EnumKind;
-// use enum_primitive_derive::Primitive;
+use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 
 /// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -31,107 +29,14 @@ pub type XpiReplyKind<'rep> = XpiGenericReplyKind<
     Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
 >;
 
-pub enum XpiReplyDiscriminant {
-    CallComplete,
-    ReadComplete,
-    WriteComplete,
-    OpenStream,
-    StreamUpdate,
-    CloseStream,
-    Subscribe,
-    RateChange,
-    Unsubscribe,
-    Borrow,
-    Release,
-    Introspect,
-}
-
 impl<'i> SerializeBits for XpiReplyDiscriminant {
     type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        use XpiReplyDiscriminant::*;
-        let kind = match self {
-            CallComplete => 0,
-            ReadComplete => 1,
-            WriteComplete => 2,
-            OpenStream => 3,
-            StreamUpdate => 4,
-            CloseStream => 5,
-            Subscribe => 6,
-            RateChange => 7,
-            Unsubscribe => 8,
-            Borrow => 9,
-            Release => 10,
-            Introspect => 11,
-        };
-        wgr.put_up_to_8(4, kind)?;
+        wgr.put_up_to_8(4, *self as u8)?;
         Ok(())
     }
 }
-
-// impl<'i> SerializeVlu4 for XpiReplyKind<'i> {
-//     type Error = XpiVlu4Error;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         match *self {
-//             XpiReplyKind::CallComplete(call_results) => {
-//                 // match call_result {
-//                 //     Ok(return_value) => {
-//                 //         wgr.put_nibble(0)?;
-//                 //         wgr.put(return_value)
-//                 //     },
-//                 //     Err(e) => wgr.put(e)
-//                 // }
-//                 wgr.put(call_results)
-//             }
-//             XpiReplyKind::ReadComplete(_) => {
-//                 todo!()
-//             }
-//             XpiReplyKind::WriteComplete(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::OpenStream(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::StreamUpdate(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::CloseStream(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::Subscribe(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::RateChange(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::Unsubscribe(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::Borrow(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::Release(_) => {
-//
-//                 todo!()
-//             }
-//             XpiReplyKind::Introspect(_) => {
-//
-//                 todo!()
-//             }
-//         }?;
-//         Ok(())
-//     }
-// }
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
     type Error = XpiVlu4Error;
@@ -148,30 +53,6 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
         }
     }
 }
-
-// impl<'i> SerializeVlu4 for XpiReply<'i> {
-//     type Error = XpiVlu4Error;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
-//             wgr.put_up_to_8(3, 0b000)?; // unused 31:29
-//             wgr.put(self.priority)?; // bits 28:26
-//             wgr.put_bit(true)?; // bit 25, is_unicast
-//             wgr.put_bit(false)?; // bit 24, is_request
-//             wgr.put_bit(true)?; // bit 23, reserved
-//             wgr.put(self.source)?; // bits 22:16
-//             wgr.put(self.destination)?; // bits 15:7 - discriminant of NodeSet (2b) + 7b for NodeId or other
-//             wgr.put(self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
-//             wgr.put(self.kind)?; // bits 3:0 - discriminant of XpiReplyKind
-//             Ok(())
-//         })?;
-//         wgr.put(self.destination)?;
-//         wgr.put(self.resource_set)?;
-//         wgr.put(self.kind)?;
-//         wgr.put(self.request_id)?;
-//         Ok(())
-//     }
-// }
 
 pub struct XpiReplyBuilder<'i> {
     nwr: NibbleBufMut<'i>,

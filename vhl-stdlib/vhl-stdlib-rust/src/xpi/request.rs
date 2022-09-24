@@ -146,3 +146,20 @@ pub enum XpiGenericRequestKind<
     /// * array of resources: size of the array
     Introspect,
 }
+
+/// Same as XpiGenericRequestKind but without data.
+#[repr(u8)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum XpiRequestDiscriminant {
+    Call = 0,
+    Read = 1,
+    Write = 2,
+    OpenStreams = 3,
+    CloseStreams = 4,
+    Subscribe = 5,
+    Unsubscribe = 6,
+    Borrow = 7,
+    Release = 8,
+    Introspect = 9,
+    ChainCall = 10,
+}

@@ -8,7 +8,7 @@ use crate::serdes::xpi_vlu4::priority::Priority;
 use crate::serdes::xpi_vlu4::rate::Rate;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
-use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind};
+use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
 
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -40,69 +40,11 @@ impl<'i> Display for XpiRequest<'i> {
     }
 }
 
-pub enum XpiRequestDiscriminant {
-    Call,
-    Read,
-    Write,
-    OpenStreams,
-    CloseStreams,
-    Subscribe,
-    Unsubscribe,
-    Borrow,
-    Release,
-    Introspect,
-    ChainCall,
-}
-
-// impl<'i> SerializeVlu4 for XpiRequest<'i> {
-//     type Error = XpiVlu4Error;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
-//             wgr.put_up_to_8(3, 0b000)?; // unused 31:29
-//             wgr.put(self.priority)?; // bits 28:26
-//             wgr.put_bit(true)?; // bit 25, is_unicast
-//             wgr.put_bit(true)?; // bit 24, is_request
-//             wgr.put_bit(true)?; // bit 23, reserved
-//             wgr.put(self.source)?; // bits 22:16
-//             wgr.put(self.destination)?; // bits 15:7 - discriminant of NodeSet (2b) + 7b for NodeId or other
-//             wgr.put(self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
-//             wgr.put(self.kind)?; // bits 3:0 - discriminant of XpiReplyKind
-//             Ok(())
-//         })?;
-//         wgr.put(self.destination)?;
-//         wgr.put(self.resource_set)?;
-//         wgr.put(self.kind)?;
-//         wgr.put(self.request_id)?;
-//         Ok(())
-//     }
-//
-//     fn len_nibbles(&self) -> usize {
-//         todo!()
-//     }
-// }
-
-
-
 impl<'i> SerializeBits for XpiRequestDiscriminant {
     type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        use XpiRequestDiscriminant::*;
-        let kind = match self {
-            Call => 0,
-            Read => 1,
-            Write => 2,
-            OpenStreams => 3,
-            CloseStreams => 4,
-            Subscribe => 5,
-            Unsubscribe => 6,
-            Borrow => 7,
-            Release => 8,
-            Introspect => 9,
-            ChainCall => 10,
-        };
-        wgr.put_up_to_8(4, kind)?;
+        wgr.put_up_to_8(4, *self as u8)?;
         Ok(())
     }
 }
@@ -162,51 +104,6 @@ impl<'i> XpiRequestBuilder<'i> {
         Ok(nwr)
     }
 }
-
-// impl<'i> SerializeVlu4 for XpiRequestKind<'i> {
-//     type Error = XpiVlu4Error;
-//
-//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-//         match *self {
-//             XpiRequestKind::Call { args_set: args } => {
-//                 wgr.put(args)?;
-//             }
-//             XpiRequestKind::Write { values } => {
-//                 wgr.put(values)?;
-//             }
-//             XpiRequestKind::Subscribe { .. } => {
-//                 todo!()
-//                 //wgr.put(rates)?;
-//             }
-//             XpiRequestKind::ChainCall { .. } => {
-//                 todo!()
-//                 //wgr.put(args)?;
-//             }
-//             _ => {} // no additional data needed
-//         }
-//         Ok(())
-//     }
-//
-//     fn len_nibbles(&self) -> usize {
-//         match self {
-//             XpiRequestKind::Call { args_set: args } => {
-//                 args.len_nibbles()
-//             }
-//             XpiRequestKind::Write { values } => {
-//                 values.len_nibbles()
-//             }
-//             XpiRequestKind::Subscribe { .. } => {
-//                 todo!()
-//                 //wgr.put(rates)?;
-//             }
-//             XpiRequestKind::ChainCall { .. } => {
-//                 todo!()
-//                 //wgr.put(args)?;
-//             }
-//             _ => 0, // no additional data needed
-//         }
-//     }
-// }
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
     type Error = XpiVlu4Error;

@@ -1,4 +1,5 @@
 use std::net::AddrParseError;
+use futures::channel::mpsc::SendError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,6 +12,10 @@ pub enum NodeError {
     IoError(#[from] std::io::Error),
     #[error("Attempted to attach node with same id({}) twice", .0)]
     NodeAlreadyAttached(u32),
-    #[error("Attach failed: {}", .0)]
-    AttachFailed(String),
+    // #[error("Attach failed: {}", .0)]
+    // AttachFailed(String),
+    #[error("futures::mpsc error")]
+    MpscSendError(#[from] SendError),
+    #[error("Filter one: waited for rx but got None")]
+    FilterOneFail,
 }

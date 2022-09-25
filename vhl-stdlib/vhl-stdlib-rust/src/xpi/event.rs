@@ -1,6 +1,7 @@
 use crate::xpi::addressing::XpiGenericNodeSet;
 
 /// Root data type exchanged by nodes
+#[derive(Clone, Debug)]
 pub struct XpiGenericEvent<
     NID,
     TS,
@@ -19,6 +20,7 @@ pub struct XpiGenericEvent<
     pub priority: P,
 }
 
+#[derive(Clone, Debug)]
 pub enum XpiGenericEventKind<
     RQ, // XpiRequest
     RP, // XpiReply

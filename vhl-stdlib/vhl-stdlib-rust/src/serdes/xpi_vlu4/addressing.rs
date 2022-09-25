@@ -73,6 +73,7 @@ impl<'i> SerializeBits for NodeSet<'i> {
     type Error = crate::serdes::bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+        // must write 9 bits
         match self {
             NodeSet::Unicast(id) => {
                 wgr.put_up_to_8(2, 0b00)?;
@@ -86,6 +87,10 @@ impl<'i> SerializeBits for NodeSet<'i> {
                 wgr.put_up_to_8(2, 0b10)?;
                 todo!()
             }
+            NodeSet::Broadcast => {
+                wgr.put_up_to_8(2, 0b11)?;
+                wgr.put_up_to_8(7, 0)?;
+            }
         };
         Ok(())
     }
@@ -96,7 +101,7 @@ impl<'i> SerializeVlu4 for NodeSet<'i> {
 
     fn ser_vlu4(&self, _wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            NodeSet::Unicast(_) => {
+            NodeSet::Unicast(_) | NodeSet::Broadcast => {
                 // Unicast was already serialized into header, no need to add anything
                 return Ok(());
             }
@@ -123,6 +128,7 @@ impl<'i> Display for NodeSet<'i> {
                 traits,
             } => write!(f, "{}{}", destination, traits),
             NodeSet::Multicast { .. } => write!(f, "M_impl"),
+            NodeSet::Broadcast => write!(f, "*")
         }
     }
 }

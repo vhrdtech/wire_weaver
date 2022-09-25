@@ -32,7 +32,7 @@ pub enum XpiGenericNodeSet<DST, TS> {
         /// So e.g. it is possible to call 3 different functions from 3 different traits in one request.
         traits: TS,
     },
-    // Broadcast,
+    Broadcast,
 }
 
 /// It is possible to perform operations on a set of resources at once for reducing requests and

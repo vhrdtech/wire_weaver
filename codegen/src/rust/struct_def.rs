@@ -96,7 +96,7 @@ mod test {
                 let ts_should_be = mquote!(rust r#"
                     #[derive(Copy, Clone, Eq, PartialEq, Debug)]
                     pub struct Point {
-                        pub x: u16,
+                        pub x: u16◡,
                         pub y: u16
                     }
                 "#);

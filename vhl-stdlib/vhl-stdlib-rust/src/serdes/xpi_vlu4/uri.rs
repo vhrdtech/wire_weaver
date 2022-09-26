@@ -89,7 +89,7 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
                 wgr.put_nibble(c.inner())?;
             }
             SerialUri::ThreePart633(a, b, c) => {
-                wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
+                wgr.as_bit_buf::<_, XpiVlu4Error>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(3, b.inner())?;
                     wgr.put_up_to_8(3, c.inner())?;
@@ -97,7 +97,7 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
                 })?;
             }
             SerialUri::ThreePart664(a, b, c) => {
-                wgr.as_bit_buf::<XpiVlu4Error, _>(|wgr| {
+                wgr.as_bit_buf::<_, XpiVlu4Error>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(6, b.inner())?;
                     wgr.put_up_to_8(4, c.inner())?;

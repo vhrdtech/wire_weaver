@@ -375,7 +375,7 @@ impl<'i> NibbleBufMut<'i> {
     /// let mut wgr = NibbleBufMut::new_all(&mut buf);
     /// wgr.put_nibble(0b1010);
     ///
-    /// wgr.as_bit_buf::<MyError, _>(|bit_wgr| {
+    /// wgr.as_bit_buf::<_, MyError>(|bit_wgr| {
     ///     bit_wgr.put_bit(true)?;
     ///     bit_wgr.put_bit(false)?;
     ///     bit_wgr.put_up_to_8(2, 0b11)?;
@@ -385,10 +385,10 @@ impl<'i> NibbleBufMut<'i> {
     /// let (buf, _, _) = wgr.finish();
     /// assert_eq!(buf[0], 0b1010_1011);
     /// ```
-    pub fn as_bit_buf<E, F>(&mut self, f: F) -> Result<(), E>
-    where
-        E: From<crate::serdes::bit_buf::Error>,
-        F: Fn(&mut BitBufMut) -> Result<(), E>,
+    pub fn as_bit_buf<F, E>(&mut self, f: F) -> Result<(), E>
+        where
+            F: Fn(&mut BitBufMut) -> Result<(), E>,
+            E: From<crate::serdes::bit_buf::Error>,
     {
         let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };
         let mut bit_buf = BitBufMut {

@@ -24,6 +24,6 @@ rand = "^0.8.5"
 rand_chacha = "^0.3.1"
 
 [features]
-default = []
+default = ["std"]
 std = ["thiserror", "tokio", "tokio-stream", "futures"]
 dynamic = ["std"] # include full vhl core allowing run time parsing of vhl files, expression evaluation, etc

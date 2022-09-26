@@ -93,7 +93,7 @@ impl<'i> XpiReplyVlu4Builder<'i> {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
         nwr.rewind::<_, FailReason>(0, |nwr| {
-            nwr.as_bit_buf::<FailReason, _>(|bwr| {
+            nwr.as_bit_buf::<_, FailReason>(|bwr| {
                 bwr.put_up_to_8(3, 0b000)?; // unused 31:29
                 bwr.put(&self.priority)?; // bits 28:26
                 bwr.put_bit(true)?; // bit 25, is_unicast

@@ -5,11 +5,43 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
+use futures::stream::FuturesUnordered;
+use tokio::io::AsyncReadExt;
+use tokio::net::tcp::OwnedReadHalf;
+use tokio::net::TcpStream;
+use crate::xpi::addressing::RemoteNodeAddr;
 
 pub struct VhNode {
     id: NodeId,
     tx_to_event_loop: Sender<XpiEvent>,
     tx_internal: Sender<InternalEvent>,
+}
+
+use futures::FutureExt;
+fn read_many(rx: OwnedReadHalf) -> impl Stream<Item = std::io::Result<Vec<u8>> > {
+    futures::stream::unfold(rx, |mut rx| {
+        async {
+            // let mut data = None;
+            // loop {
+            //     futures::select! {
+            //         read = read_one(&mut rx).fuse() => {
+            //             println!("Datagram received: ", );
+            //             break;
+            //         },
+            //         complete => break,
+            //     }
+            // };
+            let data = read_one(&mut rx).await;
+            Some(( data, rx))
+        }
+    })
+}
+
+async fn read_one(rx: &mut OwnedReadHalf) -> std::io::Result<Vec<u8>> {
+    let mut data = vec![0; 1024];
+    let len = rx.read(&mut data).await?;
+    data.truncate(len);
+    Ok(data)
 }
 
 impl VhNode {
@@ -65,6 +97,7 @@ impl VhNode {
         let mut filters: HashMap<u32, Sender<XpiEvent>> = HashMap::new();
 
         let heartbeat = tick_stream(Duration::from_secs(1)).fuse();
+        // let mut heartbeat = tokio::time::interval(Duration::from_millis(1000));
         let mut uptime: u32 = 0;
 
         futures::pin_mut!(heartbeat);
@@ -92,8 +125,15 @@ impl VhNode {
                             println!("filter registered");
                             filters.insert(0, tx_handle);
                         }
+                        InternalEvent::ConnectRemoteTcp(mut tcp_stream) => {
+
+                        }
                     }
                 }
+                // tcp_rx_res = tcp_streams_rx => {
+                //     println!("tcp rx: {:?}", tcp_rx_res);
+                // }
+                // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
                     println!("{}: local heartbeat", self_id.0);
                     for (_id, tx_handle) in &mut nodes {
@@ -127,23 +167,40 @@ impl VhNode {
         Ok(())
     }
 
-    // pub async fn connect_remote(addr: NodeAddr) -> Result<VhNode, NodeError> {
-    // match addr {
-    //     NodeAddr::Tcp(addr) => {
-    //         let mut tcp_stream = TcpStream::connect(addr).await?;
-    //         let (tcp_rx, tcp_tx) = tcp_stream.into_split();
-    //         let (mpsc_tx, mpsc_rx) = mpsc::channel(64); // TODO: move to config
-    //         tokio::spawn(async move {
-    //             outgoing_process(tcp_tx, mpsc_rx).await;
-    //         });
-    //         Ok(VhRouter {
-    //             mpsc_tx_seed: mpsc_tx,
-    //             nodes: HashMap::new()
-    //         })
-    //     }
-    // }
-    // todo!()
-    // }
+    pub async fn connect_remote(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
+        match addr {
+            RemoteNodeAddr::Tcp(addr) => {
+                let mut tcp_stream = TcpStream::connect(addr).await?;
+
+                self.tx_internal
+                    .send(InternalEvent::ConnectRemoteTcp(
+                        tcp_stream
+                    ))
+                    .await?;
+                Ok(())
+            }
+        }
+    }
+
+    async fn tcp_event_loop(
+        self_id: NodeId,
+        mut stream: TcpStream,
+        to_event_loop: Sender<XpiEvent>,
+        mut from_event_loop: Receiver<XpiEvent>,
+    ) {
+        let (mut tcp_rx, mut tcp_tx) = stream.split();
+        let mut buf = [0u8; 10_000];
+        loop {
+            futures::select! {
+                len = tcp_rx.read(&mut buf).fuse() => {
+
+                }
+                ev = from_event_loop.select_next_some() => {
+
+                }
+            }
+        }
+    }
 
     /// Send event to the event loop and return immediately. Event will be send to another node or nodes
     /// directly or through one of the interfaces available depending on the destination.
@@ -194,6 +251,7 @@ fn tick_stream(period: Duration) -> impl Stream<Item=()> {
 #[derive(Debug)]
 enum InternalEvent {
     ConnectInstance(NodeId, Sender<XpiEvent>),
+    ConnectRemoteTcp(TcpStream),
     FilterOne((), Sender<XpiEvent>),
 }
 

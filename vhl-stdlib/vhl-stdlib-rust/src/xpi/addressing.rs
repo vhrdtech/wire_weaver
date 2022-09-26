@@ -1,3 +1,6 @@
+use std::net::SocketAddr;
+use crate::node::async_std::NodeError;
+
 #[derive(Copy, Clone, Debug)]
 pub enum XpiGenericNodeSet<DST, TS> {
     /// Request is targeted at only one specific node.
@@ -58,4 +61,19 @@ pub enum XpiGenericResourceSet<
 
     /// Selects any set of resources at any depths at once.
     MultiUri(MU),
+}
+
+#[derive(Debug)]
+pub enum RemoteNodeAddr {
+    Tcp(SocketAddr),
+    // Can,
+    // Usb,
+    // Ipc,
+}
+
+impl RemoteNodeAddr {
+    pub fn parse(addr: &str) -> Result<Self, NodeError> {
+        let ip_addr = addr.strip_prefix("tcp://").ok_or(NodeError::InvalidNodeAddr)?;
+        Ok(RemoteNodeAddr::Tcp(ip_addr.parse()?))
+    }
 }

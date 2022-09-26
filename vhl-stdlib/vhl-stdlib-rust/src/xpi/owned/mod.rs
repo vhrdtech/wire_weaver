@@ -7,7 +7,7 @@ pub mod uri;
 pub mod priority;
 pub mod info;
 
-pub use event::{XpiEvent, XpiEventKind};
+pub use event::{XpiEventOwned, XpiEventKind};
 pub use request::{XpiRequest, XpiRequestKind};
 pub use reply::XpiReply;
 pub use broadcast::XpiBroadcastKind;

@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use crate::serdes::xpi_vlu4::event::XpiEventVlu4;
 use crate::xpi::broadcast::XpiGenericBroadcastKind;
 use crate::xpi::event::{XpiGenericEvent, XpiGenericEventKind};
 use super::{
@@ -14,7 +15,7 @@ use super::{
     RequestId
 };
 
-pub type XpiEvent = XpiGenericEvent<
+pub type XpiEventOwned = XpiGenericEvent<
     NodeId,
     TraitSet,
     XpiRequest,
@@ -24,18 +25,22 @@ pub type XpiEvent = XpiGenericEvent<
     Priority
 >;
 
-impl XpiEvent {
+impl XpiEventOwned {
     pub fn new(source: NodeId, destination: NodeSet, kind: XpiEventKind, priority: Priority) -> Self {
-        XpiEvent {
+        XpiEventOwned {
             source,
             destination,
             kind,
             priority,
         }
     }
+
+    fn try_into_vlu4<'ev>(&self) -> Result<XpiEventVlu4<'ev>, ()> {
+        todo!()
+    }
 }
 
-impl Debug for XpiEvent {
+impl Debug for XpiEventOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "XpiEvent")
     }

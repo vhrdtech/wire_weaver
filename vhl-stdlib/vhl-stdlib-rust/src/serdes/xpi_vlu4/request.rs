@@ -14,7 +14,7 @@ use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDi
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
-pub type XpiRequest<'req> = XpiGenericRequest<
+pub type XpiRequestVlu4<'req> = XpiGenericRequest<
     SerialUri<'req>,
     SerialMultiUri<'req>,
     &'req [u8],
@@ -24,13 +24,13 @@ pub type XpiRequest<'req> = XpiGenericRequest<
 >;
 
 /// See [XpiGenericRequestKind](crate::xpi::request::XpiGenericRequestKind) for detailed information.
-pub type XpiRequestKind<'req> = XpiGenericRequestKind<
+pub type XpiRequestKindVlu4<'req> = XpiGenericRequestKind<
     &'req [u8],
     Vlu4Vec<'req, &'req [u8]>,
     Vlu4Vec<'req, Rate>
 >;
 
-impl<'i> Display for XpiRequest<'i> {
+impl<'i> Display for XpiRequestVlu4<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -51,7 +51,7 @@ impl<'i> SerializeBits for XpiRequestDiscriminant {
     }
 }
 
-pub struct XpiRequestBuilder<'i> {
+pub struct XpiRequestVlu4Builder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
@@ -60,7 +60,7 @@ pub struct XpiRequestBuilder<'i> {
     priority: Priority,
 }
 
-impl<'i> XpiRequestBuilder<'i> {
+impl<'i> XpiRequestVlu4Builder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
@@ -72,7 +72,7 @@ impl<'i> XpiRequestBuilder<'i> {
         nwr.skip(8)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
-        Ok(XpiRequestBuilder {
+        Ok(XpiRequestVlu4Builder {
             nwr,
             source,
             destination,
@@ -107,7 +107,7 @@ impl<'i> XpiRequestBuilder<'i> {
     }
 }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKind<'i> {
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
     type Error = XpiVlu4Error;
 
     fn des_coupled_bits_vlu4<'di>(
@@ -150,11 +150,11 @@ mod test {
     use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::request::{
-        XpiRequestBuilder, XpiRequestKind, XpiRequestDiscriminant,
+        XpiRequestVlu4Builder, XpiRequestKindVlu4, XpiRequestDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
-    use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
+    use crate::serdes::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
 
     #[test]
     fn call_request_des() {
@@ -170,7 +170,7 @@ mod test {
             0b000_11011,
         ];
         let mut nrd = NibbleBuf::new_all(&buf);
-        let event: XpiEvent = nrd.des_vlu4().unwrap();
+        let event: XpiEventVlu4 = nrd.des_vlu4().unwrap();
         // println!("{}", event);
 
         assert_eq!(event.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
@@ -179,7 +179,7 @@ mod test {
         if let NodeSet::Unicast(id) = event.destination {
             assert_eq!(id, NodeId::new(85).unwrap());
         }
-        if let XpiEventKind::Request(request) = event.kind {
+        if let XpiEventKindVlu4::Request(request) = event.kind {
             assert_eq!(request.request_id, RequestId::new(27).unwrap());
             assert!(matches!(request.resource_set, XpiResourceSet::Uri(_)));
             if let XpiResourceSet::Uri(uri) = request.resource_set {
@@ -189,8 +189,8 @@ mod test {
                     assert_eq!(b.inner(), 12);
                 }
             }
-            assert!(matches!(request.kind, XpiRequestKind::Call { .. }));
-            if let XpiRequestKind::Call { args_set: args } = request.kind {
+            assert!(matches!(request.kind, XpiRequestKindVlu4::Call { .. }));
+            if let XpiRequestKindVlu4::Call { args_set: args } = request.kind {
                 assert_eq!(args.len(), 1);
                 let slice = args.iter().next().unwrap();
                 assert_eq!(slice.len(), 2);
@@ -206,7 +206,7 @@ mod test {
     #[test]
     fn call_request_ser() {
         let mut buf = [0u8; 32];
-        let request_builder = XpiRequestBuilder::new(
+        let request_builder = XpiRequestVlu4Builder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),
@@ -214,7 +214,7 @@ mod test {
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2Sp1::new(1).unwrap()),
         )
-        .unwrap();
+            .unwrap();
         let nwr = request_builder
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<&[u8]>();

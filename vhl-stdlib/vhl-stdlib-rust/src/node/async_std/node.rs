@@ -1,5 +1,5 @@
 use crate::node::async_std::error::NodeError;
-use crate::xpi::owned::{XpiEvent, XpiEventKind, NodeId, NodeSet, Priority};
+use crate::xpi::owned::{XpiEventOwned, XpiEventKind, NodeId, NodeSet, Priority};
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
@@ -12,7 +12,7 @@ use crate::xpi::addressing::RemoteNodeAddr;
 
 pub struct VhNode {
     id: NodeId,
-    tx_to_event_loop: Sender<XpiEvent>,
+    tx_to_event_loop: Sender<XpiEventOwned>,
     tx_internal: Sender<InternalEvent>,
 }
 
@@ -76,7 +76,7 @@ impl VhNode {
     ///     Option::take()'n into local nodes hashmap.
     async fn process_events(
         self_id: NodeId,
-        mut rx_from_instances: Receiver<XpiEvent>,
+        mut rx_from_instances: Receiver<XpiEventOwned>,
         mut rx_internal: Receiver<InternalEvent>,
     ) {
         println!("Node({}) started", self_id.0);
@@ -88,13 +88,13 @@ impl VhNode {
         // rate shaper?
 
         // tx handles to another node instances running on the same executor
-        let mut nodes: HashMap<NodeId, Sender<XpiEvent>> = HashMap::new();
+        let mut nodes: HashMap<NodeId, Sender<XpiEventOwned>> = HashMap::new();
 
         // tx handles to another nodes running on remote machines or in another processes
-        let mut remote_nodes: HashMap<u32, Sender<XpiEvent>> = HashMap::new();
+        let mut remote_nodes: HashMap<u32, Sender<XpiEventOwned>> = HashMap::new();
 
         // tx handles to Self for filter_one and filter_many
-        let mut filters: HashMap<u32, Sender<XpiEvent>> = HashMap::new();
+        let mut filters: HashMap<u32, Sender<XpiEventOwned>> = HashMap::new();
 
         let heartbeat = tick_stream(Duration::from_secs(1)).fuse();
         // let mut heartbeat = tokio::time::interval(Duration::from_millis(1000));
@@ -138,7 +138,7 @@ impl VhNode {
                     println!("{}: local heartbeat", self_id.0);
                     for (_id, tx_handle) in &mut nodes {
                         // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
-                        tx_handle.send(XpiEvent::new(self_id, NodeSet::Broadcast, XpiEventKind::new_heartbeat(uptime), Priority::Lossy(0))).await;
+                        tx_handle.send(XpiEventOwned::new(self_id, NodeSet::Broadcast, XpiEventKind::new_heartbeat(uptime), Priority::Lossy(0))).await;
                     }
                     uptime += 1;
                 }
@@ -191,8 +191,8 @@ impl VhNode {
     async fn tcp_event_loop(
         self_id: NodeId,
         mut stream: TcpStream,
-        to_event_loop: Sender<XpiEvent>,
-        mut from_event_loop: Receiver<XpiEvent>,
+        to_event_loop: Sender<XpiEventOwned>,
+        mut from_event_loop: Receiver<XpiEventOwned>,
     ) {
         let (mut tcp_rx, mut tcp_tx) = stream.split();
         let mut buf = [0u8; 10_000];
@@ -210,7 +210,7 @@ impl VhNode {
 
     /// Send event to the event loop and return immediately. Event will be send to another node or nodes
     /// directly or through one of the interfaces available depending on the destination.
-    pub async fn submit_one(&mut self, ev: XpiEvent) -> Result<(), NodeError> {
+    pub async fn submit_one(&mut self, ev: XpiEventOwned) -> Result<(), NodeError> {
         self.tx_to_event_loop.send(ev).await?;
         Ok(())
     }
@@ -228,7 +228,7 @@ impl VhNode {
     /// Internally a temporary channel is created, tx end of which is transferred to the event loop.
     /// Then we await or timeout on rx end of that channel for a response.
     /// Afterwards the channel is dropped.
-    pub async fn filter_one(&mut self, filter: ()) -> Result<XpiEvent, NodeError> {
+    pub async fn filter_one(&mut self, filter: ()) -> Result<XpiEventOwned, NodeError> {
         let (tx, mut rx) = mpsc::channel(1);
         self.tx_internal
             .send(InternalEvent::FilterOne(
@@ -242,7 +242,7 @@ impl VhNode {
 
     /// Get a stream source with only the desired events in it.
     /// For subscribing to property updates and streams.
-    pub async fn filter_many(&mut self, _ev: XpiEvent) -> u32 {
+    pub async fn filter_many(&mut self, _ev: XpiEventOwned) -> u32 {
         todo!()
     }
 }
@@ -256,9 +256,9 @@ fn tick_stream(period: Duration) -> impl Stream<Item=()> {
 
 #[derive(Debug)]
 enum InternalEvent {
-    ConnectInstance(NodeId, Sender<XpiEvent>),
-    ConnectRemoteTcp(Sender<XpiEvent>),
-    FilterOne((), Sender<XpiEvent>),
+    ConnectInstance(NodeId, Sender<XpiEventOwned>),
+    ConnectRemoteTcp(Sender<XpiEventOwned>),
+    FilterOne((), Sender<XpiEventOwned>),
 }
 
 // async fn outgoing_process(mut tcp_tx: OwnedWriteHalf, mut mpsc_rx: Receiver<VhLinkEvent>) {

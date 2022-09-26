@@ -12,7 +12,7 @@ use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscrimina
 /// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
-pub type XpiReply<'rep> = XpiGenericReply<
+pub type XpiReplyVlu4<'rep> = XpiGenericReply<
     SerialUri<'rep>,
     SerialMultiUri<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
@@ -23,7 +23,7 @@ pub type XpiReply<'rep> = XpiGenericReply<
 >;
 
 /// See [XpiGenericReplyKind](crate::xpi::reply::XpiGenericReplyKind) for detailed information.
-pub type XpiReplyKind<'rep> = XpiGenericReplyKind<
+pub type XpiReplyKindVlu4<'rep> = XpiGenericReplyKind<
     Vlu4Vec<'rep, &'rep [u8]>,
     Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
     Vlu4Vec<'rep, Result<(), FailReason>>,
@@ -39,7 +39,7 @@ impl<'i> SerializeBits for XpiReplyDiscriminant {
     }
 }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
+impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKindVlu4<'i> {
     type Error = XpiVlu4Error;
 
     fn des_coupled_bits_vlu4<'di>(
@@ -55,7 +55,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKind<'i> {
     }
 }
 
-pub struct XpiReplyBuilder<'i> {
+pub struct XpiReplyVlu4Builder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
@@ -64,7 +64,7 @@ pub struct XpiReplyBuilder<'i> {
     priority: Priority,
 }
 
-impl<'i> XpiReplyBuilder<'i> {
+impl<'i> XpiReplyVlu4Builder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
@@ -76,7 +76,7 @@ impl<'i> XpiReplyBuilder<'i> {
         nwr.skip(8)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
-        Ok(XpiReplyBuilder {
+        Ok(XpiReplyVlu4Builder {
             nwr,
             source,
             destination,
@@ -120,17 +120,17 @@ mod test {
     use crate::serdes::xpi_vlu4::error::FailReason;
     use crate::serdes::xpi_vlu4::priority::Priority;
     use crate::serdes::xpi_vlu4::reply::{
-        XpiReplyBuilder, XpiReplyKind, XpiReplyDiscriminant,
+        XpiReplyVlu4Builder, XpiReplyKindVlu4, XpiReplyDiscriminant,
     };
     use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
     use crate::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
-    use crate::serdes::xpi_vlu4::event::{XpiEvent, XpiEventKind};
+    use crate::serdes::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
 
     #[test]
     fn call_reply_ser() {
         let mut buf = [0u8; 32];
-        let reply_builder = XpiReplyBuilder::new(
+        let reply_builder = XpiReplyVlu4Builder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
             NodeSet::Unicast(NodeId::new(33).unwrap()),
@@ -138,7 +138,7 @@ mod test {
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2Sp1::new(1).unwrap()),
         )
-        .unwrap();
+            .unwrap();
         let nwr = reply_builder
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<Result<&[u8], FailReason>>();
@@ -159,7 +159,7 @@ mod test {
         let buf = hex!("02 d5 10 90 45 20 20 aa bb 02 cc dd 1b");
         let mut nrd = NibbleBuf::new_all(&buf);
 
-        let event: XpiEvent = nrd.des_vlu4().unwrap();
+        let event: XpiEventVlu4 = nrd.des_vlu4().unwrap();
 
         assert_eq!(event.source, NodeId::new(85).unwrap());
         if let NodeSet::Unicast(id) = event.destination {
@@ -167,7 +167,7 @@ mod test {
         } else {
             panic!("Expected NodeSet::Unicast(_)");
         }
-        if let XpiEventKind::Reply(reply) = event.kind {
+        if let XpiEventKindVlu4::Reply(reply) = event.kind {
             if let XpiResourceSet::Uri(uri) = reply.resource_set {
                 let mut iter = uri.iter();
                 assert_eq!(iter.next(), Some(4));
@@ -176,7 +176,7 @@ mod test {
             } else {
                 panic!("Expected XpiResourceSet::Uri(_)");
             }
-            if let XpiReplyKind::CallComplete(result) = reply.kind {
+            if let XpiReplyKindVlu4::CallComplete(result) = reply.kind {
                 let mut result_iter = result.iter();
                 assert_eq!(result_iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
                 assert_eq!(result_iter.next(), Some(Ok(&[0xcc, 0xdd][..])));

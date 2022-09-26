@@ -6,28 +6,28 @@ use crate::serdes::xpi_vlu4::broadcast::XpiBroadcastKind;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 use crate::serdes::xpi_vlu4::NodeId;
 use crate::serdes::xpi_vlu4::priority::Priority;
-use crate::serdes::xpi_vlu4::reply::{XpiReply, XpiReplyKind};
-use crate::serdes::xpi_vlu4::request::{XpiRequest, XpiRequestKind};
+use crate::serdes::xpi_vlu4::reply::{XpiReplyVlu4, XpiReplyKindVlu4};
+use crate::serdes::xpi_vlu4::request::{XpiRequestVlu4, XpiRequestKindVlu4};
 use crate::xpi::event::{XpiGenericEvent, XpiGenericEventKind};
 
-pub type XpiEvent<'ev> = XpiGenericEvent<
+pub type XpiEventVlu4<'ev> = XpiGenericEvent<
     NodeId,
     TraitSet<'ev>,
-    XpiRequest<'ev>,
-    XpiReply<'ev>,
+    XpiRequestVlu4<'ev>,
+    XpiReplyVlu4<'ev>,
     XpiBroadcastKind,
     (),
     Priority
 >;
 
-pub type XpiEventKind<'ev> = XpiGenericEventKind<
-    XpiRequest<'ev>,
-    XpiReply<'ev>,
+pub type XpiEventKindVlu4<'ev> = XpiGenericEventKind<
+    XpiRequestVlu4<'ev>,
+    XpiReplyVlu4<'ev>,
     XpiBroadcastKind,
     ()
 >;
 
-impl<'i> DeserializeVlu4<'i> for XpiEvent<'i> {
+impl<'i> DeserializeVlu4<'i> for XpiEventVlu4<'i> {
     type Error = XpiVlu4Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
@@ -69,23 +69,23 @@ impl<'i> DeserializeVlu4<'i> for XpiEvent<'i> {
             }
             (true, false) => {
                 // Reply, kind in bits 3:0
-                let kind = XpiReplyKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+                let kind = XpiReplyKindVlu4::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
                 // tail byte should be at byte boundary, if not 4b padding is added
                 rdr.align_to_byte()?;
                 let request_id: RequestId = rdr.des_vlu4()?;
-                XpiEventKind::Reply(XpiReply { resource_set, kind, request_id })
+                XpiEventKindVlu4::Reply(XpiReplyVlu4 { resource_set, kind, request_id })
             }
             (true, true) => {
                 // Request, kind in bits 3:0
-                let kind = XpiRequestKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+                let kind = XpiRequestKindVlu4::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
                 // tail byte should be at byte boundary, if not 4b padding is added
                 rdr.align_to_byte()?;
                 let request_id: RequestId = rdr.des_vlu4()?;
-                XpiEventKind::Request(XpiRequest { resource_set, kind, request_id })
+                XpiEventKindVlu4::Request(XpiRequestVlu4 { resource_set, kind, request_id })
             }
         };
 
-        Ok(XpiEvent {
+        Ok(XpiEventVlu4 {
             source,
             destination,
             kind,

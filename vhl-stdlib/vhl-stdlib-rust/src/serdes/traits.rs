@@ -61,7 +61,6 @@ pub trait DeserializeBits<'i>: Sized {
 ///
 /// For example one reader can be used to read from a packet header, while
 /// the second one to read associated data from the same packet's data portion.
-/// same packet.
 pub trait DeserializeCoupledBitsVlu4<'i>: Sized {
     type Error;
 

@@ -5,7 +5,6 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
-use futures::stream::FuturesUnordered;
 use tokio::io::AsyncReadExt;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::TcpStream;
@@ -92,6 +91,7 @@ impl VhNode {
         let mut nodes: HashMap<NodeId, Sender<XpiEvent>> = HashMap::new();
 
         // tx handles to another nodes running on remote machines or in another processes
+        let mut remote_nodes: HashMap<u32, Sender<XpiEvent>> = HashMap::new();
 
         // tx handles to Self for filter_one and filter_many
         let mut filters: HashMap<u32, Sender<XpiEvent>> = HashMap::new();
@@ -125,8 +125,8 @@ impl VhNode {
                             println!("filter registered");
                             filters.insert(0, tx_handle);
                         }
-                        InternalEvent::ConnectRemoteTcp(mut tcp_stream) => {
-
+                        InternalEvent::ConnectRemoteTcp(tx_handle) => {
+                            remote_nodes.insert(0, tx_handle);
                         }
                     }
                 }
@@ -171,12 +171,18 @@ impl VhNode {
         match addr {
             RemoteNodeAddr::Tcp(addr) => {
                 let mut tcp_stream = TcpStream::connect(addr).await?;
-
-                self.tx_internal
-                    .send(InternalEvent::ConnectRemoteTcp(
-                        tcp_stream
-                    ))
-                    .await?;
+                let (tx, rx) = mpsc::channel(64);
+                let id = self.id.clone();
+                let to_event_loop = self.tx_to_event_loop.clone();
+                tokio::spawn(async move {
+                    Self::tcp_event_loop(
+                        id,
+                        tcp_stream,
+                        to_event_loop.clone(),
+                        rx
+                    ).await
+                });
+                self.tx_internal.send(InternalEvent::ConnectRemoteTcp(tx)).await?;
                 Ok(())
             }
         }
@@ -193,7 +199,7 @@ impl VhNode {
         loop {
             futures::select! {
                 len = tcp_rx.read(&mut buf).fuse() => {
-
+                    println!("tcp rx: {:?}", len);
                 }
                 ev = from_event_loop.select_next_some() => {
 
@@ -251,7 +257,7 @@ fn tick_stream(period: Duration) -> impl Stream<Item=()> {
 #[derive(Debug)]
 enum InternalEvent {
     ConnectInstance(NodeId, Sender<XpiEvent>),
-    ConnectRemoteTcp(TcpStream),
+    ConnectRemoteTcp(Sender<XpiEvent>),
     FilterOne((), Sender<XpiEvent>),
 }
 

@@ -1,4 +1,4 @@
-use crate::xpi::addressing::XpiGenericNodeSet;
+use crate::addressing::XpiGenericNodeSet;
 
 /// Root data type exchanged by nodes
 #[derive(Clone, Debug)]

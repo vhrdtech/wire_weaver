@@ -1,4 +1,4 @@
-use crate::xpi::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
+use crate::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
 use super::{SerialUri, SerialMultiUri};
 
 #[derive(Copy, Clone)]
@@ -13,3 +13,5 @@ pub type XpiResourceSet = XpiGenericResourceSet<SerialUri, SerialMultiUri>;
 pub struct TraitSet {}
 
 pub type NodeSet = XpiGenericNodeSet<NodeId, TraitSet>;
+
+

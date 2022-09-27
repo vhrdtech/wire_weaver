@@ -1,4 +1,3 @@
-
 //!
 //! With the tricks employed, it is for example
 //! possible to encode up to 4 function call requests into 6 bytes, leaving one byte free and one

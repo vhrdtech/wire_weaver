@@ -1,2 +1,2 @@
-#[cfg(feature = "std")]
 pub mod async_std;
+pub mod addressing;

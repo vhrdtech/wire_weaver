@@ -1,4 +1,4 @@
-use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind};
+use crate::request::{XpiGenericRequest, XpiGenericRequestKind};
 use super::{SerialUri, SerialMultiUri, Rate, RequestId};
 
 /// Owned XpiRequest relying on allocators and std

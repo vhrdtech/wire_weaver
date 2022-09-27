@@ -1,5 +1,3 @@
-use crate::node::async_std::error::NodeError;
-use crate::xpi::owned::{XpiEventOwned, XpiEventKind, NodeId, NodeSet, Priority};
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
@@ -8,7 +6,10 @@ use std::collections::HashMap;
 use tokio::io::AsyncReadExt;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::TcpStream;
-use crate::xpi::addressing::RemoteNodeAddr;
+use futures::FutureExt;
+use crate::node::addressing::RemoteNodeAddr;
+use crate::node::async_std::NodeError;
+use xpi::xpi_owned::{NodeId, XpiEventOwned, XpiEventKind, Priority, NodeSet};
 
 pub struct VhNode {
     id: NodeId,
@@ -16,8 +17,7 @@ pub struct VhNode {
     tx_internal: Sender<InternalEvent>,
 }
 
-use futures::FutureExt;
-fn read_many(rx: OwnedReadHalf) -> impl Stream<Item = std::io::Result<Vec<u8>> > {
+fn read_many(rx: OwnedReadHalf) -> impl Stream<Item=std::io::Result<Vec<u8>>> {
     futures::stream::unfold(rx, |mut rx| {
         async {
             // let mut data = None;

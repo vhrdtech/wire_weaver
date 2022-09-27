@@ -1,4 +1,4 @@
-use crate::xpi::addressing::XpiGenericResourceSet;
+use crate::addressing::XpiGenericResourceSet;
 
 /// Replies are sent to the Link in response to requests.
 /// One request can result in one or more replies.

@@ -1,15 +1,15 @@
 use super::NodeId;
-use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use crate::serdes::vlu4::Vlu4Vec;
-use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
-use crate::serdes::xpi_vlu4::priority::Priority;
-use crate::serdes::xpi_vlu4::rate::Rate;
-use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
+use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
+use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
+use vhl_stdlib_nostd::serdes::vlu4::Vlu4Vec;
+use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
+use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
+use crate::xpi_vlu4::priority::Priority;
+use crate::xpi_vlu4::rate::Rate;
+use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
-use crate::serdes::xpi_vlu4::{SerialMultiUri, SerialUri};
-use crate::xpi::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
+use crate::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
+use crate::xpi_vlu4::{SerialMultiUri, SerialUri};
 
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -43,7 +43,7 @@ impl<'i> Display for XpiRequestVlu4<'i> {
 }
 
 impl<'i> SerializeBits for XpiRequestDiscriminant {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         wgr.put_up_to_8(4, *self as u8)?;
@@ -146,15 +146,15 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
 mod test {
     extern crate std;
 
-    use crate::discrete::{U2Sp1, U4};
-    use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::serdes::xpi_vlu4::priority::Priority;
-    use crate::serdes::xpi_vlu4::request::{
+    use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
+    use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
+    use crate::xpi_vlu4::priority::Priority;
+    use crate::xpi_vlu4::request::{
         XpiRequestVlu4Builder, XpiRequestKindVlu4, XpiRequestDiscriminant,
     };
-    use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
-    use crate::serdes::{NibbleBuf, NibbleBufMut};
-    use crate::serdes::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
+    use crate::xpi_vlu4::{NodeId, SerialUri};
+    use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
+    use crate::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
 
     #[test]
     fn call_request_des() {

@@ -30,7 +30,7 @@ pub enum PlatformInfo {
     Ios,
     Android,
     Web,
-    Other
+    Other,
 }
 
 /// Distributed periodically by all active nodes
@@ -54,6 +54,6 @@ pub enum NodeHealthStatus {
     /// Node can perform it's task, but is experiencing troubles
     Warning,
     /// Node cannot perform it's task
-    Failure
+    Failure,
 }
 

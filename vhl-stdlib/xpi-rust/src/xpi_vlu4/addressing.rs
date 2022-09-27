@@ -1,15 +1,16 @@
 // use hash32_derive::Hash32;
-use crate::discrete::max_bound_number;
-use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4};
-use crate::serdes::vlu4::TraitSet;
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
-use crate::serdes::xpi_vlu4::multi_uri::MultiUriFlatIter;
-use crate::serdes::xpi_vlu4::{SerialMultiUri, SerialUri};
-use crate::serdes::{DeserializeBits, SerDesSize};
-use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use vhl_stdlib_nostd::discrete::max_bound_number;
+use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
+use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4};
+use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
+use crate::xpi_vlu4::{SerialMultiUri, SerialUri};
+use vhl_stdlib_nostd::serdes::{DeserializeBits, nibble_buf, SerDesSize};
+use vhl_stdlib_nostd::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use crate::xpi::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
+use crate::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
+use crate::xpi_vlu4::error::XpiVlu4Error;
+use crate::xpi_vlu4::multi_uri::MultiUriFlatIter;
+use vhl_stdlib_nostd::serdes::bit_buf;
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
 impl<'i> DeserializeVlu4<'i> for NodeId {
@@ -34,6 +35,7 @@ impl<'i> DeserializeVlu4<'i> for RequestId {
         Ok(RequestId(request_id & 0b0001_1111))
     }
 }
+
 impl SerializeVlu4 for RequestId {
     type Error = XpiVlu4Error;
 
@@ -70,7 +72,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
 }
 
 impl<'i> SerializeBits for NodeSet<'i> {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         // must write 9 bits
@@ -97,7 +99,7 @@ impl<'i> SerializeBits for NodeSet<'i> {
 }
 
 impl<'i> SerializeVlu4 for NodeSet<'i> {
-    type Error = crate::serdes::nibble_buf::Error;
+    type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, _wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
@@ -147,7 +149,7 @@ impl<'i> XpiResourceSet<'i> {
 }
 
 impl<'i> SerializeBits for XpiResourceSet<'i> {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let kind = match self {
@@ -164,6 +166,7 @@ impl<'i> SerializeBits for XpiResourceSet<'i> {
         wgr.put_up_to_8(3, kind)
     }
 }
+
 impl<'i> SerializeVlu4 for XpiResourceSet<'i> {
     type Error = XpiVlu4Error;
 

@@ -1,14 +1,14 @@
-use crate::discrete::U2Sp1;
-use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::traits::SerializeBits;
-use crate::serdes::{BitBuf, DeserializeBits};
+use vhl_stdlib_nostd::discrete::U2Sp1;
+use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
+use vhl_stdlib_nostd::serdes::traits::SerializeBits;
+use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, DeserializeBits};
 use core::fmt::{Display, Formatter};
-use crate::xpi::priority::XpiGenericPriority;
+use crate::priority::XpiGenericPriority;
 
 pub type Priority = XpiGenericPriority<U2Sp1>;
 
 impl<'i> DeserializeBits<'i> for Priority {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
         let is_lossless = rdr.get_bit()?;
@@ -21,7 +21,7 @@ impl<'i> DeserializeBits<'i> for Priority {
 }
 
 impl SerializeBits for Priority {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let (is_lossless, level) = match self {

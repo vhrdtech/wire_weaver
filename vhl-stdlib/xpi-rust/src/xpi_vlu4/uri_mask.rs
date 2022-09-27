@@ -1,8 +1,8 @@
-use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
+use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
+use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use crate::xpi_vlu4::error::XpiVlu4Error;
+use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to

@@ -1,3 +1,4 @@
+use crate::serdes::bit_buf;
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::SerializeBits;
 use crate::serdes::{BitBuf, DeserializeBits, DeserializeVlu4, NibbleBuf};
@@ -40,7 +41,7 @@ macro_rules! max_bound_number {
         max_bound_number!($type_name, $base_type, $max, $fmt);
 
         impl SerializeBits for $type_name {
-            type Error = crate::serdes::bit_buf::Error;
+            type Error = bit_buf::Error;
 
             fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
                 wgr.$ser($bit_count, self.0)
@@ -48,7 +49,7 @@ macro_rules! max_bound_number {
         }
 
         impl<'i> DeserializeBits<'i> for $type_name {
-            type Error = crate::serdes::bit_buf::Error;
+            type Error = bit_buf::Error;
 
             fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
                 Ok($type_name(rdr.$des($bit_count)?))

@@ -1,13 +1,13 @@
-use crate::serdes::bit_buf::BitBufMut;
-use crate::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use crate::serdes::vlu4::vec::Vlu4Vec;
-use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::serdes::xpi_vlu4::error::{FailReason, XpiVlu4Error};
-use crate::serdes::xpi_vlu4::priority::Priority;
-use crate::serdes::xpi_vlu4::resource_info::ResourceInfo;
-use crate::serdes::xpi_vlu4::{SerialMultiUri, NodeId, SerialUri};
-use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
-use crate::xpi::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
+use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
+use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
+use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
+use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
+use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
+use crate::xpi_vlu4::priority::Priority;
+use crate::xpi_vlu4::resource_info::ResourceInfo;
+use crate::xpi_vlu4::{SerialMultiUri, NodeId, SerialUri};
+use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
+use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 
 /// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -31,7 +31,7 @@ pub type XpiReplyKindVlu4<'rep> = XpiGenericReplyKind<
 >;
 
 impl<'i> SerializeBits for XpiReplyDiscriminant {
-    type Error = crate::serdes::bit_buf::Error;
+    type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         wgr.put_up_to_8(4, *self as u8)?;
@@ -115,17 +115,17 @@ impl<'i> XpiReplyVlu4Builder<'i> {
 mod test {
     extern crate std;
 
-    use crate::discrete::{U2Sp1, U4};
-    use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::serdes::xpi_vlu4::error::FailReason;
-    use crate::serdes::xpi_vlu4::priority::Priority;
-    use crate::serdes::xpi_vlu4::reply::{
+    use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
+    use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
+    use crate::xpi_vlu4::error::FailReason;
+    use crate::xpi_vlu4::priority::Priority;
+    use crate::xpi_vlu4::reply::{
         XpiReplyVlu4Builder, XpiReplyKindVlu4, XpiReplyDiscriminant,
     };
-    use crate::serdes::xpi_vlu4::{NodeId, SerialUri};
-    use crate::serdes::{NibbleBuf, NibbleBufMut};
+    use crate::xpi_vlu4::{NodeId, SerialUri};
+    use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
-    use crate::serdes::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
+    use crate::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
 
     #[test]
     fn call_reply_ser() {

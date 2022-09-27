@@ -1,8 +1,8 @@
-use crate::serdes::nibble_buf::Error as NibbleBufError;
-use crate::serdes::vlu4::Vlu4Vec;
-use crate::serdes::xpi_vlu4::rate::Rate;
-use crate::serdes::xpi_vlu4::NodeId;
-use crate::serdes::{DeserializeVlu4, NibbleBuf};
+use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
+use vhl_stdlib_nostd::serdes::vlu4::Vlu4Vec;
+use crate::xpi_vlu4::rate::Rate;
+use crate::xpi_vlu4::NodeId;
+use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf};
 
 #[derive(Copy, Clone, Debug)]
 pub enum ResourceInfo<'i> {

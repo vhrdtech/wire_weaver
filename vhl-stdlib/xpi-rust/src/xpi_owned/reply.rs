@@ -1,5 +1,5 @@
-use crate::serdes::xpi_vlu4::error::FailReason;
-use crate::xpi::reply::XpiGenericReply;
+use crate::reply::XpiGenericReply;
+use crate::xpi_vlu4::error::FailReason;
 use super::{SerialUri, SerialMultiUri, ResourceInfo, RequestId};
 
 pub type XpiReply = XpiGenericReply<

@@ -1,0 +1,10 @@
+[package]
+name = "xpi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vhl-stdlib-nostd = { path = "../vhl-stdlib-rust-nostd" }
+
+[dev-dependencies]
+hex-literal = "^0.3.4"

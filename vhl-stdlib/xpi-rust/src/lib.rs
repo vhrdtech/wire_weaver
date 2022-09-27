@@ -10,5 +10,5 @@ pub mod broadcast;
 pub mod addressing;
 pub mod priority;
 
-#[cfg(feature = "std")]
-pub mod owned;
+pub mod xpi_vlu4;
+pub mod xpi_owned;

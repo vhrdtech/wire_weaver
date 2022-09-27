@@ -1,8 +1,8 @@
 // use thiserror::Error;
-use crate::serdes::nibble_buf::Error as NibbleBufError;
-use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::{bit_buf, nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
+use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
+use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
+use vhl_stdlib_nostd::serdes::{bit_buf, nibble_buf, NibbleBufMut, SerDesSize, buf};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FailReason {
@@ -92,20 +92,20 @@ impl FailReason {
     }
 }
 
-impl From<crate::serdes::buf::Error> for FailReason {
-    fn from(_: crate::serdes::buf::Error) -> Self {
+impl From<buf::Error> for FailReason {
+    fn from(_: buf::Error) -> Self {
         FailReason::InternalBufError
     }
 }
 
-impl From<crate::serdes::nibble_buf::Error> for FailReason {
-    fn from(_: crate::serdes::nibble_buf::Error) -> Self {
+impl From<nibble_buf::Error> for FailReason {
+    fn from(_: nibble_buf::Error) -> Self {
         FailReason::InternalNibbleBufError
     }
 }
 
-impl From<crate::serdes::bit_buf::Error> for FailReason {
-    fn from(_: crate::serdes::bit_buf::Error) -> Self {
+impl From<bit_buf::Error> for FailReason {
+    fn from(_: bit_buf::Error) -> Self {
         FailReason::InternalBitBufError
     }
 }
@@ -134,19 +134,19 @@ impl SerializeVlu4 for FailReason {
         Vlu32(self.to_u32()).len_nibbles()
     }
 }
-
-impl<'i> DeserializeVlu4<'i> for Result<(), FailReason> {
-    type Error = crate::serdes::nibble_buf::Error;
-
-    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let code = rdr.get_vlu4_u32()?;
-        if code == 0 {
-            Ok(Ok(()))
-        } else {
-            Ok(Err(FailReason::from_u32(code)))
-        }
-    }
-}
+//
+// impl<'i> DeserializeVlu4<'i> for Result<(), FailReason> {
+//     type Error = nibble_buf::Error;
+//
+//     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+//         let code = rdr.get_vlu4_u32()?;
+//         if code == 0 {
+//             Ok(Ok(()))
+//         } else {
+//             Ok(Err(FailReason::from_u32(code)))
+//         }
+//     }
+// }
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum XpiVlu4Error {

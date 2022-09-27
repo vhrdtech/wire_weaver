@@ -25,4 +25,13 @@ itertools = "0.10"
 mquote = { path = "./mquote" }
 
 [workspace]
-members = ["parser", "cli", "codegen", "mtoken", "mquote", "vhl-stdlib/vhl-stdlib-rust"]
+members = [
+    "parser",
+    "cli",
+    "codegen",
+    "mtoken",
+    "mquote",
+    "vhl-stdlib/vhl-stdlib-rust-nostd",
+    "vhl-stdlib/vhl-stdlib-rust",
+    "vhl-stdlib/xpi-rust"
+]

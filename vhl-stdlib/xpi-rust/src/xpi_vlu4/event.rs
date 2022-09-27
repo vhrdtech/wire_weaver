@@ -1,14 +1,9 @@
-use crate::serdes::{DeserializeVlu4, NibbleBuf};
-use crate::serdes::traits::DeserializeCoupledBitsVlu4;
-use crate::serdes::vlu4::TraitSet;
-use crate::serdes::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::serdes::xpi_vlu4::broadcast::XpiBroadcastKind;
-use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
-use crate::serdes::xpi_vlu4::NodeId;
-use crate::serdes::xpi_vlu4::priority::Priority;
-use crate::serdes::xpi_vlu4::reply::{XpiReplyVlu4, XpiReplyKindVlu4};
-use crate::serdes::xpi_vlu4::request::{XpiRequestVlu4, XpiRequestKindVlu4};
-use crate::xpi::event::{XpiGenericEvent, XpiGenericEventKind};
+use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
+use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
+use crate::event::{XpiGenericEvent, XpiGenericEventKind};
+use crate::xpi_vlu4::{addressing::{XpiResourceSet, NodeSet}, request::{XpiRequestVlu4, XpiRequestKindVlu4}, reply::{XpiReplyVlu4}, broadcast::XpiBroadcastKind, error::{XpiVlu4Error}, priority::Priority, NodeId};
+use crate::xpi_vlu4::addressing::RequestId;
+use crate::xpi_vlu4::reply::XpiReplyKindVlu4;
 
 pub type XpiEventVlu4<'ev> = XpiGenericEvent<
     NodeId,

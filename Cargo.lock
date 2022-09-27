@@ -152,14 +152,14 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "semver",
- "thiserror",
- "vhl",
- "vhl-stdlib",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "parser",
+    "semver",
+    "thiserror",
+    "vhl",
+    "vhl-stdlib-nostd",
 ]
 
 [[package]]
@@ -1024,22 +1024,29 @@ dependencies = [
  "itertools",
  "mquote",
  "mtoken",
- "parser",
- "thiserror",
- "util",
+    "parser",
+    "thiserror",
+    "util",
 ]
 
 [[package]]
 name = "vhl-stdlib"
 version = "0.1.0"
 dependencies = [
- "futures",
- "hex-literal",
- "rand",
- "rand_chacha",
- "thiserror",
- "tokio",
- "tokio-stream",
+    "futures",
+    "thiserror",
+    "tokio",
+    "tokio-stream",
+    "xpi",
+]
+
+[[package]]
+name = "vhl-stdlib-nostd"
+version = "0.1.0"
+dependencies = [
+    "hex-literal",
+    "rand",
+    "rand_chacha",
 ]
 
 [[package]]
@@ -1121,3 +1128,11 @@ name = "windows_x86_64_msvc"
 version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
+
+[[package]]
+name = "xpi"
+version = "0.1.0"
+dependencies = [
+    "hex-literal",
+    "vhl-stdlib-nostd",
+]

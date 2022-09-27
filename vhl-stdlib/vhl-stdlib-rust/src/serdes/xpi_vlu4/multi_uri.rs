@@ -3,7 +3,7 @@ use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 use crate::serdes::xpi_vlu4::{SerialUri, UriIter, UriMask, UriMaskIter};
-use crate::serdes::DeserializeVlu4;
+use crate::serdes::{DeserializeVlu4, SerDesSize};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
 
@@ -167,8 +167,8 @@ impl<'i> SerializeVlu4 for SerialMultiUri<'i> {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        self.rdr.nibbles_left()
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::Sized(self.rdr.nibbles_left())
     }
 }
 

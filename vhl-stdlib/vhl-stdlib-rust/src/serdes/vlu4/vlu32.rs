@@ -1,6 +1,6 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vlu32(pub u32);
@@ -35,8 +35,8 @@ impl SerializeVlu4 for Vlu32 {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        match self.0 {
+    fn len_nibbles(&self) -> SerDesSize {
+        let nibbles = match self.0 {
             0..=7 => 1,
             8..=63 => 2,
             64..=511 => 3,
@@ -48,7 +48,8 @@ impl SerializeVlu4 for Vlu32 {
             16777216..=134217727 => 9,
             134217728..=1073741823 => 10,
             1073741824..=4294967295 => 11,
-        }
+        };
+        SerDesSize::Sized(nibbles)
     }
 }
 

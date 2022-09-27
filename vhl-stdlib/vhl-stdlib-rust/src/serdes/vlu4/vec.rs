@@ -1,7 +1,7 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::DeserializeVlu4;
+use crate::serdes::{DeserializeVlu4, SerDesSize};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
@@ -173,7 +173,7 @@ where
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
+    fn len_nibbles(&self) -> SerDesSize {
         todo!()
     }
 }
@@ -249,13 +249,33 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         T: SerializeVlu4<Error = E>,
         E: From<NibbleBufError>,
     {
-        let len = element.len_nibbles();
         self.start_putting_element()?;
-        let pos_before = self.wgr.nibbles_pos();
+        let _pos_before = self.wgr.nibbles_pos();
         self.wgr.put(&element)?;
-        if self.wgr.nibbles_pos() - pos_before != len {
-            return Err(NibbleBufError::InvalidByteSizeEstimate.into());
+
+        #[cfg(feature = "buf-strict")]
+        match element.len_nibbles() {
+            SerDesSize::Sized(len) => {
+                // Sized types are written as is, without padding or length and expected to return correct len
+                if self.wgr.nibbles_pos() - _pos_before != len {
+                    return Err(NibbleBufError::InvalidSizedEstimate.into());
+                }
+            }
+            SerDesSize::SizedAligned(len, padding) => {
+                // Sized aligned types might write up to padding more elements
+                let written = self.wgr.nibbles_pos() - _pos_before;
+                if written < len || written > len + padding {
+                    return Err(NibbleBufError::InvalidSizedAlignedEstimate.into());
+                }
+            }
+            SerDesSize::Unsized => {}
+            SerDesSize::UnsizedBound(max_len) => {
+                if self.wgr.nibbles_pos() - _pos_before > max_len {
+                    return Err(NibbleBufError::InvalidUnsizedBoundEstimate.into());
+                }
+            }
         }
+
         self.finish_putting_element()?;
         Ok(())
     }
@@ -482,10 +502,8 @@ impl<'i> SerializeVlu4 for &'i [u8] {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        // no way to return correct len, because it depends on buffer state which is unknown here
-        // TODO: is there a way to get rid of panic! here with the new SerDesSize type?
-        panic!("<&[u8] as SerializeVlu4>::len_nibbles() is incorrect to call");
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::SizedAligned(self.len() * 2, 1)
     }
 }
 
@@ -528,7 +546,7 @@ where
         }
     }
 
-    fn len_nibbles(&self) -> usize {
+    fn len_nibbles(&self) -> SerDesSize {
         match self {
             Ok(t) => t.len_nibbles() + 1,
             Err(e) => e.len_nibbles(),
@@ -543,8 +561,8 @@ impl SerializeVlu4 for () {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        0
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::Sized(0)
     }
 }
 

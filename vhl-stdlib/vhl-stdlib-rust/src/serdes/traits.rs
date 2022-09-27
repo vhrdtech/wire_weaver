@@ -1,14 +1,14 @@
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::buf::{Buf, BufMut};
-use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
+use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut, SerDesSize};
 
 pub trait SerializeBytes {
     type Error;
 
-    fn ser_bytes(&self, wgr: &mut BufMut) -> Result<(), Self::Error>;
+    fn ser_bytes(&self, wr: &mut BufMut) -> Result<(), Self::Error>;
 
     /// Size of the object serialized in bytes
-    fn len_bytes(&self) -> usize;
+    fn len_bytes(&self) -> SerDesSize;
 }
 
 /// Deserialize trait implemented by all types that support deserializing from buffer of bytes.
@@ -18,16 +18,16 @@ pub trait SerializeBytes {
 pub trait DeserializeBytes<'i>: Sized {
     type Error;
 
-    fn des_bytes<'di>(rdr: &'di mut Buf<'i>) -> Result<Self, Self::Error>;
+    fn des_bytes<'di>(rd: &'di mut Buf<'i>) -> Result<Self, Self::Error>;
 }
 
 pub trait SerializeVlu4 {
     type Error;
 
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error>;
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error>;
 
     /// Size of the object serialized in nibbles
-    fn len_nibbles(&self) -> usize;
+    fn len_nibbles(&self) -> SerDesSize;
 }
 
 /// Deserialize trait implemented by all types that support deserializing from buffer of nibbles.
@@ -37,14 +37,14 @@ pub trait SerializeVlu4 {
 pub trait DeserializeVlu4<'i>: Sized {
     type Error;
 
-    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error>;
+    fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error>;
 }
 
 /// Serialize trait that is implemented by all types that support serializing into bit buffers.
 pub trait SerializeBits {
     type Error;
 
-    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error>;
+    fn ser_bits(&self, bwr: &mut BitBufMut) -> Result<(), Self::Error>;
 }
 
 /// Deserialize trait implemented by all types that support deserializing from buffer of bits.
@@ -54,7 +54,7 @@ pub trait SerializeBits {
 pub trait DeserializeBits<'i>: Sized {
     type Error;
 
-    fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error>;
+    fn des_bits<'di>(bwr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error>;
 }
 
 /// Deserialize trait implemented by all types that can be deserialized from 2 places at once.
@@ -65,8 +65,8 @@ pub trait DeserializeCoupledBitsVlu4<'i>: Sized {
     type Error;
 
     fn des_coupled_bits_vlu4<'di>(
-        bits_rdr: &'di mut BitBuf<'i>,
-        vlu4_rdr: &'di mut NibbleBuf<'i>,
+        brd: &'di mut BitBuf<'i>,
+        nrd: &'di mut NibbleBuf<'i>,
     ) -> Result<Self, Self::Error>;
 }
 

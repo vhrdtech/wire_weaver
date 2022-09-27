@@ -3,7 +3,7 @@ use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 
@@ -111,15 +111,18 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        match self {
+    fn len_nibbles(&self) -> SerDesSize {
+        let nibbles = match self {
             SerialUri::OnePart4(_) => 1,
             SerialUri::TwoPart44(_, _) => 2,
             SerialUri::ThreePart444(_, _, _) => 3,
             SerialUri::ThreePart633(_, _, _) => 3,
             SerialUri::ThreePart664(_, _, _) => 4,
-            SerialUri::MultiPart(arr) => arr.len_nibbles(),
-        }
+            SerialUri::MultiPart(arr) => {
+                return arr.len_nibbles();
+            },
+        };
+        SerDesSize::Sized(nibbles)
     }
 }
 

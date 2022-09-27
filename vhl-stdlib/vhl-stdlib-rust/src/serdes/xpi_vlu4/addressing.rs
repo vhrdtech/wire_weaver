@@ -6,7 +6,7 @@ use crate::serdes::vlu4::TraitSet;
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
 use crate::serdes::xpi_vlu4::multi_uri::MultiUriFlatIter;
 use crate::serdes::xpi_vlu4::{SerialMultiUri, SerialUri};
-use crate::serdes::DeserializeBits;
+use crate::serdes::{DeserializeBits, SerDesSize};
 use crate::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter, Result as FmtResult};
 use crate::xpi::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
@@ -44,8 +44,8 @@ impl SerializeVlu4 for RequestId {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
-        2
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::SizedAligned(2, 1)
     }
 }
 
@@ -114,8 +114,8 @@ impl<'i> SerializeVlu4 for NodeSet<'i> {
         }
     }
 
-    fn len_nibbles(&self) -> usize {
-        0
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::Sized(0)
     }
 }
 
@@ -174,7 +174,7 @@ impl<'i> SerializeVlu4 for XpiResourceSet<'i> {
         }
     }
 
-    fn len_nibbles(&self) -> usize {
+    fn len_nibbles(&self) -> SerDesSize {
         match self {
             XpiResourceSet::Uri(uri) => uri.len_nibbles(),
             XpiResourceSet::MultiUri(multi_uri) => multi_uri.len_nibbles(),

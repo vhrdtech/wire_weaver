@@ -30,7 +30,14 @@ pub enum Error {
     MalformedVlu4U32,
     // #[error("Unaligned access for slice")]
     UnalignedAccess,
-    InvalidByteSizeEstimate,
+
+    #[cfg(feature = "buf-strict")]
+    InvalidSizedEstimate,
+    #[cfg(feature = "buf-strict")]
+    InvalidSizedAlignedEstimate,
+    #[cfg(feature = "buf-strict")]
+    InvalidUnsizedBoundEstimate,
+
     Vlu4Vec,
 }
 

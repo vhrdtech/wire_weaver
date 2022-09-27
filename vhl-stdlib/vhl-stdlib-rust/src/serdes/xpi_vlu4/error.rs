@@ -2,7 +2,7 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
-use crate::serdes::{bit_buf, nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::{bit_buf, nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FailReason {
@@ -130,7 +130,7 @@ impl SerializeVlu4 for FailReason {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
+    fn len_nibbles(&self) -> SerDesSize {
         Vlu32(self.to_u32()).len_nibbles()
     }
 }
@@ -169,6 +169,10 @@ pub enum XpiVlu4Error {
     // #[error("Feature is not yet implemented")]
     Unimplemented,
     NodeId,
+
+    // Errors that might appear when converting Owned (uses wider types) to Vlu4.
+    PriorityTruncate,
+    NodeIdTruncate,
 }
 
 impl From<nibble_buf::Error> for XpiVlu4Error {

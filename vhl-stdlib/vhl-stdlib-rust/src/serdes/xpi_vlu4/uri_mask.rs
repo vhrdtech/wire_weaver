@@ -2,7 +2,7 @@ use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::vlu32::Vlu32;
 use crate::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::serdes::xpi_vlu4::error::XpiVlu4Error;
-use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
@@ -110,11 +110,11 @@ impl<'i> SerializeVlu4 for UriMask<'i> {
         Ok(())
     }
 
-    fn len_nibbles(&self) -> usize {
+    fn len_nibbles(&self) -> SerDesSize {
         match self {
-            UriMask::ByBitfield8(_) => 3,
-            UriMask::ByBitfield16(_) => 5,
-            UriMask::ByBitfield32(_) => 9,
+            UriMask::ByBitfield8(_) => SerDesSize::Sized(3),
+            UriMask::ByBitfield16(_) => SerDesSize::Sized(5),
+            UriMask::ByBitfield32(_) => SerDesSize::Sized(9),
             UriMask::ByIndices(arr) => arr.len_nibbles(),
             UriMask::All(max) => max.len_nibbles(),
         }

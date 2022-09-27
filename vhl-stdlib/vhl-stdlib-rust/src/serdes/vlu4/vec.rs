@@ -244,10 +244,10 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         }
     }
 
-    pub fn put<E>(&mut self, element: T) -> Result<(), E>
-    where
-        T: SerializeVlu4<Error = E>,
-        E: From<NibbleBufError>,
+    pub fn put<'a, E>(&mut self, element: T) -> Result<(), E>
+        where
+            T: SerializeVlu4<Error=E> + 'a,
+            E: From<NibbleBufError>,
     {
         self.start_putting_element()?;
         let _pos_before = self.wgr.nibbles_pos();
@@ -276,6 +276,54 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             }
         }
 
+        self.finish_putting_element()?;
+        Ok(())
+    }
+
+    /// Get a mutable, aligned u8 slice of requested length inside a closure.
+    /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
+    /// Less than requested amount of bytes can actually be used.
+    /// TODO:
+    /// Closure must return actual used amount of bytes used <= requested. If less than request amount is
+    /// used, some space initially used to represent the size might be replaced with 0's that are
+    /// not carrying any information - but this is a trade-off of being able to construct variable
+    /// arrays in place without copies or allocations.
+    ///
+    /// Example:
+    /// ```
+    /// use vhl_stdlib::serdes::NibbleBufMut;
+    /// use vhl_stdlib::serdes::nibble_buf::Error as NibbleBufError;
+    /// use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecBuilder};
+    ///
+    /// #[derive(Debug)]
+    /// enum MyError {
+    ///     NibbleBufError(NibbleBufError),
+    /// }
+    /// impl From<NibbleBufError> for MyError {
+    /// fn from(e: NibbleBufError) -> Self {
+    ///         MyError::NibbleBufError(e)
+    ///     }
+    /// }
+    ///
+    ///  let mut args_set = [0u8; 128];
+    ///  let args_set: Vlu4Vec<&[u8]> = {
+    ///      let mut arb = Vlu4VecBuilder::new(&mut args_set);
+    ///      arb.put_byte_aligned_with::<MyError, _>(8, |slice| {
+    ///          // write 8 bytes into slice with the help of BufMut, NibbleBufMut, BitBufMut or others.
+    ///          Ok(())
+    ///      }).unwrap();
+    ///      arb.finish_as_vec().unwrap()
+    ///  };
+    /// ```
+    pub fn put_byte_aligned_with<SE, F>(&mut self, len_bytes: usize, f: F) -> Result<(), SE>
+        where
+            F: Fn(&mut [u8]) -> Result<(), SE>,
+            SE: From<NibbleBufError>,
+    {
+        self.start_putting_element()?;
+        self.put_len_bytes_and_align(len_bytes)?;
+        f(&mut self.wgr.buf[self.wgr.idx..self.wgr.idx + len_bytes])?;
+        self.wgr.idx += len_bytes;
         self.finish_putting_element()?;
         Ok(())
     }
@@ -359,54 +407,6 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
 /// that there are more than 15 slices.
 /// 4 bit slice count ~ (vlu4 slice len ~ padding? ~ u8 slice data)+ ~ (self)*
 impl<'i> Vlu4VecBuilder<'i, &'i [u8]> {
-    /// Get a mutable, aligned u8 slice of requested length inside a closure.
-    /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
-    /// Less than requested amount of bytes can actually be used.
-    /// TODO:
-    /// Closure must return actual used amount of bytes used <= requested. If less than request amount is
-    /// used, some space initially used to represent the size might be replaced with 0's that are
-    /// not carrying any information - but this is a trade-off of being able to construct variable
-    /// arrays in place without copies or allocations.
-    ///
-    /// Example:
-    /// ```
-    /// use vhl_stdlib::serdes::NibbleBufMut;
-    /// use vhl_stdlib::serdes::nibble_buf::Error as NibbleBufError;
-    /// use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecBuilder};
-    ///
-    /// #[derive(Debug)]
-    /// enum MyError {
-    ///     NibbleBufError(NibbleBufError),
-    /// }
-    /// impl From<NibbleBufError> for MyError {
-    /// fn from(e: NibbleBufError) -> Self {
-    ///         MyError::NibbleBufError(e)
-    ///     }
-    /// }
-    ///
-    ///  let mut args_set = [0u8; 128];
-    ///  let args_set: Vlu4Vec<&[u8]> = {
-    ///      let mut arb = Vlu4VecBuilder::new(&mut args_set);
-    ///      arb.put_aligned_with::<MyError, _>(8, |slice| {
-    ///          // write 8 bytes into slice with the help of BufMut, NibbleBufMut, BitBufMut or others.
-    ///          Ok(())
-    ///      }).unwrap();
-    ///      arb.finish_as_vec().unwrap()
-    ///  };
-    /// ```
-    pub fn put_aligned_with<SE, F>(&mut self, len_bytes: usize, f: F) -> Result<(), SE>
-    where
-        F: Fn(&mut [u8]) -> Result<(), SE>,
-        SE: From<NibbleBufError>,
-    {
-        self.start_putting_element()?;
-        self.put_len_bytes_and_align(len_bytes)?;
-        f(&mut self.wgr.buf[self.wgr.idx..self.wgr.idx + len_bytes])?;
-        self.wgr.idx += len_bytes;
-        self.finish_putting_element()?;
-        Ok(())
-    }
-
     /// Put u8 slice into Vlu4Vec. Padding is added if necessary.
     pub fn put_aligned(&mut self, slice: &[u8]) -> Result<(), NibbleBufError> {
         self.start_putting_element()?;
@@ -488,7 +488,7 @@ impl<'i> DeserializeVlu4<'i> for &'i [u8] {
     }
 }
 
-impl<'i> SerializeVlu4 for &'i [u8] {
+impl SerializeVlu4 for &[u8] {
     type Error = NibbleBufError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -503,7 +503,9 @@ impl<'i> SerializeVlu4 for &'i [u8] {
     }
 
     fn len_nibbles(&self) -> SerDesSize {
-        SerDesSize::SizedAligned(self.len() * 2, 1)
+        // length is written in bytes to conserve space, but SerDesSize returned must be in nibbles
+        let len_len = Vlu32(self.len() as u32).len_nibbles_known_to_be_sized();
+        SerDesSize::SizedAligned(len_len + self.len() * 2, 1)
     }
 }
 
@@ -597,9 +599,9 @@ mod test {
     fn vec_of_slices_builder() {
         let mut buf = [0u8; 64];
         let mut vb = Vlu4VecBuilder::<&[u8]>::new(&mut buf);
-        vb.put_aligned(&[1, 2, 3]).unwrap();
-        vb.put_aligned(&[4, 5]).unwrap();
-        vb.put_aligned(&[]).unwrap();
+        vb.put(&[1, 2, 3]).unwrap();
+        vb.put(&[4, 5]).unwrap();
+        vb.put(&[]).unwrap();
 
         // stride len will be updated in finish_..
         assert_eq!(&vb.wgr.buf[0..8], hex!("03 01 02 03 20 04 05 00"));
@@ -769,9 +771,9 @@ mod test {
     fn slice_array_builder_len_3() {
         let mut buf = [0u8; 256];
         let mut vb = Vlu4VecBuilder::<&[u8]>::new(&mut buf);
-        vb.put_aligned(&[1, 2, 3]).unwrap();
-        vb.put_aligned(&[4, 5, 6]).unwrap();
-        vb.put_aligned(&[7, 8, 9]).unwrap();
+        vb.put(&[1, 2, 3]).unwrap();
+        vb.put(&[4, 5, 6]).unwrap();
+        vb.put(&[7, 8, 9]).unwrap();
         assert_eq!(vb.slices_written(), 3);
         let wgr = vb.finish().unwrap();
         assert_eq!(wgr.nibbles_pos(), 24);
@@ -788,9 +790,9 @@ mod test {
 
         let mut wgr = wgr.put_vec::<&[u8]>();
         assert_eq!(wgr.wgr.nibbles_pos(), 3);
-        wgr.put_aligned(&[1, 2, 3]).unwrap();
-        wgr.put_aligned(&[4, 5, 6]).unwrap();
-        wgr.put_aligned(&[7, 8, 9]).unwrap();
+        wgr.put(&[1, 2, 3]).unwrap();
+        wgr.put(&[4, 5, 6]).unwrap();
+        wgr.put(&[7, 8, 9]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
         assert_eq!(wgr.wgr.nibbles_pos(), 28);
 
@@ -858,9 +860,9 @@ mod test {
 
         let mut wgr = wgr.put_vec::<&[u8]>();
         assert_eq!(wgr.wgr.nibbles_pos(), 2);
-        wgr.put_aligned(&[1, 2, 3]).unwrap();
-        wgr.put_aligned(&[4, 5, 6]).unwrap();
-        wgr.put_aligned(&[7, 8, 9]).unwrap();
+        wgr.put(&[1, 2, 3]).unwrap();
+        wgr.put(&[4, 5, 6]).unwrap();
+        wgr.put(&[7, 8, 9]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
         assert_eq!(
             &wgr.wgr.buf[0..13],
@@ -934,7 +936,7 @@ mod test {
         let args_set = {
             let wgr = NibbleBufMut::new_all(&mut args_set);
             let mut wgr = wgr.put_vec::<&[u8]>();
-            wgr.put_aligned_with::<MyError, _>(4, |slice| {
+            wgr.put_byte_aligned_with::<MyError, _>(4, |slice| {
                 let mut wgr = BufMut::new(slice);
                 wgr.put_u16_le(0x1234)?;
                 wgr.put_u16_le(0x5678)?;

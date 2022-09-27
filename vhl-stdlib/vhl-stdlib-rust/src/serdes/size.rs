@@ -1,4 +1,4 @@
-use std::ops::Add;
+use core::ops::Add;
 
 /// Size of a type serialized into buffer of any kind,
 /// in buffer elements (bits / nibbles / bytes / etc).

@@ -219,7 +219,7 @@ mod test {
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<&[u8]>();
 
-                vb.put_aligned(&[0xaa, 0xbb])?;
+                vb.put(&&[0xaa, 0xbb][..])?;
 
                 let nwr = vb.finish()?;
                 Ok((XpiRequestDiscriminant::Call, nwr))

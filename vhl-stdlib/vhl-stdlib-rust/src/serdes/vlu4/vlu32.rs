@@ -5,6 +5,24 @@ use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vlu32(pub u32);
 
+impl Vlu32 {
+    pub fn len_nibbles_known_to_be_sized(&self) -> usize {
+        match self.0 {
+            0..=7 => 1,
+            8..=63 => 2,
+            64..=511 => 3,
+            512..=4095 => 4,
+            4096..=32767 => 5,
+            32768..=262143 => 6,
+            262144..=2097151 => 7,
+            2097152..=16777215 => 8,
+            16777216..=134217727 => 9,
+            134217728..=1073741823 => 10,
+            1073741824..=4294967295 => 11,
+        }
+    }
+}
+
 impl SerializeVlu4 for Vlu32 {
     type Error = NibbleBufError;
 
@@ -35,20 +53,9 @@ impl SerializeVlu4 for Vlu32 {
         Ok(())
     }
 
+
     fn len_nibbles(&self) -> SerDesSize {
-        let nibbles = match self.0 {
-            0..=7 => 1,
-            8..=63 => 2,
-            64..=511 => 3,
-            512..=4095 => 4,
-            4096..=32767 => 5,
-            32768..=262143 => 6,
-            262144..=2097151 => 7,
-            2097152..=16777215 => 8,
-            16777216..=134217727 => 9,
-            134217728..=1073741823 => 10,
-            1073741824..=4294967295 => 11,
-        };
+        let nibbles = self.len_nibbles_known_to_be_sized();
         SerDesSize::Sized(nibbles)
     }
 }

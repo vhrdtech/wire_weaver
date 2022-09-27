@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 /// Size of a type serialized into buffer of any kind,
 /// in buffer elements (bits / nibbles / bytes / etc).
 pub enum SerDesSize {
@@ -25,4 +27,17 @@ pub enum SerDesSize {
 
     /// Same as Unsized, but maximum size is known in advance, for example for arrays with max bound.
     UnsizedBound(usize),
+}
+
+impl Add<usize> for SerDesSize {
+    type Output = SerDesSize;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        match self {
+            SerDesSize::Sized(len) => SerDesSize::Sized(len + rhs),
+            SerDesSize::SizedAligned(len, padding) => SerDesSize::SizedAligned(len + rhs, padding),
+            SerDesSize::Unsized => SerDesSize::Unsized,
+            SerDesSize::UnsizedBound(max_len) => SerDesSize::UnsizedBound(max_len + rhs),
+        }
+    }
 }

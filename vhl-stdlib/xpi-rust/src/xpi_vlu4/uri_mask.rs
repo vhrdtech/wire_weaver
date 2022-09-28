@@ -230,7 +230,7 @@ impl<'i> Display for UriMask<'i> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::serdes::NibbleBuf;
+    use vhl_stdlib_nostd::serdes::NibbleBuf;
 
     #[test]
     fn test_mask_u8() {

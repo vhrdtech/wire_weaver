@@ -4,7 +4,7 @@ use vhl_stdlib_nostd::serdes::{bit_buf, NibbleBufMut, SerDesSize};
 use vhl_stdlib_nostd::serdes::traits::{SerializeBits, SerializeVlu4};
 use crate::broadcast::XpiGenericBroadcastKind;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
-use crate::xpi_vlu4::error::XpiVlu4Error;
+use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
 
 use super::{
     NodeId,

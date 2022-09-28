@@ -194,10 +194,10 @@ impl<'i> Display for SerialMultiUri<'i> {
 mod test {
     extern crate std;
 
-    use crate::serdes::vlu4::vlu32::Vlu32;
-    use crate::serdes::xpi_vlu4::multi_uri::SerialMultiUri;
-    use crate::serdes::xpi_vlu4::UriMask;
-    use crate::serdes::NibbleBuf;
+    use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
+    use crate::xpi_vlu4::multi_uri::SerialMultiUri;
+    use crate::xpi_vlu4::UriMask;
+    use vhl_stdlib_nostd::serdes::NibbleBuf;
     use std::format;
 
     #[test]

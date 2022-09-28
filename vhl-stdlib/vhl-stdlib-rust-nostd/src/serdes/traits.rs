@@ -85,3 +85,8 @@ pub trait DeserializeCoupledBitsVlu4<'i>: Sized {
 //         T::des_coupled_vlu4_bits(*self.0, *self.1)
 //     }
 // }
+
+pub trait SerializableError: Sized {
+    fn error_code(&self) -> u32;
+    fn from_error_code(code: u32) -> Option<Self>;
+}

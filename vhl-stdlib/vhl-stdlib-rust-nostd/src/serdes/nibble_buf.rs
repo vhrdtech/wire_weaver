@@ -39,6 +39,7 @@ pub enum Error {
     InvalidUnsizedBoundEstimate,
 
     Vlu4Vec,
+    InvalidErrorCode,
 }
 
 impl<'i> NibbleBuf<'i> {

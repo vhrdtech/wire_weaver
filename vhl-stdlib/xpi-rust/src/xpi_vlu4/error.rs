@@ -1,6 +1,6 @@
 // use thiserror::Error;
 use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
-use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
+use vhl_stdlib_nostd::serdes::traits::{SerializableError, SerializeVlu4};
 use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib_nostd::serdes::{bit_buf, nibble_buf, NibbleBufMut, SerDesSize, buf};
 
@@ -43,32 +43,8 @@ pub enum FailReason {
     NoArgumentsProvided,
 }
 
-impl FailReason {
-    pub fn from_u32(value: u32) -> Self {
-        use FailReason::*;
-        match value {
-            1 => Timeout,
-            2 => DeviceRebooted,
-            3 => PriorityLoss,
-            4 => ShaperReject,
-            5 => ResourceIsAlreadyBorrowed,
-            6 => AlreadyUnsubscribed,
-            7 => StreamIsAlreadyOpen,
-            8 => StreamIsAlreadyClosed,
-            9 => OperationNotSupported,
-            10 => Internal,
-            11 => BadUri,
-            12 => NotAMethod,
-            13 => InternalBufError,
-            14 => InternalNibbleBufError,
-            15 => InternalBitBufError,
-            16 => ReplyBuilderError,
-            17 => NoArgumentsProvided,
-            _ => Internal,
-        }
-    }
-
-    pub fn to_u32(&self) -> u32 {
+impl SerializableError for FailReason {
+    fn error_code(&self) -> u32 {
         use FailReason::*;
         match self {
             Timeout => 1, // 0 is no error
@@ -90,6 +66,31 @@ impl FailReason {
             NoArgumentsProvided => 17,
         }
     }
+
+    fn from_error_code(value: u32) -> Option<Self> {
+        use FailReason::*;
+        let reason = match value {
+            1 => Timeout,
+            2 => DeviceRebooted,
+            3 => PriorityLoss,
+            4 => ShaperReject,
+            5 => ResourceIsAlreadyBorrowed,
+            6 => AlreadyUnsubscribed,
+            7 => StreamIsAlreadyOpen,
+            8 => StreamIsAlreadyClosed,
+            9 => OperationNotSupported,
+            10 => Internal,
+            11 => BadUri,
+            12 => NotAMethod,
+            13 => InternalBufError,
+            14 => InternalNibbleBufError,
+            15 => InternalBitBufError,
+            16 => ReplyBuilderError,
+            17 => NoArgumentsProvided,
+            _ => { return None; },
+        };
+        Some(reason)
+    }
 }
 
 impl From<buf::Error> for FailReason {
@@ -110,30 +111,24 @@ impl From<bit_buf::Error> for FailReason {
     }
 }
 
-impl From<u32> for FailReason {
-    fn from(e: u32) -> Self {
-        FailReason::from_u32(e)
-    }
-}
-
 // impl Into<Vlu32> for FailReason {
 //     fn into(self) -> Vlu32 {
 //         Vlu32(self.to_u32())
 //     }
 // }
 
-impl SerializeVlu4 for FailReason {
-    type Error = NibbleBufError;
-
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        wgr.put_vlu4_u32(self.to_u32())?;
-        Ok(())
-    }
-
-    fn len_nibbles(&self) -> SerDesSize {
-        Vlu32(self.to_u32()).len_nibbles()
-    }
-}
+// impl SerializeVlu4 for FailReason {
+//     type Error = NibbleBufError;
+//
+//     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+//         wgr.put_vlu4_u32(self.to_u32())?;
+//         Ok(())
+//     }
+//
+//     fn len_nibbles(&self) -> SerDesSize {
+//         Vlu32(self.to_u32()).len_nibbles()
+//     }
+// }
 //
 // impl<'i> DeserializeVlu4<'i> for Result<(), FailReason> {
 //     type Error = nibble_buf::Error;

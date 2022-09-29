@@ -23,11 +23,24 @@ different underlying interface, just treating serialized data as one continuous 
 to bit 23, which is reserved = 0 in its specification. Here 1 is used, which will cause vlu4 frames to be discarded by
 uavcan stack.
 
-## Request
+## Event
 
-| 31:29 (3b) | 28:26 (3b) | 25:24 (2b)                | 23        | 22:16 (7b) | 15:7 (9b)   | 6:4 (3b)          | 3:0 (4b)     |
-|------------|------------|---------------------------|-----------|------------|-------------|-------------------|--------------|
-| n/a        | priority   | event kind = request (11) | is_bit_wf | source     | destination | resource set kind | request kind |
+| B0           | B1           | B2          | B3         | n8        | n9..      | ..            | ..    | ..       | last byte |
+|--------------|--------------|-------------|------------|-----------|-----------|---------------|-------|----------|-----------|
+| header 31:24 | header 23:16 | header 15:8 | header 7:0 | xwfd_info | node_set? | resource_set? | args? | padding? | req_id    |
+
+### Event header (request / reply) (32b)
+
+| 31:29 (3b) | 28:26 (3b) | 25:24 (2b)           | 23                | 22:16 (7b) | 15:7 (9b)   | 6:4 (3b)          | 3:0 (4b)     |
+|------------|------------|----------------------|-------------------|------------|-------------|-------------------|--------------|
+| n/a        | priority   | event kind = 11 / 10 | is_xwfd_or_bigger | source     | destination | resource set kind | req/rep kind |
+
+### Event kind (2b):
+
+* 00: Broadcast - to be replaced with reserved?
+* 01: Forward
+* 10: Reply
+* 11: Request
 
 ## Compatibility between wire formats
 
@@ -38,10 +51,14 @@ For `xwfd` additional nibble is reserved. For `xwfs` and `xwfp` additional byte 
 
 Decision process:
 
-1. Read MSB bit of the second byte (bit 23 of the first word) = is_bit_wf
-   * if is_bit_wf == 0 => read additional in byte 5, bits 7:4 = format_info
-   * if is_bit_wf == 1 => reserved value for potential bit level wire format, discard.
-2. Check format_info to determine whether format is xwfd:
-   * if format_info == 7 => format is xwfd
-   * else => check B5:3:0 and B6:7:0 for additional info
-3. TBD 
+1. Read MSB bit of the second byte (bit 23 of the first word) = is_xwfd_or_bigger
+   * if is_xwfd_or_bigger == 1 => read additional nibble in byte 5, bits 7:4 = xwfd_info
+   * if is_xwfd_or_bigger == 0 => reserved value for potential bit level wire format, discard.
+2. Check xwfd_info to determine whether format is xwfd or not
+3. TBD
+
+### xwfd_info (4b):
+
+* 1000: Other format
+* 0000: xwfd
+* _: reserved

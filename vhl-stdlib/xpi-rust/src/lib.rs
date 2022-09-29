@@ -9,8 +9,9 @@ pub mod event;
 pub mod request;
 pub mod reply;
 pub mod broadcast;
-pub mod addressing;
+pub mod node_set;
 pub mod priority;
+pub mod resource_set;
 
 pub mod error;
 

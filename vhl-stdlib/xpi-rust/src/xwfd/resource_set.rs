@@ -4,9 +4,7 @@ use vhl_stdlib_nostd::{
         BitBuf,
         BitBufMut,
         DeserializeCoupledBitsVlu4,
-        nibble_buf,
         NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4,
-        vlu4::TraitSet,
     },
 };
 use super::{
@@ -15,7 +13,7 @@ use super::{
     SerialUri,
 };
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use crate::addressing::XpiGenericResourceSet;
+use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd::error::XwfdError;
 
 /// Vlu4 implementation of XpiGenericResourceSet.

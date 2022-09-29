@@ -1,8 +1,9 @@
 use vhl_stdlib_nostd::serdes::BitBufMut;
-use crate::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
+use crate::node_set::XpiGenericNodeSet;
 use crate::owned::error::ConvertError;
+use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd;
-use super::{SerialUri, SerialMultiUri};
+use super::{SerialMultiUri, SerialUri};
 
 #[derive(Copy, Clone)]
 pub struct RequestId(pub u32);

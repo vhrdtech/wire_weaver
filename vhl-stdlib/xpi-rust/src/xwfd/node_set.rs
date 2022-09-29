@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, BitBufMut, DeserializeCoupledBitsVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4};
 use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
-use crate::addressing::XpiGenericNodeSet;
+use crate::node_set::XpiGenericNodeSet;
 use crate::xwfd::{NodeId, XwfdError};
 
 pub type NodeSet<'i> = XpiGenericNodeSet<NodeId, TraitSet<'i>>;

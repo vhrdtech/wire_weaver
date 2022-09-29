@@ -1,4 +1,4 @@
-use crate::addressing::XpiGenericResourceSet;
+use crate::resource_set::XpiGenericResourceSet;
 
 /// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
 /// One or several Responses are sent back for each kind of request.

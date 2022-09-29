@@ -4,6 +4,7 @@ use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
 use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
+use crate::xwfd::compat::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     NodeId, Priority,
@@ -58,7 +59,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for ReplyKind<'i> {
     }
 }
 
-pub struct XpiReplyVlu4Builder<'i> {
+pub struct ReplyBuilder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
@@ -67,7 +68,7 @@ pub struct XpiReplyVlu4Builder<'i> {
     priority: Priority,
 }
 
-impl<'i> XpiReplyVlu4Builder<'i> {
+impl<'i> ReplyBuilder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
@@ -77,9 +78,10 @@ impl<'i> XpiReplyVlu4Builder<'i> {
         priority: Priority,
     ) -> Result<Self, XwfdError> {
         nwr.skip(8)?;
+        nwr.put(&XwfdInfo::FormatIsXwfd)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
-        Ok(XpiReplyVlu4Builder {
+        Ok(ReplyBuilder {
             nwr,
             source,
             destination,
@@ -101,7 +103,7 @@ impl<'i> XpiReplyVlu4Builder<'i> {
                 bwr.put(&self.priority)?; // bits 28:26
                 bwr.put_bit(true)?; // bit 25, is_unicast
                 bwr.put_bit(false)?; // bit 24, is_request
-                bwr.put_bit(true)?; // bit 23, reserved
+                bwr.put_bit(true)?; // bit 23, is_xwfd_or_bigger
                 bwr.put(&self.source)?; // bits 22:16
                 bwr.put(&self.destination)?; // bits 15:7 - destination node or node set
                 bwr.put(&self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
@@ -128,7 +130,7 @@ mod test {
     #[test]
     fn call_reply_ser() {
         let mut buf = [0u8; 32];
-        let reply_builder = XpiReplyVlu4Builder::new(
+        let reply_builder = ReplyBuilder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
             NodeSet::Unicast(NodeId::new(33).unwrap()),

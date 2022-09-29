@@ -15,6 +15,7 @@ pub enum XwfdError {
 
     Unimplemented,
     NodeIdAbove127,
+    WrongFormat
 
 }
 

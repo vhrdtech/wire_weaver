@@ -6,6 +6,7 @@ use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
+use crate::xwfd::compat::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     Priority, Rate, RequestId, ResourceSet,
@@ -53,7 +54,7 @@ impl<'i> SerializeBits for XpiRequestDiscriminant {
     }
 }
 
-pub struct XpiRequestVlu4Builder<'i> {
+pub struct RequestBuilder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
@@ -62,7 +63,7 @@ pub struct XpiRequestVlu4Builder<'i> {
     priority: Priority,
 }
 
-impl<'i> XpiRequestVlu4Builder<'i> {
+impl<'i> RequestBuilder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
@@ -72,9 +73,10 @@ impl<'i> XpiRequestVlu4Builder<'i> {
         priority: Priority,
     ) -> Result<Self, XwfdError> {
         nwr.skip(8)?;
+        nwr.put(&XwfdInfo::FormatIsXwfd)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
-        Ok(XpiRequestVlu4Builder {
+        Ok(RequestBuilder {
             nwr,
             source,
             destination,
@@ -96,7 +98,7 @@ impl<'i> XpiRequestVlu4Builder<'i> {
                 bwr.put(&self.priority)?; // bits 28:26
                 bwr.put_bit(true)?; // bit 25, is_unicast
                 bwr.put_bit(true)?; // bit 24, is_request
-                bwr.put_bit(true)?; // bit 23, reserved
+                bwr.put_bit(true)?; // bit 23, is_xwfd_or_bigger
                 bwr.put(&self.source)?; // bits 22:16
                 bwr.put(&self.destination)?; // bits 15:7 - destination node or node set
                 bwr.put(&self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
@@ -154,7 +156,7 @@ mod test {
     pub use crate::xwfd::{
         Event, EventKind,
         NodeId, Priority, RequestId, ResourceSet, SerialUri,
-        XpiRequestKindVlu4, XpiRequestVlu4Builder,
+        XpiRequestKindVlu4, RequestBuilder,
     };
     pub use crate::xwfd::node_set::NodeSet;
 
@@ -208,7 +210,7 @@ mod test {
     #[test]
     fn call_request_ser() {
         let mut buf = [0u8; 32];
-        let request_builder = XpiRequestVlu4Builder::new(
+        let request_builder = RequestBuilder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),

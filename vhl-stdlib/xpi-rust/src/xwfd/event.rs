@@ -1,6 +1,7 @@
 use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
 use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
+use crate::xwfd::compat::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     broadcast::BroadcastKind, error::XwfdError, NodeId,
@@ -33,6 +34,11 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         // get first 32 bits as BitBuf
         let mut bits_rdr = rdr.get_bit_buf(8)?;
+        let format_info: XwfdInfo = rdr.des_vlu4()?;
+        if format_info != XwfdInfo::FormatIsXwfd {
+            return Err(XwfdError::WrongFormat);
+        }
+
         let _absent_31_29 = bits_rdr.get_up_to_8(3);
 
         // bits 28:26

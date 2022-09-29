@@ -1,5 +1,5 @@
 use vhl_stdlib_nostd::discrete::U2;
-use crate::owned::error::ConvertError;
+use crate::owned::convert_error::ConvertError;
 use crate::priority::XpiGenericPriority;
 use crate::xwfd;
 

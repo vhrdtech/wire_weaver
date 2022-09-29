@@ -1,8 +1,9 @@
 use crate::reply::XpiGenericReply;
 use crate::error::XpiError;
-use super::{SerialUri, SerialMultiUri, ResourceInfo, RequestId};
+use crate::owned::request_id::RequestId;
+use super::{ResourceInfo, SerialMultiUri, SerialUri};
 
-pub type XpiReply = XpiGenericReply<
+pub type Reply = XpiGenericReply<
     SerialUri,
     SerialMultiUri,
     Vec<Vec<u8>>,

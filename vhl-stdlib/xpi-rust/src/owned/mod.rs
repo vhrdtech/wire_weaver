@@ -6,6 +6,7 @@ pub mod addressing;
 pub mod uri;
 pub mod priority;
 pub mod info;
+pub mod error;
 
 pub use event::{XpiEventOwned, XpiEventKind};
 pub use request::{XpiRequest, XpiRequestKind};

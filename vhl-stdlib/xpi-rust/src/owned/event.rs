@@ -2,9 +2,15 @@ use std::fmt::{Debug, Formatter};
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::{bit_buf, NibbleBufMut, SerDesSize};
 use vhl_stdlib_nostd::serdes::traits::{SerializeBits, SerializeVlu4};
+use crate::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
 use crate::broadcast::XpiGenericBroadcastKind;
+use crate::error::XpiError;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
-use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
+use crate::owned::error::ConvertError;
+use crate::owned::{SerialMultiUri, SerialUri};
+use crate::xwfd;
+use crate::xwfd::compat::XwfdInfo;
+use crate::xwfd::error::{XwfdError};
 
 use super::{
     NodeId,
@@ -40,31 +46,31 @@ impl XpiEventOwned {
     }
 }
 
-impl SerializeVlu4 for XpiEventOwned {
-    type Error = XpiVlu4Error;
+impl XpiEventOwned {
+    pub fn ser_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+        nwr.as_bit_buf::<_, ConvertError>(|bwr| {
+            bwr.put_up_to_8(3, 0b000)?; // unused 31:29
+            bwr.put(&self.priority.try_into()?)?; // bits 28:26
+            bwr.put(&self.kind)?; // bits 25:24 - event kind
+            bwr.put_bit(false)?; // bit 23 - is_bit_wf
+            bwr.put(&self.source.try_into()?)?; // bits 22:16
+            self.destination.ser_header_xwfd(bwr)?; // bits 15:7 - destination node or node set
+            match &self.kind {
+                XpiGenericEventKind::Request(req) => {
+                    // bits 6:4 - discriminant of ResourceSet+Uri
 
-    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        // nwr.as_bit_buf::<_, FailReason>(|bwr| {
-        //     bwr.put_up_to_8(3, 0b000)?; // unused 31:29
-        //     bwr.put(&self.priority)?; // bits 28:26
-        //     bwr.put(&self.kind)?; // bits 25:24 - event kind
-        //     bwr.put_bit(true)?; // bit 23 - is_vlu4
-        //     bwr.put(&self.source)?; // bits 22:16
-        //     bwr.put(&self.destination)?; // bits 15:7 - destination node or node set
-        //     match &self.kind {
-        //         XpiGenericEventKind::Request(req) => {
-        //             bwr.put(&req.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
-        //             bwr.put(&req.kind)?; // bits 3:0 - request kind
-        //         }
-        //         XpiGenericEventKind::Reply(rep) => {
-        //             bwr.put(&rep.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
-        //             bwr.put(&rep.kind)?; // bits 3:0 - reply kind
-        //         }
-        //         XpiGenericEventKind::Broadcast(_) => todo!(),
-        //         XpiGenericEventKind::Forward(_) => todo!(),
-        //     }
-        //     Ok(())
-        // })?;
+                    bwr.put(&req.kind)?; // bits 3:0 - request kind
+                }
+                XpiGenericEventKind::Reply(rep) => {
+                    bwr.put(&rep.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
+                    bwr.put(&rep.kind)?; // bits 3:0 - reply kind
+                }
+                XpiGenericEventKind::Broadcast(_) => todo!(),
+                XpiGenericEventKind::Forward(_) => todo!(),
+            }
+            Ok(())
+        })?;
+        nwr.put(&XwfdInfo::FormatIsXwfd)?;
 
         Ok(())
     }

@@ -10,7 +10,7 @@ use crate::addressing::XpiGenericResourceSet;
 /// subscribers reboot, unless subscribed again.
 ///
 /// This is a generic type, see actual implementations:
-/// * [vlu4, borrowed, no_std, zero copy](crate::serdes::xpi_vlu4::request::XpiRequest)
+/// * [vlu4, borrowed, no_std, zero copy](crate::serdes::xwfd::request::XpiRequest)
 /// * [vlu4, owned, std]()
 #[derive(Clone, Debug)]
 pub struct XpiGenericRequest<U, MU, SL, VSL, VR, ID> {

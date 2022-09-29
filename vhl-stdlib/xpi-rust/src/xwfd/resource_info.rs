@@ -1,7 +1,7 @@
 use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
 use vhl_stdlib_nostd::serdes::vlu4::Vlu4Vec;
-use crate::xpi_vlu4::rate::Rate;
-use crate::xpi_vlu4::NodeId;
+use crate::xwfd::rate::Rate;
+use crate::xwfd::NodeId;
 use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf};
 
 #[derive(Copy, Clone, Debug)]

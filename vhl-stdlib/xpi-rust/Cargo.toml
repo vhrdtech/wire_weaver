@@ -8,3 +8,6 @@ vhl-stdlib-nostd = { path = "../vhl-stdlib-rust-nostd" }
 
 [dev-dependencies]
 hex-literal = "^0.3.4"
+
+[features]
+no_std = []

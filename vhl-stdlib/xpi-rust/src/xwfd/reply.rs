@@ -1,33 +1,35 @@
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
 use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
-use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
-use crate::xpi_vlu4::priority::Priority;
-use crate::xpi_vlu4::resource_info::ResourceInfo;
-use crate::xpi_vlu4::{SerialMultiUri, NodeId, SerialUri};
+use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
+use crate::xwfd::error::XwfdError;
+use crate::error::XpiError;
+use crate::xwfd::priority::Priority;
+use crate::xwfd::resource_info::ResourceInfo;
+use crate::xwfd::{SerialMultiUri, NodeId};
+use super::uri::SerialUri;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 
 /// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
-pub type XpiReplyVlu4<'rep> = XpiGenericReply<
+pub type Reply<'rep> = XpiGenericReply<
     SerialUri<'rep>,
     SerialMultiUri<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
-    Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
-    Vlu4Vec<'rep, Result<(), FailReason>>,
-    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
+    Vlu4Vec<'rep, Result<&'rep [u8], XpiError>>,
+    Vlu4Vec<'rep, Result<(), XpiError>>,
+    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, XpiError>>,
     RequestId,
 >;
 
 /// See [XpiGenericReplyKind](crate::xpi::reply::XpiGenericReplyKind) for detailed information.
-pub type XpiReplyKindVlu4<'rep> = XpiGenericReplyKind<
+pub type ReplyKind<'rep> = XpiGenericReplyKind<
     Vlu4Vec<'rep, &'rep [u8]>,
-    Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>,
-    Vlu4Vec<'rep, Result<(), FailReason>>,
-    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, FailReason>>,
+    Vlu4Vec<'rep, Result<&'rep [u8], XpiError>>,
+    Vlu4Vec<'rep, Result<(), XpiError>>,
+    Vlu4Vec<'rep, Result<ResourceInfo<'rep>, XpiError>>,
 >;
 
 impl<'i> SerializeBits for XpiReplyDiscriminant {
@@ -39,8 +41,8 @@ impl<'i> SerializeBits for XpiReplyDiscriminant {
     }
 }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKindVlu4<'i> {
-    type Error = XpiVlu4Error;
+impl<'i> DeserializeCoupledBitsVlu4<'i> for ReplyKind<'i> {
+    type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
         bits_rdr: &'di mut BitBuf<'i>,
@@ -50,7 +52,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiReplyKindVlu4<'i> {
         use XpiGenericReplyKind::*;
         match kind {
             0 => Ok(CallComplete(vlu4_rdr.des_vlu4()?)),
-            _ => Err(XpiVlu4Error::Unimplemented),
+            _ => Err(XwfdError::Unimplemented),
         }
     }
 }
@@ -59,7 +61,7 @@ pub struct XpiReplyVlu4Builder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
-    resource_set: XpiResourceSet<'i>,
+    resource_set: ResourceSet<'i>,
     request_id: RequestId,
     priority: Priority,
 }
@@ -69,10 +71,10 @@ impl<'i> XpiReplyVlu4Builder<'i> {
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
         destination: NodeSet<'i>,
-        resource_set: XpiResourceSet<'i>,
+        resource_set: ResourceSet<'i>,
         request_id: RequestId,
         priority: Priority,
-    ) -> Result<Self, XpiVlu4Error> {
+    ) -> Result<Self, XwfdError> {
         nwr.skip(8)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
@@ -86,14 +88,14 @@ impl<'i> XpiReplyVlu4Builder<'i> {
         })
     }
 
-    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
+    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, XpiError>
         where
-            F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyDiscriminant, NibbleBufMut<'i>), FailReason>,
+            F: Fn(NibbleBufMut<'i>) -> Result<(XpiReplyDiscriminant, NibbleBufMut<'i>), XpiError>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
-        nwr.rewind::<_, FailReason>(0, |nwr| {
-            nwr.as_bit_buf::<_, FailReason>(|bwr| {
+        nwr.rewind::<_, XpiError>(0, |nwr| {
+            nwr.as_bit_buf::<_, XpiError>(|bwr| {
                 bwr.put_up_to_8(3, 0b000)?; // unused 31:29
                 bwr.put(&self.priority)?; // bits 28:26
                 bwr.put_bit(true)?; // bit 25, is_unicast
@@ -116,16 +118,16 @@ mod test {
     extern crate std;
 
     use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
-    use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::xpi_vlu4::error::FailReason;
-    use crate::xpi_vlu4::priority::Priority;
-    use crate::xpi_vlu4::reply::{
-        XpiReplyVlu4Builder, XpiReplyKindVlu4, XpiReplyDiscriminant,
+    use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
+    use crate::xwfd::error::FailReason;
+    use crate::xwfd::priority::Priority;
+    use crate::xwfd::reply::{
+        XpiReplyVlu4Builder, ReplyKind, XpiReplyDiscriminant,
     };
-    use crate::xpi_vlu4::{NodeId, SerialUri};
+    use crate::xwfd::{NodeId, SerialUri};
     use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
-    use crate::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
+    use crate::xwfd::event::{Event, EventKind};
 
     #[test]
     fn call_reply_ser() {
@@ -134,7 +136,7 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
             NodeSet::Unicast(NodeId::new(33).unwrap()),
-            XpiResourceSet::Uri(SerialUri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
+            ResourceSet::Uri(SerialUri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2Sp1::new(1).unwrap()),
         )
@@ -159,7 +161,7 @@ mod test {
         let buf = hex!("02 d5 10 90 45 20 20 aa bb 02 cc dd 1b");
         let mut nrd = NibbleBuf::new_all(&buf);
 
-        let event: XpiEventVlu4 = nrd.des_vlu4().unwrap();
+        let event: Event = nrd.des_vlu4().unwrap();
 
         assert_eq!(event.source, NodeId::new(85).unwrap());
         if let NodeSet::Unicast(id) = event.destination {
@@ -167,8 +169,8 @@ mod test {
         } else {
             panic!("Expected NodeSet::Unicast(_)");
         }
-        if let XpiEventKindVlu4::Reply(reply) = event.kind {
-            if let XpiResourceSet::Uri(uri) = reply.resource_set {
+        if let EventKind::Reply(reply) = event.kind {
+            if let ResourceSet::Uri(uri) = reply.resource_set {
                 let mut iter = uri.iter();
                 assert_eq!(iter.next(), Some(4));
                 assert_eq!(iter.next(), Some(5));
@@ -176,7 +178,7 @@ mod test {
             } else {
                 panic!("Expected XpiResourceSet::Uri(_)");
             }
-            if let XpiReplyKindVlu4::CallComplete(result) = reply.kind {
+            if let ReplyKind::CallComplete(result) = reply.kind {
                 let mut result_iter = result.iter();
                 assert_eq!(result_iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
                 assert_eq!(result_iter.next(), Some(Ok(&[0xcc, 0xdd][..])));

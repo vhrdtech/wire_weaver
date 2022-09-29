@@ -2,14 +2,15 @@ use super::NodeId;
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
 use vhl_stdlib_nostd::serdes::vlu4::Vlu4Vec;
-use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-use crate::xpi_vlu4::error::{FailReason, XpiVlu4Error};
-use crate::xpi_vlu4::priority::Priority;
-use crate::xpi_vlu4::rate::Rate;
+use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
+use crate::xwfd::error::{XwfdError};
+use crate::error::XpiError;
+use crate::xwfd::priority::Priority;
+use crate::xwfd::rate::Rate;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
-use crate::xpi_vlu4::{SerialMultiUri, SerialUri};
+use crate::xwfd::{SerialMultiUri, SerialUri};
 
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -55,7 +56,7 @@ pub struct XpiRequestVlu4Builder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
     destination: NodeSet<'i>,
-    resource_set: XpiResourceSet<'i>,
+    resource_set: ResourceSet<'i>,
     request_id: RequestId,
     priority: Priority,
 }
@@ -65,10 +66,10 @@ impl<'i> XpiRequestVlu4Builder<'i> {
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
         destination: NodeSet<'i>,
-        resource_set: XpiResourceSet<'i>,
+        resource_set: ResourceSet<'i>,
         request_id: RequestId,
         priority: Priority,
-    ) -> Result<Self, XpiVlu4Error> {
+    ) -> Result<Self, XwfdError> {
         nwr.skip(8)?;
         nwr.put(&destination)?;
         nwr.put(&resource_set)?;
@@ -82,14 +83,14 @@ impl<'i> XpiRequestVlu4Builder<'i> {
         })
     }
 
-    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, FailReason>
+    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, XpiError>
         where
-            F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestDiscriminant, NibbleBufMut<'i>), FailReason>,
+            F: Fn(NibbleBufMut<'i>) -> Result<(XpiRequestDiscriminant, NibbleBufMut<'i>), XpiError>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         nwr.put(&self.request_id).unwrap();
-        nwr.rewind::<_, FailReason>(0, |nwr| {
-            nwr.as_bit_buf::<_, FailReason>(|bwr| {
+        nwr.rewind::<_, XpiError>(0, |nwr| {
+            nwr.as_bit_buf::<_, XpiError>(|bwr| {
                 bwr.put_up_to_8(3, 0b000)?; // unused 31:29
                 bwr.put(&self.priority)?; // bits 28:26
                 bwr.put_bit(true)?; // bit 25, is_unicast
@@ -108,7 +109,7 @@ impl<'i> XpiRequestVlu4Builder<'i> {
 }
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
         bits_rdr: &'di mut BitBuf<'i>,
@@ -136,8 +137,8 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
             10 => Ok(ChainCall {
                 args: vlu4_rdr.des_vlu4()?,
             }),
-            11..=15 => Err(XpiVlu4Error::ReservedDiscard),
-            _ => Err(XpiVlu4Error::InternalError),
+            11..=15 => Err(XwfdError::ReservedDiscard),
+            _ => Err(XwfdError::InternalError),
         }
     }
 }
@@ -147,14 +148,14 @@ mod test {
     extern crate std;
 
     use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
-    use crate::xpi_vlu4::addressing::{NodeSet, RequestId, XpiResourceSet};
-    use crate::xpi_vlu4::priority::Priority;
-    use crate::xpi_vlu4::request::{
+    use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
+    use crate::xwfd::priority::Priority;
+    use crate::xwfd::request::{
         XpiRequestVlu4Builder, XpiRequestKindVlu4, XpiRequestDiscriminant,
     };
-    use crate::xpi_vlu4::{NodeId, SerialUri};
+    use crate::xwfd::{NodeId, SerialUri};
     use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
-    use crate::xpi_vlu4::event::{XpiEventVlu4, XpiEventKindVlu4};
+    use crate::xwfd::event::{Event, EventKind};
 
     #[test]
     fn call_request_des() {
@@ -170,7 +171,7 @@ mod test {
             0b000_11011,
         ];
         let mut nrd = NibbleBuf::new_all(&buf);
-        let event: XpiEventVlu4 = nrd.des_vlu4().unwrap();
+        let event: Event = nrd.des_vlu4().unwrap();
         // println!("{}", event);
 
         assert_eq!(event.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
@@ -179,10 +180,10 @@ mod test {
         if let NodeSet::Unicast(id) = event.destination {
             assert_eq!(id, NodeId::new(85).unwrap());
         }
-        if let XpiEventKindVlu4::Request(request) = event.kind {
+        if let EventKind::Request(request) = event.kind {
             assert_eq!(request.request_id, RequestId::new(27).unwrap());
-            assert!(matches!(request.resource_set, XpiResourceSet::Uri(_)));
-            if let XpiResourceSet::Uri(uri) = request.resource_set {
+            assert!(matches!(request.resource_set, ResourceSet::Uri(_)));
+            if let ResourceSet::Uri(uri) = request.resource_set {
                 assert!(matches!(uri, SerialUri::TwoPart44(_, _)));
                 if let SerialUri::TwoPart44(a, b) = uri {
                     assert_eq!(a.inner(), 3);
@@ -210,7 +211,7 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),
-            XpiResourceSet::Uri(SerialUri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
+            ResourceSet::Uri(SerialUri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2Sp1::new(1).unwrap()),
         )

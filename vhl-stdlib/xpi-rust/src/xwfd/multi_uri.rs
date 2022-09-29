@@ -1,11 +1,15 @@
-use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
-use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::xpi_vlu4::error::XpiVlu4Error;
-use crate::xpi_vlu4::{SerialUri, UriIter, UriMask, UriMaskIter};
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, SerDesSize};
-use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
+use vhl_stdlib_nostd::{
+    serdes::{
+        SerializeVlu4, DeserializeVlu4, SerDesSize,
+        NibbleBuf, NibbleBufMut,
+        vlu4::{Vlu4Vec, Vlu4VecIter, Vlu32},
+    }
+};
+use crate::xwfd::error::XwfdError;
+use super::{
+    UriMask, UriMaskIter, UriIter, SerialUri,
+};
 
 /// Allows to select any combination of resources in order to perform read/write or stream
 /// operations on them all at once. Operations are performed sequentially in order of the resources
@@ -137,7 +141,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 }
 
 impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let parts_count = rdr.get_vlu4_u32()? as usize;
@@ -156,7 +160,7 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
 }
 
 impl<'i> SerializeVlu4 for SerialMultiUri<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         wgr.put_vlu4_u32(self.parts_count as u32)?;
@@ -195,8 +199,8 @@ mod test {
     extern crate std;
 
     use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
-    use crate::xpi_vlu4::multi_uri::SerialMultiUri;
-    use crate::xpi_vlu4::UriMask;
+    use crate::xwfd::multi_uri::SerialMultiUri;
+    use crate::xwfd::UriMask;
     use vhl_stdlib_nostd::serdes::NibbleBuf;
     use std::format;
 

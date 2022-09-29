@@ -2,7 +2,7 @@ use vhl_stdlib_nostd::discrete::{U3, U4, U6};
 use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
 use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::xpi_vlu4::error::XpiVlu4Error;
+use crate::xwfd::error::XwfdError;
 use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
@@ -64,7 +64,7 @@ impl<'i> SerialUri<'i> {
 }
 
 impl<'i> DeserializeVlu4<'i> for SerialUri<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         Ok(SerialUri::MultiPart(rdr.des_vlu4()?))
@@ -72,7 +72,7 @@ impl<'i> DeserializeVlu4<'i> for SerialUri<'i> {
 }
 
 impl<'i> SerializeVlu4 for SerialUri<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
@@ -89,7 +89,7 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
                 wgr.put_nibble(c.inner())?;
             }
             SerialUri::ThreePart633(a, b, c) => {
-                wgr.as_bit_buf::<_, XpiVlu4Error>(|wgr| {
+                wgr.as_bit_buf::<_, XwfdError>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(3, b.inner())?;
                     wgr.put_up_to_8(3, c.inner())?;
@@ -97,7 +97,7 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
                 })?;
             }
             SerialUri::ThreePart664(a, b, c) => {
-                wgr.as_bit_buf::<_, XpiVlu4Error>(|wgr| {
+                wgr.as_bit_buf::<_, XwfdError>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(6, b.inner())?;
                     wgr.put_up_to_8(4, c.inner())?;

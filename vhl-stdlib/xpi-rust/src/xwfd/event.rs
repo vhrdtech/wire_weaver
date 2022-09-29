@@ -1,29 +1,29 @@
 use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
 use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
-use crate::xpi_vlu4::{addressing::{XpiResourceSet, NodeSet}, request::{XpiRequestVlu4, XpiRequestKindVlu4}, reply::{XpiReplyVlu4}, broadcast::XpiBroadcastKind, error::{XpiVlu4Error}, priority::Priority, NodeId};
-use crate::xpi_vlu4::addressing::RequestId;
-use crate::xpi_vlu4::reply::XpiReplyKindVlu4;
+use crate::xwfd::{addressing::{ResourceSet, NodeSet}, request::{XpiRequestVlu4, XpiRequestKindVlu4}, reply::{Reply}, broadcast::BroadcastKind, error::{XwfdError}, priority::Priority, NodeId};
+use crate::xwfd::addressing::RequestId;
+use crate::xwfd::reply::ReplyKind;
 
-pub type XpiEventVlu4<'ev> = XpiGenericEvent<
+pub type Event<'ev> = XpiGenericEvent<
     NodeId,
     TraitSet<'ev>,
     XpiRequestVlu4<'ev>,
-    XpiReplyVlu4<'ev>,
-    XpiBroadcastKind,
+    Reply<'ev>,
+    BroadcastKind,
     (),
     Priority
 >;
 
-pub type XpiEventKindVlu4<'ev> = XpiGenericEventKind<
+pub type EventKind<'ev> = XpiGenericEventKind<
     XpiRequestVlu4<'ev>,
-    XpiReplyVlu4<'ev>,
-    XpiBroadcastKind,
+    Reply<'ev>,
+    BroadcastKind,
     ()
 >;
 
-impl<'i> DeserializeVlu4<'i> for XpiEventVlu4<'i> {
-    type Error = XpiVlu4Error;
+impl<'i> DeserializeVlu4<'i> for Event<'i> {
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         // get first 32 bits as BitBuf
@@ -40,7 +40,7 @@ impl<'i> DeserializeVlu4<'i> for XpiEventVlu4<'i> {
         // UAVCAN reserved bit 23, discard if 0 (UAVCAN discards if 1).
         let reserved_23 = bits_rdr.get_bit()?;
         if !reserved_23 {
-            return Err(XpiVlu4Error::ReservedDiscard);
+            return Err(XwfdError::ReservedDiscard);
         }
 
         // bits: 22:16
@@ -50,25 +50,25 @@ impl<'i> DeserializeVlu4<'i> for XpiEventVlu4<'i> {
         let destination = NodeSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
 
         // bits 6:4 + 1/2/3/4 nibbles for Uri::OnePart4/TwoPart44/ThreePart* or variable otherwise
-        let resource_set = XpiResourceSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+        let resource_set = ResourceSet::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
 
         let kind = match (kind1, kind0) {
             (false, false) => {
                 // Broadcast
-                return Err(XpiVlu4Error::Unimplemented);
+                return Err(XwfdError::Unimplemented);
                 // XpiEventKind::Broadcast(XpiBroadcastKind::DiscoverNodes)
             }
             (false, true) => {
                 // Forward
-                return Err(XpiVlu4Error::Unimplemented);
+                return Err(XwfdError::Unimplemented);
             }
             (true, false) => {
                 // Reply, kind in bits 3:0
-                let kind = XpiReplyKindVlu4::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+                let kind = ReplyKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
                 // tail byte should be at byte boundary, if not 4b padding is added
                 rdr.align_to_byte()?;
                 let request_id: RequestId = rdr.des_vlu4()?;
-                XpiEventKindVlu4::Reply(XpiReplyVlu4 { resource_set, kind, request_id })
+                EventKind::Reply(Reply { resource_set, kind, request_id })
             }
             (true, true) => {
                 // Request, kind in bits 3:0
@@ -76,11 +76,11 @@ impl<'i> DeserializeVlu4<'i> for XpiEventVlu4<'i> {
                 // tail byte should be at byte boundary, if not 4b padding is added
                 rdr.align_to_byte()?;
                 let request_id: RequestId = rdr.des_vlu4()?;
-                XpiEventKindVlu4::Request(XpiRequestVlu4 { resource_set, kind, request_id })
+                EventKind::Request(XpiRequestVlu4 { resource_set, kind, request_id })
             }
         };
 
-        Ok(XpiEventVlu4 {
+        Ok(Event {
             source,
             destination,
             kind,

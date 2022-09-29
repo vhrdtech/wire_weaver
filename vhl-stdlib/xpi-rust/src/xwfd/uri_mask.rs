@@ -1,7 +1,7 @@
 use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
 use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::xpi_vlu4::error::XpiVlu4Error;
+use crate::xwfd::error::XwfdError;
 use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
 
@@ -51,7 +51,7 @@ impl<'i> UriMask<'i> {
 }
 
 impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let mask_kind = rdr.get_nibble()?;
@@ -61,28 +61,28 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
             2 => Ok(UriMask::ByBitfield32(rdr.get_u32_be()?)),
             3 => {
                 // u64
-                Err(XpiVlu4Error::UriMaskUnsupportedType)
+                Err(XwfdError::UriMaskUnsupportedType)
             }
             4 => {
                 // u128
-                Err(XpiVlu4Error::UriMaskUnsupportedType)
+                Err(XwfdError::UriMaskUnsupportedType)
             }
             5 => Ok(UriMask::ByIndices(rdr.des_vlu4()?)),
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
                 Ok(UriMask::All(Vlu32(amount)))
             }
-            7 => Err(XpiVlu4Error::UriMaskReserved),
+            7 => Err(XwfdError::UriMaskReserved),
             _ => {
                 // unreachable!()
-                Err(XpiVlu4Error::InternalError)
+                Err(XwfdError::InternalError)
             }
         }
     }
 }
 
 impl<'i> SerializeVlu4 for UriMask<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {

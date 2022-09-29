@@ -1,23 +1,31 @@
-// use hash32_derive::Hash32;
-use vhl_stdlib_nostd::discrete::max_bound_number;
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4};
-use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
-use crate::xpi_vlu4::{SerialMultiUri, SerialUri};
-use vhl_stdlib_nostd::serdes::{DeserializeBits, nibble_buf, SerDesSize};
-use vhl_stdlib_nostd::serdes::{BitBuf, DeserializeVlu4, NibbleBuf, NibbleBufMut};
+use vhl_stdlib_nostd::{
+    discrete::max_bound_number,
+    serdes::{
+        bit_buf,
+        BitBuf,
+        BitBufMut,
+        nibble_buf,
+        NibbleBuf,
+        NibbleBufMut,
+        SerDesSize,
+        DeserializeCoupledBitsVlu4, SerializeBits, SerializeVlu4, DeserializeBits, DeserializeVlu4,
+        vlu4::TraitSet,
+    },
+};
+use super::{
+    SerialUri, SerialMultiUri,
+    MultiUriFlatIter,
+};
 use core::fmt::{Display, Formatter, Result as FmtResult};
 use crate::addressing::{XpiGenericNodeSet, XpiGenericResourceSet};
-use crate::xpi_vlu4::error::XpiVlu4Error;
-use crate::xpi_vlu4::multi_uri::MultiUriFlatIter;
-use vhl_stdlib_nostd::serdes::bit_buf;
+use crate::xwfd::error::XwfdError;
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
 impl<'i> DeserializeVlu4<'i> for NodeId {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        Ok(NodeId::new(rdr.get_u8()?).ok_or_else(|| XpiVlu4Error::NodeId)?)
+        Ok(NodeId::new(rdr.get_u8()?).ok_or_else(|| XwfdError::NodeIdAbove127)?)
     }
 }
 
@@ -27,7 +35,7 @@ impl<'i> DeserializeVlu4<'i> for NodeId {
 // Should pause in that case or cancel all old requests. Overflow is ignored for subscriptions.
 max_bound_number!(RequestId, u8, 31, "Req:{}");
 impl<'i> DeserializeVlu4<'i> for RequestId {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let tail_byte = rdr.get_u8()?;
@@ -37,7 +45,7 @@ impl<'i> DeserializeVlu4<'i> for RequestId {
 }
 
 impl SerializeVlu4 for RequestId {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         // since request id is a part of a tail byte, put padding before it to align
@@ -54,7 +62,7 @@ impl SerializeVlu4 for RequestId {
 pub type NodeSet<'i> = XpiGenericNodeSet<NodeId, TraitSet<'i>>;
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
-    type Error = XpiVlu4Error;
+    type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
         bits_rdr: &'di mut BitBuf<'i>,
@@ -62,11 +70,11 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
     ) -> Result<Self, Self::Error> {
         let kind = bits_rdr.get_up_to_8(2)?;
         match kind {
-            0 => Ok(NodeSet::Unicast(bits_rdr.des_bits()?)),
-            1 => Err(XpiVlu4Error::Unimplemented),
-            2 => Err(XpiVlu4Error::Unimplemented),
-            3 => Err(XpiVlu4Error::ReservedDiscard),
-            _ => Err(XpiVlu4Error::InternalError),
+            0b00 => Ok(NodeSet::Unicast(bits_rdr.des_bits()?)),
+            0b01 => Err(XwfdError::Unimplemented),
+            0b10 => Err(XwfdError::Unimplemented),
+            0b11 => Ok(NodeSet::Broadcast),
+            _ => Err(XwfdError::InternalError),
         }
     }
 }
@@ -137,23 +145,23 @@ impl<'i> Display for NodeSet<'i> {
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
-pub type XpiResourceSet<'i> = XpiGenericResourceSet<SerialUri<'i>, SerialMultiUri<'i>>;
+pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<'i>, SerialMultiUri<'i>>;
 
-impl<'i> XpiResourceSet<'i> {
+impl<'i> ResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {
         match self {
-            XpiResourceSet::Uri(uri) => MultiUriFlatIter::OneUri(Some(uri.iter())),
-            XpiResourceSet::MultiUri(multi_uri) => multi_uri.flat_iter(),
+            ResourceSet::Uri(uri) => MultiUriFlatIter::OneUri(Some(uri.iter())),
+            ResourceSet::MultiUri(multi_uri) => multi_uri.flat_iter(),
         }
     }
 }
 
-impl<'i> SerializeBits for XpiResourceSet<'i> {
+impl<'i> SerializeBits for ResourceSet<'i> {
     type Error = bit_buf::Error;
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let kind = match self {
-            XpiResourceSet::Uri(uri) => match uri {
+            ResourceSet::Uri(uri) => match uri {
                 SerialUri::OnePart4(_) => 0,
                 SerialUri::TwoPart44(_, _) => 1,
                 SerialUri::ThreePart444(_, _, _) => 2,
@@ -161,32 +169,32 @@ impl<'i> SerializeBits for XpiResourceSet<'i> {
                 SerialUri::ThreePart664(_, _, _) => 4,
                 SerialUri::MultiPart(_) => 5,
             },
-            XpiResourceSet::MultiUri(_) => 6,
+            ResourceSet::MultiUri(_) => 6,
         };
         wgr.put_up_to_8(3, kind)
     }
 }
 
-impl<'i> SerializeVlu4 for XpiResourceSet<'i> {
-    type Error = XpiVlu4Error;
+impl<'i> SerializeVlu4 for ResourceSet<'i> {
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            XpiResourceSet::Uri(uri) => wgr.put(uri),
-            XpiResourceSet::MultiUri(multi_uri) => wgr.put(multi_uri),
+            ResourceSet::Uri(uri) => wgr.put(uri),
+            ResourceSet::MultiUri(multi_uri) => wgr.put(multi_uri),
         }
     }
 
     fn len_nibbles(&self) -> SerDesSize {
         match self {
-            XpiResourceSet::Uri(uri) => uri.len_nibbles(),
-            XpiResourceSet::MultiUri(multi_uri) => multi_uri.len_nibbles(),
+            ResourceSet::Uri(uri) => uri.len_nibbles(),
+            ResourceSet::MultiUri(multi_uri) => multi_uri.len_nibbles(),
         }
     }
 }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
-    type Error = XpiVlu4Error;
+impl<'i> DeserializeCoupledBitsVlu4<'i> for ResourceSet<'i> {
+    type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
         bits_rdr: &'di mut BitBuf<'i>,
@@ -194,19 +202,19 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
     ) -> Result<Self, Self::Error> {
         let uri_type = bits_rdr.get_up_to_8(3)?;
         match uri_type {
-            0 => Ok(XpiResourceSet::Uri(SerialUri::OnePart4(vlu4_rdr.des_vlu4()?))),
-            1 => Ok(XpiResourceSet::Uri(SerialUri::TwoPart44(
+            0 => Ok(ResourceSet::Uri(SerialUri::OnePart4(vlu4_rdr.des_vlu4()?))),
+            1 => Ok(ResourceSet::Uri(SerialUri::TwoPart44(
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
             ))),
-            2 => Ok(XpiResourceSet::Uri(SerialUri::ThreePart444(
+            2 => Ok(ResourceSet::Uri(SerialUri::ThreePart444(
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
                 vlu4_rdr.des_vlu4()?,
             ))),
             3 => {
                 let mut bits = vlu4_rdr.get_bit_buf(3)?;
-                Ok(XpiResourceSet::Uri(SerialUri::ThreePart633(
+                Ok(ResourceSet::Uri(SerialUri::ThreePart633(
                     bits.des_bits()?,
                     bits.des_bits()?,
                     bits.des_bits()?,
@@ -214,25 +222,25 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiResourceSet<'i> {
             }
             4 => {
                 let mut bits = vlu4_rdr.get_bit_buf(4)?;
-                Ok(XpiResourceSet::Uri(SerialUri::ThreePart664(
+                Ok(ResourceSet::Uri(SerialUri::ThreePart664(
                     bits.des_bits()?,
                     bits.des_bits()?,
                     bits.des_bits()?,
                 )))
             }
-            5 => Ok(XpiResourceSet::Uri(vlu4_rdr.des_vlu4()?)),
-            6 => Ok(XpiResourceSet::MultiUri(vlu4_rdr.des_vlu4()?)),
-            7 => Err(XpiVlu4Error::ReservedDiscard),
-            _ => Err(XpiVlu4Error::InternalError),
+            5 => Ok(ResourceSet::Uri(vlu4_rdr.des_vlu4()?)),
+            6 => Ok(ResourceSet::MultiUri(vlu4_rdr.des_vlu4()?)),
+            7 => Err(XwfdError::ReservedDiscard),
+            _ => Err(XwfdError::InternalError),
         }
     }
 }
 
-impl<'i> Display for XpiResourceSet<'i> {
+impl<'i> Display for ResourceSet<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            XpiResourceSet::Uri(uri) => write!(f, "{}", uri),
-            XpiResourceSet::MultiUri(multi_uri) => write!(f, "{}", multi_uri),
+            ResourceSet::Uri(uri) => write!(f, "{}", uri),
+            ResourceSet::MultiUri(multi_uri) => write!(f, "{}", multi_uri),
         }
     }
 }

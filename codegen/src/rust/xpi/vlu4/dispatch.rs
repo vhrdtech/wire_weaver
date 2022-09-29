@@ -198,13 +198,13 @@ impl<'ast> Depends for DispatchCall<'ast> {
         let uses = vec![
             Submodule("vhl_stdlib", vec![
                 Submodule("serdes", vec![
-                    Submodule("xpi_vlu4", vec![
+                    Submodule("xwfd", vec![
                         Submodule("uri", vec![
                             Entity("UriIter")
                         ]),
                         Submodule("error", vec![
                             Entity("FailReason")
-                        ])
+                        ]),
                     ]),
                     Submodule("buf", vec![
                         Entity("Buf"),

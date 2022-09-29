@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "no_std", no_std)]
+
 //! Data structures describing root functionality of xPI - x Programming Interface.
 //! Every field and enum item is excessively documented in this mod, while concrete implementations
 //! simply point here.
@@ -10,5 +12,9 @@ pub mod broadcast;
 pub mod addressing;
 pub mod priority;
 
-pub mod xpi_vlu4;
-pub mod xpi_owned;
+pub mod error;
+
+pub mod xwfd;
+
+#[cfg(not(feature = "no_std"))]
+pub mod owned;

@@ -1,11 +1,11 @@
-use vhl_stdlib_nostd::discrete::U2Sp1;
+use vhl_stdlib_nostd::discrete::U2;
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::traits::SerializeBits;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, DeserializeBits};
 use core::fmt::{Display, Formatter};
 use crate::priority::XpiGenericPriority;
 
-pub type Priority = XpiGenericPriority<U2Sp1>;
+pub type Priority = XpiGenericPriority<U2>;
 
 impl<'i> DeserializeBits<'i> for Priority {
     type Error = bit_buf::Error;
@@ -36,8 +36,8 @@ impl SerializeBits for Priority {
 impl Display for Priority {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Priority::Lossy(level) => write!(f, "L{}", level.to_u8()),
-            Priority::Lossless(level) => write!(f, "R{}", level.to_u8()),
+            Priority::Lossy(level) => write!(f, "L{}", level.inner()),
+            Priority::Lossless(level) => write!(f, "R{}", level.inner()),
         }
     }
 }

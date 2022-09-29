@@ -9,7 +9,7 @@ knowledge. To distinguish between different formats, -x is added:
 * Binary xPI Padded - `xwfp`
 * Other formats can be used, but wasn't implemented due to lack of need.
 
-# Binary xPI Dense
+# Binary xPI Dense (`xwfd`)
 
 > no_std, no alloc, zero copy, space efficient implementation of xPI based
 > on variable length encoding and buffer with 4 bits elements.
@@ -25,13 +25,23 @@ uavcan stack.
 
 ## Request
 
-| 31:29 (3b) | 28:26 (3b) | 25:24 (2b)                | 23          | 22:16 (7b) | 15:7 (9b)   | 6:4 (3b)          | 3:0 (4b)     |
-|------------|------------|---------------------------|-------------|------------|-------------|-------------------|--------------|
-| n/a        | priority   | event kind = request (11) | is_vlu4 = 1 | source     | destination | resource set kind | request kind |
+| 31:29 (3b) | 28:26 (3b) | 25:24 (2b)                | 23        | 22:16 (7b) | 15:7 (9b)   | 6:4 (3b)          | 3:0 (4b)     |
+|------------|------------|---------------------------|-----------|------------|-------------|-------------------|--------------|
+| n/a        | priority   | event kind = request (11) | is_bit_wf | source     | destination | resource set kind | request kind |
 
 ## Compatibility between wire formats
 
 There is a mechanism to determine which wire format is being processed. However, it is not required to support all of
 them, and it is possible to discard unsupported data without processing.
+Space is saved in favor of more constrained wire formats: for potential bit level format only one bit is reserved.
+For `xwfd` additional nibble is reserved. For `xwfs` and `xwfp` additional byte is
 
-MSB bit of the second byte = 1 (bit 23 of the first word), means that wire format is vlu4.
+Decision process:
+
+1. Read MSB bit of the second byte (bit 23 of the first word) = is_bit_wf
+   * if is_bit_wf == 0 => read additional in byte 5, bits 7:4 = format_info
+   * if is_bit_wf == 1 => reserved value for potential bit level wire format, discard.
+2. Check format_info to determine whether format is xwfd:
+   * if format_info == 7 => format is xwfd
+   * else => check B5:3:0 and B6:7:0 for additional info
+3. TBD 

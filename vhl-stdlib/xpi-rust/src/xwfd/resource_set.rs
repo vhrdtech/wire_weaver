@@ -34,14 +34,7 @@ impl<'i> SerializeBits for ResourceSet<'i> {
 
     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
         let kind = match self {
-            ResourceSet::Uri(uri) => match uri {
-                SerialUri::OnePart4(_) => 0,
-                SerialUri::TwoPart44(_, _) => 1,
-                SerialUri::ThreePart444(_, _, _) => 2,
-                SerialUri::ThreePart633(_, _, _) => 3,
-                SerialUri::ThreePart664(_, _, _) => 4,
-                SerialUri::MultiPart(_) => 5,
-            },
+            ResourceSet::Uri(uri) => uri.discriminant() as u8,
             ResourceSet::MultiUri(_) => 6,
         };
         wgr.put_up_to_8(3, kind)

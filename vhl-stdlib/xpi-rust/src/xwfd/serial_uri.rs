@@ -30,6 +30,17 @@ pub enum SerialUri<'i> {
     MultiPart(Vlu4Vec<'i, Vlu32>),
 }
 
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub(crate) enum SerialUriDiscriminant {
+    OnePart4 = 0,
+    TwoPart44 = 1,
+    ThreePart444 = 2,
+    ThreePart633 = 3,
+    ThreePart664 = 4,
+    MultiPart = 5,
+}
+
 impl<'i> SerialUri<'i> {
     pub fn iter(&self) -> SerialUriIter<'i> {
         match self {
@@ -59,6 +70,18 @@ impl<'i> SerialUri<'i> {
                 pos: 0,
             },
             SerialUri::MultiPart(arr) => SerialUriIter::ArrIter(arr.iter()),
+        }
+    }
+
+    pub(crate) fn discriminant(&self) -> SerialUriDiscriminant {
+        use SerialUriDiscriminant::*;
+        match self {
+            SerialUri::OnePart4(_) => OnePart4,
+            SerialUri::TwoPart44(_, _) => TwoPart44,
+            SerialUri::ThreePart444(_, _, _) => ThreePart444,
+            SerialUri::ThreePart633(_, _, _) => ThreePart633,
+            SerialUri::ThreePart664(_, _, _) => ThreePart664,
+            SerialUri::MultiPart(_) => MultiPart
         }
     }
 }

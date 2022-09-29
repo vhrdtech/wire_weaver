@@ -1,3 +1,5 @@
+use vhl_stdlib_nostd::serdes::BitBufMut;
+use crate::owned::convert_error::ConvertError;
 use crate::owned::rate::Rate;
 use crate::owned::request_id::RequestId;
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind};
@@ -15,8 +17,15 @@ pub type Request = XpiGenericRequest<
 >;
 
 /// See [XpiGenericRequestKind](crate::xpi::request::XpiGenericRequestKind) for detailed information.
-pub type RequestKind<'req> = XpiGenericRequestKind<
+pub type RequestKind = XpiGenericRequestKind<
     Vec<u8>,
     Vec<Vec<u8>>,
     Vec<Rate>
 >;
+
+impl RequestKind {
+    pub(crate) fn ser_header_xwfd(&self, bwr: &mut BitBufMut) -> Result<(), ConvertError> {
+        bwr.put_up_to_8(4, self.discriminant() as u8)?;
+        Ok(())
+    }
+}

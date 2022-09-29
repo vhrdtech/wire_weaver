@@ -393,9 +393,9 @@ impl<'i> NibbleBufMut<'i> {
     /// let (buf, _, _) = wgr.finish();
     /// assert_eq!(buf[0], 0b1010_1011);
     /// ```
-    pub fn as_bit_buf<F, E>(&mut self, f: F) -> Result<(), E>
+    pub fn as_bit_buf<F, E>(&mut self, mut f: F) -> Result<(), E>
         where
-            F: Fn(&mut BitBufMut) -> Result<(), E>,
+            F: FnMut(&mut BitBufMut) -> Result<(), E>,
             E: From<crate::serdes::bit_buf::Error>,
     {
         let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };

@@ -12,13 +12,15 @@ pub mod resource_set;
 pub mod trait_set;
 pub mod node_set;
 pub mod rate;
+pub mod serial_multi_uri;
 
 pub use event::{EventKind, Event};
 pub use request::{Request, RequestKind};
 pub use reply::Reply;
 pub use broadcast::BroadcastKind;
 pub use request_id::RequestId;
-pub use serial_uri::{SerialMultiUri, SerialUri};
+pub use serial_uri::SerialUri;
+pub use serial_multi_uri::SerialMultiUri;
 pub use priority::Priority;
 pub use resource_info::ResourceInfo;
 pub use node_id::NodeId;

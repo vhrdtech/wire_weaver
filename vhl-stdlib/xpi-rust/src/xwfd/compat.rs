@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
+use vhl_stdlib_nostd::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
 use crate::xwfd::error::XwfdError;
 
 pub enum XwfdInfo {
@@ -7,7 +7,7 @@ pub enum XwfdInfo {
 }
 
 impl SerializeVlu4 for XwfdInfo {
-    type Error = XwfdError;
+    type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         let nib = match self {

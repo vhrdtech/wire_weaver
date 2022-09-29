@@ -1,9 +1,14 @@
 use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
 use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
-use crate::xwfd::{addressing::{ResourceSet, NodeSet}, request::{XpiRequestVlu4, XpiRequestKindVlu4}, reply::{Reply}, broadcast::BroadcastKind, error::{XwfdError}, priority::Priority, NodeId};
-use crate::xwfd::addressing::RequestId;
-use crate::xwfd::reply::ReplyKind;
+use crate::xwfd::node_set::NodeSet;
+use super::{
+    broadcast::BroadcastKind, error::XwfdError, NodeId,
+    Priority, Reply,
+    ReplyKind, RequestId, ResourceSet,
+    XpiRequestKindVlu4,
+    XpiRequestVlu4,
+};
 
 pub type Event<'ev> = XpiGenericEvent<
     NodeId,

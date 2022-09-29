@@ -1,15 +1,16 @@
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
 use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
-use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
-use crate::xwfd::error::XwfdError;
 use crate::error::XpiError;
-use crate::xwfd::priority::Priority;
-use crate::xwfd::resource_info::ResourceInfo;
-use crate::xwfd::{SerialMultiUri, NodeId};
-use super::uri::SerialUri;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
+use crate::xwfd::node_set::NodeSet;
+use super::{
+    NodeId, Priority,
+    RequestId, ResourceInfo, ResourceSet,
+    SerialMultiUri, SerialUri,
+    XwfdError,
+};
 
 /// Highly space efficient xPI reply data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -118,16 +119,17 @@ mod test {
     extern crate std;
 
     use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
-    use crate::xwfd::addressing::{NodeSet, RequestId, ResourceSet};
+    use crate::xwfd::resource_set::{RequestId, ResourceSet};
     use crate::xwfd::error::FailReason;
     use crate::xwfd::priority::Priority;
     use crate::xwfd::reply::{
-        XpiReplyVlu4Builder, ReplyKind, XpiReplyDiscriminant,
+        ReplyKind, XpiReplyDiscriminant, XpiReplyVlu4Builder,
     };
     use crate::xwfd::{NodeId, SerialUri};
     use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
     use crate::xwfd::event::{Event, EventKind};
+    use crate::xwfd::node_set::NodeSet;
 
     #[test]
     fn call_reply_ser() {

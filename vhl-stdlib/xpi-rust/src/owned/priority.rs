@@ -1,7 +1,4 @@
 use vhl_stdlib_nostd::discrete::U2;
-use vhl_stdlib_nostd::serdes::{bit_buf};
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::traits::SerializeBits;
 use crate::owned::error::ConvertError;
 use crate::priority::XpiGenericPriority;
 use crate::xwfd;

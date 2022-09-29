@@ -77,7 +77,7 @@
 //! }
 //!
 pub mod event;
-pub mod addressing;
+pub mod resource_set;
 pub mod multi_uri;
 pub mod reply;
 pub mod request;
@@ -90,12 +90,21 @@ pub mod priority;
 pub mod rate;
 pub mod uri;
 pub mod compat;
+pub mod node_id;
+pub mod request_id;
+pub mod node_set;
 
 pub use event::{Event, EventKind};
-pub use request::{XpiRequestVlu4, XpiRequestKindVlu4, XpiRequestVlu4Builder};
+pub use request::{XpiRequestKindVlu4, XpiRequestVlu4, XpiRequestVlu4Builder};
 pub use reply::{Reply, ReplyKind, XpiReplyVlu4Builder};
-pub use addressing::{NodeId, RequestId, ResourceSet, NodeSet};
+pub use resource_set::ResourceSet;
+pub use node_id::NodeId;
+pub use request_id::RequestId;
 pub use uri::{SerialUri, UriIter};
-pub use multi_uri::{MultiUriIter, SerialMultiUri, MultiUriFlatIter};
+pub use multi_uri::{MultiUriFlatIter, MultiUriIter, SerialMultiUri};
 pub use uri_mask::{UriMask, UriMaskIter};
 pub use priority::Priority;
+pub use error::XwfdError;
+pub use node_set::NodeSet;
+pub use resource_info::ResourceInfo;
+pub use rate::Rate;

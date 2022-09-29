@@ -79,6 +79,26 @@ pub enum XpiGenericReplyKind<
     Introspect(VRI),
 }
 
+impl<VSL, VRSL, VRU, VRI> XpiGenericReplyKind<VSL, VRSL, VRU, VRI> {
+    pub fn discriminant(&self) -> XpiReplyDiscriminant {
+        use XpiReplyDiscriminant::*;
+        match self {
+            XpiGenericReplyKind::CallComplete(_) => CallComplete,
+            XpiGenericReplyKind::ReadComplete(_) => ReadComplete,
+            XpiGenericReplyKind::WriteComplete(_) => WriteComplete,
+            XpiGenericReplyKind::OpenStream(_) => OpenStream,
+            XpiGenericReplyKind::StreamUpdate(_) => StreamUpdate,
+            XpiGenericReplyKind::CloseStream(_) => CloseStream,
+            XpiGenericReplyKind::Subscribe(_) => Subscribe,
+            XpiGenericReplyKind::RateChange(_) => RateChange,
+            XpiGenericReplyKind::Unsubscribe(_) => Unsubscribe,
+            XpiGenericReplyKind::Borrow(_) => Borrow,
+            XpiGenericReplyKind::Release(_) => Release,
+            XpiGenericReplyKind::Introspect(_) => Introspect
+        }
+    }
+}
+
 /// Same as XpiGenericReplyKind but without data.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

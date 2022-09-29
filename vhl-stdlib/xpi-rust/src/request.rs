@@ -149,6 +149,25 @@ pub enum XpiGenericRequestKind<
     Introspect,
 }
 
+impl<SL, VSL, VR> XpiGenericRequestKind<SL, VSL, VR> {
+    pub fn discriminant(&self) -> XpiRequestDiscriminant {
+        use XpiRequestDiscriminant::*;
+        match self {
+            XpiGenericRequestKind::Call { .. } => Call,
+            XpiGenericRequestKind::ChainCall { .. } => ChainCall,
+            XpiGenericRequestKind::Read => Read,
+            XpiGenericRequestKind::Write { .. } => Write,
+            XpiGenericRequestKind::OpenStreams => OpenStreams,
+            XpiGenericRequestKind::CloseStreams => CloseStreams,
+            XpiGenericRequestKind::Subscribe { .. } => Subscribe,
+            XpiGenericRequestKind::Unsubscribe => Unsubscribe,
+            XpiGenericRequestKind::Borrow => Borrow,
+            XpiGenericRequestKind::Release => Release,
+            XpiGenericRequestKind::Introspect => Introspect,
+        }
+    }
+}
+
 /// Same as XpiGenericRequestKind but without data.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

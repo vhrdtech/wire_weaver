@@ -11,7 +11,7 @@ use crate::owned::request_id::RequestId;
 use crate::owned::resource_set::ResourceSet;
 use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
-use crate::xwfd::compat::XwfdInfo;
+use crate::xwfd::xwfd_info::XwfdInfo;
 
 use super::{
     Priority,
@@ -51,7 +51,7 @@ impl Event {
             let priority: xwfd::Priority = self.priority.try_into()?;
             bwr.put(&priority)?; // bits 28:26
             bwr.put(&self.kind)?; // bits 25:24 - event kind
-            bwr.put_bit(false)?; // bit 23 - is_bit_wf
+            bwr.put_bit(true)?; // bit 23 - is_xwfd_or_bigger
             let node_id: xwfd::NodeId = self.source.try_into()?;
             bwr.put(&node_id)?; // bits 22:16
             self.destination.ser_header_xwfd(bwr)?; // bits 15:7 - destination node or node set

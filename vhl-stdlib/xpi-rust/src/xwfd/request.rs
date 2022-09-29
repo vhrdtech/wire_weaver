@@ -6,7 +6,7 @@ use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
-use crate::xwfd::compat::XwfdInfo;
+use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     Priority, Rate, RequestId, ResourceSet,

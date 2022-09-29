@@ -1,7 +1,7 @@
 use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
 use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
-use crate::xwfd::compat::XwfdInfo;
+use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     broadcast::BroadcastKind, error::XwfdError, NodeId,
@@ -34,11 +34,6 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         // get first 32 bits as BitBuf
         let mut bits_rdr = rdr.get_bit_buf(8)?;
-        let format_info: XwfdInfo = rdr.des_vlu4()?;
-        if format_info != XwfdInfo::FormatIsXwfd {
-            return Err(XwfdError::WrongFormat);
-        }
-
         let _absent_31_29 = bits_rdr.get_up_to_8(3);
 
         // bits 28:26
@@ -48,10 +43,14 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
         let kind1 = bits_rdr.get_bit()?;
         let kind0 = bits_rdr.get_bit()?;
 
-        // UAVCAN reserved bit 23, discard if 0 (UAVCAN discards if 1).
-        let reserved_23 = bits_rdr.get_bit()?;
-        if !reserved_23 {
+        // bit 23: is_xwfd_or_bigger
+        let is_xwfd_or_bigger = bits_rdr.get_bit()?;
+        if !is_xwfd_or_bigger {
             return Err(XwfdError::ReservedDiscard);
+        }
+        let format_info: XwfdInfo = rdr.des_vlu4()?;
+        if format_info != XwfdInfo::FormatIsXwfd {
+            return Err(XwfdError::WrongFormat);
         }
 
         // bits: 22:16
@@ -97,5 +96,31 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
             kind,
             priority,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use hex_literal::hex;
+    use vhl_stdlib_nostd::serdes::NibbleBuf;
+    use crate::xwfd::XwfdError;
+    use super::Event;
+
+    #[test]
+    fn des_is_xwdf_or_bigger_false() {
+        let buf = hex!("02 55 10 90 04 50");
+        let mut nrd = NibbleBuf::new_all(&buf);
+        let r: Result<Event, XwfdError> = nrd.des_vlu4();
+
+        matches!(r, Err(XwfdError::WrongFormat));
+    }
+
+    #[test]
+    fn des_is_xwdf_info_other_format() {
+        let buf = hex!("02 d5 10 90 84 50");
+        let mut nrd = NibbleBuf::new_all(&buf);
+        let r: Result<Event, XwfdError> = nrd.des_vlu4();
+
+        matches!(r, Err(XwfdError::WrongFormat));
     }
 }

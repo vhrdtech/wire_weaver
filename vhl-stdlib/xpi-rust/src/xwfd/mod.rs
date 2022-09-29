@@ -89,7 +89,7 @@ pub mod error;
 pub mod priority;
 pub mod rate;
 pub mod serial_uri;
-pub mod compat;
+pub mod xwfd_info;
 pub mod node_id;
 pub mod request_id;
 pub mod node_set;

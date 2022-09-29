@@ -30,7 +30,8 @@ impl<'i> DeserializeVlu4<'i> for XwfdInfo {
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         match nrd.get_nibble()? {
             0b1000 => Ok(XwfdInfo::OtherFormat),
-            _ => Ok(XwfdInfo::FormatIsXwfd),
+            0b0000 => Ok(XwfdInfo::FormatIsXwfd),
+            _ => Err(XwfdError::WrongFormat)
         }
     }
 }

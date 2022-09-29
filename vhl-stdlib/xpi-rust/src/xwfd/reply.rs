@@ -4,7 +4,7 @@ use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
 use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
-use crate::xwfd::compat::XwfdInfo;
+use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
 use super::{
     NodeId, Priority,
@@ -151,12 +151,12 @@ mod test {
 
         let (buf, len, _) = nwr.finish();
         assert_eq!(len, len);
-        assert_eq!(&buf[..len], hex!("02 d5 10 90 45 20 20 aa bb 02 cc dd 1b"));
+        assert_eq!(&buf[..len], hex!("02 d5 10 90 04 52 02 aa bb 02 cc dd 1b"));
     }
 
     #[test]
     fn call_reply_des() {
-        let buf = hex!("02 d5 10 90 45 20 20 aa bb 02 cc dd 1b");
+        let buf = hex!("02 d5 10 90 04 52 02 aa bb 02 cc dd 1b");
         let mut nrd = NibbleBuf::new_all(&buf);
 
         let event: Event = nrd.des_vlu4().unwrap();

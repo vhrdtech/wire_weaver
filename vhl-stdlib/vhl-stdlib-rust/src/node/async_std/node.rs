@@ -9,7 +9,7 @@ use tokio::net::TcpStream;
 use futures::FutureExt;
 use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::NodeError;
-use xpi::xpi_owned::{NodeId, XpiEventOwned, XpiEventKind, Priority, NodeSet};
+use xpi::owned::{NodeId, XpiEventOwned, XpiEventKind, Priority, NodeSet};
 
 pub struct VhNode {
     id: NodeId,

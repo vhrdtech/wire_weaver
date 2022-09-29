@@ -5,7 +5,7 @@ pub mod traits;
 pub mod vlu4;
 pub mod size;
 
-pub use bit_buf::BitBuf;
+pub use bit_buf::{BitBuf, BitBufMut};
 pub use nibble_buf::{NibbleBuf, NibbleBufMut};
 pub use buf::{Buf, BufMut};
 pub use traits::{
@@ -16,5 +16,6 @@ pub use traits::{
     DeserializeCoupledBitsVlu4,
     SerializeBytes,
     DeserializeBytes,
+    SerializableError,
 };
 pub use size::SerDesSize;

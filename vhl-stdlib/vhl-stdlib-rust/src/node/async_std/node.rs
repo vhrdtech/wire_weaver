@@ -140,7 +140,7 @@ impl VhNode {
                     println!("{}: local heartbeat", self_id.0);
                     for (_id, tx_handle) in &mut nodes {
                         // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
-                        tx_handle.send(XpiEventOwned::new(self_id, NodeSet::Broadcast, XpiEventKind::new_heartbeat(uptime), Priority::Lossy(0))).await;
+                        let _r = tx_handle.send(Event::new(self_id, NodeSet::Broadcast, EventKind::new_heartbeat(uptime), Priority::Lossy(0))).await; // TODO: handle error
                     }
                     uptime += 1;
                 }
@@ -172,7 +172,7 @@ impl VhNode {
     pub async fn connect_remote(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
         match addr {
             RemoteNodeAddr::Tcp(addr) => {
-                let mut tcp_stream = TcpStream::connect(addr).await?;
+                let tcp_stream = TcpStream::connect(addr).await?;
                 let (tx, rx) = mpsc::channel(64);
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
@@ -191,19 +191,19 @@ impl VhNode {
     }
 
     async fn tcp_event_loop(
-        self_id: NodeId,
+        _self_id: NodeId,
         mut stream: TcpStream,
-        to_event_loop: Sender<Event>,
+        _to_event_loop: Sender<Event>,
         mut from_event_loop: Receiver<Event>,
     ) {
-        let (mut tcp_rx, mut tcp_tx) = stream.split();
+        let (mut tcp_rx, _tcp_tx) = stream.split();
         let mut buf = [0u8; 10_000];
         loop {
             futures::select! {
                 len = tcp_rx.read(&mut buf).fuse() => {
                     println!("tcp rx: {:?}", len);
                 }
-                ev = from_event_loop.select_next_some() => {
+                _ev = from_event_loop.select_next_some() => {
 
                 }
             }
@@ -230,7 +230,7 @@ impl VhNode {
     /// Internally a temporary channel is created, tx end of which is transferred to the event loop.
     /// Then we await or timeout on rx end of that channel for a response.
     /// Afterwards the channel is dropped.
-    pub async fn filter_one(&mut self, filter: ()) -> Result<Event, NodeError> {
+    pub async fn filter_one(&mut self, _filter: ()) -> Result<Event, NodeError> {
         let (tx, mut rx) = mpsc::channel(1);
         self.tx_internal
             .send(InternalEvent::FilterOne(

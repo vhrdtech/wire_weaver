@@ -366,8 +366,8 @@ impl<'i> NibbleBufMut<'i> {
     ///
     /// # Example
     /// ```
-    /// use vhl_stdlib::serdes::NibbleBufMut;
-    /// use vhl_stdlib::serdes::bit_buf::Error as BitBufError;
+    /// use vhl_stdlib_nostd::serdes::NibbleBufMut;
+    /// use vhl_stdlib_nostd::serdes::bit_buf::Error as BitBufError;
     ///
     /// #[derive(Debug)]
     /// enum MyError {
@@ -626,8 +626,8 @@ impl<'i> NibbleBufMut<'i> {
     ///
     /// Example:
     /// ```
-    /// use vhl_stdlib::serdes::NibbleBufMut;
-    /// use vhl_stdlib::serdes::vlu4::Vlu4VecBuilder;
+    /// use vhl_stdlib_nostd::serdes::NibbleBufMut;
+    /// use vhl_stdlib_nostd::serdes::vlu4::Vlu4VecBuilder;
     /// use hex_literal::hex;
     ///
     /// let mut buf = [0u8; 128];

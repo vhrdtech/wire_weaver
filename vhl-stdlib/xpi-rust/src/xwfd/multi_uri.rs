@@ -8,7 +8,7 @@ use vhl_stdlib_nostd::{
 };
 use crate::xwfd::error::XwfdError;
 use super::{
-    UriMask, UriMaskIter, UriIter, SerialUri,
+    UriMask, UriMaskIter, SerialUriIter, SerialUri,
 };
 
 /// Allows to select any combination of resources in order to perform read/write or stream
@@ -86,7 +86,7 @@ impl<'i> Iterator for MultiUriIter<'i> {
 }
 
 pub enum MultiUriFlatIter<'i> {
-    OneUri(Option<UriIter<'i>>),
+    OneUri(Option<SerialUriIter<'i>>),
     MultiUri {
         rdr: NibbleBuf<'i>,
         len: usize,
@@ -97,7 +97,7 @@ pub enum MultiUriFlatIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
-    type Item = UriIter<'i>;
+    type Item = SerialUriIter<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -113,7 +113,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                     return None;
                 }
                 match mask_iter.next() {
-                    Some(m) => Some(UriIter::ArrIterChain {
+                    Some(m) => Some(SerialUriIter::ArrIterChain {
                         arr_iter: uri_iter.clone(),
                         last: Some(m),
                     }),
@@ -129,7 +129,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                         *uri_iter = uri_arr.iter();
                         *mask_iter = mask.iter();
 
-                        Some(UriIter::ArrIterChain {
+                        Some(SerialUriIter::ArrIterChain {
                             arr_iter: uri_iter.clone(),
                             last: mask_iter.next(),
                         })

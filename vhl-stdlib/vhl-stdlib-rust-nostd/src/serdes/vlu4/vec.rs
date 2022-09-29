@@ -291,9 +291,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     ///
     /// Example:
     /// ```
-    /// use vhl_stdlib::serdes::NibbleBufMut;
-    /// use vhl_stdlib::serdes::nibble_buf::Error as NibbleBufError;
-    /// use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecBuilder};
+    /// use vhl_stdlib_nostd::serdes::NibbleBufMut;
+    /// use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
+    /// use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecBuilder};
     ///
     /// #[derive(Debug)]
     /// enum MyError {

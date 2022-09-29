@@ -118,18 +118,12 @@ impl<'i> XpiReplyVlu4Builder<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
-    use crate::xwfd::resource_set::{RequestId, ResourceSet};
-    use crate::xwfd::error::FailReason;
-    use crate::xwfd::priority::Priority;
-    use crate::xwfd::reply::{
-        ReplyKind, XpiReplyDiscriminant, XpiReplyVlu4Builder,
-    };
-    use crate::xwfd::{NodeId, SerialUri};
+    use vhl_stdlib_nostd::discrete::{U2, U4};
+    use crate::xwfd::*;
     use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
-    use crate::xwfd::event::{Event, EventKind};
-    use crate::xwfd::node_set::NodeSet;
+    use crate::error::XpiError;
+    use crate::reply::XpiReplyDiscriminant;
 
     #[test]
     fn call_reply_ser() {
@@ -140,12 +134,12 @@ mod test {
             NodeSet::Unicast(NodeId::new(33).unwrap()),
             ResourceSet::Uri(SerialUri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
             RequestId::new(27).unwrap(),
-            Priority::Lossy(U2Sp1::new(1).unwrap()),
+            Priority::Lossy(U2::new(0).unwrap()),
         )
             .unwrap();
         let nwr = reply_builder
             .build_kind_with(|nwr| {
-                let mut vb = nwr.put_vec::<Result<&[u8], FailReason>>();
+                let mut vb = nwr.put_vec::<Result<&[u8], XpiError>>();
                 vb.put_result_with_slice(Ok(&[0xaa, 0xbb][..]))?;
                 vb.put_result_with_slice(Ok(&[0xcc, 0xdd][..]))?;
                 let nwr = vb.finish()?;
@@ -192,7 +186,7 @@ mod test {
         } else {
             panic!("Expected XpiEventKind::Reply(_)");
         }
-        assert_eq!(event.priority, Priority::Lossy(U2Sp1::new(1).unwrap()));
+        assert_eq!(event.priority, Priority::Lossy(U2::new(0).unwrap()));
         assert!(nrd.is_at_end());
     }
 }

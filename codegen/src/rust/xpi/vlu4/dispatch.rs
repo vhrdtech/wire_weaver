@@ -2,7 +2,6 @@ use crate::prelude::*;
 use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
 use crate::rust::path::PathCG;
-use itertools::Itertools;
 use vhl::ast::fn_def::FnArguments;
 use vhl::ast::ty::{Ty, TyKind};
 use crate::rust::identifier::CGIdentifier;

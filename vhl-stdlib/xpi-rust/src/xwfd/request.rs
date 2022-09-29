@@ -148,7 +148,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::discrete::{U2Sp1, U4};
+    use vhl_stdlib_nostd::discrete::{U2, U4};
     use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
     use crate::request::XpiRequestDiscriminant;
     pub use crate::xwfd::{
@@ -175,7 +175,7 @@ mod test {
         let event: Event = nrd.des_vlu4().unwrap();
         // println!("{}", event);
 
-        assert_eq!(event.priority, Priority::Lossless(U2Sp1::new(1).unwrap()));
+        assert_eq!(event.priority, Priority::Lossless(U2::new(0).unwrap()));
         assert_eq!(event.source, NodeId::new(42).unwrap());
         assert!(matches!(event.destination, NodeSet::Unicast(_)));
         if let NodeSet::Unicast(id) = event.destination {
@@ -214,7 +214,7 @@ mod test {
             NodeSet::Unicast(NodeId::new(85).unwrap()),
             ResourceSet::Uri(SerialUri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
             RequestId::new(27).unwrap(),
-            Priority::Lossless(U2Sp1::new(1).unwrap()),
+            Priority::Lossless(U2::new(0).unwrap()),
         )
             .unwrap();
         let nwr = request_builder

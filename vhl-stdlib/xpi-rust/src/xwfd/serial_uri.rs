@@ -31,34 +31,34 @@ pub enum SerialUri<'i> {
 }
 
 impl<'i> SerialUri<'i> {
-    pub fn iter(&self) -> UriIter<'i> {
+    pub fn iter(&self) -> SerialUriIter<'i> {
         match self {
-            SerialUri::OnePart4(a) => UriIter::UpToThree {
+            SerialUri::OnePart4(a) => SerialUriIter::UpToThree {
                 parts: [a.inner(), 0, 0],
                 len: 1,
                 pos: 0,
             },
-            SerialUri::TwoPart44(a, b) => UriIter::UpToThree {
+            SerialUri::TwoPart44(a, b) => SerialUriIter::UpToThree {
                 parts: [a.inner(), b.inner(), 0],
                 len: 2,
                 pos: 0,
             },
-            SerialUri::ThreePart444(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart444(a, b, c) => SerialUriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            SerialUri::ThreePart633(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart633(a, b, c) => SerialUriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            SerialUri::ThreePart664(a, b, c) => UriIter::UpToThree {
+            SerialUri::ThreePart664(a, b, c) => SerialUriIter::UpToThree {
                 parts: [a.inner(), b.inner(), c.inner()],
                 len: 3,
                 pos: 0,
             },
-            SerialUri::MultiPart(arr) => UriIter::ArrIter(arr.iter()),
+            SerialUri::MultiPart(arr) => SerialUriIter::ArrIter(arr.iter()),
         }
     }
 }
@@ -128,7 +128,7 @@ impl<'i> SerializeVlu4 for SerialUri<'i> {
 
 impl<'i> IntoIterator for SerialUri<'i> {
     type Item = u32;
-    type IntoIter = UriIter<'i>;
+    type IntoIter = SerialUriIter<'i>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -136,7 +136,7 @@ impl<'i> IntoIterator for SerialUri<'i> {
 }
 
 #[derive(Clone)]
-pub enum UriIter<'i> {
+pub enum SerialUriIter<'i> {
     UpToThree {
         parts: [u8; 3],
         len: u8,
@@ -149,12 +149,12 @@ pub enum UriIter<'i> {
     },
 }
 
-impl<'i> Iterator for UriIter<'i> {
+impl<'i> Iterator for SerialUriIter<'i> {
     type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            UriIter::UpToThree { parts, len, pos } => {
+            SerialUriIter::UpToThree { parts, len, pos } => {
                 if pos < len {
                     *pos += 1;
                     Some(parts[(*pos - 1) as usize] as u32)
@@ -162,8 +162,8 @@ impl<'i> Iterator for UriIter<'i> {
                     None
                 }
             }
-            UriIter::ArrIter(arr_iter) => arr_iter.next().map(|x| x.0),
-            UriIter::ArrIterChain { arr_iter, last } => match arr_iter.next() {
+            SerialUriIter::ArrIter(arr_iter) => arr_iter.next().map(|x| x.0),
+            SerialUriIter::ArrIterChain { arr_iter, last } => match arr_iter.next() {
                 Some(p) => Some(p.0),
                 None => match *last {
                     Some(p) => {
@@ -178,9 +178,9 @@ impl<'i> Iterator for UriIter<'i> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
-            UriIter::UpToThree { len, .. } => (*len as usize, Some(*len as usize)),
-            UriIter::ArrIter(arr_iter) => arr_iter.size_hint(),
-            UriIter::ArrIterChain { arr_iter, .. } => {
+            SerialUriIter::UpToThree { len, .. } => (*len as usize, Some(*len as usize)),
+            SerialUriIter::ArrIter(arr_iter) => arr_iter.size_hint(),
+            SerialUriIter::ArrIterChain { arr_iter, .. } => {
                 let size = arr_iter.size_hint().0;
                 (size + 1, Some(size + 1))
             }
@@ -188,9 +188,9 @@ impl<'i> Iterator for UriIter<'i> {
     }
 }
 
-impl<'i> FusedIterator for UriIter<'i> {}
+impl<'i> FusedIterator for SerialUriIter<'i> {}
 
-impl<'i> Display for UriIter<'i> {
+impl<'i> Display for SerialUriIter<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let mut uri_iter = self.clone().peekable();
         if f.alternate() {

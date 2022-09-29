@@ -59,6 +59,8 @@ macro_rules! max_bound_number {
 }
 pub use max_bound_number;
 
+// 2 bit unsigned integer
+max_bound_number!(U2, 2, u8, 3, "U2:{}", put_up_to_8, get_up_to_8);
 // 3 bit unsigned integer
 max_bound_number!(U3, 3, u8, 7, "U3:{}", put_up_to_8, get_up_to_8);
 
@@ -101,36 +103,36 @@ impl<'i> DeserializeBits<'i> for U7Sp1 {
     }
 }
 
-/// 2 bit unsigned integer shifted +1 == range 1..=4
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct U2Sp1(u8);
-impl U2Sp1 {
-    pub const fn new(from: u8) -> Option<Self> {
-        if from >= 1 && from <= 4 {
-            Some(U2Sp1(from - 1))
-        } else {
-            None
-        }
-    }
-
-    pub fn to_u8(&self) -> u8 {
-        self.0 + 1
-    }
-}
-
-impl<'i> DeserializeBits<'i> for U2Sp1 {
-    type Error = crate::serdes::bit_buf::Error;
-
-    fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
-        let bits_1_0 = rdr.get_up_to_8(2)?;
-        Ok(U2Sp1(bits_1_0))
-    }
-}
-
-impl SerializeBits for U2Sp1 {
-    type Error = crate::serdes::bit_buf::Error;
-
-    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        wgr.put_up_to_8(2, self.0)
-    }
-}
+// /// 2 bit unsigned integer shifted +1 == range 1..=4
+// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+// pub struct U2Sp1(u8);
+// impl U2Sp1 {
+//     pub const fn new(from: u8) -> Option<Self> {
+//         if from >= 1 && from <= 4 {
+//             Some(U2Sp1(from - 1))
+//         } else {
+//             None
+//         }
+//     }
+//
+//     pub fn to_u8(&self) -> u8 {
+//         self.0 + 1
+//     }
+// }
+//
+// impl<'i> DeserializeBits<'i> for U2Sp1 {
+//     type Error = bit_buf::Error;
+//
+//     fn des_bits<'di>(rdr: &'di mut BitBuf<'i>) -> Result<Self, Self::Error> {
+//         let bits_1_0 = rdr.get_up_to_8(2)?;
+//         Ok(U2Sp1(bits_1_0))
+//     }
+// }
+//
+// impl SerializeBits for U2Sp1 {
+//     type Error = bit_buf::Error;
+//
+//     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+//         wgr.put_up_to_8(2, self.0)
+//     }
+// }

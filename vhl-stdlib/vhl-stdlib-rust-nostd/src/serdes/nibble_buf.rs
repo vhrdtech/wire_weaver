@@ -630,6 +630,8 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     /// Create a Vlu4VecBuilder from the rest of this buffer.
+    /// Consumes self by value, to ensure that Vlu4Vec is properly finalized.
+    /// NibbleBufMut can be obtained back by calling finish().
     ///
     /// Example:
     /// ```
@@ -659,6 +661,37 @@ impl<'i> NibbleBufMut<'i> {
             slices_written: 0,
             _phantom: PhantomData,
         }
+    }
+
+    /// Put Vlu4Vec into this buffer taking elements from the provided closure, while it returns Some.
+    /// Takes self by mutable reference instead of by value as [put_vec](Self::put_vec);
+    pub fn unfold_as_vec<T, F, SE>(&mut self, mut f: F) -> Result<(), SE>
+        where
+            F: FnMut() -> Option<T>,
+            T: SerializeVlu4<Error=SE>,
+            SE: From<Error>
+    {
+        let mut builder = Vlu4VecBuilder {
+            wgr: NibbleBufMut {
+                buf: self.buf,
+                len_nibbles: self.len_nibbles,
+                idx: self.idx,
+                is_at_byte_boundary: self.is_at_byte_boundary,
+            },
+            idx_before: self.idx,
+            is_at_byte_boundary_before: self.is_at_byte_boundary,
+            stride_len: 0,
+            stride_len_idx_nibbles: 0,
+            slices_written: 0,
+            _phantom: PhantomData,
+        };
+        while let Some(t) = f() {
+            builder.put(t)?;
+        }
+        builder.finish_internal()?;
+        self.idx = builder.wgr.idx;
+        self.is_at_byte_boundary = builder.wgr.is_at_byte_boundary;
+        Ok(())
     }
 
     pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {

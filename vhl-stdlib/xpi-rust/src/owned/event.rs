@@ -1,7 +1,3 @@
-use std::fmt::{Debug, Formatter};
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::{bit_buf, NibbleBufMut};
-use vhl_stdlib_nostd::serdes::traits::SerializeBits;
 use crate::broadcast::XpiGenericBroadcastKind;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
 use crate::owned::convert_error::ConvertError;
@@ -12,24 +8,14 @@ use crate::owned::resource_set::ResourceSet;
 use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
+use std::fmt::{Debug, Formatter};
+use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
+use vhl_stdlib_nostd::serdes::traits::SerializeBits;
+use vhl_stdlib_nostd::serdes::{bit_buf, NibbleBufMut};
 
-use super::{
-    Priority,
-    BroadcastKind,
-    Reply,
-    Request,
-    RequestKind,
-};
+use super::{BroadcastKind, Priority, Reply, Request, RequestKind};
 
-pub type Event = XpiGenericEvent<
-    NodeId,
-    TraitSet,
-    Request,
-    Reply,
-    BroadcastKind,
-    (),
-    Priority
->;
+pub type Event = XpiGenericEvent<NodeId, TraitSet, Request, Reply, BroadcastKind, (), Priority>;
 
 impl Event {
     pub fn new(source: NodeId, destination: NodeSet, kind: EventKind, priority: Priority) -> Self {
@@ -59,7 +45,8 @@ impl Event {
             Ok(())
         })?;
         nwr.put(&XwfdInfo::FormatIsXwfd)?;
-
+        self.destination.ser_body_xwfd(nwr)?;
+        self.kind.ser_body_xwfd(nwr, uri_kind)?;
         Ok(())
     }
 }
@@ -70,12 +57,7 @@ impl Debug for Event {
     }
 }
 
-pub type EventKind = XpiGenericEventKind<
-    Request,
-    Reply,
-    BroadcastKind,
-    (),
->;
+pub type EventKind = XpiGenericEventKind<Request, Reply, BroadcastKind, ()>;
 
 impl EventKind {
     pub fn new_request(resource_set: ResourceSet, kind: RequestKind, id: RequestId) -> Self {
@@ -90,7 +72,10 @@ impl EventKind {
         EventKind::Broadcast(XpiGenericBroadcastKind::Heartbeat(info))
     }
 
-    pub(crate) fn ser_header_xwfd(&self, bwr: &mut BitBufMut) -> Result<Option<xwfd::SerialUriDiscriminant>, ConvertError> {
+    pub(crate) fn ser_header_xwfd(
+        &self,
+        bwr: &mut BitBufMut,
+    ) -> Result<Option<xwfd::SerialUriDiscriminant>, ConvertError> {
         match &self {
             EventKind::Request(req) => {
                 // bits 6:4 - discriminant of ResourceSet+Uri
@@ -102,6 +87,27 @@ impl EventKind {
                 // bwr.put(&rep.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
                 let uri_kind = rep.resource_set.ser_header_xwfd(bwr)?;
                 rep.kind.ser_header_xwfd(bwr)?; // bits 3:0 - reply kind
+                Ok(uri_kind)
+            }
+            EventKind::Broadcast(_) => todo!(),
+            EventKind::Forward(_) => todo!(),
+        }
+    }
+
+    pub(crate) fn ser_body_xwfd(
+        &self,
+        nwr: &mut NibbleBufMut,
+        uri_kind: Option<xwfd::SerialUriDiscriminant>,
+    ) -> Result<Option<xwfd::SerialUriDiscriminant>, ConvertError> {
+        match &self {
+            EventKind::Request(req) => {
+                req.resource_set.ser_body_xwfd(nwr, uri_kind)?;
+                req.kind.ser_body_xwfd(nwr)?; // bits 3:0 - request kind
+                Ok(uri_kind)
+            }
+            EventKind::Reply(rep) => {
+                rep.resource_set.ser_body_xwfd(nwr, uri_kind)?;
+                rep.kind.ser_body_xwfd(nwr)?; // bits 3:0 - reply kind
                 Ok(uri_kind)
             }
             EventKind::Broadcast(_) => todo!(),

@@ -1,6 +1,6 @@
-use vhl_stdlib_nostd::serdes::BitBufMut;
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
+use vhl_stdlib_nostd::serdes::{BitBufMut, NibbleBufMut};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerialUri {
@@ -52,6 +52,14 @@ impl SerialUri {
         bwr.put_up_to_8(3, uri_kind as u8)?;
         Ok(uri_kind)
     }
+
+    pub(crate) fn ser_body_xwfd(
+        &self,
+        nwr: &mut NibbleBufMut,
+        uri_kind: xwfd::SerialUriDiscriminant,
+    ) -> Result<(), ConvertError> {
+        Ok(())
+    }
 }
 
 // #[derive(Clone, Debug, Eq, PartialEq)]
@@ -59,4 +67,3 @@ impl SerialUri {
 //     Serial { serial: u32 },
 //     SerialIndex { serial: u32, by: u32 },
 // }
-

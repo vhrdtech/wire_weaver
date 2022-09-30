@@ -101,7 +101,6 @@ pub use resource_set::ResourceSet;
 pub use node_id::NodeId;
 pub use request_id::RequestId;
 pub use serial_uri::{SerialUri, SerialUriIter};
-pub(crate) use serial_uri::SerialUriDiscriminant;
 pub use multi_uri::{MultiUriFlatIter, MultiUriIter, SerialMultiUri};
 pub use uri_mask::{UriMask, UriMaskIter};
 pub use priority::Priority;

@@ -1,7 +1,7 @@
 use super::NodeId;
 use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
 use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
 use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
@@ -18,7 +18,7 @@ use super::{
 /// even for variable length arrays or strings.
 /// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
 pub type XpiRequestVlu4<'req> = XpiGenericRequest<
-    SerialUri<Vlu4Vec<'req, u32>>,
+    SerialUri<Vlu4VecIter<'req, Vlu32>>,
     SerialMultiUri<'req>,
     &'req [u8],
     Vlu4Vec<'req, &'req [u8]>,

@@ -3,7 +3,7 @@ use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits
 use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
 use crate::error::XpiError;
 use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
-use vhl_stdlib_nostd::serdes::vlu4::Vlu4VecIter;
+use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4VecIter};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
@@ -18,7 +18,7 @@ use super::{
 /// even for variable length arrays or strings.
 /// See [XpiGenericReply](crate::xpi::reply::XpiGenericReply) for detailed information.
 pub type Reply<'rep> = XpiGenericReply<
-    SerialUri<Vlu4Vec<'rep, u32>>,
+    SerialUri<Vlu4VecIter<'rep, Vlu32>>,
     SerialMultiUri<'rep>,
     Vlu4Vec<'rep, &'rep [u8]>,
     Vlu4Vec<'rep, Result<&'rep [u8], XpiError>>,

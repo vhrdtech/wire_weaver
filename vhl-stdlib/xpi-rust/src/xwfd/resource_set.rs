@@ -13,13 +13,13 @@ use super::{
     SerialUri,
 };
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd::error::XwfdError;
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
-pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<Vlu4Vec<'i, u32>>, SerialMultiUri<'i>>;
+pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<Vlu4VecIter<'i, Vlu32>>, SerialMultiUri<'i>>;
 
 impl<'i> ResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {
@@ -47,9 +47,10 @@ impl<'i> SerializeVlu4 for ResourceSet<'i> {
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            ResourceSet::Uri(uri) => wgr.put(uri),
-            ResourceSet::MultiUri(multi_uri) => wgr.put(multi_uri),
+            ResourceSet::Uri(uri) => wgr.put(uri)?,
+            ResourceSet::MultiUri(multi_uri) => wgr.put(multi_uri)?,
         }
+        Ok(())
     }
 
     fn len_nibbles(&self) -> SerDesSize {
@@ -95,7 +96,10 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for ResourceSet<'i> {
                     bits.des_bits()?,
                 )))
             }
-            5 => Ok(ResourceSet::Uri(vlu4_rdr.des_vlu4()?)),
+            5 => {
+                let arr: Vlu4Vec<Vlu32> = vlu4_rdr.des_vlu4()?;
+                Ok(ResourceSet::Uri(SerialUri::MultiPart(arr.into_iter())))
+            },
             6 => Ok(ResourceSet::MultiUri(vlu4_rdr.des_vlu4()?)),
             7 => Err(XwfdError::ReservedDiscard),
             _ => Err(XwfdError::InternalError),

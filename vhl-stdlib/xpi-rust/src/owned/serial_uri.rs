@@ -55,8 +55,8 @@ impl SerialUri {
 
     pub(crate) fn ser_body_xwfd(
         &self,
-        nwr: &mut NibbleBufMut,
-        uri_kind: xwfd::SerialUriDiscriminant,
+        _nwr: &mut NibbleBufMut,
+        _uri_kind: xwfd::SerialUriDiscriminant,
     ) -> Result<(), ConvertError> {
         Ok(())
     }

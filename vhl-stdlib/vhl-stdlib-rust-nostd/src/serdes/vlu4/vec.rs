@@ -178,9 +178,31 @@ where
     }
 }
 
-impl<'i, T: DeserializeVlu4<'i, Error = E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i, T>
-where
-    E: From<NibbleBufError>,
+impl<'i, T, E> SerializeVlu4 for Vlu4VecIter<'i, T>
+    where
+        T: SerializeVlu4<Error=E> + DeserializeVlu4<'i, Error=E>,
+        E: From<NibbleBufError>,
+{
+    type Error = E;
+
+    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        let vec: Vlu4Vec<T> = Vlu4Vec {
+            rdr: self.rdr.clone(),
+            total_len: self.total_len,
+            _phantom: Default::default(),
+        };
+        wgr.put(&vec)?;
+        Ok(())
+    }
+
+    fn len_nibbles(&self) -> SerDesSize {
+        todo!()
+    }
+}
+
+impl<'i, T: DeserializeVlu4<'i, Error=E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i, T>
+    where
+        E: From<NibbleBufError>,
 {
     type Error = E;
 

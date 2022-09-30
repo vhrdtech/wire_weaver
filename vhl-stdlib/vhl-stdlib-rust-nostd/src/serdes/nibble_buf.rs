@@ -6,7 +6,7 @@ use core::ptr::copy_nonoverlapping;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::vlu4::Vlu4VecBuilder;
-use crate::serdes::{BitBuf, DeserializeVlu4};
+use crate::serdes::{bit_buf, BitBuf, DeserializeVlu4};
 
 /// Buffer reader that treats input as a stream of nibbles.
 ///
@@ -40,6 +40,13 @@ pub enum Error {
 
     Vlu4Vec,
     InvalidErrorCode,
+    BitBuf
+}
+
+impl From<bit_buf::Error> for Error {
+    fn from(_: bit_buf::Error) -> Self {
+        Error::BitBuf
+    }
 }
 
 impl<'i> NibbleBuf<'i> {

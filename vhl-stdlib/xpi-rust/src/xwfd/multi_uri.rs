@@ -45,7 +45,7 @@ impl<'i> SerialMultiUri<'i> {
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_arr: Vlu4Vec<u32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<u32>::empty());
+        let uri_iter: Vlu4VecIter<Vlu32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<Vlu32>::empty()).into_iter();
         let mask: UriMask = rdr_clone
             .des_vlu4()
             .unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
@@ -53,7 +53,7 @@ impl<'i> SerialMultiUri<'i> {
             rdr: rdr_clone,
             len: self.parts_count,
             pos: 1,
-            uri_arr,
+            uri_iter,
             mask_iter: mask.iter(),
         }
     }
@@ -66,7 +66,7 @@ pub struct MultiUriIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriIter<'i> {
-    type Item = (SerialUri<Vlu4Vec<'i, u32>>, UriMask<'i>);
+    type Item = (SerialUri<Vlu4VecIter<'i, Vlu32>>, UriMask<'i>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.len {
@@ -74,8 +74,9 @@ impl<'i> Iterator for MultiUriIter<'i> {
         }
         self.pos += 1;
 
+        let arr: Vlu4Vec<Vlu32> = self.rdr.des_vlu4().ok()?;
         Some((
-            SerialUri::MultiPart(self.rdr.des_vlu4().ok()?),
+            SerialUri::MultiPart(arr.into_iter()),
             self.rdr.des_vlu4().ok()?,
         ))
     }
@@ -86,18 +87,18 @@ impl<'i> Iterator for MultiUriIter<'i> {
 }
 
 pub enum MultiUriFlatIter<'i> {
-    OneUri(Option<SerialUriIter<Vlu4Vec<'i, u32>>>),
+    OneUri(Option<SerialUriIter<Vlu4VecIter<'i, Vlu32>>>),
     MultiUri {
         rdr: NibbleBuf<'i>,
         len: usize,
         pos: usize,
-        uri_arr: Vlu4Vec<'i, u32>,
+        uri_iter: Vlu4VecIter<'i, Vlu32>,
         mask_iter: UriMaskIter<'i>,
     },
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
-    type Item = SerialUriIter<Vlu4Vec<'i, u32>>;
+    type Item = SerialUriIter<Vlu4VecIter<'i, Vlu32>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -106,7 +107,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                 rdr,
                 len,
                 pos,
-                uri_arr,
+                uri_iter,
                 mask_iter,
             } => {
                 if *pos > *len {
@@ -126,7 +127,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 
                         let uri_arr: Vlu4Vec<Vlu32> = rdr.des_vlu4().ok()?;
                         let mask: UriMask = rdr.des_vlu4().ok()?;
-                        *uri_iter = uri_arr;
+                        *uri_iter = uri_arr.into_iter();
                         *mask_iter = mask.iter();
 
                         Some(SerialUriIter::ArrIterChain {
@@ -148,7 +149,8 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
         let mut rdr_before_elements = rdr.clone();
         for _ in 0..parts_count {
             // TODO: implement skip_vlu4() to not read data
-            let _uri_len: SerialUri = rdr.des_vlu4()?;
+            let _uri_arr_len: Vlu4Vec<Vlu32> = rdr.des_vlu4()?;
+            // let _uri_len: SerialUri<Vlu4VecIter<Vlu32>> = rdr.des_vlu4()?;
             let _mask: UriMask = rdr.des_vlu4()?;
         }
         rdr_before_elements.shrink_to_pos_of(rdr)?;

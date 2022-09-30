@@ -29,7 +29,7 @@ impl RequestKind {
         Ok(())
     }
 
-    pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+    pub(crate) fn ser_body_xwfd(&self, _nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         Ok(())
     }
 }

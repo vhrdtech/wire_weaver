@@ -45,7 +45,7 @@ impl<'i> SerialMultiUri<'i> {
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_arr: Vlu4Vec<Vlu32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<Vlu32>::empty());
+        let uri_arr: Vlu4Vec<u32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<u32>::empty());
         let mask: UriMask = rdr_clone
             .des_vlu4()
             .unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
@@ -53,7 +53,7 @@ impl<'i> SerialMultiUri<'i> {
             rdr: rdr_clone,
             len: self.parts_count,
             pos: 1,
-            uri_iter: uri_arr.iter(),
+            uri_arr,
             mask_iter: mask.iter(),
         }
     }
@@ -66,7 +66,7 @@ pub struct MultiUriIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriIter<'i> {
-    type Item = (SerialUri<'i>, UriMask<'i>);
+    type Item = (SerialUri<Vlu4Vec<'i, u32>>, UriMask<'i>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.len {
@@ -86,18 +86,18 @@ impl<'i> Iterator for MultiUriIter<'i> {
 }
 
 pub enum MultiUriFlatIter<'i> {
-    OneUri(Option<SerialUriIter<'i>>),
+    OneUri(Option<SerialUriIter<Vlu4Vec<'i, u32>>>),
     MultiUri {
         rdr: NibbleBuf<'i>,
         len: usize,
         pos: usize,
-        uri_iter: Vlu4VecIter<'i, Vlu32>,
+        uri_arr: Vlu4Vec<'i, u32>,
         mask_iter: UriMaskIter<'i>,
     },
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
-    type Item = SerialUriIter<'i>;
+    type Item = SerialUriIter<Vlu4Vec<'i, u32>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -106,7 +106,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                 rdr,
                 len,
                 pos,
-                uri_iter,
+                uri_arr,
                 mask_iter,
             } => {
                 if *pos > *len {
@@ -126,7 +126,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 
                         let uri_arr: Vlu4Vec<Vlu32> = rdr.des_vlu4().ok()?;
                         let mask: UriMask = rdr.des_vlu4().ok()?;
-                        *uri_iter = uri_arr.iter();
+                        *uri_iter = uri_arr;
                         *mask_iter = mask.iter();
 
                         Some(SerialUriIter::ArrIterChain {

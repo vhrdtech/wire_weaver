@@ -13,12 +13,13 @@ use super::{
     SerialUri,
 };
 use core::fmt::{Display, Formatter, Result as FmtResult};
+use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd::error::XwfdError;
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
-pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<'i>, SerialMultiUri<'i>>;
+pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<Vlu4Vec<'i, u32>>, SerialMultiUri<'i>>;
 
 impl<'i> ResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {

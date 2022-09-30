@@ -11,7 +11,7 @@ use core::marker::PhantomData;
 #[derive(Copy, Clone)]
 pub struct Vlu4Vec<'i, T> {
     rdr: NibbleBuf<'i>,
-    // total number of [u8] slices serialized
+    // total number of elements serialized
     total_len: usize,
     _phantom: PhantomData<T>,
 }

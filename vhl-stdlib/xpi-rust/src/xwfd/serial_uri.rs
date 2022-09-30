@@ -1,6 +1,6 @@
 use vhl_stdlib_nostd::discrete::{U3, U4, U6};
 use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
-use vhl_stdlib_nostd::serdes::{bit_buf, DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use vhl_stdlib_nostd::serdes::vlu4::Vlu32;
@@ -95,10 +95,9 @@ impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XwfdError>> Deseria
     }
 }
 
-impl<I: Iterator<Item=Vlu32> + SerializeVlu4<Error=SE>, SE> SerializeVlu4 for SerialUri<I>
-    where SE: From<nibble_buf::Error> + From<bit_buf::Error>
+impl<I: Iterator<Item=Vlu32> + Clone> SerializeVlu4 for SerialUri<I>
 {
-    type Error = SE;
+    type Error = XwfdError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
@@ -115,7 +114,7 @@ impl<I: Iterator<Item=Vlu32> + SerializeVlu4<Error=SE>, SE> SerializeVlu4 for Se
                 wgr.put_nibble(c.inner())?;
             }
             SerialUri::ThreePart633(a, b, c) => {
-                wgr.as_bit_buf::<_, SE>(|wgr| {
+                wgr.as_bit_buf::<_, XwfdError>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(3, b.inner())?;
                     wgr.put_up_to_8(3, c.inner())?;
@@ -123,7 +122,7 @@ impl<I: Iterator<Item=Vlu32> + SerializeVlu4<Error=SE>, SE> SerializeVlu4 for Se
                 })?;
             }
             SerialUri::ThreePart664(a, b, c) => {
-                wgr.as_bit_buf::<_, SE>(|wgr| {
+                wgr.as_bit_buf::<_, XwfdError>(|wgr| {
                     wgr.put_up_to_8(6, a.inner())?;
                     wgr.put_up_to_8(6, b.inner())?;
                     wgr.put_up_to_8(4, c.inner())?;
@@ -131,7 +130,10 @@ impl<I: Iterator<Item=Vlu32> + SerializeVlu4<Error=SE>, SE> SerializeVlu4 for Se
                 })?;
             }
             SerialUri::MultiPart(arr) => {
-                return wgr.put(arr);
+                let arr_iter = &mut arr.clone();
+                wgr.unfold_as_vec(|| {
+                    arr_iter.next()
+                })?;
             }
         }
         Ok(())
@@ -144,8 +146,8 @@ impl<I: Iterator<Item=Vlu32> + SerializeVlu4<Error=SE>, SE> SerializeVlu4 for Se
             SerialUri::ThreePart444(_, _, _) => 3,
             SerialUri::ThreePart633(_, _, _) => 3,
             SerialUri::ThreePart664(_, _, _) => 4,
-            SerialUri::MultiPart(arr) => {
-                return arr.len_nibbles();
+            SerialUri::MultiPart(_arr) => {
+                return SerDesSize::Unsized; // TODO: return something more proper?
             },
         };
         SerDesSize::Sized(nibbles)

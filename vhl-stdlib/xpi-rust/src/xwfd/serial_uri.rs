@@ -1,9 +1,9 @@
-use vhl_stdlib_nostd::discrete::{U3, U4, U6};
-use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib::discrete::{U3, U4, U6};
+use vhl_stdlib::serdes::traits::SerializeVlu4;
+use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
-use vhl_stdlib_nostd::serdes::vlu4::Vlu32;
+use vhl_stdlib::serdes::vlu4::Vlu32;
 use crate::xwfd::XwfdError;
 
 /// Sequence of numbers uniquely identifying one of the resources.
@@ -260,12 +260,12 @@ impl<I: Iterator<Item=Vlu32> + Clone> Debug for SerialUri<I> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::discrete::{U3, U4, U6};
+    use vhl_stdlib::discrete::{U3, U4, U6};
     use std::format;
 
     use super::SerialUri;
-    use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
-    use vhl_stdlib_nostd::serdes::NibbleBuf;
+    use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
+    use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
     fn one_part_uri_iter() {

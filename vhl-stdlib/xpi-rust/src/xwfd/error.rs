@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{bit_buf, nibble_buf};
+use vhl_stdlib::serdes::{bit_buf, nibble_buf};
 
 /// Error used locally (not transferred across the wire).
 #[derive(Debug, Eq, PartialEq)]

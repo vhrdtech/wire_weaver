@@ -1,5 +1,5 @@
-use vhl_stdlib_nostd::max_bound_number;
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, bit_buf, SerializeBits, DeserializeBits};
+use vhl_stdlib::max_bound_number;
+use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, bit_buf, SerializeBits, DeserializeBits};
 use crate::xwfd::error::XwfdError;
 
 max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);

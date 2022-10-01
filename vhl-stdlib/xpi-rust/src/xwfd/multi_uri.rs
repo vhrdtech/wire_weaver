@@ -1,5 +1,5 @@
 use core::fmt::{Display, Formatter};
-use vhl_stdlib_nostd::{
+use vhl_stdlib::{
     serdes::{
         SerializeVlu4, DeserializeVlu4, SerDesSize,
         NibbleBuf, NibbleBufMut,
@@ -200,10 +200,10 @@ impl<'i> Display for SerialMultiUri<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
+    use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
     use crate::xwfd::multi_uri::SerialMultiUri;
     use crate::xwfd::UriMask;
-    use vhl_stdlib_nostd::serdes::NibbleBuf;
+    use vhl_stdlib::serdes::NibbleBuf;
     use std::format;
 
     #[test]

@@ -1,0 +1,15 @@
+[package]
+name = "xpi-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = { version = "1.0.35" }
+tokio = { version = "^1.20.1", features = ["full"] }
+tokio-stream = { version = "^0.1.9" }
+futures = { version = "0.3.24" }
+xpi = { path = "../xpi-rust" }
+vhl-stdlib = { path = "../vhl-stdlib-rust" }
+
+[features]
+dynamic = [] # include full vhl core allowing run time parsing of vhl files, expression evaluation, etc

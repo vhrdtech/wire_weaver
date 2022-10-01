@@ -4,11 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thiserror = { version = "1.0.35" }
-tokio = { version = "^1.20.1", features = ["full"] }
-tokio-stream = { version = "^0.1.9" }
-futures = { version = "0.3.24" }
-xpi = { path = "../xpi-rust" }
+#hash32 = "^0.3.1"
+#hash32-derive = "^0.1.1"
+#semver = { version = "1.0.13", default-features = false }
+#thiserror = "^1.0.32"
+#enum-kinds = { version = "^0.5.1", features = ["no-stdlib"] }
+#enum-primitive-derive = "^0.1"
+#num-traits = "^0.1"
+
+[dev-dependencies]
+hex-literal = "^0.3.4"
+rand = "^0.8.5"
+rand_chacha = "^0.3.1"
 
 [features]
-dynamic = [] # include full vhl core allowing run time parsing of vhl files, expression evaluation, etc
+default = ["buf-strict"]
+buf-strict = [] # Check for incorrect size estimates (SerDesSize)
+no_std = []

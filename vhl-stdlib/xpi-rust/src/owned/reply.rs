@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{BitBufMut, NibbleBufMut};
+use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind};
 use crate::error::XpiError;
 use crate::owned::convert_error::ConvertError;

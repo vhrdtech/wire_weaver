@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{bit_buf, buf, nibble_buf, SerializableError};
+use vhl_stdlib::serdes::{bit_buf, buf, nibble_buf, SerializableError};
 
 /// Error that is transferred across the wire for example in response to requests.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

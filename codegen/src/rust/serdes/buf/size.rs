@@ -1,7 +1,7 @@
 use vhl::ast::bound::NumBound;
 use vhl::ast::expr::TryEvaluateInto;
 use vhl::ast::ty::{Ty, TyKind};
-use vhl_stdlib_nostd::serdes::SerDesSize;
+use vhl_stdlib::serdes::SerDesSize;
 
 pub fn size_in_buf(of: &Ty) -> SerDesSize {
     match &of.kind {

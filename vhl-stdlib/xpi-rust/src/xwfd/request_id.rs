@@ -1,5 +1,5 @@
-use vhl_stdlib_nostd::max_bound_number;
-use vhl_stdlib_nostd::serdes::{
+use vhl_stdlib::max_bound_number;
+use vhl_stdlib::serdes::{
     DeserializeVlu4, NibbleBuf,
     SerializeVlu4, NibbleBufMut, SerDesSize,
 };

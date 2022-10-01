@@ -3,8 +3,8 @@ use crate::owned::convert_error::ConvertError;
 use crate::owned::{SerialMultiUri, SerialUri};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd;
-use vhl_stdlib_nostd::serdes::{BitBufMut, NibbleBufMut};
-use vhl_stdlib_nostd::serdes::vlu4::Vlu32;
+use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
+use vhl_stdlib::serdes::vlu4::Vlu32;
 
 pub type ResourceSet = XpiGenericResourceSet<SerialUri, SerialMultiUri>;
 

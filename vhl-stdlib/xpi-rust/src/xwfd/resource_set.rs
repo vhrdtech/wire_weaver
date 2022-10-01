@@ -1,10 +1,11 @@
-use vhl_stdlib_nostd::{
+use vhl_stdlib::{
     serdes::{
         bit_buf,
         BitBuf,
         BitBufMut,
         DeserializeCoupledBitsVlu4,
         NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4,
+        vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
     },
 };
 use super::{
@@ -13,7 +14,6 @@ use super::{
     SerialUri,
 };
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd::error::XwfdError;
 

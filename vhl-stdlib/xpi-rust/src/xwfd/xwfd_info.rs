@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
+use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
 use crate::xwfd::error::XwfdError;
 
 #[derive(Copy, Clone, Eq, PartialEq, )]

@@ -1,4 +1,4 @@
-use vhl_stdlib_nostd::serdes::{BitBufMut, NibbleBufMut};
+use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 use crate::owned::convert_error::ConvertError;
 use crate::owned::rate::Rate;
 use crate::owned::request_id::RequestId;

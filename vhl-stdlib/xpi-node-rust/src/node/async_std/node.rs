@@ -3,46 +3,18 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
-use tokio::io::AsyncReadExt;
-use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::TcpStream;
-use futures::FutureExt;
 use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::NodeError;
 use xpi::owned::{Priority, EventKind, Event};
 use xpi::owned::node_id::NodeId;
 use xpi::owned::node_set::NodeSet;
+use crate::remote::tcp::tcp_event_loop;
 
 pub struct VhNode {
     id: NodeId,
     tx_to_event_loop: Sender<Event>,
     tx_internal: Sender<InternalEvent>,
-}
-
-fn read_many(rx: OwnedReadHalf) -> impl Stream<Item=std::io::Result<Vec<u8>>> {
-    futures::stream::unfold(rx, |mut rx| {
-        async {
-            // let mut data = None;
-            // loop {
-            //     futures::select! {
-            //         read = read_one(&mut rx).fuse() => {
-            //             println!("Datagram received: ", );
-            //             break;
-            //         },
-            //         complete => break,
-            //     }
-            // };
-            let data = read_one(&mut rx).await;
-            Some(( data, rx))
-        }
-    })
-}
-
-async fn read_one(rx: &mut OwnedReadHalf) -> std::io::Result<Vec<u8>> {
-    let mut data = vec![0; 1024];
-    let len = rx.read(&mut data).await?;
-    data.truncate(len);
-    Ok(data)
 }
 
 impl VhNode {
@@ -177,35 +149,15 @@ impl VhNode {
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
                 tokio::spawn(async move {
-                    Self::tcp_event_loop(
+                    tcp_event_loop(
                         id,
                         tcp_stream,
                         to_event_loop.clone(),
-                        rx
+                        rx,
                     ).await
                 });
                 self.tx_internal.send(InternalEvent::ConnectRemoteTcp(tx)).await?;
                 Ok(())
-            }
-        }
-    }
-
-    async fn tcp_event_loop(
-        _self_id: NodeId,
-        mut stream: TcpStream,
-        _to_event_loop: Sender<Event>,
-        mut from_event_loop: Receiver<Event>,
-    ) {
-        let (mut tcp_rx, _tcp_tx) = stream.split();
-        let mut buf = [0u8; 10_000];
-        loop {
-            futures::select! {
-                len = tcp_rx.read(&mut buf).fuse() => {
-                    println!("tcp rx: {:?}", len);
-                }
-                _ev = from_event_loop.select_next_some() => {
-
-                }
             }
         }
     }

@@ -1,12 +1,15 @@
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use vhl_stdlib_nostd::serdes::vlu4::vec::Vlu4Vec;
 use crate::error::XpiError;
-use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4VecIter};
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
+use vhl_stdlib::{
+    serdes::{
+        bit_buf, BitBuf, BitBufMut,
+        NibbleBuf, NibbleBufMut,
+        traits::{DeserializeCoupledBitsVlu4, SerializeBits},
+        vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
+    }
+};
 use super::{
     NodeId, Priority,
     RequestId, ResourceInfo, ResourceSet,
@@ -121,9 +124,9 @@ impl<'i> ReplyBuilder<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::discrete::{U2, U4};
+    use vhl_stdlib::discrete::{U2, U4};
     use crate::xwfd::*;
-    use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
+    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
     use hex_literal::hex;
     use crate::error::XpiError;
     use crate::reply::XpiReplyDiscriminant;

@@ -3,7 +3,7 @@ use crate::owned::convert_error::ConvertError;
 use crate::owned::node_id::NodeId;
 use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
-use vhl_stdlib_nostd::serdes::{BitBufMut, NibbleBufMut};
+use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 
 pub type NodeSet = XpiGenericNodeSet<NodeId, TraitSet>;
 

@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Check stdlib" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+  <configuration default="false" name="Check xpi-node" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="command" value="check " />
-    <option name="workingDirectory" value="file://$PROJECT_DIR$/vhl-stdlib/vhl-stdlib-rust" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$/vhl-stdlib/xpi-node-rust" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
     <option name="allFeatures" value="false" />

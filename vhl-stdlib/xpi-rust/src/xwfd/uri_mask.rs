@@ -1,8 +1,8 @@
-use vhl_stdlib_nostd::serdes::traits::SerializeVlu4;
-use vhl_stdlib_nostd::serdes::vlu4::vlu32::Vlu32;
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use vhl_stdlib::serdes::traits::SerializeVlu4;
+use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
+use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::xwfd::error::XwfdError;
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
@@ -230,7 +230,7 @@ impl<'i> Display for UriMask<'i> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use vhl_stdlib_nostd::serdes::NibbleBuf;
+    use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
     fn test_mask_u8() {

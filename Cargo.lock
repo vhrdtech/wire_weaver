@@ -152,14 +152,14 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "semver",
- "thiserror",
- "vhl",
- "vhl-stdlib-nostd",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "parser",
+    "semver",
+    "thiserror",
+    "vhl",
+    "vhl-stdlib",
 ]
 
 [[package]]
@@ -1033,17 +1033,6 @@ dependencies = [
 name = "vhl-stdlib"
 version = "0.1.0"
 dependencies = [
- "futures",
- "thiserror",
- "tokio",
- "tokio-stream",
- "xpi",
-]
-
-[[package]]
-name = "vhl-stdlib-nostd"
-version = "0.1.0"
-dependencies = [
  "hex-literal",
  "rand",
  "rand_chacha",
@@ -1133,6 +1122,18 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 name = "xpi"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
- "vhl-stdlib-nostd",
+    "hex-literal",
+    "vhl-stdlib",
+]
+
+[[package]]
+name = "xpi-node"
+version = "0.1.0"
+dependencies = [
+    "futures",
+    "thiserror",
+    "tokio",
+    "tokio-stream",
+    "vhl-stdlib",
+    "xpi",
 ]

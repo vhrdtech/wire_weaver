@@ -1,5 +1,5 @@
-use vhl_stdlib_nostd::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
-use vhl_stdlib_nostd::serdes::vlu4::TraitSet;
+use vhl_stdlib::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
+use vhl_stdlib::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
 use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
@@ -102,7 +102,7 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
-    use vhl_stdlib_nostd::serdes::NibbleBuf;
+    use vhl_stdlib::serdes::NibbleBuf;
     use crate::xwfd::XwfdError;
     use super::Event;
 

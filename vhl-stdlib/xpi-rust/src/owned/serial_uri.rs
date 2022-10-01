@@ -1,9 +1,9 @@
 use std::vec::IntoIter;
-use vhl_stdlib_nostd::discrete::{U3, U4, U6};
+use vhl_stdlib::discrete::{U3, U4, U6};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
-use vhl_stdlib_nostd::serdes::BitBufMut;
-use vhl_stdlib_nostd::serdes::vlu4::Vlu32;
+use vhl_stdlib::serdes::BitBufMut;
+use vhl_stdlib::serdes::vlu4::Vlu32;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerialUri {

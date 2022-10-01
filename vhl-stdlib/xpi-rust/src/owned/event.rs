@@ -9,9 +9,9 @@ use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
 use std::fmt::{Debug, Formatter};
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::traits::SerializeBits;
-use vhl_stdlib_nostd::serdes::{bit_buf, NibbleBufMut};
+use vhl_stdlib::serdes::bit_buf::BitBufMut;
+use vhl_stdlib::serdes::traits::SerializeBits;
+use vhl_stdlib::serdes::{bit_buf, NibbleBufMut};
 
 use super::{BroadcastKind, Priority, Reply, Request, RequestKind};
 

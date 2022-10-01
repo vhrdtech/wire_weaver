@@ -1,13 +1,17 @@
 use super::NodeId;
-use vhl_stdlib_nostd::serdes::bit_buf::BitBufMut;
-use vhl_stdlib_nostd::serdes::traits::{DeserializeCoupledBitsVlu4, SerializeBits};
-use vhl_stdlib_nostd::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
 use crate::error::XpiError;
-use vhl_stdlib_nostd::serdes::{bit_buf, BitBuf, NibbleBuf, NibbleBufMut};
 use core::fmt::{Display, Formatter};
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind, XpiRequestDiscriminant};
 use crate::xwfd::xwfd_info::XwfdInfo;
 use crate::xwfd::node_set::NodeSet;
+use vhl_stdlib::{
+    serdes::{
+        bit_buf, BitBufMut,
+        traits::{DeserializeCoupledBitsVlu4, SerializeBits},
+        vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
+        NibbleBuf, NibbleBufMut, BitBuf,
+    }
+};
 use super::{
     Priority, Rate, RequestId, ResourceSet,
     SerialMultiUri, SerialUri,
@@ -150,8 +154,8 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib_nostd::discrete::{U2, U4};
-    use vhl_stdlib_nostd::serdes::{NibbleBuf, NibbleBufMut};
+    use vhl_stdlib::discrete::{U2, U4};
+    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
     use crate::request::XpiRequestDiscriminant;
     pub use crate::xwfd::{
         Event, EventKind,

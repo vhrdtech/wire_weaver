@@ -1,7 +1,7 @@
-use vhl_stdlib_nostd::q_numbers::UqC;
-use vhl_stdlib_nostd::serdes::nibble_buf::Error as NibbleBufError;
-use vhl_stdlib_nostd::serdes::{DeserializeVlu4, NibbleBuf};
-use vhl_stdlib_nostd::units::UnitStatic;
+use vhl_stdlib::q_numbers::UqC;
+use vhl_stdlib::serdes::nibble_buf::Error as NibbleBufError;
+use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf};
+use vhl_stdlib::units::UnitStatic;
 
 // #[derive(Copy, Clone, Debug)]
 // pub struct Vlu4RateArray<'i> {

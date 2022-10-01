@@ -1,7 +1,7 @@
 use mquote::mquote;
 use mtoken::{TokenStream, ToTokens};
 use mtoken::ext::TokenStreamExt;
-use vhl_stdlib_nostd::serdes::SerDesSize;
+use vhl_stdlib::serdes::SerDesSize;
 
 pub struct SerDesSizeCG {
     pub inner: SerDesSize,

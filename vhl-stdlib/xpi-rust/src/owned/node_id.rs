@@ -15,3 +15,9 @@ impl TryInto<xwfd::NodeId> for NodeId {
         }
     }
 }
+
+impl From<xwfd::NodeId> for NodeId {
+    fn from(id: xwfd::NodeId) -> Self {
+        NodeId(id.inner() as u32)
+    }
+}

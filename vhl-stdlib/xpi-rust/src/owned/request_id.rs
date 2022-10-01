@@ -15,3 +15,9 @@ impl TryInto<xwfd::RequestId> for RequestId {
         }
     }
 }
+
+impl From<xwfd::RequestId> for RequestId {
+    fn from(id: xwfd::RequestId) -> Self {
+        RequestId(id.inner() as u32)
+    }
+}

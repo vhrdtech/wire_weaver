@@ -3,7 +3,7 @@ use vhl_stdlib::discrete::{U3, U4, U6};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use vhl_stdlib::serdes::BitBufMut;
-use vhl_stdlib::serdes::vlu4::Vlu32;
+use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4VecIter};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerialUri {
@@ -70,6 +70,14 @@ impl SerialUri {
     //
     //     Ok(())
     // }
+}
+
+impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>> for SerialUri {
+    fn from(uri: xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>) -> Self {
+        SerialUri {
+            segments: uri.iter().map(|s| Vlu32(s)).collect()
+        }
+    }
 }
 
 // #[derive(Clone, Debug, Eq, PartialEq)]

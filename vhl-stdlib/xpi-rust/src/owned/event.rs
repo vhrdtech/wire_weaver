@@ -135,6 +135,28 @@ impl SerializeBits for EventKind {
     }
 }
 
+impl<'i> From<xwfd::Event<'i>> for Event {
+    fn from(ev: xwfd::Event) -> Self {
+        Event {
+            source: ev.source.into(),
+            destination: ev.destination.into(),
+            kind: ev.kind.into(),
+            priority: ev.priority.into(),
+        }
+    }
+}
+
+impl<'i> From<xwfd::EventKind<'i>> for EventKind {
+    fn from(ev_kind: xwfd::EventKind<'i>) -> Self {
+        match ev_kind {
+            xwfd::EventKind::Request(req) => EventKind::Request(req.into()),
+            xwfd::EventKind::Reply(rep) => EventKind::Reply(rep.into()),
+            xwfd::EventKind::Broadcast(_) => unimplemented!(),
+            xwfd::EventKind::Forward(_) => unimplemented!(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use vhl_stdlib::serdes::NibbleBufMut;

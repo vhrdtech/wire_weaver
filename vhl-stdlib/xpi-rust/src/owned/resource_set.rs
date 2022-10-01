@@ -36,3 +36,12 @@ impl ResourceSetConvertXwfd {
         Ok(())
     }
 }
+
+impl<'i> From<xwfd::ResourceSet<'i>> for ResourceSet {
+    fn from(resource_set: xwfd::ResourceSet<'i>) -> Self {
+        match resource_set {
+            xwfd::ResourceSet::Uri(uri) => ResourceSet::Uri(uri.into()),
+            xwfd::ResourceSet::MultiUri(_) => unimplemented!()
+        }
+    }
+}

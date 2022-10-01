@@ -3,6 +3,7 @@ use crate::owned::convert_error::ConvertError;
 use crate::owned::rate::Rate;
 use crate::owned::request_id::RequestId;
 use crate::request::{XpiGenericRequest, XpiGenericRequestKind};
+use crate::xwfd;
 use super::{SerialMultiUri, SerialUri};
 
 /// Owned XpiRequest relying on allocators and std
@@ -49,5 +50,34 @@ impl RequestKind {
             // RequestKind::Introspect => {}
         }
         Ok(())
+    }
+}
+
+impl<'i> From<xwfd::Request<'i>> for Request {
+    fn from(req: xwfd::Request<'i>) -> Self {
+        Request {
+            resource_set: req.resource_set.into(),
+            kind: req.kind.into(),
+            request_id: req.request_id.into(),
+        }
+    }
+}
+
+impl<'i> From<xwfd::RequestKind<'i>> for RequestKind {
+    fn from(req: xwfd::RequestKind<'i>) -> Self {
+        match req {
+            xwfd::RequestKind::Call { args_set } => RequestKind::Call { args_set: args_set.to_vec() },
+            _ => unimplemented!(),
+            // RequestKind::ChainCall { .. } => {}
+            // RequestKind::Read => {}
+            // RequestKind::Write { .. } => {}
+            // RequestKind::OpenStreams => {}
+            // RequestKind::CloseStreams => {}
+            // RequestKind::Subscribe { .. } => {}
+            // RequestKind::Unsubscribe => {}
+            // RequestKind::Borrow => {}
+            // RequestKind::Release => {}
+            // RequestKind::Introspect => {}
+        }
     }
 }

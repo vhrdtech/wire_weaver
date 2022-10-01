@@ -34,3 +34,14 @@ impl NodeSet {
         Ok(())
     }
 }
+
+impl<'i> From<xwfd::NodeSet<'i>> for NodeSet {
+    fn from(node_set: xwfd::NodeSet<'i>) -> Self {
+        match node_set {
+            xwfd::NodeSet::Unicast(dst) => NodeSet::Unicast(dst.into()),
+            xwfd::NodeSet::UnicastTraits { .. } => unimplemented!(),
+            xwfd::NodeSet::Multicast { .. } => unimplemented!(),
+            xwfd::NodeSet::Broadcast => unimplemented!()
+        }
+    }
+}

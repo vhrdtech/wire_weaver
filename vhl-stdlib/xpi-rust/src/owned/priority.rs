@@ -27,3 +27,12 @@ impl TryInto<xwfd::Priority> for Priority {
         }
     }
 }
+
+impl From<xwfd::Priority> for Priority {
+    fn from(priority: xwfd::Priority) -> Self {
+        match priority {
+            xwfd::Priority::Lossy(lvl) => Priority::Lossy(lvl.inner() as u8),
+            xwfd::Priority::Lossless(lvl) => Priority::Lossless(lvl.inner() as u8)
+        }
+    }
+}

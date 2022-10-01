@@ -103,11 +103,15 @@ impl EventKind {
             EventKind::Request(req) => {
                 resource_set.expect("").ser_body_xwfd(nwr)?;
                 req.kind.ser_body_xwfd(nwr)?; // bits 3:0 - request kind
+                let request_id: xwfd::RequestId = req.request_id.try_into()?;
+                nwr.put(&request_id)?;
                 Ok(())
             }
             EventKind::Reply(rep) => {
                 resource_set.expect("").ser_body_xwfd(nwr)?;
                 rep.kind.ser_body_xwfd(nwr)?; // bits 3:0 - reply kind
+                let request_id: xwfd::RequestId = rep.request_id.try_into()?;
+                nwr.put(&request_id)?;
                 Ok(())
             }
             EventKind::Broadcast(_) => todo!(),
@@ -128,5 +132,48 @@ impl SerializeBits for EventKind {
         };
         bwr.put_up_to_8(2, bits)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use vhl_stdlib::serdes::NibbleBufMut;
+    use vhl_stdlib::serdes::vlu4::Vlu32;
+    use crate::owned::{Request, ResourceSet, NodeId, NodeSet, SerialUri, RequestKind, RequestId, Event, EventKind, Priority};
+
+    #[test]
+    fn ser_xwfd_request() {
+        let req = Request {
+            resource_set: ResourceSet::Uri(SerialUri { segments: vec![Vlu32(3), Vlu32(12)] }),
+            kind: RequestKind::Call {
+                args_set: vec![vec![0xaa, 0xbb]]
+            },
+            request_id: RequestId(27),
+        };
+        let ev = Event::new(
+            NodeId(42),
+            NodeSet::Unicast(NodeId(85)),
+            EventKind::Request(req),
+            Priority::Lossless(0),
+        );
+        let mut buf = [0u8; 256];
+        let mut nwr = NibbleBufMut::new_all(&mut buf);
+        ev.ser_xwfd(&mut nwr).unwrap();
+        println!("{}", nwr);
+        let (_, len, _) = nwr.finish();
+        // assert_eq!(len, 10);
+        let expected = [
+            0b000_100_11, // n/a, priority, event kind = request
+            0b1_0101010, // is_xwfd_or_bigger, source
+            0b00_101010, // node set kind, destination 7:1
+            0b1_001_0000, // destination 0, resources set kind, request kind
+            0b0000_0011, // xwfd_info, resource set = TwoPart44
+            0b1100_0001, // resources set, args set len = 1
+            0b0010_0000, // slice len = 2 + padding
+            0xaa,
+            0xbb,
+            0b000_11011,
+        ];
+        assert_eq!(buf[..len], expected);
     }
 }

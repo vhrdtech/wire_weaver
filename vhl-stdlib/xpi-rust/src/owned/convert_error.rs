@@ -7,7 +7,8 @@ pub enum ConvertError {
     NibbleBuf(nibble_buf::Error),
     NodeIdTruncate,
     PriorityTruncate,
-    XwfdError(XwfdError)
+    XwfdError(XwfdError),
+    RequestIdTruncated,
 }
 
 impl From<bit_buf::Error> for ConvertError {

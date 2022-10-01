@@ -11,6 +11,12 @@ pub struct SerialUri {
 }
 
 impl SerialUri {
+    pub fn new<S: AsRef<str>>(_uri: S) -> Self {
+        SerialUri {
+            segments: vec![Vlu32(5)]
+        }
+    }
+
     /// Determine most optimal xwfd::SerialUri and serialize it's kind into provided buffer.
     /// Remember this kind to not repeat the process later, when serializing actual data.
     pub(crate) fn ser_header_xwfd(

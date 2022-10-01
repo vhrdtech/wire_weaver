@@ -694,6 +694,34 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
+    /// Create Vlu4VecBuilder and call provided closure with it without consuming self.
+    pub fn put_vec_with<T, F, SE>(&mut self, f: F) -> Result<(), SE>
+        where
+            F: FnOnce(&mut Vlu4VecBuilder<T>) -> Result<(), SE>,
+            T: SerializeVlu4<Error=SE>,
+            SE: From<Error>
+    {
+        let mut builder = Vlu4VecBuilder {
+            wgr: NibbleBufMut {
+                buf: self.buf,
+                len_nibbles: self.len_nibbles,
+                idx: self.idx,
+                is_at_byte_boundary: self.is_at_byte_boundary,
+            },
+            idx_before: self.idx,
+            is_at_byte_boundary_before: self.is_at_byte_boundary,
+            stride_len: 0,
+            stride_len_idx_nibbles: 0,
+            slices_written: 0,
+            _phantom: PhantomData,
+        };
+        f(&mut builder)?;
+        builder.finish_internal()?;
+        self.idx = builder.wgr.idx;
+        self.is_at_byte_boundary = builder.wgr.is_at_byte_boundary;
+        Ok(())
+    }
+
     pub fn put_nibble_buf(&mut self, other: &NibbleBuf) -> Result<(), Error> {
         if self.nibbles_left() < other.nibbles_left() {
             return Err(Error::OutOfBounds);

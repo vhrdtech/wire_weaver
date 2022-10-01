@@ -686,7 +686,7 @@ impl<'i> NibbleBufMut<'i> {
             _phantom: PhantomData,
         };
         while let Some(t) = f() {
-            builder.put(t)?;
+            builder.put(&t)?;
         }
         builder.finish_internal()?;
         self.idx = builder.wgr.idx;

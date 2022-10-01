@@ -267,14 +267,14 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         }
     }
 
-    pub fn put<'a, E>(&mut self, element: T) -> Result<(), E>
+    pub fn put<'a, E>(&mut self, element: &T) -> Result<(), E>
         where
             T: SerializeVlu4<Error=E> + 'a,
             E: From<NibbleBufError>,
     {
         self.start_putting_element()?;
         let _pos_before = self.wgr.nibbles_pos();
-        self.wgr.put(&element)?;
+        self.wgr.put(element)?;
 
         #[cfg(feature = "buf-strict")]
         match element.len_nibbles() {
@@ -451,25 +451,25 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
     where
         E: SerializableError,
 {
-    pub fn put_result_with_slice(&mut self, result: Result<&'i [u8], E>) -> Result<(), NibbleBufError> {
-        self.start_putting_element()?;
-        match result {
-            Ok(slice) => {
-                self.wgr.put_nibble(0)?;
-                self.put_len_bytes_and_align(slice.len())?;
-                if slice.len() != 0 {
-                    self.wgr.put_slice(slice)?;
-                }
-                self.finish_putting_element()?;
-                Ok(())
-            }
-            Err(e) => {
-                self.wgr.put(&Vlu32(e.error_code()))?;
-                self.finish_putting_element()?;
-                Ok(())
-            }
-        }
-    }
+    // pub fn put_result_with_slice(&mut self, result: Result<&'i [u8], E>) -> Result<(), NibbleBufError> {
+    //     self.start_putting_element()?;
+    //     match result {
+    //         Ok(slice) => {
+    //             self.wgr.put_nibble(0)?;
+    //             self.put_len_bytes_and_align(slice.len())?;
+    //             if slice.len() != 0 {
+    //                 self.wgr.put_slice(slice)?;
+    //             }
+    //             self.finish_putting_element()?;
+    //             Ok(())
+    //         }
+    //         Err(e) => {
+    //             self.wgr.put(&Vlu32(e.error_code()))?;
+    //             self.finish_putting_element()?;
+    //             Ok(())
+    //         }
+    //     }
+    // }
 
     /// Get a mutable slice of requested length inside a closure. Put it as Ok(&[u8]) if f returns
     /// Ok(()) or as Err(E) otherwise.
@@ -612,9 +612,25 @@ impl<'i> DeserializeVlu4<'i> for u32 {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+impl SerializeVlu4 for Vec<u8> {
+    type Error = NibbleBufError;
+
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        nwr.put(&self.as_slice())
+    }
+
+    fn len_nibbles(&self) -> SerDesSize {
+        // length is written in bytes to conserve space, but SerDesSize returned must be in nibbles
+        let len_len = Vlu32(self.len() as u32).len_nibbles_known_to_be_sized();
+        SerDesSize::SizedAligned(len_len + self.len() * 2, 1)
+    }
+}
+
 #[cfg(test)]
 mod test {
     extern crate std;
+
     // use std::println;
     use super::*;
     use hex_literal::hex;
@@ -634,9 +650,9 @@ mod test {
     fn vec_of_slices_builder() {
         let mut buf = [0u8; 64];
         let mut vb = Vlu4VecBuilder::<&[u8]>::new(&mut buf);
-        vb.put(&[1, 2, 3]).unwrap();
-        vb.put(&[4, 5]).unwrap();
-        vb.put(&[]).unwrap();
+        vb.put(&&[1, 2, 3][..]).unwrap();
+        vb.put(&&[4, 5][..]).unwrap();
+        vb.put(&&[][..]).unwrap();
 
         // stride len will be updated in finish_..
         assert_eq!(&vb.wgr.buf[0..8], hex!("03 01 02 03 20 04 05 00"));
@@ -704,11 +720,11 @@ mod test {
     fn vec_of_unit_results_builder() {
         let mut buf = [0u8; 64];
         let mut vb = Vlu4VecBuilder::<Result<(), UserError>>::new(&mut buf);
-        vb.put(Ok(())).unwrap();
-        vb.put(Ok(())).unwrap();
-        vb.put(Err(UserError::ErrorA)).unwrap();
-        vb.put(Err(UserError::ErrorB)).unwrap();
-        vb.put(Ok(())).unwrap();
+        vb.put(&Ok(())).unwrap();
+        vb.put(&Ok(())).unwrap();
+        vb.put(&Err(UserError::ErrorA)).unwrap();
+        vb.put(&Err(UserError::ErrorB)).unwrap();
+        vb.put(&Ok(())).unwrap();
         assert_eq!(&vb.wgr.buf[0..3], hex!("00 01 20"));
         assert_eq!(vb.wgr.nibbles_pos(), 6);
         let nwr = vb.finish().unwrap();
@@ -732,11 +748,11 @@ mod test {
     fn vec_of_slice_results_builder() {
         let mut buf = [0u8; 64];
         let mut vb = Vlu4VecBuilder::<Result<&[u8], UserError>>::new(&mut buf);
-        vb.put_result_with_slice(Ok(&[1, 2, 3])).unwrap();
-        vb.put_result_with_slice(Ok(&[4, 5])).unwrap();
-        vb.put_result_with_slice(Err(UserError::ErrorA)).unwrap();
-        vb.put_result_with_slice(Ok(&[])).unwrap();
-        vb.put_result_with_slice(Err(UserError::ErrorB)).unwrap();
+        vb.put(&Ok(&[1, 2, 3])).unwrap();
+        vb.put(&Ok(&[4, 5])).unwrap();
+        vb.put(&Err(UserError::ErrorA)).unwrap();
+        vb.put(&Ok(&[])).unwrap();
+        vb.put(&Err(UserError::ErrorB)).unwrap();
 
         let vec = vb.finish_as_vec().unwrap();
         assert_eq!(&vec.rdr.buf[..10], hex!("50 30 01 02 03 02 04 05 10 02"));
@@ -829,9 +845,9 @@ mod test {
     fn slice_array_builder_len_3() {
         let mut buf = [0u8; 256];
         let mut vb = Vlu4VecBuilder::<&[u8]>::new(&mut buf);
-        vb.put(&[1, 2, 3]).unwrap();
-        vb.put(&[4, 5, 6]).unwrap();
-        vb.put(&[7, 8, 9]).unwrap();
+        vb.put(&&[1, 2, 3][..]).unwrap();
+        vb.put(&&[4, 5, 6][..]).unwrap();
+        vb.put(&&[7, 8, 9][..]).unwrap();
         assert_eq!(vb.slices_written(), 3);
         let wgr = vb.finish().unwrap();
         assert_eq!(wgr.nibbles_pos(), 24);
@@ -848,9 +864,9 @@ mod test {
 
         let mut wgr = wgr.put_vec::<&[u8]>();
         assert_eq!(wgr.wgr.nibbles_pos(), 3);
-        wgr.put(&[1, 2, 3]).unwrap();
-        wgr.put(&[4, 5, 6]).unwrap();
-        wgr.put(&[7, 8, 9]).unwrap();
+        wgr.put(&&[1, 2, 3][..]).unwrap();
+        wgr.put(&&[4, 5, 6][..]).unwrap();
+        wgr.put(&&[7, 8, 9][..]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
         assert_eq!(wgr.wgr.nibbles_pos(), 28);
 
@@ -918,9 +934,9 @@ mod test {
 
         let mut wgr = wgr.put_vec::<&[u8]>();
         assert_eq!(wgr.wgr.nibbles_pos(), 2);
-        wgr.put(&[1, 2, 3]).unwrap();
-        wgr.put(&[4, 5, 6]).unwrap();
-        wgr.put(&[7, 8, 9]).unwrap();
+        wgr.put(&&[1, 2, 3][..]).unwrap();
+        wgr.put(&&[4, 5, 6][..]).unwrap();
+        wgr.put(&&[7, 8, 9][..]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
         assert_eq!(
             &wgr.wgr.buf[0..13],

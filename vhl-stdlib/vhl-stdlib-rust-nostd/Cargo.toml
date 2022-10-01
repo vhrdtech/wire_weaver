@@ -20,3 +20,4 @@ rand_chacha = "^0.3.1"
 [features]
 default = ["buf-strict"]
 buf-strict = [] # Check for incorrect size estimates (SerDesSize)
+no_std = []

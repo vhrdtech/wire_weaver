@@ -113,10 +113,10 @@ impl VhNode {
                 // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
                     println!("{}: local heartbeat", self_id.0);
-                    for (_id, tx_handle) in &mut nodes {
-                        // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
-                        let _r = tx_handle.send(Event::new(self_id, NodeSet::Broadcast, EventKind::new_heartbeat(uptime), Priority::Lossy(0))).await; // TODO: handle error
-                    }
+                    // for (_id, tx_handle) in &mut nodes {
+                    //     // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
+                    //     let _r = tx_handle.send(Event::new(self_id, NodeSet::Broadcast, EventKind::new_heartbeat(uptime), Priority::Lossy(0))).await; // TODO: handle error
+                    // }
                     uptime += 1;
                 }
                 complete => {

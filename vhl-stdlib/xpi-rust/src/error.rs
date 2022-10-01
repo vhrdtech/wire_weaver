@@ -1,3 +1,5 @@
+use core::fmt::Display;
+use std::fmt::Formatter;
 use vhl_stdlib::serdes::{bit_buf, buf, nibble_buf, SerializableError};
 
 /// Error that is transferred across the wire for example in response to requests.
@@ -107,3 +109,12 @@ impl From<bit_buf::Error> for XpiError {
         XpiError::InternalBitBufError
     }
 }
+
+impl Display for XpiError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl std::error::Error for XpiError {}

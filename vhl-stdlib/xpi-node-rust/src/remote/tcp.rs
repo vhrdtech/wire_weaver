@@ -2,7 +2,7 @@ use futures::channel::mpsc::{Receiver, Sender};
 use tokio::net::TcpStream;
 use xpi::owned::{Event, NodeId};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use futures::{StreamExt, FutureExt};
+use futures::{StreamExt, FutureExt, SinkExt};
 use tokio::net::tcp::WriteHalf;
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::xwfd;
@@ -10,7 +10,7 @@ use xpi::xwfd;
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     mut stream: TcpStream,
-    _to_event_loop: Sender<Event>,
+    mut to_event_loop: Sender<Event>,
     mut from_event_loop: Receiver<Event>,
 ) {
     let (mut tcp_rx, mut tcp_tx) = stream.split();
@@ -19,22 +19,26 @@ pub async fn tcp_event_loop(
         futures::select! {
             read_result = tcp_rx.read(&mut buf).fuse() => {
                 match read_result {
-                    Ok(len) => process_incoming_slice(&buf[..len]).await,
+                    Ok(len) => process_incoming_slice(&buf[..len], &mut to_event_loop).await,
                     Err(e) => println!("{:?}", e),
                 }
             }
-            ev = from_event_loop.select_next_some() => serialize_and_send(ev, &mut buf, &mut tcp_tx).await,
+            ev = from_event_loop.select_next_some() => {
+                serialize_and_send(ev, &mut buf, &mut tcp_tx).await
+            },
         }
     }
 }
 
-async fn process_incoming_slice(bytes: &[u8]) {
+async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>) {
     println!("rx: {} bytes from tcp", bytes.len());
     let mut nrd = NibbleBuf::new_all(bytes);
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {
         Ok(ev) => {
             println!("des: {}", ev);
+            let ev_owned: Event = ev.into();
+            to_event_loop.send(ev_owned).await;
         }
         Err(e) => {
             println!("xwfd deserialize error: {:?}", e);

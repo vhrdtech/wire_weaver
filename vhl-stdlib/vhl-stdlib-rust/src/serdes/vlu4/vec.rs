@@ -50,6 +50,20 @@ impl<'i, T: DeserializeVlu4<'i>> Vlu4Vec<'i, T> {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+use std::vec::Vec;
+
+#[cfg(not(feature = "no_std"))]
+impl<'i> Vlu4Vec<'i, &[u8]> {
+    pub fn to_vec(&self) -> Vec<Vec<u8>> {
+        let mut vec = Vec::new();
+        for slice in self.iter() {
+            vec.push(slice.to_owned());
+        }
+        vec
+    }
+}
+
 impl<'i, T: DeserializeVlu4<'i>> IntoIterator for Vlu4Vec<'i, T> {
     type Item = T;
     type IntoIter = Vlu4VecIter<'i, T>;

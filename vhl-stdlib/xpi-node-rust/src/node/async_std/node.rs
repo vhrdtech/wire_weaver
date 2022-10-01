@@ -88,6 +88,8 @@ impl VhNode {
                     for f in filters_to_drop {
                         filters.remove(&f);
                     }
+
+                    remote_nodes.get_mut(&0).unwrap().send(ev.clone()).await;
                 }
                 ev_int = rx_internal.select_next_some() => {
                     match ev_int {
@@ -100,6 +102,7 @@ impl VhNode {
                             filters.insert(0, tx_handle);
                         }
                         InternalEvent::ConnectRemoteTcp(tx_handle) => {
+                            println!("remote attachement 0 registered");
                             remote_nodes.insert(0, tx_handle);
                         }
                     }
@@ -144,7 +147,9 @@ impl VhNode {
     pub async fn connect_remote(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
         match addr {
             RemoteNodeAddr::Tcp(addr) => {
+                println!("tcp: Connecting to remote {:?}", addr);
                 let tcp_stream = TcpStream::connect(addr).await?;
+                println!("{:?} connected", addr);
                 let (tx, rx) = mpsc::channel(64);
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
@@ -162,7 +167,7 @@ impl VhNode {
         }
     }
 
-    /// Send event to the event loop and return immediately. Event will be send to another node or nodes
+    /// Send event to the event loop and return immediately. Event will be sent to another node or nodes
     /// directly or through one of the interfaces available depending on the destination.
     pub async fn submit_one(&mut self, ev: Event) -> Result<(), NodeError> {
         self.tx_to_event_loop.send(ev).await?;

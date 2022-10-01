@@ -10,4 +10,4 @@ vhl-stdlib-nostd = { path = "../vhl-stdlib-rust-nostd" }
 hex-literal = "^0.3.4"
 
 [features]
-no_std = []
+no_std = ["vhl-stdlib-nostd/no_std"]

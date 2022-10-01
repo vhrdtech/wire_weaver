@@ -29,7 +29,25 @@ impl RequestKind {
         Ok(())
     }
 
-    pub(crate) fn ser_body_xwfd(&self, _nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+    pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+        match self {
+            RequestKind::Call { args_set } => {
+                nwr.put_vec_with(|vb| {
+                    args_set.iter().try_for_each(|args| vb.put(&args.as_slice()))
+                })?;
+            }
+            _ => unimplemented!()
+            // RequestKind::ChainCall { .. } => {}
+            // RequestKind::Read => {}
+            // RequestKind::Write { .. } => {}
+            // RequestKind::OpenStreams => {}
+            // RequestKind::CloseStreams => {}
+            // RequestKind::Subscribe { .. } => {}
+            // RequestKind::Unsubscribe => {}
+            // RequestKind::Borrow => {}
+            // RequestKind::Release => {}
+            // RequestKind::Introspect => {}
+        }
         Ok(())
     }
 }

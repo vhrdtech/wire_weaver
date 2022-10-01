@@ -31,7 +31,26 @@ impl ReplyKind {
         Ok(())
     }
 
-    pub(crate) fn ser_body_xwfd(&self, _nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+    pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
+        match self {
+            ReplyKind::CallComplete(results) => {
+                nwr.put_vec_with(|vb| {
+                    results.iter().try_for_each(|result| vb.put(result))
+                })?;
+            }
+            _ => unimplemented!()
+            // ReplyKind::ReadComplete(_) => {}
+            // ReplyKind::WriteComplete(_) => {}
+            // ReplyKind::OpenStream(_) => {}
+            // ReplyKind::StreamUpdate(_) => {}
+            // ReplyKind::CloseStream(_) => {}
+            // ReplyKind::Subscribe(_) => {}
+            // ReplyKind::RateChange(_) => {}
+            // ReplyKind::Unsubscribe(_) => {}
+            // ReplyKind::Borrow(_) => {}
+            // ReplyKind::Release(_) => {}
+            // ReplyKind::Introspect(_) => {}
+        }
         Ok(())
     }
 }

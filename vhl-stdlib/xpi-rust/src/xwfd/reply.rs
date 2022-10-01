@@ -1,3 +1,4 @@
+use core::fmt::{Display, Formatter};
 use crate::error::XpiError;
 use crate::reply::{XpiGenericReply, XpiGenericReplyKind, XpiReplyDiscriminant};
 use crate::xwfd::xwfd_info::XwfdInfo;
@@ -120,6 +121,18 @@ impl<'i> ReplyBuilder<'i> {
     }
 }
 
+impl<'i> Display for Reply<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Reply<@{}> {{ {:#} {:?} }}",
+            self.request_id,
+            self.resource_set,
+            self.kind,
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     extern crate std;
@@ -146,8 +159,8 @@ mod test {
         let nwr = reply_builder
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<Result<&[u8], XpiError>>();
-                vb.put_result_with_slice(Ok(&[0xaa, 0xbb][..]))?;
-                vb.put_result_with_slice(Ok(&[0xcc, 0xdd][..]))?;
+                vb.put(&Ok(&[0xaa, 0xbb][..]))?;
+                vb.put(&Ok(&[0xcc, 0xdd][..]))?;
                 let nwr = vb.finish()?;
                 Ok((XpiReplyDiscriminant::CallComplete, nwr))
             })

@@ -2,7 +2,7 @@ use vhl_stdlib::max_bound_number;
 use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, bit_buf, SerializeBits, DeserializeBits};
 use crate::xwfd::error::XwfdError;
 
-max_bound_number!(NodeId, 7, u8, 127, "N:{}", put_up_to_8, get_up_to_8);
+max_bound_number!(NodeId, 7, u8, 127, "N{}", put_up_to_8, get_up_to_8);
 impl<'i> DeserializeVlu4<'i> for NodeId {
     type Error = XwfdError;
 

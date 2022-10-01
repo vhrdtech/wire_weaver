@@ -1,3 +1,5 @@
+use core::fmt::Display;
+use core::fmt::Formatter;
 use vhl_stdlib::serdes::{DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf};
 use vhl_stdlib::serdes::vlu4::TraitSet;
 use crate::event::{XpiGenericEvent, XpiGenericEventKind};
@@ -7,14 +9,14 @@ use super::{
     broadcast::BroadcastKind, error::XwfdError, NodeId,
     Priority, Reply,
     ReplyKind, RequestId, ResourceSet,
-    XpiRequestKindVlu4,
-    XpiRequestVlu4,
+    RequestKind,
+    Request,
 };
 
 pub type Event<'ev> = XpiGenericEvent<
     NodeId,
     TraitSet<'ev>,
-    XpiRequestVlu4<'ev>,
+    Request<'ev>,
     Reply<'ev>,
     BroadcastKind,
     (),
@@ -22,7 +24,7 @@ pub type Event<'ev> = XpiGenericEvent<
 >;
 
 pub type EventKind<'ev> = XpiGenericEventKind<
-    XpiRequestVlu4<'ev>,
+    Request<'ev>,
     Reply<'ev>,
     BroadcastKind,
     ()
@@ -82,11 +84,11 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
             }
             (true, true) => {
                 // Request, kind in bits 3:0
-                let kind = XpiRequestKindVlu4::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
+                let kind = RequestKind::des_coupled_bits_vlu4(&mut bits_rdr, rdr)?;
                 // tail byte should be at byte boundary, if not 4b padding is added
                 rdr.align_to_byte()?;
                 let request_id: RequestId = rdr.des_vlu4()?;
-                EventKind::Request(XpiRequestVlu4 { resource_set, kind, request_id })
+                EventKind::Request(Request { resource_set, kind, request_id })
             }
         };
 
@@ -96,6 +98,23 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
             kind,
             priority,
         })
+    }
+}
+
+impl<'i> Display for Event<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "XpiEvent{{ {} -> {}: {} {} }}", self.source, self.destination, self.kind, self.priority)
+    }
+}
+
+impl<'i> Display for EventKind<'i> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EventKind::Request(req) => write!(f, "{}", req),
+            EventKind::Reply(rep) => write!(f, "{}", rep),
+            EventKind::Broadcast(_) => write!(f, ""),
+            EventKind::Forward(_) => write!(f, "")
+        }
     }
 }
 

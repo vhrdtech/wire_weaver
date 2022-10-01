@@ -21,7 +21,7 @@ use super::{
 /// Highly space efficient xPI request data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
 /// See [XpiGenericRequest](crate::xpi::request::XpiGenericRequest) for detailed information.
-pub type XpiRequestVlu4<'req> = XpiGenericRequest<
+pub type Request<'req> = XpiGenericRequest<
     SerialUri<Vlu4VecIter<'req, Vlu32>>,
     SerialMultiUri<'req>,
     &'req [u8],
@@ -31,17 +31,17 @@ pub type XpiRequestVlu4<'req> = XpiGenericRequest<
 >;
 
 /// See [XpiGenericRequestKind](crate::xpi::request::XpiGenericRequestKind) for detailed information.
-pub type XpiRequestKindVlu4<'req> = XpiGenericRequestKind<
+pub type RequestKind<'req> = XpiGenericRequestKind<
     &'req [u8],
     Vlu4Vec<'req, &'req [u8]>,
     Vlu4Vec<'req, Rate>
 >;
 
-impl<'i> Display for XpiRequestVlu4<'i> {
+impl<'i> Display for Request<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "XpiRequest<@{}> {{ {:#} {:?} }}",
+            "Request<@{}> {{ {:#} {:?} }}",
             self.request_id,
             self.resource_set,
             self.kind,
@@ -115,7 +115,7 @@ impl<'i> RequestBuilder<'i> {
     }
 }
 
-impl<'i> DeserializeCoupledBitsVlu4<'i> for XpiRequestKindVlu4<'i> {
+impl<'i> DeserializeCoupledBitsVlu4<'i> for RequestKind<'i> {
     type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
@@ -160,19 +160,20 @@ mod test {
     pub use crate::xwfd::{
         Event, EventKind,
         NodeId, Priority, RequestId, ResourceSet, SerialUri,
-        XpiRequestKindVlu4, RequestBuilder,
+        RequestKind, RequestBuilder,
     };
     pub use crate::xwfd::node_set::NodeSet;
 
     #[test]
     fn call_request_des() {
         let buf = [
-            0b000_100_11,
-            0b1_0101010,
-            0b00_101010,
-            0b1_001_0000,
-            0b0011_1100,
-            0b0001_0010,
+            0b000_100_11, // n/a, priority, event kind = request
+            0b1_0101010, // is_xwfd_or_bigger, source
+            0b00_101010, // node set kind, destination 7:1
+            0b1_001_0000, // destination 0, resources set kind, request kind
+            0b0000_0011, // xwfd_info, resource set = TwoPart44
+            0b1100_0001, // resources set, args set len = 1
+            0b0010_0000, // slice len = 2 + padding
             0xaa,
             0xbb,
             0b000_11011,
@@ -197,8 +198,8 @@ mod test {
                     assert_eq!(b.inner(), 12);
                 }
             }
-            assert!(matches!(request.kind, XpiRequestKindVlu4::Call { .. }));
-            if let XpiRequestKindVlu4::Call { args_set: args } = request.kind {
+            assert!(matches!(request.kind, RequestKind::Call { .. }));
+            if let RequestKind::Call { args_set: args } = request.kind {
                 assert_eq!(args.len(), 1);
                 let slice = args.iter().next().unwrap();
                 assert_eq!(slice.len(), 2);
@@ -235,14 +236,15 @@ mod test {
             .unwrap();
 
         let (buf, len, _) = nwr.finish();
-        assert_eq!(len, 9);
+        assert_eq!(len, 10);
         let buf_expected = [
-            0b000_100_11,
-            0b1_0101010,
-            0b00_101010,
-            0b1_001_0000,
-            0b0011_1100,
-            0b0001_0010,
+            0b000_100_11, // n/a, priority, event kind = request
+            0b1_0101010, // is_xwfd_or_bigger, source
+            0b00_101010, // node set kind, destination 7:1
+            0b1_001_0000, // destination 0, resources set kind, request kind
+            0b0000_0011, // xwfd_info, resource set = TwoPart44
+            0b1100_0001, // resources set, args set len = 1
+            0b0010_0000, // slice len = 2 + padding
             0xaa,
             0xbb,
             0b000_11011,

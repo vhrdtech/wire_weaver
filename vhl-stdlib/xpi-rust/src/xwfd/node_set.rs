@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use core::fmt::{Display, Formatter, Result as FmtResult};
 use vhl_stdlib::serdes::{bit_buf, BitBuf, BitBufMut, DeserializeCoupledBitsVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4};
 use vhl_stdlib::serdes::vlu4::TraitSet;
 use crate::node_set::XpiGenericNodeSet;

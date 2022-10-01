@@ -95,7 +95,7 @@ pub mod request_id;
 pub mod node_set;
 
 pub use event::{Event, EventKind};
-pub use request::{XpiRequestKindVlu4, XpiRequestVlu4, RequestBuilder};
+pub use request::{RequestKind, Request, RequestBuilder};
 pub use reply::{Reply, ReplyKind, ReplyBuilder};
 pub use resource_set::ResourceSet;
 pub use node_id::NodeId;

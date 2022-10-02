@@ -1,6 +1,6 @@
 use xpi::event_kind::XpiEventDiscriminant;
 use xpi::node_set::XpiGenericNodeSet;
-use xpi::owned::{Event, NodeId, NodeSet, RequestId, TraitSet};
+use xpi::owned::{Event, NodeId, NodeSet, RequestId};
 
 #[derive(Debug)]
 pub enum SourceFilter {

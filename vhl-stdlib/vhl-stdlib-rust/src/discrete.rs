@@ -16,6 +16,10 @@ macro_rules! max_bound_number {
                 }
             }
 
+            pub const fn max() -> Self {
+                $type_name($max)
+            }
+
             pub unsafe fn new_unchecked(x: $base_type) -> $type_name {
                 $type_name(x)
             }

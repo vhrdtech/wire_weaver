@@ -9,10 +9,12 @@ use crate::node::async_std::NodeError;
 use xpi::owned::{Event};
 use xpi::owned::node_id::NodeId;
 use crate::remote::tcp::tcp_event_loop;
-use tracing::{debug, warn, error, info, trace, instrument};
+use tracing::{warn, error, info, trace, instrument};
 use xpi::node_set::XpiGenericNodeSet;
 use crate::node::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
+use xpi::owned::RequestId;
+use xpi::owned::Priority;
 
 #[derive(Debug)]
 pub struct VhNode {
@@ -82,6 +84,7 @@ impl VhNode {
         let heartbeat = tick_stream(Duration::from_secs(1)).fuse();
         // let mut heartbeat = tokio::time::interval(Duration::from_millis(1000));
         let mut uptime: u32 = 0;
+        let mut heartbeat_request_id: u32 = 0;
 
         futures::pin_mut!(heartbeat);
         loop {
@@ -116,11 +119,14 @@ impl VhNode {
                 // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
                     trace!("{}: local heartbeat", self_node_id.0);
-                    // for (_id, tx_handle) in &mut nodes {
-                    //     // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
-                    //     let _r = tx_handle.send(Event::new(self_id, NodeSet::Broadcast, EventKind::new_heartbeat(uptime), Priority::Lossy(0))).await; // TODO: handle error
-                    // }
+                    let heartbeat_ev = Event::new_heartbeat(self_node_id, RequestId(heartbeat_request_id), Priority::Lossy(0), uptime);
+                    for rd in &mut remote_nodes {
+                        if rd.to_event_loop.send(heartbeat_ev.clone()).await.is_err() {
+                            error!("Failed to forward heartbeat to remote attachment event loop of: {:?}", rd.addr);
+                        }
+                    }
                     uptime += 1;
+                    heartbeat_request_id += 1;
                 }
                 complete => {
                     warn!("{}: unexpected complete", self_node_id.0);

@@ -2,7 +2,7 @@ use crate::event::{XpiGenericEvent};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use vhl_stdlib::discrete::U4;
 use vhl_stdlib::serdes::{NibbleBufMut};
 use crate::owned::Priority;
@@ -46,12 +46,24 @@ impl Event {
             kind,
             priority,
             request_id,
-            ttl: U4::new(15).unwrap(),
+            ttl: U4::max(),
         }
     }
 }
 
 impl Event {
+    pub fn new_heartbeat(source: NodeId, request_id: RequestId, priority: Priority, heartbeat_info: u32) -> Self {
+        Event {
+            source,
+            destination: NodeSet::Broadcast { original_source: source },
+            resource_set: ResourceSet::Uri(SerialUri { segments: vec![] }),
+            kind: EventKind::Heartbeat(heartbeat_info),
+            priority,
+            request_id,
+            ttl: U4::max(),
+        }
+    }
+
     pub fn ser_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         // Some(_) if resource set is Uri only & it's a request or response
         let mut resource_set: Option<ResourceSetConvertXwfd> = None;

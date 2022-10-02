@@ -6,7 +6,7 @@ use futures::{StreamExt, FutureExt, SinkExt};
 use tokio::net::tcp::WriteHalf;
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::xwfd;
-use tracing::{instrument, trace, info, warn, error};
+use tracing::{instrument, trace, info, error};
 
 #[instrument(skip(stream, to_event_loop, from_event_loop))]
 pub async fn tcp_event_loop(
@@ -41,7 +41,9 @@ async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>)
         Ok(ev) => {
             trace!("des: {}", ev);
             let ev_owned: Event = ev.into();
-            to_event_loop.send(ev_owned).await;
+            if to_event_loop.send(ev_owned).await.is_err() {
+                error!("mpsc fail");
+            }
         }
         Err(e) => {
             error!("xwfd deserialize error: {:?}", e);

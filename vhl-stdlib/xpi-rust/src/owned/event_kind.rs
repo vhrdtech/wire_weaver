@@ -55,7 +55,7 @@ impl EventKind {
             // EventKind::StreamUpdates(_) => {}
             // EventKind::DiscoverNodes => {}
             // EventKind::NodeInfo(_) => {}
-            // EventKind::Heartbeat(_) => {}
+            EventKind::Heartbeat(_) => {}
             // EventKind::Forward => {}
             _ => unimplemented!(),
         }

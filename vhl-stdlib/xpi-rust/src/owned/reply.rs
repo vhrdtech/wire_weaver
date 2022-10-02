@@ -1,3 +1,4 @@
+use core::fmt::{Display, Formatter};
 use super::{ResourceInfo, SerialMultiUri, SerialUri};
 use crate::error::XpiError;
 use crate::owned::convert_error::ConvertError;
@@ -85,5 +86,17 @@ impl<'i> From<xwfd::ReplyKind<'i>> for ReplyKind {
             // xwfd::ReplyKind::Release(_) => {}
             // xwfd::ReplyKind::Introspect(_) => {}
         }
+    }
+}
+
+impl Display for Reply {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Reply<@{}> {{ {:#} {:?} }}",
+            self.request_id,
+            self.resource_set,
+            self.kind,
+        )
     }
 }

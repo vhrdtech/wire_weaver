@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use vhl_stdlib::discrete::U2;
 use crate::owned::convert_error::ConvertError;
 use crate::priority::XpiGenericPriority;
@@ -33,6 +34,15 @@ impl From<xwfd::Priority> for Priority {
         match priority {
             xwfd::Priority::Lossy(lvl) => Priority::Lossy(lvl.inner() as u8),
             xwfd::Priority::Lossless(lvl) => Priority::Lossless(lvl.inner() as u8)
+        }
+    }
+}
+
+impl Display for Priority {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Priority::Lossy(lvl) => write!(f, "Lo{}", lvl),
+            Priority::Lossless(lvl) => write!(f, "Re{}", lvl),
         }
     }
 }

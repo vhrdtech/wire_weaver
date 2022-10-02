@@ -221,29 +221,20 @@ impl<I: Iterator<Item=Vlu32> + Clone> FusedIterator for SerialUriIter<I> {}
 impl<I: Iterator<Item=Vlu32> + Clone> Display for SerialUriIter<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let mut uri_iter = self.clone().peekable();
-        if f.alternate() {
-            write!(f, "Uri(/")?;
-        } else {
-            write!(f, "/")?;
-        }
         while let Some(uri_part) = uri_iter.next() {
             write!(f, "{}", uri_part)?;
             if uri_iter.peek().is_some() {
                 write!(f, "/")?;
             }
         }
-        if f.alternate() {
-            write!(f, ")")
-        } else {
-            write!(f, "")
-        }
+        Ok(())
     }
 }
 
 impl<I: Iterator<Item=Vlu32> + Clone> Display for SerialUri<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
-            write!(f, "{:#}", self.iter())
+            write!(f, "Uri(/{:#})", self.iter())
         } else {
             write!(f, "{}", self.iter())
         }
@@ -252,7 +243,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> Display for SerialUri<I> {
 
 impl<I: Iterator<Item=Vlu32> + Clone> Debug for SerialUri<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{:#}", self)
     }
 }
 

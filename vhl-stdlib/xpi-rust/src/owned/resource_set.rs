@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::vec::IntoIter;
 use crate::owned::convert_error::ConvertError;
 use crate::owned::{SerialMultiUri, SerialUri};
@@ -42,6 +43,15 @@ impl<'i> From<xwfd::ResourceSet<'i>> for ResourceSet {
         match resource_set {
             xwfd::ResourceSet::Uri(uri) => ResourceSet::Uri(uri.into()),
             xwfd::ResourceSet::MultiUri(_) => unimplemented!()
+        }
+    }
+}
+
+impl Display for ResourceSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResourceSet::Uri(uri) => write!(f, "{}", uri),
+            ResourceSet::MultiUri(multi_uri) => write!(f, "{}", multi_uri),
         }
     }
 }

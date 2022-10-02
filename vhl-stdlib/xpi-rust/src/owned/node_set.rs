@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::node_set::XpiGenericNodeSet;
 use crate::owned::convert_error::ConvertError;
 use crate::owned::node_id::NodeId;
@@ -42,6 +43,17 @@ impl<'i> From<xwfd::NodeSet<'i>> for NodeSet {
             xwfd::NodeSet::UnicastTraits { .. } => unimplemented!(),
             xwfd::NodeSet::Multicast { .. } => unimplemented!(),
             xwfd::NodeSet::Broadcast => unimplemented!()
+        }
+    }
+}
+
+impl Display for NodeSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NodeSet::Unicast(dst) => write!(f, "U_{}", dst),
+            NodeSet::UnicastTraits { .. } => write!(f, "impl"),
+            NodeSet::Multicast { .. } => write!(f, "multi"),
+            NodeSet::Broadcast => write!(f, "*")
         }
     }
 }

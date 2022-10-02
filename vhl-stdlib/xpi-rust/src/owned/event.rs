@@ -8,7 +8,7 @@ use crate::owned::resource_set::{ResourceSet, ResourceSetConvertXwfd};
 use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use vhl_stdlib::serdes::bit_buf::BitBufMut;
 use vhl_stdlib::serdes::traits::SerializeBits;
 use vhl_stdlib::serdes::{bit_buf, NibbleBufMut};
@@ -48,6 +48,23 @@ impl Event {
         self.destination.ser_body_xwfd(nwr)?;
         self.kind.ser_body_xwfd(nwr, resource_set)?;
         Ok(())
+    }
+}
+
+impl Display for Event {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "XpiEvent{{ {} -> {}: {} {} }}", self.source, self.destination, self.kind, self.priority)
+    }
+}
+
+impl Display for EventKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EventKind::Request(req) => write!(f, "{}", req),
+            EventKind::Reply(rep) => write!(f, "{}", rep),
+            EventKind::Broadcast(_) => write!(f, ""),
+            EventKind::Forward(_) => write!(f, "")
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::vec::IntoIter;
 use vhl_stdlib::discrete::{U3, U4, U6};
 use crate::owned::convert_error::ConvertError;
@@ -85,3 +86,22 @@ impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>> for SerialUri {
 //     Serial { serial: u32 },
 //     SerialIndex { serial: u32, by: u32 },
 // }
+
+impl Display for SerialUri {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if f.alternate() {
+            write!(f, "Uri(/")?;
+        }
+        let mut uri_iter = self.segments.iter().peekable();
+        while let Some(uri_part) = uri_iter.next() {
+            write!(f, "{}", uri_part.0)?;
+            if uri_iter.peek().is_some() {
+                write!(f, "/")?;
+            }
+        }
+        if f.alternate() {
+            write!(f, ")")?;
+        }
+        Ok(())
+    }
+}

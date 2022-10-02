@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 use crate::owned::convert_error::ConvertError;
 use crate::owned::rate::Rate;
@@ -79,5 +80,17 @@ impl<'i> From<xwfd::RequestKind<'i>> for RequestKind {
             // RequestKind::Release => {}
             // RequestKind::Introspect => {}
         }
+    }
+}
+
+impl Display for Request {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Request<@{}> {{ {:#} {:?} }}",
+            self.request_id,
+            self.resource_set,
+            self.kind,
+        )
     }
 }

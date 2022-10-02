@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 
@@ -19,5 +20,11 @@ impl TryInto<xwfd::NodeId> for NodeId {
 impl From<xwfd::NodeId> for NodeId {
     fn from(id: xwfd::NodeId) -> Self {
         NodeId(id.inner() as u32)
+    }
+}
+
+impl Display for NodeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "N{}", self.0)
     }
 }

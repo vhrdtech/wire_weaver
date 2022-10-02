@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 
@@ -19,5 +20,11 @@ impl TryInto<xwfd::RequestId> for RequestId {
 impl From<xwfd::RequestId> for RequestId {
     fn from(id: xwfd::RequestId) -> Self {
         RequestId(id.inner() as u32)
+    }
+}
+
+impl Display for RequestId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Req:{}", self.0)
     }
 }

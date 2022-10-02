@@ -7,9 +7,6 @@
 //! while also keeping them all coherent.
 pub mod event;
 pub mod event_kind;
-pub mod request;
-pub mod reply;
-pub mod broadcast;
 pub mod node_set;
 pub mod priority;
 pub mod resource_set;
@@ -18,5 +15,5 @@ pub mod error;
 
 pub mod xwfd;
 
-#[cfg(not(feature = "no_std"))]
-pub mod owned;
+// #[cfg(not(feature = "no_std"))]
+// pub mod owned;

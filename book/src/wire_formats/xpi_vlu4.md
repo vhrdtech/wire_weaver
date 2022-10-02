@@ -20,27 +20,28 @@ Bus, USART, I2C, etc).
 First 4 bytes of serialized data structures are directly mappable to 29bit CAN ID. This optimization not only saves
 additional space, but allows to utilize hardware filters available in many CAN controllers. It is also possible to use
 different underlying interface, just treating serialized data as one continuous buffer. Layout is similar to uavcan, up
-to bit 23, which is reserved = 0 in its specification. Here 1 is used, which will cause vlu4 frames to be discarded by
+to bit 23, which is reserved = 0 in its specification. Here 1 is used, which will cause xwfd frames to be discarded by
 uavcan stack.
 
 ## Event
 
-| B0           | B1           | B2          | B3         | n8        | n9..      | ..            | ..    | ..       | last byte |
-|--------------|--------------|-------------|------------|-----------|-----------|---------------|-------|----------|-----------|
-| header 31:24 | header 23:16 | header 15:8 | header 7:0 | xwfd_info | node_set? | resource_set? | args? | padding? | req_id    |
+| B0           | B1           | B2          | B3         | n8        | n9  | n10..     | ..            | ..    | ..       | last byte   |
+|--------------|--------------|-------------|------------|-----------|-----|-----------|---------------|-------|----------|-------------|
+| header 31:24 | header 23:16 | header 15:8 | header 7:0 | xwfd_info | ttl | node_set? | resource_set? | args? | padding? | req_id (5b) |
 
-### Event header (request / reply) (32b)
+### Event header (32b)
 
-| 31:29 (3b) | 28:26 (3b) | 25:24 (2b)           | 23                | 22:16 (7b) | 15:7 (9b)   | 6:4 (3b)          | 3:0 (4b)     |
-|------------|------------|----------------------|-------------------|------------|-------------|-------------------|--------------|
-| n/a        | priority   | event kind = 11 / 10 | is_xwfd_or_bigger | source     | destination | resource set kind | req/rep kind |
+| 31:29 (3b) | 28:26 (3b) | 25:24 (2b) | 23                | 22:16 (7b) | 15:7 (9b)    | 6:4 (3b)          | 3:0 (4b) |
+|------------|------------|------------|-------------------|------------|--------------|-------------------|----------|
+| n/a        | priority   | kind5:4    | is_xwfd_or_bigger | src        | dst_node_set | resource set kind | kind3:0  |
 
-### Event kind (2b):
+### Event kind (6b):
 
-* 00: Broadcast - to be replaced with reserved?
-* 01: Forward
-* 10: Reply
-* 11: Request
+Event kind discriminant values are assigned in such a way, that different logical groups (requests, replies, multicast,
+other)
+can be easily distinguished with bits 5 and 4. I.e. for all requests kind5:4 = 00, for all replies kind5:4 = 01,
+for all multicast/broadcast kind5:4=10 for all other kind5:4=11.
+This might be helpful if hardware filters are to be used.
 
 ## Compatibility between wire formats
 

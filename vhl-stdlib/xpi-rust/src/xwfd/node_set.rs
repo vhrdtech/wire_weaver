@@ -10,15 +10,18 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
     type Error = XwfdError;
 
     fn des_coupled_bits_vlu4<'di>(
-        bits_rdr: &'di mut BitBuf<'i>,
-        _vlu4_rdr: &'di mut NibbleBuf<'i>,
+        brd: &'di mut BitBuf<'i>,
+        _nrd: &'di mut NibbleBuf<'i>,
     ) -> Result<Self, Self::Error> {
-        let kind = bits_rdr.get_up_to_8(2)?;
+        let kind = brd.get_up_to_8(2)?;
         match kind {
-            0b00 => Ok(NodeSet::Unicast(bits_rdr.des_bits()?)),
+            0b00 => Ok(NodeSet::Unicast(brd.des_bits()?)),
             0b01 => Err(XwfdError::Unimplemented),
             0b10 => Err(XwfdError::Unimplemented),
-            0b11 => Ok(NodeSet::Broadcast),
+            0b11 => {
+                let original_source = brd.des_bits()?;
+                Ok(NodeSet::Broadcast { original_source })
+            },
             _ => Err(XwfdError::InternalError),
         }
     }
@@ -27,24 +30,24 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
 impl<'i> SerializeBits for NodeSet<'i> {
     type Error = bit_buf::Error;
 
-    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+    fn ser_bits(&self, nwr: &mut BitBufMut) -> Result<(), Self::Error> {
         // must write 9 bits
         match self {
             NodeSet::Unicast(id) => {
-                wgr.put_up_to_8(2, 0b00)?;
-                wgr.put(id)?;
+                nwr.put_up_to_8(2, 0b00)?;
+                nwr.put(id)?;
             }
             NodeSet::UnicastTraits { .. } => {
-                wgr.put_up_to_8(2, 0b01)?;
+                nwr.put_up_to_8(2, 0b01)?;
                 todo!()
             }
             NodeSet::Multicast { .. } => {
-                wgr.put_up_to_8(2, 0b10)?;
+                nwr.put_up_to_8(2, 0b10)?;
                 todo!()
             }
-            NodeSet::Broadcast => {
-                wgr.put_up_to_8(2, 0b11)?;
-                wgr.put_up_to_8(7, 0)?;
+            NodeSet::Broadcast { original_source } => {
+                nwr.put_up_to_8(2, 0b11)?;
+                nwr.put(original_source)?;
             }
         };
         Ok(())
@@ -56,7 +59,7 @@ impl<'i> SerializeVlu4 for NodeSet<'i> {
 
     fn ser_vlu4(&self, _wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
-            NodeSet::Unicast(_) | NodeSet::Broadcast => {
+            NodeSet::Unicast(_) | NodeSet::Broadcast { .. } => {
                 // Unicast was already serialized into header, no need to add anything
                 return Ok(());
             }
@@ -83,7 +86,7 @@ impl<'i> Display for NodeSet<'i> {
                 traits,
             } => write!(f, "{}{}", destination, traits),
             NodeSet::Multicast { .. } => write!(f, "M_impl"),
-            NodeSet::Broadcast => write!(f, "*")
+            NodeSet::Broadcast { .. } => write!(f, "*")
         }
     }
 }

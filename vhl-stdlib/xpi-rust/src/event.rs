@@ -1,4 +1,3 @@
-use crate::event_kind::XpiGenericEventKind;
 use crate::node_set::XpiGenericNodeSet;
 use crate::resource_set::XpiGenericResourceSet;
 

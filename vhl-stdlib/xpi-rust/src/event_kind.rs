@@ -18,7 +18,7 @@
 /// buffer space available, sync vs async resources, priorities and other factors.
 #[derive(Copy, Clone, Debug)]
 pub enum XpiGenericEventKind<
-    SL,  // must be a slice, e.g. &'req [u8] or Vec<u8>
+    // SL,  // must be a slice, e.g. &'req [u8] or Vec<u8>
     VSL, // must be an array of slices, e.g. Vlu4Vec<'req, &'req [u8]> or Vec<Vec<u8>>
     VR,  // must be an array of rates, e.g. Vlu4Vec<'req, Rate> or Vec<Rate>
     VRSL, // must be an array of Result<slice>, e.g. Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>
@@ -212,7 +212,7 @@ pub enum XpiGenericEventKind<
     Forward,
 }
 
-impl<SL, VSL, VR, VRSL, VRU, VRI, N, H> XpiGenericEventKind<SL, VSL, VR, VRSL, VRU, VRI, N, H> {
+impl<VSL, VR, VRSL, VRU, VRI, N, H> XpiGenericEventKind<VSL, VR, VRSL, VRU, VRI, N, H> {
     pub fn discriminant(&self) -> XpiEventDiscriminant {
         use XpiEventDiscriminant::*;
         match self {
@@ -270,22 +270,22 @@ pub enum XpiEventDiscriminant {
     Introspect = 9,
     //ChainCall = 10,
 
-    CallResults = 20,
-    ReadResults = 21,
-    WriteResults = 22,
-    OpenStreamsResults = 23,
-    CloseStreamsResults = 24,
-    SubscribeResults = 25,
-    RateChangeResults = 39,
-    UnsubscribeResults = 26,
-    BorrowResults = 27,
-    ReleaseResults = 28,
-    IntrospectResults = 29,
+    CallResults = 16,
+    ReadResults = 17,
+    WriteResults = 18,
+    OpenStreamsResults = 19,
+    CloseStreamsResults = 20,
+    SubscribeResults = 21,
+    UnsubscribeResults = 22,
+    BorrowResults = 23,
+    ReleaseResults = 24,
+    IntrospectResults = 25,
+    RateChangeResults = 31,
 
-    StreamUpdates = 40,
-    DiscoverNodes = 41,
-    NodeInfo = 42,
-    Heartbeat = 43,
+    StreamUpdates = 32,
+    DiscoverNodes = 33,
+    NodeInfo = 34,
+    Heartbeat = 35,
 
-    Forward = 50,
+    Forward = 48,
 }

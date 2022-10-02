@@ -91,6 +91,8 @@ impl Display for SerialUri {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "Uri(/")?;
+        } else {
+            write!(f, "/")?;
         }
         let mut uri_iter = self.segments.iter().peekable();
         while let Some(uri_part) = uri_iter.next() {

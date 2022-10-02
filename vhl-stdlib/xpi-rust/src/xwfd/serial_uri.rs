@@ -236,7 +236,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> Display for SerialUri<I> {
         if f.alternate() {
             write!(f, "Uri(/{:#})", self.iter())
         } else {
-            write!(f, "{}", self.iter())
+            write!(f, "/{}", self.iter())
         }
     }
 }

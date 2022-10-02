@@ -50,7 +50,7 @@ async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>)
 }
 
 async fn serialize_and_send<'tx>(ev: Event, scratchpad: &mut [u8], tcp_tx: &mut WriteHalf<'tx>) {
-    trace!("event to be serialized to tcp: {:?}", ev);
+    trace!("event to be serialized to tcp: {}", ev);
     let mut nwr = NibbleBufMut::new_all(scratchpad);
     match ev.ser_xwfd(&mut nwr) {
         Ok(()) => {

@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use std::fmt::Formatter;
+use core::fmt::Formatter;
 use vhl_stdlib::serdes::{bit_buf, buf, nibble_buf, SerializableError};
 
 /// Error that is transferred across the wire for example in response to requests.

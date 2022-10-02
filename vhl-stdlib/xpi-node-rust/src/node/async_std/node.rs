@@ -81,7 +81,7 @@ impl VhNode {
         loop {
             futures::select! {
                 ev = rx_from_instances.select_next_some() => {
-                    trace!(node_id = self_id.0, "{:?}", ev);
+                    trace!("rx_from_instances: {}", ev);
                     let mut filters_to_drop = vec![];
                     for (_filter, tx_handle) in &mut filters {
                         // if _filter.matches

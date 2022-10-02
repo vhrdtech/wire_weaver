@@ -8,6 +8,7 @@ thiserror = { version = "1.0.35" }
 tokio = { version = "^1.20.1", features = ["full"] }
 tokio-stream = { version = "^0.1.9" }
 futures = { version = "0.3.24" }
+tracing = "0.1"
 xpi = { path = "../xpi-rust" }
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
 

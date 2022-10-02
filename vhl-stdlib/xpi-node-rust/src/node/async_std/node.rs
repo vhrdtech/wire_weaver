@@ -10,7 +10,9 @@ use xpi::owned::{Priority, EventKind, Event};
 use xpi::owned::node_id::NodeId;
 use xpi::owned::node_set::NodeSet;
 use crate::remote::tcp::tcp_event_loop;
+use tracing::{debug, warn, error, info, trace, instrument};
 
+#[derive(Debug)]
 pub struct VhNode {
     id: NodeId,
     tx_to_event_loop: Sender<Event>,
@@ -48,12 +50,13 @@ impl VhNode {
     /// rx_from_nodes: any other software node can send an event here.
     /// rx_internal: when new node is added, message is sent to this channel and it's handle is
     ///     Option::take()'n into local nodes hashmap.
+    #[instrument(skip(rx_from_instances, rx_internal))]
     async fn process_events(
         self_id: NodeId,
         mut rx_from_instances: Receiver<Event>,
         mut rx_internal: Receiver<InternalEvent>,
     ) {
-        println!("Node({}) started", self_id.0);
+        info!("Entering event loop");
         // send out heartbeats
         // answer introspects
         // process read/write/subscribe
@@ -78,7 +81,7 @@ impl VhNode {
         loop {
             futures::select! {
                 ev = rx_from_instances.select_next_some() => {
-                    println!("{}: {:?}", self_id.0, ev);
+                    trace!(node_id = self_id.0, "{:?}", ev);
                     let mut filters_to_drop = vec![];
                     for (_filter, tx_handle) in &mut filters {
                         // if _filter.matches
@@ -95,14 +98,14 @@ impl VhNode {
                     match ev_int {
                         InternalEvent::ConnectInstance(id, tx_handle) => {
                             nodes.insert(id, tx_handle);
-                            println!("{}: connected to {} (executor local)", self_id.0, id.0);
+                            info!("{}: connected to {} (executor local)", self_id.0, id.0);
                         }
                         InternalEvent::FilterOne(_filter, tx_handle) => {
-                            println!("filter registered");
+                            info!("filter registered");
                             filters.insert(0, tx_handle);
                         }
                         InternalEvent::ConnectRemoteTcp(tx_handle) => {
-                            println!("remote attachement 0 registered");
+                            info!("remote attachement 0 registered");
                             remote_nodes.insert(0, tx_handle);
                         }
                     }
@@ -112,7 +115,7 @@ impl VhNode {
                 // }
                 // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
-                    println!("{}: local heartbeat", self_id.0);
+                    trace!("{}: local heartbeat", self_id.0);
                     // for (_id, tx_handle) in &mut nodes {
                     //     // let _r = handle.tx.send(VhLinkEvent { from: self_id }).await; // TODO: handle error
                     //     let _r = tx_handle.send(Event::new(self_id, NodeSet::Broadcast, EventKind::new_heartbeat(uptime), Priority::Lossy(0))).await; // TODO: handle error
@@ -120,7 +123,7 @@ impl VhNode {
                     uptime += 1;
                 }
                 complete => {
-                    println!("{}: unexpected complete", self_id.0);
+                    warn!("{}: unexpected complete", self_id.0);
                     break;
                 }
             }
@@ -144,12 +147,13 @@ impl VhNode {
         Ok(())
     }
 
+    #[instrument(skip(self), fields(node_id = self.id.0))]
     pub async fn connect_remote(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
         match addr {
             RemoteNodeAddr::Tcp(addr) => {
-                println!("tcp: Connecting to remote {:?}", addr);
+                info!("tcp: Connecting to remote");
                 let tcp_stream = TcpStream::connect(addr).await?;
-                println!("{:?} connected", addr);
+                info!("Connected");
                 let (tx, rx) = mpsc::channel(64);
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();

@@ -18,8 +18,10 @@ impl NodeSet {
             }
             NodeSet::UnicastTraits { .. } => unimplemented!(),
             NodeSet::Multicast { .. } => unimplemented!(),
-            NodeSet::Broadcast => {
+            NodeSet::Broadcast { original_source } => {
                 bwr.put_up_to_8(2, 0b11)?;
+                let node_id: xwfd::NodeId = original_source.clone().try_into()?;
+                bwr.put(&node_id)?;
             }
         }
         Ok(())
@@ -30,7 +32,7 @@ impl NodeSet {
             NodeSet::Unicast(_) => {} // no need for additional data
             NodeSet::UnicastTraits { .. } => unimplemented!(),
             NodeSet::Multicast { .. } => unimplemented!(),
-            NodeSet::Broadcast => {} // no need for additional data
+            NodeSet::Broadcast { .. } => {} // no need for additional data
         }
         Ok(())
     }
@@ -42,7 +44,7 @@ impl<'i> From<xwfd::NodeSet<'i>> for NodeSet {
             xwfd::NodeSet::Unicast(dst) => NodeSet::Unicast(dst.into()),
             xwfd::NodeSet::UnicastTraits { .. } => unimplemented!(),
             xwfd::NodeSet::Multicast { .. } => unimplemented!(),
-            xwfd::NodeSet::Broadcast => unimplemented!()
+            xwfd::NodeSet::Broadcast { original_source } => NodeSet::Broadcast { original_source: original_source.into() }
         }
     }
 }
@@ -53,7 +55,7 @@ impl Display for NodeSet {
             NodeSet::Unicast(dst) => write!(f, "U_{}", dst),
             NodeSet::UnicastTraits { .. } => write!(f, "impl"),
             NodeSet::Multicast { .. } => write!(f, "multi"),
-            NodeSet::Broadcast => write!(f, "*")
+            NodeSet::Broadcast { .. } => write!(f, "*")
         }
     }
 }

@@ -6,9 +6,8 @@ use std::collections::HashMap;
 use tokio::net::TcpStream;
 use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::NodeError;
-use xpi::owned::{Priority, EventKind, Event};
+use xpi::owned::Event;
 use xpi::owned::node_id::NodeId;
-use xpi::owned::node_set::NodeSet;
 use crate::remote::tcp::tcp_event_loop;
 use tracing::{debug, warn, error, info, trace, instrument};
 

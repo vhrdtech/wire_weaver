@@ -1,7 +1,5 @@
 pub mod event;
-pub mod request;
-pub mod reply;
-pub mod broadcast;
+pub mod event_kind;
 pub mod serial_uri;
 pub mod priority;
 pub mod resource_info;
@@ -14,10 +12,8 @@ pub mod node_set;
 pub mod rate;
 pub mod serial_multi_uri;
 
-pub use event::{EventKind, Event};
-pub use request::{Request, RequestKind};
-pub use reply::Reply;
-pub use broadcast::BroadcastKind;
+pub use event::{Event};
+pub use event_kind::EventKind;
 pub use request_id::RequestId;
 pub use serial_uri::SerialUri;
 pub use serial_multi_uri::SerialMultiUri;

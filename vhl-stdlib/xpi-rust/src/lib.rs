@@ -15,5 +15,5 @@ pub mod error;
 
 pub mod xwfd;
 
-// #[cfg(not(feature = "no_std"))]
-// pub mod owned;
+#[cfg(not(feature = "no_std"))]
+pub mod owned;

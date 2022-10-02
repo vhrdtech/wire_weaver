@@ -1,29 +1,52 @@
-use crate::broadcast::XpiGenericBroadcastKind;
-use crate::event::{XpiGenericEvent, XpiGenericEventKind};
+use crate::event::{XpiGenericEvent};
 use crate::owned::convert_error::ConvertError;
-use crate::owned::node_id::NodeId;
-use crate::owned::node_set::NodeSet;
-use crate::owned::request_id::RequestId;
-use crate::owned::resource_set::{ResourceSet, ResourceSetConvertXwfd};
-use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
 use std::fmt::{Debug, Display, Formatter};
-use vhl_stdlib::serdes::bit_buf::BitBufMut;
-use vhl_stdlib::serdes::traits::SerializeBits;
-use vhl_stdlib::serdes::{bit_buf, NibbleBufMut};
+use vhl_stdlib::discrete::U4;
+use vhl_stdlib::serdes::{NibbleBufMut};
+use crate::owned::Priority;
 
-use super::{BroadcastKind, Priority, Reply, Request, RequestKind};
+use super::{
+    NodeId,
+    NodeSet,
+    RequestId,
+    ResourceSet,
+    resource_set::ResourceSetConvertXwfd,
+    TraitSet,
+    SerialUri,
+    SerialMultiUri,
+    EventKind,
+};
 
-pub type Event = XpiGenericEvent<NodeId, TraitSet, Request, Reply, BroadcastKind, (), Priority>;
+pub type Event = XpiGenericEvent<
+    NodeId,
+    TraitSet,
+    SerialUri,
+    SerialMultiUri,
+    EventKind,
+    Priority,
+    RequestId,
+    U4 // ttl
+>;
 
 impl Event {
-    pub fn new(source: NodeId, destination: NodeSet, kind: EventKind, priority: Priority) -> Self {
+    pub fn new_with_default_ttl(
+        source: NodeId,
+        destination: NodeSet,
+        resource_set: ResourceSet,
+        kind: EventKind,
+        request_id: RequestId,
+        priority: Priority,
+    ) -> Self {
         Event {
             source,
             destination,
+            resource_set,
             kind,
             priority,
+            request_id,
+            ttl: U4::new(15).unwrap(),
         }
     }
 }
@@ -32,123 +55,53 @@ impl Event {
     pub fn ser_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         // Some(_) if resource set is Uri only & it's a request or response
         let mut resource_set: Option<ResourceSetConvertXwfd> = None;
+        let kind = self.kind.discriminant() as u8;
+        let kind54 = kind >> 4;
+        let kind30 = kind & 0xF;
         nwr.as_bit_buf::<_, ConvertError>(|bwr| {
             bwr.put_up_to_8(3, 0b000)?; // unused 31:29
             let priority: xwfd::Priority = self.priority.try_into()?;
             bwr.put(&priority)?; // bits 28:26
-            bwr.put(&self.kind)?; // bits 25:24 - event kind
+            bwr.put_up_to_8(2, kind54)?; // bits 25:24 - event kind
             bwr.put_bit(true)?; // bit 23 - is_xwfd_or_bigger
             let node_id: xwfd::NodeId = self.source.try_into()?;
             bwr.put(&node_id)?; // bits 22:16
             self.destination.ser_header_xwfd(bwr)?; // bits 15:7 - destination node or node set
-            resource_set = self.kind.ser_header_xwfd(bwr)?;
+            resource_set = Some(self.resource_set.ser_header_xwfd(bwr)?);
+            bwr.put_up_to_8(4, kind30)?;
             Ok(())
         })?;
         nwr.put(&XwfdInfo::FormatIsXwfd)?;
+        nwr.put_nibble(self.ttl.inner())?;
         self.destination.ser_body_xwfd(nwr)?;
-        self.kind.ser_body_xwfd(nwr, resource_set)?;
+        resource_set.expect("").ser_body_xwfd(nwr)?;
+        self.kind.ser_body_xwfd(nwr)?;
+        nwr.align_to_byte()?;
+        let request_id: xwfd::RequestId = self.request_id.try_into()?;
+        nwr.put(&request_id)?;
         Ok(())
     }
 }
 
+
 impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "XpiEvent{{ {} -> {}: {} {} }}", self.source, self.destination, self.kind, self.priority)
-    }
-}
-
-impl Display for EventKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            EventKind::Request(req) => write!(f, "{}", req),
-            EventKind::Reply(rep) => write!(f, "{}", rep),
-            EventKind::Broadcast(_) => write!(f, ""),
-            EventKind::Forward(_) => write!(f, "")
-        }
+        write!(
+            f,
+            "OwnedEvent{{ {} -> {}::{}: {} #{} {} }}",
+            self.source,
+            self.destination,
+            self.resource_set,
+            self.kind,
+            self.request_id,
+            self.priority
+        )
     }
 }
 
 impl Debug for Event {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "XpiEvent")
-    }
-}
-
-pub type EventKind = XpiGenericEventKind<Request, Reply, BroadcastKind, ()>;
-
-impl EventKind {
-    pub fn new_request(resource_set: ResourceSet, kind: RequestKind, id: RequestId) -> Self {
-        EventKind::Request(Request {
-            resource_set,
-            kind,
-            request_id: id,
-        })
-    }
-
-    pub fn new_heartbeat(info: u32) -> Self {
-        EventKind::Broadcast(XpiGenericBroadcastKind::Heartbeat(info))
-    }
-
-    pub(crate) fn ser_header_xwfd(
-        &self,
-        bwr: &mut BitBufMut,
-    ) -> Result<Option<ResourceSetConvertXwfd>, ConvertError> {
-        match &self {
-            EventKind::Request(req) => {
-                // bits 6:4 - discriminant of ResourceSet+Uri
-                let rs = req.resource_set.ser_header_xwfd(bwr)?;
-                req.kind.ser_header_xwfd(bwr)?; // bits 3:0 - request kind
-                Ok(Some(rs))
-            }
-            EventKind::Reply(rep) => {
-                // bwr.put(&rep.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
-                let rs = rep.resource_set.ser_header_xwfd(bwr)?;
-                rep.kind.ser_header_xwfd(bwr)?; // bits 3:0 - reply kind
-                Ok(Some(rs))
-            }
-            EventKind::Broadcast(_) => todo!(),
-            EventKind::Forward(_) => todo!(),
-        }
-    }
-
-    pub(crate) fn ser_body_xwfd(
-        &self,
-        nwr: &mut NibbleBufMut,
-        resource_set: Option<ResourceSetConvertXwfd>,
-    ) -> Result<(), ConvertError> {
-        match &self {
-            EventKind::Request(req) => {
-                resource_set.expect("").ser_body_xwfd(nwr)?;
-                req.kind.ser_body_xwfd(nwr)?; // bits 3:0 - request kind
-                let request_id: xwfd::RequestId = req.request_id.try_into()?;
-                nwr.put(&request_id)?;
-                Ok(())
-            }
-            EventKind::Reply(rep) => {
-                resource_set.expect("").ser_body_xwfd(nwr)?;
-                rep.kind.ser_body_xwfd(nwr)?; // bits 3:0 - reply kind
-                let request_id: xwfd::RequestId = rep.request_id.try_into()?;
-                nwr.put(&request_id)?;
-                Ok(())
-            }
-            EventKind::Broadcast(_) => todo!(),
-            EventKind::Forward(_) => todo!(),
-        }
-    }
-}
-
-impl SerializeBits for EventKind {
-    type Error = bit_buf::Error;
-
-    fn ser_bits(&self, bwr: &mut BitBufMut) -> Result<(), Self::Error> {
-        let bits = match self {
-            EventKind::Request(_) => 0b11,
-            EventKind::Reply(_) => 0b10,
-            EventKind::Broadcast(_) => 0b00,
-            EventKind::Forward(_) => 0b01,
-        };
-        bwr.put_up_to_8(2, bits)?;
-        Ok(())
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -157,44 +110,44 @@ impl<'i> From<xwfd::Event<'i>> for Event {
         Event {
             source: ev.source.into(),
             destination: ev.destination.into(),
+            resource_set: ev.resource_set.into(),
             kind: ev.kind.into(),
             priority: ev.priority.into(),
-        }
-    }
-}
-
-impl<'i> From<xwfd::EventKind<'i>> for EventKind {
-    fn from(ev_kind: xwfd::EventKind<'i>) -> Self {
-        match ev_kind {
-            xwfd::EventKind::Request(req) => EventKind::Request(req.into()),
-            xwfd::EventKind::Reply(rep) => EventKind::Reply(rep.into()),
-            xwfd::EventKind::Broadcast(_) => unimplemented!(),
-            xwfd::EventKind::Forward(_) => unimplemented!(),
+            request_id: ev.request_id.into(),
+            ttl: ev.ttl,
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use vhl_stdlib::discrete::U4;
     use vhl_stdlib::serdes::NibbleBufMut;
     use vhl_stdlib::serdes::vlu4::Vlu32;
-    use crate::owned::{Request, ResourceSet, NodeId, NodeSet, SerialUri, RequestKind, RequestId, Event, EventKind, Priority};
+    use crate::owned::{
+        ResourceSet,
+        NodeId,
+        NodeSet,
+        SerialUri,
+        RequestId,
+        Event,
+        EventKind,
+        Priority,
+    };
 
     #[test]
     fn ser_xwfd_request() {
-        let req = Request {
+        let ev = Event {
+            source: NodeId(42),
+            destination: NodeSet::Unicast(NodeId(85)),
             resource_set: ResourceSet::Uri(SerialUri { segments: vec![Vlu32(3), Vlu32(12)] }),
-            kind: RequestKind::Call {
+            kind: EventKind::Call {
                 args_set: vec![vec![0xaa, 0xbb]]
             },
+            priority: Priority::Lossless(0),
             request_id: RequestId(27),
+            ttl: U4::new(0xa).unwrap(),
         };
-        let ev = Event::new(
-            NodeId(42),
-            NodeSet::Unicast(NodeId(85)),
-            EventKind::Request(req),
-            Priority::Lossless(0),
-        );
         let mut buf = [0u8; 256];
         let mut nwr = NibbleBufMut::new_all(&mut buf);
         ev.ser_xwfd(&mut nwr).unwrap();
@@ -202,13 +155,13 @@ mod test {
         let (_, len, _) = nwr.finish();
         // assert_eq!(len, 10);
         let expected = [
-            0b000_100_11, // n/a, priority, event kind = request
+            0b000_100_00, // n/a, priority, event kind group = requests
             0b1_0101010, // is_xwfd_or_bigger, source
             0b00_101010, // node set kind, destination 7:1
-            0b1_001_0000, // destination 0, resources set kind, request kind
-            0b0000_0011, // xwfd_info, resource set = TwoPart44
-            0b1100_0001, // resources set, args set len = 1
-            0b0010_0000, // slice len = 2 + padding
+            0b1_001_0000, // destination 0, resources set kind, request kind = Call
+            0b0000_1010, // xwfd_info, ttl
+            0b0011_1100, // resource set: U4 / U4
+            0b0001_0010, // args set len = 1, slice len = 2 + no padding
             0xaa,
             0xbb,
             0b000_11011,

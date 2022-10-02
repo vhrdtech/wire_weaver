@@ -1,5 +1,3 @@
-use crate::resource_set::XpiGenericResourceSet;
-
 /// Requests are sent to the Link by the initiator of an exchange, which can be any node on the Link.
 /// One or several Responses are sent back for each kind of request.
 ///
@@ -12,23 +10,22 @@ use crate::resource_set::XpiGenericResourceSet;
 /// This is a generic type, see actual implementations:
 /// * [vlu4, borrowed, no_std, zero copy](crate::serdes::xwfd::request::XpiRequest)
 /// * [vlu4, owned, std]()
-#[derive(Clone, Debug)]
-pub struct XpiGenericRequest<U, MU, SL, VSL, VR, ID> {
-    /// Set of resources that are considered in this request
-    pub resource_set: XpiGenericResourceSet<U, MU>,
-    /// What kind of operation is request on a set of resources
-    pub kind: XpiGenericRequestKind<SL, VSL, VR>,
-    /// Modulo number to map responses with requests.
-    /// When wrapping to 0, if there are any outgoing unanswered requests that are not subscriptions.
-    pub request_id: ID,
-}
-
-/// Select what to do with one ore more selected resources.
+///
+/// Replies are sent to the Link in response to requests.
+/// For subscriptions and streams many replies will be sent asynchronously.
+///
+/// Each request will result in one or more replies (or zero if loss occurred). This is due to:
+/// buffer space available, sync vs async resources, priorities and other factors.
 #[derive(Copy, Clone, Debug)]
-pub enum XpiGenericRequestKind<
+pub enum XpiGenericEventKind<
     SL,  // must be a slice, e.g. &'req [u8] or Vec<u8>
     VSL, // must be an array of slices, e.g. Vlu4Vec<'req, &'req [u8]> or Vec<Vec<u8>>
     VR,  // must be an array of rates, e.g. Vlu4Vec<'req, Rate> or Vec<Rate>
+    VRSL, // must be an array of Result<slice>, e.g. Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>
+    VRU,  // must be an array of Result<()>, e.g. Vlu4Vec<'rep, Result<(), FailReason>>
+    VRI,  // must be an array of Result<ResourceInfo>
+    N, // Node info
+    H, // Heartbeat info
 > {
     /// Request binary descriptor block from a node.
     /// Descriptor block is a compiled binary version of a vhL source.
@@ -50,14 +47,14 @@ pub enum XpiGenericRequestKind<
         args_set: VSL,
     },
 
-    /// Perform f(g(h(... (args) ...))) call on the destination node, saving
-    /// round trip request and replies.
-    /// Arguments must be compatible across all the members of a chain.
-    /// One response is sent back for the outer most function.
-    /// May not be supported by all nodes.
-    /// Do not cover all the weird use cases, so maybe better be replaced with full-blown expression
-    /// executor only were applicable and really needed?
-    ChainCall { args: SL },
+    // /// Perform f(g(h(... (args) ...))) call on the destination node, saving
+    // /// round trip request and replies.
+    // /// Arguments must be compatible across all the members of a chain.
+    // /// One response is sent back for the outer most function.
+    // /// May not be supported by all nodes.
+    // /// Do not cover all the weird use cases, so maybe better be replaced with full-blown expression
+    // /// executor only were applicable and really needed?
+    // ChainCall { args: SL },
 
     /// Read one or more resources.
     /// Reading several resources at once is more efficient as only one req-rep is needed in best case.
@@ -147,23 +144,112 @@ pub enum XpiGenericRequestKind<
     /// * const: nothing at the moment
     /// * array of resources: size of the array
     Introspect,
+
+    /// Result of an each call
+    CallResults(VRSL),
+
+    /// Result of an each read.
+    ReadResults(VRSL),
+
+    /// Result of an each write (only lossless?)
+    WriteResults(VRU),
+
+    /// Result of an attempt to open a stream.
+    /// If stream was closed before (and inherently not borrowed), Borrow(Ok(())) is received,
+    /// followed by OpenStream(Ok(()))
+    OpenStreamsResults(VRU),
+
+    /// Result of an attempt to close a stream or unrecoverable loss in lossless mode (priority > 0).
+    /// If stream was open before (and inherently borrowed by self node), Close(Ok(())) is received,
+    /// followed by Release(Ok(())).
+    CloseStreamsResults(VRU),
+
+    /// Result of an attempt to subscribe to a stream or observable property
+    /// On success Some(current value) is returned for a property, first available item is returned
+    /// for streams, if available during subscription time.
+    /// array of results with 0 len as an option
+    SubscribeResults(VRSL),
+
+    /// Result of a request to change observing / publishing rate.
+    RateChangeResults(VRU),
+
+    /// Result of an attempt to unsubscribe from a stream of from an observable property.
+    /// Unsubscribing twice will result in an error.
+    UnsubscribeResults(VRU),
+
+    /// Result of a resource borrow
+    BorrowResults(VRU),
+    /// Result of a resource release
+    ReleaseResults(VRU),
+
+    /// Result of an Introspect request
+    IntrospectResults(VRI),
+
+    /// Changed property or new element of a stream.
+    /// request_id for this case is None, as counter may wrap many times while subscriptions are active.
+    /// Mapping is straight forward without a request_id, since uri for each resource is known.
+    /// Distinguishing between different updates is not needed as in case of 2 function calls vs 1 for example.
+    ///
+    /// Updates may be silently lost if lossy mode is selected, more likely so with lower priority.
+    ///
+    /// Updates are very unlikely to be lost in lossless mode, unless underlying channel is destroyed
+    /// or memory is exceeded, in which case only an error can be reported to flag the issue.
+    /// If lossless channel is affected, CloseStream is yielded with a failure reason indicated in it.
+    StreamUpdates(VSL),
+
+    /// Broadcast request to all the nodes to announce themselves.
+    /// Up to the user how to actually implement this (for example zeroconf or randomly
+    /// delayed transmissions on CAN Bus if unique IDs wasn't assigned yet).
+    DiscoverNodes,
+    /// Sent by nodes in response to [XpiRequest::DiscoverNodes]. Received by everyone else.
+    NodeInfo(N),
+    /// Sent by all nodes periodically, received by all nodes.
+    /// Must be sent with maximum lossy priority.
+    /// If emergency stop messages exist in a system, heartbeats should be sent with the next lower priority.
+    Heartbeat(H),
+
+    /// Forward event to another node, allowing node to node routing with manual path selection.
+    Forward,
 }
 
-impl<SL, VSL, VR> XpiGenericRequestKind<SL, VSL, VR> {
-    pub fn discriminant(&self) -> XpiRequestDiscriminant {
-        use XpiRequestDiscriminant::*;
+impl<SL, VSL, VR, VRSL, VRU, VRI, N, H> XpiGenericEventKind<SL, VSL, VR, VRSL, VRU, VRI, N, H> {
+    pub fn discriminant(&self) -> XpiEventDiscriminant {
+        use XpiEventDiscriminant::*;
         match self {
-            XpiGenericRequestKind::Call { .. } => Call,
-            XpiGenericRequestKind::ChainCall { .. } => ChainCall,
-            XpiGenericRequestKind::Read => Read,
-            XpiGenericRequestKind::Write { .. } => Write,
-            XpiGenericRequestKind::OpenStreams => OpenStreams,
-            XpiGenericRequestKind::CloseStreams => CloseStreams,
-            XpiGenericRequestKind::Subscribe { .. } => Subscribe,
-            XpiGenericRequestKind::Unsubscribe => Unsubscribe,
-            XpiGenericRequestKind::Borrow => Borrow,
-            XpiGenericRequestKind::Release => Release,
-            XpiGenericRequestKind::Introspect => Introspect,
+            // Request like event
+            XpiGenericEventKind::Call { .. } => Call,
+            // XpiGenericEventKind::ChainCall { .. } => ChainCall,
+            XpiGenericEventKind::Read => Read,
+            XpiGenericEventKind::Write { .. } => Write,
+            XpiGenericEventKind::OpenStreams => OpenStreams,
+            XpiGenericEventKind::CloseStreams => CloseStreams,
+            XpiGenericEventKind::Subscribe { .. } => Subscribe,
+            XpiGenericEventKind::Unsubscribe => Unsubscribe,
+            XpiGenericEventKind::Borrow => Borrow,
+            XpiGenericEventKind::Release => Release,
+            XpiGenericEventKind::Introspect => Introspect,
+
+            // Reply like events
+            XpiGenericEventKind::CallResults(_) => CallResults,
+            XpiGenericEventKind::ReadResults(_) => ReadResults,
+            XpiGenericEventKind::WriteResults(_) => WriteResults,
+            XpiGenericEventKind::OpenStreamsResults(_) => OpenStreamsResults,
+            XpiGenericEventKind::CloseStreamsResults(_) => CloseStreamsResults,
+            XpiGenericEventKind::SubscribeResults(_) => SubscribeResults,
+            XpiGenericEventKind::RateChangeResults(_) => RateChangeResults,
+            XpiGenericEventKind::UnsubscribeResults(_) => UnsubscribeResults,
+            XpiGenericEventKind::BorrowResults(_) => BorrowResults,
+            XpiGenericEventKind::ReleaseResults(_) => ReleaseResults,
+            XpiGenericEventKind::IntrospectResults(_) => IntrospectResults,
+
+            // Multicast / Broadcast like events
+            XpiGenericEventKind::StreamUpdates(_) => StreamUpdates,
+            XpiGenericEventKind::DiscoverNodes => DiscoverNodes,
+            XpiGenericEventKind::NodeInfo(_) => NodeInfo,
+            XpiGenericEventKind::Heartbeat(_) => Heartbeat,
+
+            // Special events
+            XpiGenericEventKind::Forward => Forward,
         }
     }
 }
@@ -171,7 +257,7 @@ impl<SL, VSL, VR> XpiGenericRequestKind<SL, VSL, VR> {
 /// Same as XpiGenericRequestKind but without data.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum XpiRequestDiscriminant {
+pub enum XpiEventDiscriminant {
     Call = 0,
     Read = 1,
     Write = 2,
@@ -182,5 +268,24 @@ pub enum XpiRequestDiscriminant {
     Borrow = 7,
     Release = 8,
     Introspect = 9,
-    ChainCall = 10,
+    //ChainCall = 10,
+
+    CallResults = 20,
+    ReadResults = 21,
+    WriteResults = 22,
+    OpenStreamsResults = 23,
+    CloseStreamsResults = 24,
+    SubscribeResults = 25,
+    RateChangeResults = 39,
+    UnsubscribeResults = 26,
+    BorrowResults = 27,
+    ReleaseResults = 28,
+    IntrospectResults = 29,
+
+    StreamUpdates = 40,
+    DiscoverNodes = 41,
+    NodeInfo = 42,
+    Heartbeat = 43,
+
+    Forward = 50,
 }

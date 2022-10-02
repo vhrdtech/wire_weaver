@@ -77,6 +77,7 @@
 //! }
 //!
 pub mod event;
+pub mod event_kind;
 pub mod resource_set;
 pub mod multi_uri;
 pub mod reply;

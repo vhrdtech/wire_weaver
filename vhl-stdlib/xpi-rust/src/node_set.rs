@@ -1,17 +1,17 @@
 #[derive(Copy, Clone, Debug)]
-pub enum XpiGenericNodeSet<DST, TS> {
-    /// Request is targeted at only one specific node.
+pub enum XpiGenericNodeSet<NID, TS> {
+    /// Event is targeted at only one specific node.
     /// Any resources can be used from the node's vhL description.
-    Unicast(DST),
+    Unicast(NID),
 
-    /// Request is targeted at only one node, but through traits interface.
+    /// Event is targeted at only one node, but through traits interface.
     /// More expensive in terms of size and processing, but gives other benefits.
     UnicastTraits {
-        destination: DST,
+        destination: NID,
         traits: TS,
     },
 
-    /// Request is targeted at many nodes at once. Only nodes implementing a set of common traits can
+    /// Event is targeted at many nodes at once. Only nodes implementing a set of common traits can
     /// be addressed that way.
     ///
     /// Trait in this context is an xPI block defined and published to the Registry with a particular version.
@@ -31,6 +31,14 @@ pub enum XpiGenericNodeSet<DST, TS> {
         /// each corresponding to the trait specified, in order.
         /// So e.g. it is possible to call 3 different functions from 3 different traits in one request.
         traits: TS,
+
+        /// For preventing loops
+        original_source: NID,
     },
-    Broadcast,
+
+    /// Event is targeted at all nodes at once.
+    Broadcast {
+        /// For preventing loops
+        original_source: NID
+    },
 }

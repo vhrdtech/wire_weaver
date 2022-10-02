@@ -1,34 +1,30 @@
+use crate::event_kind::XpiGenericEventKind;
 use crate::node_set::XpiGenericNodeSet;
+use crate::resource_set::XpiGenericResourceSet;
 
 /// Root data type exchanged by nodes
 #[derive(Clone, Debug)]
 pub struct XpiGenericEvent<
-    NID,
-    TS,
-    RQ,
-    RP,
-    BR,
-    FW,
-    P,
+    NID, // NodeId
+    TS, // TraitSet
+    U, // SerialUri
+    MU, // SerialMultiUri
+    K,
+    P, // Priority
+    RID, // Request - Response matching ID
+    TTL,
 > {
     /// Origin node of the request
     pub source: NID,
     /// Destination node or nodes
     pub destination: XpiGenericNodeSet<NID, TS>,
-    pub kind: XpiGenericEventKind<RQ, RP, BR, FW>,
+    /// Set of resources that are considered in this request
+    pub resource_set: XpiGenericResourceSet<U, MU>,
+    pub kind: K,
     /// Priority selection: lossy or lossless (to an extent).
     pub priority: P,
-}
-
-#[derive(Clone, Debug)]
-pub enum XpiGenericEventKind<
-    RQ, // XpiRequest
-    RP, // XpiReply
-    BR, // XpiBroadcastKind
-    FW, //
-> {
-    Request(RQ),
-    Reply(RP),
-    Broadcast(BR),
-    Forward(FW),
+    /// Modulo number to map responses with requests.
+    /// When wrapping to 0, if there are any outgoing unanswered requests that are not subscriptions.
+    pub request_id: RID,
+    pub ttl: TTL,
 }

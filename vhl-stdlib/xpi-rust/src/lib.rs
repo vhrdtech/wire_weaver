@@ -6,6 +6,7 @@
 //! Types is kept highly generic, to be able to create owned and borrowed implementations downstream
 //! while also keeping them all coherent.
 pub mod event;
+pub mod event_kind;
 pub mod request;
 pub mod reply;
 pub mod broadcast;

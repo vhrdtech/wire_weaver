@@ -332,6 +332,8 @@ pub struct NibbleBufMut<'i> {
 }
 
 impl<'i> NibbleBufMut<'i> {
+    /// Create a new nibble writer covering len_nibbles from the provided array only.
+    /// If less than len_nibbles is actually written, remaining portion of the buf will contain original data.
     pub fn new(buf: &'i mut [u8], len_nibbles: usize) -> Result<Self, Error> {
         if len_nibbles > buf.len() * 2 {
             Err(Error::OutOfBounds)
@@ -345,6 +347,9 @@ impl<'i> NibbleBufMut<'i> {
         }
     }
 
+    /// Create a new nibble writer covering whole provided array.
+    /// If less than buf.len() * 2 nibbles is actually written, remaining portion of the buf
+    /// will contain original data.
     pub fn new_all(buf: &'i mut [u8]) -> Self {
         let len_nibbles = buf.len() * 2;
         NibbleBufMut {
@@ -517,10 +522,14 @@ impl<'i> NibbleBufMut<'i> {
 
     pub unsafe fn put_nibble_unchecked(&mut self, nib: u8) {
         if self.is_at_byte_boundary {
-            *self.buf.get_unchecked_mut(self.idx) = nib << 4;
+            let b = self.buf.get_unchecked_mut(self.idx);
+            *b &= 0b0000_1111;
+            *b |= nib << 4;
             self.is_at_byte_boundary = false;
         } else {
-            *self.buf.get_unchecked_mut(self.idx) |= nib & 0xf;
+            let b = self.buf.get_unchecked_mut(self.idx);
+            *b &= 0b1111_0000;
+            *b |= nib & 0b0000_1111;
             self.is_at_byte_boundary = true;
             self.idx += 1;
         }
@@ -1179,5 +1188,18 @@ mod test {
 
         assert_eq!(nrd.get_nibble(), Ok(0x1));
         assert!(nrd.is_at_end());
+    }
+
+    #[test]
+    fn non_zero_buf() {
+        let mut buf = [0xab, 0xcd, 0xef];
+        let mut nwr = NibbleBufMut::new_all(&mut buf);
+        nwr.put_nibble(0).unwrap();
+        nwr.put_nibble(0).unwrap();
+        nwr.put_nibble(0).unwrap();
+        nwr.put_nibble(0xa).unwrap();
+        nwr.put_nibble(0xb).unwrap();
+        let (buf, _, _) = nwr.finish();
+        assert_eq!(buf, [0x00, 0x0a, 0xbf]);
     }
 }

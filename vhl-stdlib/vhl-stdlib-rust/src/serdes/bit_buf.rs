@@ -152,6 +152,8 @@ pub struct BitBufMut<'i> {
 }
 
 impl<'i> BitBufMut<'i> {
+    /// Create a new bit writer covering len_bits from the provided array only.
+    /// If less than len_bits is actually written, remaining portion of the buf will contain original bits.
     pub fn new(buf: &'i mut [u8], len_bits: usize) -> Result<Self, Error> {
         if len_bits >= buf.len() * 8 {
             return Err(Error::OutOfBounds);
@@ -164,6 +166,8 @@ impl<'i> BitBufMut<'i> {
         })
     }
 
+    /// Create a new bit writer covering whole provided array.
+    /// If less than buf.len() * 8 is actually written, remaining portion of the buf will contain original bits.
     pub fn new_all(buf: &'i mut [u8]) -> Self {
         let len_bits = buf.len() * 8;
         BitBufMut {
@@ -174,6 +178,8 @@ impl<'i> BitBufMut<'i> {
         }
     }
 
+    /// Convert this bit writer into nibble writer.
+    /// Only possible when bit position is 0 or 4 (i.e. at nibble bounds), otherwise error is returned.
     pub fn to_nibble_buf(self) -> Result<NibbleBufMut<'i>, Error> {
         if self.bit_idx != 0 && self.bit_idx != 4 {
             return Err(Error::UnalignedAccess);
@@ -186,6 +192,7 @@ impl<'i> BitBufMut<'i> {
         })
     }
 
+    /// Create bit writer starting at offset_bits and ending at offset_bits + len_bits in the provided array.
     pub fn new_with_offset(
         buf: &'i mut [u8],
         offset_bits: usize,
@@ -231,9 +238,26 @@ impl<'i> BitBufMut<'i> {
         self.put_up_to_8(1, bit)
     }
 
+    /// Append 1 ..= 8 bits to the buffer.
+    ///
+    /// Internals:\
+    /// □□□□□□□□ bit_idx = 0; left = 8\
+    /// ■□□□□□□□ bit_idx = 1; left = 7\
+    /// ■■□□□□□□ bit_idx = 2; left = 6\
+    /// ■■■□□□□□ bit_idx = 3; left = 5\
+    /// ■■■■□□□□ bit_idx = 4; left = 4\
+    /// ■■■■■□□□ bit_idx = 5; left = 3\
+    /// ■■■■■■□□ bit_idx = 6; left = 2\
+    /// ■■■■■■■□ bit_idx = 7; left = 1
+    ///
+    /// if bit_count = 3 => requested_mask = □□□□□■■■\
+    /// if bit_idx = 2; left = 6; then requested_mask << (left - bit_count) = □□■■■□□□\
     pub fn put_up_to_8(&mut self, bit_count: usize, bits: u8) -> Result<(), Error> {
         if self.bits_left() < bit_count {
             return Err(Error::OutOfBounds);
+        }
+        if bit_count == 0 {
+            return Ok(());
         }
 
         let left_in_current_byte = 8 - self.bit_idx;
@@ -241,7 +265,9 @@ impl<'i> BitBufMut<'i> {
         let bits = bits & requested_mask;
         if bit_count <= left_in_current_byte {
             unsafe {
-                *self.buf.get_unchecked_mut(self.idx) |= bits << (left_in_current_byte - bit_count);
+                let b = self.buf.get_unchecked_mut(self.idx);
+                *b &= !(requested_mask << (left_in_current_byte - bit_count));
+                *b |= bits << (left_in_current_byte - bit_count);
             };
             self.bit_idx += bit_count;
             if self.bit_idx >= 8 {
@@ -252,11 +278,15 @@ impl<'i> BitBufMut<'i> {
         } else {
             let bits_to_idx_plus_1 = bit_count - left_in_current_byte;
             unsafe {
-                *self.buf.get_unchecked_mut(self.idx) |= bits >> bits_to_idx_plus_1;
+                let b = self.buf.get_unchecked_mut(self.idx);
+                *b &= !(requested_mask >> bits_to_idx_plus_1);
+                *b |= bits >> bits_to_idx_plus_1;
             };
             self.idx += 1;
             unsafe {
-                *self.buf.get_unchecked_mut(self.idx) = bits << (8 - bits_to_idx_plus_1);
+                let b = self.buf.get_unchecked_mut(self.idx);
+                *b &= !(requested_mask << (8 - bits_to_idx_plus_1));
+                *b |= bits << (8 - bits_to_idx_plus_1);
             };
             self.bit_idx = bits_to_idx_plus_1;
             Ok(())
@@ -281,35 +311,35 @@ mod test {
     #[test]
     fn get_up_to_8() {
         let buf = [0b1011_1100, 0b0101_1010];
-        let mut rdr = BitBuf::new_all(&buf);
-        assert_eq!(rdr.get_up_to_8(2), Ok(0b10));
-        assert_eq!(rdr.get_up_to_8(8), Ok(0b1111_0001));
-        assert_eq!(rdr.get_up_to_8(6), Ok(0b01_1010));
-        assert_eq!(rdr.get_up_to_8(1), Err(Error::OutOfBounds));
+        let mut brd = BitBuf::new_all(&buf);
+        assert_eq!(brd.get_up_to_8(2), Ok(0b10));
+        assert_eq!(brd.get_up_to_8(8), Ok(0b1111_0001));
+        assert_eq!(brd.get_up_to_8(6), Ok(0b01_1010));
+        assert_eq!(brd.get_up_to_8(1), Err(Error::OutOfBounds));
     }
 
     #[test]
     fn out_of_bounds() {
         let buf = [0b1010_0000];
-        let mut rdr = BitBuf::new(&buf, 5).unwrap();
-        assert_eq!(rdr.get_up_to_8(5), Ok(0b1_0100));
-        assert_eq!(rdr.get_up_to_8(1), Err(Error::OutOfBounds));
+        let mut brd = BitBuf::new(&buf, 5).unwrap();
+        assert_eq!(brd.get_up_to_8(5), Ok(0b1_0100));
+        assert_eq!(brd.get_up_to_8(1), Err(Error::OutOfBounds));
     }
 
     #[test]
     fn get_up_to_8_full_byte() {
         let buf = [0b1010_0101, 0b1111_0011];
-        let mut rdr = BitBuf::new_all(&buf);
-        assert_eq!(rdr.get_up_to_8(8), Ok(0b1010_0101));
-        assert_eq!(rdr.get_up_to_8(8), Ok(0b1111_0011));
+        let mut brd = BitBuf::new_all(&buf);
+        assert_eq!(brd.get_up_to_8(8), Ok(0b1010_0101));
+        assert_eq!(brd.get_up_to_8(8), Ok(0b1111_0011));
     }
 
     #[test]
     fn get_up_to_16() {
         let buf = [0b1010_1010, 0b0101_0101, 0b1100_0011];
-        let mut rdr = BitBuf::new_all(&buf);
-        assert_eq!(rdr.get_up_to_16(10), Ok(0b10_1010_1001));
-        assert_eq!(rdr.get_up_to_16(14), Ok(0b01_0101_1100_0011));
+        let mut brd = BitBuf::new_all(&buf);
+        assert_eq!(brd.get_up_to_16(10), Ok(0b10_1010_1001));
+        assert_eq!(brd.get_up_to_16(14), Ok(0b01_0101_1100_0011));
     }
 
     #[test]
@@ -325,14 +355,14 @@ mod test {
     #[test]
     fn put_up_to_8() {
         let mut buf = [0u8; 2];
-        let mut wgr = BitBufMut::new_all(&mut buf);
-        assert_eq!(wgr.put_up_to_8(2, 0b10), Ok(()));
-        assert_eq!(wgr.put_up_to_8(1, 0b0), Ok(()));
-        assert_eq!(wgr.put_up_to_8(1, 0b1), Ok(()));
-        assert_eq!(wgr.put_up_to_8(3, 0b111), Ok(()));
-        assert_eq!(wgr.put_up_to_8(8, 0b01010101), Ok(()));
-        assert_eq!(wgr.put_up_to_8(1, 0b0), Ok(()));
-        let (buf, byte_pos, bit_pos) = wgr.finish();
+        let mut bwr = BitBufMut::new_all(&mut buf);
+        assert_eq!(bwr.put_up_to_8(2, 0b10), Ok(()));
+        assert_eq!(bwr.put_up_to_8(1, 0b0), Ok(()));
+        assert_eq!(bwr.put_up_to_8(1, 0b1), Ok(()));
+        assert_eq!(bwr.put_up_to_8(3, 0b111), Ok(()));
+        assert_eq!(bwr.put_up_to_8(8, 0b01010101), Ok(()));
+        assert_eq!(bwr.put_up_to_8(1, 0b0), Ok(()));
+        let (buf, byte_pos, bit_pos) = bwr.finish();
         assert_eq!(buf[0], 0b1001_1110);
         assert_eq!(buf[1], 0b1010_1010);
         assert_eq!(byte_pos, 2);
@@ -342,13 +372,13 @@ mod test {
     #[test]
     fn put_bit() {
         let mut buf = [0u8; 1];
-        let mut wgr = BitBufMut::new_all(&mut buf);
-        wgr.put_bit(true).unwrap();
-        wgr.put_bit(false).unwrap();
-        wgr.put_bit(true).unwrap();
-        wgr.put_bit(false).unwrap();
-        wgr.put_bit(true).unwrap();
-        let (buf, byte_pos, bit_pos) = wgr.finish();
+        let mut bwr = BitBufMut::new_all(&mut buf);
+        bwr.put_bit(true).unwrap();
+        bwr.put_bit(false).unwrap();
+        bwr.put_bit(true).unwrap();
+        bwr.put_bit(false).unwrap();
+        bwr.put_bit(true).unwrap();
+        let (buf, byte_pos, bit_pos) = bwr.finish();
         assert_eq!(buf[0], 0b10101_000);
         assert_eq!(byte_pos, 0);
         assert_eq!(bit_pos, 5);
@@ -357,18 +387,31 @@ mod test {
     #[test]
     fn to_nibble_buf() {
         let mut buf = [0u8; 2];
-        let mut wgr = BitBufMut::new_all(&mut buf);
-        wgr.put_bit(true).unwrap();
-        wgr.put_up_to_8(3, 0b010).unwrap();
+        let mut bwr = BitBufMut::new_all(&mut buf);
+        bwr.put_bit(true).unwrap();
+        bwr.put_up_to_8(3, 0b010).unwrap();
 
-        let mut wgr = wgr.to_nibble_buf().unwrap();
-        wgr.put_nibble(0b1100).unwrap();
-        wgr.put_nibble(0b1010).unwrap();
-        wgr.put_nibble(0b0011).unwrap();
+        let mut nwr = bwr.to_nibble_buf().unwrap();
+        nwr.put_nibble(0b1100).unwrap();
+        nwr.put_nibble(0b1010).unwrap();
+        nwr.put_nibble(0b0011).unwrap();
 
-        let (buf, pos, _) = wgr.finish();
+        let (buf, pos, _) = nwr.finish();
         assert_eq!(buf[0], 0b1010_1100);
         assert_eq!(buf[1], 0b1010_0011);
         assert_eq!(pos, 2);
+    }
+
+    #[test]
+    fn non_zero_buf() {
+        let mut buf = [0xaa, 0xaa, 0xaa];
+        let mut bwr = BitBufMut::new_all(&mut buf);
+        bwr.put_up_to_8(2, 0b11).unwrap();
+        bwr.put_up_to_8(5, 0b00000).unwrap();
+        bwr.put_up_to_8(2, 0b00).unwrap();
+        bwr.put_up_to_8(8, 0b11001100).unwrap();
+        bwr.put_up_to_8(7, 0).unwrap();
+        let (buf, _, _) = bwr.finish();
+        assert_eq!(buf, [0b11000000, 0b01100110, 0b00000000]);
     }
 }

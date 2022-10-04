@@ -7,8 +7,8 @@ use crate::discrete::U4;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::Vlu4VecBuilder;
-use crate::serdes::{bit_buf, BitBuf, DeserializeVlu4};
+use crate::serdes::vlu4::{Vlu32, Vlu4VecBuilder};
+use crate::serdes::{bit_buf, BitBuf, DeserializeVlu4, SerDesSize};
 
 /// Buffer reader that treats input as a stream of nibbles.
 ///
@@ -344,6 +344,20 @@ impl<'i> DeserializeVlu4<'i> for NibbleBuf<'i> {
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let len = nrd.get_vlu4_u32()?;
         nrd.get_buf_slice(len as usize)
+    }
+}
+
+impl<'i> SerializeVlu4 for NibbleBuf<'i> {
+    type Error = Error;
+
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        nwr.put(&Vlu32(self.nibbles_left() as u32))?;
+        nwr.put_nibble_buf(self)
+    }
+
+    fn len_nibbles(&self) -> SerDesSize {
+        let len_len = Vlu32(self.nibbles_left() as u32).len_nibbles_known_to_be_sized();
+        SerDesSize::Sized(len_len + self.nibbles_left())
     }
 }
 
@@ -801,6 +815,7 @@ impl<'i> NibbleBufMut<'i> {
                     bytes_to_copy,
                 );
             }
+            self.idx += bytes_to_copy;
         } else if !self.is_at_byte_boundary && !other.is_at_byte_boundary {
             unsafe {
                 self.put_nibble_unchecked(*other.buf.get_unchecked(other.idx) & 0x0f);
@@ -819,6 +834,7 @@ impl<'i> NibbleBufMut<'i> {
                     bytes_to_copy,
                 );
             }
+            self.idx += bytes_to_copy;
         } else {
             let mut other_clone = other.clone();
             while !other_clone.is_at_end() {
@@ -1107,7 +1123,8 @@ mod test {
         wgr.put_u8(8).unwrap();
 
         wgr.put_nibble_buf(&rgr).unwrap();
-        let (wgr_buf, _, _) = wgr.finish();
+        let (wgr_buf, len, _) = wgr.finish();
+        assert_eq!(len, 5);
         assert_eq!(wgr_buf, &[9, 8, 1, 2, 3]);
     }
 
@@ -1123,7 +1140,8 @@ mod test {
         wgr.put_nibble(1).unwrap();
 
         wgr.put_nibble_buf(&rgr).unwrap();
-        let (wgr_buf, _, _) = wgr.finish();
+        let (wgr_buf, len, _) = wgr.finish();
+        assert_eq!(len, 4);
         assert_eq!(wgr_buf, &[0xff, 0x1b, 0xcd, 0xef]);
     }
 

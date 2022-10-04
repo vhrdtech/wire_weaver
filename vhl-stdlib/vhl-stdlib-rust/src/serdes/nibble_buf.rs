@@ -1,14 +1,14 @@
-use crate::serdes::bit_buf::BitBufMut;
 use core::fmt::{Debug, Display, Formatter};
 use core::marker::PhantomData;
 use core::ptr::copy_nonoverlapping;
 use std::iter::FusedIterator;
 use crate::discrete::U4;
-// use thiserror::Error;
-use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
-use crate::serdes::traits::SerializeVlu4;
-use crate::serdes::vlu4::{Vlu32, Vlu4VecBuilder};
-use crate::serdes::{bit_buf, BitBuf, DeserializeVlu4, SerDesSize};
+use crate::serdes::{
+    SerializeVlu4, DeserializeVlu4,
+    bit_buf, BitBuf, BitBufMut,
+    SerDesSize,
+    vlu4::{Vlu32, Vlu4VecBuilder},
+};
 
 /// Buffer reader that treats input as a stream of nibbles.
 ///
@@ -76,7 +76,7 @@ impl<'i> NibbleBuf<'i> {
 
     pub fn get_bit_buf(&mut self, nibble_count: usize) -> Result<BitBuf<'i>, Error> {
         if self.nibbles_left() < nibble_count {
-            return Err(OutOfBounds);
+            return Err(Error::OutOfBounds);
         }
         let buf_before_consuming = &self.buf[self.idx..];
         let offset = if self.is_at_byte_boundary { 0 } else { 4 };
@@ -135,7 +135,7 @@ impl<'i> NibbleBuf<'i> {
 
     pub fn get_nibble(&mut self) -> Result<u8, Error> {
         if self.is_at_end() {
-            return Err(OutOfBounds);
+            return Err(Error::OutOfBounds);
         }
         Ok(unsafe { self.get_nibble_unchecked() })
     }
@@ -154,24 +154,8 @@ impl<'i> NibbleBuf<'i> {
     }
 
     pub fn get_vlu4_u32(&mut self) -> Result<u32, Error> {
-        let mut num = 0;
-        for i in 0..=10 {
-            let nib = self.get_nibble()?;
-            if i == 10 {
-                // maximum 32 bits in 11 nibbles, 11th nibble should be the last
-                if nib & 0b1000 != 0 {
-                    // fuse at end to not read corrupt data
-                    self.idx = self.buf.len();
-                    return Err(MalformedVlu4U32);
-                }
-            }
-            num = num | (nib as u32 & 0b111);
-            if nib & 0b1000 == 0 {
-                break;
-            }
-            num = num << 3;
-        }
-        Ok(num)
+        let val: Vlu32 = Vlu32::des_vlu4(self)?;
+        Ok(val.0)
     }
 
     pub fn skip_vlu4_u32(&mut self) -> Result<(), Error> {
@@ -214,7 +198,7 @@ impl<'i> NibbleBuf<'i> {
 
     pub fn get_u8(&mut self) -> Result<u8, Error> {
         if self.nibbles_left() < 2 {
-            return Err(OutOfBounds);
+            return Err(Error::OutOfBounds);
         }
         if self.is_at_byte_boundary {
             let val = unsafe { *self.buf.get_unchecked(self.idx) };
@@ -241,10 +225,10 @@ impl<'i> NibbleBuf<'i> {
 
     pub fn get_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         if !self.is_at_byte_boundary {
-            return Err(UnalignedAccess);
+            return Err(Error::UnalignedAccess);
         }
         if self.nibbles_left() < len * 2 {
-            return Err(OutOfBounds);
+            return Err(Error::OutOfBounds);
         }
         let slice = &self.buf[self.idx..self.idx + len];
         self.idx += len;
@@ -602,34 +586,7 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     pub fn put_vlu4_u32(&mut self, val: u32) -> Result<(), Error> {
-        let mut val = val;
-        let mut msb_found = false;
-        let nib = (val >> 30) as u8; // get bits 31:30
-        if nib != 0 {
-            // println!("put 31 30");
-            self.put_nibble(nib | 0b1000)?;
-            msb_found = true;
-        }
-        val <<= 2;
-        for i in 0..=9 {
-            if (val & (7 << 29) != 0) || msb_found {
-                let nib = (val >> 29) as u8;
-                if i == 9 {
-                    // println!("put last");
-                    self.put_nibble(nib)?;
-                } else {
-                    // println!("put mid");
-                    self.put_nibble(nib | 0b1000)?;
-                }
-                msb_found = true;
-            }
-            if i == 9 && !msb_found {
-                // println!("put 0");
-                self.put_nibble(0)?;
-            }
-            val <<= 3;
-        }
-        Ok(())
+        Vlu32(val).ser_vlu4(self)
     }
 
     pub fn align_to_byte(&mut self) -> Result<(), Error> {
@@ -988,7 +945,7 @@ mod test {
         let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
         let mut rdr = NibbleBuf::new_all(&buf);
         assert_eq!(rdr.get_vlu4_u32(), Err(Error::MalformedVlu4U32));
-        assert!(rdr.is_at_end());
+        assert_eq!(rdr.nibbles_left(), 1);
     }
 
     #[test]

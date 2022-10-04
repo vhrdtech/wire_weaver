@@ -2,6 +2,8 @@ use crate::serdes::bit_buf::BitBufMut;
 use core::fmt::{Debug, Display, Formatter};
 use core::marker::PhantomData;
 use core::ptr::copy_nonoverlapping;
+use std::iter::FusedIterator;
+use crate::discrete::U4;
 // use thiserror::Error;
 use crate::serdes::nibble_buf::Error::{MalformedVlu4U32, OutOfBounds, UnalignedAccess};
 use crate::serdes::traits::SerializeVlu4;
@@ -292,6 +294,56 @@ impl<'i> NibbleBuf<'i> {
         } else {
             Ok(Err(f(code)))
         }
+    }
+
+    pub fn iter(&self) -> NibbleBufIter {
+        NibbleBufIter {
+            buf: self.clone()
+        }
+    }
+}
+
+pub struct NibbleBufIter<'i> {
+    buf: NibbleBuf<'i>,
+}
+
+impl<'i> Iterator for NibbleBufIter<'i> {
+    type Item = U4;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.buf.is_at_end() {
+            None
+        } else {
+            Some(unsafe { U4::new_unchecked(self.buf.get_nibble_unchecked()) })
+        }
+    }
+}
+
+impl<'i> FusedIterator for NibbleBufIter<'i> {}
+
+impl<'i> PartialEq for NibbleBuf<'i> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.nibbles_left() != other.nibbles_left() {
+            return false;
+        }
+        // can be optimized to compare bytes vs bytes, but now comparison is only used in unit tests
+        for (a, b) in self.iter().zip(other.iter()) {
+            if a != b {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl<'i> Eq for NibbleBuf<'i> {}
+
+impl<'i> DeserializeVlu4<'i> for NibbleBuf<'i> {
+    type Error = Error;
+
+    fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let len = nrd.get_vlu4_u32()?;
+        nrd.get_buf_slice(len as usize)
     }
 }
 

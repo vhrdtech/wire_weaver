@@ -331,6 +331,21 @@ impl<'i> DeserializeVlu4<'i> for NibbleBuf<'i> {
     }
 }
 
+macro_rules! deserialize_unsigned {
+    ($ty:ty, $method:ident) => {
+        impl<'i> DeserializeVlu4<'i> for $ty {
+            type Error = Error;
+
+            fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+                nrd.$method()
+            }
+        }
+    };
+}
+deserialize_unsigned!(u8, get_u8);
+deserialize_unsigned!(u16, get_u16_be);
+deserialize_unsigned!(u32, get_u32_be);
+
 impl<'i> SerializeVlu4 for NibbleBuf<'i> {
     type Error = Error;
 
@@ -344,6 +359,25 @@ impl<'i> SerializeVlu4 for NibbleBuf<'i> {
         SerDesSize::Sized(len_len + self.nibbles_left())
     }
 }
+
+macro_rules! serialize_unsigned {
+    ($ty:ty, $method:ident, $len_nibbles:literal) => {
+        impl SerializeVlu4 for $ty {
+            type Error = Error;
+
+            fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+                nwr.$method(*self)
+            }
+
+            fn len_nibbles(&self) -> SerDesSize {
+                SerDesSize::Sized($len_nibbles)
+            }
+        }
+    };
+}
+serialize_unsigned!(u8, put_u8, 2);
+serialize_unsigned!(u16, put_u16_be, 4);
+serialize_unsigned!(u32, put_u32_be, 8);
 
 impl<'i> Display for NibbleBuf<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

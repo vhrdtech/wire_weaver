@@ -618,13 +618,13 @@ impl<'i> DeserializeVlu4<'i> for () {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for u32 {
-    type Error = crate::serdes::nibble_buf::Error;
-
-    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        rdr.get_vlu4_u32()
-    }
-}
+// impl<'i> DeserializeVlu4<'i> for u32 {
+//     type Error = crate::serdes::nibble_buf::Error;
+//
+//     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+//         rdr.get_vlu4_u32()
+//     }
+// }
 
 #[cfg(not(feature = "no_std"))]
 impl SerializeVlu4 for Vec<u8> {
@@ -783,11 +783,11 @@ mod test {
     fn vec_of_vlu32() {
         let input = hex!("31 91 ff f7");
         let mut nrd = NibbleBuf::new_all(&input);
-        let results: Vlu4Vec<u32> = nrd.des_vlu4().unwrap();
+        let results: Vlu4Vec<Vlu32> = nrd.des_vlu4().unwrap();
         let mut iter = results.iter();
-        assert_eq!(iter.next(), Some(1));
-        assert_eq!(iter.next(), Some(9));
-        assert_eq!(iter.next(), Some(4095));
+        assert_eq!(iter.next(), Some(Vlu32(1)));
+        assert_eq!(iter.next(), Some(Vlu32(9)));
+        assert_eq!(iter.next(), Some(Vlu32(4095)));
         assert_eq!(iter.next(), None);
     }
 

@@ -1041,4 +1041,30 @@ mod test {
         assert_eq!(iter.next(), Some(&[0x34, 0x12, 0x78, 0x56][..]));
         assert_eq!(iter.next(), None);
     }
+
+    #[test]
+    fn vec_of_nibble_bufs_des() {
+        let buf = hex!("34 ab cd 3e f0 1a");
+        let mut nrd = NibbleBuf::new_all(&buf);
+        let arr: Vlu4Vec<NibbleBuf> = nrd.des_vlu4().unwrap();
+        let mut arr_iter = arr.iter();
+        assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xab, 0xcd], 4).unwrap()));
+        assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xef, 0x00], 3).unwrap()));
+        assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xa0], 1).unwrap()));
+        assert_eq!(arr_iter.next(), None);
+    }
+
+    #[test]
+    fn vec_of_nibble_bufs_ser() {
+        let mut buf = [0u8; 64];
+        let nwr = NibbleBufMut::new_all(&mut buf);
+        let mut vb = nwr.put_vec();
+        vb.put(&NibbleBuf::new(&[0xab, 0xcd], 4).unwrap()).unwrap();
+        vb.put(&NibbleBuf::new(&[0xef, 0x00], 3).unwrap()).unwrap();
+        vb.put(&NibbleBuf::new(&[0xa0], 1).unwrap()).unwrap();
+        let buf = vb.finish().unwrap();
+        let (buf, len, _) = buf.finish();
+        assert_eq!(len, 6);
+        assert_eq!(&buf[..len], hex!("34 ab cd 3e f0 1a"));
+    }
 }

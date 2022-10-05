@@ -540,7 +540,7 @@ impl<'i> NibbleBufMut<'i> {
     ///
     /// let mut buf = [0u8; 1];
     /// let mut wgr = NibbleBufMut::new_all(&mut buf);
-    /// wgr.put_nibble(0b1010);
+    /// wgr.put_nibble(0b1010).unwrap();
     ///
     /// wgr.as_bit_buf::<_, MyError>(|bit_wgr| {
     ///     bit_wgr.put_bit(true)?;
@@ -555,7 +555,7 @@ impl<'i> NibbleBufMut<'i> {
     pub fn as_bit_buf<F, E>(&mut self, mut f: F) -> Result<(), E>
         where
             F: FnMut(&mut BitBufMut) -> Result<(), E>,
-            E: From<crate::serdes::bit_buf::Error>,
+            E: From<bit_buf::Error>,
     {
         let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };
         let mut bit_buf = BitBufMut {
@@ -566,7 +566,7 @@ impl<'i> NibbleBufMut<'i> {
         };
         f(&mut bit_buf)?;
         if bit_buf.bit_idx != 0 && bit_buf.bit_idx != 4 {
-            return Err(E::from(crate::serdes::bit_buf::Error::UnalignedAccess));
+            return Err(E::from(bit_buf::Error::UnalignedAccess));
         }
         self.idx = bit_buf.idx;
         self.is_at_byte_boundary = bit_buf.bit_idx == 0;
@@ -1267,7 +1267,7 @@ mod test {
         let mut wrr = NibbleBufMut::new_all(&mut buf);
         wrr.skip(2).unwrap();
         wrr.put_u8(0xaa).unwrap();
-        wrr.rewind::<_, super::Error>(0, |wrr| {
+        wrr.rewind::<_, Error>(0, |wrr| {
             wrr.put_nibble(1)?;
             wrr.put_nibble(2)?;
             Ok(())

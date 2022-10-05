@@ -10,9 +10,9 @@ use vhl_stdlib::serdes::NibbleBuf;
 /// See [XpiGenericEventKind](crate::event_kind::XpiGenericEventKind) for detailed information.
 pub type EventKind<'ev> = XpiGenericEventKind<
     // &'ev [u8], // SL
-    Vlu4Vec<'ev, &'ev [u8]>, // VSL
+    Vlu4Vec<'ev, NibbleBuf<'ev>>, // VSL
     Vlu4Vec<'ev, Rate>, // VR
-    Vlu4Vec<'ev, Result<&'ev [u8], XpiError>>, // VRSL
+    Vlu4Vec<'ev, Result<NibbleBuf<'ev>, XpiError>>, // VRSL
     Vlu4Vec<'ev, Result<(), XpiError>>, // VRU
     Vlu4Vec<'ev, Result<ResourceInfo<'ev>, XpiError>>, // VRI
     (), // Node info

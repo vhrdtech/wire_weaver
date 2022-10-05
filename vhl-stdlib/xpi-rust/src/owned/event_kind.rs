@@ -5,11 +5,12 @@ use crate::owned::{Rate, ResourceInfo};
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::{NibbleBufMut};
+use vhl_stdlib::serdes::nibble_buf::NibbleBufOwned;
 
 pub type EventKind = XpiGenericEventKind<
-    Vec<Vec<u8>>,
+    Vec<NibbleBufOwned>,
     Vec<Rate>,
-    Vec<Result<Vec<u8>, XpiError>>,
+    Vec<Result<NibbleBufOwned, XpiError>>,
     Vec<Result<(), XpiError>>,
     Vec<Result<(), ResourceInfo>>,
     (),
@@ -27,7 +28,7 @@ impl EventKind {
                 nwr.put_vec_with(|vb| {
                     args_set
                         .iter()
-                        .try_for_each(|args| vb.put(&args.as_slice()))
+                        .try_for_each(|args| vb.put(args))
                 })?;
             }
             // EventKind::Read => {}
@@ -67,7 +68,7 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
     fn from(ev_kind: xwfd::EventKind<'i>) -> Self {
         match ev_kind {
             xwfd::EventKind::Call { args_set } => EventKind::Call {
-                args_set: args_set.to_vec(),
+                args_set: args_set.iter().map(|nb| nb.to_nibble_buf_owned()).collect(),
             },
             // EventKind::Read => {}
             // EventKind::Write { .. } => {}
@@ -81,7 +82,7 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
             xwfd::EventKind::CallResults(results) => EventKind::CallResults(
                 results
                     .iter()
-                    .map(|r| r.map(|slice| slice.to_owned()))
+                    .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
                     .collect(),
             ),
             // EventKind::ReadResults(_) => {}

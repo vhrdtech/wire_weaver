@@ -1,7 +1,7 @@
 use core::fmt::{Debug, Display, Formatter};
 use core::marker::PhantomData;
 use core::ptr::copy_nonoverlapping;
-use std::iter::FusedIterator;
+use core::iter::FusedIterator;
 use crate::discrete::U4;
 use crate::serdes::{
     SerializeVlu4, DeserializeVlu4,
@@ -24,6 +24,14 @@ pub struct NibbleBuf<'i> {
     pub(crate) is_at_byte_boundary: bool,
 }
 
+#[cfg(not(feature = "no_std"))]
+#[derive(Clone)]
+pub struct NibbleBufOwned {
+    pub buf: Vec<u8>,
+    pub len_nibbles: usize,
+    pub is_at_byte_boundary: bool,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     // #[error("Out of bounds access")]
@@ -44,6 +52,15 @@ pub enum Error {
     InvalidErrorCode,
     BitBuf
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl std::error::Error for Error {}
 
 impl From<bit_buf::Error> for Error {
     fn from(_: bit_buf::Error) -> Self {
@@ -285,6 +302,39 @@ impl<'i> NibbleBuf<'i> {
             buf: self.clone()
         }
     }
+
+    #[cfg(not(feature = "no_std"))]
+    pub fn to_nibble_buf_owned(&self) -> NibbleBufOwned {
+        let len_nibbles = if self.is_at_byte_boundary {
+            self.nibbles_left()
+        } else {
+            self.nibbles_left() + 1
+        };
+        NibbleBufOwned {
+            buf: self.buf[self.idx..].to_vec(),
+            len_nibbles,
+            is_at_byte_boundary: self.is_at_byte_boundary,
+        }
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl NibbleBufOwned {
+    pub fn to_nibble_buf_ref(&self) -> NibbleBuf {
+        NibbleBuf {
+            buf: &self.buf,
+            len_nibbles: self.len_nibbles,
+            idx: 0,
+            is_at_byte_boundary: self.is_at_byte_boundary,
+        }
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl Debug for NibbleBufOwned {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.to_nibble_buf_ref(), f)
+    }
 }
 
 pub struct NibbleBufIter<'i> {
@@ -357,6 +407,19 @@ impl<'i> SerializeVlu4 for NibbleBuf<'i> {
     fn len_nibbles(&self) -> SerDesSize {
         let len_len = Vlu32(self.nibbles_left() as u32).len_nibbles_known_to_be_sized();
         SerDesSize::Sized(len_len + self.nibbles_left())
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl SerializeVlu4 for NibbleBufOwned {
+    type Error = Error;
+
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        self.to_nibble_buf_ref().ser_vlu4(nwr)
+    }
+
+    fn len_nibbles(&self) -> SerDesSize {
+        self.to_nibble_buf_ref().len_nibbles()
     }
 }
 
@@ -719,7 +782,7 @@ impl<'i> NibbleBufMut<'i> {
         let idx_before = self.idx;
         let is_at_byte_boundary_before = self.is_at_byte_boundary;
         Vlu4VecBuilder {
-            wgr: self,
+            nwr: self,
             idx_before,
             is_at_byte_boundary_before,
             stride_len: 0,
@@ -738,7 +801,7 @@ impl<'i> NibbleBufMut<'i> {
             SE: From<Error>
     {
         let mut builder = Vlu4VecBuilder {
-            wgr: NibbleBufMut {
+            nwr: NibbleBufMut {
                 buf: self.buf,
                 len_nibbles: self.len_nibbles,
                 idx: self.idx,
@@ -755,8 +818,8 @@ impl<'i> NibbleBufMut<'i> {
             builder.put(&t)?;
         }
         builder.finish_internal()?;
-        self.idx = builder.wgr.idx;
-        self.is_at_byte_boundary = builder.wgr.is_at_byte_boundary;
+        self.idx = builder.nwr.idx;
+        self.is_at_byte_boundary = builder.nwr.is_at_byte_boundary;
         Ok(())
     }
 
@@ -768,7 +831,7 @@ impl<'i> NibbleBufMut<'i> {
             SE: From<Error>
     {
         let mut builder = Vlu4VecBuilder {
-            wgr: NibbleBufMut {
+            nwr: NibbleBufMut {
                 buf: self.buf,
                 len_nibbles: self.len_nibbles,
                 idx: self.idx,
@@ -783,8 +846,8 @@ impl<'i> NibbleBufMut<'i> {
         };
         f(&mut builder)?;
         builder.finish_internal()?;
-        self.idx = builder.wgr.idx;
-        self.is_at_byte_boundary = builder.wgr.is_at_byte_boundary;
+        self.idx = builder.nwr.idx;
+        self.is_at_byte_boundary = builder.nwr.is_at_byte_boundary;
         Ok(())
     }
 
@@ -837,8 +900,17 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: &T) -> Result<(), E> {
+    pub fn put<E, T: SerializeVlu4<Error=E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_vlu4(self)
+    }
+
+    #[cfg(not(feature = "no_std"))]
+    pub fn to_nibble_buf_owned(&self) -> NibbleBufOwned {
+        NibbleBufOwned {
+            buf: self.buf[..self.idx].to_vec(),
+            len_nibbles: self.nibbles_pos(),
+            is_at_byte_boundary: true,
+        }
     }
 }
 

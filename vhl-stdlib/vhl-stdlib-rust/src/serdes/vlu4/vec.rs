@@ -1,6 +1,6 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::{SerializableError, SerializeVlu4};
-use crate::serdes::vlu4::vlu32::Vlu32;
+use crate::serdes::vlu4::vlu32::{Vlu32, Vlu32NonOptimal};
 use crate::serdes::{DeserializeVlu4, SerDesSize};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Debug, Display, Formatter};
@@ -257,7 +257,7 @@ impl<'i, T: DeserializeVlu4<'i, Error=E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i,
 ///
 /// Create an instance by calling [Vlu4VecBuilder::new()] or through [NibbleBufMut::put_vec()]
 pub struct Vlu4VecBuilder<'i, T> {
-    pub(crate) wgr: NibbleBufMut<'i>,
+    pub(crate) nwr: NibbleBufMut<'i>,
     pub(crate) idx_before: usize,
     pub(crate) is_at_byte_boundary_before: bool,
 
@@ -271,7 +271,7 @@ pub struct Vlu4VecBuilder<'i, T> {
 impl<'i, T> Vlu4VecBuilder<'i, T> {
     pub fn new(buf: &'i mut [u8]) -> Self {
         Vlu4VecBuilder {
-            wgr: NibbleBufMut::new_all(buf),
+            nwr: NibbleBufMut::new_all(buf),
             idx_before: 0,
             is_at_byte_boundary_before: true,
             stride_len: 0,
@@ -287,33 +287,113 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             E: From<NibbleBufError>,
     {
         self.start_putting_element()?;
-        let _pos_before = self.wgr.nibbles_pos();
-        self.wgr.put(element)?;
+        let _pos_before = self.nwr.nibbles_pos();
+        self.nwr.put(element)?;
 
         #[cfg(feature = "buf-strict")]
-        match element.len_nibbles() {
+        Self::size_hint_strict_check(element.len_nibbles(), self.nwr.nibbles_pos() - _pos_before)?;
+
+        self.finish_putting_element()?;
+        Ok(())
+    }
+
+    #[cfg(feature = "buf-strict")]
+    fn size_hint_strict_check(size_hint: SerDesSize, actually_written: usize) -> Result<(), NibbleBufError> {
+        match size_hint {
             SerDesSize::Sized(len) => {
                 // Sized types are written as is, without padding or length and expected to return correct len
-                if self.wgr.nibbles_pos() - _pos_before != len {
+                if actually_written != len {
                     return Err(NibbleBufError::InvalidSizedEstimate.into());
                 }
             }
             SerDesSize::SizedAligned(len, padding) => {
                 // Sized aligned types might write up to padding more elements
-                let written = self.wgr.nibbles_pos() - _pos_before;
-                if written < len || written > len + padding {
+                if actually_written < len || actually_written > len + padding {
                     return Err(NibbleBufError::InvalidSizedAlignedEstimate.into());
                 }
             }
             SerDesSize::Unsized => {}
             SerDesSize::UnsizedBound(max_len) => {
-                if self.wgr.nibbles_pos() - _pos_before > max_len {
+                if actually_written > max_len {
                     return Err(NibbleBufError::InvalidUnsizedBoundEstimate.into());
                 }
             }
         }
+        Ok(())
+    }
 
+    /// Get a mutable nibble buf writer with requested length inside a closure.
+    /// Buffer is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
+    /// `size_hint` can be one of SerDesSize:: :
+    /// * Sized(len_nibbles) - NibbleBufMut with exactly len_nibbles will be provided, and expected
+    /// to be fully written.
+    /// * SizedAligned(len_nibbles, max_padding) - NibbleBufMut with len_nibbles + max padding will
+    /// be provided, at least len_nibbles expected to be written.
+    /// * Unsized - NibbleBufMut with all the remaining size in the buffer will be provided,
+    ///     `>=1` nibbles are expected to be written, previously written size will be updated and can
+    ///     result in some wasted space, due to initially unknown size (no copying are performed).
+    /// * UnsizedBound(max_len_nibbles) - similar to Unsized, but more efficient, since `max_len_nibbles`
+    /// estimate is known (so less space will be wasted for recording length).
+    pub fn put_with<F, SE>(&mut self, size_hint: SerDesSize, f: F) -> Result<(), SE>
+        where
+            F: Fn(&mut NibbleBufMut) -> Result<(), SE>,
+            SE: From<NibbleBufError>,
+    {
+        self.start_putting_element()?;
+        self.put_with_internal(size_hint, f)?;
         self.finish_putting_element()?;
+        Ok(())
+    }
+
+    fn put_with_internal<F, SE>(&mut self, size_hint: SerDesSize, mut f: F) -> Result<(), SE>
+        where
+            F: FnMut(&mut NibbleBufMut) -> Result<(), SE>,
+            SE: From<NibbleBufError>,
+    {
+        let buf_len = match size_hint {
+            SerDesSize::Sized(len_nibbles) => len_nibbles,
+            SerDesSize::SizedAligned(len_nibbles, max_padding) => len_nibbles + max_padding,
+            SerDesSize::Unsized => {
+                let len_len = Vlu32(self.nwr.nibbles_left() as u32).len_nibbles_known_to_be_sized();
+                self.nwr.nibbles_left() - len_len
+            }
+            SerDesSize::UnsizedBound(max_len_nibbles) => max_len_nibbles,
+        };
+        if buf_len > self.nwr.nibbles_left() {
+            return Err(NibbleBufError::OutOfBounds.into());
+        }
+        let pos_before_len = self.nwr.nibbles_pos();
+        self.nwr.put(&Vlu32(buf_len as u32))?;
+
+        let (len_nibbles, pos_before_data) = if self.nwr.is_at_byte_boundary {
+            (buf_len, 0)
+        } else {
+            (buf_len + 1, 1)
+        };
+        let actually_written = {
+            let mut nwr = NibbleBufMut {
+                buf: &mut self.nwr.buf[self.nwr.idx..],
+                len_nibbles,
+                idx: 0,
+                is_at_byte_boundary: self.nwr.is_at_byte_boundary,
+            };
+            f(&mut nwr)?;
+            nwr.nibbles_pos() - pos_before_data
+        };
+        self.nwr.skip(actually_written)?;
+
+        #[cfg(feature = "buf-strict")]
+        Self::size_hint_strict_check(size_hint, actually_written)?;
+
+        self.nwr.rewind(pos_before_len, |nwr| {
+            let len_len_original = Vlu32(buf_len as u32).len_nibbles_known_to_be_sized();
+            let len_len_actual = Vlu32(actually_written as u32).len_nibbles_known_to_be_sized();
+            nwr.put(&Vlu32NonOptimal {
+                additional_empty_nibbles: len_len_original - len_len_actual,
+                value: actually_written as u32,
+            })?;
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -359,27 +439,23 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     {
         self.start_putting_element()?;
         self.put_len_bytes_and_align(len_bytes)?;
-        f(&mut self.wgr.buf[self.wgr.idx..self.wgr.idx + len_bytes])?;
-        self.wgr.idx += len_bytes;
+        f(&mut self.nwr.buf[self.nwr.idx..self.nwr.idx + len_bytes])?;
+        self.nwr.idx += len_bytes;
         self.finish_putting_element()?;
         Ok(())
     }
 
     fn start_putting_element(&mut self) -> Result<(), NibbleBufError> {
         if self.stride_len == 0 {
-            self.stride_len_idx_nibbles = self.wgr.nibbles_pos();
-            self.wgr.put_nibble(0)?;
+            self.stride_len_idx_nibbles = self.nwr.nibbles_pos();
+            self.nwr.put_nibble(0)?;
         }
         Ok(())
     }
 
     fn put_len_bytes_and_align(&mut self, len_bytes: usize) -> Result<(), NibbleBufError> {
-        if len_bytes == 0 {
-            self.wgr.put_nibble(0)?;
-            return Ok(());
-        }
-        self.wgr.put(&Vlu32(len_bytes as u32))?;
-        self.wgr.align_to_byte()?;
+        self.nwr.put(&Vlu32(len_bytes as u32))?;
+        self.nwr.align_to_byte()?;
         Ok(())
     }
 
@@ -388,7 +464,7 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         self.slices_written += 1;
 
         if self.stride_len == 14 {
-            self.wgr.replace_nibble(self.stride_len_idx_nibbles, 0xf)?;
+            self.nwr.replace_nibble(self.stride_len_idx_nibbles, 0xf)?;
             self.stride_len = 0;
         }
         Ok(())
@@ -400,9 +476,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
 
     pub(crate) fn finish_internal(&mut self) -> Result<(), NibbleBufError> {
         if self.slices_written == 0 {
-            self.wgr.put_nibble(0)?;
+            self.nwr.put_nibble(0)?;
         } else {
-            self.wgr
+            self.nwr
                 .replace_nibble(self.stride_len_idx_nibbles, self.stride_len)?;
         }
         Ok(())
@@ -412,27 +488,27 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     /// If no slices were provided, one 0 nibble is written to indicate an empty array.
     pub fn finish(mut self) -> Result<NibbleBufMut<'i>, NibbleBufError> {
         self.finish_internal()?;
-        Ok(self.wgr)
+        Ok(self.nwr)
     }
 
     /// Finish writing elements ang get Vlu4Vec right away, without deserialization.
     /// If no slices were provided, one 0 nibble is written to indicate an empty array.
     pub fn finish_as_vec(mut self) -> Result<Vlu4Vec<'i, T>, NibbleBufError> {
         if self.slices_written == 0 {
-            self.wgr.put_nibble(0)?;
+            self.nwr.put_nibble(0)?;
         } else {
-            self.wgr
+            self.nwr
                 .replace_nibble(self.stride_len_idx_nibbles, self.stride_len)?;
         }
-        let len_nibbles = self.wgr.nibbles_pos() - self.idx_before * 2;
-        let last_idx = if self.wgr.is_at_byte_boundary {
-            self.wgr.idx - 1
+        let len_nibbles = self.nwr.nibbles_pos() - self.idx_before * 2;
+        let last_idx = if self.nwr.is_at_byte_boundary {
+            self.nwr.idx - 1
         } else {
-            self.wgr.idx
+            self.nwr.idx
         };
         Ok(Vlu4Vec {
             rdr: NibbleBuf {
-                buf: &self.wgr.buf[self.idx_before..=last_idx],
+                buf: &self.nwr.buf[self.idx_before..=last_idx],
                 len_nibbles,
                 idx: 0,
                 is_at_byte_boundary: self.is_at_byte_boundary_before,
@@ -454,7 +530,7 @@ impl<'i> Vlu4VecBuilder<'i, &'i [u8]> {
         self.start_putting_element()?;
         self.put_len_bytes_and_align(slice.len())?;
         if slice.len() != 0 {
-            self.wgr.put_slice(slice)?;
+            self.nwr.put_slice(slice)?;
         }
         self.finish_putting_element()?;
         Ok(())
@@ -489,26 +565,60 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
     /// Ok(()) or as Err(E) otherwise.
     ///
     /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
-    pub fn put_result_with_slice_from<F>(&mut self, len_bytes: usize, f: F) -> Result<(), NibbleBufError>
+    pub fn put_result_slice_with<F>(&mut self, len_bytes: usize, f: F) -> Result<(), NibbleBufError>
         where
             F: Fn(&mut [u8]) -> Result<(), E>,
     {
         self.start_putting_element()?;
-        let state = self.wgr.save_state();
+        let state = self.nwr.save_state();
         let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
-        self.wgr.put_nibble(0)?;
+        self.nwr.put_nibble(0)?;
 
         self.put_len_bytes_and_align(len_bytes)?;
-        match f(&mut self.wgr.buf[self.wgr.idx..self.wgr.idx + len_bytes]) {
+        match f(&mut self.nwr.buf[self.nwr.idx..self.nwr.idx + len_bytes]) {
             Ok(_) => {
-                self.wgr.idx += len_bytes;
+                self.nwr.idx += len_bytes;
                 self.finish_putting_element()?;
                 Ok(())
             }
             Err(e) => {
-                self.wgr.restore_state(state)?;
+                self.nwr.restore_state(state)?;
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
-                self.wgr.put(&Vlu32(e.error_code()))?;
+                self.nwr.put(&Vlu32(e.error_code()))?;
+                self.finish_putting_element()?;
+                return Ok(());
+            }
+        }
+    }
+}
+
+impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
+    where
+        E: SerializableError + From<NibbleBufError>,
+{
+    pub fn put_result_nib_slice_with<F>(&mut self, size_hint: SerDesSize, f: F) -> Result<(), NibbleBufError>
+        where
+            F: Fn(&mut NibbleBufMut) -> Result<(), E>,
+    {
+        self.start_putting_element()?;
+        let state = self.nwr.save_state();
+        let stride_len_idx_nibbles_before = self.stride_len_idx_nibbles;
+        self.nwr.put_nibble(0)?;
+
+        let mut result = Ok(());
+        self.put_with_internal::<_, NibbleBufError>(size_hint, |nwr| {
+            result = f(nwr);
+            Ok(())
+        })?;
+        match result {
+            Ok(_) => {
+                self.finish_putting_element()?;
+                Ok(())
+            }
+            Err(e) => {
+                self.nwr.restore_state(state)?;
+                self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
+                self.nwr.put(&Vlu32(e.error_code()))?;
                 self.finish_putting_element()?;
                 return Ok(());
             }
@@ -669,8 +779,8 @@ mod test {
         vb.put(&&[][..]).unwrap();
 
         // stride len will be updated in finish_..
-        assert_eq!(&vb.wgr.buf[0..8], hex!("03 01 02 03 20 04 05 00"));
-        assert_eq!(vb.wgr.nibbles_pos(), 15);
+        assert_eq!(&vb.nwr.buf[0..8], hex!("03 01 02 03 20 04 05 00"));
+        assert_eq!(vb.nwr.nibbles_pos(), 15);
         let vec = vb.finish_as_vec().unwrap();
         assert_eq!(&vec.rdr.buf[0..8], hex!("33 01 02 03 20 04 05 00"));
         assert_eq!(vec.total_len, 3);
@@ -739,8 +849,8 @@ mod test {
         vb.put(&Err(UserError::ErrorA)).unwrap();
         vb.put(&Err(UserError::ErrorB)).unwrap();
         vb.put(&Ok(())).unwrap();
-        assert_eq!(&vb.wgr.buf[0..3], hex!("00 01 20"));
-        assert_eq!(vb.wgr.nibbles_pos(), 6);
+        assert_eq!(&vb.nwr.buf[0..3], hex!("00 01 20"));
+        assert_eq!(vb.nwr.nibbles_pos(), 6);
         let nwr = vb.finish().unwrap();
         assert_eq!(&nwr.buf[0..3], hex!("50 01 20"));
     }
@@ -753,6 +863,19 @@ mod test {
         let mut iter = results.iter();
         assert_eq!(iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
         assert_eq!(iter.next(), Some(Ok(&[0xcc][..])));
+        assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
+        assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn vec_of_nib_slice_results() {
+        let input = hex!("40 4a ab b0 2c c1 20");
+        let mut nrd = NibbleBuf::new(&input, 13).unwrap();
+        let results: Vlu4Vec<Result<NibbleBuf, UserError>> = nrd.des_vlu4().unwrap();
+        let mut iter = results.iter();
+        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[0xaa, 0xbb], 4).unwrap())));
+        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[0xcc], 2).unwrap())));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
         assert_eq!(iter.next(), None);
@@ -777,6 +900,29 @@ mod test {
         assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
         assert_eq!(iter.next(), Some(Ok(&[][..])));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
+    }
+
+
+    #[test]
+    fn vec_of_nib_slice_results_builder() {
+        let mut buf = [0u8; 64];
+        let mut vb = Vlu4VecBuilder::<Result<NibbleBuf, UserError>>::new(&mut buf);
+        vb.put(&Ok(NibbleBuf::new_all(&[1, 2, 3]))).unwrap();
+        vb.put(&Ok(NibbleBuf::new_all(&[4, 5]))).unwrap();
+        vb.put(&Err(UserError::ErrorA)).unwrap();
+        vb.put(&Ok(NibbleBuf::new_all(&[]))).unwrap();
+        vb.put(&Err(UserError::ErrorB)).unwrap();
+
+        let vec = vb.finish_as_vec().unwrap();
+        assert_eq!(&vec.rdr.buf[..10], hex!("50 60 10 20 30 40 40 51 00 20"));
+
+        let mut iter = vec.iter();
+        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[1, 2, 3], 6).unwrap())));
+        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[4, 5], 4).unwrap())));
+        assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
+        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new_all(&[]))));
+        assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
@@ -877,12 +1023,12 @@ mod test {
         wgr.put_nibble(0xb).unwrap();
 
         let mut wgr = wgr.put_vec::<&[u8]>();
-        assert_eq!(wgr.wgr.nibbles_pos(), 3);
+        assert_eq!(wgr.nwr.nibbles_pos(), 3);
         wgr.put(&&[1, 2, 3][..]).unwrap();
         wgr.put(&&[4, 5, 6][..]).unwrap();
         wgr.put(&&[7, 8, 9][..]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
-        assert_eq!(wgr.wgr.nibbles_pos(), 28);
+        assert_eq!(wgr.nwr.nibbles_pos(), 28);
 
         let slice_array = wgr.finish_as_vec().unwrap();
         assert_eq!(
@@ -947,16 +1093,16 @@ mod test {
         wgr.put_u8(0xaa).unwrap();
 
         let mut wgr = wgr.put_vec::<&[u8]>();
-        assert_eq!(wgr.wgr.nibbles_pos(), 2);
+        assert_eq!(wgr.nwr.nibbles_pos(), 2);
         wgr.put(&&[1, 2, 3][..]).unwrap();
         wgr.put(&&[4, 5, 6][..]).unwrap();
         wgr.put(&&[7, 8, 9][..]).unwrap();
         assert_eq!(wgr.slices_written(), 3);
         assert_eq!(
-            &wgr.wgr.buf[0..13],
+            &wgr.nwr.buf[0..13],
             hex!("aa 03 01 02 03 30 04 05 06 30 07 08 09")
         );
-        assert_eq!(wgr.wgr.nibbles_pos(), 26);
+        assert_eq!(wgr.nwr.nibbles_pos(), 26);
 
         let slice_array = wgr.finish_as_vec().unwrap();
         assert_eq!(slice_array.total_len, 3);
@@ -1030,8 +1176,8 @@ mod test {
                 wgr.put_u16_le(0x5678)?;
                 Ok(())
             })
-            .unwrap();
-            assert_eq!(&wgr.wgr.buf[0..5], hex!("04 34 12 78 56"));
+                .unwrap();
+            assert_eq!(&wgr.nwr.buf[0..5], hex!("04 34 12 78 56"));
             wgr.finish_as_vec().unwrap()
         };
         assert_eq!(args_set.total_len, 1);
@@ -1066,5 +1212,99 @@ mod test {
         let (buf, len, _) = buf.finish();
         assert_eq!(len, 6);
         assert_eq!(&buf[..len], hex!("34 ab cd 3e f0 1a"));
+    }
+
+    #[test]
+    fn put_with_sized() {
+        let mut buf = [0u8; 512];
+        let nwr = NibbleBufMut::new_all(&mut buf);
+        let mut vb: Vlu4VecBuilder<()> = nwr.put_vec();
+
+        vb.put_with::<_, NibbleBufError>(SerDesSize::Sized(3), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 3);
+            nwr.put_u8(0xab)?;
+            nwr.put_nibble(0xc)?;
+            Ok(())
+        }).unwrap();
+        vb.put_with::<_, NibbleBufError>(SerDesSize::Sized(8), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 8);
+            nwr.put_u16_be(0xaa55)?;
+            nwr.put_u16_be(0xccdd)?;
+            Ok(())
+        }).unwrap();
+
+        let nwr = vb.finish().unwrap();
+        assert_eq!(nwr.nibbles_pos(), 15);
+        assert_eq!(nwr.buf[..8], hex!("23 ab c9 0a a5 5c cd d0"));
+    }
+
+    #[test]
+    fn put_with_sized_aligned() {
+        let mut buf = [0u8; 512];
+        let nwr = NibbleBufMut::new_all(&mut buf);
+        let mut vb: Vlu4VecBuilder<()> = nwr.put_vec();
+
+        vb.put_with::<_, NibbleBufError>(SerDesSize::SizedAligned(5, 1), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 6);
+            nwr.put(&&[0xab, 0xcd][..])?;
+            Ok(())
+        }).unwrap();
+        vb.put_with::<_, NibbleBufError>(SerDesSize::SizedAligned(5, 1), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 6);
+            nwr.put(&&[0xef, 0x01][..])?;
+            Ok(())
+        }).unwrap();
+
+        let nwr = vb.finish().unwrap();
+        assert_eq!(nwr.nibbles_pos(), 14);
+        assert_eq!(nwr.buf[..7], hex!("26 20 ab cd 52 ef 01"));
+    }
+
+    #[test]
+    fn put_with_unsized() {
+        let mut buf = [0u8; 512];
+        let nwr = NibbleBufMut::new_all(&mut buf);
+        let mut vb: Vlu4VecBuilder<()> = nwr.put_vec();
+
+        vb.put_with::<_, NibbleBufError>(SerDesSize::Unsized, |nwr| {
+            assert_eq!(nwr.nibbles_left(), 1024 - 1 - 4);
+            nwr.put_u16_be(0xaabb)?;
+            nwr.put_u16_be(0xccdd)?;
+            Ok(())
+        }).unwrap();
+        vb.put_with::<_, NibbleBufError>(SerDesSize::Unsized, |nwr| {
+            assert_eq!(nwr.nibbles_left(), 1024 - 5 - 8 - 4);
+            nwr.put_u16_be(0xee01)?;
+            nwr.put_u16_be(0x2345)?;
+            Ok(())
+        }).unwrap();
+
+        let nwr = vb.finish().unwrap();
+        assert_eq!(nwr.nibbles_pos(), 25);
+        assert_eq!(nwr.buf[..13], hex!("28 89 0a ab bc cd d8 89 0e e0 12 34 50"));
+    }
+
+    #[test]
+    fn put_with_unsized_bound() {
+        let mut buf = [0u8; 512];
+        let nwr = NibbleBufMut::new_all(&mut buf);
+        let mut vb: Vlu4VecBuilder<()> = nwr.put_vec();
+
+        vb.put_with::<_, NibbleBufError>(SerDesSize::UnsizedBound(63), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 63);
+            nwr.put_u16_be(0xaabb)?;
+            nwr.put_u16_be(0xccdd)?;
+            Ok(())
+        }).unwrap();
+        vb.put_with::<_, NibbleBufError>(SerDesSize::UnsizedBound(63), |nwr| {
+            assert_eq!(nwr.nibbles_left(), 63);
+            nwr.put_u16_be(0xee01)?;
+            nwr.put_u16_be(0x2345)?;
+            Ok(())
+        }).unwrap();
+
+        let nwr = vb.finish().unwrap();
+        assert_eq!(nwr.nibbles_pos(), 21);
+        assert_eq!(nwr.buf[..11], hex!("29 0a ab bc cd d9 0e e0 12 34 50"));
     }
 }

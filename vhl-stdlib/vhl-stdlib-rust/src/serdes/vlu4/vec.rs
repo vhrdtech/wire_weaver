@@ -1,6 +1,6 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::{SerializableError, SerializeVlu4};
-use crate::serdes::vlu4::vlu32::{Vlu32, Vlu32NonOptimal};
+use crate::serdes::vlu4::vlu32::{Vlu32, Vlu32Suboptimal};
 use crate::serdes::{DeserializeVlu4, SerDesSize};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Debug, Display, Formatter};
@@ -388,7 +388,7 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         self.nwr.rewind(pos_before_len, |nwr| {
             let len_len_original = Vlu32(buf_len as u32).len_nibbles_known_to_be_sized();
             let len_len_actual = Vlu32(actually_written as u32).len_nibbles_known_to_be_sized();
-            nwr.put(&Vlu32NonOptimal {
+            nwr.put(&Vlu32Suboptimal {
                 additional_empty_nibbles: len_len_original - len_len_actual,
                 value: actually_written as u32,
             })?;

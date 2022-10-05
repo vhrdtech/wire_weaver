@@ -2,8 +2,20 @@ use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::SerializeVlu4;
 use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
+/// Variable length encoded u32 based on nibbles.
+/// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
+/// Bit order is Big Endian.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vlu32(pub u32);
+
+/// Used for in-place buffer writing without prior knowledge of it's length.
+/// Originally bigger number is written (representing remaining space or max bound of SerDesSize).
+/// Afterwards original number is updated with actual size, and if it is smaller than original,
+/// `additional_empty_nibbles` = 0b1000 are written if needed,  since copying is undesired.
+pub struct Vlu32Suboptimal {
+    pub additional_empty_nibbles: usize,
+    pub value: u32,
+}
 
 impl Vlu32 {
     pub fn len_nibbles_known_to_be_sized(&self) -> usize {
@@ -80,5 +92,20 @@ impl<'i> DeserializeVlu4<'i> for Vlu32 {
             num = num << 3;
         }
         Ok(Vlu32(num))
+    }
+}
+
+impl SerializeVlu4 for Vlu32Suboptimal {
+    type Error = NibbleBufError;
+
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        for _ in 0..self.additional_empty_nibbles {
+            nwr.put_nibble(0b1000)?;
+        }
+        Vlu32(self.value).ser_vlu4(nwr)
+    }
+
+    fn len_nibbles(&self) -> SerDesSize {
+        SerDesSize::Sized(Vlu32(self.value).len_nibbles_known_to_be_sized() + self.additional_empty_nibbles)
     }
 }

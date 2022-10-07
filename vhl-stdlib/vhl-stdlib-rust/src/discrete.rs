@@ -79,6 +79,8 @@ impl<'i> DeserializeVlu4<'i> for U4 {
 
 // 6 bit unsigned integer
 max_bound_number!(U6, 6, u8, 63, "U6:{}", put_up_to_8, get_up_to_8);
+// 9 bit unsigned integer
+max_bound_number!(U9, 9, u16, 511, "U9:{}", put_up_to_16, get_up_to_16);
 
 /// 7 bit unsigned integer shifted +1 == range 1..=128
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

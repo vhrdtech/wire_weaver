@@ -8,6 +8,7 @@ use vhl_stdlib::{
         },
     },
 };
+use vhl_stdlib::discrete::{U3, U9};
 use crate::error::XpiError;
 use crate::event::XpiGenericEvent;
 use crate::event_kind::XpiEventDiscriminant;
@@ -87,18 +88,31 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
 pub struct EventBuilder<'i> {
     nwr: NibbleBufMut<'i>,
     source: NodeId,
-    destination: NodeSet<'i>,
-    resource_set: ResourceSet<'i>,
     request_id: RequestId,
     priority: Priority,
+}
+
+pub struct EventBuilderResourceSetState<'i> {
+    nwr: NibbleBufMut<'i>,
+    source: NodeId,
+    request_id: RequestId,
+    priority: Priority,
+    node_set_header: U9,
+}
+
+pub struct EventBuilderKindState<'i> {
+    nwr: NibbleBufMut<'i>,
+    source: NodeId,
+    request_id: RequestId,
+    priority: Priority,
+    node_set_header: U9,
+    resource_set_header: U3,
 }
 
 impl<'i> EventBuilder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
         source: NodeId,
-        destination: NodeSet<'i>,
-        resource_set: ResourceSet<'i>,
         request_id: RequestId,
         priority: Priority,
         ttl: U4,
@@ -106,18 +120,47 @@ impl<'i> EventBuilder<'i> {
         nwr.skip(8)?;
         nwr.put(&XwfdInfo::FormatIsXwfd)?;
         nwr.put_nibble(ttl.inner())?;
-        nwr.put(&destination)?;
-        nwr.put(&resource_set)?;
         Ok(EventBuilder {
             nwr,
             source,
-            destination,
-            resource_set,
             request_id,
             priority,
         })
     }
 
+    pub fn build_node_set_with<F>(self, f: F) -> Result<EventBuilderResourceSetState<'i>, XpiError>
+        where
+            F: Fn(NibbleBufMut<'i>) -> Result<(U9, NibbleBufMut<'i>), XpiError>,
+    {
+        let (node_set_header, nwr) = f(self.nwr)?;
+        Ok(EventBuilderResourceSetState {
+            nwr,
+            source: self.source,
+            request_id: self.request_id,
+            priority: self.priority,
+            node_set_header,
+        })
+    }
+}
+
+impl<'i> EventBuilderResourceSetState<'i> {
+    pub fn build_resource_set_with<F>(self, f: F) -> Result<EventBuilderKindState<'i>, XpiError>
+        where
+            F: Fn(NibbleBufMut<'i>) -> Result<(U3, NibbleBufMut<'i>), XpiError>,
+    {
+        let (resource_set_header, nwr) = f(self.nwr)?;
+        Ok(EventBuilderKindState {
+            nwr,
+            source: self.source,
+            request_id: self.request_id,
+            priority: self.priority,
+            node_set_header: self.node_set_header,
+            resource_set_header,
+        })
+    }
+}
+
+impl<'i> EventBuilderKindState<'i> {
     pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, XpiError>
         where
             F: Fn(NibbleBufMut<'i>) -> Result<(XpiEventDiscriminant, NibbleBufMut<'i>), XpiError>,
@@ -135,8 +178,8 @@ impl<'i> EventBuilder<'i> {
                 bwr.put_up_to_8(2, kind54)?; // bits 25:24 - discriminant of event kind
                 bwr.put_bit(true)?; // bit 23, is_xwfd_or_bigger
                 bwr.put(&self.source)?; // bits 22:16
-                bwr.put(&self.destination)?; // bits 15:7 - dst node set discriminant + node id if unicast
-                bwr.put(&self.resource_set)?; // bits 6:4 - discriminant of ResourceSet+Uri
+                bwr.put_up_to_16(9, self.node_set_header.inner())?; // bits 15:7 - dst node set discriminant + node id if unicast
+                bwr.put_up_to_8(3, self.resource_set_header.inner())?; // bits 6:4 - discriminant of ResourceSet+Uri
                 bwr.put_up_to_8(4, kind30)?; // bits 3:0 - discriminant of event kind
                 Ok(())
             })?;

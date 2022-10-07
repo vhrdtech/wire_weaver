@@ -1,6 +1,15 @@
 use core::fmt::{Display, Formatter, Result as FmtResult};
-use vhl_stdlib::serdes::{bit_buf, BitBuf, BitBufMut, DeserializeCoupledBitsVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4};
-use vhl_stdlib::serdes::vlu4::TraitSet;
+use vhl_stdlib::discrete::U9;
+use vhl_stdlib::serdes::{
+    BitBuf,
+    DeserializeCoupledBitsVlu4,
+    nibble_buf,
+    NibbleBuf,
+    NibbleBufMut,
+    SerDesSize,
+    SerializeVlu4,
+    vlu4::TraitSet,
+};
 use crate::node_set::XpiGenericNodeSet;
 use crate::xwfd::{NodeId, XwfdError};
 
@@ -27,32 +36,52 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
     }
 }
 
-impl<'i> SerializeBits for NodeSet<'i> {
-    type Error = bit_buf::Error;
-
-    fn ser_bits(&self, nwr: &mut BitBufMut) -> Result<(), Self::Error> {
-        // must write 9 bits
-        match self {
+impl<'i> NodeSet<'i> {
+    pub fn ser_header(&self) -> U9 {
+        let bits = match self {
             NodeSet::Unicast(id) => {
-                nwr.put_up_to_8(2, 0b00)?;
-                nwr.put(id)?;
+                0b00_000_0000 | (id.inner() as u16)
             }
             NodeSet::UnicastTraits { .. } => {
-                nwr.put_up_to_8(2, 0b01)?;
                 todo!()
             }
             NodeSet::Multicast { .. } => {
-                nwr.put_up_to_8(2, 0b10)?;
                 todo!()
             }
             NodeSet::Broadcast { original_source } => {
-                nwr.put_up_to_8(2, 0b11)?;
-                nwr.put(original_source)?;
+                0b11_000_0000 | (original_source.inner() as u16)
             }
         };
-        Ok(())
+        unsafe { U9::new_unchecked(bits) }
     }
 }
+
+// impl<'i> SerializeBits for NodeSet<'i> {
+//     type Error = bit_buf::Error;
+//
+//     fn ser_bits(&self, nwr: &mut BitBufMut) -> Result<(), Self::Error> {
+//         // must write 9 bits
+//         match self {
+//             NodeSet::Unicast(id) => {
+//                 nwr.put_up_to_8(2, 0b00)?;
+//                 nwr.put(id)?;
+//             }
+//             NodeSet::UnicastTraits { .. } => {
+//                 nwr.put_up_to_8(2, 0b01)?;
+//                 todo!()
+//             }
+//             NodeSet::Multicast { .. } => {
+//                 nwr.put_up_to_8(2, 0b10)?;
+//                 todo!()
+//             }
+//             NodeSet::Broadcast { original_source } => {
+//                 nwr.put_up_to_8(2, 0b11)?;
+//                 nwr.put(original_source)?;
+//             }
+//         };
+//         Ok(())
+//     }
+// }
 
 impl<'i> SerializeVlu4 for NodeSet<'i> {
     type Error = nibble_buf::Error;

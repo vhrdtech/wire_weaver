@@ -1,10 +1,8 @@
 use vhl_stdlib::{
     serdes::{
-        bit_buf,
         BitBuf,
-        BitBufMut,
         DeserializeCoupledBitsVlu4,
-        NibbleBuf, NibbleBufMut, SerDesSize, SerializeBits, SerializeVlu4,
+        NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
         vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
     },
 };
@@ -14,6 +12,8 @@ use super::{
     SerialUri,
 };
 use core::fmt::{Display, Formatter, Result as FmtResult};
+use vhl_stdlib::discrete::U3;
+use vhl_stdlib::serdes::nibble_buf;
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd::error::XwfdError;
 
@@ -28,22 +28,29 @@ impl<'i> ResourceSet<'i> {
             ResourceSet::MultiUri(multi_uri) => multi_uri.flat_iter(),
         }
     }
-}
 
-impl<'i> SerializeBits for ResourceSet<'i> {
-    type Error = bit_buf::Error;
-
-    fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
-        let kind = match self {
-            ResourceSet::Uri(uri) => uri.discriminant() as u8,
-            ResourceSet::MultiUri(_) => 6,
-        };
-        wgr.put_up_to_8(3, kind)
+    pub fn ser_header(&self) -> U3 {
+        match self {
+            ResourceSet::Uri(uri) => unsafe { U3::new_unchecked(uri.discriminant() as u8) },
+            ResourceSet::MultiUri(_) => unsafe { U3::new_unchecked(6) }
+        }
     }
 }
+//
+// impl<'i> SerializeBits for ResourceSet<'i> {
+//     type Error = bit_buf::Error;
+//
+//     fn ser_bits(&self, wgr: &mut BitBufMut) -> Result<(), Self::Error> {
+//         let kind = match self {
+//             ResourceSet::Uri(uri) => uri.discriminant() as u8,
+//             ResourceSet::MultiUri(_) => 6,
+//         };
+//         wgr.put_up_to_8(3, kind)
+//     }
+// }
 
 impl<'i> SerializeVlu4 for ResourceSet<'i> {
-    type Error = XwfdError;
+    type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {

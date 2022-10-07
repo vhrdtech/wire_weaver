@@ -13,6 +13,7 @@ pub struct SerialUri {
 
 impl SerialUri {
     pub fn new<S: AsRef<str>>(_uri: S) -> Self {
+        // TODO: Proper serial uri parser
         SerialUri {
             segments: vec![Vlu32(5)]
         }

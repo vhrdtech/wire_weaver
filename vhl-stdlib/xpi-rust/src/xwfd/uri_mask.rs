@@ -2,7 +2,7 @@ use vhl_stdlib::serdes::traits::SerializeVlu4;
 use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
 use crate::xwfd::error::XwfdError;
-use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
+use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
@@ -82,7 +82,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
 }
 
 impl<'i> SerializeVlu4 for UriMask<'i> {
-    type Error = XwfdError;
+    type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {

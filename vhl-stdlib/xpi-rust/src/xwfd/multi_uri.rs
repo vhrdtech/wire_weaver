@@ -6,6 +6,7 @@ use vhl_stdlib::{
         vlu4::{Vlu4Vec, Vlu4VecIter, Vlu32},
     }
 };
+use vhl_stdlib::serdes::nibble_buf;
 use crate::xwfd::error::XwfdError;
 use super::{
     UriMask, UriMaskIter, SerialUriIter, SerialUri,
@@ -162,7 +163,7 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
 }
 
 impl<'i> SerializeVlu4 for SerialMultiUri<'i> {
-    type Error = XwfdError;
+    type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         wgr.put_vlu4_u32(self.parts_count as u32)?;

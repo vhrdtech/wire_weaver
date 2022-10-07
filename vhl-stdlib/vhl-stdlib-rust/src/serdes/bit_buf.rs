@@ -22,6 +22,8 @@ pub enum Error {
     OutOfBounds,
     /// Returned by to_nibble_buf() if not at nibble boundary
     UnalignedAccess,
+    /// Wrong bit count was supplied to put_up_to_*
+    WrongBitCount,
 }
 
 impl<'i> BitBuf<'i> {
@@ -259,6 +261,9 @@ impl<'i> BitBufMut<'i> {
         if bit_count == 0 {
             return Ok(());
         }
+        if bit_count > 8 {
+            return Err(Error::WrongBitCount);
+        }
 
         let left_in_current_byte = 8 - self.bit_idx;
         let requested_mask = 0b1111_1111 >> (8 - bit_count);
@@ -293,8 +298,23 @@ impl<'i> BitBufMut<'i> {
         }
     }
 
+    pub fn put_up_to_16(&mut self, bit_count: usize, bits: u16) -> Result<(), Error> {
+        if bit_count > 16 {
+            return Err(Error::WrongBitCount);
+        }
+        if bit_count <= 8 {
+            self.put_up_to_8(bit_count, (bits & 0xFF) as u8)?;
+        } else {
+            let msb = (bits >> 8) as u8;
+            let lsb = (bits & 0xFF) as u8;
+            self.put_up_to_8(bit_count - 8, msb)?;
+            self.put_up_to_8(8, lsb)?;
+        }
+        Ok(())
+    }
+
     /// Put any type that implements SerializeBits into this buffer.
-    pub fn put<E, T: SerializeBits<Error = E>>(&mut self, t: &T) -> Result<(), E> {
+    pub fn put<E, T: SerializeBits<Error=E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_bits(self)
     }
 

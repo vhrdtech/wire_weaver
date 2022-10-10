@@ -4,8 +4,8 @@ use crate::owned::convert_error::ConvertError;
 use crate::owned::{Rate, ResourceInfo};
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
-use vhl_stdlib::serdes::{NibbleBufMut};
 use vhl_stdlib::serdes::nibble_buf::NibbleBufOwned;
+use vhl_stdlib::serdes::NibbleBufMut;
 
 pub type EventKind = XpiGenericEventKind<
     Vec<NibbleBufOwned>,
@@ -25,21 +25,19 @@ impl EventKind {
     pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         match &self {
             EventKind::Call { args_set } => {
-                nwr.put_vec_with(|vb| {
-                    args_set
-                        .iter()
-                        .try_for_each(|args| vb.put(args))
-                })?;
+                nwr.put_vec_with(|vb| args_set.iter().try_for_each(|args| vb.put(args)))?;
             }
-            // EventKind::Read => {}
-            // EventKind::Write { .. } => {}
-            // EventKind::OpenStreams => {}
-            // EventKind::CloseStreams => {}
+            EventKind::Read => {}
+            EventKind::Write { values } => {
+                nwr.put_vec_with(|vb| values.iter().try_for_each(|value| vb.put(value)))?;
+            }
+            EventKind::OpenStreams => {}
+            EventKind::CloseStreams => {}
             // EventKind::Subscribe { .. } => {}
-            // EventKind::Unsubscribe => {}
-            // EventKind::Borrow => {}
-            // EventKind::Release => {}
-            // EventKind::Introspect => {}
+            EventKind::Unsubscribe => {}
+            EventKind::Borrow => {}
+            EventKind::Release => {}
+            EventKind::Introspect => {}
             EventKind::CallResults(results) => {
                 nwr.put_vec_with(|vb| results.iter().try_for_each(|result| vb.put(result)))?;
             }
@@ -86,14 +84,16 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
                     .collect(),
             ),
             // EventKind::ReadResults(_) => {}
-            // EventKind::WriteResults(_) => {}
-            // EventKind::OpenStreamsResults(_) => {}
-            // EventKind::CloseStreamsResults(_) => {}
-            // EventKind::SubscribeResults(_) => {}
-            // EventKind::RateChangeResults(_) => {}
-            // EventKind::UnsubscribeResults(_) => {}
-            // EventKind::BorrowResults(_) => {}
-            // EventKind::ReleaseResults(_) => {}
+            xwfd::EventKind::WriteResults(results)
+            | xwfd::EventKind::OpenStreamsResults(results)
+            | xwfd::EventKind::CloseStreamsResults(results)
+            | xwfd::EventKind::RateChangeResults(results)
+            | xwfd::EventKind::UnsubscribeResults(results)
+            | xwfd::EventKind::BorrowResults(results)
+            | xwfd::EventKind::ReleaseResults(results) => {
+                EventKind::WriteResults(results.iter().collect())
+            }
+            //xwfd::EventKind::SubscribeResults(values) => {}
             // EventKind::IntrospectResults(_) => {}
             // EventKind::StreamUpdates(_) => {}
             // EventKind::DiscoverNodes => {}
@@ -110,29 +110,29 @@ impl Display for EventKind {
         match self {
             EventKind::Call { args_set } => write!(f, "Call({:?})", args_set),
             EventKind::Read => write!(f, "Read"),
-            EventKind::Write { .. } => write!(f, "Write"),
+            EventKind::Write { values } => write!(f, "Write({:?}", values),
             EventKind::OpenStreams => write!(f, "OpenStreams"),
             EventKind::CloseStreams => write!(f, "CloseStreams"),
-            EventKind::Subscribe { .. } => write!(f, "Subscribe"),
+            EventKind::Subscribe { rates } => write!(f, "Subscribe({:?})", rates),
             EventKind::Unsubscribe => write!(f, "Unsubscribe"),
             EventKind::Borrow => write!(f, "Borrow"),
             EventKind::Release => write!(f, "Release"),
             EventKind::Introspect => write!(f, "Introspect"),
-            EventKind::CallResults(results) => write!(f, "CallResults[{:?}]", results),
-            EventKind::ReadResults(_) => write!(f, "ReadResults"),
-            EventKind::WriteResults(_) => write!(f, "WriteResults"),
-            EventKind::OpenStreamsResults(_) => write!(f, "OpenStreamsResults"),
-            EventKind::CloseStreamsResults(_) => write!(f, "CloseStreamsResults"),
-            EventKind::SubscribeResults(_) => write!(f, "SubscribeResults"),
-            EventKind::RateChangeResults(_) => write!(f, "RateChangeResults"),
-            EventKind::UnsubscribeResults(_) => write!(f, "UnsubscribeResults"),
-            EventKind::BorrowResults(_) => write!(f, "BorrowResults"),
-            EventKind::ReleaseResults(_) => write!(f, "ReleaseResults"),
-            EventKind::IntrospectResults(_) => write!(f, "IntrospectResults"),
-            EventKind::StreamUpdates(_) => write!(f, "StreamUpdates"),
+            EventKind::CallResults(results) => write!(f, "CallResults({:?})", results),
+            EventKind::ReadResults(values) => write!(f, "ReadResults({:?})", values),
+            EventKind::WriteResults(values) => write!(f, "WriteResults({:?})", values),
+            EventKind::OpenStreamsResults(results) => write!(f, "OpenStreamsResults({:?})", results),
+            EventKind::CloseStreamsResults(results) => write!(f, "CloseStreamsResults({:?})", results),
+            EventKind::SubscribeResults(results) => write!(f, "SubscribeResults({:?})", results),
+            EventKind::RateChangeResults(results) => write!(f, "RateChangeResults({:?})", results),
+            EventKind::UnsubscribeResults(results) => write!(f, "UnsubscribeResults({:?})", results),
+            EventKind::BorrowResults(results) => write!(f, "BorrowResults({:?})", results),
+            EventKind::ReleaseResults(results) => write!(f, "ReleaseResults({:?})", results),
+            EventKind::IntrospectResults(results) => write!(f, "IntrospectResults({:?})", results),
+            EventKind::StreamUpdates(updates) => write!(f, "StreamUpdates({:?})", updates),
             EventKind::DiscoverNodes => write!(f, "DiscoverNodes"),
-            EventKind::NodeInfo(_) => write!(f, "NodeInfo"),
-            EventKind::Heartbeat(_) => write!(f, "Heartbeat"),
+            EventKind::NodeInfo(node_info) => write!(f, "NodeInfo({:?})", node_info),
+            EventKind::Heartbeat(hb_info) => write!(f, "Heartbeat({:?})", hb_info),
             EventKind::Forward => write!(f, "Forward"),
         }
     }

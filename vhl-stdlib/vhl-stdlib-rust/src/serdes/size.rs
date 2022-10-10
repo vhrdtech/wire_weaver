@@ -2,6 +2,7 @@ use core::ops::Add;
 
 /// Size of a type serialized into buffer of any kind,
 /// in buffer elements (bits / nibbles / bytes / etc).
+#[derive(Copy, Clone)]
 pub enum SerDesSize {
     /// Size is known, no alignment requirements
     Sized(usize),
@@ -27,6 +28,17 @@ pub enum SerDesSize {
 
     /// Same as Unsized, but maximum size is known in advance, for example for arrays with max bound.
     UnsizedBound(usize),
+}
+
+impl SerDesSize {
+    pub fn upper_bound(&self, buffer_elements_left: usize) -> usize {
+        match self {
+            SerDesSize::Sized(len) => *len,
+            SerDesSize::SizedAligned(len, padding) => *len + *padding,
+            SerDesSize::Unsized => buffer_elements_left,
+            SerDesSize::UnsizedBound(max_len) => *max_len,
+        }
+    }
 }
 
 impl Add<usize> for SerDesSize {

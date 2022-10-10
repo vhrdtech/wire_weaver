@@ -1,5 +1,5 @@
 use vhl_stdlib::serdes::{bit_buf, nibble_buf};
-use crate::xwfd::XwfdError;
+use crate::error::XpiError;
 
 #[derive(Debug)]
 pub enum ConvertError {
@@ -7,7 +7,7 @@ pub enum ConvertError {
     NibbleBuf(nibble_buf::Error),
     NodeIdTruncate,
     PriorityTruncate,
-    XwfdError(XwfdError),
+    XpiError(XpiError),
     RequestIdTruncated,
 }
 
@@ -23,8 +23,8 @@ impl From<nibble_buf::Error> for ConvertError {
     }
 }
 
-impl From<XwfdError> for ConvertError {
-    fn from(e: XwfdError) -> Self {
-        ConvertError::XwfdError(e)
+impl From<XpiError> for ConvertError {
+    fn from(e: XpiError) -> Self {
+        ConvertError::XpiError(e)
     }
 }

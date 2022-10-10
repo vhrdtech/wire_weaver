@@ -14,8 +14,8 @@ use super::{
 use core::fmt::{Display, Formatter, Result as FmtResult};
 use vhl_stdlib::discrete::U3;
 use vhl_stdlib::serdes::nibble_buf;
+use crate::error::XpiError;
 use crate::resource_set::XpiGenericResourceSet;
-use crate::xwfd::error::XwfdError;
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
@@ -69,7 +69,7 @@ impl<'i> SerializeVlu4 for ResourceSet<'i> {
 }
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for ResourceSet<'i> {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_coupled_bits_vlu4<'di>(
         bits_rdr: &'di mut BitBuf<'i>,
@@ -108,8 +108,8 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for ResourceSet<'i> {
                 Ok(ResourceSet::Uri(SerialUri::MultiPart(arr.into_iter())))
             },
             6 => Ok(ResourceSet::MultiUri(vlu4_rdr.des_vlu4()?)),
-            7 => Err(XwfdError::ReservedDiscard),
-            _ => Err(XwfdError::InternalError),
+            7 => Err(XpiError::ReservedDiscard),
+            _ => Err(XpiError::Internal),
         }
     }
 }

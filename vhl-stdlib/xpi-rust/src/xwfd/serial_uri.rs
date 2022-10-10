@@ -4,7 +4,7 @@ use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, S
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use vhl_stdlib::serdes::vlu4::Vlu32;
-use crate::xwfd::XwfdError;
+use crate::error::XpiError;
 
 /// Sequence of numbers uniquely identifying one of the resources.
 /// If there is a group in the uri with not numerical index - it must be mapped into numbers.
@@ -85,9 +85,9 @@ impl<I: Iterator<Item=Vlu32> + Clone> SerialUri<I<>> {
     }
 }
 
-impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XwfdError>> DeserializeVlu4<'i> for SerialUri<I>
+impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XpiError>> DeserializeVlu4<'i> for SerialUri<I>
 {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let arr: I = rdr.des_vlu4()?;

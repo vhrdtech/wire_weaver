@@ -10,13 +10,14 @@ use vhl_stdlib::serdes::{
     SerializeVlu4,
     vlu4::TraitSet,
 };
+use crate::error::XpiError;
 use crate::node_set::XpiGenericNodeSet;
-use crate::xwfd::{NodeId, XwfdError};
+use crate::xwfd::NodeId;
 
 pub type NodeSet<'i> = XpiGenericNodeSet<NodeId, TraitSet<'i>>;
 
 impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_coupled_bits_vlu4<'di>(
         brd: &'di mut BitBuf<'i>,
@@ -25,13 +26,13 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
         let kind = brd.get_up_to_8(2)?;
         match kind {
             0b00 => Ok(NodeSet::Unicast(brd.des_bits()?)),
-            0b01 => Err(XwfdError::Unimplemented),
-            0b10 => Err(XwfdError::Unimplemented),
+            0b01 => Err(XpiError::Unimplemented),
+            0b10 => Err(XpiError::Unimplemented),
             0b11 => {
                 let original_source = brd.des_bits()?;
                 Ok(NodeSet::Broadcast { original_source })
             },
-            _ => Err(XwfdError::InternalError),
+            _ => Err(XpiError::Internal),
         }
     }
 }

@@ -1,7 +1,7 @@
 use core::fmt::{Display, Formatter};
 use crate::error::XpiError;
 use crate::event_kind::XpiGenericEventKind;
-use crate::xwfd::{Rate, ResourceInfo, XwfdError};
+use crate::xwfd::{Rate, ResourceInfo};
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::NibbleBuf;
 
@@ -23,7 +23,7 @@ impl<'i> EventKind<'i> {
     pub fn des_vlu4_with_discriminant<'di>(
         discriminant: u8,
         nrd: &'di mut NibbleBuf<'i>,
-    ) -> Result<Self, XwfdError> {
+    ) -> Result<Self, XpiError> {
         match discriminant {
             0 => Ok(EventKind::Call {
                 args_set: nrd.des_vlu4()?,
@@ -57,7 +57,7 @@ impl<'i> EventKind<'i> {
 
             48 => Ok(EventKind::Forward),
 
-            _ => Err(XwfdError::ReservedDiscard),
+            _ => Err(XpiError::ReservedDiscard),
         }
     }
 }

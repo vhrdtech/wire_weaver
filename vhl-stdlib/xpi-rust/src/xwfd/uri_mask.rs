@@ -1,9 +1,9 @@
 use vhl_stdlib::serdes::traits::SerializeVlu4;
 use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use crate::xwfd::error::XwfdError;
 use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize};
 use core::fmt::{Display, Formatter};
+use crate::error::XpiError;
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
 /// select the level to which UriMask applies.
@@ -51,7 +51,7 @@ impl<'i> UriMask<'i> {
 }
 
 impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let mask_kind = rdr.get_nibble()?;
@@ -61,21 +61,21 @@ impl<'i> DeserializeVlu4<'i> for UriMask<'i> {
             2 => Ok(UriMask::ByBitfield32(rdr.get_u32_be()?)),
             3 => {
                 // u64
-                Err(XwfdError::UriMaskUnsupportedType)
+                Err(XpiError::UriMaskUnsupportedType)
             }
             4 => {
                 // u128
-                Err(XwfdError::UriMaskUnsupportedType)
+                Err(XpiError::UriMaskUnsupportedType)
             }
             5 => Ok(UriMask::ByIndices(rdr.des_vlu4()?)),
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
                 Ok(UriMask::All(Vlu32(amount)))
             }
-            7 => Err(XwfdError::UriMaskReserved),
+            7 => Err(XpiError::ReservedDiscard),
             _ => {
                 // unreachable!()
-                Err(XwfdError::InternalError)
+                Err(XpiError::Internal)
             }
         }
     }

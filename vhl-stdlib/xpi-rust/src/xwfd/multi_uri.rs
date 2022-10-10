@@ -7,7 +7,7 @@ use vhl_stdlib::{
     }
 };
 use vhl_stdlib::serdes::nibble_buf;
-use crate::xwfd::error::XwfdError;
+use crate::error::XpiError;
 use super::{
     UriMask, UriMaskIter, SerialUriIter, SerialUri,
 };
@@ -143,7 +143,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 }
 
 impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let parts_count = rdr.get_vlu4_u32()? as usize;

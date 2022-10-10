@@ -3,7 +3,7 @@ use vhl_stdlib::serdes::{
     DeserializeVlu4, NibbleBuf,
     SerializeVlu4, NibbleBufMut, SerDesSize,
 };
-use crate::xwfd::error::XwfdError;
+use crate::error::XpiError;
 
 // Each outgoing request must be marked with an increasing number in order to distinguish
 // requests of the same kind and map responses.
@@ -11,7 +11,7 @@ use crate::xwfd::error::XwfdError;
 // Should pause in that case or cancel all old requests. Overflow is ignored for subscriptions.
 max_bound_number!(RequestId, u8, 31, "Req:{}");
 impl<'i> DeserializeVlu4<'i> for RequestId {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let tail_byte = rdr.get_u8()?;
@@ -21,7 +21,7 @@ impl<'i> DeserializeVlu4<'i> for RequestId {
 }
 
 impl SerializeVlu4 for RequestId {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         // since request id is a part of a tail byte, put padding before it to align

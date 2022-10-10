@@ -13,7 +13,7 @@ use crate::error::XpiError;
 use crate::event::XpiGenericEvent;
 use crate::event_kind::XpiEventDiscriminant;
 use super::{
-    error::XwfdError, NodeId,
+    NodeId,
     Priority, RequestId, ResourceSet,
     SerialUri, SerialMultiUri, NodeSet,
     EventKind, XwfdInfo,
@@ -34,7 +34,7 @@ pub type Event<'ev> = XpiGenericEvent<
 >;
 
 impl<'i> DeserializeVlu4<'i> for Event<'i> {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         // get first 32 bits as BitBuf
@@ -50,11 +50,11 @@ impl<'i> DeserializeVlu4<'i> for Event<'i> {
         // bit 23: is_xwfd_or_bigger
         let is_xwfd_or_bigger = bits_rdr.get_bit()?;
         if !is_xwfd_or_bigger {
-            return Err(XwfdError::ReservedDiscard);
+            return Err(XpiError::ReservedDiscard);
         }
         let format_info: XwfdInfo = nrd.des_vlu4()?;
         if format_info != XwfdInfo::FormatIsXwfd {
-            return Err(XwfdError::WrongFormat);
+            return Err(XpiError::WrongFormat);
         }
         let ttl = unsafe { U4::new_unchecked(nrd.get_nibble()?) };
 
@@ -116,7 +116,7 @@ impl<'i> EventBuilder<'i> {
         request_id: RequestId,
         priority: Priority,
         ttl: U4,
-    ) -> Result<Self, XwfdError> {
+    ) -> Result<Self, XpiError> {
         nwr.skip(8)?;
         nwr.put(&XwfdInfo::FormatIsXwfd)?;
         nwr.put_nibble(ttl.inner())?;
@@ -161,9 +161,9 @@ impl<'i> EventBuilderResourceSetState<'i> {
 }
 
 impl<'i> EventBuilderKindState<'i> {
-    pub fn build_kind_with<F>(self, f: F) -> Result<NibbleBufMut<'i>, XpiError>
+    pub fn build_kind_with<F>(self, mut f: F) -> Result<NibbleBufMut<'i>, XpiError>
         where
-            F: Fn(NibbleBufMut<'i>) -> Result<(XpiEventDiscriminant, NibbleBufMut<'i>), XpiError>,
+            F: FnMut(NibbleBufMut<'i>) -> Result<(XpiEventDiscriminant, NibbleBufMut<'i>), XpiError>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
         let kind = kind as u8;

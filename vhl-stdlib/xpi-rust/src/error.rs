@@ -31,8 +31,16 @@ pub enum XpiError {
     /// Returned by dispatcher if trying to call a resource which is not a method
     NotAMethod,
 
+    ReservedDiscard,
+    WrongFormat,
+    /// Not all nodes support 64 and 128 uri masks
+    UriMaskUnsupportedType,
+    /// xwfd format uses 7 bits for node addresses
+    NodeIdAbove127,
+
     /// Unexpected internal error, reported instead of all were to be panic/unwrap/unreachable.
     Internal,
+    Unimplemented,
     InternalBufError,
     InternalNibbleBufError,
     InternalBitBufError,
@@ -56,13 +64,20 @@ impl SerializableError for XpiError {
             StreamIsAlreadyClosed => 8,
             OperationNotSupported => 9,
             Internal => 10,
-            BadUri => 11,
-            NotAMethod => 12,
-            InternalBufError => 13,
-            InternalNibbleBufError => 14,
-            InternalBitBufError => 15,
-            ReplyBuilderError => 16,
-            NoArgumentsProvided => 17,
+            Unimplemented => 11,
+            BadUri => 12,
+            NotAMethod => 13,
+
+            ReservedDiscard => 20,
+            WrongFormat => 21,
+            UriMaskUnsupportedType => 22,
+            NodeIdAbove127 => 23,
+
+            InternalBufError => 31,
+            InternalNibbleBufError => 32,
+            InternalBitBufError => 33,
+            ReplyBuilderError => 34,
+            NoArgumentsProvided => 35,
         }
     }
 
@@ -79,13 +94,20 @@ impl SerializableError for XpiError {
             8 => StreamIsAlreadyClosed,
             9 => OperationNotSupported,
             10 => Internal,
-            11 => BadUri,
-            12 => NotAMethod,
-            13 => InternalBufError,
-            14 => InternalNibbleBufError,
-            15 => InternalBitBufError,
-            16 => ReplyBuilderError,
-            17 => NoArgumentsProvided,
+            11 => Unimplemented,
+            12 => BadUri,
+            13 => NotAMethod,
+
+            20 => ReservedDiscard,
+            21 => WrongFormat,
+            22 => UriMaskUnsupportedType,
+            23 => NodeIdAbove127,
+
+            31 => InternalBufError,
+            32 => InternalNibbleBufError,
+            33 => InternalBitBufError,
+            34 => ReplyBuilderError,
+            35 => NoArgumentsProvided,
             _ => { return None; }
         };
         Some(reason)

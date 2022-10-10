@@ -1,5 +1,5 @@
 use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
-use crate::xwfd::error::XwfdError;
+use crate::error::XpiError;
 
 #[derive(Copy, Clone, Eq, PartialEq, )]
 pub enum XwfdInfo {
@@ -25,13 +25,13 @@ impl SerializeVlu4 for XwfdInfo {
 }
 
 impl<'i> DeserializeVlu4<'i> for XwfdInfo {
-    type Error = XwfdError;
+    type Error = XpiError;
 
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         match nrd.get_nibble()? {
             0b1000 => Ok(XwfdInfo::OtherFormat),
             0b0000 => Ok(XwfdInfo::FormatIsXwfd),
-            _ => Err(XwfdError::WrongFormat)
+            _ => Err(XpiError::WrongFormat)
         }
     }
 }

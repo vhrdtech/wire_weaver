@@ -34,12 +34,12 @@ pub async fn tcp_event_loop(
 }
 
 async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>) {
-    trace!("rx: {} bytes", bytes.len());
+    // trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes);
     let mut nrd = NibbleBuf::new_all(bytes);
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {
         Ok(ev) => {
-            trace!("des: {}", ev);
+            trace!("rx {}B: {}", bytes.len(),  ev);
             let ev_owned: Event = ev.into();
             if to_event_loop.send(ev_owned).await.is_err() {
                 error!("mpsc fail");
@@ -52,14 +52,15 @@ async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>)
 }
 
 async fn serialize_and_send<'tx>(ev: Event, scratchpad: &mut [u8], tcp_tx: &mut WriteHalf<'tx>) {
-    trace!("event to be serialized to tcp: {}", ev);
+    //trace!("serialize_and_send: {}", ev);
     let mut nwr = NibbleBufMut::new_all(scratchpad);
     match ev.ser_xwfd(&mut nwr) {
         Ok(()) => {
-            trace!("sending xwfd: {}", nwr);
+            //trace!("sending xwfd: {}", nwr);
             let (_, len, _) = nwr.finish();
             let r = tcp_tx.write_all(&scratchpad[..len]).await;
-            trace!("Sent: {:?}", r);
+            // TODO: fix to use write or smth else compatible with select!
+            trace!("sent: {:?} {:2x?} {}", r, &scratchpad[..len], ev);
         }
         Err(e) => {
             error!("convert to xwfd failed: {:?}", e);

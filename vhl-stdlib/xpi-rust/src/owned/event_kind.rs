@@ -83,15 +83,32 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
                     .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
                     .collect(),
             ),
-            // EventKind::ReadResults(_) => {}
-            xwfd::EventKind::WriteResults(results)
-            | xwfd::EventKind::OpenStreamsResults(results)
-            | xwfd::EventKind::CloseStreamsResults(results)
-            | xwfd::EventKind::RateChangeResults(results)
-            | xwfd::EventKind::UnsubscribeResults(results)
-            | xwfd::EventKind::BorrowResults(results)
-            | xwfd::EventKind::ReleaseResults(results) => {
+            xwfd::EventKind::ReadResults(results) => EventKind::ReadResults(
+                results
+                    .iter()
+                    .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
+                    .collect(),
+            ),
+            xwfd::EventKind::WriteResults(results) => {
                 EventKind::WriteResults(results.iter().collect())
+            }
+            xwfd::EventKind::OpenStreamsResults(results) => {
+                EventKind::OpenStreamsResults(results.iter().collect())
+            }
+            xwfd::EventKind::CloseStreamsResults(results) => {
+                EventKind::CloseStreamsResults(results.iter().collect())
+            }
+            xwfd::EventKind::RateChangeResults(results) => {
+                EventKind::RateChangeResults(results.iter().collect())
+            }
+            xwfd::EventKind::UnsubscribeResults(results) => {
+                EventKind::UnsubscribeResults(results.iter().collect())
+            }
+            xwfd::EventKind::BorrowResults(results) => {
+                EventKind::BorrowResults(results.iter().collect())
+            }
+            xwfd::EventKind::ReleaseResults(results) => {
+                EventKind::ReleaseResults(results.iter().collect())
             }
             //xwfd::EventKind::SubscribeResults(values) => {}
             // EventKind::IntrospectResults(_) => {}
@@ -121,11 +138,17 @@ impl Display for EventKind {
             EventKind::CallResults(results) => write!(f, "CallResults({:?})", results),
             EventKind::ReadResults(values) => write!(f, "ReadResults({:?})", values),
             EventKind::WriteResults(values) => write!(f, "WriteResults({:?})", values),
-            EventKind::OpenStreamsResults(results) => write!(f, "OpenStreamsResults({:?})", results),
-            EventKind::CloseStreamsResults(results) => write!(f, "CloseStreamsResults({:?})", results),
+            EventKind::OpenStreamsResults(results) => {
+                write!(f, "OpenStreamsResults({:?})", results)
+            }
+            EventKind::CloseStreamsResults(results) => {
+                write!(f, "CloseStreamsResults({:?})", results)
+            }
             EventKind::SubscribeResults(results) => write!(f, "SubscribeResults({:?})", results),
             EventKind::RateChangeResults(results) => write!(f, "RateChangeResults({:?})", results),
-            EventKind::UnsubscribeResults(results) => write!(f, "UnsubscribeResults({:?})", results),
+            EventKind::UnsubscribeResults(results) => {
+                write!(f, "UnsubscribeResults({:?})", results)
+            }
             EventKind::BorrowResults(results) => write!(f, "BorrowResults({:?})", results),
             EventKind::ReleaseResults(results) => write!(f, "ReleaseResults({:?})", results),
             EventKind::IntrospectResults(results) => write!(f, "IntrospectResults({:?})", results),

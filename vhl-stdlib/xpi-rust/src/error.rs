@@ -44,6 +44,7 @@ pub enum XpiError {
     InternalBufError,
     InternalNibbleBufError,
     InternalBitBufError,
+    InternalBbqueueError,
     ReplyBuilderError,
 
     /// Method call or property write was expecting a slice with arguments, but it wasn't provided.
@@ -67,6 +68,7 @@ impl SerializableError for XpiError {
             Unimplemented => 11,
             BadUri => 12,
             NotAMethod => 13,
+            NoArgumentsProvided => 14,
 
             ReservedDiscard => 20,
             WrongFormat => 21,
@@ -77,7 +79,7 @@ impl SerializableError for XpiError {
             InternalNibbleBufError => 32,
             InternalBitBufError => 33,
             ReplyBuilderError => 34,
-            NoArgumentsProvided => 35,
+            InternalBbqueueError => 35,
         }
     }
 
@@ -97,6 +99,7 @@ impl SerializableError for XpiError {
             11 => Unimplemented,
             12 => BadUri,
             13 => NotAMethod,
+            14 => NoArgumentsProvided,
 
             20 => ReservedDiscard,
             21 => WrongFormat,
@@ -107,7 +110,8 @@ impl SerializableError for XpiError {
             32 => InternalNibbleBufError,
             33 => InternalBitBufError,
             34 => ReplyBuilderError,
-            35 => NoArgumentsProvided,
+            35 => InternalBbqueueError,
+
             _ => { return None; }
         };
         Some(reason)

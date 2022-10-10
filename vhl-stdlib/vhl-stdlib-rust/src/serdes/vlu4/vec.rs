@@ -596,9 +596,9 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
     where
         E: SerializableError + From<NibbleBufError>,
 {
-    pub fn put_result_nib_slice_with<F>(&mut self, size_hint: SerDesSize, f: F) -> Result<(), NibbleBufError>
+    pub fn put_result_nib_slice_with<F>(&mut self, size_hint: SerDesSize, mut f: F) -> Result<(), NibbleBufError>
         where
-            F: Fn(&mut NibbleBufMut) -> Result<(), E>,
+            F: FnMut(&mut NibbleBufMut) -> Result<(), E>,
     {
         self.start_putting_element()?;
         let state = self.nwr.save_state();

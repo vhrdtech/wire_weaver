@@ -4,6 +4,7 @@ use crate::ast::identifier::Identifier;
 use crate::ast::struct_def::{StructDef, StructField};
 use crate::ast::ty::{DiscreteTy, Ty, TyKind};
 use parser::span::Span;
+use crate::ast::{AutoNumber, Lit, TypeAliasDef};
 
 pub trait VisitMut {
     fn visit_file(&mut self, i: &mut File) {
@@ -16,6 +17,10 @@ pub trait VisitMut {
 
     fn visit_struct(&mut self, i: &mut StructDef) {
         visit_struct(self, i);
+    }
+
+    fn visit_type_alias(&mut self, i: &mut TypeAliasDef) {
+        visit_type_alias(self, i);
     }
 
     fn visit_doc(&mut self, i: &mut Doc) {
@@ -45,6 +50,14 @@ pub trait VisitMut {
     fn visit_discrete_ty(&mut self, discrete: &mut DiscreteTy, span: &mut Span) {
         visit_discrete_ty(self, discrete, span);
     }
+
+    fn visit_autonum_ty(&mut self, autonum: &mut AutoNumber, span: &mut Span) {
+        visit_autonum_ty(self, autonum, span);
+    }
+
+    fn visit_lit(&mut self, lit: &mut Lit, span: &mut Span) {
+        visit_lit(self, lit, span);
+    }
 }
 
 pub fn visit_file<V>(v: &mut V, node: &mut File)
@@ -62,13 +75,14 @@ where
 {
     match node {
         Definition::Struct(struct_def) => v.visit_struct(struct_def),
+        Definition::TypeAlias(type_alias_def) => v.visit_type_alias(type_alias_def),
         _ => {},
     }
 }
 
 pub fn visit_struct<V>(v: &mut V, node: &mut StructDef)
-where
-    V: VisitMut + ?Sized,
+    where
+        V: VisitMut + ?Sized,
 {
     v.visit_doc(&mut node.doc);
     v.visit_identifier(&mut node.typename);
@@ -78,15 +92,23 @@ where
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_doc<V>(_v: &mut V, _node: &mut Doc)
-where
-    V: VisitMut + ?Sized,
+pub fn visit_type_alias<V>(v: &mut V, node: &mut TypeAliasDef)
+    where
+        V: VisitMut + ?Sized,
 {
+    v.visit_doc(&mut node.doc);
+    v.visit_identifier(&mut node.typename);
+    v.visit_ty(&mut node.ty);
 }
 
+pub fn visit_doc<V>(_v: &mut V, _node: &mut Doc)
+    where
+        V: VisitMut + ?Sized,
+{}
+
 pub fn visit_identifier<V>(v: &mut V, node: &mut Identifier)
-where
-    V: VisitMut + ?Sized,
+    where
+        V: VisitMut + ?Sized,
 {
     v.visit_span(&mut node.span);
 }
@@ -115,6 +137,7 @@ where
         TyKind::Unit => todo!(),
         TyKind::Boolean => v.visit_bool_ty(&mut node.span),
         TyKind::Discrete(discrete) => v.visit_discrete_ty(discrete, &mut node.span),
+        TyKind::AutoNumber(autonum) => v.visit_autonum_ty(autonum, &mut node.span),
         _ => {}
     }
     v.visit_span(&mut node.span);
@@ -123,11 +146,23 @@ where
 pub fn visit_bool_ty<V>(_v: &mut V, _span: &Span)
 where
     V: VisitMut + ?Sized,
-{
-}
+{}
 
 pub fn visit_discrete_ty<V>(_v: &mut V, _discrete: &DiscreteTy, _span: &Span)
-where
-    V: VisitMut + ?Sized,
+    where
+        V: VisitMut + ?Sized,
+{}
+
+pub fn visit_autonum_ty<V>(v: &mut V, autonum: &mut AutoNumber, span: &mut Span)
+    where
+        V: VisitMut + ?Sized,
 {
+    v.visit_lit(&mut autonum.start, span);
+    v.visit_lit(&mut autonum.step, span);
+    v.visit_lit(&mut autonum.end, span);
 }
+
+pub fn visit_lit<V>(_v: &mut V, _lit: &Lit, _span: &Span)
+    where
+        V: VisitMut + ?Sized,
+{}

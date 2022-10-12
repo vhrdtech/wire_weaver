@@ -46,7 +46,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
         }
     } else if dev_args.parser {
-        let ast_core = vhl::ast::file::File::from_parser_ast(file);
+        let mut ast_core = vhl::ast::file::File::from_parser_ast(file);
         match dev_args.definition {
             Some(_name) => {
                 todo!()
@@ -54,6 +54,11 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             None => {
                 println!("{:?}", ast_core);
             }
+        }
+        if dev_args.process {
+            println!("Processing AST...");
+            vhl::process(&mut ast_core);
+            println!("{:?}", ast_core);
         }
     }
     Ok(())

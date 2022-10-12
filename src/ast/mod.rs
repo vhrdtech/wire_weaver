@@ -31,3 +31,5 @@ pub use attribute::Attrs;
 pub use path::Path;
 pub use uri::Uri;
 pub use type_alias_def::TypeAliasDef;
+pub use visit::Visit;
+pub use visit_mut::VisitMut;

@@ -46,6 +46,10 @@ pub struct DevArgs {
     #[clap(short, long)]
     pub parser: bool,
 
+    /// Do full processing of the AST
+    #[clap(long)]
+    pub process: bool,
+
     /// Optional definition to filter out, otherwise whole file is shown
     #[clap(short, long)]
     pub definition: Option<String>,

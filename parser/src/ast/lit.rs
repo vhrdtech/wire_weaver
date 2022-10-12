@@ -18,8 +18,8 @@ pub enum LitKind<'i> {
     OctLit(u128),
     BinLit(u128),
     FixedLit(FixedLit),
-    Float32Lit(f32),
-    Float64Lit(f64),
+    Float32Lit(String),
+    Float64Lit(String),
     CharLit(char),
     StringLit(&'i str),
     TupleLit,
@@ -142,29 +142,29 @@ fn parse_float_lit<'i, 'm>(
         .filter(|c| *c != '_')
         .collect::<String>();
     if bits == 32 {
-        let f: f32 = fx.parse().map_err(|_| {
-            input.errors.push(ParseError {
-                kind: ParseErrorKind::FloatParseError,
-                rule: Rule::float_lit,
-                span: (any_lit.as_span().start(), any_lit.as_span().end()),
-            });
-            ParseErrorSource::UserError
-        })?;
+        // let f: f32 = fx.parse().map_err(|_| {
+        //     input.errors.push(ParseError {
+        //         kind: ParseErrorKind::FloatParseError,
+        //         rule: Rule::float_lit,
+        //         span: (any_lit.as_span().start(), any_lit.as_span().end()),
+        //     });
+        //     ParseErrorSource::UserError
+        // })?;
         Ok(Lit {
-            kind: LitKind::Float32Lit(f),
+            kind: LitKind::Float32Lit(fx),
             span: input.span.clone(),
         })
     } else {
-        let f: f64 = fx.parse().map_err(|_| {
-            input.errors.push(ParseError {
-                kind: ParseErrorKind::FloatParseError,
-                rule: Rule::float_lit,
-                span: (any_lit.as_span().start(), any_lit.as_span().end()),
-            });
-            ParseErrorSource::UserError
-        })?;
+        // let f: f64 = fx.parse().map_err(|_| {
+        //     input.errors.push(ParseError {
+        //         kind: ParseErrorKind::FloatParseError,
+        //         rule: Rule::float_lit,
+        //         span: (any_lit.as_span().start(), any_lit.as_span().end()),
+        //     });
+        //     ParseErrorSource::UserError
+        // })?;
         Ok(Lit {
-            kind: LitKind::Float64Lit(f),
+            kind: LitKind::Float64Lit(fx),
             span: input.span.clone(),
         })
     }

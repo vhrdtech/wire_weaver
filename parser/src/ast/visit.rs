@@ -65,6 +65,7 @@ where
     match &node {
         Stmt::Let(_) => {}
         Stmt::Expr(ex, semicolon_present) => v.visit_expression(ex, *semicolon_present),
+        Stmt::Def(def) => v.visit_definition(def),
     }
 }
 

@@ -6,6 +6,7 @@ use parser::ast::ops::{BinaryOp, UnaryOp};
 use std::ops::Deref;
 use parser::span::Span;
 use crate::ast::path::Path;
+use crate::ast::Ty;
 use crate::error::{Error, ErrorKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -14,6 +15,7 @@ pub enum Expr {
     Index { object: Identifier, by: VecExpr },
     Lit(Lit),
     Tuple(VecExpr),
+    Ty(Box<Ty>),
     Id(Identifier),
 
     ConsU(UnaryOp, Box<Expr>),
@@ -78,6 +80,7 @@ impl Expr {
             Expr::Index { .. } => "Index",
             Expr::Lit(_) => "Lit",
             Expr::Tuple(_) => "Tuple",
+            Expr::Ty(_) => "Ty",
             Expr::Id(_) => "Ident",
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
@@ -90,6 +93,7 @@ impl Expr {
             Expr::Index { object, by } => object.span.clone() + by.span(),
             Expr::Lit(lit) => lit.span.clone(),
             Expr::Tuple(t) => t.span(),
+            Expr::Ty(ty) => ty.span.clone(),
             Expr::Id(id) => id.span.clone(),
             Expr::ConsU(_, cons) => cons.span(),
             Expr::ConsB(_, cons) => cons.deref().0.span() + cons.deref().1.span(),
@@ -133,6 +137,7 @@ impl<'i> From<ExprParser<'i>> for Expr {
             },
             ExprParser::Lit(lit) => Expr::Lit(lit.into()),
             ExprParser::TupleOfExprs => unimplemented!(),
+            ExprParser::Ty(ty) => Expr::Ty(Box::new(ty.deref().clone().into())),
             ExprParser::Id(id) => Expr::Id(id.into()),
 
             ExprParser::ConsU(op, expr) => Expr::ConsU(op, Box::new(expr.deref().clone().into())),
@@ -175,6 +180,9 @@ impl Display for Expr {
             }
             Expr::Tuple(exprs) => {
                 write!(f, "{}", exprs)
+            }
+            Expr::Ty(ty) => {
+                write!(f, "{}", ty)
             }
             Expr::Id(ident) => {
                 write!(f, "{}", ident)

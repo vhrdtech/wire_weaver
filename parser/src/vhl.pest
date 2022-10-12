@@ -60,7 +60,7 @@ generic_ty = { identifier ~ (generics) }
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
 /// Any supported type without access modifier
-any_ty = { bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty | identifier }
+any_ty = { bool_ty | discrete_any_ty | fixed_any_ty | floating_any_ty | textual_any_ty | tuple_ty | array_ty | generic_ty | derive | fn_ty }
 
 // Definitions
 /// Alias type
@@ -91,7 +91,7 @@ definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_f
 let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression ~ ";" }
 punct_semicolon = { ";" }
 expr_stmt = { expression ~ punct_semicolon? }
-statement = { let_stmt | expr_stmt | braced_statement }
+statement = { let_stmt | braced_statement | definition | expr_stmt }
 braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 
 // Literals
@@ -184,7 +184,17 @@ call_arguments = { "(" ~ expression_list? ~ ")" }
 index_arguments = { "[" ~ expression_list? ~ "]" }
 resource_path_start = { "#.." | "#." | "#" }
 
-expression_inner = _{ call_expr | index_into_expr | unary_expr | any_lit | tuple_of_expressions | identifier | resource_path_start | expression_parenthesized }
+expression_inner = _{
+    call_expr |
+    index_into_expr |
+    any_ty |
+    unary_expr |
+    any_lit |
+    tuple_of_expressions |
+    identifier |
+    resource_path_start |
+    expression_parenthesized
+}
 expression = { infix_expr | expression_inner }
 
 // block_open = { "(" | "{" | "[" }

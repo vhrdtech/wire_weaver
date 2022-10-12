@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crate::commands::ReplXpiArgs;
+use crate::commands::ReplArgs;
 use rustyline::completion::FilenameCompleter;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -47,7 +47,7 @@ impl Highlighter for MyHelper {
     }
 }
 
-pub fn repl_xpi_cmd(repl_xpi: ReplXpiArgs) -> Result<()> {
+pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
     println!("Loading: {}", repl_xpi.vhl_source);
     let origin = SpanOrigin::Parser(SourceOrigin::File(repl_xpi.vhl_source.into()));
 
@@ -100,7 +100,7 @@ pub fn repl_xpi_cmd(repl_xpi: ReplXpiArgs) -> Result<()> {
                 println!("{:?}", stmt);
             }
             Err(e) => {
-                println!("Error parsing expression: {:?}", e);
+                println!("Error parsing: {:?}", e);
             }
         }
 

@@ -5,6 +5,7 @@ use crate::ast::ops::{BinaryOp, UnaryOp};
 use crate::ast::paths::{ResourcePathKind, ResourcePathPart, ResourcePathTail};
 use crate::error::{ParseError, ParseErrorKind};
 use std::fmt::{Display, Formatter};
+use crate::ast::ty::Ty;
 
 /// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
 /// Atoms is everything except Cons variant, pre-processed by pest.
@@ -16,6 +17,7 @@ pub enum Expr<'i> {
     // IndexIntoThenCall(IndexArguments<'i>, CallArguments<'i>),
     Lit(Lit<'i>),
     TupleOfExprs,
+    Ty(Box<Ty<'i>>),
     Id(Identifier<'i, VariableRefName>),
     ResourcePath {
         kind: ResourcePathKind,
@@ -95,6 +97,9 @@ impl<'i> Display for Expr<'i> {
             Expr::TupleOfExprs => {
                 write!(f, "tuple_of_exprs")
             }
+            Expr::Ty(ty) => {
+                write!(f, "{:?}", ty)
+            }
             Expr::Id(ident) => {
                 write!(f, "{}", ident.name)
             }
@@ -146,6 +151,7 @@ fn pratt_parser<'i, 'm>(
         Rule::tuple_of_expressions => {
             return Err(ParseErrorSource::Unimplemented("tuple_of_expressions"))
         }
+        Rule::any_ty => Expr::Ty(Box::new(input.parse()?)),
         Rule::identifier => Expr::Id(input.parse()?),
         Rule::resource_path_start => consume_resource_path(input)?,
         Rule::expression_parenthesized => {
@@ -347,6 +353,28 @@ mod test {
     fn path_to_xpi_block() {
         let expr: Expr = parse_str("crate::log::#/full", Rule::expression);
         assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+    }
+
+    #[test]
+    fn associated_const_of_ty() {
+        let expr: Expr = parse_str("u32::MAX", Rule::expression);
+        println!("{:?}", expr);
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Ty(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Id(_)));
+        }
+    }
+
+    #[test]
+    fn associated_const_of_generic_ty() {
+        let expr: Expr = parse_str("Ty<1,2>::MAX", Rule::expression);
+        println!("{:?}", expr);
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Ty(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Id(_)));
+        }
     }
 
     // #[test]

@@ -1,3 +1,4 @@
+use crate::ast::definition::Definition;
 use super::prelude::*;
 use crate::ast::expr::Expr;
 use crate::ast::file::{FileError, FileErrorKind};
@@ -11,6 +12,7 @@ use crate::span::SpanOrigin;
 pub enum Stmt<'i> {
     Let(LetStmt<'i>),
     Expr(Expr<'i>, bool),
+    Def(Definition<'i>)
 }
 
 impl<'i> Stmt<'i> {
@@ -90,6 +92,14 @@ impl<'i> Parse<'i> for Stmt<'i> {
                 let expr: Expr = input.parse()?;
                 let semicolon_present = input.pairs.next().is_some();
                 Ok(Stmt::Expr(expr, semicolon_present))
+            }
+            Rule::braced_statement => {
+                todo!()
+            }
+            Rule::definition => {
+                let mut input = ParseInput::fork(s, &mut input);
+                let def: Definition = input.parse()?;
+                Ok(Stmt::Def(def))
             }
             _ => Err(ParseErrorSource::internal_with_rule(
                 s.as_rule(),

@@ -11,15 +11,15 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Generate some code
-    #[clap(aliases = &["g", "gen"])]
+    #[clap(aliases = & ["g", "gen"])]
     Generate(GenerateArgs),
 
     /// Developer tools
     Dev(DevArgs),
 
     /// REPL
-    #[clap(alias = "rxpi")]
-    ReplXpi(ReplXpiArgs),
+    #[clap(alias = "repl")]
+    Repl(ReplArgs),
 }
 
 #[derive(Args)]
@@ -30,7 +30,7 @@ pub struct GenerateArgs {
 }
 
 #[derive(Args)]
-pub struct ReplXpiArgs {
+pub struct ReplArgs {
     /// Source file path, local path starting with /, file:, git: or reg:
     #[clap(value_parser)]
     pub vhl_source: String,

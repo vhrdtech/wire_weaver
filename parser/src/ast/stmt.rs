@@ -6,7 +6,7 @@ use crate::ast::naming::VariableDefName;
 use crate::ast::ty::Ty;
 use crate::error::{ParseError, ParseErrorKind};
 use crate::lexer::{Lexer, Rule};
-use crate::span::SpanOrigin;
+use ast::span::SpanOrigin;
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'i> {

@@ -76,39 +76,39 @@ impl AttrKind {
     }
 }
 
-impl<'i> TryFrom<AttrsParser<'i>> for Attrs {
-    type Error = Error;
-
-    fn try_from(attrs_parser: AttrsParser) -> Result<Self, Self::Error> {
-        let mut attrs = vec![];
-        for a in attrs_parser.attributes {
-            attrs.push(a.try_into()?);
-        }
-        Ok(Attrs { attrs, span: attrs_parser.span.into() })
-    }
-}
-
-impl<'i> TryFrom<AttrParser<'i>> for Attr {
-    type Error = Error;
-
-    fn try_from(attr: AttrParser<'i>) -> Result<Self, Self::Error> {
-        Ok(Attr {
-            path: attr.path.iter().map(|p| p.clone().into()).collect(),
-            kind: attr.kind.try_into()?,
-        })
-    }
-}
-
-impl<'i> TryFrom<AttrKindParser<'i>> for AttrKind {
-    type Error = Error;
-
-    fn try_from(attr_kind: AttrKindParser<'i>) -> Result<Self, Self::Error> {
-        match attr_kind {
-            AttrKindParser::TokenTree(p) => Ok(AttrKind::TT(parse_into_token_tree(p)?)),
-            AttrKindParser::Expression(e) => Ok(AttrKind::Expr(e.into()))
-        }
-    }
-}
+// impl<'i> TryFrom<AttrsParser<'i>> for Attrs {
+//     type Error = Error;
+//
+//     fn try_from(attrs_parser: AttrsParser) -> Result<Self, Self::Error> {
+//         let mut attrs = vec![];
+//         for a in attrs_parser.attributes {
+//             attrs.push(a.try_into()?);
+//         }
+//         Ok(Attrs { attrs, span: attrs_parser.span.into() })
+//     }
+// }
+//
+// impl<'i> TryFrom<AttrParser<'i>> for Attr {
+//     type Error = Error;
+//
+//     fn try_from(attr: AttrParser<'i>) -> Result<Self, Self::Error> {
+//         Ok(Attr {
+//             path: attr.path.iter().map(|p| p.clone().into()).collect(),
+//             kind: attr.kind.try_into()?,
+//         })
+//     }
+// }
+//
+// impl<'i> TryFrom<AttrKindParser<'i>> for AttrKind {
+//     type Error = Error;
+//
+//     fn try_from(attr_kind: AttrKindParser<'i>) -> Result<Self, Self::Error> {
+//         match attr_kind {
+//             AttrKindParser::TokenTree(p) => Ok(AttrKind::TT(parse_into_token_tree(p)?)),
+//             AttrKindParser::Expression(e) => Ok(AttrKind::Expr(e.into()))
+//         }
+//     }
+// }
 
 fn parse_into_token_tree(p: Pair<Rule>) -> Result<TokenTree, Error> {
     let delim = match p.as_str().chars().next().unwrap() {

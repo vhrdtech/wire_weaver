@@ -2,16 +2,15 @@ use crate::ast::definition::Definition;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
-use crate::span::SpanOrigin;
+use ast::span::SpanOrigin;
 use crate::warning::ParseWarning;
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
-pub struct File<'i> {
-    pub defs: Vec<Definition<'i>>,
+pub struct File {
+    pub ast_file: ast::File,
     pub warnings: Vec<ParseWarning>,
-    pub origin: SpanOrigin,
 }
 
 #[derive(Error, Debug)]
@@ -29,28 +28,25 @@ pub enum FileErrorKind {
     Parser(Vec<ParseError>),
 }
 
-impl<'i> File<'i> {
-    pub fn parse(input: &'i str, origin: SpanOrigin) -> Result<Self, FileError> {
+impl File {
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, FileError> {
         let mut pi =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| FileError {
                 kind: FileErrorKind::Lexer(e),
                 origin: origin.clone(),
-                input: input.to_owned(),
+                input: input.as_ref().to_owned(),
             })?;
-        let mut items = Vec::new();
+        let mut defs = Vec::new();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
-        // println!("File::parse: {:?}", pi);
         match pi.next() {
-            // Rule::file
             Some(pair) => {
                 let mut pi = pair.into_inner();
                 while let Some(p) = pi.peek() {
                     match p.as_rule() {
-                        Rule::inner_attribute => {
-                            let attr = pi.next();
-                            println!("inner attribute found: {:?}", attr);
-                        }
+                        // Rule::inner_attribute => {
+                        //     let attr = pi.next();
+                        // }
                         Rule::EOI => {
                             break;
                         }
@@ -63,16 +59,16 @@ impl<'i> File<'i> {
                             let pair_span = pair.as_span();
                             let rule = pair.as_rule();
                             let span = (pair.as_span().start(), pair.as_span().end());
-                            match ParseInput::new(
+                            let mut input = ParseInput::new(
                                 pair.into_inner(),
                                 pair_span,
                                 &mut warnings,
                                 &mut errors,
-                            )
-                            .parse()
-                            {
-                                Ok(item) => {
-                                    items.push(item);
+                            );
+                            let def: Result<Definition, _> = input.parse();
+                            match def {
+                                Ok(def) => {
+                                    defs.push(def.0);
                                 }
                                 Err(e) => {
                                     let kind = match e {
@@ -106,66 +102,68 @@ impl<'i> File<'i> {
         }
         if errors.is_empty() {
             Ok(File {
-                defs: items,
+                ast_file: ast::File {
+                    origin,
+                    defs,
+                },
                 warnings,
-                origin: origin.clone(),
             })
         } else {
             Err(FileError {
                 kind: FileErrorKind::Parser(errors),
                 origin: origin.clone(),
-                input: input.to_owned(),
+                input: input.as_ref().to_owned(),
             })
         }
     }
 
-    pub fn parse_tree(
-        input: &'i str,
-        def_name: &str,
-        origin: SpanOrigin,
-    ) -> Result<Option<String>, FileError> {
-        let mut pi =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
-                kind: FileErrorKind::Lexer(e),
-                origin: origin.clone(),
-                input: input.to_owned(),
-            })?;
-        let mut tree = None;
-        match pi.next() {
-            // Rule::file
-            Some(pair) => {
-                let mut pi = pair.into_inner();
-                while let Some(p) = pi.next() {
-                    match p.as_rule() {
-                        Rule::definition => {
-                            let mut name = None;
-                            for p in p.clone().into_inner().flatten() {
-                                match p.as_rule() {
-                                    Rule::identifier => {
-                                        name = Some(p.as_str());
-                                        break;
-                                    }
-                                    _ => continue,
-                                };
-                            }
-                            match name {
-                                Some(name) => {
-                                    if name == def_name {
-                                        tree = Some(crate::util::pest_tree(p.into_inner()));
-                                        break;
-                                    }
-                                }
-                                None => {}
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            None => {}
-        }
-        Ok(tree)
-    }
+    // pub fn parse_tree(
+    //     input: &'i str,
+    //     def_name: &str,
+    //     origin: SpanOrigin,
+    // ) -> Result<Option<String>, FileError> {
+    //     let mut pi =
+    //         <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
+    //             kind: FileErrorKind::Lexer(e),
+    //             origin: origin.clone(),
+    //             input: input.to_owned(),
+    //         })?;
+    //     let mut tree = None;
+    //     match pi.next() {
+    //         // Rule::file
+    //         Some(pair) => {
+    //             let mut pi = pair.into_inner();
+    //             while let Some(p) = pi.next() {
+    //                 match p.as_rule() {
+    //                     Rule::definition => {
+    //                         let mut name = None;
+    //                         for p in p.clone().into_inner().flatten() {
+    //                             match p.as_rule() {
+    //                                 Rule::identifier => {
+    //                                     name = Some(p.as_str());
+    //                                     break;
+    //                                 }
+    //                                 _ => continue,
+    //                             };
+    //                         }
+    //                         match name {
+    //                             Some(name) => {
+    //                                 if name == def_name {
+    //                                     tree = Some(crate::util::pest_tree(p.into_inner()));
+    //                                     break;
+    //                                 }
+    //                             }
+    //                             None => {}
+    //                         }
+    //                     }
+    //                     _ => {}
+    //                 }
+    //             }
+    //         }
+    //         None => {}
+    //     }
+    //     Ok(tree)
+    // }
 }
 
 impl Display for FileError {

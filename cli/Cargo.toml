@@ -10,8 +10,9 @@ clap = { version = "^3.2.19", features = ["derive"] }
 subprocess = "^0.2.9"
 pathsearch = "0.2.0"
 vhl = { path = ".." }
+ast = { path = "../ast" }
 parser = { path = "../parser" }
-codegen = { path = "../codegen" }
+#codegen = { path = "../codegen" }
 rustyline = "^10.0.0"
 rustyline-derive = "^0.7.0"
 util = { path = "../util" }

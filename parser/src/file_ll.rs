@@ -1,5 +1,5 @@
 use crate::lexer::{Lexer, Rule};
-use crate::span::SpanOrigin;
+use ast::span::SpanOrigin;
 use pest::{Position, Span};
 use std::fmt::{Display, Formatter};
 

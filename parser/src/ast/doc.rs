@@ -1,14 +1,11 @@
 use super::prelude::*;
-use pest::Span;
-use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct Doc<'i> {
-    pub lines: Vec<(&'i str, Span<'i>)>,
-}
+pub struct Doc(pub ast::Doc);
 
-impl<'i> Parse<'i> for Doc<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Doc<'i>, ParseErrorSource> {
+impl<'i> Parse<'i> for Doc {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Doc, ParseErrorSource> {
         let mut lines = Vec::new();
         while let Some(p) = input.pairs.peek() {
             if p.as_rule() == Rule::doc_comment {
@@ -19,21 +16,11 @@ impl<'i> Parse<'i> for Doc<'i> {
                     .strip_suffix("\r\n")
                     .or(line.strip_suffix("\n"))
                     .unwrap_or(line);
-                lines.push((line, p.as_span()));
+                lines.push((Rc::new(line.to_owned()), ast_span_from_pest(p.as_span())));
             } else {
                 break;
             }
         }
-        Ok(Doc { lines })
-    }
-}
-
-impl<'i> Display for Doc<'i> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\x1b[32m")?;
-        for l in &self.lines {
-            writeln!(f, "/// {}", l.0)?;
-        }
-        write!(f, "\x1b[0m")
+        Ok(Doc(ast::Doc { lines }))
     }
 }

@@ -367,18 +367,20 @@ project as a Rust crate dependency.
 * **types** - Type system
 * **serdes** - SerDes format and everything related to it
 * **si** - SI datastructures, dimensional analysis
-* **api** - API datastructures, checker
-* **versioning** - SemVer checking machinery
+* **xpi** - API datastructures, checker
+* **evolution** - SemVer checking machinery
 * **dep** - loads dependencies from the repository, publishes new versions,
-can also load dependencies from git or local folder for development
-* **ir** - Intermediate representation - generation, optimisation passes, export to human-readable format,  used by codegen
+  can also load dependencies from git or local folder for development
+* **ir** - Intermediate representation - generation, optimisation passes, export to human-readable format, used by
+  codegen
 * **codegen** - target code generation, for now implemented in Rust, not in vhL
   * **rust**
   * **dart**
   * **bytecode**
   * **cxx**
 * **doc** - Documentation generator
-* **patch** - codegen patch extraction and application (allows user to hand-fix codegen errors and shortcomings very quickly
+* **patch** - codegen patch extraction and application (allows user to hand-fix codegen errors and shortcomings very
+  quickly
 
 ## 7. CLI utility / `cli`
 Utility for creating vhL projects, generating code, documentation, publishing to the repository, etc.

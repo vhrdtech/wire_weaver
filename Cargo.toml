@@ -13,6 +13,7 @@ name = "vhl"
 path = "src/lib.rs"
 
 [dependencies]
+ast = { path = "./ast" }
 parser = { path = "./parser" }
 thiserror = "^1.0.34"
 either = "1.8"
@@ -26,9 +27,10 @@ mquote = { path = "./mquote" }
 
 [workspace]
 members = [
+    "ast",
     "parser",
     "cli",
-    "codegen",
+    #    "codegen",
     "mtoken",
     "mquote",
     "vhl-stdlib/vhl-stdlib-rust",

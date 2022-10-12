@@ -20,6 +20,7 @@
       <sourceFolder url="file://$MODULE_DIR$/mtoken/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/xpi-util/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-rust/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ast/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/vhl-stdlib-rust/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-node-rust/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />

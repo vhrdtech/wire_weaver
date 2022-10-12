@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use parser::span::Span;
+use ast::span::Span;
 use thiserror::Error;
 
 #[derive(Debug)]

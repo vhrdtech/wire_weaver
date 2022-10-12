@@ -1,23 +1,22 @@
 use super::prelude::*;
-use crate::ast::naming::UserTyName;
-use crate::ast::ty::Ty;
 
 #[derive(Debug, Clone)]
-pub struct DefTypeAlias<'i> {
-    pub doc: Doc<'i>,
-    pub attrs: Attrs<'i>,
-    pub typename: Identifier<'i, UserTyName>,
-    pub r#type: Ty<'i>,
-}
+pub struct TypeAliasDef(pub ast::TypeAliasDef);
 
-impl<'i> Parse<'i> for DefTypeAlias<'i> {
+impl<'i> Parse<'i> for TypeAliasDef {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::type_alias_def)?, input);
-        Ok(DefTypeAlias {
-            doc: input.parse()?,
-            attrs: input.parse()?,
-            typename: input.parse()?,
-            r#type: input.parse()?,
-        })
+        // Ok(TypeAliasDef {
+        //     doc: input.parse()?,
+        //     // attrs: input.parse()?,
+        //     typename: input.parse()?,
+        //     // r#type: input.parse()?,
+        // })
+        let doc: Doc = input.parse()?;
+        let typename: Identifier<identifier::TyAlias> = input.parse()?;
+        Ok(TypeAliasDef(ast::TypeAliasDef {
+            doc: doc.0,
+            typename: typename.0,
+        }))
     }
 }

@@ -4,9 +4,16 @@ version = 3
 
 [[package]]
 name = "anyhow"
-version = "1.0.63"
+version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a26fa4d7e3f2eebadf743988fc8aec9fa9a9e82611acafd77c1462ed6262440a"
+checksum = "98161a4e3e2184da77bb14f02184cdd111e83bbbcc9979dfee3c44b9a85f5602"
+
+[[package]]
+name = "ast"
+version = "0.1.0"
+dependencies = [
+    "util",
+]
 
 [[package]]
 name = "atty"
@@ -14,9 +21,9 @@ version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 dependencies = [
- "hermit-abi",
- "libc",
- "winapi",
+    "hermit-abi",
+    "libc",
+    "winapi",
 ]
 
 [[package]]
@@ -84,19 +91,19 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "3.2.19"
+version = "3.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d43934757334b5c0519ff882e1ab9647ac0258b47c24c4f490d78e42697fd5"
+checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
 dependencies = [
- "atty",
- "bitflags",
- "clap_derive",
- "clap_lex",
- "indexmap",
- "once_cell",
- "strsim",
- "termcolor",
- "textwrap",
+    "atty",
+    "bitflags",
+    "clap_derive",
+    "clap_lex",
+    "indexmap",
+    "once_cell",
+    "strsim",
+    "termcolor",
+    "textwrap",
 ]
 
 [[package]]
@@ -125,16 +132,16 @@ dependencies = [
 name = "cli"
 version = "0.2.0"
 dependencies = [
- "anyhow",
- "clap",
- "codegen",
- "parser",
- "pathsearch",
- "rustyline",
- "rustyline-derive",
- "subprocess",
- "util",
- "vhl",
+    "anyhow",
+    "ast",
+    "clap",
+    "parser",
+    "pathsearch",
+    "rustyline",
+    "rustyline-derive",
+    "subprocess",
+    "util",
+    "vhl",
 ]
 
 [[package]]
@@ -146,20 +153,6 @@ dependencies = [
  "error-code",
  "str-buf",
  "winapi",
-]
-
-[[package]]
-name = "codegen"
-version = "0.1.0"
-dependencies = [
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "semver",
- "thiserror",
- "vhl",
- "vhl-stdlib",
 ]
 
 [[package]]
@@ -415,9 +408,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.132"
+version = "0.2.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8371e4e5341c3a96db127eb2465ac681ced4c433e01dd0e938adbef26ba93ba5"
+checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
 
 [[package]]
 name = "linux-raw-sys"
@@ -561,11 +554,12 @@ dependencies = [
 name = "parser"
 version = "0.1.0"
 dependencies = [
- "either",
- "parser-test 0.3.3",
- "pest",
- "pest_derive",
- "thiserror",
+    "ast",
+    "either",
+    "parser-test 0.3.3",
+    "pest",
+    "pest_derive",
+    "thiserror",
 ]
 
 [[package]]
@@ -755,16 +749,16 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.35.9"
+version = "0.35.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72c825b8aa8010eb9ee99b75f05e10180b9278d161583034d7574c9d617aeada"
+checksum = "fbb2fda4666def1433b1b05431ab402e42a1084285477222b72d6c564c417cef"
 dependencies = [
- "bitflags",
- "errno",
- "io-lifetimes",
- "libc",
- "linux-raw-sys",
- "windows-sys",
+    "bitflags",
+    "errno",
+    "io-lifetimes",
+    "libc",
+    "linux-raw-sys",
+    "windows-sys",
 ]
 
 [[package]]
@@ -806,12 +800,6 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
-
-[[package]]
-name = "semver"
-version = "1.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93f6841e709003d68bb2deee8c343572bf446003ec20a583e76f7b15cebf3711"
 
 [[package]]
 name = "sha-1"
@@ -903,9 +891,9 @@ dependencies = [
 
 [[package]]
 name = "textwrap"
-version = "0.15.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
+checksum = "949517c0cf1bf4ee812e2e07e08ab448e3ae0d23472aee8a06c985f0c8815b16"
 
 [[package]]
 name = "thiserror"
@@ -1016,15 +1004,15 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e8820f5d777f6224dc4be3632222971ac30164d4a258d595640799554ebfd99"
+checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
+checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "unicode-xid"
@@ -1052,13 +1040,14 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vhl"
 version = "0.3.0"
 dependencies = [
- "either",
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "thiserror",
- "util",
+    "ast",
+    "either",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "parser",
+    "thiserror",
+    "util",
 ]
 
 [[package]]

@@ -149,7 +149,7 @@ impl<'i> From<ExprParser<'i>> for Expr {
                 )
             }
 
-            _ => unimplemented!(),
+            u => unimplemented!("{:?}", u),
         }
     }
 }

@@ -4,6 +4,7 @@ pub mod file;
 pub mod identifier;
 pub mod lit;
 pub mod struct_def;
+pub mod enum_def;
 pub mod ty;
 pub mod visit;
 pub mod visit_mut;

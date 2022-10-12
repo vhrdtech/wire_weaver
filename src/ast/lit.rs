@@ -31,7 +31,7 @@ impl<'i> From<LitParser<'i>> for Lit {
             // LitParser::Float64Lit(val) => Lit::Float64(val),
             LitKindParser::CharLit(val) => LitKind::Char(val),
             LitKindParser::StringLit(val) => LitKind::String(String::from(val)),
-            _ => unimplemented!(),
+            u => unimplemented!("{:?}", u),
         };
         Lit {
             kind,

@@ -37,6 +37,7 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
                 let cg_xpi_def = codegen::rust::xpi::vlu4::dispatch::DispatchCall { xpi_def };
                 cg_file.push_cg(&cg_xpi_def, xpi_def.span.clone())?;
             }
+            _ => todo!()
         }
     }
     let rendered_file = cg_file.render()?.0;

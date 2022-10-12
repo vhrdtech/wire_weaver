@@ -16,3 +16,18 @@ pub mod number;
 pub mod attribute;
 pub mod path;
 pub mod uri;
+pub mod type_alias_def;
+
+pub use doc::Doc;
+pub use expr::{Expr, VecExpr, TryEvaluateInto};
+pub use file::{File, Definition};
+pub use identifier::Identifier;
+pub use lit::{Lit, VecLit};
+pub use struct_def::StructDef;
+pub use ty::{Ty, FixedTy, DiscreteTy};
+pub use xpi_def::XpiDef;
+pub use number::AutoNumber;
+pub use attribute::Attrs;
+pub use path::Path;
+pub use uri::Uri;
+pub use type_alias_def::TypeAliasDef;

@@ -5,10 +5,11 @@ use crate::ast::visit_mut::VisitMut;
 use parser::ast::definition::Definition as ParserDefinition;
 use parser::ast::file::File as ParserFile;
 use parser::span::{Span, SpanOrigin};
+use crate::ast::TypeAliasDef;
 use crate::ast::xpi_def::XpiDef;
 use crate::error::Error;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct File {
     pub items: Vec<Definition>,
 }
@@ -41,13 +42,13 @@ impl VisitMut for SpanOriginModifier {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Definition {
     //Const(ConstDef),
     //Enum(EnumDef),
     Struct(StructDef),
     //Function(FunctionDef),
-    //TypeAlias(TypeAliasDef),
+    TypeAlias(TypeAliasDef),
     Xpi(XpiDef),
 }
 
@@ -68,7 +69,7 @@ impl<'i> TryFrom<ParserDefinition<'i>> for Definition {
             ParserDefinition::Enum(_) => todo!(),
             ParserDefinition::Struct(sd) => Ok(Definition::Struct(sd.into())),
             ParserDefinition::Function(_) => todo!(),
-            ParserDefinition::TypeAlias(_) => todo!(),
+            ParserDefinition::TypeAlias(a) => Ok(Definition::TypeAlias(a.try_into()?)),
             ParserDefinition::XpiBlock(xpi) => Ok(Definition::Xpi(XpiDef::convert_from_parser(xpi, true)?)),
         }
     }
@@ -89,6 +90,7 @@ impl Display for Definition {
         match self {
             Definition::Struct(s) => writeln!(f, "{}", s),
             Definition::Xpi(_x) => writeln!(f, "xPI"),
+            Definition::TypeAlias(_a) => writeln!(f, "alias"),
         }
     }
 }

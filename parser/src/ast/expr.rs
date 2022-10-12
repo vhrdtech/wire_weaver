@@ -353,6 +353,13 @@ mod test {
     fn path_to_xpi_block() {
         let expr: Expr = parse_str("crate::log::#/full", Rule::expression);
         assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::ConsB(BinaryOp::Path, _)));
+            if let Expr::ConsB(_, cons) = &cons.as_ref().0 {
+                assert!(matches!(cons.as_ref().0, Expr::Id(_)));
+                assert!(matches!(cons.as_ref().1, Expr::Id(_)));
+            }
+        }
     }
 
     #[test]
@@ -369,7 +376,6 @@ mod test {
     #[test]
     fn associated_const_of_generic_ty() {
         let expr: Expr = parse_str("Ty<1,2>::MAX", Rule::expression);
-        println!("{:?}", expr);
         assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
         if let Expr::ConsB(_, cons) = expr {
             assert!(matches!(cons.as_ref().0, Expr::Ty(_)));

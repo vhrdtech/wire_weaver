@@ -58,7 +58,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         if dev_args.process {
             println!("Processing AST...");
             vhl::process(&mut ast_core);
-            println!("{:?}", ast_core);
+            println!("{:#?}", ast_core);
         }
     }
     Ok(())

@@ -3,7 +3,7 @@ use crate::ast::expr::{CallArguments, IndexArguments};
 use crate::ast::naming::{Identifier, XpiUriSegmentName};
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ResourcePathKind {
     FromRoot,
     FromParent,

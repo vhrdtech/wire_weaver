@@ -16,7 +16,7 @@ impl<'i> From<NumBoundParser<'i>> for NumBound {
         match n {
             NumBoundParser::Unbound => NumBound::Unbound,
             NumBoundParser::MaxBound(max) => NumBound::MaxBound(max),
-            NumBoundParser::Set(_) => unimplemented!()
+            NumBoundParser::Set(exprs) => NumBound::Set(TryEvaluateInto::NotResolved(exprs.into())),
         }
     }
 }

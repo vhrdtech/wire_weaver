@@ -1,11 +1,11 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use parser::ast::generics::{Generics as GenericsParser, GenericParam as GenericParamParser};
-use crate::ast::expr::Expr;
-use crate::ast::ty::Ty;
+use crate::expr::Expr;
+use crate::Ty;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Generics {
-    pub params: Vec<GenericParam>
+    pub params: Vec<GenericParam>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -22,15 +22,6 @@ impl<'i> From<GenericsParser<'i>> for Generics {
     }
 }
 
-impl<'i> From<GenericParamParser<'i>> for GenericParam {
-    fn from(p: GenericParamParser<'i>) -> Self {
-        match p {
-            GenericParamParser::Ty(ty) => GenericParam::Ty(ty.into()),
-            GenericParamParser::Expr(expr) => GenericParam::Expr(expr.into())
-        }
-    }
-}
-
 impl Display for Generics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "<")?;
@@ -41,5 +32,11 @@ impl Display for Generics {
             }
         })?;
         write!(f, ">")
+    }
+}
+
+impl Debug for Generics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

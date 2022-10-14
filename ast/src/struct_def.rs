@@ -1,16 +1,11 @@
 use std::fmt::{Display, Formatter};
 use util::color;
-use crate::ast::doc::Doc;
-use crate::ast::identifier::Identifier;
-use crate::ast::ty::Ty;
-use parser::ast::def_struct::{
-    DefStruct as StructDefParser, StructField as StructFieldParser,
-};
-use parser::span::Span;
+use crate::{Attrs, Doc, Identifier, Span, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructDef {
     pub doc: Doc,
+    pub attrs: Attrs,
     pub typename: Identifier,
     pub fields: Vec<StructField>,
     pub span: Span,
@@ -19,69 +14,50 @@ pub struct StructDef {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructField {
     pub doc: Doc,
+    pub attrs: Attrs,
     pub name: Identifier,
     pub ty: Ty,
     pub span: Span,
 }
 
-impl<'i> From<StructDefParser<'i>> for StructDef {
-    fn from(sd: StructDefParser<'i>) -> Self {
-        StructDef {
-            doc: sd.doc.into(),
-            typename: sd.typename.into(),
-            fields: sd.fields.fields.iter().map(|sf| sf.clone().into()).collect(),
-            span: sd.span.into(),
-        }
-    }
-}
-
-impl<'i> From<StructFieldParser<'i>> for StructField {
-    fn from(sf: StructFieldParser<'i>) -> Self {
-        StructField {
-            doc: sf.doc.into(),
-            name: sf.name.into(),
-            ty: sf.ty.into(),
-            span: sf.span.into(),
-        }
-    }
-}
-
 impl StructDef {
-    pub fn is_sized(&self) -> bool {
-        for f in &self.fields {
-            if !f.ty.is_sized() {
-                return false;
-            }
-        }
-        true
-    }
+    // pub fn is_sized(&self) -> bool {
+    //     for f in &self.fields {
+    //         if !f.ty.is_sized() {
+    //             return false;
+    //         }
+    //     }
+    //     true
+    // }
 }
 
 impl Display for StructDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(
+        write!(
             f,
-            "{}{}{}struct{} {:-} {}-->{} {:#}",
+            "{}{}{}struct{} {}{}",
             self.doc,
+            self.attrs,
             color::BOLD,
             color::ORANGE,
             color::DEFAULT,
             self.typename,
-            color::BLUE,
-            color::DEFAULT,
-            self.span
         )?;
-        self.fields.iter().try_for_each(|sf| write!(f, "{}", sf))?;
+        itertools::intersperse(
+            self.fields.iter().map(|field| format!("{}", field)),
+            ", ".to_owned(),
+        ).try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }
 
 impl Display for StructField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(
+        write!(
             f,
-            "  {}pub {}{:-}{}: {}",
-            // self.doc,
+            "{}{}{}pub {}{}{}: {}",
+            self.doc,
+            self.attrs,
             color::ORANGE,
             color::MAGENTA,
             self.name,

@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use crate::lit::{DiscreteLit, FixedLit, FloatLit};
 use crate::range::{CharRange, DiscreteRange, FixedRange, FloatingRange};
 
 

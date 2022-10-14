@@ -13,7 +13,7 @@ impl Display for Doc {
         itertools::intersperse(
             self.lines
                 .iter()
-                .map(|line| format!("{}{}{}", color::GREEN, l.0, color::DEFAULT)),
+                .map(|line| format!("{}{}{}", color::GREEN, line.0, color::DEFAULT)),
             "↩".to_owned(),
         )
             .try_for_each(|s| write!(f, "{}", s))?;

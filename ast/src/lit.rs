@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{DiscreteTy, FixedTy, Identifier, Span, Ty};
+use crate::{DiscreteTy, FixedTy, Identifier, Span};
 use crate::ty::FloatTy;
 
 #[derive(Clone, Eq, PartialEq)]

@@ -1,6 +1,4 @@
 use std::fmt::{Display, Formatter};
-use crate::ast::identifier::Identifier;
-use itertools::Itertools;
 use crate::Identifier;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -19,7 +17,7 @@ impl Path {
 impl Display for Path {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // TODO: replace with standard function when it is stabilized
-        Itertools::intersperse(
+        itertools::intersperse(
             self.items.iter().map(|elem| format!("{:-}", elem)),
             "::".to_owned(),
         ).try_for_each(|s| write!(f, "{}", s))?;
@@ -37,9 +35,9 @@ pub enum ResourcePathMarker {
 impl ResourcePathMarker {
     pub fn to_str(&self) -> &'static str {
         match self {
-            ResourcePathKind::FromRoot => "#",
-            ResourcePathKind::FromParent => "#..",
-            ResourcePathKind::FromSelf => "#.",
+            ResourcePathMarker::FromRoot => "#",
+            ResourcePathMarker::FromParent => "#..",
+            ResourcePathMarker::FromSelf => "#.",
         }
     }
 }

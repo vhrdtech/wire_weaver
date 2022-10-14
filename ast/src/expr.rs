@@ -1,10 +1,10 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
-use crate::{Identifier, Lit, Path, Span, Ty, Uri};
+use crate::{Identifier, Lit, Path, Span, Ty};
 use crate::ops::{BinaryOp, UnaryOp};
 use crate::path::ResourcePathMarker;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
     Call { method: Identifier, args: VecExpr },
     Index { object: Identifier, by: VecExpr },
@@ -66,7 +66,7 @@ impl Expr {
             Expr::Tuple(_) => "Tuple",
             Expr::Ty(_) => "Ty",
             Expr::Id(_) => "Ident",
-            Expr::ResourcePath(marker, _) => marker.to_str().to_owned(),
+            Expr::ResourcePath(marker, _) => marker.to_str(),
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
         }.to_owned()
@@ -87,7 +87,7 @@ impl Expr {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct VecExpr(pub Vec<Expr>);
 
 impl VecExpr {

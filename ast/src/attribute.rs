@@ -1,9 +1,8 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt::{Display, Formatter};
 use util::color;
 // use mtoken::{TokenTree, TokenStream, Delimiter, Group, token::IdentFlavor};
 // use mtoken::ext::TokenStreamExt;
-use crate::{Identifier, Expr, Span, Path};
+use crate::{Expr, Span, Path};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attrs {

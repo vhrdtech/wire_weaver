@@ -1,10 +1,6 @@
-use crate::ast::doc::Doc;
-use crate::ast::file::{Definition, File};
-use crate::ast::identifier::Identifier;
-use crate::ast::struct_def::{StructDef, StructField};
-use crate::ast::ty::{DiscreteTy, Ty, TyKind};
-use parser::span::Span;
-use crate::ast::{AutoNumber, Lit, TypeAliasDef};
+use crate::*;
+use crate::struct_def::StructField;
+
 
 pub trait VisitMut {
     fn visit_file(&mut self, i: &mut File) {
@@ -64,7 +60,7 @@ pub fn visit_file<V>(v: &mut V, node: &mut File)
 where
     V: VisitMut + ?Sized,
 {
-    for def in &mut node.items {
+    for def in &mut node.defs {
         v.visit_definition(def);
     }
 }
@@ -74,7 +70,7 @@ where
     V: VisitMut + ?Sized,
 {
     match node {
-        Definition::Struct(struct_def) => v.visit_struct(struct_def),
+        // Definition::Struct(struct_def) => v.visit_struct(struct_def),
         Definition::TypeAlias(type_alias_def) => v.visit_type_alias(type_alias_def),
         _ => {},
     }

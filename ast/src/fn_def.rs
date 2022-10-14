@@ -1,7 +1,18 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Identifier, Ty};
+use crate::{Attrs, Doc, Generics, Identifier, Stmt, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionDef {
+    pub docs: Doc,
+    pub attrs: Attrs,
+    pub name: Identifier,
+    pub generics: Option<Generics>,
+    pub arguments: FnArguments,
+    pub ret_ty: Option<Ty>,
+    pub statements: Vec<Stmt>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
 pub struct FnArguments {
     pub args: Vec<FnArg>,
 }

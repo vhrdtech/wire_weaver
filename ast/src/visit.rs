@@ -1,9 +1,5 @@
-use crate::ast::doc::Doc;
-use crate::ast::file::{Definition, File};
-use crate::ast::identifier::Identifier;
-use crate::ast::struct_def::{StructDef, StructField};
-use crate::ast::ty::{DiscreteTy, Ty, TyKind};
-use parser::span::Span;
+use crate::*;
+use crate::struct_def::StructField;
 
 pub trait Visit {
     fn visit_file(&mut self, i: &File) {
@@ -51,7 +47,7 @@ pub fn visit_file<V>(v: &mut V, node: &File)
 where
     V: Visit + ?Sized,
 {
-    for def in &node.items {
+    for def in &node.defs {
         v.visit_definition(def);
     }
 }

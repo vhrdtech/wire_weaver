@@ -1,18 +1,6 @@
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
 use std::fmt::{Display, Formatter};
-use crate::ast::doc::Doc;
-use crate::ast::expr::{Expr, TryEvaluateInto};
-use crate::ast::identifier::Identifier;
-use parser::ast::def_xpi_block::{AccessMode, XpiUri as XpiUriParser, DefXpiBlock as XpiDefParser, XpiCellTy, XpiPlainTy, XpiResourceModifier, XpiResourceTransform};
-use crate::ast::fn_def::FnArguments;
-use crate::ast::lit::Lit;
-use crate::ast::ty::{Ty, TyKind};
-use crate::error::{Error, ErrorKind};
-use either::Either;
-use parser::ast::ty::TyKind as TyKindParser;
-use parser::span::Span;
-use crate::ast::attribute::Attrs;
+use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, Span, TryEvaluateInto, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
@@ -43,57 +31,6 @@ impl XpiDef {
             }
         }
         false
-    }
-
-    pub fn convert_from_parser(xd: XpiDefParser, is_root: bool) -> Result<Self, Error> {
-        let (serial, ty, span): (_, _, Span) = if is_root {
-            if xd.resource_ty.is_some() {
-                return Err(Error {
-                    kind: ErrorKind::RootWithTyOrSerial,
-                    span: xd.span.into(),
-                });
-            }
-            (u32::MAX, None, xd.span.into())
-        } else {
-            match xd.resource_ty {
-                Some(xty) => {
-                    (xty.serial.map(|s| s.0).ok_or(Error {
-                        kind: ErrorKind::NoSerial,
-                        span: xd.span.into(),
-                    })?, xty.ty, xty.span.into())
-                }
-                None => {
-                    return Err(Error {
-                        kind: ErrorKind::NoSerial,
-                        span: xd.span.into(),
-                    });
-                }
-            }
-        };
-        let kind = (ty, span.clone()).try_into()?;
-        let mut children = vec![];
-        for c in xd.body.children {
-            children.push(Self::convert_from_parser(c, false)?);
-        }
-        // let children: Result<Vec<XpiDef>, Error> = xd.body.children.iter().map(|c| XpiDef::try_from(c.clone())).collect();
-        // let children = children?;
-        Ok(XpiDef {
-            doc: xd.docs.into(),
-            attrs: xd.attrs.try_into()?,
-            uri_segment: xd.uri.into(),
-            serial,
-            kind,
-            kv: xd.body.kv_list
-                .iter()
-                .map(|kv|
-                    (
-                        kv.key.name.to_string(),
-                        TryEvaluateInto::NotResolved(kv.value.clone().into())
-                    )
-                ).collect(),
-            children,
-            span,
-        })
     }
 }
 
@@ -149,14 +86,19 @@ pub enum XpiKind {
     // }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum AccessMode {
+    Rw,
+    Ro,
+    Wo,
+    Const,
+}
+
 impl XpiDef {
-    pub fn expect_method_kind(&self) -> Result<(FnArguments, Ty), Error> {
+    pub fn expect_method_kind(&self) -> Option<(FnArguments, Ty)> {
         match &self.kind {
-            XpiKind::Method { args, ret_ty } => Ok((args.clone(), ret_ty.clone())),
-            _ => Err(Error::new(
-                ErrorKind::XpiKindExpectedToBe("Method".to_owned(), self.format_kind()),
-                self.span.clone(),
-            ))
+            XpiKind::Method { args, ret_ty } => Some((args.clone(), ret_ty.clone())),
+            _ => None
         }
     }
 
@@ -194,124 +136,6 @@ pub struct XpiResourceTy {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiBody {}
-
-impl<'i> From<XpiUriParser<'i>> for UriSegmentSeed {
-    fn from(uri: XpiUriParser<'i>) -> Self {
-        match uri {
-            XpiUriParser::OneNamedPart(id) => UriSegmentSeed::Resolved(id.into()),
-            XpiUriParser::ExprOnly(expr) => UriSegmentSeed::ExprOnly(expr.into()),
-            XpiUriParser::ExprThenNamedPart(expr, id) => {
-                UriSegmentSeed::ExprThenNamedPart(expr.into(), id.into())
-            }
-            XpiUriParser::NamedPartThenExpr(id, expr) => {
-                UriSegmentSeed::NamedPartThenExpr(id.into(), expr.into())
-            }
-            XpiUriParser::Full(id1, expr, id2) => UriSegmentSeed::Full(id1.into(), expr.into(), id2.into()),
-        }
-    }
-}
-
-impl<'i> TryFrom<( Option<Either<XpiCellTy<'i>, XpiPlainTy<'i>>>, Span )> for XpiKind {
-    type Error = Error;
-
-    fn try_from(ty: ( Option<Either<XpiCellTy<'i>, XpiPlainTy<'i>>>, Span )) -> Result<Self, Self::Error> {
-        match ty.0 {
-            Some(Either::Right(plain_ty)) => {
-                Self::try_from_plain_ty(plain_ty, ty.1)
-            }
-            Some(Either::Left(cell_ty)) => {
-                Self::try_from_cell_ty(cell_ty, ty.1)
-            }
-            None => {
-                Ok(XpiKind::Group)
-            }
-        }
-    }
-}
-
-impl XpiKind {
-    fn try_from_plain_ty(plain_ty: XpiPlainTy, span: Span) -> Result<XpiKind, Error> {
-        let access = plain_ty.0.map(|t| t.access).unwrap_or(AccessMode::Ro);
-        let modifier = plain_ty.0.map(|t| t.modifier).flatten();
-        match modifier {
-            Some(m) => {
-                if let TyKindParser::Fn { .. } = plain_ty.1.kind {
-                    return Err(Error::new(ErrorKind::FnWithMods, span));
-                }
-                match m {
-                    XpiResourceModifier::Observe => {
-                        if access == AccessMode::Const { // const+observe
-                            return Err(Error::new(ErrorKind::ConstWithMods, span));
-                        }
-                        if access == AccessMode::Wo { // wo+observe
-                            return Err(Error::new(ErrorKind::WoObserve, span));
-                        }
-                        Ok(XpiKind::Property {
-                            access,
-                            observable: true,
-                            ty: plain_ty.1.into()
-                        })
-                    },
-                    XpiResourceModifier::Stream => {
-                        if access == AccessMode::Const { // const+stream
-                            return Err(Error::new(ErrorKind::ConstWithMods, span));
-                        }
-                        Ok(XpiKind::Stream {
-                            dir: access,
-                            ty: plain_ty.1.into()
-                        })
-                    }
-                }
-            },
-            None => {
-                if let TyKindParser::Fn { arguments, ret_ty } = plain_ty.1.kind {
-                    Ok(XpiKind::Method {
-                        args: arguments.into(),
-                        ret_ty: ret_ty
-                            .map(|ty| ty.0.into())
-                            .unwrap_or(Ty::new(TyKind::Unit))
-                    })
-                } else {
-                    Ok(XpiKind::Property {
-                        access,
-                        observable: false,
-                        ty: plain_ty.1.into()
-                    })
-                }
-            }
-        }
-    }
-
-    fn try_from_cell_ty(cell_ty: XpiCellTy, span: Span) -> Result<XpiKind, Error> {
-        // by default resource inside a Cell is rw
-        let transform = match cell_ty.0 {
-            Some(t) => Some(t),
-            None => Some(XpiResourceTransform {
-                access: AccessMode::Rw,
-                modifier: None
-            })
-        };
-        let inner = (Some(Either::Right(XpiPlainTy(transform, cell_ty.1))), span.clone()).try_into()?;
-        match inner {
-            XpiKind::Property { access, .. } => {
-                if access == AccessMode::Const || access == AccessMode::Ro {
-                    return Err(Error::new(ErrorKind::CellWithConstRo, span));
-                }
-            }
-            XpiKind::Stream { dir, .. } => {
-                if dir == AccessMode::Ro {
-                    return Err(Error::new(ErrorKind::CellWithRoStream, span));
-                }
-            }
-            XpiKind::Method { .. } => {}
-
-            XpiKind::Group | XpiKind::Array | XpiKind::Cell { .. } => unreachable!()
-        }
-        Ok(XpiKind::Cell {
-            inner: Box::new(inner)
-        })
-    }
-}
 
 impl Display for UriSegmentSeed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -1,7 +1,5 @@
-use crate::expr::Expr;
-use crate::Ty;
-use parser::ast::generics::{GenericParam as GenericParamParser, Generics as GenericsParser};
 use std::fmt::{Debug, Display, Formatter};
+use crate::{Ty, Expr};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Generics {
@@ -14,21 +12,13 @@ pub enum GenericParam {
     Expr(Expr),
 }
 
-impl<'i> From<GenericsParser<'i>> for Generics {
-    fn from(g: GenericsParser<'i>) -> Self {
-        Generics {
-            params: g.0.iter().map(|p| p.clone().into()).collect(),
-        }
-    }
-}
-
 impl Display for Generics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "<")?;
         itertools::intersperse(
             self.params.iter().map(|param| match param {
-                GenericParam::Ty(ty) => format!(f, "{}", ty),
-                GenericParam::Expr(expr) => format!(f, "{}", expr),
+                GenericParam::Ty(ty) => format!("{}", ty),
+                GenericParam::Expr(expr) => format!("{}", expr),
             }),
             ", ".to_owned(),
         )

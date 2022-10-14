@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::{Definition, SpanOrigin};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,12 +60,13 @@ pub struct File {
 //     }
 // }
 //
-// impl Display for File {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         writeln!(f, "File at ",)?;
-//         for d in &self.items {
-//             writeln!(f, "{}\n", d)?;
-//         }
-//         Ok(())
-//     }
-// }
+
+impl Display for File {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "File from {}", self.origin)?;
+        for d in &self.defs {
+            writeln!(f, "{}", d)?;
+        }
+        Ok(())
+    }
+}

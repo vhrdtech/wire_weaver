@@ -70,6 +70,7 @@ pub struct FixedTy {
     pub unit: (),
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FloatTy {
     pub bits: u32,
     pub num_bound: NumBound,
@@ -144,8 +145,7 @@ impl Display for FixedTy {
 
 impl Display for FloatTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let sym = if self.is_signed { "iq" } else { "uq" };
-        write!(f, "{}<{}, {}>", sym, self.m, self.n)
+        write!(f, "f{}", self.bits)
     }
 }
 

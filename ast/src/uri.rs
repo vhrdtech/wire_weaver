@@ -1,5 +1,4 @@
-use crate::ast::identifier::Identifier;
-use crate::ast::lit::VecLit;
+use crate::{Identifier, VecLit};
 
 /// Universal resource identifier, consisting of UriSegment's.
 /// Syntax: (/ ~ UriSegment ~ UriIndex?)+

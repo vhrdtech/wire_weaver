@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::ast::expr::{TryEvaluateInto, VecExpr};
-use crate::set::Set;
+use crate::{Set, TryEvaluateInto, VecExpr};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NumBound {

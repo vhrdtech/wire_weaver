@@ -1,14 +1,8 @@
-use std::fmt::{Display, Formatter};
-use crate::ast::identifier::Identifier;
-use crate::ast::lit::Lit;
-use parser::ast::expr::{CallArguments, Expr as ExprParser, IndexArguments};
-use parser::ast::ops::{BinaryOp, UnaryOp};
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
-use parser::ast::paths::ResourcePathKind;
-use parser::span::Span;
-use crate::ast::path::Path;
-use crate::ast::{Ty, Uri};
-use crate::error::{Error, ErrorKind};
+use crate::{Identifier, Lit, Path, Span, Ty, Uri};
+use crate::ops::{BinaryOp, UnaryOp};
+use crate::path::ResourcePathMarker;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr {
@@ -18,64 +12,49 @@ pub enum Expr {
     Tuple(VecExpr),
     Ty(Box<Ty>),
     Id(Identifier),
-    ResourcePath {
-        origin: ResourcePathKind,
-        uri: Uri,
-    },
+    ResourcePath(ResourcePathMarker, Span),
 
     ConsU(UnaryOp, Box<Expr>),
     ConsB(BinaryOp, Box<(Expr, Expr)>),
 }
 
 impl Expr {
-    pub fn expect_ident(&self) -> Result<Identifier, Error> {
+    pub fn expect_ident(&self) -> Option<Identifier> {
         match self {
-            Expr::Id(ident) => Ok(ident.clone()),
-            _ => Err(Error::new(
-                ErrorKind::ExprExpectedToBe("Id".to_owned(), self.format_kind()),
-                self.span(),
-            ))
+            Expr::Id(ident) => Some(ident.clone()),
+            _ => None
         }
     }
 
-    pub fn expect_call(&self) -> Result<(Identifier, VecExpr), Error> {
+    pub fn expect_call(&self) -> Option<(Identifier, VecExpr)> {
         match self {
-            Expr::Call { method, args } => Ok((method.clone(), args.clone())),
-            _ => Err(Error::new(
-                ErrorKind::ExprExpectedToBe("Call".to_owned(), self.format_kind()),
-                self.span(),
-            ))
+            Expr::Call { method, args } => Some((method.clone(), args.clone())),
+            _ => None
         }
     }
 
-    pub fn expect_path(&self) -> Result<Path, Error> {
+    pub fn expect_path(&self) -> Option<Path> {
         let mut path = Path::new();
         Self::expect_path_inner(self, &mut path)?;
-        Ok(path)
+        Some(path)
     }
 
-    fn expect_path_inner(expr: &Expr, path: &mut Path) -> Result<(), Error> {
+    fn expect_path_inner(expr: &Expr, path: &mut Path) -> Option<()> {
         match &expr {
             Expr::ConsB(op, cons) => {
                 if *op == BinaryOp::Path {
                     Self::expect_path_inner(&cons.deref().0, path)?;
                     Self::expect_path_inner(&cons.deref().1, path)?;
-                    Ok(())
+                    Some(())
                 } else {
-                    Err(Error::new(
-                        ErrorKind::ExprExpectedToBe("Path".to_owned(), expr.format_kind()),
-                        expr.span())
-                    )
+                    None
                 }
             }
             Expr::Id(ident) => {
                 path.items.push(ident.clone());
-                Ok(())
+                Some(())
             }
-            _ => Err(Error::new(
-                ErrorKind::ExprExpectedToBe("Path".to_owned(), expr.format_kind()),
-                expr.span())
-            )
+            _ => None
         }
     }
 
@@ -87,7 +66,7 @@ impl Expr {
             Expr::Tuple(_) => "Tuple",
             Expr::Ty(_) => "Ty",
             Expr::Id(_) => "Ident",
-            Expr::ResourcePath { .. } => "ResourcePath",
+            Expr::ResourcePath(marker, _) => marker.to_str().to_owned(),
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
         }.to_owned()
@@ -101,7 +80,7 @@ impl Expr {
             Expr::Tuple(t) => t.span(),
             Expr::Ty(ty) => ty.span.clone(),
             Expr::Id(id) => id.span.clone(),
-            Expr::ResourcePath { .. } => Span::call_site(),
+            Expr::ResourcePath(_marker, span) => span.clone(),
             Expr::ConsU(_, cons) => cons.span(),
             Expr::ConsB(_, cons) => cons.deref().0.span() + cons.deref().1.span(),
         }
@@ -131,56 +110,6 @@ pub enum TryEvaluateInto<F, T> {
     Error,
 }
 
-impl<'i> From<ExprParser<'i>> for Expr {
-    fn from(expr: ExprParser<'i>) -> Self {
-        match expr {
-            ExprParser::Call(method, args) => Expr::Call {
-                method: method.into(),
-                args: args.into(),
-            },
-            ExprParser::IndexInto(object, by) => Expr::Index {
-                object: object.into(),
-                by: by.into(),
-            },
-            ExprParser::Lit(lit) => Expr::Lit(lit.into()),
-            ExprParser::TupleOfExprs => unimplemented!(),
-            ExprParser::Ty(ty) => Expr::Ty(Box::new(ty.deref().clone().into())),
-            ExprParser::Id(id) => Expr::Id(id.into()),
-            ExprParser::ResourcePath { kind, .. } => Expr::ResourcePath {
-                origin: kind,
-                uri: Uri { segments: vec![] },
-            },
-
-            ExprParser::ConsU(op, expr) => Expr::ConsU(op, Box::new(expr.deref().clone().into())),
-            ExprParser::ConsB(op, exprs) => {
-                let exprs = exprs.deref();
-                Expr::ConsB(
-                    op,
-                    Box::new((exprs.0.clone().into(), exprs.1.clone().into())),
-                )
-            }
-        }
-    }
-}
-
-impl<'i> From<CallArguments<'i>> for VecExpr {
-    fn from(args: CallArguments<'i>) -> Self {
-        VecExpr(args.0.iter().map(|a| a.clone().into()).collect())
-    }
-}
-
-impl<'i> From<IndexArguments<'i>> for VecExpr {
-    fn from(args: IndexArguments<'i>) -> Self {
-        VecExpr(args.0.iter().map(|a| a.clone().into()).collect())
-    }
-}
-
-impl<'i> From<Vec<parser::ast::expr::Expr<'i>>> for VecExpr {
-    fn from(exprs: Vec<ExprParser<'i>>) -> Self {
-        VecExpr(exprs.iter().map(|expr| expr.clone().into()).collect())
-    }
-}
-
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -202,7 +131,7 @@ impl Display for Expr {
             Expr::Id(ident) => {
                 write!(f, "{}", ident)
             }
-            Expr::ResourcePath { .. } => write!(f, "ResourcePath(todo)"),
+            Expr::ResourcePath(marker, _) => write!(f, "{}", marker.to_str()),
             Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
             Expr::ConsB(op, a) => {
                 write!(f, "({} {} {})", op.to_str(), a.as_ref().0, a.as_ref().1)
@@ -224,5 +153,17 @@ impl<F: Display, T: Display> Display for TryEvaluateInto<F, T> {
             TryEvaluateInto::Resolved(to) => write!(f, "R({})", to),
             TryEvaluateInto::Error => write!(f, "ER()"),
         }
+    }
+}
+
+impl Debug for Expr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Debug for VecExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

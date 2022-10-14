@@ -56,35 +56,6 @@ pub enum IdentifierContext {
     GenericName,
 }
 
-// macro_rules! impl_from_parser_struct {
-//     ($kind: ident) => {
-//         impl<'i> From<parser::ast::naming::Identifier<'i, $kind>> for Identifier {
-//             fn from(t: parser::ast::naming::Identifier<'i, $kind>) -> Self {
-//                 Identifier {
-//                     symbols: Rc::new(t.name.to_string()),
-//                     context: IdentifierContext::$kind,
-//                     span: t.span.into(),
-//                 }
-//             }
-//         }
-//     };
-// }
-// use parser::ast::naming::*;
-// impl_from_parser_struct!(UserTyName);
-// impl_from_parser_struct!(BuiltinTyName);
-// impl_from_parser_struct!(PathSegment);
-// impl_from_parser_struct!(XpiUriSegmentName);
-// impl_from_parser_struct!(XpiKeyName);
-// impl_from_parser_struct!(FnName);
-// impl_from_parser_struct!(FnArgName);
-// impl_from_parser_struct!(VariableDefName);
-// impl_from_parser_struct!(VariableRefName);
-// impl_from_parser_struct!(StructTyName);
-// impl_from_parser_struct!(StructFieldName);
-// impl_from_parser_struct!(EnumTyName);
-// impl_from_parser_struct!(EnumFieldName);
-// impl_from_parser_struct!(GenericName);
-
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.sign_plus() {

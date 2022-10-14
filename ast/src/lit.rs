@@ -1,8 +1,8 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use crate::{DiscreteTy, FixedTy, Identifier, Span, Ty};
 use crate::ty::FloatTy;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Lit {
     pub kind: LitKind,
     pub span: Span,
@@ -80,18 +80,22 @@ pub enum ArrayLit {
     List(Vec<Lit>),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct VecLit(pub Vec<Lit>);
 
 impl Display for Lit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             LitKind::Bool(val) => write!(f, "{}", val),
-            LitKind::UDec { val, .. } => write!(f, "{}", val),
-            LitKind::Float32(val) => write!(f, "{}f32", val),
-            LitKind::Float64(val) => write!(f, "{}f64", val),
+            LitKind::Discrete(ds) => write!(f, "{:?}", ds),
+            LitKind::Fixed(fx) => write!(f, "{:?}", fx),
+            LitKind::Float(fl) => write!(f, "{:?}", fl),
             LitKind::Char(c) => write!(f, "'{}'", c),
             LitKind::String(s) => write!(f, "\"{}\"", s),
+            LitKind::Tuple(t) => write!(f, "{:?}", t),
+            LitKind::Struct(s) => write!(f, "{:?}", s),
+            LitKind::Enum(e) => write!(f, "{:?}", e),
+            LitKind::Array(a) => write!(f, "{:?}", a),
         }
     }
 }
@@ -99,5 +103,17 @@ impl Display for Lit {
 impl Display for VecLit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.iter().try_for_each(|lit| write!(f, "{}, ", lit))
+    }
+}
+
+impl Debug for Lit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Debug for VecLit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

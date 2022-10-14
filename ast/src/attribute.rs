@@ -1,14 +1,9 @@
 use std::convert::{TryFrom, TryInto};
-use std::rc::Rc;
-use crate::ast::expr::Expr;
-use mtoken::{TokenTree, TokenStream, Delimiter, Group, token::IdentFlavor};
-use mtoken::ext::TokenStreamExt;
-use crate::ast::identifier::Identifier;
-use parser::ast::attrs::{Attr as AttrParser, Attrs as AttrsParser, AttrKind as AttrKindParser};
-use parser::pest::iterators::{Pair, Pairs};
-use crate::error::{Error, ErrorKind};
-use parser::lexer::Rule;
-use parser::span::Span;
+use std::fmt::{Display, Formatter};
+use util::color;
+// use mtoken::{TokenTree, TokenStream, Delimiter, Group, token::IdentFlavor};
+// use mtoken::ext::TokenStreamExt;
+use crate::{Identifier, Expr, Span, Path};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attrs {
@@ -36,42 +31,40 @@ impl Attrs {
 //         println!("{:?}", tokenparser::path(&[Token::Ident(0), Token::Punct(':'), Token::Punct(':'), Token::Ident(1), Token::Punct(':'), Token::Punct(':'), Token::Ident(10)]));
 //     }
 
-    /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
-    /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
-    pub fn get_unique(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
-        let mut attr = None;
-        for a in &self.attrs {
-            if a.path == path {
-                if attr.is_some() {
-                    return Err(Error::new(ErrorKind::AttributeMustBeUnique, self.span.clone()))
-                }
-                attr = Some(a.kind.clone());
-            }
-        }
-        attr.ok_or(Error::new(ErrorKind::AttributeExpected, self.span.clone()))
-    }
+    // /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
+    // /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
+    // pub fn get_unique(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
+    //     let mut attr = None;
+    //     for a in &self.attrs {
+    //         if a.path == path {
+    //             if attr.is_some() {
+    //                 return Err(Error::new(ErrorKind::AttributeMustBeUnique, self.span.clone()))
+    //             }
+    //             attr = Some(a.kind.clone());
+    //         }
+    //     }
+    //     attr.ok_or(Error::new(ErrorKind::AttributeExpected, self.span.clone()))
+    // }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attr {
-    pub path: Vec<Identifier>,
+    pub path: Path,
     pub kind: AttrKind,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AttrKind {
-    TT(TokenTree),
     Expr(Expr),
+    TT(()),
 }
 
 impl AttrKind {
-    pub fn expect_expr(&self) -> Result<Expr, Error> {
+    pub fn expect_expr(&self) -> Option<Expr> {
         match self {
-            AttrKind::Expr(expr) => Ok(expr.clone()),
-            _ => Err(Error::new(
-                ErrorKind::AttrExpectedToBe("Expr".to_owned(), "TokenTree".to_owned()),
-                Span::call_site(), // TODO: propagate proper span info
-            ))
+            AttrKind::Expr(expr) => Some(expr.clone()),
+            _ => None
         }
     }
 }
@@ -110,50 +103,71 @@ impl AttrKind {
 //     }
 // }
 
-fn parse_into_token_tree(p: Pair<Rule>) -> Result<TokenTree, Error> {
-    let delim = match p.as_str().chars().next().unwrap() {
-        '(' => Delimiter::Parenthesis,
-        '{' => Delimiter::Brace,
-        '[' => Delimiter::Bracket,
-        _ => panic!("Wrong attribute grammar")
-    };
-    let ts = parse_delim_tt(p.into_inner())?;
-    Ok(TokenTree::Group(Group::new(delim, ts)))
+// fn parse_into_token_tree(p: Pair<Rule>) -> Result<TokenTree, Error> {
+//     let delim = match p.as_str().chars().next().unwrap() {
+//         '(' => Delimiter::Parenthesis,
+//         '{' => Delimiter::Brace,
+//         '[' => Delimiter::Bracket,
+//         _ => panic!("Wrong attribute grammar")
+//     };
+//     let ts = parse_delim_tt(p.into_inner())?;
+//     Ok(TokenTree::Group(Group::new(delim, ts)))
+// }
+//
+// fn parse_delim_tt(pairs: Pairs<Rule>) -> Result<TokenStream, Error> {
+//     let mut ts = TokenStream::new();
+//     for p in pairs {
+//         match p.as_rule() {
+//             Rule::token => {
+//                 let token = p.into_inner().next().unwrap();
+//                 match token.as_rule() {
+//                     Rule::identifier => {
+//                         let ident_lit = token.as_str().to_string();
+//                         ts.append(mtoken::Ident::new(Rc::new(ident_lit), IdentFlavor::Plain));
+//                     }
+//                     Rule::any_lit => {
+//                         todo!()
+//                     }
+//                     Rule::punctuation => {
+//                         let punct: Vec<char> = token.as_str().chars().collect();
+//                         for (i, ch) in punct.iter().enumerate() {
+//                             let spacing = if i != punct.len() - 1 {
+//                                 mtoken::Spacing::Joint
+//                             } else {
+//                                 mtoken::Spacing::Alone
+//                             };
+//                             ts.append(mtoken::Punct::new(*ch, spacing));
+//                         }
+//                     }
+//                     _ => panic!("Wrong attribute grammar")
+//                 }
+//             }
+//             Rule::delim_token_tree => {
+//                 ts.append(parse_into_token_tree(p)?);
+//             }
+//             _ => panic!("Wrong attribute grammar")
+//         }
+//     }
+//     Ok(ts)
+// }
+
+impl Display for Attr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#[{}", color::YELLOW, self.path)?;
+        match &self.kind {
+            AttrKind::TT(_) => write!(f, "#[TS]")?,
+            AttrKind::Expr(expr) => write!(f, " = {}", expr)?,
+        }
+        write!(f, "]{}", color::DEFAULT)
+    }
 }
 
-fn parse_delim_tt(pairs: Pairs<Rule>) -> Result<TokenStream, Error> {
-    let mut ts = TokenStream::new();
-    for p in pairs {
-        match p.as_rule() {
-            Rule::token => {
-                let token = p.into_inner().next().unwrap();
-                match token.as_rule() {
-                    Rule::identifier => {
-                        let ident_lit = token.as_str().to_string();
-                        ts.append(mtoken::Ident::new(Rc::new(ident_lit), IdentFlavor::Plain));
-                    }
-                    Rule::any_lit => {
-                        todo!()
-                    }
-                    Rule::punctuation => {
-                        let punct: Vec<char> = token.as_str().chars().collect();
-                        for (i, ch) in punct.iter().enumerate() {
-                            let spacing = if i != punct.len() - 1 {
-                                mtoken::Spacing::Joint
-                            } else {
-                                mtoken::Spacing::Alone
-                            };
-                            ts.append(mtoken::Punct::new(*ch, spacing));
-                        }
-                    }
-                    _ => panic!("Wrong attribute grammar")
-                }
-            }
-            Rule::delim_token_tree => {
-                ts.append(parse_into_token_tree(p)?);
-            }
-            _ => panic!("Wrong attribute grammar")
-        }
+impl Display for Attrs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        itertools::intersperse(
+            self.attrs.iter().map(|attr| format!("{}", attr)),
+            " ".to_owned(),
+        ).try_for_each(|s| write!(f, "{}", s))?;
+        Ok(())
     }
-    Ok(ts)
 }

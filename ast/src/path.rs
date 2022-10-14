@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::ast::identifier::Identifier;
 use itertools::Itertools;
+use crate::Identifier;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Path {
@@ -23,5 +24,22 @@ impl Display for Path {
             "::".to_owned(),
         ).try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ResourcePathMarker {
+    FromRoot,
+    FromParent,
+    FromSelf,
+}
+
+impl ResourcePathMarker {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            ResourcePathKind::FromRoot => "#",
+            ResourcePathKind::FromParent => "#..",
+            ResourcePathKind::FromSelf => "#.",
+        }
     }
 }

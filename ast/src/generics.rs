@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use parser::ast::generics::{Generics as GenericsParser, GenericParam as GenericParamParser};
 use crate::expr::Expr;
 use crate::Ty;
+use parser::ast::generics::{GenericParam as GenericParamParser, Generics as GenericsParser};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Generics {
@@ -11,13 +11,13 @@ pub struct Generics {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GenericParam {
     Ty(Ty),
-    Expr(Expr)
+    Expr(Expr),
 }
 
 impl<'i> From<GenericsParser<'i>> for Generics {
     fn from(g: GenericsParser<'i>) -> Self {
         Generics {
-            params: g.0.iter().map(|p| p.clone().into()).collect()
+            params: g.0.iter().map(|p| p.clone().into()).collect(),
         }
     }
 }
@@ -25,12 +25,14 @@ impl<'i> From<GenericsParser<'i>> for Generics {
 impl Display for Generics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "<")?;
-        self.params.iter().try_for_each(|p| {
-            match p {
-                GenericParam::Ty(ty) => write!(f, "{}", ty),
-                GenericParam::Expr(expr) => write!(f, "{}", expr),
-            }
-        })?;
+        itertools::intersperse(
+            self.params.iter().map(|param| match param {
+                GenericParam::Ty(ty) => format!(f, "{}", ty),
+                GenericParam::Expr(expr) => format!(f, "{}", expr),
+            }),
+            ", ".to_owned(),
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         write!(f, ">")
     }
 }

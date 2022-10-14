@@ -142,7 +142,11 @@ impl Display for Expr {
 
 impl Display for VecExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.iter().try_for_each(|expr| write!(f, "{}, ", expr))
+        itertools::intersperse(
+            self.0.iter().map(|expr| format!("{}", expr)),
+            ", ".to_owned(),
+        ).try_for_each(|s| write!(f, "{}", s))?;
+        Ok(())
     }
 }
 

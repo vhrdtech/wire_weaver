@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
-use parser::ast::lit::Lit as LitParser;
-use parser::ast::lit::LitKind as LitKindParser;
-use parser::span::Span;
+use crate::{DiscreteTy, FixedTy, Identifier, Span, Ty};
+use crate::ty::FloatTy;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lit {
@@ -12,33 +11,77 @@ pub struct Lit {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LitKind {
     Bool(bool),
-    UDec { bits: u32, val: u128 },
-    Float32(String),
-    Float64(String),
+    Discrete(DiscreteLit),
+    Fixed(FixedLit),
+    Float(FloatLit),
     Char(char),
     String(String),
+    Tuple(Vec<Lit>),
+    Struct(StructLit),
+    Enum(EnumLit),
+    Array(ArrayLit),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DiscreteLit {
+    pub val: u128,
+    pub ty: DiscreteTy,
+    /// true if provided by user, false if auto derived
+    pub is_ty_forced: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FixedLit {
+    pub val: u128,
+    pub ty: FixedTy,
+    /// true if provided by user, false if auto derived
+    pub is_ty_forced: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FloatLit {
+    pub digits: String,
+    pub ty: FloatTy,
+    /// true if provided by user, false if auto derived
+    pub is_ty_forced: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StructLit {
+    pub typename: Identifier,
+    pub items: Vec<StructLitItem>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StructLitItem {
+    pub name: Identifier,
+    pub val: Lit,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EnumLit {
+    pub typename: Identifier,
+    pub variant: Identifier,
+    pub val: Option<EnumLitValue>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EnumLitValue {
+    Tuple(Vec<Lit>),
+    Struct(Vec<StructLitItem>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ArrayLit {
+    Init {
+        size: Box<Lit>,
+        val: Box<Lit>,
+    },
+    List(Vec<Lit>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VecLit(pub Vec<Lit>);
-
-impl<'i> From<LitParser<'i>> for Lit {
-    fn from(lit: LitParser) -> Self {
-        let kind = match lit.kind {
-            LitKindParser::BoolLit(val) => LitKind::Bool(val),
-            LitKindParser::UDecLit { bits, val } => LitKind::UDec { bits, val },
-            LitKindParser::Float32Lit(val) => LitKind::Float32(val),
-            LitKindParser::Float64Lit(val) => LitKind::Float64(val),
-            LitKindParser::CharLit(val) => LitKind::Char(val),
-            LitKindParser::StringLit(val) => LitKind::String(String::from(val)),
-            u => unimplemented!("{:?}", u),
-        };
-        Lit {
-            kind,
-            span: lit.span.into(),
-        }
-    }
-}
 
 impl Display for Lit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

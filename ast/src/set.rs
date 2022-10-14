@@ -1,15 +1,15 @@
 use std::fmt::{Display, Formatter};
+use crate::lit::{DiscreteLit, FixedLit, FloatLit};
+use crate::range::{CharRange, DiscreteRange, FixedRange, FloatingRange};
+
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RangeSet {
-    Discrete,
-    FixedPoint,
-    FloatingPoint,
-    Char(char, char),
+pub enum Set {
+    Discrete(Vec<DiscreteRange>),
+    Fixed(Vec<FixedRange>),
+    Float(Vec<FloatingRange>),
+    Char(Vec<CharRange>),
 }
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Set {}
 
 impl Set {
     pub fn max_len(&self) -> usize {

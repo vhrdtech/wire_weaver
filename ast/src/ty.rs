@@ -1,15 +1,7 @@
-use crate::ast::bound::NumBound;
-use crate::ast::expr::Expr;
-use crate::ast::fn_def::FnArguments;
-use crate::ast::generics::Generics;
-use crate::ast::identifier::Identifier;
-use crate::ast::number::AutoNumber;
-use std::fmt::{Display, Formatter};
-use std::ops::Deref;
-use crate::{Identifier, Span};
-use crate::num_bound::NumBound;
+use std::fmt::{Debug, Display, Formatter};
+use crate::{NumBound, Expr, FnArguments, Generics, Identifier, AutoNumber, Span};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Ty {
     pub kind: TyKind,
     pub span: Span,
@@ -67,7 +59,6 @@ pub struct DiscreteTy {
     pub bits: u32,
     pub num_bound: NumBound,
     pub unit: (),
-    // pub shift: u128,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -77,7 +68,6 @@ pub struct FixedTy {
     pub n: u32,
     pub num_bound: NumBound,
     pub unit: (),
-    // pub shift: i128,
 }
 
 pub struct FloatTy {
@@ -88,10 +78,10 @@ pub struct FloatTy {
 
 impl DiscreteTy {
     pub fn is_standard(&self) -> bool {
-        if self.shift != 0 { // or numbound present
-            false
-        } else {
+        if self.num_bound == NumBound::Unbound {
             [8, 16, 32, 64, 128].contains(&self.bits)
+        } else {
+            false
         }
     }
 }
@@ -141,26 +131,26 @@ impl Display for Ty {
 impl Display for DiscreteTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let sym = if self.is_signed { 'i' } else { 'u' };
-        if self.shift == 0 {
-            write!(f, "{}{}", sym, self.bits)
-        } else {
-            write!(f, "{}{}{{{}}}", sym, self.bits, self.shift)
-        }
+        write!(f, "{}{}", sym, self.bits)
     }
 }
 
 impl Display for FixedTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let sym = if self.is_signed { "iq" } else { "uq" };
-        if self.shift == 0 {
-            write!(f, "{}<{}, {}>", sym, self.m, self.n)
-        } else {
-            let sign_sym = if self.shift > 0 {
-                '+'
-            } else {
-                '-'
-            };
-            write!(f, "{}<{}, {}, {}{}>", sym, self.m, self.n, sign_sym, self.shift.abs())
-        }
+        write!(f, "{}<{}, {}>", sym, self.m, self.n)
+    }
+}
+
+impl Display for FloatTy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let sym = if self.is_signed { "iq" } else { "uq" };
+        write!(f, "{}<{}, {}>", sym, self.m, self.n)
+    }
+}
+
+impl Debug for Ty {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

@@ -4,11 +4,10 @@ use crate::ast::fn_def::FnArguments;
 use crate::ast::generics::Generics;
 use crate::ast::identifier::Identifier;
 use crate::ast::number::AutoNumber;
-use parser::ast::ty::Ty as TyParser;
-use parser::ast::ty::TyKind as TyKindParser;
-use parser::span::Span;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
+use crate::{Identifier, Span};
+use crate::num_bound::NumBound;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ty {
@@ -30,10 +29,13 @@ pub enum TyKind {
     Unit,
     Boolean,
     Discrete(DiscreteTy),
+    DiscreteGeneric(Generics),
     Fixed(FixedTy),
+    FixedGeneric(Generics),
     Float {
         bits: u32,
     },
+    FloatGeneric(Generics),
     Array {
         ty: Box<Ty>,
         len_bound: NumBound,
@@ -46,11 +48,8 @@ pub enum TyKind {
         ret_ty: Option<Box<Ty>>,
     },
     AutoNumber(AutoNumber),
-    // TODO: Convert into appropriate type
     IndexTyOf(Expr),
-    // TODO: resolve
     Generic {
-        // TODO: Change to resolved/not resolved
         id: Identifier,
         params: Generics,
     },
@@ -59,7 +58,6 @@ pub enum TyKind {
         len_bound: NumBound,
     },
     UserDefined(Identifier),
-    // TODO: Change to resolved/not resolved
     Derive,
 }
 
@@ -67,7 +65,9 @@ pub enum TyKind {
 pub struct DiscreteTy {
     pub is_signed: bool,
     pub bits: u32,
-    pub shift: u128,
+    pub num_bound: NumBound,
+    pub unit: (),
+    // pub shift: u128,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -75,7 +75,15 @@ pub struct FixedTy {
     pub is_signed: bool,
     pub m: u32,
     pub n: u32,
-    pub shift: i128,
+    pub num_bound: NumBound,
+    pub unit: (),
+    // pub shift: i128,
+}
+
+pub struct FloatTy {
+    pub bits: u32,
+    pub num_bound: NumBound,
+    pub unit: (),
 }
 
 impl DiscreteTy {
@@ -88,78 +96,7 @@ impl DiscreteTy {
     }
 }
 
-impl<'i> From<TyParser<'i>> for Ty {
-    fn from(ty: TyParser<'i>) -> Self {
-        Ty {
-            kind: ty.kind.into(),
-            span: ty.span.into(),
-        }
-    }
-}
-
-impl<'i> From<TyKindParser<'i>> for TyKind {
-    fn from(kind: TyKindParser<'i>) -> Self {
-        match kind {
-            TyKindParser::Boolean => TyKind::Boolean,
-            TyKindParser::Discrete {
-                is_signed,
-                bits,
-                shift,
-            } => TyKind::Discrete(DiscreteTy {
-                is_signed,
-                bits,
-                shift,
-            }),
-            TyKindParser::FixedPoint {
-                is_signed,
-                m,
-                n,
-                shift,
-            } => TyKind::Fixed(FixedTy {
-                is_signed,
-                m,
-                n,
-                shift,
-            }),
-            TyKindParser::FloatingPoint { bits } => TyKind::Float { bits },
-            TyKindParser::Array { ty, num_bound } => TyKind::Array {
-                ty: Box::new(ty.deref().clone().into()),
-                len_bound: num_bound.into(),
-            },
-            TyKindParser::Tuple(types) => TyKind::Tuple {
-                types: types.iter().map(|t| t.clone().into()).collect(),
-            },
-            TyKindParser::Fn { arguments, ret_ty } => TyKind::Fn {
-                args: arguments.into(),
-                ret_ty: ret_ty.map(|t| Box::new(t.0.into())),
-            },
-            TyKindParser::AutoNumber(au) => TyKind::AutoNumber(au.into()),
-            TyKindParser::IndexOf(expr) => TyKind::IndexTyOf(expr.into()),
-            TyKindParser::Generic { name, params } => TyKind::Generic {
-                id: name.into(),
-                params: params.into(),
-            },
-            TyKindParser::Char => TyKind::Char,
-            TyKindParser::String => TyKind::String {
-                len_bound: NumBound::Unbound,
-            },
-            TyKindParser::Sequence => todo!(),
-            TyKindParser::UserDefined(id) => TyKind::UserDefined(id.into()),
-            TyKindParser::Derive => TyKind::Derive,
-        }
-    }
-}
-
-impl Ty {
-    pub fn is_sized(&self) -> bool {
-        // match self.kind {
-        //     TyKind::Unit => true,
-        //     TyKind::Boolean => true,
-        //     TyKind::Discrete(_) => true,
-        // }
-        true
-    }
-}
+impl Ty {}
 
 impl Display for Ty {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -167,8 +104,11 @@ impl Display for Ty {
             TyKind::Unit => write!(f, "()"),
             TyKind::Boolean => write!(f, "bool"),
             TyKind::Discrete(d) => write!(f, "{}", d),
+            TyKind::DiscreteGeneric(g) => write!(f, "ds{}", g),
             TyKind::Fixed(fixed) => write!(f, "{}", fixed),
+            TyKind::FixedGeneric(g) => write!(f, "fx{}", g),
             TyKind::Float { bits } => write!(f, "f{}", bits),
+            TyKind::FloatGeneric(g) => write!(f, "f{}", g),
             TyKind::Array { ty, len_bound } => write!(f, "[{}; {}]", ty, len_bound),
             TyKind::Tuple { types } => write!(f, "({:?})", types),
             TyKind::Fn { args, ret_ty } => {

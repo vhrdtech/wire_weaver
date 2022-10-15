@@ -1,22 +1,22 @@
+use ast::TypeAliasDef;
+use crate::ast::ty::TyParse;
 use super::prelude::*;
 
-#[derive(Debug, Clone)]
-pub struct TypeAliasDef(pub ast::TypeAliasDef);
+pub struct TypeAliasDefParse(pub TypeAliasDef);
 
-impl<'i> Parse<'i> for TypeAliasDef {
+impl<'i> Parse<'i> for TypeAliasDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::type_alias_def)?, input);
-        // Ok(TypeAliasDef {
-        //     doc: input.parse()?,
-        //     // attrs: input.parse()?,
-        //     typename: input.parse()?,
-        //     // r#type: input.parse()?,
-        // })
-        let doc: Doc = input.parse()?;
-        let typename: Identifier<identifier::TyAlias> = input.parse()?;
-        Ok(TypeAliasDef(ast::TypeAliasDef {
+
+        let doc: DocParse = input.parse()?;
+        let attrs: AttrsParse = input.parse()?;
+        let typename: IdentifierParse<identifier::TyAlias> = input.parse()?;
+        let ty: TyParse = input.parse()?;
+        Ok(TypeAliasDefParse(TypeAliasDef {
             doc: doc.0,
+            attrs: attrs.0,
             typename: typename.0,
+            ty: ty.0,
         }))
     }
 }

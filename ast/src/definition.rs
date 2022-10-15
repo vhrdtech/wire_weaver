@@ -1,12 +1,12 @@
 use std::fmt::{Display, Formatter};
-use crate::{EnumDef, FunctionDef, StructDef, TypeAliasDef, XpiDef};
+use crate::{EnumDef, FnDef, StructDef, TypeAliasDef, XpiDef};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Definition {
     //Const(ConstDef),
     Enum(EnumDef),
     Struct(StructDef),
-    Function(FunctionDef),
+    Function(FnDef),
     TypeAlias(TypeAliasDef),
     Xpi(XpiDef),
 }

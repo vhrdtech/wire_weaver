@@ -1,171 +1,85 @@
+use ast::Lit;
+use ast::lit::LitKind;
 use super::prelude::*;
-use crate::error::{ParseError, ParseErrorKind};
-use pest::iterators::Pair;
-use pest::Span;
+use crate::ast::ty::FloatTyParse;
 
-#[derive(Debug, Clone)]
-pub struct Lit<'i> {
-    pub kind: LitKind<'i>,
-    pub span: Span<'i>,
-}
+pub struct LitParse(pub Lit);
 
-#[derive(Debug, Clone)]
-pub enum LitKind<'i> {
-    BoolLit(bool),
-    UDecLit { bits: u32, val: u128 },
-    IDecLit { bits: u32, val: i128 },
-    HexLit(u128),
-    OctLit(u128),
-    BinLit(u128),
-    FixedLit(FixedLit),
-    Float32Lit(String),
-    Float64Lit(String),
-    CharLit(char),
-    StringLit(&'i str),
-    TupleLit,
-    StructLit,
-    EnumLit,
-    ArrayLit,
-}
+pub struct LitKindParse(pub LitKind);
 
-impl<'i> Lit<'i> {
-    pub fn is_a_number(&self) -> bool {
-        use LitKind::*;
-        match self.kind {
-            UDecLit { .. } => true,
-            IDecLit { .. } => true,
-            HexLit(_) => true,
-            OctLit(_) => true,
-            BinLit(_) => true,
-            FixedLit(_) => true,
-            Float32Lit(_) => true,
-            Float64Lit(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_same_kind(&self, other: &Self) -> bool {
-        std::mem::discriminant(&self.kind) == std::mem::discriminant(&other.kind)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum FixedLit {
-    Explicit { m: u32, n: u32, data: u128 },
-    Implicit(f64),
-}
-
-impl<'i> Parse<'i> for Lit<'i> {
+impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::any_lit)?, input);
         // crate::util::pest_print_tree(input.pairs.clone());
-        let x_lit = input
+        let lit = input
             .pairs
-            .next()
+            .peek()
             .ok_or_else(|| ParseErrorSource::internal("empty any_lit"))?;
-        let span = input.span.clone();
-        let mut input = ParseInput::fork(x_lit.clone(), &mut input);
-        match x_lit.as_rule() {
-            Rule::bool_lit => Ok(Lit {
-                kind: LitKind::BoolLit(x_lit.as_str() == "true"),
-                span,
-            }),
-            Rule::float_lit => parse_float_lit(&mut input, x_lit),
-            Rule::discrete_lit => {
-                let num: u32 = x_lit.as_str().parse().map_err(|_| {
-                    input.errors.push(ParseError {
-                        kind: ParseErrorKind::IntParseError,
-                        rule: Rule::dec_lit,
-                        span: (x_lit.as_span().start(), x_lit.as_span().end()),
-                    });
-                    ParseErrorSource::UserError
-                })?;
-                Ok(Lit {
-                    kind: LitKind::UDecLit {
-                        bits: 32,
-                        val: num as u128,
-                    },
+        let span = ast_span_from_pest(input.span.clone());
+        let ast_lit = match lit.as_rule() {
+            Rule::bool_lit => {
+                let bool_lit = input.expect1(Rule::bool_lit)?;
+                Lit {
+                    kind: LitKind::Bool(bool_lit.as_str() == "true"),
                     span,
-                })
-            }
-            Rule::hex_lit => Err(ParseErrorSource::Unimplemented("hex_lit")),
-            Rule::bin_lit => Err(ParseErrorSource::Unimplemented("bin_lit")),
-            Rule::oct_lit => Err(ParseErrorSource::Unimplemented("oct_lit")),
+                }
+            },
+            Rule::float_lit => parse_float_lit(&mut input)?,
+            Rule::discrete_lit => parse_discrete_lit(&mut input)?,
             Rule::char_lit => {
-                let c = x_lit
-                    .as_str()
-                    .chars()
-                    .skip(1)
-                    .next()
-                    .ok_or(ParseErrorSource::internal("char_lit grammar error"))?;
-                Ok(Lit {
-                    kind: LitKind::CharLit(c),
-                    span,
-                })
-            }
+                return Err(ParseErrorSource::Unimplemented("char_lit"));
+            },
             Rule::string_lit => {
-                let string_inner = x_lit
-                    .into_inner()
-                    .next()
-                    .ok_or_else(|| ParseErrorSource::internal("wrong string_lit rule"))?;
-                Ok(Lit {
-                    kind: LitKind::StringLit(string_inner.as_str()),
-                    span,
-                })
-            }
-            Rule::tuple_lit => Err(ParseErrorSource::Unimplemented("tuple lit")),
-            Rule::struct_lit => Err(ParseErrorSource::Unimplemented("struct lit")),
-            Rule::enum_lit => Err(ParseErrorSource::Unimplemented("enum lit")),
-            Rule::array_lit => Err(ParseErrorSource::Unimplemented("array lit")),
-            _ => Err(ParseErrorSource::internal_with_rule(
-                x_lit.as_rule(),
-                "Lit::parse: expected any_lit",
-            )),
-        }
+                return Err(ParseErrorSource::Unimplemented("string_lit"));
+            },
+            Rule::tuple_lit => {
+                return Err(ParseErrorSource::Unimplemented("tuple lit"));
+            },
+            Rule::struct_lit => {
+                return Err(ParseErrorSource::Unimplemented("struct lit"));
+            },
+            Rule::enum_lit => {
+                return Err(ParseErrorSource::Unimplemented("enum lit"));
+            },
+            Rule::array_lit => {
+                return Err(ParseErrorSource::Unimplemented("array lit"));
+            },
+            _ => {
+                return Err(ParseErrorSource::internal_with_rule(
+                    lit.as_rule(),
+                    "Lit::parse: expected any_lit",
+                ));
+            },
+        };
+        Ok(LitParse(ast_lit))
     }
 }
 
-fn parse_float_lit<'i, 'm>(
-    input: &mut ParseInput<'i, 'm>,
-    any_lit: Pair<'i, Rule>,
-) -> Result<Lit<'i>, ParseErrorSource> {
-    let fx = any_lit.as_str();
-    let (fx, bits) = fx
-        .strip_suffix("f32")
-        .map(|fx| (fx, 32))
-        .or(fx.strip_suffix("f64").map(|fx| (fx, 64)))
-        .unwrap_or((fx, 64));
+fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let _discrete_lit = ParseInput::fork(input.expect1(Rule::discrete_lit)?, input);
+    todo!()
+}
 
+fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::float_lit)?, input);
+    let fx = input.expect1(Rule::float_lit_internal)?.as_str();
     let fx = fx
         .to_owned()
         .chars()
         .filter(|c| *c != '_')
         .collect::<String>();
-    if bits == 32 {
-        // let f: f32 = fx.parse().map_err(|_| {
-        //     input.errors.push(ParseError {
-        //         kind: ParseErrorKind::FloatParseError,
-        //         rule: Rule::float_lit,
-        //         span: (any_lit.as_span().start(), any_lit.as_span().end()),
-        //     });
-        //     ParseErrorSource::UserError
-        // })?;
-        Ok(Lit {
-            kind: LitKind::Float32Lit(fx),
-            span: input.span.clone(),
-        })
-    } else {
-        // let f: f64 = fx.parse().map_err(|_| {
-        //     input.errors.push(ParseError {
-        //         kind: ParseErrorKind::FloatParseError,
-        //         rule: Rule::float_lit,
-        //         span: (any_lit.as_span().start(), any_lit.as_span().end()),
-        //     });
-        //     ParseErrorSource::UserError
-        // })?;
-        Ok(Lit {
-            kind: LitKind::Float64Lit(fx),
-            span: input.span.clone(),
-        })
-    }
+    let ty: FloatTyParse = input.parse_or_skip()?.unwrap_or(FloatTyParse(ast::ty::FloatTy {
+        bits: 64,
+        num_bound: ast::NumBound::Unbound,
+        unit: (),
+    }));
+
+    Ok(Lit {
+        kind: LitKind::Float(ast::lit::FloatLit {
+            digits: fx.to_owned(),
+            ty: ty.0,
+            is_ty_forced: false,
+        }),
+        span: ast_span_from_pest(input.span.clone()),
+    })
 }

@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 use util::color;
@@ -9,6 +10,12 @@ pub struct Identifier {
     pub symbols: Rc<String>,
     pub context: IdentifierContext,
     pub span: Span,
+}
+
+impl Hash for Identifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.symbols.hash(state);
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

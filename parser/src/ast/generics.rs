@@ -1,26 +1,26 @@
+use ast::Generics;
 use super::prelude::*;
-use crate::ast::expr::Expr;
-use crate::ast::ty::Ty;
+use crate::ast::expr::ExprParse;
+use crate::ast::ty::TyParse;
 
-#[derive(Debug, Clone)]
-pub struct Generics<'i>(pub Vec<GenericParam<'i>>);
+pub struct GenericsParse(pub Generics);
 
-#[derive(Debug, Clone)]
-pub enum GenericParam<'i> {
-    Ty(Ty<'i>),
-    Expr(Expr<'i>),
-}
-
-impl<'i> Parse<'i> for Generics<'i> {
+impl<'i> Parse<'i> for GenericsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::generics)?, input);
         let mut params = Vec::new();
         while let Some(p) = input.pairs.peek() {
             match p.as_rule() {
-                Rule::expression => params.push(GenericParam::Expr(input.parse()?)),
-                _ => params.push(GenericParam::Ty(input.parse()?)),
+                Rule::expression => {
+                    let expr: ExprParse = input.parse()?;
+                    params.push(ast::generics::GenericParam::Expr(expr.0))
+                },
+                _ => {
+                    let ty: TyParse = input.parse()?;
+                    params.push(ast::generics::GenericParam::Ty(ty.0))
+                },
             }
         }
-        Ok(Generics(params))
+        Ok(GenericsParse(Generics { params }))
     }
 }

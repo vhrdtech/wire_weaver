@@ -1,15 +1,11 @@
+use ast::NumBound;
 use super::prelude::*;
-use crate::ast::expr::Expr;
+use crate::ast::expr::VecExprParse;
 use crate::error::{ParseError, ParseErrorKind};
 
-#[derive(Debug, Clone)]
-pub enum NumBound<'i> {
-    Unbound,
-    MaxBound(usize),
-    Set(Vec<Expr<'i>>),
-}
+pub struct NumBoundParse(pub NumBound);
 
-impl<'i> Parse<'i> for NumBound<'i> {
+impl<'i> Parse<'i> for NumBoundParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::num_bound)?, input);
         let bound = input
@@ -17,7 +13,7 @@ impl<'i> Parse<'i> for NumBound<'i> {
             .next()
             .ok_or_else(|| ParseErrorSource::internal("wrong num_bound rule"))?;
         match bound.as_rule() {
-            Rule::num_unbound => Ok(NumBound::Unbound),
+            Rule::num_unbound => Ok(NumBoundParse(ast::NumBound::Unbound)),
             Rule::num_bound_max => {
                 let dec_lit_raw = bound
                     .into_inner()
@@ -31,11 +27,12 @@ impl<'i> Parse<'i> for NumBound<'i> {
                     });
                     ParseErrorSource::UserError
                 })?;
-                Ok(NumBound::MaxBound(max))
+                Ok(NumBoundParse(NumBound::MaxBound(max)))
             }
             Rule::num_bound_list => {
                 let mut input = ParseInput::fork(bound, &mut input);
-                Ok(NumBound::Set(input.parse()?))
+                let exprs: VecExprParse = input.parse()?;
+                Ok(NumBoundParse(NumBound::Set(ast::TryEvaluateInto::NotResolved(exprs.0))))
             }
             _ => return Err(ParseErrorSource::internal("wrong num_bound rule")),
         }

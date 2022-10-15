@@ -21,13 +21,11 @@ pub enum TyKind {
     Unit,
     Boolean,
     Discrete(DiscreteTy),
-    DiscreteGeneric(Generics),
+    // DiscreteGeneric(Generics),
     Fixed(FixedTy),
-    FixedGeneric(Generics),
-    Float {
-        bits: u32,
-    },
-    FloatGeneric(Generics),
+    // FixedGeneric(Generics),
+    Float(FloatTy),
+    // FloatGeneric(Generics),
     Array {
         ty: Box<Ty>,
         len_bound: NumBound,
@@ -37,7 +35,7 @@ pub enum TyKind {
     },
     Fn {
         args: FnArguments,
-        ret_ty: Option<Box<Ty>>,
+        ret_ty: Box<Ty>,
     },
     AutoNumber(AutoNumber),
     IndexTyOf(Expr),
@@ -95,23 +93,14 @@ impl Display for Ty {
             TyKind::Unit => write!(f, "()"),
             TyKind::Boolean => write!(f, "bool"),
             TyKind::Discrete(d) => write!(f, "{}", d),
-            TyKind::DiscreteGeneric(g) => write!(f, "ds{}", g),
+            // TyKind::DiscreteGeneric(g) => write!(f, "ds{}", g),
             TyKind::Fixed(fixed) => write!(f, "{}", fixed),
-            TyKind::FixedGeneric(g) => write!(f, "fx{}", g),
-            TyKind::Float { bits } => write!(f, "f{}", bits),
-            TyKind::FloatGeneric(g) => write!(f, "f{}", g),
+            // TyKind::FixedGeneric(g) => write!(f, "fx{}", g),
+            TyKind::Float(fl) => write!(f, "{:?}", fl),
+            // TyKind::FloatGeneric(g) => write!(f, "f{}", g),
             TyKind::Array { ty, len_bound } => write!(f, "[{}; {}]", ty, len_bound),
             TyKind::Tuple { types } => write!(f, "({:?})", types),
-            TyKind::Fn { args, ret_ty } => {
-                match ret_ty {
-                    Some(ret_ty) => {
-                        write!(f, "fn({}) -> {}", args, ret_ty)
-                    }
-                    None => {
-                        write!(f, "fn({})", args)
-                    }
-                }
-            }
+            TyKind::Fn { args, ret_ty } => write!(f, "fn({}) -> {}", args, ret_ty),
             TyKind::AutoNumber(a) => write!(f, "{}", a),
             TyKind::IndexTyOf(expr) => write!(f, "index_ty_of<{}>", expr),
             TyKind::Generic { id, params } => write!(f, "{}{}", id, params),

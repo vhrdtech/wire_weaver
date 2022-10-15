@@ -31,6 +31,11 @@ pub enum ParseErrorKind {
     MalformedResourcePath,
     WrongAccessModifier,
     CellWithAccessModifier,
+    FnWithMods,
+    ConstWithMods,
+    WoObserve,
+    CellWithConstRo,
+    CellWithRoStream,
 }
 
 #[derive(Error, Debug)]

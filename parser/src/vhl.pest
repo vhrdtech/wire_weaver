@@ -18,21 +18,22 @@ identifier_continue = @{ XID_CONTINUE+ }
 bool_ty = { "bool" }
 
 // Discrete number types
-/// i8 / i128 / i3`unit` / i<expr -> bits, [expr -> +/-shift], [expr -> numbound], [expr -> unit]>
-discrete_signed_ty = @{ "i" ~ (natural_number | generics) }
+/// i8 / i128 / i3`unit` / i<expr -> (bits, [expr -> numbound], [expr -> unit]>, [expr -> +/-shift])
+discrete_signed_ty = ${ "i" ~ natural_number }
 /// u8 / u128 / u11 / u<expr -> bits, [expr -> +/-shift], [expr -> numbound]>
-discrete_unsigned_ty = @{ "u" ~ (natural_number | generics) }
-discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ si_expr_ticked? }
+discrete_unsigned_ty = ${ "u" ~ natural_number }
+discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ num_bound_braced? ~ si_expr_ticked? }
 
 // Fixed point number types
 /// Signed: q3.12 / q< expr -> (m, n) > / q< expr -> (m, discrete_any_ty) >
-fixed_signed_ty = @{ "q" ~ ((whole_number ~ "." ~ whole_number) | generics) }
+fixed_signed_ty = ${ "q" ~ whole_number ~ "." ~ whole_number }
 /// Unsigned: uq1.15 / uq< expr -> (m, n) > uq< expr -> (m, discrete_any_ty) >
-fixed_unsigned_ty = @{ "uq" ~ ((whole_number ~ "." ~ whole_number) | generics) }
-fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ si_expr_ticked? }
+fixed_unsigned_ty = ${ "uq" ~ whole_number ~ "." ~ whole_number }
+fixed_any_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ num_bound_braced? ~ si_expr_ticked? }
 
 /// Floating point number types
-floating_any_ty = { ("f32" | "f64") ~ si_expr_ticked? }
+float_ty_inner = ${ "f" ~ natural_number }
+floating_any_ty = { float_ty_inner ~ num_bound_braced? ~ si_expr_ticked? }
 
 /// Textual types
 textual_any_ty = { "char" | "str" }
@@ -42,6 +43,7 @@ num_unbound = { "?" }
 num_bound_max = { "max" ~ dec_lit_raw } // sugar for 0..=max
 num_bound_list = { expression_list } // 8, 16, 24..=32, 48
 num_bound = { num_unbound | num_bound_max | num_bound_list }
+num_bound_braced = _{ "@" ~ "{" ~ num_bound ~ "}" }
 
 // Sequence types
 /// Unit: ()
@@ -59,7 +61,6 @@ generic_ty = { identifier ~ (generics) }
 
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
-/// Any supported type without access modifier
 standard_any_ty = _ {
     bool_ty |
     discrete_any_ty |
@@ -121,7 +122,8 @@ oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
 oct_lit_raw = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* }
 /// Floating point
 float_exponent = @{ "e" | "E" ~ dec_lit_raw }
-float_lit = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) ~ floating_any_ty? }
+float_lit_internal = { (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) }
+float_lit = { float_lit_internal ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
 discrete_lit = { dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw ~ discrete_any_ty? }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
@@ -220,9 +222,8 @@ expression_list = _{ expression ~ ("," ~ expression)* ~ ","? }
 inner_attribute = { "#![" ~ attribute ~ "]" }
 outer_attribute = { "#[" ~ attribute ~ "]" }
 attribute = _{ simple_path ~ attribute_input? }
-path_segment = { identifier }
-simple_path = { "::"? ~ path_segment ~ ("::" ~ path_segment)* }
-attribute_input = { delim_token_tree | "=" ~ expression }
+simple_path = { "::"? ~ identifier ~ ("::" ~ identifier)* }
+attribute_input = { expression | ("~" ~ delim_token_tree) }
 
 // Optional doc comments and attributes prior to many user defined things
 doc_attr = _{ doc_comment* ~ outer_attribute* }
@@ -258,7 +259,7 @@ xpi_block = { doc_attr ~ "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier_continue?) | (expression_ticked ~ identifier_continue?) }
 resource_cell_ty = { "Cell" ~ "<" ~ xpi_resource_transform? ~ any_ty ~ ">" } // sugar to allow Cell<rw+observe u8> and similar
 xpi_resource_ty = { "<" ~ (xpi_resource_transform? ~ (resource_cell_ty | any_ty) ~ ","?)? ~ xpi_serial? ~ ">" }
-xpi_serial = @{ "#" ~ dec_lit_raw }
+xpi_serial = ${ "#" ~ dec_lit_raw }
 xpi_body = { "{" ~ xpi_body_inner* ~ "}" }
 xpi_body_inner = _{ xpi_field | xpi_impl | xpi_block }
 xpi_field = { identifier ~ ":" ~ expression ~ ";" }

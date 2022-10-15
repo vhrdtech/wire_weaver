@@ -7,11 +7,11 @@ pub struct XpiDef {
     pub doc: Doc,
     pub attrs: Attrs,
     pub uri_segment: UriSegmentSeed,
-    pub serial: u32,
-    // u32::MAX for root for convenience, not used
+    pub serial: Option<u32>,
     pub kind: XpiKind,
-    pub kv: HashMap<String, TryEvaluateInto<Expr, Lit>>,
-    // pub implements: Vec<>,
+    pub kv: HashMap<Identifier, TryEvaluateInto<Expr, Lit>>,
+    pub implements: Vec<Expr>,
+    // TODO: change to ?
     pub children: Vec<XpiDef>,
     pub span: Span,
 }
@@ -140,11 +140,11 @@ pub struct XpiBody {}
 impl Display for UriSegmentSeed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            UriSegmentSeed::Resolved(id) => write!(f, "/{:-}", id),
+            UriSegmentSeed::Resolved(id) => write!(f, "/{}", id),
             UriSegmentSeed::ExprOnly(expr) => write!(f, "/{}", expr),
-            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "/{}{:-}", expr, id),
-            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "/{:-}{}", id, expr),
-            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "/{}{:-}{}", expr1, id, expr2),
+            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "/{}{}", expr, id),
+            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "/{}{}", id, expr),
+            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "/{}{}{}", expr1, id, expr2),
         }
     }
 }

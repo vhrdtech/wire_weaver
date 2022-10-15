@@ -4,6 +4,8 @@ use crate::{Identifier, Lit, Path, Span, Ty};
 use crate::ops::{BinaryOp, UnaryOp};
 use crate::path::ResourcePathMarker;
 
+/// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
+/// Atoms is everything except Cons variant, pre-processed by pest.
 #[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
     Call { method: Identifier, args: VecExpr },
@@ -51,7 +53,7 @@ impl Expr {
                 }
             }
             Expr::Id(ident) => {
-                path.items.push(ident.clone());
+                path.segments.push(ident.clone());
                 Some(())
             }
             _ => None

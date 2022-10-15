@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::{Attrs, Doc, Generics, Identifier, Stmt, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FunctionDef {
-    pub docs: Doc,
+pub struct FnDef {
+    pub doc: Doc,
     pub attrs: Attrs,
     pub name: Identifier,
     pub generics: Option<Generics>,

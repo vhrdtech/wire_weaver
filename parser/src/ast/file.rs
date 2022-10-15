@@ -1,4 +1,4 @@
-use crate::ast::definition::Definition;
+use crate::ast::definition::DefinitionParse;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
-pub struct File {
+pub struct FileParse {
     pub ast_file: ast::File,
     pub warnings: Vec<ParseWarning>,
 }
@@ -28,7 +28,7 @@ pub enum FileErrorKind {
     Parser(Vec<ParseError>),
 }
 
-impl File {
+impl FileParse {
     pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, FileError> {
         let mut pi =
             <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| FileError {
@@ -65,7 +65,7 @@ impl File {
                                 &mut warnings,
                                 &mut errors,
                             );
-                            let def: Result<Definition, _> = input.parse();
+                            let def: Result<DefinitionParse, _> = input.parse();
                             match def {
                                 Ok(def) => {
                                     defs.push(def.0);
@@ -101,7 +101,7 @@ impl File {
             None => {}
         }
         if errors.is_empty() {
-            Ok(File {
+            Ok(FileParse {
                 ast_file: ast::File {
                     origin,
                     defs,

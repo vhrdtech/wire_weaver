@@ -1,5 +1,5 @@
 use super::prelude::*;
-use parser::ast::file::File;
+use parser::ast::file::FileParse;
 use crate::commands::DevArgs;
 
 pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
@@ -7,7 +7,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
     let input = std::fs::read_to_string(local_path.clone())
         .context(format!("unable to open '{:?}'", dev_args.vhl_source))?;
     let origin = SpanOrigin::Parser(SourceOrigin::File(local_path.clone()));
-    let file = match File::parse(&input, origin.clone()) {
+    let file = match FileParse::parse(&input, origin.clone()) {
         Ok(file) => file,
         Err(e) => {
             println!("{}", e);
@@ -46,7 +46,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         //     }
         // }
     } else if dev_args.parser {
-        let ast_parser = File::parse(input, origin)?;
+        let ast_parser = FileParse::parse(input, origin)?;
         println!("{:?}", ast_parser.ast_file);
         // match dev_args.definition {
         //     Some(_name) => {

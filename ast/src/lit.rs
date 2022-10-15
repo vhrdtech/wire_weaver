@@ -22,6 +22,22 @@ pub enum LitKind {
     Array(ArrayLit),
 }
 
+impl Lit {
+    pub fn is_a_number(&self) -> bool {
+        use LitKind::*;
+        match self.kind {
+            Discrete(_) => true,
+            Fixed(_) => true,
+            Float(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_same_kind(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.kind) == std::mem::discriminant(&other.kind)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DiscreteLit {
     pub val: u128,

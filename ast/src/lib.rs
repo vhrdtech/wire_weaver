@@ -38,7 +38,7 @@ pub use lit::{Lit, VecLit};
 pub use expr::{Expr, VecExpr, TryEvaluateInto};
 pub use attribute::Attrs;
 pub use type_alias_def::TypeAliasDef;
-pub use fn_def::{FunctionDef, FnArg, FnArguments};
+pub use fn_def::{FnDef, FnArg, FnArguments};
 pub use enum_def::{EnumDef, EnumItem, EnumItemKind};
 pub use struct_def::StructDef;
 pub use xpi_def::XpiDef;

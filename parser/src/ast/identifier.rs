@@ -2,10 +2,11 @@ use super::prelude::*;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use pest::iterators::Pair;
+use ast::Identifier;
 use ast::identifier::IdentifierContext;
 
-#[derive(Clone)]
-pub struct Identifier<K>(pub ast::Identifier, PhantomData<K>);
+pub struct IdentifierParse<K>(pub Identifier, PhantomData<K>);
 
 macro_rules! identifier_context {
     ($context: ident) => {
@@ -78,8 +79,8 @@ mod sealed {
 //         })
 //     }
 // }
-impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for Identifier<K> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Identifier<K>, ParseErrorSource> {
+impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for IdentifierParse<K> {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<IdentifierParse<K>, ParseErrorSource> {
         let ident = match input.pairs.peek() {
             Some(p) => match p.as_rule() {
                 Rule::identifier | Rule::identifier_continue => { // TODO: handle ident_continue better?
@@ -94,7 +95,7 @@ impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for Identifier<K> {
                 return Err(ParseErrorSource::UnexpectedInput);
             }
         };
-        Ok(Identifier(ast::Identifier {
+        Ok(IdentifierParse(Identifier {
             symbols: Rc::new(ident.as_str().to_owned()),
             context: K::context(),
             span: ast_span_from_pest(ident.as_span()),
@@ -103,12 +104,12 @@ impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for Identifier<K> {
 }
 
 // use sealed::IdentifierKind;
-// impl<'i> From<Pair<'i, crate::lexer::Rule>> for Identifier<'i, UserTyName> {
-//     fn from(p: Pair<'i, crate::lexer::Rule>) -> Self {
-//         Identifier {
-//             name: p.as_str(),
-//             span: p.as_span(),
-//             kind: UserTyName::new(),
-//         }
-//     }
-// }
+impl<'i, K: sealed::IdentifierContextParse> From<Pair<'i, crate::lexer::Rule>> for IdentifierParse<K> {
+    fn from(p: Pair<'i, crate::lexer::Rule>) -> Self {
+        IdentifierParse(Identifier {
+            symbols: Rc::new(p.as_str().to_owned()),
+            context: K::context(),
+            span: ast_span_from_pest(p.as_span()),
+        }, PhantomData)
+    }
+}

@@ -1,66 +1,47 @@
-use crate::ast::naming::{StructFieldName, StructTyName};
+use ast::struct_def::StructField;
+use ast::StructDef;
 use crate::ast::prelude::*;
-use crate::ast::ty::Ty;
-use pest::Span;
+use crate::ast::ty::TyParse;
 
-#[derive(Debug, Clone)]
-pub struct DefStruct<'i> {
-    pub doc: Doc<'i>,
-    pub attrs: Attrs<'i>,
-    pub typename: Identifier<'i, StructTyName>,
-    pub fields: StructFields<'i>,
-    pub span: Span<'i>,
-}
+pub struct StructDefParse(pub StructDef);
 
-#[derive(Debug, Clone)]
-pub struct StructFields<'i> {
-    pub fields: Vec<StructField<'i>>,
-}
+pub struct StructFieldsParse(pub Vec<StructField>);
 
-#[derive(Debug, Clone)]
-pub struct StructField<'i> {
-    pub doc: Doc<'i>,
-    pub attrs: Attrs<'i>,
-    pub name: Identifier<'i, StructFieldName>,
-    pub ty: Ty<'i>,
-    pub span: Span<'i>,
-}
-
-impl<'i> Parse<'i> for DefStruct<'i> {
+impl<'i> Parse<'i> for StructDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::struct_def)?, input);
-
-        Ok(DefStruct {
-            doc: input.parse()?,
-            attrs: input.parse()?,
-            typename: input.parse()?,
-            fields: input.parse()?,
-            span: input.span,
-        })
+        let doc: DocParse = input.parse()?;
+        let attrs: AttrsParse = input.parse()?;
+        let typename: IdentifierParse<identifier::EnumTyName> = input.parse()?;
+        let fields: StructFieldsParse = input.parse()?;
+        Ok(StructDefParse(StructDef {
+            doc: doc.0,
+            attrs: attrs.0,
+            typename: typename.0,
+            fields: fields.0,
+            span: ast_span_from_pest(input.span.clone()),
+        }))
     }
 }
 
-impl<'i> Parse<'i> for StructFields<'i> {
+impl<'i> Parse<'i> for StructFieldsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut fields = Vec::new();
         while let Some(_) = input.pairs.peek() {
             let mut input = ParseInput::fork(input.expect1(Rule::struct_field)?, input);
-            fields.push(input.parse()?);
+            let doc: DocParse = input.parse()?;
+            let attrs: AttrsParse = input.parse()?;
+            let name: IdentifierParse<identifier::StructFieldName> = input.parse()?;
+            let ty: TyParse = input.parse()?;
+            fields.push(StructField {
+                doc: doc.0,
+                attrs: attrs.0,
+                name: name.0,
+                ty: ty.0,
+                span: ast_span_from_pest(input.span.clone()),
+            });
         }
 
-        Ok(StructFields { fields })
-    }
-}
-
-impl<'i> Parse<'i> for StructField<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let span = input.span.clone();
-        Ok(StructField {
-            doc: input.parse()?,
-            attrs: input.parse()?,
-            name: input.parse()?,
-            ty: input.parse()?,
-            span,
-        })
+        Ok(StructFieldsParse(fields))
     }
 }

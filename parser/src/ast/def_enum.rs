@@ -1,73 +1,55 @@
+use ast::{EnumDef, EnumItem, EnumItemKind};
+use crate::ast::def_struct::StructFieldsParse;
+use crate::ast::lit::LitParse;
 use super::prelude::*;
-use crate::ast::naming::{EnumFieldName, EnumTyName};
-use crate::ast::tuple::TupleFieldsTy;
+use crate::ast::ty::TupleTyParse;
 use crate::error::ParseErrorSource;
 
-#[derive(Debug, Clone)]
-pub struct DefEnum<'i> {
-    pub docs: Doc<'i>,
-    pub attrs: Attrs<'i>,
-    pub typename: Identifier<'i, EnumTyName>,
-    pub entries: EnumItems<'i>,
-}
+pub struct EnumDefParse(pub EnumDef);
 
-#[derive(Debug, Clone)]
-pub struct EnumItems<'i> {
-    pub entries: Vec<EnumItem<'i>>,
-}
+pub struct EnumItemsParse(pub Vec<EnumItem>);
 
-#[derive(Debug, Clone)]
-pub struct EnumItem<'i> {
-    pub docs: Doc<'i>,
-    pub attrs: Attrs<'i>,
-    pub name: Identifier<'i, EnumFieldName>,
-    pub kind: Option<EnumItemKind<'i>>,
-}
+pub struct EnumItemKindParse(pub EnumItemKind);
 
-#[derive(Debug, Clone)]
-pub enum EnumItemKind<'i> {
-    Tuple(TupleFieldsTy<'i>),
-    Struct,
-    Discriminant(&'i str),
-}
-
-impl<'i> Parse<'i> for DefEnum<'i> {
+impl<'i> Parse<'i> for EnumDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::enum_def)?, input);
-
-        Ok(DefEnum {
-            docs: input.parse()?,
-            attrs: input.parse()?,
-            typename: input.parse()?,
-            entries: input.parse()?,
-        })
+        let doc: DocParse = input.parse()?;
+        let attrs: AttrsParse = input.parse()?;
+        let typename: IdentifierParse<identifier::EnumTyName> = input.parse()?;
+        let items: EnumItemsParse = input.parse()?;
+        Ok(EnumDefParse(EnumDef {
+            doc: doc.0,
+            attrs: attrs.0,
+            typename: typename.0,
+            items: items.0,
+            span: ast_span_from_pest(input.span.clone()),
+        }))
     }
 }
 
-impl<'i> Parse<'i> for EnumItems<'i> {
+impl<'i> Parse<'i> for EnumItemsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut entries = Vec::new();
         while let Some(_) = input.pairs.peek() {
             let mut input = ParseInput::fork(input.expect1(Rule::enum_item)?, input);
-            entries.push(input.parse()?);
+            let doc: DocParse = input.parse()?;
+            let attrs: AttrsParse = input.parse()?;
+            let name: IdentifierParse<identifier::EnumTyName> = input.parse()?;
+            let kind: Option<EnumItemKindParse> = input.parse_or_skip()?;
+            entries.push(EnumItem {
+                doc: doc.0,
+                attrs: attrs.0,
+                name: name.0,
+                kind: kind.map(|kind| kind.0),
+            });
         }
 
-        Ok(EnumItems { entries })
+        Ok(EnumItemsParse(entries))
     }
 }
 
-impl<'i> Parse<'i> for EnumItem<'i> {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        Ok(EnumItem {
-            docs: input.parse()?,
-            attrs: input.parse()?,
-            name: input.parse()?,
-            kind: input.parse_or_skip()?,
-        })
-    }
-}
-
-impl<'i> Parse<'i> for EnumItemKind<'i> {
+impl<'i> Parse<'i> for EnumItemKindParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::enum_item_kind)?, input);
         let entry_kind = match input.pairs.peek() {
@@ -78,11 +60,18 @@ impl<'i> Parse<'i> for EnumItemKind<'i> {
         match entry_kind.as_rule() {
             Rule::enum_item_tuple => {
                 let mut input = ParseInput::fork(input.expect1(Rule::enum_item_tuple)?, &mut input);
-                Ok(EnumItemKind::Tuple(input.parse()?))
+                let tuple_ty: TupleTyParse = input.parse()?;
+                Ok(EnumItemKindParse(EnumItemKind::Tuple(tuple_ty.0)))
             }
-            Rule::enum_item_struct => Err(ParseErrorSource::Unimplemented("enum item struct")),
+            Rule::enum_item_struct => {
+                let mut input = ParseInput::fork(input.expect1(Rule::enum_item_struct)?, &mut input);
+                let fields: StructFieldsParse = input.parse()?;
+                Ok(EnumItemKindParse(EnumItemKind::Struct(fields.0)))
+            },
             Rule::enum_item_discriminant => {
-                Err(ParseErrorSource::Unimplemented("enum item discriminant"))
+                let mut input = ParseInput::fork(input.expect1(Rule::enum_item_discriminant)?, &mut input);
+                let lit: LitParse = input.parse()?;
+                Ok(EnumItemKindParse(EnumItemKind::Discriminant(lit.0)))
             }
             _ => return Err(ParseErrorSource::internal("unexpected enum kind")),
         }

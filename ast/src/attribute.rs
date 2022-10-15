@@ -6,9 +6,9 @@ use crate::{Expr, Span, Path};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attrs {
-    attrs: Vec<Attr>,
+    pub attrs: Vec<Attr>,
     /// Element span to which attributes apply
-    span: Span,
+    pub span: Span,
 }
 
 // #[derive(Copy, Clone, Debug)]

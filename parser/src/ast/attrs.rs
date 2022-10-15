@@ -1,61 +1,49 @@
-use pest::iterators::Pair;
-use pest::Span;
-use crate::ast::expr::Expr;
+use ast::attribute::{Attr, AttrKind};
+use ast::Attrs;
+use crate::ast::expr::ExprParse;
+use crate::ast::paths::PathParse;
 use super::prelude::*;
-use crate::ast::naming::PathSegment;
 use crate::lexer::Rule;
 
 #[derive(Debug, Clone)]
-pub struct Attrs<'i> {
-    pub attributes: Vec<Attr<'i>>,
-    pub span: Span<'i>,
-}
+pub struct AttrsParse(pub Attrs);
 
-impl<'i> Parse<'i> for Attrs<'i> {
+impl<'i> Parse<'i> for AttrsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut attributes = Vec::new();
+        let mut attrs = Vec::new();
         while let Some(a) = input.pairs.peek() {
             if a.as_rule() == Rule::outer_attribute || a.as_rule() == Rule::inner_attribute {
                 let a = input.pairs.next().unwrap();
-                ParseInput::fork(a, input)
-                    .parse()
-                    .map(|attr| attributes.push(attr))?;
+                let mut input = ParseInput::fork(a, input);
+                let attr: AttrParse = input.parse()?;
+                attrs.push(attr.0);
             } else {
                 break;
             }
         }
-        Ok(Attrs { attributes, span: input.span.clone() })
+        Ok(AttrsParse(Attrs { attrs, span: ast_span_from_pest(input.span.clone()) }))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Attr<'i> {
-    pub path: Vec<Identifier<'i, PathSegment>>,
-    pub kind: AttrKind<'i>,
-}
+pub struct AttrParse(pub Attr);
 
 #[derive(Debug, Clone)]
-pub enum AttrKind<'i> {
-    TokenTree(Pair<'i, Rule>),
-    Expression(Expr<'i>),
-}
+pub struct AttrKindParse(pub AttrKind);
 
-impl<'i> Parse<'i> for Attr<'i> {
+impl<'i> Parse<'i> for AttrParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let (simple_path, attr_input) = input.expect2(Rule::simple_path, Rule::attribute_input)?;
+        let path: PathParse = input.parse()?;
 
-        let mut path_segments = Vec::new();
-        for segment in simple_path.into_inner() {
-            ParseInput::fork(segment, input).parse().map(|s| path_segments.push(s))?;
-        }
-
+        let attr_input = input.expect1(Rule::attribute_input)?;
         let mut attr_input = ParseInput::fork(attr_input, input);
         let kind = match attr_input.pairs.peek() {
             Some(p) => {
                 if p.as_rule() == Rule::expression {
-                    AttrKind::Expression(attr_input.parse()?)
+                    let expr: ExprParse = attr_input.parse()?;
+                    AttrKind::Expr(expr.0)
                 } else {
-                    AttrKind::TokenTree(attr_input.pairs.next().unwrap())
+                    AttrKind::TT(())
                 }
             }
             None => {
@@ -63,9 +51,10 @@ impl<'i> Parse<'i> for Attr<'i> {
             }
         };
 
-        Ok(Attr {
-            path: path_segments,
+        Ok(AttrParse(Attr {
+            path: path.0,
             kind,
-        })
+            span: ast_span_from_pest(input.span.clone()),
+        }))
     }
 }

@@ -1,22 +1,23 @@
-use crate::ast::definition::Definition;
+use crate::ast::definition::DefinitionParse;
 use super::prelude::*;
-use crate::ast::expr::Expr;
+use crate::ast::expr::ExprParse;
 use crate::ast::file::{FileError, FileErrorKind};
-use crate::ast::naming::VariableDefName;
-use crate::ast::ty::Ty;
+use crate::ast::ty::TyParse;
 use crate::error::{ParseError, ParseErrorKind};
 use crate::lexer::{Lexer, Rule};
 use ast::span::SpanOrigin;
+use ast::Stmt;
+use ast::stmt::LetStmt;
 
-#[derive(Debug, Clone)]
-pub enum Stmt<'i> {
-    Let(LetStmt<'i>),
-    Expr(Expr<'i>, bool),
-    Def(Definition<'i>)
-}
+pub struct StmtParse(pub Stmt);
 
-impl<'i> Stmt<'i> {
-    pub fn parse(input: &'i str, origin: SpanOrigin) -> Result<Self, FileError> {
+pub struct LetStmtParse(pub LetStmt);
+
+pub struct VecStmtParse(pub Vec<Stmt>);
+
+impl StmtParse {
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, FileError> {
+        let input = input.as_ref();
         let pairs =
             <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input).map_err(|e| FileError {
                 kind: FileErrorKind::Lexer(e),
@@ -77,7 +78,7 @@ impl<'i> Stmt<'i> {
     }
 }
 
-impl<'i> Parse<'i> for Stmt<'i> {
+impl<'i> Parse<'i> for StmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::statement)?, input);
         let s = input
@@ -85,21 +86,24 @@ impl<'i> Parse<'i> for Stmt<'i> {
             .peek()
             .ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
         match s.as_rule() {
-            Rule::let_stmt => Ok(Stmt::Let(input.parse()?)),
+            Rule::let_stmt => {
+                let let_stmt: LetStmtParse = input.parse()?;
+                Ok(StmtParse(Stmt::Let(let_stmt.0)))
+            },
             Rule::expr_stmt => {
                 let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);
-                let expr: Expr = input.parse()?;
+                let expr: ExprParse = input.parse()?;
                 let semicolon_present = input.pairs.next().is_some();
-                Ok(Stmt::Expr(expr, semicolon_present))
+                Ok(StmtParse(Stmt::Expr(expr.0, semicolon_present)))
             }
             Rule::braced_statement => {
                 todo!()
             }
             Rule::definition => {
                 let mut input = ParseInput::fork(s, &mut input);
-                let def: Definition = input.parse()?;
-                Ok(Stmt::Def(def))
+                let def: DefinitionParse = input.parse()?;
+                Ok(StmtParse(Stmt::Def(def.0)))
             }
             _ => Err(ParseErrorSource::internal_with_rule(
                 s.as_rule(),
@@ -109,20 +113,27 @@ impl<'i> Parse<'i> for Stmt<'i> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LetStmt<'i> {
-    pub ident: Identifier<'i, VariableDefName>,
-    pub type_ascription: Option<Ty<'i>>,
-    pub expr: Expr<'i>,
-}
-
-impl<'i> Parse<'i> for LetStmt<'i> {
+impl<'i> Parse<'i> for LetStmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::let_stmt)?, input);
-        Ok(LetStmt {
-            ident: input.parse()?,
-            type_ascription: input.parse_or_skip()?,
-            expr: input.parse()?,
-        })
+        let ident: IdentifierParse<identifier::VariableDefName> = input.parse()?;
+        let ty: Option<TyParse> = input.parse_or_skip()?;
+        let expr: ExprParse = input.parse()?;
+        Ok(LetStmtParse(LetStmt {
+            ident: ident.0,
+            type_ascription: ty.map(|ty| ty.0),
+            expr: expr.0,
+        }))
+    }
+}
+
+impl<'i> Parse<'i> for VecStmtParse {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut stmts = Vec::new();
+        while let Some(_) = input.pairs.peek() {
+            let stmt: StmtParse = input.parse()?;
+            stmts.push(stmt.0);
+        }
+        Ok(VecStmtParse(stmts))
     }
 }

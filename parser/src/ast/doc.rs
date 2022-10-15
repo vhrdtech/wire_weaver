@@ -1,11 +1,11 @@
 use super::prelude::*;
 use std::rc::Rc;
+use ast::Doc;
 
-#[derive(Debug, Clone)]
-pub struct Doc(pub ast::Doc);
+pub struct DocParse(pub Doc);
 
-impl<'i> Parse<'i> for Doc {
-    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Doc, ParseErrorSource> {
+impl<'i> Parse<'i> for DocParse {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<DocParse, ParseErrorSource> {
         let mut lines = Vec::new();
         while let Some(p) = input.pairs.peek() {
             if p.as_rule() == Rule::doc_comment {
@@ -21,6 +21,6 @@ impl<'i> Parse<'i> for Doc {
                 break;
             }
         }
-        Ok(Doc(ast::Doc { lines }))
+        Ok(DocParse(Doc { lines }))
     }
 }

@@ -117,53 +117,55 @@ impl FileParse {
         }
     }
 
-    // pub fn parse_tree(
-    //     input: &'i str,
-    //     def_name: &str,
-    //     origin: SpanOrigin,
-    // ) -> Result<Option<String>, FileError> {
-    //     let mut pi =
-    //         <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
-    //             kind: FileErrorKind::Lexer(e),
-    //             origin: origin.clone(),
-    //             input: input.to_owned(),
-    //         })?;
-    //     let mut tree = None;
-    //     match pi.next() {
-    //         // Rule::file
-    //         Some(pair) => {
-    //             let mut pi = pair.into_inner();
-    //             while let Some(p) = pi.next() {
-    //                 match p.as_rule() {
-    //                     Rule::definition => {
-    //                         let mut name = None;
-    //                         for p in p.clone().into_inner().flatten() {
-    //                             match p.as_rule() {
-    //                                 Rule::identifier => {
-    //                                     name = Some(p.as_str());
-    //                                     break;
-    //                                 }
-    //                                 _ => continue,
-    //                             };
-    //                         }
-    //                         match name {
-    //                             Some(name) => {
-    //                                 if name == def_name {
-    //                                     tree = Some(crate::util::pest_tree(p.into_inner()));
-    //                                     break;
-    //                                 }
-    //                             }
-    //                             None => {}
-    //                         }
-    //                     }
-    //                     _ => {}
-    //                 }
-    //             }
-    //         }
-    //         None => {}
-    //     }
-    //     Ok(tree)
-    // }
+    pub fn parse_tree<S: AsRef<str>>(
+        input: S,
+        def_name: S,
+        origin: SpanOrigin,
+    ) -> Result<Option<String>, FileError> {
+        let input = input.as_ref();
+        let def_name = def_name.as_ref();
+        let mut pi =
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
+                kind: FileErrorKind::Lexer(e),
+                origin: origin.clone(),
+                input: input.to_owned(),
+            })?;
+        let mut tree = None;
+        match pi.next() {
+            // Rule::file
+            Some(pair) => {
+                let mut pi = pair.into_inner();
+                while let Some(p) = pi.next() {
+                    match p.as_rule() {
+                        Rule::definition => {
+                            let mut name = None;
+                            for p in p.clone().into_inner().flatten() {
+                                match p.as_rule() {
+                                    Rule::identifier => {
+                                        name = Some(p.as_str());
+                                        break;
+                                    }
+                                    _ => continue,
+                                };
+                            }
+                            match name {
+                                Some(name) => {
+                                    if name == def_name {
+                                        tree = Some(crate::util::pest_tree(p.into_inner()));
+                                        break;
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            None => {}
+        }
+        Ok(tree)
+    }
 }
 
 impl Display for FileError {

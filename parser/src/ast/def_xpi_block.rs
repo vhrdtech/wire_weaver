@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use super::prelude::*;
 use crate::ast::expr::ExprParse;
 use crate::ast::ty::TyParse;
 use crate::error::{ParseError, ParseErrorKind};
-use ast::{TryEvaluateInto, TyKind};
+use ast::{TryEvaluateInto, TyKind, XpiDef};
 use ast::xpi_def::{AccessMode, XpiKind};
 
 pub struct XpiDefParse(pub ast::XpiDef);
@@ -27,7 +28,7 @@ impl<'i> Parse<'i> for XpiDefParse {
         let doc: DocParse = input.parse()?;
         let attrs: AttrsParse = input.parse()?;
         let uri_segment: UriSegmentSeedParse = input.parse()?;
-        let resource_ty: XpiResourceTyParse = input.parse()?;
+        let resource_ty: Option<XpiResourceTyParse> = input.parse_or_skip()?;
         let mut kv = HashMap::new();
         let mut implements = Vec::new();
         let mut children = Vec::new();
@@ -56,12 +57,15 @@ impl<'i> Parse<'i> for XpiDefParse {
             }
         }
 
+        let (serial, kind) = resource_ty
+            .map(|rt| (rt.serial, rt.kind))
+            .unwrap_or((None, XpiKind::Group));
         Ok(XpiDefParse(ast::XpiDef {
             doc: doc.0,
             attrs: attrs.0,
             uri_segment: uri_segment.0,
-            serial: resource_ty.serial,
-            kind: resource_ty.kind,
+            serial,
+            kind,
             kv,
             implements,
             children,
@@ -411,6 +415,7 @@ impl<'i> Parse<'i> for XpiBlockKeyValueParse {
 //         span,
 //     })
 // }
+
 
 #[cfg(test)]
 mod test {

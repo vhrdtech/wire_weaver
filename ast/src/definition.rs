@@ -16,7 +16,7 @@ impl Display for Definition {
         match self {
             Definition::Enum(ed) => write!(f, "{:?}", ed),
             Definition::Struct(s) => write!(f, "{}", s),
-            Definition::Xpi(x) => write!(f, "{:?}", x),
+            Definition::Xpi(x) => write!(f, "{}", x),
             Definition::Function(fd) => write!(f, "{:?}", fd),
             Definition::TypeAlias(a) => write!(f, "{:?}", a),
         }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use util::color;
 use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, Span, TryEvaluateInto, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -140,11 +141,38 @@ pub struct XpiBody {}
 impl Display for UriSegmentSeed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            UriSegmentSeed::Resolved(id) => write!(f, "/{}", id),
-            UriSegmentSeed::ExprOnly(expr) => write!(f, "/{}", expr),
-            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "/{}{}", expr, id),
-            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "/{}{}", id, expr),
-            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "/{}{}{}", expr1, id, expr2),
+            UriSegmentSeed::Resolved(id) => write!(f, "${:-}", id),
+            UriSegmentSeed::ExprOnly(expr) => write!(f, "${}", expr),
+            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "${}{:-}", expr, id),
+            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "${:-}{}", id, expr),
+            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "${}{:-}{}", expr1, id, expr2),
         }
+    }
+}
+
+impl Display for XpiDef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{b}{y}XpiDef<{d}{} #{:?} {:?} impl:{:?} kv:{:?} child:[ ",
+            self.doc,
+            self.attrs,
+            self.uri_segment,
+            self.serial,
+            self.kind,
+            self.implements,
+            self.kv,
+            b = color::BOLD,
+            y = color::YELLOW,
+            d = color::DEFAULT,
+        )?;
+        self.children.iter().try_for_each(|xd| write!(f, "{}", xd))?;
+        write!(
+            f,
+            " ]{b}{y}>{d}",
+            b = color::BOLD,
+            y = color::YELLOW,
+            d = color::DEFAULT,
+        )
     }
 }

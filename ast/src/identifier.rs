@@ -67,6 +67,8 @@ impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.sign_plus() {
             write!(f, "Id:{}{}{} @{:#}", color::MAGENTA, self.symbols, color::DEFAULT, self.span)
+        } else if f.sign_minus() {
+            write!(f, "{}{}{}", color::MAGENTA, self.symbols, color::DEFAULT)
         } else {
             write!(f, "Id:{}{}{}", color::MAGENTA, self.symbols, color::DEFAULT)
         }
@@ -77,6 +79,8 @@ impl Debug for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.sign_plus() {
             write!(f, "{:+}", self)
+        } else if f.sign_minus() {
+            write!(f, "{:-}", self)
         } else {
             write!(f, "{}", self)
         }

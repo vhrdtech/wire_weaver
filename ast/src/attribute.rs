@@ -1,10 +1,10 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use util::color;
 // use mtoken::{TokenTree, TokenStream, Delimiter, Group, token::IdentFlavor};
 // use mtoken::ext::TokenStreamExt;
 use crate::{Expr, Span, Path};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub attrs: Vec<Attr>,
     /// Element span to which attributes apply
@@ -154,10 +154,10 @@ impl Display for Attr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}#[{}", color::YELLOW, self.path)?;
         match &self.kind {
-            AttrKind::TT(_) => write!(f, "#[TS]")?,
-            AttrKind::Expr(expr) => write!(f, " = {}", expr)?,
+            AttrKind::TT(_) => write!(f, "~ TS")?,
+            AttrKind::Expr(expr) => write!(f, "({})", expr)?,
         }
-        write!(f, "]{}", color::DEFAULT)
+        write!(f, "{}]{}", color::YELLOW, color::DEFAULT)
     }
 }
 
@@ -168,5 +168,11 @@ impl Display for Attrs {
             " ".to_owned(),
         ).try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
+    }
+}
+
+impl Debug for Attrs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

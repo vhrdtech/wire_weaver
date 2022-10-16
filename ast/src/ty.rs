@@ -121,20 +121,32 @@ impl Display for Ty {
 impl Display for DiscreteTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let sym = if self.is_signed { 'i' } else { 'u' };
-        write!(f, "{}{}", sym, self.bits)
+        write!(f, "{}{}", sym, self.bits)?;
+        if self.num_bound != NumBound::Unbound {
+            write!(f, " {}", self.num_bound)?;
+        }
+        Ok(())
     }
 }
 
 impl Display for FixedTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let sym = if self.is_signed { "iq" } else { "uq" };
-        write!(f, "{}<{}, {}>", sym, self.m, self.n)
+        write!(f, "{}<{}, {}>", sym, self.m, self.n)?;
+        if self.num_bound != NumBound::Unbound {
+            write!(f, " {}", self.num_bound)?;
+        }
+        Ok(())
     }
 }
 
 impl Display for FloatTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "f{}", self.bits)
+        write!(f, "f{}", self.bits)?;
+        if self.num_bound != NumBound::Unbound {
+            write!(f, " {}", self.num_bound)?;
+        }
+        Ok(())
     }
 }
 

@@ -22,6 +22,7 @@ pub struct FloatTyParse(pub FloatTy);
 
 impl<'i> Parse<'i> for TyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        crate::util::pest_print_tree(input.pairs.clone());
         let any_ty = input.expect1(Rule::any_ty)?;
         let span = ast_span_from_pest(input.span.clone());
         let ty = any_ty
@@ -163,14 +164,15 @@ impl<'i> Parse<'i> for FloatTyParse {
 }
 
 fn parse_generic_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::generic_ty)?, input);
     let typename: IdentifierParse<identifier::GenericName> = input.parse()?;
     match typename.0.symbols.as_str() {
         "autonum" => parse_autonum_ty(
-            &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+            &mut ParseInput::fork(input.expect1(Rule::generics)?, &mut input),
             span,
         ),
         "indexof" => parse_indexof_ty(
-            &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+            &mut ParseInput::fork(input.expect1(Rule::generics)?, &mut input),
             span,
         ),
         _ => {

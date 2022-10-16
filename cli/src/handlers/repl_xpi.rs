@@ -95,14 +95,14 @@ pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
             }
         };
 
-        // match parser::ast::stmt::Stmt::parse(stmt.as_str(), origin.clone()) {
-        //     Ok(stmt) => {
-        //         println!("{:?}", stmt);
-        //     }
-        //     Err(e) => {
-        //         println!("Error parsing: {:?}", e);
-        //     }
-        // }
+        match parser::ast::stmt::StmtParse::parse(stmt.as_str(), origin.clone()) {
+            Ok(stmt) => {
+                println!("{:?}", stmt.0);
+            }
+            Err(e) => {
+                println!("Error parsing: {:?}", e);
+            }
+        }
 
         count += 1;
     }

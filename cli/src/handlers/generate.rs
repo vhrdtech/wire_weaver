@@ -3,7 +3,7 @@ use super::prelude::*;
 // use vhl::ast::file::Definition;
 use crate::commands::GenerateArgs;
 
-pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
+pub fn generate_subcmd(_generate_args: GenerateArgs) -> Result<()> {
     // let input = std::fs::read_to_string(generate_args.vhl_source.clone())
     //     .context(format!("unable to open '{:?}'", generate_args.vhl_source))?;
     // let origin = SpanOrigin::Parser(SourceOrigin::File(generate_args.vhl_source.clone()));

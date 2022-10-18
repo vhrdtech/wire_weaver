@@ -141,11 +141,11 @@ pub struct XpiBody {}
 impl Display for UriSegmentSeed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            UriSegmentSeed::Resolved(id) => write!(f, "${:-}", id),
-            UriSegmentSeed::ExprOnly(expr) => write!(f, "${}", expr),
-            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "${}{:-}", expr, id),
-            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "${:-}{}", id, expr),
-            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "${}{:-}{}", expr1, id, expr2),
+            UriSegmentSeed::Resolved(id) => write!(f, "{:-}", id),
+            UriSegmentSeed::ExprOnly(expr) => write!(f, "{}", expr),
+            UriSegmentSeed::ExprThenNamedPart(expr, id) => write!(f, "{}{:-}", expr, id),
+            UriSegmentSeed::NamedPartThenExpr(id, expr) => write!(f, "{:-}{}", id, expr),
+            UriSegmentSeed::Full(expr1, id, expr2) => write!(f, "{}{:-}{}", expr1, id, expr2),
         }
     }
 }

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use super::prelude::*;
 use crate::ast::expr::ExprParse;
@@ -8,7 +7,7 @@ use crate::error::{ParseError, ParseErrorKind};
 use ast::{TryEvaluateInto, TyKind, XpiDef};
 use ast::xpi_def::{AccessMode, XpiKind};
 
-pub struct XpiDefParse(pub ast::XpiDef);
+pub struct XpiDefParse(pub XpiDef);
 
 pub struct UriSegmentSeedParse(pub ast::xpi_def::UriSegmentSeed);
 
@@ -60,7 +59,7 @@ impl<'i> Parse<'i> for XpiDefParse {
         let (serial, kind) = resource_ty
             .map(|rt| (rt.serial, rt.kind))
             .unwrap_or((None, XpiKind::Group));
-        Ok(XpiDefParse(ast::XpiDef {
+        Ok(XpiDefParse(XpiDef {
             doc: doc.0,
             attrs: attrs.0,
             uri_segment: uri_segment.0,

@@ -49,7 +49,8 @@ impl Highlighter for MyHelper {
 
 pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
     println!("Loading: {}", repl_xpi.vhl_source);
-    let origin = SpanOrigin::Parser(SourceOrigin::File(repl_xpi.vhl_source.into()));
+    let _origin = SpanOrigin::Parser(SourceOrigin::File(repl_xpi.vhl_source.into()));
+    let repl_origin = SpanOrigin::Parser(SourceOrigin::Str);
 
     let rl_config = Config::builder()
         .history_ignore_space(true)
@@ -95,12 +96,12 @@ pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
             }
         };
 
-        match parser::ast::stmt::StmtParse::parse(stmt.as_str(), origin.clone()) {
+        match parser::ast::stmt::StmtParse::parse(stmt.as_str(), repl_origin.clone()) {
             Ok(stmt) => {
                 println!("{:?}", stmt.0);
             }
             Err(e) => {
-                println!("Error parsing: {:?}", e);
+                e.print_report();
             }
         }
 

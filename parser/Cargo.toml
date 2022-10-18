@@ -7,7 +7,7 @@ edition = "2021"
 pest = "2.1"
 pest_derive = "2.1"
 thiserror = "1.0"
-either = "1.8"
+codespan-reporting = "0.11"
 ast = { path = "../ast" }
 
 [dev-dependencies]

@@ -1,5 +1,6 @@
 file = { SOI ~ file_item* ~ EOI }
 file_item = _{ definition | inner_attribute }
+repl = _{ SOI ~ statement ~ EOI }
 
 // Number traits
 // TODO: make non-atomic + add lint warning instead of failing here
@@ -100,7 +101,7 @@ fn_ret_ty = { "->" ~ any_ty }
 definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 
 // Statements
-let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression ~ ";" }
+let_stmt = { "let" ~ identifier ~ (":" ~ any_ty)? ~ "=" ~ expression ~ punct_semicolon }
 punct_semicolon = { ";" }
 expr_stmt = { expression ~ punct_semicolon? }
 statement = { let_stmt | braced_statement | definition | expr_stmt }
@@ -122,7 +123,7 @@ oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
 oct_lit_raw = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* }
 /// Floating point
 float_exponent = @{ "e" | "E" ~ dec_lit_raw }
-float_lit_internal = { (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) }
+float_lit_internal = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) }
 float_lit = { float_lit_internal ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
 discrete_lit = { dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw ~ discrete_any_ty? }
@@ -223,7 +224,7 @@ inner_attribute = { "#![" ~ attribute ~ "]" }
 outer_attribute = { "#[" ~ attribute ~ "]" }
 attribute = _{ simple_path ~ attribute_input? }
 simple_path = { "::"? ~ identifier ~ ("::" ~ identifier)* }
-attribute_input = { expression | ("~" ~ delim_token_tree) }
+attribute_input = { ("(" ~ expression ~ ")") | ("~" ~ delim_token_tree) }
 
 // Optional doc comments and attributes prior to many user defined things
 doc_attr = _{ doc_comment* ~ outer_attribute* }
@@ -255,7 +256,7 @@ delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ t
 token = { identifier | any_lit | punctuation }
 
 // xPI Blocks
-xpi_block = { doc_attr ~ "/" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
+xpi_block = { doc_attr ~ "rs" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier_continue?) | (expression_ticked ~ identifier_continue?) }
 resource_cell_ty = { "Cell" ~ "<" ~ xpi_resource_transform? ~ any_ty ~ ">" } // sugar to allow Cell<rw+observe u8> and similar
 xpi_resource_ty = { "<" ~ (xpi_resource_transform? ~ (resource_cell_ty | any_ty) ~ ","?)? ~ xpi_serial? ~ ">" }

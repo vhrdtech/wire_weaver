@@ -1,7 +1,29 @@
 use crate::lexer::Rule;
+use ast::SpanOrigin;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use pest::error::InputLocation;
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
+use std::fmt::{Display, Formatter};
+use std::ops::Range;
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub struct Error {
+    pub kind: ErrorKind,
+    pub origin: SpanOrigin,
+    pub input: String,
+}
+
+#[derive(Error, Debug)]
+pub enum ErrorKind {
+    #[error("Source contains syntax errors")]
+    Grammar(pest::error::Error<Rule>),
+    #[error("Source contains structural errors")]
+    Parser(Vec<ParseError>),
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseError {
@@ -90,8 +112,87 @@ impl ParseErrorSource {
     }
 }
 
-// impl ParseErrorSource {
-//     pub fn is_internal(&self) -> bool {
-//         *self == ParseErrorSource::InternalError
-//     }
-// }
+impl Error {
+    pub fn report(&self) -> Vec<Diagnostic<()>> {
+        match &self.kind {
+            ErrorKind::Grammar(error) => {
+                let range = Self::pest_location_to_range(&error.location);
+                let renamed = error
+                    .clone()
+                    .renamed_rules(crate::user_readable::rule_names);
+                match &renamed.variant {
+                    pest::error::ErrorVariant::ParsingError { .. } => {
+                        unreachable!()
+                    }
+                    pest::error::ErrorVariant::CustomError { message } => {
+                        vec![Diagnostic::error()
+                            .with_code("E0001")
+                            .with_message("grammar error")
+                            .with_labels(vec![
+                                Label::primary((), range).with_message(message)
+                            ])]
+                    }
+                }
+            }
+            ErrorKind::Parser(_) => unimplemented!(),
+        }
+    }
+
+    pub fn print_report(&self) {
+        let diagnostics = self.report();
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+        let file = SimpleFile::new(self.origin.clone(), &self.input);
+        for diagnostic in &diagnostics {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, diagnostic).unwrap();
+        }
+    }
+
+    fn pest_location_to_range(loc: &InputLocation) -> Range<usize> {
+        match loc {
+            InputLocation::Pos(start) => (*start..*start).into(),
+            InputLocation::Span((start, end)) => (*start..*end).into(),
+        }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            ErrorKind::Grammar(pest_err) => {
+                let ll_file =
+                    crate::file_ll::LLFile::parse(self.input.as_str(), self.origin.clone());
+                // println!("{:?}", ll_file);
+                match ll_file.check_delimiters() {
+                    Ok(()) => {
+                        // TODO: colorize pest error in the same way
+                        writeln!(
+                            f,
+                            " --> {}\n\x1b[31m{}\x1b[0m",
+                            self.origin,
+                            pest_err
+                                .clone()
+                                .renamed_rules(|r| crate::user_readable::rule_names(r))
+                        )
+                    }
+                    Err(e) => {
+                        // Input contains unmatched delimiters, display extensive information about them
+                        writeln!(f, "{}", e)
+
+                        // writeln!(
+                        //     f,
+                        //     " --> {}\n\x1b[31m{}\x1b[0m",
+                        //     self.origin,
+                        //     pest_err
+                        //         .clone()
+                        //         .renamed_rules(|r| crate::user_readable::rule_names(r))
+                        // )
+                    }
+                }
+            }
+            ErrorKind::Parser(parser_errors) => {
+                writeln!(f, " --> {}\n{:?}", self.origin, parser_errors)
+            }
+        }
+    }
+}

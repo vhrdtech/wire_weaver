@@ -1,9 +1,8 @@
 use crate::ast::definition::DefinitionParse;
 use super::prelude::*;
 use crate::ast::expr::ExprParse;
-use crate::ast::file::{FileError, FileErrorKind};
 use crate::ast::ty::TyParse;
-use crate::error::{ParseError, ParseErrorKind};
+use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind};
 use crate::lexer::{Lexer, Rule};
 use ast::span::SpanOrigin;
 use ast::Stmt;
@@ -16,25 +15,26 @@ pub struct LetStmtParse(pub LetStmt);
 pub struct VecStmtParse(pub Vec<Stmt>);
 
 impl StmtParse {
-    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, FileError> {
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
         let input = input.as_ref();
         let pairs =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input).map_err(|e| FileError {
-                kind: FileErrorKind::Lexer(e),
+            <Lexer as pest::Parser<Rule>>::parse(Rule::repl, input).map_err(|e| Error {
+                kind: ErrorKind::Grammar(e),
                 origin: origin.clone(),
                 input: input.to_owned(),
             })?;
         let mut errors = Vec::new();
 
         let input_parsed_str = pairs.as_str();
-        if input_parsed_str != input {
+        if !input.contains(input_parsed_str) {
+            println!("parsed part: '{}'", input_parsed_str);
             errors.push(ParseError {
                 kind: ParseErrorKind::UnhandledUnexpectedInput,
                 rule: Rule::statement,
                 span: (input_parsed_str.len(), input.len()),
             });
-            return Err(FileError {
-                kind: FileErrorKind::Parser(errors),
+            return Err(Error {
+                kind: ErrorKind::Parser(errors),
                 origin,
                 input: input.to_owned(),
             });
@@ -68,8 +68,8 @@ impl StmtParse {
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
                 errors.push(ParseError { kind, rule, span });
-                Err(FileError {
-                    kind: FileErrorKind::Parser(errors),
+                Err(Error {
+                    kind: ErrorKind::Parser(errors),
                     origin,
                     input: input.to_owned(),
                 })

@@ -1,11 +1,9 @@
 use crate::ast::definition::DefinitionParse;
-use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
+use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
 use ast::span::SpanOrigin;
 use crate::warning::ParseWarning;
-use std::fmt::{Display, Formatter};
-use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct FileParse {
@@ -13,26 +11,11 @@ pub struct FileParse {
     pub warnings: Vec<ParseWarning>,
 }
 
-#[derive(Error, Debug)]
-pub struct FileError {
-    pub kind: FileErrorKind,
-    pub origin: SpanOrigin,
-    pub input: String,
-}
-
-#[derive(Error, Debug)]
-pub enum FileErrorKind {
-    #[error("Source contains syntax errors")]
-    Lexer(pest::error::Error<Rule>),
-    #[error("Source contains structural errors")]
-    Parser(Vec<ParseError>),
-}
-
 impl FileParse {
-    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, FileError> {
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
         let mut pi =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| FileError {
-                kind: FileErrorKind::Lexer(e),
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| Error {
+                kind: ErrorKind::Grammar(e),
                 origin: origin.clone(),
                 input: input.as_ref().to_owned(),
             })?;
@@ -109,8 +92,8 @@ impl FileParse {
                 warnings,
             })
         } else {
-            Err(FileError {
-                kind: FileErrorKind::Parser(errors),
+            Err(Error {
+                kind: ErrorKind::Parser(errors),
                 origin: origin.clone(),
                 input: input.as_ref().to_owned(),
             })
@@ -121,12 +104,12 @@ impl FileParse {
         input: S,
         def_name: S,
         origin: SpanOrigin,
-    ) -> Result<Option<String>, FileError> {
+    ) -> Result<Option<String>, Error> {
         let input = input.as_ref();
         let def_name = def_name.as_ref();
         let mut pi =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| FileError {
-                kind: FileErrorKind::Lexer(e),
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| Error {
+                kind: ErrorKind::Grammar(e),
                 origin: origin.clone(),
                 input: input.to_owned(),
             })?;
@@ -165,46 +148,5 @@ impl FileParse {
             None => {}
         }
         Ok(tree)
-    }
-}
-
-impl Display for FileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            FileErrorKind::Lexer(pest_err) => {
-                let ll_file =
-                    crate::file_ll::LLFile::parse(self.input.as_str(), self.origin.clone());
-                // println!("{:?}", ll_file);
-                match ll_file.check_delimiters() {
-                    Ok(()) => {
-                        // TODO: colorize pest error in the same way
-                        writeln!(
-                            f,
-                            " --> {}\n\x1b[31m{}\x1b[0m",
-                            self.origin,
-                            pest_err
-                                .clone()
-                                .renamed_rules(|r| crate::user_readable::rule_names(r))
-                        )
-                    }
-                    Err(e) => {
-                        // Input contains unmatched delimiters, display extensive information about them
-                        writeln!(f, "{}", e)
-
-                        // writeln!(
-                        //     f,
-                        //     " --> {}\n\x1b[31m{}\x1b[0m",
-                        //     self.origin,
-                        //     pest_err
-                        //         .clone()
-                        //         .renamed_rules(|r| crate::user_readable::rule_names(r))
-                        // )
-                    }
-                }
-            }
-            FileErrorKind::Parser(parser_errors) => {
-                writeln!(f, " --> {}\n{:?}", self.origin, parser_errors)
-            }
-        }
     }
 }

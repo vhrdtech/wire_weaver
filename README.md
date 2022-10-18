@@ -73,12 +73,17 @@ Simple checked numbers where only a range of values is allowed:
 * `1..=512`, `0.00, 0.01 ..= 1.00` above is an implicit form of a special type - `numbound`
 
 Set of allowed values:
+
 * `u8<0..=8, 12, 16, 20, 24, 32, 48, 64>`
 
 Modulo numbers:
+
 * `u8<mod 127>`
 
+Mapped numbers - provide a function to map from one range to another:
+
 Number classes/traits?:
+
 * Natural: 1, 2, 3, 4, 5, ...
 * Whole: 0, 1, 2, 3, 4, 5, ...
 * Integer: ..., -3, -2, -1, 0, 1, 2, 3, ...

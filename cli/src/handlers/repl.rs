@@ -96,12 +96,21 @@ pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
             }
         };
 
-        match parser::ast::stmt::StmtParse::parse(stmt.as_str(), repl_origin.clone()) {
-            Ok(stmt) => {
-                println!("{:?}", stmt.0);
+        if stmt.starts_with("grammar(") {
+            match parser::util::pest_file_parse_tree(&stmt[8..stmt.len() - 1]) {
+                Ok(tree) => println!("{}", tree),
+                Err(e) => {
+                    e.print_report();
+                }
             }
-            Err(e) => {
-                e.print_report();
+        } else {
+            match parser::ast::stmt::StmtParse::parse(stmt.as_str(), repl_origin.clone()) {
+                Ok(stmt) => {
+                    println!("{:?}", stmt.0);
+                }
+                Err(e) => {
+                    e.print_report();
+                }
             }
         }
 

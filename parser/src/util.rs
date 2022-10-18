@@ -1,6 +1,7 @@
 use crate::lexer::{Lexer, Rule};
 use pest::iterators::{Pair, Pairs};
 use std::fmt::Write;
+use ast::{SourceOrigin, SpanOrigin};
 
 #[allow(unused_macros)]
 macro_rules! ppt {
@@ -10,6 +11,7 @@ macro_rules! ppt {
 }
 #[allow(unused_imports)]
 pub(crate) use ppt;
+use crate::error::{Error, ErrorKind};
 
 pub fn pest_print_tree(pairs: Pairs<Rule>) {
     let mut s = String::new();
@@ -41,11 +43,20 @@ fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Writ
     }
 }
 
-pub fn pest_file_parse_tree(input: &str) -> String {
-    let parsed = <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).unwrap();
+pub fn pest_file_parse_tree(input: &str) -> Result<String, Error> {
+    let parsed = match <Lexer as pest::Parser<Rule>>::parse(Rule::file, input) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            return Err(Error {
+                kind: ErrorKind::Grammar(e),
+                origin: SpanOrigin::Parser(SourceOrigin::Str),
+                input: input.to_owned(),
+            })
+        }
+    };
     let mut s = String::new();
     pest_print_tree_inner(parsed, false, &mut s);
-    s
+    Ok(s)
 }
 
 fn pest_print_pair(

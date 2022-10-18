@@ -29,7 +29,12 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
             None => {
                 // print parse tree for the whole file
-                println!("{}", parser::util::pest_file_parse_tree(input.as_str()));
+                match parser::util::pest_file_parse_tree(input.as_str()) {
+                    Ok(tree) => println!("{}", tree),
+                    Err(e) => {
+                        e.print_report();
+                    }
+                }
             }
         }
     } else if dev_args.parser {

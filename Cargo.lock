@@ -151,9 +151,9 @@ version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4ab1b92798304eedc095b53942963240037c0516452cb11aeba709d420b2219"
 dependencies = [
-    "error-code",
-    "str-buf",
-    "winapi",
+ "error-code",
+ "str-buf",
+ "winapi",
 ]
 
 [[package]]
@@ -162,8 +162,8 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
-    "termcolor",
-    "unicode-width",
+ "termcolor",
+ "unicode-width",
 ]
 
 [[package]]
@@ -172,7 +172,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
 dependencies = [
-    "generic-array",
+ "generic-array",
 ]
 
 [[package]]
@@ -565,12 +565,12 @@ dependencies = [
 name = "parser"
 version = "0.1.0"
 dependencies = [
-    "ast",
-    "codespan-reporting",
-    "parser-test 0.3.3",
-    "pest",
-    "pest_derive",
-    "thiserror",
+ "ast",
+ "codespan-reporting",
+ "parser-test 0.3.3",
+ "pest",
+ "pest_derive",
+ "thiserror",
 ]
 
 [[package]]

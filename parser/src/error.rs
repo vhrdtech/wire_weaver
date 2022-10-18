@@ -134,7 +134,56 @@ impl Error {
                     }
                 }
             }
-            ErrorKind::Parser(_) => unimplemented!(),
+            ErrorKind::Parser(errors) => {
+                errors.iter().map(Self::parse_error_to_diagnostic).collect()
+            },
+        }
+    }
+
+    fn parse_error_to_diagnostic(error: &ParseError) -> Diagnostic<()> {
+        let range = error.span.0..error.span.1;
+        match &error.kind {
+            ParseErrorKind::InternalError { rule, message } => {
+                Diagnostic::error()
+                    .with_code("E0002")
+                    .with_message("internal error (unknown)")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message(message.to_owned())
+                    ])
+                    .with_notes(vec![format!("grammar rule hint: {:?}", rule)])
+            }
+            ParseErrorKind::Unimplemented(thing) => {
+                Diagnostic::error()
+                    .with_code("E0003")
+                    .with_message("internal error (unimplemented)")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message(format!("{} is not yet implemented", thing))
+                    ])
+            }
+            // ParseErrorKind::UnhandledUnexpectedInput => {}
+            // ParseErrorKind::UserError => {}
+            // ParseErrorKind::UnexpectedUnconsumedInput => {}
+            // ParseErrorKind::AutonumWrongForm => {}
+            // ParseErrorKind::AutonumWrongArguments => {}
+            // ParseErrorKind::IndexOfWrongForm => {}
+            // ParseErrorKind::FloatParseError => {}
+            // ParseErrorKind::IntParseError => {}
+            // ParseErrorKind::MalformedResourcePath => {}
+            // ParseErrorKind::WrongAccessModifier => {}
+            // ParseErrorKind::CellWithAccessModifier => {}
+            // ParseErrorKind::FnWithMods => {}
+            // ParseErrorKind::ConstWithMods => {}
+            // ParseErrorKind::WoObserve => {}
+            // ParseErrorKind::CellWithConstRo => {}
+            // ParseErrorKind::CellWithRoStream => {}
+            kind => {
+                Diagnostic::error()
+                    .with_code("E0004")
+                    .with_message("not yet properly rendered error")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message(format!("error kind: {:?}", kind))
+                    ])
+            }
         }
     }
 

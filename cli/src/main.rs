@@ -17,7 +17,7 @@ fn main() -> Result<()> {
             handlers::dev::dev_subcmd(dev_args)
         }
         Some(Commands::Repl(repl_xpi)) => {
-            handlers::repl_xpi::repl_xpi_cmd(repl_xpi)
+            handlers::repl::repl_xpi_cmd(repl_xpi)
         }
         None => Err(anyhow!("Subcommand expected"))
     }

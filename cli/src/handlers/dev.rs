@@ -36,7 +36,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         let file = match FileParse::parse(&input, origin.clone()) {
             Ok(file) => file,
             Err(e) => {
-                println!("{}", e);
+                e.print_report();
                 return Err(anyhow!("Input contains syntax errors"));
             }
         };

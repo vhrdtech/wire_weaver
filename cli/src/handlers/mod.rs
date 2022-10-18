@@ -1,4 +1,4 @@
-pub mod repl_xpi;
+pub mod repl;
 pub mod generate;
 pub mod dev;
 

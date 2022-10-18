@@ -110,23 +110,23 @@ braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 // Literals
 bool_lit = { "true" | "false" }
 /// -10, 17, 0, +3, 127u16, 1_000, 1023_u32
-dec_lit = _{ dec_lit_raw ~ discrete_any_ty? }
+dec_lit = ${ dec_lit_raw ~ discrete_any_ty? }
 dec_lit_raw = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 /// 0xAA, 0xcc, 0xff_u8
-hex_lit = _{ hex_lit_raw ~ discrete_any_ty? }
+// hex_lit = _{ hex_lit_raw ~ discrete_any_ty? }
 hex_lit_raw = @{ "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* }
 /// 0b1111_0000, 0b101_u3
-bin_lit = _{ bin_lit_raw ~ discrete_any_ty? }
+// bin_lit = _{ bin_lit_raw ~ discrete_any_ty? }
 bin_lit_raw = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* }
 /// 0o7
-oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
+// oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
 oct_lit_raw = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* }
 /// Floating point
 float_exponent = @{ "e" | "E" ~ dec_lit_raw }
 float_lit_internal = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) }
-float_lit = { float_lit_internal ~ floating_any_ty? }
+float_lit = ${ float_lit_internal ~ floating_any_ty? }
 /// Any discrete literal followed by optional type
-discrete_lit = { dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw ~ discrete_any_ty? }
+discrete_lit = ${ (dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw) ~ discrete_any_ty? }
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
 char = _{
     !("\"" | "\\") ~ ANY

@@ -17,6 +17,9 @@ impl Display for Doc {
             "↩".to_owned(),
         )
             .try_for_each(|s| write!(f, "{}", s))?;
+        if !self.lines.is_empty() {
+            write!(f, " ")?;
+        }
         Ok(())
     }
 }

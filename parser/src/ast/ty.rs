@@ -22,7 +22,7 @@ pub struct FloatTyParse(pub FloatTy);
 
 impl<'i> Parse<'i> for TyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        crate::util::pest_print_tree(input.pairs.clone());
+        // crate::util::pest_print_tree(input.pairs.clone());
         let any_ty = input.expect1(Rule::any_ty)?;
         let span = input.span.clone();
         let ty = any_ty

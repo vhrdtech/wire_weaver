@@ -166,7 +166,13 @@ impl Display for XpiDef {
             y = color::YELLOW,
             d = color::DEFAULT,
         )?;
-        self.children.iter().try_for_each(|xd| write!(f, "{}", xd))?;
+        itertools::intersperse(
+            self.children
+                .iter()
+                .map(|child| format!("{}", child)),
+            ", ".to_owned(),
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         write!(
             f,
             " ]{b}{y}>{d}",

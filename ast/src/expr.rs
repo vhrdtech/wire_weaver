@@ -125,7 +125,7 @@ impl Display for Expr {
                 write!(f, "{}", lit)
             }
             Expr::Tuple(exprs) => {
-                write!(f, "{}", exprs)
+                write!(f, "tuple({})", exprs)
             }
             Expr::Ty(ty) => {
                 write!(f, "{}", ty)

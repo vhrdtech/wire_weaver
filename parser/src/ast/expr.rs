@@ -76,7 +76,14 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             Expr::Lit(lit.0)
         },
         Rule::tuple_of_expressions => {
-            return Err(ParseErrorSource::Unimplemented("tuple_of_expressions"))
+            let _ = input.pairs.next();
+            let mut input = ParseInput::fork(pair, input);
+            let mut exprs = vec![];
+            while let Some(_) = input.pairs.peek() {
+                let expr: ExprParse = input.parse()?;
+                exprs.push(expr.0);
+            }
+            Expr::Tuple(VecExpr(exprs))
         }
         Rule::any_ty => {
             let ty: TyParse = input.parse()?;

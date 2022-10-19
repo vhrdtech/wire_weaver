@@ -6,6 +6,7 @@ use crate::ast::ty::TyParse;
 use crate::error::{ParseError, ParseErrorKind};
 use ast::{TryEvaluateInto, TyKind, XpiDef};
 use ast::xpi_def::{AccessMode, XpiKind};
+use crate::warning::{ParseWarning, ParseWarningKind};
 
 pub struct XpiDefParse(pub XpiDef);
 
@@ -171,7 +172,7 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
             Err(_) => None
         };
 
-        XpiResourceTyParse::from_ty_and_serial(ty_inner, serial, &mut input.errors)
+        XpiResourceTyParse::from_ty_and_serial(ty_inner, serial, &mut input.warnings, &mut input.errors)
     }
 }
 
@@ -179,6 +180,7 @@ impl XpiResourceTyParse {
     fn from_ty_and_serial(
         ty_inner: Option<XpiResourceTyInner>,
         serial: Option<u32>,
+        warnings: &mut Vec<ParseWarning>,
         errors: &mut Vec<ParseError>,
     ) -> Result<Self, ParseErrorSource> {
         match ty_inner {
@@ -191,7 +193,7 @@ impl XpiResourceTyParse {
             Some(XpiResourceTyInner::Cell { transform, ty }) => {
                 Ok(XpiResourceTyParse {
                     serial,
-                    kind: Self::try_from_cell_ty(transform, ty, errors)?,
+                    kind: Self::try_from_cell_ty(transform, ty, warnings, errors)?,
                 })
             }
             None => {
@@ -269,6 +271,7 @@ impl XpiResourceTyParse {
     fn try_from_cell_ty(
         transform: Option<XpiResourceTransform>,
         ty: TyParse,
+        warnings: &mut Vec<ParseWarning>,
         errors: &mut Vec<ParseError>,
     ) -> Result<XpiKind, ParseErrorSource> {
         // by default resource inside a Cell is rw
@@ -281,15 +284,25 @@ impl XpiResourceTyParse {
         };
         let span = ty.0.span.clone();
         let inner = Self::try_from_plain_ty(transform, ty, errors)?;
-        match inner {
+        match &inner {
             XpiKind::Property { access, .. } => {
-                if access == AccessMode::Const || access == AccessMode::Ro {
-                    return Err(Self::push_error(errors, ParseErrorKind::CellWithConstRo, span));
+                if *access == AccessMode::Const || *access == AccessMode::Ro {
+                    warnings.push(ParseWarning {
+                        kind: ParseWarningKind::CellWithConstRo,
+                        rule: Rule::xpi_resource_ty,
+                        span: (span.start, span.end),
+                    });
+                    return Ok(inner);
                 }
             }
             XpiKind::Stream { dir, .. } => {
-                if dir == AccessMode::Ro {
-                    return Err(Self::push_error(errors, ParseErrorKind::CellWithRoStream, span));
+                if *dir == AccessMode::Ro {
+                    warnings.push(ParseWarning {
+                        kind: ParseWarningKind::CellWithRoStream,
+                        rule: Rule::xpi_resource_ty,
+                        span: (span.start, span.end),
+                    });
+                    return Ok(inner);
                 }
             }
             XpiKind::Method { .. } => {}

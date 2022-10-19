@@ -56,8 +56,6 @@ pub enum ParseErrorKind {
     FnWithMods,
     ConstWithMods,
     WoObserve,
-    CellWithConstRo,
-    CellWithRoStream,
 }
 
 #[derive(Error, Debug)]

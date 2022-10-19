@@ -46,7 +46,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
         };
         if !file.warnings.is_empty() {
-            println!("\x1b[33mLexer warnings: {:?}\x1b[0m", file.warnings);
+            file.print_report();
         }
         println!("{}", file.ast_file);
         // match dev_args.definition {

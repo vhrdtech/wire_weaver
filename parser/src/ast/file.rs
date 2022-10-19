@@ -1,15 +1,19 @@
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use crate::ast::definition::DefinitionParse;
 use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
 use ast::span::SpanOrigin;
 use crate::span::ast_span_from_pest;
-use crate::warning::ParseWarning;
+use crate::warning::{ParseWarning, ParseWarningKind};
 
 #[derive(Debug, Clone)]
 pub struct FileParse {
     pub ast_file: ast::File,
     pub warnings: Vec<ParseWarning>,
+    pub input: String
 }
 
 impl FileParse {
@@ -91,6 +95,7 @@ impl FileParse {
                     defs,
                 },
                 warnings,
+                input: input.as_ref().to_owned()
             })
         } else {
             Err(Error {
@@ -149,5 +154,46 @@ impl FileParse {
             None => {}
         }
         Ok(tree)
+    }
+
+    pub fn report(&self) -> Vec<Diagnostic<()>> {
+        self.warnings.iter().map(|warning| {
+            let range = warning.span.0..warning.span.1;
+            match &warning.kind {
+                ParseWarningKind::NonCamelCaseTypename => {
+                    Diagnostic::warning()
+                        .with_message("non camel case typename")
+                        .with_labels(vec![
+                            Label::primary((), range).with_message("consider renaming to: '{}'")
+                        ])
+                }
+                ParseWarningKind::CellWithConstRo => {
+                    Diagnostic::warning()
+                        .with_message("resource containing cell with a constant or read only data")
+                        .with_labels(vec![
+                            Label::primary((), range).with_message("remove this Cell<_>")
+                        ])
+                        .with_notes(vec!["const and read only resources are safe to use without a Cell".to_owned()])
+                }
+                ParseWarningKind::CellWithRoStream => {
+                    Diagnostic::warning()
+                        .with_message("resource containing cell with a read only stream")
+                        .with_labels(vec![
+                            Label::primary((), range).with_message("remove this Cell<_>")
+                        ])
+                        .with_notes(vec!["read only streams are safe to use without a Cell".to_owned()])
+                }
+            }
+        }).collect()
+    }
+
+    pub fn print_report(&self) {
+        let diagnostics = self.report();
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+        let file = SimpleFile::new(self.ast_file.origin.clone(), &self.input);
+        for diagnostic in &diagnostics {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, diagnostic).unwrap();
+        }
     }
 }

@@ -8,4 +8,6 @@ pub struct ParseWarning {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ParseWarningKind {
     NonCamelCaseTypename,
+    CellWithConstRo,
+    CellWithRoStream,
 }

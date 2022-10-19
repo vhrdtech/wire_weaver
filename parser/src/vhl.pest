@@ -19,11 +19,10 @@ identifier_continue = @{ XID_CONTINUE+ }
 bool_ty = { "bool" }
 
 // Discrete number types
-/// i8 / i128 / i3`unit` / i<expr -> (bits, [expr -> numbound], [expr -> unit]>, [expr -> +/-shift])
+/// i8, i32, i10, i8 @{max 100}, i8 @{max 100} `m/s`, i8_@{max 100}
 discrete_signed_ty = ${ "i" ~ natural_number }
-/// u8 / u128 / u11 / u<expr -> bits, [expr -> +/-shift], [expr -> numbound]>
 discrete_unsigned_ty = ${ "u" ~ natural_number }
-discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ num_bound_braced? ~ si_expr_ticked? }
+discrete_any_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ "_"? ~ num_bound_braced? ~ "_"? ~ si_expr_ticked? }
 
 // Fixed point number types
 /// Signed: q3.12 / q< expr -> (m, n) > / q< expr -> (m, discrete_any_ty) >
@@ -41,9 +40,10 @@ textual_any_ty = { "char" | "str" }
 
 // Numerical bounds (subtypes)
 num_unbound = { "?" }
-num_bound_max = { "max" ~ dec_lit_raw } // sugar for 0..=max
+num_bound_min = { "min" ~ any_number_lit } // sugar for min..+inf
+num_bound_max = { "max" ~ any_number_lit } // sugar for -inf..=max
 num_bound_list = { expression_list } // 8, 16, 24..=32, 48
-num_bound = { num_unbound | num_bound_max | num_bound_list }
+num_bound = !{ num_unbound | num_bound_min | num_bound_max | num_bound_list }
 num_bound_braced = _{ "@" ~ "{" ~ num_bound ~ "}" }
 
 // Sequence types
@@ -121,19 +121,24 @@ bin_lit_raw = @{ "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* }
 /// 0o7
 // oct_lit = _{ oct_lit_raw ~ discrete_any_ty? }
 oct_lit_raw = @{ "0o" ~ ASCII_OCT_DIGIT ~ (ASCII_OCT_DIGIT | "_")* }
+/// Any discrete literal followed by optional type
+discrete_lit = ${ (hex_lit_raw | bin_lit_raw | oct_lit_raw | dec_lit_raw) ~ discrete_any_ty? }
 /// Floating point
 float_exponent = @{ "e" | "E" ~ dec_lit_raw }
 float_lit_internal = @{ (dec_lit_raw ~ float_exponent | dec_lit_raw ~ "." ~ dec_lit_raw ~ float_exponent?) }
 float_lit = ${ float_lit_internal ~ floating_any_ty? }
-/// Any discrete literal followed by optional type
-discrete_lit = ${ (dec_lit_raw | hex_lit_raw | bin_lit_raw | oct_lit_raw) ~ discrete_any_ty? }
+/// Fixed point
+fixed_lit = $ {"TODO"}
+/// Any number
+any_number_lit = { fixed_lit | float_lit | discrete_lit }
+
 /// Char literal 'a', '\u{7FFF}', '\n' '\t' '\r' '\\' '\0', '\x55'
-char = _{
+char = {
     !("\"" | "\\") ~ ANY
     | "\\" ~ ("\"" | "'" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "0")
     | "\\" ~ ("u{" ~ ASCII_HEX_DIGIT{4, 6} ~ "}")
 }
-char_lit = { "'" ~ char ~ "'" }
+char_lit = ${ "'" ~ char ~ "'" }
 /// String
 string_lit = ${ "\"" ~ string_inner ~ "\"" }
 string_inner = @{ char* }
@@ -148,7 +153,7 @@ tuple_lit = { "(" ~ any_lit ~ ("," ~ any_lit)* ~ ","? ~ ")" }
 struct_lit = { "TODO" }
 enum_lit = { "TODO" }
 array_lit = { "TODO" }
-any_lit = { bool_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit | enum_lit | array_lit }
+any_lit = { bool_lit | fixed_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit | enum_lit | array_lit }
 
 // Operators
 op_not = { "!" } // Bitwise NOT or Boolean NOT

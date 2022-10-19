@@ -1,7 +1,7 @@
 use ast::NumBound;
 use super::prelude::*;
 use crate::ast::expr::VecExprParse;
-use crate::error::{ParseError, ParseErrorKind};
+use crate::ast::lit::NumberLitParse;
 
 pub struct NumBoundParse(pub NumBound);
 
@@ -14,20 +14,15 @@ impl<'i> Parse<'i> for NumBoundParse {
             .ok_or_else(|| ParseErrorSource::internal("wrong num_bound rule"))?;
         match bound.as_rule() {
             Rule::num_unbound => Ok(NumBoundParse(ast::NumBound::Unbound)),
+            Rule::num_bound_min => {
+                let mut input = ParseInput::fork(bound, &mut input);
+                let number: NumberLitParse = input.parse()?;
+                Ok(NumBoundParse(NumBound::MinBound(Box::new(number.0))))
+            }
             Rule::num_bound_max => {
-                let dec_lit_raw = bound
-                    .into_inner()
-                    .next()
-                    .ok_or_else(|| ParseErrorSource::internal("wrong num_bound_list rule"))?;
-                let max: usize = dec_lit_raw.as_str().parse().map_err(|_| {
-                    input.errors.push(ParseError {
-                        kind: ParseErrorKind::IntParseError,
-                        rule: Rule::dec_lit,
-                        span: (dec_lit_raw.as_span().start(), dec_lit_raw.as_span().end()),
-                    });
-                    ParseErrorSource::UserError
-                })?;
-                Ok(NumBoundParse(NumBound::MaxBound(max)))
+                let mut input = ParseInput::fork(bound, &mut input);
+                let number: NumberLitParse = input.parse()?;
+                Ok(NumBoundParse(NumBound::MaxBound(Box::new(number.0))))
             }
             Rule::num_bound_list => {
                 let mut input = ParseInput::fork(bound, &mut input);

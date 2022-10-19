@@ -8,6 +8,12 @@ pub struct Lit {
     pub span: Span,
 }
 
+#[derive(Clone, Eq, PartialEq)]
+pub struct NumberLit {
+    pub kind: NumberLitKind,
+    pub span: Span,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LitKind {
     Bool(bool),
@@ -20,6 +26,13 @@ pub enum LitKind {
     Struct(StructLit),
     Enum(EnumLit),
     Array(ArrayLit),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NumberLitKind {
+    Discrete(DiscreteLit),
+    Fixed(FixedLit),
+    Float(FloatLit),
 }
 
 impl Lit {
@@ -116,6 +129,16 @@ impl Display for Lit {
     }
 }
 
+impl Display for NumberLit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            NumberLitKind::Discrete(ds) => write!(f, "{:?}", ds),
+            NumberLitKind::Fixed(fx) => write!(f, "{:?}", fx),
+            NumberLitKind::Float(fl) => write!(f, "{:?}", fl),
+        }
+    }
+}
+
 impl Display for VecLit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.iter().try_for_each(|lit| write!(f, "{}, ", lit))
@@ -123,6 +146,12 @@ impl Display for VecLit {
 }
 
 impl Debug for Lit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Debug for NumberLit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }

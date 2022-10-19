@@ -23,7 +23,7 @@ impl<'i> Parse<'i> for EnumDefParse {
             attrs: attrs.0,
             typename: typename.0,
             items: items.0,
-            span: ast_span_from_pest(input.span.clone()),
+            span: input.span.clone(),
         }))
     }
 }

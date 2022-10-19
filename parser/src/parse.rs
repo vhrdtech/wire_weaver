@@ -2,11 +2,12 @@ use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::Rule;
 use crate::warning::ParseWarning;
 use pest::iterators::{Pair, Pairs};
-use pest::Span;
+use ast::Span;
+use crate::span::ast_span_from_pest;
 
 pub struct ParseInput<'i, 'm> {
     pub pairs: Pairs<'i, Rule>,
-    pub span: Span<'i>,
+    pub span: Span,
     pub warnings: &'m mut Vec<ParseWarning>,
     pub errors: &'m mut Vec<ParseError>,
 }
@@ -14,7 +15,7 @@ pub struct ParseInput<'i, 'm> {
 impl<'i, 'm> ParseInput<'i, 'm> {
     pub fn new(
         pairs: Pairs<'i, Rule>,
-        span: Span<'i>,
+        span: Span,
         warnings: &'m mut Vec<ParseWarning>,
         errors: &'m mut Vec<ParseError>,
     ) -> Self {
@@ -40,7 +41,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         let span = pair.as_span();
         ParseInput {
             pairs: pair.into_inner(),
-            span,
+            span: ast_span_from_pest(span),
             warnings: prev_input.warnings,
             errors: prev_input.errors,
         }

@@ -21,7 +21,7 @@ impl<'i> Parse<'i> for AttrsParse {
                 break;
             }
         }
-        Ok(AttrsParse(Attrs { attrs, span: ast_span_from_pest(input.span.clone()) }))
+        Ok(AttrsParse(Attrs { attrs, span: input.span.clone() }))
     }
 }
 
@@ -54,7 +54,7 @@ impl<'i> Parse<'i> for AttrParse {
         Ok(AttrParse(Attr {
             path: path.0,
             kind,
-            span: ast_span_from_pest(input.span.clone()),
+            span: input.span.clone(),
         }))
     }
 }

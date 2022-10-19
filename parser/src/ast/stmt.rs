@@ -45,7 +45,7 @@ impl StmtParse {
         let pair = pairs.peek().unwrap();
         let span = (pair.as_span().start(), pair.as_span().end());
         let rule = pair.as_rule();
-        let pair_span = pair.as_span();
+        let pair_span = ast_span_from_pest(pair.as_span());
         let mut warnings = Vec::new();
         let mut input_parse = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
         match input_parse.parse() {

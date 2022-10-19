@@ -95,7 +95,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         },
         Rule::resource_path_start => {
             let marker: ResourcePathMarkerParse = input.parse()?;
-            Expr::ResourcePath(marker.0, ast_span_from_pest(input.span.clone()))
+            Expr::ResourcePath(marker.0, input.span.clone())
         },
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();

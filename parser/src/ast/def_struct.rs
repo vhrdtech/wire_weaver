@@ -19,7 +19,7 @@ impl<'i> Parse<'i> for StructDefParse {
             attrs: attrs.0,
             typename: typename.0,
             fields: fields.0,
-            span: ast_span_from_pest(input.span.clone()),
+            span: input.span.clone(),
         }))
     }
 }
@@ -38,7 +38,7 @@ impl<'i> Parse<'i> for StructFieldsParse {
                 attrs: attrs.0,
                 name: name.0,
                 ty: ty.0,
-                span: ast_span_from_pest(input.span.clone()),
+                span: input.span.clone(),
             });
         }
 

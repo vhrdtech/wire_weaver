@@ -24,7 +24,7 @@ impl<'i> Parse<'i> for TyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         crate::util::pest_print_tree(input.pairs.clone());
         let any_ty = input.expect1(Rule::any_ty)?;
-        let span = ast_span_from_pest(input.span.clone());
+        let span = input.span.clone();
         let ty = any_ty
             .clone()
             .into_inner()
@@ -262,7 +262,6 @@ fn parse_indexof_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
 }
 
 fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
-    let span = ast_span_from_pest(input.span.clone());
     let ty: TyParse = input.parse()?;
     let len_bound: NumBoundParse = input.parse()?;
     Ok(Ty {
@@ -270,13 +269,12 @@ fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
             ty: Box::new(ty.0),
             len_bound: len_bound.0,
         },
-        span,
+        span: input.span.clone(),
     })
 }
 
 fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields)?, input);
-    let span = ast_span_from_pest(input.span.clone());
     let mut types = Vec::new();
     while let Some(_) = input.pairs.peek() {
         let ty: TyParse = input.parse()?;
@@ -284,7 +282,7 @@ fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
     }
     Ok(Ty {
         kind: TyKind::Tuple { types },
-        span,
+        span: input.span.clone(),
     })
 }
 

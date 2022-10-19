@@ -68,7 +68,7 @@ impl<'i> Parse<'i> for XpiDefParse {
             kv,
             implements,
             children,
-            span: ast_span_from_pest(input.span.clone()),
+            span: input.span.clone(),
         }))
     }
 }

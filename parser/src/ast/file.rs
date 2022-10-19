@@ -3,6 +3,7 @@ use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSourc
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
 use ast::span::SpanOrigin;
+use crate::span::ast_span_from_pest;
 use crate::warning::ParseWarning;
 
 #[derive(Debug, Clone)]
@@ -44,7 +45,7 @@ impl FileParse {
                             let span = (pair.as_span().start(), pair.as_span().end());
                             let mut input = ParseInput::new(
                                 pair.into_inner(),
-                                pair_span,
+                                ast_span_from_pest(pair_span),
                                 &mut warnings,
                                 &mut errors,
                             );

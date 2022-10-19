@@ -18,7 +18,7 @@ impl<'i> Parse<'i> for LitParse {
             .pairs
             .peek()
             .ok_or_else(|| ParseErrorSource::internal("empty any_lit"))?;
-        let span = ast_span_from_pest(input.span.clone());
+        let span = input.span.clone();
         let ast_lit = match lit.as_rule() {
             Rule::bool_lit => {
                 let bool_lit = input.expect1(Rule::bool_lit)?;
@@ -68,7 +68,7 @@ impl<'i> Parse<'i> for NumberLitParse {
 
 fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::discrete_lit)?, input);
-    let span = ast_span_from_pest(input.span.clone());
+    let span = input.span.clone();
     let x_lit_raw = input.expect1_any()?;
     let (radix, x_str_raw) = match x_lit_raw.as_rule() {
         Rule::bin_lit_raw => (2, &x_lit_raw.as_str()[2..]),
@@ -129,13 +129,12 @@ fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
             ty: ty.0,
             is_ty_forced: false,
         }),
-        span: ast_span_from_pest(input.span.clone()),
+        span: input.span.clone(),
     })
 }
 
 fn parse_char_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::char_lit)?, input);
-    let span = ast_span_from_pest(input.span.clone());
     let char = input.expect1(Rule::char)?;
     if char.as_str().starts_with("\\\\") {
         Err(ParseErrorSource::internal("char escape is unimplemented"))
@@ -143,7 +142,7 @@ fn parse_char_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         let c = char.as_str().chars().next().unwrap();
         Ok(Lit {
             kind: LitKind::Char(c),
-            span,
+            span: input.span.clone(),
         })
     }
 }
@@ -153,7 +152,7 @@ fn parse_string_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let string_inner = input.expect1(Rule::string_inner)?;
     Ok(Lit {
         kind: LitKind::String(string_inner.as_str().to_owned()),
-        span: ast_span_from_pest(input.span),
+        span: input.span.clone(),
     })
 }
 
@@ -166,6 +165,6 @@ fn parse_tuple_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     }
     Ok(Lit {
         kind: LitKind::Tuple(lits),
-        span: ast_span_from_pest(input.span),
+        span: input.span.clone(),
     })
 }

@@ -1,15 +1,18 @@
-use ast::Lit;
-use ast::lit::LitKind;
+use ast::{DiscreteTy, Lit, NumBound};
+use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind};
 use super::prelude::*;
-use crate::ast::ty::FloatTyParse;
+use crate::ast::ty::{DiscreteTyParse, FloatTyParse};
+use crate::error::{ParseError, ParseErrorKind};
 
 pub struct LitParse(pub Lit);
+
+pub struct NumberLitParse(pub NumberLit);
 
 pub struct LitKindParse(pub LitKind);
 
 impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::any_lit)?, input);
+        let mut input = ParseInput::fork(input.expect1_either(Rule::any_lit, Rule::any_number_lit)?, input);
         // crate::util::pest_print_tree(input.pairs.clone());
         let lit = input
             .pairs
@@ -26,15 +29,9 @@ impl<'i> Parse<'i> for LitParse {
             },
             Rule::float_lit => parse_float_lit(&mut input)?,
             Rule::discrete_lit => parse_discrete_lit(&mut input)?,
-            Rule::char_lit => {
-                return Err(ParseErrorSource::Unimplemented("char_lit"));
-            },
-            Rule::string_lit => {
-                return Err(ParseErrorSource::Unimplemented("string_lit"));
-            },
-            Rule::tuple_lit => {
-                return Err(ParseErrorSource::Unimplemented("tuple lit"));
-            },
+            Rule::char_lit => parse_char_lit(&mut input)?,
+            Rule::string_lit => parse_string_lit(&mut input)?,
+            Rule::tuple_lit => parse_tuple_lit(&mut input)?,
             Rule::struct_lit => {
                 return Err(ParseErrorSource::Unimplemented("struct lit"));
             },
@@ -52,6 +49,20 @@ impl<'i> Parse<'i> for LitParse {
             },
         };
         Ok(LitParse(ast_lit))
+    }
+}
+
+impl<'i> Parse<'i> for NumberLitParse {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let lit: LitParse = input.parse()?;
+        match lit.0.kind {
+            LitKind::Discrete(ds) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Discrete(ds), span: lit.0.span })),
+            LitKind::Fixed(fx) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Fixed(fx), span: lit.0.span })),
+            LitKind::Float(fl) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Float(fl), span: lit.0.span })),
+            _ => {
+                Err(ParseErrorSource::internal("wrong any_number_lit rule"))
+            }
+        }
     }
 }
 
@@ -119,5 +130,42 @@ fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
             is_ty_forced: false,
         }),
         span: ast_span_from_pest(input.span.clone()),
+    })
+}
+
+fn parse_char_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::char_lit)?, input);
+    let span = ast_span_from_pest(input.span.clone());
+    let char = input.expect1(Rule::char)?;
+    if char.as_str().starts_with("\\\\") {
+        Err(ParseErrorSource::internal("char escape is unimplemented"))
+    } else {
+        let c = char.as_str().chars().next().unwrap();
+        Ok(Lit {
+            kind: LitKind::Char(c),
+            span,
+        })
+    }
+}
+
+fn parse_string_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::string_lit)?, input);
+    let string_inner = input.expect1(Rule::string_inner)?;
+    Ok(Lit {
+        kind: LitKind::String(string_inner.as_str().to_owned()),
+        span: ast_span_from_pest(input.span),
+    })
+}
+
+fn parse_tuple_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::tuple_lit)?, input);
+    let mut lits = vec![];
+    while let Some(_) = input.pairs.peek() {
+        let lit: LitParse = input.parse()?;
+        lits.push(lit.0);
+    }
+    Ok(Lit {
+        kind: LitKind::Tuple(lits),
+        span: ast_span_from_pest(input.span),
     })
 }

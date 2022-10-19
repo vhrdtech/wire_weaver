@@ -56,8 +56,46 @@ impl<'i> Parse<'i> for LitParse {
 }
 
 fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let _discrete_lit = ParseInput::fork(input.expect1(Rule::discrete_lit)?, input);
-    todo!()
+    let mut input = ParseInput::fork(input.expect1(Rule::discrete_lit)?, input);
+    let span = ast_span_from_pest(input.span.clone());
+    let x_lit_raw = input.expect1_any()?;
+    let (radix, x_str_raw) = match x_lit_raw.as_rule() {
+        Rule::bin_lit_raw => (2, &x_lit_raw.as_str()[2..]),
+        Rule::oct_lit_raw => (8, &x_lit_raw.as_str()[2..]),
+        Rule::dec_lit_raw => (10, x_lit_raw.as_str()),
+        Rule::hex_lit_raw => (16, &x_lit_raw.as_str()[2..]),
+        _ => {
+            return Err(ParseErrorSource::internal("wrong discrete_lit rule"));
+        }
+    };
+    let x_str_raw = x_str_raw.replace("_", ""); // TODO: improve parsing speed?
+    let val = u128::from_str_radix(&x_str_raw, radix).map_err(|_| {
+        input.errors.push(ParseError {
+            kind: ParseErrorKind::IntParseError,
+            rule: Rule::dec_lit_raw,
+            span: (span.start, span.end),
+        });
+        ParseErrorSource::UserError
+    })?;
+    let (ty, is_ty_forced) = if input.pairs.peek().is_some() {
+        let ty: DiscreteTyParse = input.parse()?;
+        (ty.0, true)
+    } else {
+        (DiscreteTy {
+            is_signed: true,
+            bits: 32,
+            num_bound: NumBound::Unbound,
+            unit: (),
+        }, false)
+    };
+    Ok(Lit {
+        kind: LitKind::Discrete(DiscreteLit {
+            val,
+            ty,
+            is_ty_forced,
+        }),
+        span,
+    })
 }
 
 fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {

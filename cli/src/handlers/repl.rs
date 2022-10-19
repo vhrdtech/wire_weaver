@@ -103,6 +103,13 @@ pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
                     e.print_report();
                 }
             }
+        } else if stmt.starts_with("grammar_stmt(") {
+            match parser::util::pest_stmt_parse_tree(&stmt[13..stmt.len() - 1]) {
+                Ok(tree) => println!("{}", tree),
+                Err(e) => {
+                    e.print_report();
+                }
+            }
         } else {
             match parser::ast::stmt::StmtParse::parse(stmt.as_str(), repl_origin.clone()) {
                 Ok(stmt) => {

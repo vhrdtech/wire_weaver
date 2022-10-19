@@ -59,6 +59,22 @@ pub fn pest_file_parse_tree(input: &str) -> Result<String, Error> {
     Ok(s)
 }
 
+pub fn pest_stmt_parse_tree(input: &str) -> Result<String, Error> {
+    let parsed = match <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            return Err(Error {
+                kind: ErrorKind::Grammar(e),
+                origin: SpanOrigin::Parser(SourceOrigin::Str),
+                input: input.to_owned(),
+            })
+        }
+    };
+    let mut s = String::new();
+    pest_print_tree_inner(parsed, false, &mut s);
+    Ok(s)
+}
+
 fn pest_print_pair(
     pair: Pair<Rule>,
     all_input: &str,

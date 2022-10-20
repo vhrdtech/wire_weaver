@@ -275,7 +275,8 @@ fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
 }
 
 fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields)?, input);
+    let mut input = ParseInput::fork(input.expect1(Rule::tuple_ty)?, input);
+    let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields)?, &mut input);
     let mut types = Vec::new();
     while let Some(_) = input.pairs.peek() {
         let ty: TyParse = input.parse()?;

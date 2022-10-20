@@ -38,7 +38,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
         }
     } else if dev_args.parser {
-        let mut file = match FileParse::parse(&input, origin.clone()) {
+        let file = match FileParse::parse(&input, origin.clone()) {
             Ok(file) => file,
             Err(e) => {
                 e.print_report();
@@ -57,10 +57,18 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         //         println!("{:?}", ast_core);
         //     }
         // }
-        if dev_args.process {
-            vhl::process(&mut file.ast_file);
-            println!("{:#}", file.ast_file);
-        }
+        let ast_file = file.ast_file;
+        let ast_file = match vhl::transform::transform(ast_file) {
+            Ok((file, warnings)) => {
+                warnings.print_report();
+                file
+            }
+            Err(errors) => {
+                errors.print_report();
+                return Err(anyhow!("AST transforms failed due to errors"));
+            }
+        };
+        println!("{:#}", ast_file);
     }
     Ok(())
 }

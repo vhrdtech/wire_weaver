@@ -1,5 +1,14 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use ast::span::Span;
+use ast::SpanOrigin;
+
+pub struct Errors {
+    pub errors: Vec<Error>,
+    pub origin: SpanOrigin,
+    pub input: String,
+}
 
 pub struct Error {
     pub kind: ErrorKind,
@@ -74,6 +83,17 @@ impl Error {
                         Label::primary((), range).with_message(format!("{:?}", u))
                     ])
             }
+        }
+    }
+}
+
+impl Errors {
+    pub fn print_report(&self) {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+        let file = SimpleFile::new(self.origin.clone(), &self.input);
+        for diagnostic in self.errors.iter().map(|err| err.report()) {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
         }
     }
 }

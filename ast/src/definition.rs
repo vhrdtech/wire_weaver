@@ -13,12 +13,22 @@ pub enum Definition {
 
 impl Display for Definition {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Definition::Enum(ed) => write!(f, "{:?}", ed),
-            Definition::Struct(s) => write!(f, "{}", s),
-            Definition::Xpi(x) => write!(f, "{}", x),
-            Definition::Function(fd) => write!(f, "{:?}", fd),
-            Definition::TypeAlias(a) => write!(f, "{:?}", a),
+        if f.alternate() {
+            match self {
+                Definition::Enum(ed) => write!(f, "{:#?}", ed),
+                Definition::Struct(s) => write!(f, "{:#}", s),
+                Definition::Xpi(x) => write!(f, "{:#}", x),
+                Definition::Function(fd) => write!(f, "{:#?}", fd),
+                Definition::TypeAlias(a) => write!(f, "{:#?}", a),
+            }
+        } else {
+            match self {
+                Definition::Enum(ed) => write!(f, "{:?}", ed),
+                Definition::Struct(s) => write!(f, "{}", s),
+                Definition::Xpi(x) => write!(f, "{}", x),
+                Definition::Function(fd) => write!(f, "{:?}", fd),
+                Definition::TypeAlias(a) => write!(f, "{:?}", a),
+            }
         }
     }
 }

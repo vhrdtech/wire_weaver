@@ -44,7 +44,9 @@ pub enum XpiKind {
     /// In contrast with interpolated resources, only one array of resources is created.
     /// Resource with a type `[_; numbound]`, like `/channels<[_; 4]> {}`.
     /// Note that regular arrays are XpiKind::Property, for example `/arr<[u8; 4]>`.
-    Array,
+    Array {
+        inner: Box<XpiKind>,
+    },
 
     // Constant with a value defined when a node is starting, must not change afterwards.
     // `/channel_count<const u8>`
@@ -106,7 +108,7 @@ impl XpiDef {
     pub fn format_kind(&self) -> String {
         match self.kind {
             XpiKind::Group => "group",
-            XpiKind::Array => "array",
+            XpiKind::Array { .. } => "array",
             XpiKind::Property { .. } => "property",
             XpiKind::Stream { .. } => "stream",
             XpiKind::Cell { .. } => "Cell<_>",
@@ -154,7 +156,7 @@ impl Display for XpiDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}{b}{y}XpiDef<{d}{} #{:?} {:?} impl:{:?} kv:{:?} child:[ ",
+            "{}{}{b}{y}XpiDef<{d}{} #{:?} {:?} impl:{:?} kv:{:?} children:[ ",
             self.doc,
             self.attrs,
             self.uri_segment,
@@ -166,11 +168,26 @@ impl Display for XpiDef {
             y = color::YELLOW,
             d = color::DEFAULT,
         )?;
+        let is_alterante = f.alternate();
+        let separator = if is_alterante {
+            if !self.children.is_empty() {
+                writeln!(f, "")?;
+            }
+            ",\n"
+        } else {
+            ", "
+        }.to_owned();
         itertools::intersperse(
             self.children
                 .iter()
-                .map(|child| format!("{}", child)),
-            ", ".to_owned(),
+                .map(|child| {
+                    if is_alterante {
+                        format!("{:#}", child)
+                    } else {
+                        format!("{}", child)
+                    }
+                }),
+            separator,
         )
             .try_for_each(|s| write!(f, "{}", s))?;
         write!(

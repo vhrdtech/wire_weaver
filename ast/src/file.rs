@@ -65,7 +65,11 @@ impl Display for File {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File from {}", self.origin)?;
         for d in &self.defs {
-            writeln!(f, "{}", d)?;
+            if f.alternate() {
+                writeln!(f, "{:#}", d)?;
+            } else {
+                writeln!(f, "{}", d)?;
+            }
         }
         Ok(())
     }

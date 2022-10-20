@@ -219,7 +219,9 @@ impl XpiResourceTyParse {
         ty: TyParse,
         errors: &mut Vec<ParseError>,
     ) -> Result<XpiKind, ParseErrorSource> {
-        let access = transform.map(|t| t.access).unwrap_or(AccessMode::Ro);
+        let access = transform.map(|t| t.access).unwrap_or(
+            AccessMode::ImpliedRo
+        );
         let modifier = transform.map(|t| t.modifier).flatten();
         match modifier {
             Some(m) => {
@@ -241,13 +243,20 @@ impl XpiResourceTyParse {
                         })
                     },
                     XpiResourceModifier::Stream => {
-                        if access == AccessMode::Const { // const+stream
-                            return Err(Self::push_error(errors, ParseErrorKind::ConstWithMods, ty.0.span));
+                        match access {
+                            AccessMode::ImpliedRo => {
+                                return Err(Self::push_error(errors, ParseErrorKind::StreamWithoutDirection, ty.0.span));
+                            }
+                            AccessMode::Const => {
+                                return Err(Self::push_error(errors, ParseErrorKind::ConstWithMods, ty.0.span));
+                            }
+                            _ => {
+                                Ok(XpiKind::Stream {
+                                    dir: access,
+                                    ty: ty.0,
+                                })
+                            }
                         }
-                        Ok(XpiKind::Stream {
-                            dir: access,
-                            ty: ty.0,
-                        })
                     }
                 }
             },
@@ -278,7 +287,7 @@ impl XpiResourceTyParse {
         let transform = match transform {
             Some(t) => Some(t),
             None => Some(XpiResourceTransform {
-                access: AccessMode::Rw,
+                access: AccessMode::ImpliedRo,
                 modifier: None,
             })
         };
@@ -307,7 +316,7 @@ impl XpiResourceTyParse {
             }
             XpiKind::Method { .. } => {}
 
-            XpiKind::Group | XpiKind::Array | XpiKind::Cell { .. } => unreachable!()
+            XpiKind::Group | XpiKind::Array { .. } | XpiKind::Cell { .. } => unreachable!()
         }
         Ok(XpiKind::Cell {
             inner: Box::new(inner)

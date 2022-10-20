@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use util::color;
-use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, Span, TryEvaluateInto, Ty};
+use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, NumBound, Span, TryEvaluateInto, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
@@ -45,7 +45,7 @@ pub enum XpiKind {
     /// Resource with a type `[_; numbound]`, like `/channels<[_; 4]> {}`.
     /// Note that regular arrays are XpiKind::Property, for example `/arr<[u8; 4]>`.
     Array {
-        inner: Box<XpiKind>,
+        num_bound: NumBound,
     },
 
     // Constant with a value defined when a node is starting, must not change afterwards.
@@ -91,6 +91,7 @@ pub enum XpiKind {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum AccessMode {
+    ImpliedRo,
     Rw,
     Ro,
     Wo,

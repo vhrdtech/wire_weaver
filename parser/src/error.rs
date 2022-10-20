@@ -56,6 +56,7 @@ pub enum ParseErrorKind {
     FnWithMods,
     ConstWithMods,
     WoObserve,
+    StreamWithoutDirection
 }
 
 #[derive(Error, Debug)]

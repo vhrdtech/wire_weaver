@@ -1,5 +1,6 @@
 use ast::Definition;
 use crate::ast::def_enum::EnumDefParse;
+use crate::ast::def_fn::FnDefParse;
 use crate::ast::def_struct::StructDefParse;
 use crate::ast::def_type_alias::TypeAliasDefParse;
 use crate::ast::def_xpi_block::XpiDefParse;
@@ -33,6 +34,10 @@ impl<'i> Parse<'i> for DefinitionParse {
             Rule::xpi_block => {
                 let xpi_def: XpiDefParse = input.parse()?;
                 Definition::Xpi(xpi_def.0)
+            }
+            Rule::def_fn => {
+                let fn_def: FnDefParse = input.parse()?;
+                Definition::Function(fn_def.0)
             }
             _ => {
                 return Err(ParseErrorSource::internal("unexpected definition"));

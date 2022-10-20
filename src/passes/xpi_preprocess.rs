@@ -17,6 +17,7 @@ impl<'i> VisitMut for CollectArrays<'i> {
     fn visit_xpi_kind(&mut self, kind: &mut XpiKind) {
         match kind {
             XpiKind::Property { access, observable, ty } => {
+                let span = ty.span.clone();
                 match &ty.kind {
                     TyKind::Array { ty, len_bound } => {
                         match &ty.kind {
@@ -25,7 +26,7 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                     if *access != AccessMode::ImpliedRo || *observable {
                                         self.errors.push(Error {
                                             kind: ErrorKind::XpiArrayWithModifier,
-                                            span: ty.span.clone(),
+                                            span,
                                         });
                                     }
                                     *kind = XpiKind::Array {
@@ -45,7 +46,7 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                                         if *access != AccessMode::ImpliedRo || *observable {
                                                             self.errors.push(Error {
                                                                 kind: ErrorKind::XpiArrayWithModifier,
-                                                                span: ty.span.clone(),
+                                                                span,
                                                             });
                                                         }
                                                         *kind = XpiKind::Array {

@@ -72,7 +72,7 @@ impl Error {
                     .with_labels(vec![
                         Label::primary((), range).with_message("array of resources cannot be ro/rw/wo/const, +stream or +observe")
                     ])
-                    .with_notes(vec!["consider removing modifiers".to_owned()])
+                    .with_notes(vec!["consider removing modifiers or changing resource type".to_owned()])
             }
 
             u => {

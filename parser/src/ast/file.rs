@@ -14,7 +14,6 @@ use crate::warning::{ParseWarning, ParseWarningKind};
 pub struct FileParse {
     pub ast_file: ast::File,
     pub warnings: Vec<ParseWarning>,
-    pub input: String,
 }
 
 impl FileParse {
@@ -93,13 +92,13 @@ impl FileParse {
             let mut ast_file = ast::File {
                 origin: origin.clone(),
                 defs,
+                input: input.as_ref().to_owned(),
             };
             let mut change_origin = ChangeOrigin { to: origin };
             change_origin.visit_file(&mut ast_file);
             Ok(FileParse {
                 ast_file,
                 warnings,
-                input: input.as_ref().to_owned(),
             })
         } else {
             Err(Error {
@@ -195,7 +194,7 @@ impl FileParse {
         let diagnostics = self.report();
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();
-        let file = SimpleFile::new(self.ast_file.origin.clone(), &self.input);
+        let file = SimpleFile::new(self.ast_file.origin.clone(), &self.ast_file.input);
         for diagnostic in &diagnostics {
             codespan_reporting::term::emit(&mut writer.lock(), &config, &file, diagnostic).unwrap();
         }

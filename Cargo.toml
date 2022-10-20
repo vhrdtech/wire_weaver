@@ -21,6 +21,7 @@ util = { path = "./util" }
 mtoken = { path = "./mtoken" }
 #peg = "0.8.0"
 itertools = "0.10"
+codespan-reporting = "0.11"
 
 [dev-dependencies]
 mquote = { path = "./mquote" }

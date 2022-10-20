@@ -1,3 +1,4 @@
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ast::span::Span;
 
 pub struct Error {
@@ -19,6 +20,7 @@ impl Error {
 
 // impl std::error::Error for Error {}
 
+#[derive(Debug)]
 pub enum ErrorKind {
     //#[error("No serial number provided for a resource")]
     NoSerial,
@@ -48,4 +50,30 @@ pub enum ErrorKind {
     AttrExpectedToBe(String, String),
     //#[error("Resource was expected to be of {} kind but found to be of {}", .0, .1)]
     XpiKindExpectedToBe(String, String),
+}
+
+impl Error {
+    pub fn report(&self) -> Diagnostic<()> {
+        let range = self.span.start..self.span.end;
+        match &self.kind {
+            ErrorKind::XpiArrayWithModifier => {
+                Diagnostic::error()
+                    .with_code("E0100")
+                    .with_message("array of resources with modifier")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message("array of resources cannot be ro/rw/wo/const, +stream or +observe")
+                    ])
+                    .with_notes(vec!["consider removing modifiers".to_owned()])
+            }
+
+            u => {
+                Diagnostic::error()
+                    .with_code("Exxxx")
+                    .with_message("internal core error (unimplemented)")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message(format!("{:?}", u))
+                    ])
+            }
+        }
+    }
 }

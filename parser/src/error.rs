@@ -145,7 +145,7 @@ impl Error {
             ParseErrorKind::InternalError { rule, message } => {
                 Diagnostic::error()
                     .with_code("E0002")
-                    .with_message("internal error (unknown)")
+                    .with_message("internal parser error (unknown)")
                     .with_labels(vec![
                         Label::primary((), range).with_message(message.to_owned())
                     ])
@@ -153,8 +153,8 @@ impl Error {
             }
             ParseErrorKind::Unimplemented(thing) => {
                 Diagnostic::error()
-                    .with_code("E0003")
-                    .with_message("internal error (unimplemented)")
+                    .with_code("Exxxx")
+                    .with_message("internal parser error (unimplemented)")
                     .with_labels(vec![
                         Label::primary((), range).with_message(format!("{} is not yet implemented", thing))
                     ])

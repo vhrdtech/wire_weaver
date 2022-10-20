@@ -5,6 +5,7 @@ use crate::{Definition, SpanOrigin};
 pub struct File {
     pub origin: SpanOrigin,
     pub defs: Vec<Definition>,
+    pub input: String,
     // pub attrs: Vec<Attr>
 }
 

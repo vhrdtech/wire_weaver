@@ -1051,14 +1051,15 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vhl"
 version = "0.3.0"
 dependencies = [
- "ast",
- "either",
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "thiserror",
- "util",
+    "ast",
+    "codespan-reporting",
+    "either",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "parser",
+    "thiserror",
+    "util",
 ]
 
 [[package]]

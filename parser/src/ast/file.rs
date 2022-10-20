@@ -6,14 +6,15 @@ use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSourc
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
 use ast::span::SpanOrigin;
-use crate::span::ast_span_from_pest;
+use ast::VisitMut;
+use crate::span::{ast_span_from_pest, ChangeOrigin};
 use crate::warning::{ParseWarning, ParseWarningKind};
 
 #[derive(Debug, Clone)]
 pub struct FileParse {
     pub ast_file: ast::File,
     pub warnings: Vec<ParseWarning>,
-    pub input: String
+    pub input: String,
 }
 
 impl FileParse {
@@ -89,13 +90,16 @@ impl FileParse {
             None => {}
         }
         if errors.is_empty() {
+            let mut ast_file = ast::File {
+                origin: origin.clone(),
+                defs,
+            };
+            let mut change_origin = ChangeOrigin { to: origin };
+            change_origin.visit_file(&mut ast_file);
             Ok(FileParse {
-                ast_file: ast::File {
-                    origin,
-                    defs,
-                },
+                ast_file,
                 warnings,
-                input: input.as_ref().to_owned()
+                input: input.as_ref().to_owned(),
             })
         } else {
             Err(Error {

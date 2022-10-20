@@ -1,5 +1,4 @@
-use crate::ast::{FixedTy, Ty, VisitMut};
-use crate::ast::ty::TyKind;
+use ast::{FixedTy, NumBound, Ty, TyKind, VisitMut};
 
 pub struct AutonumToFixed {}
 
@@ -10,7 +9,8 @@ impl VisitMut for AutonumToFixed {
                 is_signed: false,
                 m: 1,
                 n: 7,
-                shift: 0,
+                num_bound: NumBound::Unbound,
+                unit: (),
             });
         }
     }

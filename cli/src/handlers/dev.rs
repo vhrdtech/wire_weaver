@@ -38,7 +38,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
         }
     } else if dev_args.parser {
-        let file = match FileParse::parse(&input, origin.clone()) {
+        let mut file = match FileParse::parse(&input, origin.clone()) {
             Ok(file) => file,
             Err(e) => {
                 e.print_report();
@@ -48,7 +48,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         if !file.warnings.is_empty() {
             file.print_report();
         }
-        println!("{}", file.ast_file);
+        // println!("{:#}", file.ast_file);
         // match dev_args.definition {
         //     Some(_name) => {
         //         todo!()
@@ -57,11 +57,10 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         //         println!("{:?}", ast_core);
         //     }
         // }
-        // if dev_args.process {
-        //     println!("Processing AST...");
-        //     vhl::process(&mut ast_core);
-        //     println!("{:#?}", ast_core);
-        // }
+        if dev_args.process {
+            vhl::process(&mut file.ast_file);
+            println!("{:#}", file.ast_file);
+        }
     }
     Ok(())
 }

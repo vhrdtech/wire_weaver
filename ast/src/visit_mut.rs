@@ -92,8 +92,8 @@ pub trait VisitMut {
         visit_statement(self, i);
     }
 
-    fn visit_numbound(&mut self, i: &mut NumBound) {
-        visit_numbound(self, i);
+    fn visit_num_bound(&mut self, i: &mut NumBound) {
+        visit_num_bound(self, i);
     }
 
     fn visit_path(&mut self, i: &mut Path) {
@@ -222,7 +222,9 @@ pub fn visit_xpi_kind<V>(v: &mut V, node: &mut XpiKind)
 {
     match node {
         XpiKind::Group => {}
-        XpiKind::Array { inner } => v.visit_xpi_kind(inner),
+        XpiKind::Array { num_bound } => {
+            v.visit_num_bound(num_bound);
+        },
         XpiKind::Property { .. } => {}
         XpiKind::Stream { .. } => {}
         XpiKind::Cell { .. } => {}
@@ -422,7 +424,7 @@ pub fn visit_statement<V: VisitMut + ?Sized>(v: &mut V, node: &mut Stmt) {
     }
 }
 
-pub fn visit_numbound<V: VisitMut + ?Sized>(_v: &mut V, node: &mut NumBound) {
+pub fn visit_num_bound<V: VisitMut + ?Sized>(_v: &mut V, node: &mut NumBound) {
     match node {
         NumBound::Unbound => {}
         NumBound::MinBound(_num) => {}
@@ -446,7 +448,7 @@ pub fn visit_discrete_ty<V>(v: &mut V, node: &mut DiscreteTy, _span: &Span)
     where
         V: VisitMut + ?Sized,
 {
-    v.visit_numbound(&mut node.num_bound);
+    v.visit_num_bound(&mut node.num_bound);
 }
 
 pub fn visit_autonum_ty<V>(v: &mut V, autonum: &mut AutoNumber)

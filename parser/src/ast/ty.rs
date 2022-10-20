@@ -262,6 +262,7 @@ fn parse_indexof_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
 }
 
 fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::array_ty)?, input);
     let ty: TyParse = input.parse()?;
     let len_bound: NumBoundParse = input.parse()?;
     Ok(Ty {

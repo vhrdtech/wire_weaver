@@ -1,6 +1,6 @@
 rs main {
 	/// Constant. Initialized on node start and then stays the same.
-	rs version<const u8, #0>
+	rs version<const str, #0>
 
 	// rs incorrect1<const+stream u8, #1>
 	// rs incorrect2<const+observe u8, #2>

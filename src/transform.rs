@@ -1,7 +1,8 @@
 use crate::error::Errors;
 use crate::passes::autonum_to_fixed::AutonumToFixed;
 use crate::warning::Warnings;
-use ast::{File, VisitMut};
+use ast::{File, Visit, VisitMut};
+use crate::passes::idents_check::IdentsCheck;
 
 /// Do various AST passes that transform things
 pub fn transform(mut file: File) -> Result<(File, Warnings), Errors> {
@@ -12,6 +13,9 @@ pub fn transform(mut file: File) -> Result<(File, Warnings), Errors> {
     autonum_to_discrete.visit_file(&mut file);
 
     crate::passes::xpi_preprocess::xpi_preprocess(&mut file, &mut warnings, &mut errors);
+
+    let mut idents_check = IdentsCheck { warnings: &mut warnings };
+    idents_check.visit_file(&file);
 
     if errors.is_empty() {
         let warnings = Warnings {

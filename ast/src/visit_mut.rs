@@ -222,7 +222,7 @@ pub fn visit_xpi_kind<V>(v: &mut V, node: &mut XpiKind)
 {
     match node {
         XpiKind::Group => {}
-        XpiKind::Array { num_bound } => {
+        XpiKind::Array { num_bound, .. } => {
             v.visit_num_bound(num_bound);
         },
         XpiKind::Property { .. } => {}

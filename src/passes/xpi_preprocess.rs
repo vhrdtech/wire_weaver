@@ -1,4 +1,5 @@
 use ast::{File, TyKind};
+use ast::generics::GenericParam;
 use ast::xpi_def::{AccessMode, XpiKind};
 use super::prelude::*;
 
@@ -28,14 +29,33 @@ impl<'i> VisitMut for CollectArrays<'i> {
                             TyKind::UserDefined(ident) => {
                                 if ident.symbols.as_str() == "Self" {
                                     *kind = XpiKind::Array {
-                                        num_bound: len_bound.clone()
+                                        num_bound: len_bound.clone(),
+                                        is_celled: false,
                                     };
                                     return;
                                 }
                             }
-                            // TyKind::Generic { id, params } {
-                            //
-                            // }
+                            TyKind::Generic { id, params } => {
+                                if id.symbols.as_str() == "Cell" && params.params.len() == 1 {
+                                    match &params.params[0] {
+                                        GenericParam::Ty(ty) => {
+                                            match &ty.kind {
+                                                TyKind::UserDefined(ident) => {
+                                                    if ident.symbols.as_str() == "Self" {
+                                                        *kind = XpiKind::Array {
+                                                            num_bound: len_bound.clone(),
+                                                            is_celled: true,
+                                                        };
+                                                        return;
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                        GenericParam::Expr(_) => {}
+                                    }
+                                }
+                            }
                             _ => {}
                         }
                     }

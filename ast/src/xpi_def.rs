@@ -46,6 +46,7 @@ pub enum XpiKind {
     /// Note that regular arrays are XpiKind::Property, for example `/arr<[u8; 4]>`.
     Array {
         num_bound: NumBound,
+        is_celled: bool,
     },
 
     // Constant with a value defined when a node is starting, must not change afterwards.

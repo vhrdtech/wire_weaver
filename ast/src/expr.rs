@@ -116,10 +116,10 @@ impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Call { method, args } => {
-                write!(f, "{}({})", method, args)
+                write!(f, "call:{}({})", method, args)
             }
             Expr::Index { object, by } => {
-                write!(f, "{}({})", object, by)
+                write!(f, "index:{}({})", object, by)
             }
             Expr::Lit(lit) => {
                 write!(f, "{}", lit)

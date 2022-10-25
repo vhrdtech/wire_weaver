@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Span {
@@ -41,7 +42,7 @@ pub enum SpanOrigin {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum SourceOrigin {
-    File(PathBuf),
+    File(Rc<PathBuf>),
     // TODO: use Rc?
     Registry(/*RegistryUri*/),
     DescriptorBlock(/*NodeUid*/),

@@ -76,7 +76,7 @@ impl Error {
             }
 
             u => {
-                Diagnostic::error()
+                Diagnostic::bug()
                     .with_code("Exxxx")
                     .with_message("internal core error (unimplemented)")
                     .with_labels(vec![

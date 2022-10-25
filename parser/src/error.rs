@@ -143,7 +143,7 @@ impl Error {
         let range = error.span.0..error.span.1;
         match &error.kind {
             ParseErrorKind::InternalError { rule, message } => {
-                Diagnostic::error()
+                Diagnostic::bug()
                     .with_code("E0002")
                     .with_message("internal parser error (unknown)")
                     .with_labels(vec![
@@ -152,8 +152,8 @@ impl Error {
                     .with_notes(vec![format!("grammar rule hint: {:?}", rule)])
             }
             ParseErrorKind::Unimplemented(thing) => {
-                Diagnostic::error()
-                    .with_code("Exxxx")
+                Diagnostic::bug()
+                    .with_code("E0003")
                     .with_message("internal parser error (unimplemented)")
                     .with_labels(vec![
                         Label::primary((), range).with_message(format!("{} is not yet implemented", thing))
@@ -176,8 +176,8 @@ impl Error {
             // ParseErrorKind::CellWithConstRo => {}
             // ParseErrorKind::CellWithRoStream => {}
             kind => {
-                Diagnostic::error()
-                    .with_code("E0004")
+                Diagnostic::bug()
+                    .with_code("Exxx")
                     .with_message("not yet properly rendered error")
                     .with_labels(vec![
                         Label::primary((), range).with_message(format!("error kind: {:?}", kind))

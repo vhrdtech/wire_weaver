@@ -14,6 +14,20 @@ impl Path {
     }
 }
 
+#[macro_export]
+macro_rules! make_path {
+    ($($path:ident)::+) => {
+        Path {
+            segments: vec![ $( ast::Identifier {
+                symbols: std::rc::Rc::new(stringify!($path).to_owned()),
+                context: ast::IdentifierContext::PathSegment,
+                span: ast::Span::call_site()
+            }),+]
+        }
+    }
+}
+pub use make_path;
+
 impl Display for Path {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // TODO: replace with standard function when it is stabilized

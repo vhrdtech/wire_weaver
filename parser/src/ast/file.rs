@@ -30,6 +30,7 @@ impl FileParse {
         match pi.next() {
             Some(pair) => {
                 let mut pi = pair.into_inner();
+                let mut def_idx = 0;
                 while let Some(p) = pi.peek() {
                     match p.as_rule() {
                         // Rule::inner_attribute => {
@@ -75,7 +76,7 @@ impl FileParse {
                                             ParseErrorKind::Unimplemented(f)
                                         }
                                         ParseErrorSource::UnexpectedInput => {
-                                            ParseErrorKind::UnhandledUnexpectedInput
+                                            ParseErrorKind::UnhandledUnexpectedInput(def_idx)
                                         }
                                         ParseErrorSource::UserError => ParseErrorKind::UserError,
                                     };
@@ -84,6 +85,7 @@ impl FileParse {
                             }
                         }
                     }
+                    def_idx += 1;
                 }
             }
             None => {}

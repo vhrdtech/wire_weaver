@@ -29,7 +29,7 @@ impl StmtParse {
         if !input.contains(input_parsed_str) {
             println!("parsed part: '{}'", input_parsed_str);
             errors.push(ParseError {
-                kind: ParseErrorKind::UnhandledUnexpectedInput,
+                kind: ParseErrorKind::UnhandledUnexpectedInput(0),
                 rule: Rule::statement,
                 span: (input_parsed_str.len(), input.len()),
             });
@@ -64,7 +64,7 @@ impl StmtParse {
                         ParseErrorKind::InternalError { rule, message }
                     }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
-                    ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput,
+                    ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput(0),
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
                 errors.push(ParseError { kind, rule, span });

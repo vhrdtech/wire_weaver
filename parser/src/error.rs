@@ -41,7 +41,7 @@ pub enum ParseErrorKind {
         backtrace: String,
     },
     Unimplemented(&'static str),
-    UnhandledUnexpectedInput,
+    UnhandledUnexpectedInput(usize),
     UserError,
     UnexpectedUnconsumedInput,
 

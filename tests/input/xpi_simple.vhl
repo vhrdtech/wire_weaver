@@ -1,6 +1,6 @@
-/main {
-    /version<const str, #0>
-    /symbol<rw char, #1>
-    #[dispatch = sync(crate::fun)]
-    /action< fn(a: u8, b: u8) -> u8, #2>
+rs main {
+    rs version<const str, #0>
+    rs symbol<rw char, #1>
+    #[dispatch(sync(crate::fun))]
+    rs action< fn(a: u8, b: u8) -> u8, #2>
 }

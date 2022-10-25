@@ -8,6 +8,7 @@ use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, CompletionType, Config, EditMode, Editor, KeyEvent};
 use rustyline_derive::{Completer, Helper, Hinter, Validator};
 use std::borrow::Cow::{self, Borrowed, Owned};
+use std::rc::Rc;
 
 #[derive(Helper, Completer, Hinter, Validator)]
 struct MyHelper {
@@ -49,7 +50,7 @@ impl Highlighter for MyHelper {
 
 pub fn repl_xpi_cmd(repl_xpi: ReplArgs) -> Result<()> {
     println!("Loading: {}", repl_xpi.vhl_source);
-    let _origin = SpanOrigin::Parser(SourceOrigin::File(repl_xpi.vhl_source.into()));
+    let _origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(repl_xpi.vhl_source.into())));
     let repl_origin = SpanOrigin::Parser(SourceOrigin::Str);
 
     let rl_config = Config::builder()

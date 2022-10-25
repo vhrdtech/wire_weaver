@@ -30,20 +30,20 @@ impl Attrs {
 //         println!("{:?}", tokenparser::path(&[Token::Ident(0), Token::Punct(':'), Token::Punct(':'), Token::Ident(1), Token::Punct(':'), Token::Punct(':'), Token::Ident(10)]));
 //     }
 
-    // /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
-    // /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
-    // pub fn get_unique(&self, path: Vec<&'static str>) -> Result<AttrKind, Error> {
-    //     let mut attr = None;
-    //     for a in &self.attrs {
-    //         if a.path == path {
-    //             if attr.is_some() {
-    //                 return Err(Error::new(ErrorKind::AttributeMustBeUnique, self.span.clone()))
-    //             }
-    //             attr = Some(a.kind.clone());
-    //         }
-    //     }
-    //     attr.ok_or(Error::new(ErrorKind::AttributeExpected, self.span.clone()))
-    // }
+    /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
+    /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
+    pub fn get_unique(&self, path: Path) -> Option<AttrKind> {
+        let mut attr = None;
+        for a in &self.attrs {
+            if a.path == path {
+                if attr.is_some() {
+                    return None;
+                }
+                attr = Some(a.kind.clone());
+            }
+        }
+        attr
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

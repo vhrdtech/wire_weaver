@@ -5,20 +5,27 @@ use std::rc::Rc;
 use util::color;
 use crate::Span;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq)]
 pub struct Identifier {
     pub symbols: Rc<String>,
     pub context: IdentifierContext,
     pub span: Span,
 }
 
-impl Hash for Identifier {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.symbols.hash(state);
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.symbols == other.symbols && self.context == other.context
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl Hash for Identifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.symbols.hash(state);
+        self.context.hash(state);
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum IdentifierContext {
     /// type **MyType** = u8;
     TyAlias,

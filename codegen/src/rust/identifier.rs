@@ -2,10 +2,11 @@ use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
 use mtoken::{Ident, ToTokens, TokenStream};
 use std::rc::Rc;
+use ast::Identifier;
 
 #[derive(Clone)]
 pub struct CGIdentifier<'ast> {
-    pub inner: &'ast vhl::ast::identifier::Identifier,
+    pub inner: &'ast Identifier,
 }
 
 impl<'ast> ToTokens for CGIdentifier<'ast> {
@@ -19,6 +20,7 @@ impl<'ast> ToTokens for CGIdentifier<'ast> {
 
 #[cfg(test)]
 mod test {
+    use ast::{IdentifierContext, Span};
     use super::*;
     use mquote::mquote;
     use parser::span::Span;

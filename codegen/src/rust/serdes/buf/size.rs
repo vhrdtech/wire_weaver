@@ -1,6 +1,4 @@
-use vhl::ast::bound::NumBound;
-use vhl::ast::expr::TryEvaluateInto;
-use vhl::ast::ty::{Ty, TyKind};
+use ast::{NumBound, TryEvaluateInto, Ty, TyKind};
 use vhl_stdlib::serdes::SerDesSize;
 
 pub fn size_in_buf(of: &Ty) -> SerDesSize {
@@ -15,13 +13,13 @@ pub fn size_in_buf(of: &Ty) -> SerDesSize {
             }
         }
         TyKind::Fixed(_) => todo!(),
-        TyKind::Float { bits } => SerDesSize::Sized(*bits as usize / 8),
+        TyKind::Float(_) => todo!(),
         TyKind::Array { .. } => todo!(),
         TyKind::Tuple { .. } => todo!(),
         TyKind::Char => SerDesSize::UnsizedBound(4), // UTF8 codepoint
         TyKind::String { len_bound } => match len_bound {
-            NumBound::Unbound => SerDesSize::Unsized,
-            NumBound::MaxBound(max) => SerDesSize::UnsizedBound(*max),
+            NumBound::Unbound | NumBound::MinBound(_) => SerDesSize::Unsized,
+            NumBound::MaxBound(_max) => todo!(),
             NumBound::Set(set) => match set {
                 TryEvaluateInto::Resolved(set) => SerDesSize::UnsizedBound(set.max_len()),
                 TryEvaluateInto::NotResolved(_) | TryEvaluateInto::Error => {

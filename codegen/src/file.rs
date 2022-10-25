@@ -1,8 +1,8 @@
 use crate::dependencies::{Dependencies, Depends, ImportMerger, Package};
 use crate::error::CodegenError;
 use mtoken::{ToTokens, TokenStream};
-use parser::span::Span;
 use std::collections::HashSet;
+use ast::Span;
 use crate::Codegen;
 
 /// Collection of code blocks with dependencies and source information.

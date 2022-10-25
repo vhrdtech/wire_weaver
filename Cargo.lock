@@ -151,9 +151,22 @@ version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4ab1b92798304eedc095b53942963240037c0516452cb11aeba709d420b2219"
 dependencies = [
- "error-code",
- "str-buf",
- "winapi",
+    "error-code",
+    "str-buf",
+    "winapi",
+]
+
+[[package]]
+name = "codegen"
+version = "0.1.0"
+dependencies = [
+    "ast",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "semver",
+    "thiserror",
+    "vhl-stdlib",
 ]
 
 [[package]]
@@ -162,8 +175,8 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
- "termcolor",
- "unicode-width",
+    "termcolor",
+    "unicode-width",
 ]
 
 [[package]]
@@ -802,8 +815,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "107c3d5d7f370ac09efa62a78375f94d94b8a33c61d8c278b96683fb4dbf2d8d"
 dependencies = [
  "proc-macro2",
- "quote",
- "syn",
+    "quote",
+    "syn",
 ]
 
 [[package]]
@@ -813,14 +826,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "semver"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
+
+[[package]]
 name = "sha-1"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7d94d0bede923b3cea61f3f1ff57ff8cdfd77b400fb8f9998949e0cf04163df"
 dependencies = [
- "block-buffer",
- "digest",
- "fake-simd",
+    "block-buffer",
+    "digest",
+    "fake-simd",
  "opaque-debug",
 ]
 

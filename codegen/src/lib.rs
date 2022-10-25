@@ -20,7 +20,7 @@ pub mod prelude {
     pub use mtoken::token::IdentFlavor;
     pub use mtoken::{ToTokens, TokenStream};
     pub use std::rc::Rc;
-    pub use vhl::ast::identifier::IdentifierContext;
+    pub use ast::identifier::IdentifierContext;
     pub use crate::dependencies::{Dependencies, Depends, Import, Package, RustCrateSource};
     pub use semver::VersionReq;
     pub use super::Codegen;

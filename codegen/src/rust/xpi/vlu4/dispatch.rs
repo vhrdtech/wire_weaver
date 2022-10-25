@@ -1,14 +1,13 @@
-use crate::prelude::*;
-use vhl::ast::xpi_def::{XpiDef, XpiKind};
 use crate::dependencies::{Dependencies, Depends};
-use crate::rust::path::PathCG;
-use vhl::ast::fn_def::FnArguments;
-use vhl::ast::ty::{Ty, TyKind};
+use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
+use crate::rust::path::PathCG;
 use crate::rust::serdes::buf::size::size_in_buf;
 use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
 use crate::rust::serdes::size::SerDesSizeCG;
 use crate::rust::ty::CGTy;
+use ast::xpi_def::XpiKind;
+use ast::{make_path, FnArguments, Path, Ty, TyKind, XpiDef};
 
 pub struct DispatchCall<'ast> {
     pub xpi_def: &'ast XpiDef,
@@ -19,10 +18,8 @@ impl<'ast> Codegen for DispatchCall<'ast> {
 
     fn codegen(&self) -> Result<TokenStream, Self::Error> {
         let mut tokens = TokenStream::new();
-        let handle_methods = Self::handle_methods(
-            &self.xpi_def,
-            format!("{}", self.xpi_def.uri_segment),
-        )?;
+        let handle_methods =
+            Self::handle_methods(&self.xpi_def, format!("{}", self.xpi_def.uri_segment))?;
         tokens.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<SerDesSize, FailReason>
@@ -41,36 +38,32 @@ impl<'ast> DispatchCall<'ast> {
     fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> Result<TokenStream, CodegenError> {
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
-                Self::dispatch_method(xpi_def).map_err(|e| e.add_context("dispatch call"))?
+                Self::dispatch_method(xpi_def)?
             }
             _ => {
                 mquote!(rust r#" Err(FailReason::NotAMethod) "#)
             }
         };
 
-        let (not_methods_serials, not_methods_names): (Vec<u32>, Vec<String>) = xpi_def.children
+        let (not_methods_serials, not_methods_names): (Vec<u32>, Vec<String>) = xpi_def
+            .children
             .iter()
             .filter(|c| !c.contains_methods())
-            .map(|c| (c.serial, format!("{}", c.uri_segment)))
+            .map(|c| (c.serial.unwrap_or(u32::MAX), format!("{}", c.uri_segment)))
             .unzip();
 
         let (child_serials, child_handle_methods) = xpi_def
             .children
             .iter()
-            .filter(|c| !not_methods_serials.contains(&c.serial))
-            .try_fold::<_, _, Result<_, CodegenError>>(
-                (vec![], vec![]),
-                |mut prev, c| {
-                    prev.0.push(c.serial);
-                    prev.1.push(
-                        Self::handle_methods(
-                            c,
-                            format!("{}{}", uri_base, c.uri_segment),
-                        )?
-                    );
-                    Ok(prev)
-                },
-            )?;
+            .filter(|c| !not_methods_serials.contains(&c.serial.unwrap_or(u32::MAX)))
+            .try_fold::<_, _, Result<_, CodegenError>>((vec![], vec![]), |mut prev, c| {
+                prev.0.push(c.serial.unwrap_or(u32::MAX));
+                prev.1.push(Self::handle_methods(
+                    c,
+                    format!("{}{}", uri_base, c.uri_segment),
+                )?);
+                Ok(prev)
+            })?;
 
         let no_methods_recursively = if not_methods_serials.is_empty() {
             TokenStream::new()
@@ -103,39 +96,46 @@ impl<'ast> DispatchCall<'ast> {
 
     fn dispatch_method(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
         // println!("attrs: {:?}", xpi_def.attrs);
-        let dispatch = xpi_def.attrs.get_unique(vec!["dispatch"])?;
-        let expr = dispatch.expect_expr()?;
-        let (kind, args) = expr.expect_call()?;
+        let dispatch = xpi_def
+            .attrs
+            .get_unique(make_path!(dispatch))
+            .ok_or(CodegenError::Dispatch("expected dispatch attr".to_owned()))?;
+        let expr = dispatch
+            .expect_expr()
+            .ok_or(CodegenError::Dispatch("expected expr".to_owned()))?;
+        let (kind, args) = expr
+            .expect_call()
+            .ok_or(CodegenError::Dispatch("expected call".to_owned()))?;
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
-        let path = args.0[0].expect_path()?;
+        let path = args.0[0]
+            .expect_path()
+            .ok_or(CodegenError::Dispatch("expected path to user method".to_owned()))?;
         let path = PathCG { inner: &path };
         let kind = kind.symbols.clone();
 
-        let (args, ret_ty) = xpi_def.expect_method_kind().expect("dispatch_method() must be called only for methods");
+        let (args, ret_ty) = xpi_def
+            .expect_method_kind()
+            .expect("dispatch_method() must be called only for methods");
         let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
         let (ser_ret_stmt, ser_ret_buf) = Self::ser_ret_buf_writer(&ret_ty)?;
-        let ret_ty_size = SerDesSizeCG { inner: size_in_buf(&ret_ty) };
+        let ret_ty_size = SerDesSizeCG {
+            inner: size_in_buf(&ret_ty),
+        };
 
         let real_run = match kind.as_str() {
-            "sync" => {
-                Ok(mquote!(rust r#"
+            "sync" => Ok(mquote!(rust r#"
                     // syncronous call
                     Λdes_args
                     Λser_ret_stmt Λpath(Λarg_names);
                     Λser_ret_buf
-                "#))
-            }
-            "rtic" => {
-                Ok(mquote!(rust r#"
+                "#)),
+            "rtic" => Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
                     Λdes_args
                     Λser_ret_stmt Λpath::spawn(Λarg_names);
                     Λser_ret_buf
-                "#))
-            }
-            k => {
-                Err(CodegenError::UnsupportedDispatchType(k.to_owned()))
-            }
+                "#)),
+            k => Err(CodegenError::UnsupportedDispatchType(k.to_owned())),
         }?;
         Ok(mquote!(rust r#"
             match call_type {
@@ -154,21 +154,19 @@ impl<'ast> DispatchCall<'ast> {
             .args
             .iter()
             .map(|arg| CGIdentifier { inner: &arg.name });
-        let arg_des_methods = args
-            .args
-            .iter()
-            .map(|f| StructDesField {
-                ty: CGTy { inner: &f.ty },
-            });
+        let arg_des_methods = args.args.iter().map(|f| StructDesField {
+            ty: CGTy { inner: &f.ty },
+        });
         let arg_names_clone = arg_names.clone();
-        Ok((mquote!(rust r#"
+        Ok((
+            mquote!(rust r#"
             let mut rd = Buf::new(args);
             ⸨ let ∀arg_names = rd.∀arg_des_methods()?; ⸩*
             if !rd.is_at_end() {
                 log_warn◡!◡(=>T, "Unused {} bytes left after deserializing arguments", rd.bytes_left());
             }
         "#),
-            mquote!(rust r#" ⸨ ∀arg_names_clone ⸩,* "#)
+            mquote!(rust r#" ⸨ ∀arg_names_clone ⸩,* "#),
         ))
     }
 
@@ -176,12 +174,17 @@ impl<'ast> DispatchCall<'ast> {
         if ret_ty.kind == TyKind::Unit {
             Ok((TokenStream::new(), mquote!(rust r#" Ok(0) "#)))
         } else {
-            let ser_method = StructSerField { ty: CGTy { inner: &ret_ty } };
-            Ok((mquote!(rust r#" let ret = "#), mquote!(rust r#"
+            let ser_method = StructSerField {
+                ty: CGTy { inner: &ret_ty },
+            };
+            Ok((
+                mquote!(rust r#" let ret = "#),
+                mquote!(rust r#"
                 let mut wr = BufMut::new(result);
                 wr.Λser_method(ret)?;
                 Ok(wr.bytes_pos())
-            "#)))
+            "#),
+            ))
         }
     }
 }
@@ -194,22 +197,26 @@ impl<'ast> Depends for DispatchCall<'ast> {
         )];
 
         use Import::*;
-        let uses = vec![
-            Submodule("vhl_stdlib", vec![
-                Submodule("serdes", vec![
-                    Submodule("xwfd", vec![
-                        Submodule("uri", vec![
-                            Entity("UriIter")
-                        ]),
-                        Submodule("error", vec![
-                            Entity("FailReason")
-                        ]),
-                    ]),
-                    Submodule("buf", vec![
-                        Entity("Buf"),
-                        Entity("BufMut"),
-                        EntityAs("Error", "BufError")
-                    ]),
+        let uses = vec![Submodule(
+            "vhl_stdlib",
+            vec![Submodule(
+                "serdes",
+                vec![
+                    Submodule(
+                        "xwfd",
+                        vec![
+                            Submodule("uri", vec![Entity("UriIter")]),
+                            Submodule("error", vec![Entity("FailReason")]),
+                        ],
+                    ),
+                    Submodule(
+                        "buf",
+                        vec![
+                            Entity("Buf"),
+                            Entity("BufMut"),
+                            EntityAs("Error", "BufError"),
+                        ],
+                    ),
                 ],
             )],
         )];

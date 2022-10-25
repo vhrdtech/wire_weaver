@@ -3,7 +3,7 @@ use crate::rust::identifier::CGIdentifier;
 use crate::rust::struct_def::CGStructDef;
 use crate::rust::ty::CGTy;
 use semver::VersionReq;
-use vhl::ast::ty::TyKind;
+use ast::TyKind;
 
 pub struct StructSer<'ast> {
     pub inner: CGStructDef<'ast>,
@@ -13,9 +13,9 @@ impl<'ast> StructSer<'ast> {
     pub fn len_bytes(&self) -> Option<usize> {
         let mut len = 0;
         for f in &self.inner.inner.fields { // TODO: use proper size calculation here
-            if !f.ty.is_sized() {
-                return None;
-            }
+            // if !f.ty.is_sized() {
+            //     return None;
+            // }
             len += match &f.ty.kind {
                 TyKind::Unit => 0,
                 TyKind::Boolean => 1,
@@ -23,7 +23,6 @@ impl<'ast> StructSer<'ast> {
                     (discrete.bits / 8 + if discrete.bits % 2 != 0 { 1 } else { 0 }) as usize
                 }
                 _ => unimplemented!(), // ?
-
             };
         }
         Some(len)

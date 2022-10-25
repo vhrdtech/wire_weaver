@@ -2,12 +2,13 @@ use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
 use mtoken::{Ident, ToTokens, TokenStream};
 use std::rc::Rc;
+use ast::Identifier;
 
-pub struct Identifier {
-    pub inner: vhl::ast::identifier::Identifier,
+pub struct IdentifierCG {
+    pub inner: Identifier,
 }
 
-impl ToTokens for Identifier {
+impl ToTokens for IdentifierCG {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.append(Ident::new(
             Rc::clone(&self.inner.symbols),

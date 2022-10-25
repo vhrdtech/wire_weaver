@@ -1,8 +1,8 @@
+use ast::StructDef;
 use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
-use vhl::ast::struct_def::StructDef;
 
 #[derive(Clone)]
 pub struct CGStructDef<'ast> {
@@ -11,14 +11,14 @@ pub struct CGStructDef<'ast> {
 }
 
 impl<'ast> CGStructDef<'ast> {
-    pub fn new(struct_def: &'ast vhl::ast::struct_def::StructDef) -> Self {
+    pub fn new(struct_def: &'ast StructDef) -> Self {
         CGStructDef {
             typename: CGIdentifier {
                 inner: &struct_def.typename,
             },
             inner: struct_def, // fields: struct_def.fields.fields.iter()
-                               //     .map(|item| item.clone().into())
-                               //     .collect()
+            //     .map(|item| item.clone().into())
+            //     .collect()
         }
     }
 }
@@ -79,6 +79,7 @@ impl<'ast> Depends for CGStructDef<'ast> {
 
 #[cfg(test)]
 mod test {
+    use ast::{Definition, SourceOrigin, SpanOrigin};
     use mquote::mquote;
     use parser::span::{SourceOrigin, SpanOrigin};
     use vhl::ast::file::Definition;

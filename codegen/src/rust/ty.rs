@@ -1,9 +1,9 @@
+use ast::{Ty, TyKind};
 use crate::prelude::*;
-use vhl::ast::ty::TyKind;
 
 #[derive(Clone)]
 pub struct CGTy<'ast> {
-    pub inner: &'ast vhl::ast::ty::Ty,
+    pub inner: &'ast Ty,
 }
 
 impl<'ast> ToTokens for CGTy<'ast> {

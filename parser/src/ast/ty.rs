@@ -87,6 +87,7 @@ impl<'i> Parse<'i> for TyParse {
                 span,
             },
             Rule::fn_ty => {
+                let mut input = ParseInput::fork(input.expect1(Rule::fn_ty)?, &mut input);
                 let args: FnArgumentsParse = input.parse()?;
                 let ret_ty: Option<TyParse> = input.parse_or_skip()?;
                 Ty {

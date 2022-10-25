@@ -96,7 +96,7 @@ enum_def = { doc_attr ~ "enum" ~ identifier ~ "{" ~ enum_items? ~ "}" }
 def_fn = { doc_attr ~ "fn" ~ identifier ~ generics? ~ fn_args ~ fn_ret_ty? ~ "{" ~ statement* ~ "}" }
 named_ty = { identifier ~ ":" ~ any_ty }
 fn_args = { "(" ~ named_ty? ~ ("," ~ named_ty)* ~ ","? ~ ")" }
-fn_ret_ty = { "->" ~ any_ty }
+fn_ret_ty = _{ "->" ~ any_ty }
 
 definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 

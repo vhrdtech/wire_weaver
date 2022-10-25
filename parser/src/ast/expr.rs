@@ -54,6 +54,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let method: IdentifierParse<identifier::VariableRefName> = input.parse()?;
+            let mut input = ParseInput::fork(input.expect1(Rule::call_arguments)?, &mut input);
             let args: VecExprParse = input.parse()?;
             Expr::Call { method: method.0, args: args.0 }
         }

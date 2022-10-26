@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
@@ -24,7 +25,7 @@ impl FileParse {
                 origin: origin.clone(),
                 input: input.as_ref().to_owned(),
             })?;
-        let mut defs = Vec::new();
+        let mut defs = HashMap::new();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
         match pi.next() {
@@ -57,7 +58,8 @@ impl FileParse {
                             let def: Result<DefinitionParse, _> = input.parse();
                             match def {
                                 Ok(def) => {
-                                    defs.push(def.0);
+                                    let def = def.0;
+                                    defs.insert(def.name(), def);
                                 }
                                 Err(e) => {
                                     let kind = match e {

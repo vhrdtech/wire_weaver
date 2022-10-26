@@ -1,4 +1,4 @@
-use ast::{File, TyKind};
+use ast::{File, make_path, TyKind};
 use ast::generics::GenericParam;
 use ast::xpi_def::{AccessMode, XpiKind};
 use super::prelude::*;
@@ -21,8 +21,8 @@ impl<'i> VisitMut for CollectArrays<'i> {
                 match &ty.kind {
                     TyKind::Array { ty, len_bound } => {
                         match &ty.kind {
-                            TyKind::UserDefined(ident) => {
-                                if ident.symbols.as_str() == "Self" {
+                            TyKind::UserDefined(path) => {
+                                if *path == make_path!(Self) {
                                     if *access != AccessMode::ImpliedRo || *observable {
                                         self.errors.push(Error {
                                             kind: ErrorKind::XpiArrayWithModifier,
@@ -41,8 +41,8 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                     match &params.params[0] {
                                         GenericParam::Ty(ty) => {
                                             match &ty.kind {
-                                                TyKind::UserDefined(ident) => {
-                                                    if ident.symbols.as_str() == "Self" {
+                                                TyKind::UserDefined(path) => {
+                                                    if *path == make_path!(Self) {
                                                         if *access != AccessMode::ImpliedRo || *observable {
                                                             self.errors.push(Error {
                                                                 kind: ErrorKind::XpiArrayWithModifier,

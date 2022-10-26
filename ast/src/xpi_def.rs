@@ -136,6 +136,15 @@ pub enum UriSegmentSeed {
     Full(Identifier, Expr, Identifier),
 }
 
+impl UriSegmentSeed {
+    pub fn expect_resolved(&self) -> Option<Identifier> {
+        match self {
+            UriSegmentSeed::Resolved(id) => Some(id.clone()),
+            _ => None
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiResourceTy {}
 

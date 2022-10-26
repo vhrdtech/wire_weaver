@@ -33,7 +33,7 @@ pub struct GenerateArgs {
 pub struct ReplArgs {
     /// Source file path, local path starting with /, file:, git: or reg:
     #[clap(value_parser)]
-    pub vhl_source: String,
+    pub vhl_source: Option<String>,
 }
 
 #[derive(Args)]

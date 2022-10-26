@@ -1,4 +1,4 @@
-use crate::dependencies::{Dependencies, Depends};
+use crate::dependencies::{Dependencies};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::path::PathCG;
@@ -7,7 +7,7 @@ use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
 use crate::rust::serdes::size::SerDesSizeCG;
 use crate::rust::ty::CGTy;
 use ast::xpi_def::XpiKind;
-use ast::{make_path, FnArguments, Ty, TyKind, XpiDef, Path, Span};
+use ast::{make_path, FnArguments, Ty, TyKind, Path, Span};
 use vhl::project::Project;
 use crate::CGPiece;
 
@@ -43,7 +43,7 @@ impl<'i> Codegen for DispatchCall<'i> {
 
 impl<'ast> DispatchCall<'ast> {
     fn handle_methods(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
-        let xpi_def = project.find_xpi_def(xpi_def_path)?;
+        let xpi_def = project.find_xpi_def(xpi_def_path.clone())?;
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
                 Self::dispatch_method(project, xpi_def_path)?
@@ -66,9 +66,11 @@ impl<'ast> DispatchCall<'ast> {
             .filter(|c| !not_methods_serials.contains(&c.serial.unwrap_or(u32::MAX)))
             .try_fold::<_, _, Result<_, CodegenError>>((vec![], vec![]), |mut prev, c| {
                 prev.0.push(c.serial.unwrap_or(u32::MAX));
+                let mut path = xpi_def_path.clone();
+                path.append(c.uri_segment.expect_resolved().unwrap());
                 prev.1.push(Self::handle_methods(
                     project,
-                    &xpi_def_path.append(c.uri_segment.expect_resolved().unwrap()),
+                    &path,
                     // c,
                     // format!("{}/{}", uri_base, c.uri_segment),
                     // project
@@ -107,8 +109,8 @@ impl<'ast> DispatchCall<'ast> {
     }
 
     fn dispatch_method(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
-        // println!("attrs: {:?}", xpi_def.attrs);
-        let xpi_def = project.find_xpi_def(xpi_def_path)?;
+        let xpi_def = project.find_xpi_def(xpi_def_path.clone())?;
+        // println!("attrs: {}", xpi_def.attrs);
         let dispatch = xpi_def
             .attrs
             .get_unique(make_path!(dispatch))
@@ -120,6 +122,7 @@ impl<'ast> DispatchCall<'ast> {
             .expect_call()
             .ok_or(CodegenError::Dispatch("expected call".to_owned()))?;
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
+        // println!("args0: {}", args.0[0]);
         let path = args.0[0]
             .expect_path()
             .ok_or(CodegenError::Dispatch("expected path to user method".to_owned()))?;
@@ -132,17 +135,17 @@ impl<'ast> DispatchCall<'ast> {
         let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
         let (ser_ret_stmt, ser_ret_buf) = Self::ser_ret_buf_writer(&ret_ty)?;
         let ret_ty_size = SerDesSizeCG {
-            inner: size_in_byte_buf(&ret_ty, project)?,
+            inner: size_in_byte_buf(&ret_ty, xpi_def_path, project)?,
         };
 
         let real_run = match kind.as_str() {
-            "sync" => Ok(mquote!(rust r#"
+            "sync_call" => Ok(mquote!(rust r#"
                     // syncronous call
                     Λdes_args
                     Λser_ret_stmt Λpath(Λarg_names);
                     Λser_ret_buf
                 "#)),
-            "rtic" => Ok(mquote!(rust r#"
+            "rtic_spawn" => Ok(mquote!(rust r#"
                     // rtic spawn, TODO: count spawn errors
                     Λdes_args
                     Λser_ret_stmt Λpath::spawn(Λarg_names);

@@ -161,13 +161,14 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
- "ast",
- "itertools",
- "mquote",
- "mtoken",
- "semver",
- "thiserror",
- "vhl-stdlib",
+    "ast",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "semver",
+    "thiserror",
+    "vhl",
+    "vhl-stdlib",
 ]
 
 [[package]]

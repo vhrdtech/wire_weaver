@@ -1,4 +1,4 @@
-use mtoken::TokenStream;
+use crate::file::CGPiece;
 
 pub mod error;
 // pub mod multilang;
@@ -11,7 +11,7 @@ pub mod rust;
 pub trait Codegen {
     type Error;
 
-    fn codegen(&self) -> Result<TokenStream, Self::Error>;
+    fn codegen(&self) -> Result<CGPiece, Self::Error>;
 }
 
 pub mod prelude {

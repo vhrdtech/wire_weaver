@@ -53,7 +53,7 @@ impl Expr {
                 }
             }
             Expr::Id(ident) => {
-                path.segments.push(ident.clone());
+                path.append(ident.clone());
                 Some(())
             }
             _ => None

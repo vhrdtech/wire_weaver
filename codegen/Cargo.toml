@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 thiserror = "^1.0.33"
-#vhl = { path = "../" }
+vhl = { path = "../" }
 ast = { path = "../ast" }
 #quote = "1.0"
 #proc-macro2 = "1.0"

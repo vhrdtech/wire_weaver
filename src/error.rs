@@ -59,6 +59,9 @@ pub enum ErrorKind {
     AttrExpectedToBe(String, String),
     //#[error("Resource was expected to be of {} kind but found to be of {}", .0, .1)]
     XpiKindExpectedToBe(String, String),
+
+    FindDef(String),
+    FindXpiDef(String),
 }
 
 impl Error {

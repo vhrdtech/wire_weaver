@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use ast::Path;
 use ast::path::ResourcePathMarker;
 use super::prelude::*;
@@ -10,10 +11,10 @@ impl<'i> Parse<'i> for PathParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let simple_path = input.expect1(Rule::simple_path)?;
         let mut input = ParseInput::fork(simple_path, input);
-        let mut segments = Vec::new();
+        let mut segments = VecDeque::new();
         while let Some(_) = input.pairs.peek() {
             let segment: IdentifierParse<identifier::PathSegment> = input.parse()?;
-            segments.push(segment.0);
+            segments.push_back(segment.0);
         }
         Ok(PathParse(Path { segments }))
     }

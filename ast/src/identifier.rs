@@ -14,14 +14,13 @@ pub struct Identifier {
 
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
-        self.symbols == other.symbols && self.context == other.context
+        self.symbols == other.symbols
     }
 }
 
 impl Hash for Identifier {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.symbols.hash(state);
-        self.context.hash(state);
     }
 }
 
@@ -68,6 +67,9 @@ pub enum IdentifierContext {
 
     /// fn fun<**GN**>() {}
     GenericName,
+
+    /// Created by make_path! macro
+    MakePath
 }
 
 impl Display for Identifier {
@@ -75,7 +77,7 @@ impl Display for Identifier {
         if f.sign_plus() {
             write!(f, "Id:{}{}{} @{:#}", color::MAGENTA, self.symbols, color::DEFAULT, self.span)
         } else if f.sign_minus() {
-            write!(f, "{}{}{}", color::MAGENTA, self.symbols, color::DEFAULT)
+            write!(f, "{}", self.symbols)
         } else {
             write!(f, "Id:{}{}{}", color::MAGENTA, self.symbols, color::DEFAULT)
         }

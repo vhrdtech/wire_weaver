@@ -7,6 +7,7 @@ use crate::ast::generics::GenericsParse;
 use crate::ast::lit::LitParse;
 use crate::ast::num_bound::NumBoundParse;
 use crate::ast::ops::BinaryOpParse;
+use crate::ast::paths::PathParse;
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::ast::unit::UnitParse;
 
@@ -72,10 +73,10 @@ impl<'i> Parse<'i> for TyParse {
             }
             Rule::tuple_ty => parse_tuple_ty(&mut input)?,
             Rule::array_ty => parse_array_ty(&mut input)?,
-            Rule::identifier => {
-                let ident: IdentifierParse<identifier::VariableRefName> = ty.into();
+            Rule::simple_path => {
+                let path: PathParse = input.parse()?;
                 Ty {
-                    kind: TyKind::UserDefined(ident.0),
+                    kind: TyKind::UserDefined(path.0),
                     span,
                 }
             },

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{NumBound, Expr, FnArguments, Generics, Identifier, AutoNumber, Span};
+use crate::{NumBound, Expr, FnArguments, Generics, Identifier, AutoNumber, Span, Path};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ty {
@@ -47,7 +47,7 @@ pub enum TyKind {
     String {
         len_bound: NumBound,
     },
-    UserDefined(Identifier),
+    UserDefined(Path),
     Derive,
 }
 

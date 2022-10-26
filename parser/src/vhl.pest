@@ -73,7 +73,7 @@ standard_any_ty = _ {
     derive |
     fn_ty
 }
-any_ty = { standard_any_ty | generic_ty | identifier }
+any_ty = { standard_any_ty | generic_ty | simple_path }
 
 // Definitions
 /// Alias type

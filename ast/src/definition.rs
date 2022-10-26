@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
-use crate::{EnumDef, FnDef, StructDef, TypeAliasDef, XpiDef};
+use std::rc::Rc;
+use crate::{EnumDef, FnDef, Identifier, IdentifierContext, Span, StructDef, TypeAliasDef, XpiDef};
+use crate::xpi_def::UriSegmentSeed;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Definition {
@@ -9,6 +11,27 @@ pub enum Definition {
     Function(FnDef),
     TypeAlias(TypeAliasDef),
     Xpi(XpiDef),
+}
+
+impl Definition {
+    pub fn name(&self) -> Identifier {
+        match self {
+            Definition::Enum(d) => d.typename.clone(),
+            Definition::Struct(d) => d.typename.clone(),
+            Definition::Function(d) => d.name.clone(),
+            Definition::TypeAlias(d) => d.typename.clone(),
+            Definition::Xpi(d) => {
+                match &d.uri_segment {
+                    UriSegmentSeed::Resolved(id) => id.clone(),
+                    _ => Identifier {
+                        symbols: Rc::new("_not_resolved_xpi_name".to_string()),
+                        context: IdentifierContext::XpiUriSegmentName,
+                        span: Span::call_site(),
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl Display for Definition {

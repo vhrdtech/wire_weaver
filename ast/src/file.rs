@@ -1,10 +1,12 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use crate::{Definition, SpanOrigin};
+use crate::{Definition, Identifier, SpanOrigin};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct File {
     pub origin: SpanOrigin,
-    pub defs: Vec<Definition>,
+    // pub defs: Vec<Definition>,
+    pub defs: HashMap<Identifier, Definition>,
     pub input: String,
     // pub attrs: Vec<Attr>
 }
@@ -65,11 +67,11 @@ pub struct File {
 impl Display for File {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File from {}", self.origin)?;
-        for d in &self.defs {
+        for (id, def) in &self.defs {
             if f.alternate() {
-                writeln!(f, "{:#}", d)?;
+                writeln!(f, "{}: {:#}", id, def)?;
             } else {
-                writeln!(f, "{}", d)?;
+                writeln!(f, "{}: {}", id, def)?;
             }
         }
         Ok(())

@@ -31,6 +31,7 @@ impl<'i> Visit for IdentsCheck<'i> {
             IdentifierContext::EnumTyName => {}
             IdentifierContext::EnumFieldName => {}
             IdentifierContext::GenericName => {}
+            IdentifierContext::MakePath => {}
         }
     }
 }

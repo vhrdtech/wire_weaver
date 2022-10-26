@@ -20,9 +20,10 @@ impl<'i> VisitMut for CollectArrays<'i> {
                 let span = ty.span.clone();
                 match &ty.kind {
                     TyKind::Array { ty, len_bound } => {
+                        let self_path = make_path!(Self);
                         match &ty.kind {
                             TyKind::UserDefined(path) => {
-                                if *path == make_path!(Self) {
+                                if *path == self_path {
                                     if *access != AccessMode::ImpliedRo || *observable {
                                         self.errors.push(Error {
                                             kind: ErrorKind::XpiArrayWithModifier,
@@ -42,7 +43,7 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                         GenericParam::Ty(ty) => {
                                             match &ty.kind {
                                                 TyKind::UserDefined(path) => {
-                                                    if *path == make_path!(Self) {
+                                                    if *path == self_path {
                                                         if *access != AccessMode::ImpliedRo || *observable {
                                                             self.errors.push(Error {
                                                                 kind: ErrorKind::XpiArrayWithModifier,

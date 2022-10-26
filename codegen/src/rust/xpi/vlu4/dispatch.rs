@@ -2,25 +2,32 @@ use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::path::PathCG;
-use crate::rust::serdes::buf::size::size_in_buf;
+use crate::rust::serdes::buf::size::size_in_byte_buf;
 use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
 use crate::rust::serdes::size::SerDesSizeCG;
 use crate::rust::ty::CGTy;
 use ast::xpi_def::XpiKind;
-use ast::{make_path, FnArguments, Path, Ty, TyKind, XpiDef};
+use ast::{make_path, FnArguments, Ty, TyKind, XpiDef, Path, Span};
+use vhl::project::Project;
+use crate::CGPiece;
 
-pub struct DispatchCall<'ast> {
-    pub xpi_def: &'ast XpiDef,
+pub struct DispatchCall<'i> {
+    pub project: &'i Project,
+    pub xpi_def_path: Path,
 }
 
-impl<'ast> Codegen for DispatchCall<'ast> {
+impl<'i> Codegen for DispatchCall<'i> {
     type Error = CodegenError;
 
-    fn codegen(&self) -> Result<TokenStream, Self::Error> {
-        let mut tokens = TokenStream::new();
+    fn codegen(&self) -> Result<CGPiece, Self::Error> {
+        let mut piece = CGPiece {
+            ts: TokenStream::new(),
+            deps: dependencies(),
+            from: Span::call_site(),
+        };
         let handle_methods =
-            Self::handle_methods(&self.xpi_def, format!("{}", self.xpi_def.uri_segment))?;
-        tokens.append_all(mquote!(rust r#"
+            Self::handle_methods(self.project, &self.xpi_def_path)?;
+        piece.ts.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<SerDesSize, FailReason>
             {
@@ -30,15 +37,16 @@ impl<'ast> Codegen for DispatchCall<'ast> {
                 Λhandle_methods
             }
         "#));
-        Ok(tokens)
+        Ok(piece)
     }
 }
 
 impl<'ast> DispatchCall<'ast> {
-    fn handle_methods(xpi_def: &XpiDef, uri_base: String) -> Result<TokenStream, CodegenError> {
+    fn handle_methods(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
+        let xpi_def = project.find_xpi_def(xpi_def_path)?;
         let self_method = match &xpi_def.kind {
             XpiKind::Method { .. } => {
-                Self::dispatch_method(xpi_def)?
+                Self::dispatch_method(project, xpi_def_path)?
             }
             _ => {
                 mquote!(rust r#" Err(FailReason::NotAMethod) "#)
@@ -59,8 +67,11 @@ impl<'ast> DispatchCall<'ast> {
             .try_fold::<_, _, Result<_, CodegenError>>((vec![], vec![]), |mut prev, c| {
                 prev.0.push(c.serial.unwrap_or(u32::MAX));
                 prev.1.push(Self::handle_methods(
-                    c,
-                    format!("{}{}", uri_base, c.uri_segment),
+                    project,
+                    &xpi_def_path.append(c.uri_segment.expect_resolved().unwrap()),
+                    // c,
+                    // format!("{}/{}", uri_base, c.uri_segment),
+                    // project
                 )?);
                 Ok(prev)
             })?;
@@ -80,22 +91,24 @@ impl<'ast> DispatchCall<'ast> {
             "all defined resources are handled"
         };
 
+        let xpi_def_path = PathCG { inner: xpi_def_path };
         Ok(mquote!(rust r#"
             match uri.next() {
-                /◡/ dispatch Λuri_base◡()⏎
+                /◡/ dispatch Λxpi_def_path◡()⏎
                 None => {
                     Λself_method
                 }
                 ⸨ Some ( ∀child_serials ) => { ∀child_handle_methods } ⸩*
                 Λno_methods_recursively
-                ⏎/◡/ Λuri_base : Λwildcard_comment⏎
+                ⏎/◡/ Λxpi_def_path : Λwildcard_comment⏎
                 Some(_) => Err(FailReason::BadUri),
             }
         "#))
     }
 
-    fn dispatch_method(xpi_def: &XpiDef) -> Result<TokenStream, CodegenError> {
+    fn dispatch_method(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
         // println!("attrs: {:?}", xpi_def.attrs);
+        let xpi_def = project.find_xpi_def(xpi_def_path)?;
         let dispatch = xpi_def
             .attrs
             .get_unique(make_path!(dispatch))
@@ -119,7 +132,7 @@ impl<'ast> DispatchCall<'ast> {
         let (des_args, arg_names) = Self::des_args_buf_reader(&args)?;
         let (ser_ret_stmt, ser_ret_buf) = Self::ser_ret_buf_writer(&ret_ty)?;
         let ret_ty_size = SerDesSizeCG {
-            inner: size_in_buf(&ret_ty),
+            inner: size_in_byte_buf(&ret_ty, project)?,
         };
 
         let real_run = match kind.as_str() {
@@ -189,38 +202,36 @@ impl<'ast> DispatchCall<'ast> {
     }
 }
 
-impl<'ast> Depends for DispatchCall<'ast> {
-    fn dependencies(&self) -> Dependencies {
-        let depends = vec![Package::RustCrate(
-            RustCrateSource::Crates("vhl-stdlib".to_string()),
-            VersionReq::parse("0.1.0").unwrap(),
-        )];
+fn dependencies() -> Dependencies {
+    let depends = vec![Package::RustCrate(
+        RustCrateSource::Crates("vhl-stdlib".to_string()),
+        VersionReq::parse("0.1.0").unwrap(),
+    )];
 
-        use Import::*;
-        let uses = vec![Submodule(
-            "vhl_stdlib",
-            vec![Submodule(
-                "serdes",
-                vec![
-                    Submodule(
-                        "xwfd",
-                        vec![
-                            Submodule("uri", vec![Entity("UriIter")]),
-                            Submodule("error", vec![Entity("FailReason")]),
-                        ],
-                    ),
-                    Submodule(
-                        "buf",
-                        vec![
-                            Entity("Buf"),
-                            Entity("BufMut"),
-                            EntityAs("Error", "BufError"),
-                        ],
-                    ),
-                ],
-            )],
-        )];
+    use Import::*;
+    let uses = vec![Submodule(
+        "vhl_stdlib",
+        vec![Submodule(
+            "serdes",
+            vec![
+                Submodule(
+                    "xwfd",
+                    vec![
+                        Submodule("uri", vec![Entity("UriIter")]),
+                        Submodule("error", vec![Entity("FailReason")]),
+                    ],
+                ),
+                Submodule(
+                    "buf",
+                    vec![
+                        Entity("Buf"),
+                        Entity("BufMut"),
+                        EntityAs("Error", "BufError"),
+                    ],
+                ),
+            ],
+        )],
+    )];
 
-        Dependencies { depends, uses }
-    }
+    Dependencies { depends, uses }
 }

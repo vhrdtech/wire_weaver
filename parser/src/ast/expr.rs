@@ -72,7 +72,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
             Expr::ConsU(op.0, Box::new(pratt_parser(&mut input, 0)?))
         }
-        Rule::any_lit => {
+        Rule::lit => {
             let lit: LitParse = input.parse()?;
             Expr::Lit(lit.0)
         },
@@ -86,7 +86,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             }
             Expr::Tuple(VecExpr(exprs))
         }
-        Rule::any_ty => {
+        Rule::ty => {
             let ty: TyParse = input.parse()?;
             Expr::Ty(Box::new(ty.0))
         },

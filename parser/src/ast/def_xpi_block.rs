@@ -149,7 +149,7 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
                         ty: input.parse()?,
                     })
                 }
-                Rule::any_ty => Some(XpiResourceTyInner::Plain {
+                Rule::ty => Some(XpiResourceTyInner::Plain {
                     transform: None,
                     ty: input.parse()?,
                 }),

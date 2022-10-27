@@ -12,7 +12,7 @@ pub struct LitKindParse(pub LitKind);
 
 impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1_either(Rule::any_lit, Rule::any_number_lit)?, input);
+        let mut input = ParseInput::fork(input.expect1_either(Rule::lit, Rule::number_lit)?, input);
         // crate::util::pest_print_tree(input.pairs.clone());
         let lit = input
             .pairs

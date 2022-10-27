@@ -9,7 +9,7 @@ pub struct ResourcePathMarkerParse(pub ResourcePathMarker);
 
 impl<'i> Parse<'i> for PathParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let simple_path = input.expect1(Rule::simple_path)?;
+        let simple_path = input.expect1(Rule::path)?;
         let mut input = ParseInput::fork(simple_path, input);
         let mut segments = VecDeque::new();
         while let Some(_) = input.pairs.peek() {

@@ -124,7 +124,7 @@ impl AttrKind {
 //                         let ident_lit = token.as_str().to_string();
 //                         ts.append(mtoken::Ident::new(Rc::new(ident_lit), IdentFlavor::Plain));
 //                     }
-//                     Rule::any_lit => {
+//                     Rule::lit => {
 //                         todo!()
 //                     }
 //                     Rule::punctuation => {

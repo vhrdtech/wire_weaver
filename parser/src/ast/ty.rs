@@ -24,7 +24,7 @@ pub struct FloatTyParse(pub FloatTy);
 impl<'i> Parse<'i> for TyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         // crate::util::pest_print_tree(input.pairs.clone());
-        let any_ty = input.expect1(Rule::any_ty)?;
+        let any_ty = input.expect1(Rule::ty)?;
         let span = input.span.clone();
         let ty = any_ty
             .clone()
@@ -39,24 +39,24 @@ impl<'i> Parse<'i> for TyParse {
                     span,
                 }
             },
-            Rule::discrete_any_ty => {
+            Rule::discrete_ty => {
                 let discrete_ty: DiscreteTyParse = input.parse()?;
                 Ty {
                     kind: TyKind::Discrete(discrete_ty.0),
                     span,
                 }
             }
-            Rule::fixed_any_ty => {
+            Rule::fixed_ty => {
                 return Err(ParseErrorSource::Unimplemented("fixed ty"));
             },
-            Rule::floating_any_ty => {
+            Rule::floating_ty => {
                 let float_ty: FloatTyParse = input.parse()?;
                 Ty {
                     kind: TyKind::Float(float_ty.0),
                     span,
                 }
             },
-            Rule::textual_any_ty => {
+            Rule::textual_ty => {
                 if ty.as_str() == "char" {
                     Ty {
                         kind: TyKind::Char,
@@ -73,7 +73,7 @@ impl<'i> Parse<'i> for TyParse {
             }
             Rule::tuple_ty => parse_tuple_ty(&mut input)?,
             Rule::array_ty => parse_array_ty(&mut input)?,
-            Rule::simple_path => {
+            Rule::path => {
                 let path: PathParse = input.parse()?;
                 Ty {
                     kind: TyKind::UserDefined(path.0),
@@ -115,7 +115,7 @@ impl<'i> Parse<'i> for TyParse {
 
 impl<'i> Parse<'i> for DiscreteTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::discrete_any_ty)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::discrete_ty)?, input);
         let discrete_x_ty = input.pairs
             .next()
             .ok_or(ParseErrorSource::internal("empty discrete_any_ty"))?;

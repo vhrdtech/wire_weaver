@@ -4,12 +4,6 @@ use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use ast::span::Span;
 use ast::SpanOrigin;
 
-pub struct Errors {
-    pub errors: Vec<Error>,
-    pub origin: SpanOrigin,
-    pub input: String,
-}
-
 pub struct Error {
     pub kind: ErrorKind,
     pub span: Span,
@@ -64,8 +58,10 @@ pub enum ErrorKind {
     FindXpiDef(String),
 }
 
+type FileId = usize;
+
 impl Error {
-    pub fn report(&self) -> Diagnostic<()> {
+    pub fn report(&self) -> Diagnostic<FileId> {
         let range = self.span.start..self.span.end;
         match &self.kind {
             ErrorKind::XpiArrayWithModifier => {
@@ -73,7 +69,7 @@ impl Error {
                     .with_code("E0100")
                     .with_message("array of resources with modifier")
                     .with_labels(vec![
-                        Label::primary((), range).with_message("array of resources cannot be ro/rw/wo/const, +stream or +observe")
+                        Label::primary(0, range).with_message("array of resources cannot be ro/rw/wo/const, +stream or +observe")
                     ])
                     .with_notes(vec!["consider removing modifiers or changing resource type".to_owned()])
             }
@@ -83,20 +79,20 @@ impl Error {
                     .with_code("Exxxx")
                     .with_message("internal core error (unimplemented)")
                     .with_labels(vec![
-                        Label::primary((), range).with_message(format!("{:?}", u))
+                        Label::primary(0, range).with_message(format!("{:?}", u))
                     ])
             }
         }
     }
 }
 
-impl Errors {
-    pub fn print_report(&self) {
-        let writer = StandardStream::stderr(ColorChoice::Always);
-        let config = codespan_reporting::term::Config::default();
-        let file = SimpleFile::new(self.origin.clone(), &self.input);
-        for diagnostic in self.errors.iter().map(|err| err.report()) {
-            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
-        }
-    }
-}
+// impl Errors {
+//     pub fn print_report(&self) {
+//         let writer = StandardStream::stderr(ColorChoice::Always);
+//         let config = codespan_reporting::term::Config::default();
+//         let file = SimpleFile::new(self.origin.clone(), &self.input);
+//         for diagnostic in self.errors.iter().map(|err| err.report()) {
+//             codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
+//         }
+//     }
+// }

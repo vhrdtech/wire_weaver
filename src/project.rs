@@ -1,16 +1,29 @@
 use std::collections::HashMap;
 use ast::{Definition, File, Path, Span, XpiDef};
 use crate::error::{Error, ErrorKind};
+use crate::warning::Warning;
 
 #[derive(Debug, Clone)]
 pub struct Project {
-    pub root: File,
-    pub local: HashMap<Path, File>,
-    pub deps: HashMap<String, Project>,
-    // pub config: Toml
+    root: File,
+    local: HashMap<Path, File>,
+    deps: HashMap<String, Project>,
+    // config: Toml
+    errors: Vec<Error>,
+    warning: Vec<Warning>,
 }
 
 impl Project {
+    pub fn new(root: File) -> Self {
+        Project {
+            root,
+            local: Default::default(),
+            deps: Default::default(),
+            errors: vec![],
+            warning: vec![],
+        }
+    }
+
     pub fn find_def(&self, mut path: Path) -> Result<Definition, Error> {
         if path.segments.is_empty() {
             return Err(Error {

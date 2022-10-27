@@ -2,7 +2,7 @@ use ast::{Expr, VecExpr};
 use super::prelude::*;
 use crate::ast::lit::LitParse;
 use crate::ast::ops::{binary_from_rule, UnaryOpParse};
-use crate::ast::paths::{PathParse, ResourcePathMarkerParse};
+use crate::ast::paths::PathParse;
 use crate::ast::ty::TyParse;
 
 pub struct ExprParse(pub Expr);
@@ -93,10 +93,6 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::path => {
             let path: PathParse = input.parse()?;
             Expr::Ref(path.0)
-        },
-        Rule::resource_path_start => {
-            let marker: ResourcePathMarkerParse = input.parse()?;
-            Expr::ResourcePath(marker.0, input.span.clone())
         },
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();

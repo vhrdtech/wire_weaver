@@ -2,7 +2,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use crate::{Lit, Path, Span, Ty};
 use crate::ops::{BinaryOp, UnaryOp};
-use crate::path::ResourcePathMarker;
 
 /// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
 /// Atoms is everything except Cons variant, pre-processed by pest.
@@ -14,7 +13,6 @@ pub enum Expr {
     Tuple(VecExpr),
     Ty(Box<Ty>),
     Ref(Path),
-    ResourcePath(ResourcePathMarker, Span),
 
     ConsU(UnaryOp, Box<Expr>),
     ConsB(BinaryOp, Box<(Expr, Expr)>),
@@ -68,7 +66,6 @@ impl Expr {
             Expr::Tuple(_) => "Tuple",
             Expr::Ty(_) => "Ty",
             Expr::Ref(_) => "Ident",
-            Expr::ResourcePath(marker, _) => marker.to_str(),
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
         }.to_owned()
@@ -82,7 +79,6 @@ impl Expr {
             Expr::Tuple(t) => t.span(),
             Expr::Ty(ty) => ty.span.clone(),
             Expr::Ref(path) => path.span(),
-            Expr::ResourcePath(_marker, span) => span.clone(),
             Expr::ConsU(_, cons) => cons.span(),
             Expr::ConsB(_, cons) => cons.deref().0.span() + cons.deref().1.span(),
         }
@@ -133,7 +129,6 @@ impl Display for Expr {
             Expr::Ref(ident) => {
                 write!(f, "{}", ident)
             }
-            Expr::ResourcePath(marker, _) => write!(f, "{}", marker.to_str()),
             Expr::ConsU(op, expr) => write!(f, "{}({})", op.to_str(), expr),
             Expr::ConsB(op, a) => {
                 write!(f, "({} {} {})", op.to_str(), a.as_ref().0, a.as_ref().1)

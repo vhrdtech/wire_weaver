@@ -88,20 +88,3 @@ impl Display for Path {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum ResourcePathMarker {
-    FromRoot,
-    FromParent,
-    FromSelf,
-}
-
-impl ResourcePathMarker {
-    pub fn to_str(&self) -> &'static str {
-        match self {
-            ResourcePathMarker::FromRoot => "#",
-            ResourcePathMarker::FromParent => "#..",
-            ResourcePathMarker::FromSelf => "#.",
-        }
-    }
-}

@@ -202,7 +202,6 @@ infix_expr = _{ expression_inner ~ (op_binary ~ expression_inner)+ }
 tuple_of_expressions = { "(" ~ expression ~ ("," ~ expression)+ ~ ","? ~ ")" }
 call_arguments = { "(" ~ expression_list? ~ ")" }
 index_arguments = { "[" ~ expression_list? ~ "]" }
-resource_path_start = { "#.." | "#." | "#" }
 
 expression_inner = _{
     call_expr |
@@ -212,7 +211,6 @@ expression_inner = _{
     unary_expr |
     lit |
     tuple_of_expressions |
-    resource_path_start |
     expression_parenthesized
 }
 expression = { infix_expr | expression_inner }

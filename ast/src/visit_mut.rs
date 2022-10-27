@@ -360,7 +360,6 @@ pub fn visit_expr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Expr) {
         }
         Expr::Ty(ty) => v.visit_ty(ty),
         Expr::Ref(path) => v.visit_path(path),
-        Expr::ResourcePath(_marker, _span) => {}
         Expr::ConsU(op, cons) => v.visit_unary_expr(op, cons),
         Expr::ConsB(op, cons) => {
             let (cons0, cons1) = cons.deref_mut();

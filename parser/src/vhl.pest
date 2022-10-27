@@ -191,10 +191,10 @@ op_binary = { op_plus | op_minus | op_mul | op_div | op_rem | op_bool_and | op_b
 unary_expr = { op_unary ~ expression }
 
 call_expr = { call_then_index | call_after_index | call_local }
-call_then_index = _{ identifier ~ call_arguments ~ index_arguments }
-call_after_index = _{ identifier ~ index_arguments ~ call_arguments }
-call_local = _{ identifier ~ call_arguments }
-index_into_expr = { identifier ~ index_arguments }
+call_then_index = _{ path ~ call_arguments ~ index_arguments }
+call_after_index = _{ path ~ index_arguments ~ call_arguments }
+call_local = _{ path ~ call_arguments }
+index_into_expr = { path ~ index_arguments }
 // call_method = _{ callable ~ ("." ~ identifier ~ call_arguments)+ }
 // callable = _{ expression_braced | identifier | call_local }
 

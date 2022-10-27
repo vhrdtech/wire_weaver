@@ -127,7 +127,6 @@ impl<'ast> DispatchCall<'ast> {
             .expect_ref()
             .ok_or(CodegenError::Dispatch("expected path to user method".to_owned()))?;
         let path = PathCG { inner: &path };
-        let kind = kind.symbols.clone();
 
         let (args, ret_ty) = xpi_def
             .expect_method_kind()
@@ -138,7 +137,7 @@ impl<'ast> DispatchCall<'ast> {
             inner: size_in_byte_buf(&ret_ty, xpi_def_path, project)?,
         };
 
-        let real_run = match kind.as_str() {
+        let real_run = match kind.as_string().as_str() {
             "sync_call" => Ok(mquote!(rust r#"
                     // syncronous call
                     Λdes_args

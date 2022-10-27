@@ -53,7 +53,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::call_expr => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
-            let method: IdentifierParse<identifier::VariableRefName> = input.parse()?;
+            let method: PathParse = input.parse()?;
             let mut input = ParseInput::fork(input.expect1(Rule::call_arguments)?, &mut input);
             let args: VecExprParse = input.parse()?;
             Expr::Call { method: method.0, args: args.0 }
@@ -61,7 +61,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::index_into_expr => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
-            let object: IdentifierParse<identifier::VariableRefName> = input.parse()?;
+            let object: PathParse = input.parse()?;
             let by: VecExprParse = input.parse()?;
             Expr::Index { object: object.0, by: by.0 }
         }

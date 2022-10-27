@@ -52,6 +52,14 @@ impl Path {
         }
         sum_span
     }
+
+    pub fn as_string(&self) -> String {
+        let mut s = String::new();
+        for segment in &self.segments {
+            s.push_str(segment.symbols.as_str());
+        }
+        s
+    }
 }
 
 #[macro_export]

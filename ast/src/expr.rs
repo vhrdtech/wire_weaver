@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
-use crate::{Identifier, Lit, Path, Span, Ty};
+use crate::{Lit, Path, Span, Ty};
 use crate::ops::{BinaryOp, UnaryOp};
 use crate::path::ResourcePathMarker;
 
@@ -8,8 +8,8 @@ use crate::path::ResourcePathMarker;
 /// Atoms is everything except Cons variant, pre-processed by pest.
 #[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
-    Call { method: Identifier, args: VecExpr },
-    Index { object: Identifier, by: VecExpr },
+    Call { method: Path, args: VecExpr },
+    Index { object: Path, by: VecExpr },
     Lit(Lit),
     Tuple(VecExpr),
     Ty(Box<Ty>),
@@ -28,7 +28,7 @@ impl Expr {
         }
     }
 
-    pub fn expect_call(&self) -> Option<(Identifier, VecExpr)> {
+    pub fn expect_call(&self) -> Option<(Path, VecExpr)> {
         match self {
             Expr::Call { method, args } => Some((method.clone(), args.clone())),
             _ => None
@@ -76,8 +76,8 @@ impl Expr {
 
     pub fn span(&self) -> Span {
         match self {
-            Expr::Call { method, args } => method.span.clone() + args.span(),
-            Expr::Index { object, by } => object.span.clone() + by.span(),
+            Expr::Call { method, args } => method.span() + args.span(),
+            Expr::Index { object, by } => object.span() + by.span(),
             Expr::Lit(lit) => lit.span.clone(),
             Expr::Tuple(t) => t.span(),
             Expr::Ty(ty) => ty.span.clone(),

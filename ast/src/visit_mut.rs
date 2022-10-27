@@ -341,13 +341,13 @@ pub fn visit_ty<V: VisitMut + ?Sized>(v: &mut V, node: &mut Ty)
 pub fn visit_expr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Expr) {
     match node {
         Expr::Call { method, args } => {
-            v.visit_identifier(method);
+            v.visit_path(method);
             for expr in &mut args.0 {
                 v.visit_expr(expr);
             }
         }
         Expr::Index { object, by } => {
-            v.visit_identifier(object);
+            v.visit_path(object);
             for expr in &mut by.0 {
                 v.visit_expr(expr);
             }

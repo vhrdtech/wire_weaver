@@ -73,16 +73,7 @@ impl<'i> Parse<'i> for TyParse {
             }
             Rule::tuple_ty => parse_tuple_ty(&mut input)?,
             Rule::array_ty => parse_array_ty(&mut input)?,
-            Rule::path => {
-                let path: PathParse = input.parse()?;
-                Ty {
-                    kind: TyKind::UserDefined(path.0),
-                    span,
-                }
-            },
-            Rule::generic_ty => {
-                parse_generic_ty(&mut input, span)?
-            }
+            Rule::path => parse_ref_or_generic_ty(&mut input, span)?,
             Rule::derive => Ty {
                 kind: TyKind::Derive,
                 span,
@@ -165,28 +156,37 @@ impl<'i> Parse<'i> for FloatTyParse {
     }
 }
 
-fn parse_generic_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::generic_ty)?, input);
-    let typename: IdentifierParse<identifier::GenericName> = input.parse()?;
-    match typename.0.symbols.as_str() {
-        "autonum" => parse_autonum_ty(
-            &mut ParseInput::fork(input.expect1(Rule::generics)?, &mut input),
-            span,
-        ),
-        "indexof" => parse_indexof_ty(
-            &mut ParseInput::fork(input.expect1(Rule::generics)?, &mut input),
-            span,
-        ),
-        _ => {
-            let params: GenericsParse = input.parse()?;
-            Ok(Ty {
-                kind: TyKind::Generic {
-                    id: typename.0,
-                    params: params.0,
+fn parse_ref_or_generic_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, ParseErrorSource> {
+    let path: PathParse = input.parse()?;
+    match input.pairs.peek() {
+        Some(_) => {
+            match path.0.as_string().as_str() {
+                "autonum" => parse_autonum_ty(
+                    &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+                    span,
+                ),
+                "indexof" => parse_indexof_ty(
+                    &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+                    span,
+                ),
+                _ => {
+                    let params: GenericsParse = input.parse()?;
+                    Ok(Ty {
+                        kind: TyKind::Generic {
+                            path: path.0,
+                            params: params.0,
+                        },
+                        span,
+                    })
                 },
+            }
+        }
+        None => {
+            Ok(Ty {
+                kind: TyKind::Ref(path.0),
                 span,
             })
-        },
+        }
     }
 }
 
@@ -197,7 +197,7 @@ fn parse_autonum_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
             // escalate unexpected input to user error
             input.errors.push(ParseError {
                 kind: ParseErrorKind::AutonumWrongArguments,
-                rule: Rule::generic_ty,
+                rule: Rule::ty,
                 span: (span.start, span.end),
             });
 
@@ -223,7 +223,7 @@ fn parse_autonum_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
     {
         input.errors.push(ParseError {
             kind: ParseErrorKind::AutonumWrongArguments,
-            rule: Rule::generic_ty,
+            rule: Rule::ty,
             span: (span.start, span.end),
         });
         return Err(ParseErrorSource::UserError);
@@ -251,7 +251,7 @@ fn parse_indexof_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
     {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IndexOfWrongForm,
-            rule: Rule::generic_ty,
+            rule: Rule::ty,
             span: (span.start, span.end),
         });
         return Err(ParseErrorSource::UserError);

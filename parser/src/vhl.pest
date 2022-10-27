@@ -59,7 +59,7 @@ array_ty = { "[" ~ ty ~ ";" ~ num_bound ~ "]" }
 derive = { "_" }
 generic_param = _{ ty | expression }
 generics = !{ "<" ~ generic_param ~ ("," ~ generic_param)* ~ ","? ~ ">" }
-generic_ty = { identifier ~ (generics) }
+//generic_ty = { identifier ~ (generics) }
 
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
@@ -74,7 +74,7 @@ standard_ty = _ {
     derive |
     fn_ty
 }
-ty = { standard_ty | generic_ty | path }
+ty = { standard_ty | (path ~ generics?) }
 
 // Definitions
 /// Alias type
@@ -207,7 +207,7 @@ resource_path_start = { "#.." | "#." | "#" }
 expression_inner = _{
     call_expr |
     index_into_expr |
-    (&(standard_ty | generic_ty) ~ ty) |
+    (&(standard_ty | (path ~ generics)) ~ ty) | // paths without generics are not parsed as ty
     path |
     unary_expr |
     lit |

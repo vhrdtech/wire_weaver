@@ -29,7 +29,7 @@ pub fn size_in_byte_buf(of: &Ty, at_path: &Path, _project: &Project) -> Result<S
                 }
             },
         },
-        TyKind::UserDefined(user_path) => {
+        TyKind::Ref(user_path) => {
             println!("size_in_byte_buf of: {} at: {}", user_path, at_path);
             Ok(SerDesSize::Unsized)
         },

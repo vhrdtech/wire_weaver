@@ -22,7 +22,7 @@ impl<'i> VisitMut for CollectArrays<'i> {
                     TyKind::Array { ty, len_bound } => {
                         let self_path = make_path!(Self);
                         match &ty.kind {
-                            TyKind::UserDefined(path) => {
+                            TyKind::Ref(path) => {
                                 if *path == self_path {
                                     if *access != AccessMode::ImpliedRo || *observable {
                                         self.errors.push(Error {
@@ -37,12 +37,12 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                     return;
                                 }
                             }
-                            TyKind::Generic { id, params } => {
-                                if id.symbols.as_str() == "Cell" && params.params.len() == 1 {
+                            TyKind::Generic { path, params } => {
+                                if path.as_string() == "Cell" && params.params.len() == 1 {
                                     match &params.params[0] {
                                         GenericParam::Ty(ty) => {
                                             match &ty.kind {
-                                                TyKind::UserDefined(path) => {
+                                                TyKind::Ref(path) => {
                                                     if *path == self_path {
                                                         if *access != AccessMode::ImpliedRo || *observable {
                                                             self.errors.push(Error {

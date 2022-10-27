@@ -57,7 +57,7 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     tokens.append_all(mquote!(rust "ser_bytes"));
                 }
             }
-            TyKind::UserDefined(_) => {
+            TyKind::Ref(_) => {
                 tokens.append_all(mquote!(rust "ser_bytes"))
             }
             _ => unimplemented!()
@@ -87,7 +87,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
                     tokens.append_all(mquote!(rust "des_bytes"));
                 }
             }
-            TyKind::UserDefined(_) => {
+            TyKind::Ref(_) => {
                 tokens.append_all(mquote!(rust "des_bytes"));
             }
             k => unimplemented!("{:?}", k)

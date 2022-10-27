@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{NumBound, Expr, FnArguments, Generics, Identifier, AutoNumber, Span, Path};
+use crate::{NumBound, Expr, FnArguments, Generics, AutoNumber, Span, Path};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ty {
@@ -40,14 +40,14 @@ pub enum TyKind {
     AutoNumber(AutoNumber),
     IndexTyOf(Expr),
     Generic {
-        id: Identifier,
+        path: Path,
         params: Generics,
     },
     Char,
     String {
         len_bound: NumBound,
     },
-    UserDefined(Path),
+    Ref(Path),
     Derive,
 }
 
@@ -103,7 +103,7 @@ impl Display for Ty {
             TyKind::Fn { args, ret_ty } => write!(f, "fn({}) -> {}", args, ret_ty),
             TyKind::AutoNumber(a) => write!(f, "{}", a),
             TyKind::IndexTyOf(expr) => write!(f, "index_ty_of<{}>", expr),
-            TyKind::Generic { id, params } => write!(f, "{}{}", id, params),
+            TyKind::Generic { path, params } => write!(f, "{}{}", path, params),
             TyKind::Char => write!(f, "char"),
             TyKind::String { len_bound } => {
                 if *len_bound == NumBound::Unbound {
@@ -112,7 +112,7 @@ impl Display for Ty {
                     write!(f, "str<{}>", len_bound)
                 }
             },
-            TyKind::UserDefined(id) => write!(f, "{}", id),
+            TyKind::Ref(path) => write!(f, "{}", path),
             TyKind::Derive => write!(f, "_"),
         }
     }

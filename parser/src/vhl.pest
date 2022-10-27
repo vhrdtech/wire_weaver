@@ -208,7 +208,7 @@ expression_inner = _{
     call_expr |
     index_into_expr |
     (&(standard_ty | generic_ty) ~ ty) |
-    identifier |
+    path |
     unary_expr |
     lit |
     tuple_of_expressions |

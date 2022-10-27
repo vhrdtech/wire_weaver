@@ -2,7 +2,7 @@ use ast::{Expr, VecExpr};
 use super::prelude::*;
 use crate::ast::lit::LitParse;
 use crate::ast::ops::{binary_from_rule, UnaryOpParse};
-use crate::ast::paths::ResourcePathMarkerParse;
+use crate::ast::paths::{PathParse, ResourcePathMarkerParse};
 use crate::ast::ty::TyParse;
 
 pub struct ExprParse(pub Expr);
@@ -90,9 +90,9 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let ty: TyParse = input.parse()?;
             Expr::Ty(Box::new(ty.0))
         },
-        Rule::identifier => {
-            let ident: IdentifierParse<identifier::VariableRefName> = input.parse()?;
-            Expr::Id(ident.0)
+        Rule::path => {
+            let path: PathParse = input.parse()?;
+            Expr::Ref(path.0)
         },
         Rule::resource_path_start => {
             let marker: ResourcePathMarkerParse = input.parse()?;

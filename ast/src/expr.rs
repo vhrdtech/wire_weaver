@@ -13,7 +13,7 @@ pub enum Expr {
     Lit(Lit),
     Tuple(VecExpr),
     Ty(Box<Ty>),
-    Id(Identifier),
+    Ref(Path),
     ResourcePath(ResourcePathMarker, Span),
 
     ConsU(UnaryOp, Box<Expr>),
@@ -21,9 +21,9 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn expect_ident(&self) -> Option<Identifier> {
+    pub fn expect_ref(&self) -> Option<Path> {
         match self {
-            Expr::Id(ident) => Some(ident.clone()),
+            Expr::Ref(path) => Some(path.clone()),
             _ => None
         }
     }
@@ -35,30 +35,30 @@ impl Expr {
         }
     }
 
-    pub fn expect_path(&self) -> Option<Path> {
-        let mut path = Path::new();
-        Self::expect_path_inner(self, &mut path)?;
-        Some(path)
-    }
-
-    fn expect_path_inner(expr: &Expr, path: &mut Path) -> Option<()> {
-        match &expr {
-            Expr::ConsB(op, cons) => {
-                if *op == BinaryOp::Path {
-                    Self::expect_path_inner(&cons.deref().0, path)?;
-                    Self::expect_path_inner(&cons.deref().1, path)?;
-                    Some(())
-                } else {
-                    None
-                }
-            }
-            Expr::Id(ident) => {
-                path.append(ident.clone());
-                Some(())
-            }
-            _ => None
-        }
-    }
+    // pub fn expect_path(&self) -> Option<Path> {
+    //     let mut path = Path::new();
+    //     Self::expect_path_inner(self, &mut path)?;
+    //     Some(path)
+    // }
+    //
+    // fn expect_path_inner(expr: &Expr, path: &mut Path) -> Option<()> {
+    //     match &expr {
+    //         Expr::ConsB(op, cons) => {
+    //             if *op == BinaryOp::Path {
+    //                 Self::expect_path_inner(&cons.deref().0, path)?;
+    //                 Self::expect_path_inner(&cons.deref().1, path)?;
+    //                 Some(())
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         Expr::Ref(ident) => {
+    //             path.append(ident.clone());
+    //             Some(())
+    //         }
+    //         _ => None
+    //     }
+    // }
 
     pub fn format_kind(&self) -> String {
         match self {
@@ -67,7 +67,7 @@ impl Expr {
             Expr::Lit(_) => "Lit",
             Expr::Tuple(_) => "Tuple",
             Expr::Ty(_) => "Ty",
-            Expr::Id(_) => "Ident",
+            Expr::Ref(_) => "Ident",
             Expr::ResourcePath(marker, _) => marker.to_str(),
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
@@ -81,7 +81,7 @@ impl Expr {
             Expr::Lit(lit) => lit.span.clone(),
             Expr::Tuple(t) => t.span(),
             Expr::Ty(ty) => ty.span.clone(),
-            Expr::Id(id) => id.span.clone(),
+            Expr::Ref(path) => path.span(),
             Expr::ResourcePath(_marker, span) => span.clone(),
             Expr::ConsU(_, cons) => cons.span(),
             Expr::ConsB(_, cons) => cons.deref().0.span() + cons.deref().1.span(),
@@ -130,7 +130,7 @@ impl Display for Expr {
             Expr::Ty(ty) => {
                 write!(f, "{}", ty)
             }
-            Expr::Id(ident) => {
+            Expr::Ref(ident) => {
                 write!(f, "{}", ident)
             }
             Expr::ResourcePath(marker, _) => write!(f, "{}", marker.to_str()),

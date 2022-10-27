@@ -124,7 +124,7 @@ impl<'ast> DispatchCall<'ast> {
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
         // println!("args0: {}", args.0[0]);
         let path = args.0[0]
-            .expect_path()
+            .expect_ref()
             .ok_or(CodegenError::Dispatch("expected path to user method".to_owned()))?;
         let path = PathCG { inner: &path };
         let kind = kind.symbols.clone();

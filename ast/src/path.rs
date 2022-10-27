@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use crate::Identifier;
+use crate::{Identifier, Span};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Path {
@@ -40,6 +40,17 @@ impl Path {
 
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()
+    }
+
+    pub fn span(&self) -> Span {
+        if self.is_empty() {
+            return Span::call_site();
+        }
+        let mut sum_span = self.segments[0].span.clone();
+        for segment in self.segments.iter().skip(1) {
+            sum_span = sum_span + segment.span.clone();
+        }
+        sum_span
     }
 }
 

@@ -359,7 +359,7 @@ pub fn visit_expr<V: Visit + ?Sized>(v: &mut V, node: &Expr) {
             }
         }
         Expr::Ty(ty) => v.visit_ty(ty),
-        Expr::Id(id) => v.visit_identifier(id),
+        Expr::Ref(path) => v.visit_path(path),
         Expr::ResourcePath(_marker, _span) => {}
         Expr::ConsU(op, cons) => v.visit_unary_expr(op, cons),
         Expr::ConsB(op, cons) => {

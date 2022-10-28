@@ -8,6 +8,7 @@ pub struct File {
     // pub defs: Vec<Definition>,
     pub defs: HashMap<Identifier, Definition>,
     pub input: String,
+    pub line_starts: Vec<usize>,
     // pub attrs: Vec<Attr>
 }
 

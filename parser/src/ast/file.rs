@@ -93,10 +93,16 @@ impl FileParse {
             None => {}
         }
         if errors.is_empty() {
+            let line_starts = std::iter::once(0).chain(
+                input.as_ref()
+                    .match_indices('\n')
+                    .map(|(i, _)| i + 1)
+            ).collect();
             let mut ast_file = ast::File {
                 origin: origin.clone(),
                 defs,
                 input: input.as_ref().to_owned(),
+                line_starts,
             };
             let mut change_origin = ChangeOrigin { to: origin };
             change_origin.visit_file(&mut ast_file);

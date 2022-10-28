@@ -1,9 +1,7 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use ast::span::Span;
-use ast::SpanOrigin;
 
+#[derive(Clone)]
 pub struct Error {
     pub kind: ErrorKind,
     pub span: Span,
@@ -23,7 +21,7 @@ impl Error {
 
 // impl std::error::Error for Error {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ErrorKind {
     //#[error("No serial number provided for a resource")]
     NoSerial,

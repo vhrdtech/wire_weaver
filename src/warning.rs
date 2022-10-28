@@ -1,13 +1,13 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use ast::{Span, SpanOrigin};
+use ast::Span;
 
+#[derive(Clone)]
 pub struct Warning {
     pub kind: WarningKind,
     pub span: Span,
 }
 
+#[derive(Clone)]
 pub enum WarningKind {
     NonSnakeCaseFnName
 }

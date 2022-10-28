@@ -1,16 +1,18 @@
 use std::collections::HashMap;
-use ast::{Definition, File, Path, Span, XpiDef};
+use std::ops::Range;
+use codespan_reporting::files::Files;
+use ast::{Definition, File, Path, Span, SpanOrigin, XpiDef};
 use crate::error::{Error, ErrorKind};
 use crate::warning::Warning;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Project {
-    root: File,
+    pub root: File,
     local: HashMap<Path, File>,
     deps: HashMap<String, Project>,
     // config: Toml
-    errors: Vec<Error>,
-    warning: Vec<Warning>,
+    pub errors: Vec<Error>,
+    pub warnings: Vec<Warning>,
 }
 
 impl Project {
@@ -20,7 +22,7 @@ impl Project {
             local: Default::default(),
             deps: Default::default(),
             errors: vec![],
-            warning: vec![],
+            warnings: vec![],
         }
     }
 
@@ -95,5 +97,29 @@ impl Project {
                 span: Span::call_site(),
             })
         }
+    }
+
+    pub fn print_report(&self) {}
+}
+
+impl<'a> Files<'a> for Project {
+    type FileId = usize;
+    type Name = SpanOrigin;
+    type Source = &'a str;
+
+    fn name(&'a self, id: Self::FileId) -> Result<Self::Name, codespan_reporting::files::Error> {
+        todo!()
+    }
+
+    fn source(&'a self, id: Self::FileId) -> Result<Self::Source, codespan_reporting::files::Error> {
+        todo!()
+    }
+
+    fn line_index(&'a self, id: Self::FileId, byte_index: usize) -> Result<usize, codespan_reporting::files::Error> {
+        todo!()
+    }
+
+    fn line_range(&'a self, id: Self::FileId, line_index: usize) -> Result<Range<usize>, codespan_reporting::files::Error> {
+        todo!()
     }
 }

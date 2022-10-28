@@ -1,11 +1,12 @@
-use ast::{File, make_path, TyKind};
+use ast::{make_path, TyKind};
 use ast::generics::GenericParam;
 use ast::xpi_def::{AccessMode, XpiKind};
+use crate::project::Project;
 use super::prelude::*;
 
-pub fn xpi_preprocess(file: &mut File, _warnings: &mut Vec<Warning>, errors: &mut Vec<Error>) {
-    let mut collect_arrays = CollectArrays { errors };
-    collect_arrays.visit_file(file);
+pub fn xpi_preprocess(project: &mut Project) {
+    let mut collect_arrays = CollectArrays { errors: &mut project.errors };
+    collect_arrays.visit_file(&mut project.root);
 }
 
 pub struct CollectArrays<'i> {

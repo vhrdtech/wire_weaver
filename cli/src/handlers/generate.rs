@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 use ast::{make_path};
 use codegen::Codegen;
@@ -18,12 +17,7 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
             return Err(anyhow!("Input contains syntax errors"));
         }
     };
-    let project = Project {
-        root: file.ast_file,
-        local: HashMap::new(),
-        deps: HashMap::new(),
-
-    };
+    let project = Project::new(file.ast_file);
 
     let mut cg_file = codegen::file::CGFile::new();
     // for item in &project.root.defs {

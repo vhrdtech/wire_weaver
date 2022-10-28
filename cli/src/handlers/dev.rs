@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use super::prelude::*;
 use parser::ast::file::FileParse;
+use vhl::project::Project;
 use crate::commands::DevArgs;
 
 pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
@@ -58,18 +59,13 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         //         println!("{:?}", ast_core);
         //     }
         // }
-        let ast_file = file.ast_file;
-        let ast_file = match vhl::transform::transform(ast_file) {
-            Ok((file, warnings)) => {
-                warnings.print_report();
-                file
-            }
-            Err(errors) => {
-                errors.print_report();
-                return Err(anyhow!("AST transforms failed due to errors"));
-            }
-        };
-        println!("{:#}", ast_file);
+        let mut project = Project::new(file.ast_file);
+        vhl::transform::transform(&mut project);
+        project.print_report();
+        if !project.errors.is_empty() {
+            return Err(anyhow!("AST transforms failed due to errors"));
+        }
+        println!("{:#}", project.root);
     }
     Ok(())
 }

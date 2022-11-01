@@ -151,7 +151,8 @@ string_bound = { "TODO" }
 
 /// All possible literals
 tuple_lit = { "(" ~ lit ~ ("," ~ lit)* ~ ","? ~ ")" }
-struct_lit = { "TODO" }
+struct_lit_item = { identifier ~ ":" ~ lit }
+struct_lit = { path ~ "{" ~ struct_lit_item ~ ("," ~ struct_lit_item)* ~ ","? ~ "}" }
 enum_lit = { "TODO" }
 array_lit = { "TODO" }
 lit = { bool_lit | fixed_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit | enum_lit | array_lit }
@@ -206,10 +207,10 @@ index_arguments = { "[" ~ expression_list? ~ "]" }
 expression_inner = _{
     call_expr |
     index_into_expr |
+    lit |
     (&(standard_ty | (path ~ generics)) ~ ty) | // paths without generics are not parsed as ty
     path |
     unary_expr |
-    lit |
     tuple_of_expressions |
     expression_parenthesized
 }

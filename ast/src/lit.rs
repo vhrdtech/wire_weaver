@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{DiscreteTy, FixedTy, Identifier, Span};
+use crate::{DiscreteTy, FixedTy, Identifier, Path, Span};
 use crate::ty::FloatTy;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -77,7 +77,7 @@ pub struct FloatLit {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructLit {
-    pub typename: Identifier,
+    pub path: Path,
     pub items: Vec<StructLitItem>,
 }
 

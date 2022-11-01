@@ -1,5 +1,6 @@
 use ast::{DiscreteTy, Lit, NumBound};
-use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind};
+use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
+use crate::ast::paths::PathParse;
 use super::prelude::*;
 use crate::ast::ty::{DiscreteTyParse, FloatTyParse};
 use crate::error::{ParseError, ParseErrorKind};
@@ -9,6 +10,8 @@ pub struct LitParse(pub Lit);
 pub struct NumberLitParse(pub NumberLit);
 
 pub struct LitKindParse(pub LitKind);
+
+pub struct StructLitItemParse(pub StructLitItem);
 
 impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
@@ -32,9 +35,7 @@ impl<'i> Parse<'i> for LitParse {
             Rule::char_lit => parse_char_lit(&mut input)?,
             Rule::string_lit => parse_string_lit(&mut input)?,
             Rule::tuple_lit => parse_tuple_lit(&mut input)?,
-            Rule::struct_lit => {
-                return Err(ParseErrorSource::Unimplemented("struct lit"));
-            },
+            Rule::struct_lit => parse_struct_lit(&mut input)?,
             Rule::enum_lit => {
                 return Err(ParseErrorSource::Unimplemented("enum lit"));
             },
@@ -166,5 +167,34 @@ fn parse_tuple_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     Ok(Lit {
         kind: LitKind::Tuple(lits),
         span: input.span.clone(),
+    })
+}
+
+impl<'i> Parse<'i> for StructLitItemParse {
+    fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let name: IdentifierParse<identifier::StructFieldName> = input.parse()?;
+        let val: LitParse = input.parse()?;
+        Ok(StructLitItemParse(StructLitItem {
+            name: name.0,
+            val: val.0,
+        }))
+    }
+}
+
+fn parse_struct_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::struct_lit)?, input);
+    let path: PathParse = input.parse()?;
+    let mut items = vec![];
+    while let Some(struct_lit_item) = input.pairs.next() {
+        let mut input = ParseInput::fork(struct_lit_item, &mut input);
+        let item: StructLitItemParse = input.parse()?;
+        items.push(item.0);
+    }
+    Ok(Lit {
+        kind: LitKind::Struct(StructLit {
+            path: path.0,
+            items,
+        }),
+        span: input.span,
     })
 }

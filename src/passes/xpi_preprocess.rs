@@ -11,7 +11,7 @@ pub fn xpi_preprocess(project: &mut Project) {
 
 pub struct CollectArrays<'i> {
     // warnings: &'i mut Vec<Warning>,
-    errors: &'i mut Vec<Error>,
+    errors: &'i mut Vec<UserError>,
 }
 
 impl<'i> VisitMut for CollectArrays<'i> {
@@ -26,8 +26,8 @@ impl<'i> VisitMut for CollectArrays<'i> {
                             TyKind::Ref(path) => {
                                 if *path == self_path {
                                     if *access != AccessMode::ImpliedRo || *observable {
-                                        self.errors.push(Error {
-                                            kind: ErrorKind::XpiArrayWithModifier,
+                                        self.errors.push(UserError {
+                                            kind: UserErrorKind::XpiArrayWithModifier,
                                             span,
                                         });
                                     }
@@ -46,8 +46,8 @@ impl<'i> VisitMut for CollectArrays<'i> {
                                                 TyKind::Ref(path) => {
                                                     if *path == self_path {
                                                         if *access != AccessMode::ImpliedRo || *observable {
-                                                            self.errors.push(Error {
-                                                                kind: ErrorKind::XpiArrayWithModifier,
+                                                            self.errors.push(UserError {
+                                                                kind: UserErrorKind::XpiArrayWithModifier,
                                                                 span,
                                                             });
                                                         }

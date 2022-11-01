@@ -1,9 +1,10 @@
-
 pub enum CodegenError {
     // #[error("Error originating in core module")]
-    Core(vhl::error::Error),
+    Core(vhl::user_error::UserError),
+    CoreInternal(vhl::error::Error),
+    Ast(ast::Error),
     // #[error("{}, context: {}", .0, .1)]
-    CoreWithContext(vhl::error::Error, String),
+    CoreWithContext(vhl::user_error::UserError, String),
     // #[error("Internal error: {}", .0)]
     Internal(String),
     // #[error("xPI dispatch code generator: {}", .0)]
@@ -16,14 +17,26 @@ pub enum CodegenError {
     UnsupportedDispatchType(String),
 }
 
-impl From<vhl::error::Error> for CodegenError {
-    fn from(e: vhl::error::Error) -> Self {
+impl From<vhl::user_error::UserError> for CodegenError {
+    fn from(e: vhl::user_error::UserError) -> Self {
         CodegenError::Core(e)
     }
 }
 
+impl From<vhl::error::Error> for CodegenError {
+    fn from(e: vhl::error::Error) -> Self {
+        CodegenError::CoreInternal(e)
+    }
+}
+
+impl From<ast::Error> for CodegenError {
+    fn from(e: ast::Error) -> Self {
+        CodegenError::Ast(e)
+    }
+}
+
 impl CodegenError {
-    pub fn core_with_context(core_err: vhl::error::Error, context: &'static str) -> Self {
+    pub fn core_with_context(core_err: vhl::user_error::UserError, context: &'static str) -> Self {
         Self::CoreWithContext(core_err, context.to_owned())
     }
 
@@ -37,10 +50,16 @@ impl CodegenError {
     pub fn print_report(&self) {
         match self {
             CodegenError::Core(core_err) => {
-                println!("{:?}", core_err.report());
+                println!("Core user error: {:?}", core_err.report());
+            }
+            CodegenError::CoreInternal(core_internal) => {
+                println!("Core internal error: {:?}", core_internal)
             }
             CodegenError::CoreWithContext(core_err, context) => {
                 println!("{}: {:?}", context, core_err.report())
+            }
+            CodegenError::Ast(ast_err) => {
+                println!("AST error: {:?}", ast_err)
             }
             CodegenError::Internal(description) => println!("Internal: {}", description),
             CodegenError::Dispatch(description) => println!("Dispatch: {}", description),

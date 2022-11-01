@@ -1,6 +1,9 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ops::Range;
 use crate::{Definition, Identifier, SpanOrigin};
+use crate::error::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct File {
@@ -12,7 +15,35 @@ pub struct File {
     // pub attrs: Vec<Attr>
 }
 
-// impl File {
+impl File {
+    pub fn line_start(&self, line_index: usize) -> Result<usize, Error> {
+        match line_index.cmp(&self.line_starts.len()) {
+            Ordering::Less => Ok(self
+                .line_starts
+                .get(line_index)
+                .cloned()
+                .expect("failed despite previous check")),
+            Ordering::Equal => Ok(self.input.len()),
+            Ordering::Greater => Err(Error::LineTooLarge {
+                given: line_index,
+                max: self.line_starts.len() - 1,
+            }),
+        }
+    }
+
+    pub fn line_index(&self, byte_index: usize) -> Result<usize, Error> {
+        Ok(self
+            .line_starts
+            .binary_search(&byte_index)
+            .unwrap_or_else(|next_line| next_line - 1))
+    }
+
+    pub fn line_range(&self, line_index: usize) -> Result<Range<usize>, Error> {
+        let line_start = self.line_start(line_index)?;
+        let next_line_start = self.line_start(line_index + 1)?;
+
+        Ok(line_start..next_line_start)
+    }
 //     pub fn from_parser_ast(file: ParserFile) -> Self {
 //         let mut file_core_ast = File {
 //             items: vec![]
@@ -29,7 +60,7 @@ pub struct File {
 //         modifier.visit_file(&mut file_core_ast);
 //         file_core_ast
 //     }
-// }
+}
 //
 // struct SpanOriginModifier {
 //     to: SpanOrigin,

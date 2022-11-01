@@ -25,6 +25,8 @@ pub mod span;
 pub mod visit;
 pub mod visit_mut;
 
+pub mod error;
+
 pub use file::File;
 pub use definition::Definition;
 pub use identifier::{Identifier, IdentifierContext};
@@ -50,3 +52,5 @@ pub use uri::Uri;
 pub use span::{Span, SpanOrigin, SourceOrigin};
 pub use visit::Visit;
 pub use visit_mut::VisitMut;
+
+pub use error::Error;

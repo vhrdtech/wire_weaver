@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ast::Span;
 
@@ -9,17 +10,17 @@ pub struct Warning {
 
 #[derive(Clone)]
 pub enum WarningKind {
-    NonSnakeCaseFnName
+    NonSnakeCaseFnName(Rc<String>)
 }
 
 type FileId = usize;
 
 impl Warning {
-    pub fn report(&self, input: &str) -> Diagnostic<FileId> {
+    pub fn report(&self) -> Diagnostic<FileId> {
         let range = self.span.start..self.span.end;
-        match self.kind {
-            WarningKind::NonSnakeCaseFnName => {
-                let snake_case = &input[range.clone()].to_lowercase();
+        match &self.kind {
+            WarningKind::NonSnakeCaseFnName(name) => {
+                let snake_case = name.to_lowercase();
                 Diagnostic::warning()
                     .with_code("W0001")
                     .with_message("non snake case function name")

@@ -18,7 +18,7 @@ impl<'i> Visit for IdentsCheck<'i> {
             IdentifierContext::FnName => {
                 if i.symbols.chars().find(|c| c.is_uppercase()).is_some() {
                     self.warnings.push(Warning {
-                        kind: WarningKind::NonSnakeCaseFnName,
+                        kind: WarningKind::NonSnakeCaseFnName(i.symbols.clone()),
                         span: i.span.clone(),
                     });
                 }

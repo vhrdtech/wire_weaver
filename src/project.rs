@@ -6,6 +6,7 @@ use crate::Error;
 use crate::user_error::UserError;
 use crate::warning::Warning;
 use codespan_reporting::files::Error as CRError;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 
 #[derive(Clone)]
 pub struct Project {
@@ -92,7 +93,16 @@ impl Project {
         Ok(self.local.get(path).expect("find_file_by_id: internal error"))
     }
 
-    pub fn print_report(&self) {}
+    pub fn print_report(&self) {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+        for diagnostic in self.warnings.iter().map(|warn| warn.report()) {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, self, &diagnostic).unwrap();
+        }
+        for diagnostic in self.errors.iter().map(|err| err.report()) {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, self, &diagnostic).unwrap();
+        }
+    }
 }
 
 impl<'a> Files<'a> for Project {

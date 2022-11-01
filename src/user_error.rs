@@ -81,14 +81,3 @@ impl UserError {
         }
     }
 }
-
-// impl Errors {
-//     pub fn print_report(&self) {
-//         let writer = StandardStream::stderr(ColorChoice::Always);
-//         let config = codespan_reporting::term::Config::default();
-//         let file = SimpleFile::new(self.origin.clone(), &self.input);
-//         for diagnostic in self.errors.iter().map(|err| err.report()) {
-//             codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
-//         }
-//     }
-// }

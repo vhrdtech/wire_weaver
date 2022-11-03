@@ -6,19 +6,19 @@ rs main {
 	// rs incorrect2<const+observe u8, #2>
 
 	/// Resource that can only be read, also default mode.
-	rs temperature<ro u16`K`, #3>
+	rs temperature<ro u16`K`, #3> {}
 
 	/// Resource that can only be written, read or observe is blocked
-	rs register<wo u8, #4>
+	rs register<wo u8, #4> {}
 
 	/// Read write register
-	rs value<rw u8, #5>
+	rs value<rw u8, #5> {}
 
 	/// Observable resource, notifications are sent on value change
-	rs speed<ro+observe u8`m/s`, #6>
+	rs speed<ro+observe u8`m/s`, #6> {}
 
 	/// Observable resource that can also be changed from other nodes
-	rs set_point<rw+observe u8`m`, #7>
+	rs set_point<rw+observe u8`m`, #7> {}
 
 	// Write only resources cannot be observed as well
 	// rs incorrect3<wo+observe u8, #8>
@@ -26,45 +26,45 @@ rs main {
 	/// Stream consisting of many u8 values, notifications are sent when one or more new values are available.
 	/// In contrast to observable resources, streams have a beginning and possible an end.
 	/// In order to start receiving stream data, one must subscribe and open it.
-	rs binary_blob<ro+stream u8, #9>
+	rs binary_blob<ro+stream u8, #9> {}
 	
 	/// Stream with 128 byte array as an element
-	rs binary_blob_chunked<ro+stream [u8; 128], #10>
+	rs binary_blob_chunked<ro+stream [u8; 128], #10> {}
 
 	/// Streaming input 
-	rs binary_sink<wo+stream u8, #11>
+	rs binary_sink<wo+stream u8, #11> {}
 
 	/// Is there a use for it? It's basically 2 separate streams in one.
-	rs bidirectional_stream<rw+stream u8, #12>
+	rs bidirectional_stream<rw+stream u8, #12> {}
 
 	/// Only one node can borrow resource for writing. All can read.
-	rs protected<Cell<rw u8>, #13>
+	rs protected<Cell<rw u8>, #13> {}
 
 	/// Borrow checked and write only.
-	rs protected_wo<Cell<wo u8>, #14>
+	rs protected_wo<Cell<wo u8>, #14> {}
 
 	// No need for a Cell
-	rs redundant1<Cell<ro u8>, #15>
+	rs redundant1<Cell<ro u8>, #15> {}
 
 	// By default resource inside a Cell is read-write
-	rs default_cell_rw<Cell<u8>, #16>
+	rs default_cell_rw<Cell<u8>, #16> {}
 
 	/// Only one node can borrow this stream for writing
-	rs protected_o_stream<Cell<wo+stream u8>, #17>
+	rs protected_o_stream<Cell<wo+stream u8>, #17> {}
 
 	/// Multiple nodes can subscribe to the same screen without a Cell.
 	/// Subscribe all frist, then open?
-	rs redundant2<Cell<ro+stream u8>, #18>
+	rs redundant2<Cell<ro+stream u8>, #18> {}
 
 	/// Same question as bidirectional_stream
-	rs bidirectional_protected<Cell<rw+stream u8>, #19>
+	rs bidirectional_protected<Cell<rw+stream u8>, #19> {}
 
 	/// Only one node can borrow and write, all other can subscribe for updates
-	rs protected_observable<Cell<rw+observe u8>, #20>
+	rs protected_observable<Cell<rw+observe u8>, #20> {}
 
 	// Same as incorrect3
 	// rs incorrect4<Cell<wo+observe u8>, #21>
 
 	// No need for a cell for read only resource
-	rs redundant5<Cell<ro+observe u8>, #22>
+	rs redundant5<Cell<ro+observe u8>, #22> {}
 }

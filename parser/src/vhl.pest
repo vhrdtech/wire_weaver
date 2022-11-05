@@ -30,11 +30,11 @@ discrete_ty = { (discrete_signed_ty | discrete_unsigned_ty) ~ "_"? ~ num_bound_b
 fixed_signed_ty = ${ "q" ~ whole_number ~ "." ~ whole_number }
 /// Unsigned: uq1.15 / uq< expr -> (m, n) > uq< expr -> (m, discrete_any_ty) >
 fixed_unsigned_ty = ${ "uq" ~ whole_number ~ "." ~ whole_number }
-fixed_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ num_bound_braced? ~ si_expr_ticked? }
+fixed_ty = { (fixed_signed_ty | fixed_unsigned_ty) ~ "_"? ~ num_bound_braced? ~ "_"? ~ si_expr_ticked? }
 
 /// Floating point number types
 float_ty_inner = ${ "f" ~ natural_number }
-floating_ty = { float_ty_inner ~ num_bound_braced? ~ si_expr_ticked? }
+floating_ty = { float_ty_inner ~ "_"? ~ num_bound_braced? ~ "_"? ~ si_expr_ticked? }
 
 /// Textual types
 textual_ty = { "char" | "str" }
@@ -79,6 +79,8 @@ ty = { standard_ty | (path ~ generics?) }
 // Definitions
 /// Alias type
 type_alias_def = { doc_attr ~ "type" ~ identifier ~ "=" ~ ty ~ ";" }
+/// Const
+const_def = { doc_attr ~ "const" ~ identifier ~ (":" ~ ty)? ~ "=" ~ lit ~ ";" }
 /// Struct type
 struct_field = { outer_attribute* ~ identifier ~ ":" ~ ty }
 struct_fields = _{ struct_field ~ ("," ~ struct_field)* ~ ","? }
@@ -99,7 +101,7 @@ named_ty = { identifier ~ ":" ~ ty }
 fn_args = { "(" ~ named_ty? ~ ("," ~ named_ty)* ~ ","? ~ ")" }
 fn_ret_ty = _{ "->" ~ ty }
 
-definition = { type_alias_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
+definition = { type_alias_def | const_def | struct_def | tuple_struct_def | enum_def | def_fn | xpi_block }
 
 // Statements
 let_stmt = { "let" ~ identifier ~ (":" ~ ty)? ~ "=" ~ expression ~ punct_semicolon }
@@ -260,10 +262,10 @@ delim_token_tree = { "(" ~ token_tree* ~ ")" | "[" ~ token_tree* ~ "]" | "{" ~ t
 token = { identifier | lit | punctuation }
 
 // xPI Blocks
-xpi_block = { doc_attr ~ "rs" ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body? }
+xpi_block = { doc_attr ~ ("rs" | "trait") ~ xpi_uri_segment ~ xpi_resource_ty? ~ xpi_body }
 xpi_uri_segment = ${ (identifier ~ expression_ticked? ~ identifier_continue?) | (expression_ticked ~ identifier_continue?) }
 resource_cell_ty = { "Cell" ~ "<" ~ xpi_resource_transform? ~ ty ~ ">" } // sugar to allow Cell<rw+observe u8> and similar
-xpi_resource_ty = { "<" ~ (xpi_resource_transform? ~ (resource_cell_ty | ty) ~ ","?)? ~ xpi_serial? ~ ">" }
+xpi_resource_ty = { "<" ~ (xpi_resource_transform? ~ (resource_cell_ty | ty))? ~ ("," ~ xpi_serial)? ~ ">" }
 xpi_serial = ${ "#" ~ dec_lit_raw }
 xpi_body = { "{" ~ xpi_body_inner* ~ "}" }
 xpi_body_inner = _{ xpi_field | xpi_impl | xpi_block }

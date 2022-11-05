@@ -135,6 +135,7 @@ impl<'i> Parse<'i> for DiscreteTyParse {
 
 impl<'i> Parse<'i> for FloatTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
+        let mut input = ParseInput::fork(input.expect1(Rule::floating_ty)?, input);
         let float_ty_inner = input.expect1(Rule::float_ty_inner)?;
         let bits: u32 = float_ty_inner
             .clone()

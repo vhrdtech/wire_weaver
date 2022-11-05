@@ -1,6 +1,6 @@
 rs main {
 	/// Constant. Initialized on node start and then stays the same.
-	rs version<const str, #0>
+	rs version<const str, #0> {}
 
 	// rs incorrect1<const+stream u8, #1>
 	// rs incorrect2<const+observe u8, #2>
@@ -15,10 +15,10 @@ rs main {
 	rs value<rw u8, #5> {}
 
 	/// Observable resource, notifications are sent on value change
-	rs speed<ro+observe u8`m/s`, #6> {}
+	rs speed<ro+observe u8 `m/s`, #6> {}
 
 	/// Observable resource that can also be changed from other nodes
-	rs set_point<rw+observe u8`m`, #7> {}
+	rs set_point<rw+observe u8 `m`, #7> {}
 
 	// Write only resources cannot be observed as well
 	// rs incorrect3<wo+observe u8, #8>
@@ -67,4 +67,17 @@ rs main {
 
 	// No need for a cell for read only resource
 	rs redundant5<Cell<ro+observe u8>, #22> {}
+
+//	/// Resource enum
+//	rs state<enum State, #23> { // sugar: array of Option's, but each with different "type"
+//	    State::Any => { // <- special case, present in all variants
+//          rs target<rw u8> {}
+//      }
+//      State::Run => { // <- one of the State enum variant's
+//          rs stop<fn()> {}
+//      }
+//      State::Stop => {
+//          rs start<fn()> {}
+//      }
+//	}
 }

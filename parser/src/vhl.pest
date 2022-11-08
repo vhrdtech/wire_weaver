@@ -156,11 +156,11 @@ tuple_lit = { "(" ~ lit ~ ("," ~ lit)* ~ ","? ~ ")" }
 struct_lit_item = { identifier ~ ":" ~ lit }
 struct_lit = { path ~ "{" ~ struct_lit_item ~ ("," ~ struct_lit_item)* ~ ","? ~ "}" }
 //enum_lit = {}
-array_fill_lit = { &(lit_inner ~ ";") ~ lit_inner ~ ";" ~ discrete_lit }
-vec_lit = { lit_inner ~ ("," ~ lit_inner)* ~ ","? }
-array_lit = { "[" ~ vec_lit ~ "]" }
+array_fill_lit = { &(lit ~ ";") ~ lit ~ ";" ~ lit }
+vec_lit = { lit ~ ("," ~ lit)* ~ ","? }
+array_lit = { "[" ~ (array_fill_lit | vec_lit) ~ "]" }
 lit_inner = _{ bool_lit | fixed_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit }
-lit = { lit_inner | array_lit }
+lit = { array_lit | lit_inner }
 
 // Operators
 op_not = { "!" } // Bitwise NOT or Boolean NOT

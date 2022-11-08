@@ -2,7 +2,7 @@ use super::prelude::*;
 use crate::ast::paths::PathParse;
 use crate::ast::ty::{DiscreteTyParse, FloatTyParse};
 use crate::error::{ParseError, ParseErrorKind};
-use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
+use ast::lit::{ArrayLit, DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
 use ast::{DiscreteTy, Lit, NumBound};
 
 pub struct LitParse(pub Lit);
@@ -39,9 +39,7 @@ impl<'i> Parse<'i> for LitParse {
             // Rule::enum_lit => {
             //     return Err(ParseErrorSource::Unimplemented("enum lit"));
             // },
-            Rule::array_lit => {
-                return Err(ParseErrorSource::Unimplemented("array lit"));
-            }
+            Rule::array_lit => parse_array_lit(&mut input)?,
             _ => {
                 return Err(ParseErrorSource::internal_with_rule(
                     lit.as_rule(),
@@ -209,4 +207,49 @@ fn parse_struct_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         }),
         span: input.span,
     })
+}
+
+fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::array_lit)?, input);
+    let array_lit = input.expect1_either(Rule::array_fill_lit, Rule::vec_lit)?;
+    let array_lit_kind = array_lit.as_rule();
+    let mut input = ParseInput::fork(array_lit, &mut input);
+    if array_lit_kind == Rule::array_fill_lit {
+        let val: LitParse = input.parse()?;
+        let size: LitParse = input.parse()?;
+        let size_span = (size.0.span.start, size.0.span.end);
+        let LitKind::Discrete(size) = size.0.kind else {
+            input.errors.push(ParseError {
+                kind: ParseErrorKind::ArrayFillLitWithNotDiscreteSize,
+                rule: Rule::array_fill_lit,
+                span: size_span,
+            });
+            return Err(ParseErrorSource::UserError);
+        };
+        let size = size.to_usize().ok_or_else(|| {
+            input.errors.push(ParseError {
+                kind: ParseErrorKind::ArrayFillLitWrongSize,
+                rule: Rule::array_fill_lit,
+                span: size_span,
+            });
+            ParseErrorSource::UserError
+        })?;
+        Ok(Lit {
+            kind: LitKind::Array(ArrayLit::Init {
+                size,
+                val: Box::new(val.0),
+            }),
+            span: input.span.clone(),
+        })
+    } else {
+        let mut items = vec![];
+        while let Some(_) = input.pairs.peek() {
+            let val: LitParse = input.parse()?;
+            items.push(val.0);
+        }
+        Ok(Lit {
+            kind: LitKind::Array(ArrayLit::List(items)),
+            span: input.span.clone(),
+        })
+    }
 }

@@ -59,6 +59,20 @@ pub struct DiscreteLit {
     pub is_ty_forced: bool,
 }
 
+impl DiscreteLit {
+    pub fn to_usize(&self) -> Option<usize> {
+        if self.ty.is_signed {
+            None
+        } else {
+            if self.val <= (usize::MAX as u128) {
+                Some(self.val as usize)
+            } else {
+                None
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FixedLit {
     pub val: u128,
@@ -102,7 +116,7 @@ pub enum EnumLitValue {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ArrayLit {
-    Init { size: Box<Lit>, val: Box<Lit> },
+    Init { size: usize, val: Box<Lit> },
     List(Vec<Lit>),
 }
 

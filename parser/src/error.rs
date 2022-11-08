@@ -57,6 +57,9 @@ pub enum ParseErrorKind {
     ConstWithMods,
     WoObserve,
     StreamWithoutDirection,
+
+    ArrayFillLitWithNotDiscreteSize,
+    ArrayFillLitWrongSize,
 }
 
 #[derive(Error, Debug)]

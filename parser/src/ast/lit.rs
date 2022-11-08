@@ -36,9 +36,9 @@ impl<'i> Parse<'i> for LitParse {
             Rule::string_lit => parse_string_lit(&mut input)?,
             Rule::tuple_lit => parse_tuple_lit(&mut input)?,
             Rule::struct_lit => parse_struct_lit(&mut input)?,
-            Rule::enum_lit => {
-                return Err(ParseErrorSource::Unimplemented("enum lit"));
-            },
+            // Rule::enum_lit => {
+            //     return Err(ParseErrorSource::Unimplemented("enum lit"));
+            // },
             Rule::array_lit => {
                 return Err(ParseErrorSource::Unimplemented("array lit"));
             },

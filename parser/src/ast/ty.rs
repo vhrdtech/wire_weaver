@@ -78,6 +78,10 @@ impl<'i> Parse<'i> for TyParse {
                 kind: TyKind::Derive,
                 span,
             },
+            Rule::unit => Ty {
+                kind: TyKind::Unit,
+                span,
+            },
             Rule::fn_ty => {
                 let mut input = ParseInput::fork(input.expect1(Rule::fn_ty)?, &mut input);
                 let args: FnArgumentsParse = input.parse()?;

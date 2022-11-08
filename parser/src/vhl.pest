@@ -60,6 +60,7 @@ derive = { "_" }
 generic_param = _{ ty | expression }
 generics = !{ "<" ~ generic_param ~ ("," ~ generic_param)* ~ ","? ~ ">" }
 //generic_ty = { identifier ~ (generics) }
+unit = { "()" }
 
 fn_ty = { "fn" ~ fn_args ~ fn_ret_ty? }
 
@@ -72,6 +73,7 @@ standard_ty = _ {
     tuple_ty |
     array_ty |
     derive |
+    unit |
     fn_ty
 }
 ty = { standard_ty | (path ~ generics?) }
@@ -159,7 +161,7 @@ struct_lit = { path ~ "{" ~ struct_lit_item ~ ("," ~ struct_lit_item)* ~ ","? ~ 
 array_fill_lit = { &(lit ~ ";") ~ lit ~ ";" ~ lit }
 vec_lit = { lit ~ ("," ~ lit)* ~ ","? }
 array_lit = { "[" ~ (array_fill_lit | vec_lit) ~ "]" }
-lit_inner = _{ bool_lit | fixed_lit | float_lit | discrete_lit | char_lit | string_lit | tuple_lit | struct_lit }
+lit_inner = _{ bool_lit | fixed_lit | float_lit | discrete_lit | xpi_serial | char_lit | string_lit | tuple_lit | struct_lit }
 lit = { array_lit | lit_inner }
 
 // Operators

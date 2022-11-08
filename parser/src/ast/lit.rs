@@ -36,10 +36,8 @@ impl<'i> Parse<'i> for LitParse {
             Rule::string_lit => parse_string_lit(&mut input)?,
             Rule::tuple_lit => parse_tuple_lit(&mut input)?,
             Rule::struct_lit => parse_struct_lit(&mut input)?,
-            // Rule::enum_lit => {
-            //     return Err(ParseErrorSource::Unimplemented("enum lit"));
-            // },
             Rule::array_lit => parse_array_lit(&mut input)?,
+            Rule::xpi_serial => parse_xpi_serial(&mut input)?,
             _ => {
                 return Err(ParseErrorSource::internal_with_rule(
                     lit.as_rule(),
@@ -252,4 +250,22 @@ fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
             span: input.span.clone(),
         })
     }
+}
+
+fn parse_xpi_serial(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
+    let mut input = ParseInput::fork(input.expect1(Rule::xpi_serial)?, input);
+    let serial = input.expect1(Rule::dec_lit_raw)?;
+    let serial = serial.as_str().replace("_", ""); // TODO: improve parsing speed?
+    let serial = u32::from_str_radix(&serial, 10).map_err(|_| {
+        input.errors.push(ParseError {
+            kind: ParseErrorKind::IntParseError,
+            rule: Rule::xpi_serial,
+            span: (input.span.start, input.span.end),
+        });
+        ParseErrorSource::UserError
+    })?;
+    Ok(Lit {
+        kind: LitKind::XpiSerial(serial),
+        span: input.span,
+    })
 }

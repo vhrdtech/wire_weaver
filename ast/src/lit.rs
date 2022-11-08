@@ -26,6 +26,7 @@ pub enum LitKind {
     Struct(StructLit),
     Enum(EnumLit),
     Array(ArrayLit),
+    XpiSerial(u32)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,6 +137,7 @@ impl Display for Lit {
             LitKind::Struct(s) => write!(f, "{:?}", s),
             LitKind::Enum(e) => write!(f, "{:?}", e),
             LitKind::Array(a) => write!(f, "{:?}", a),
+            LitKind::XpiSerial(serial) => write!(f, "#{}", serial),
         }
     }
 }

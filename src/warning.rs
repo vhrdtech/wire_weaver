@@ -1,6 +1,6 @@
-use std::rc::Rc;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use ast::Span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Warning {
@@ -10,7 +10,7 @@ pub struct Warning {
 
 #[derive(Clone)]
 pub enum WarningKind {
-    NonSnakeCaseFnName(Rc<String>)
+    NonSnakeCaseFnName(Rc<String>),
 }
 
 type FileId = usize;
@@ -24,9 +24,8 @@ impl Warning {
                 Diagnostic::warning()
                     .with_code("W0001")
                     .with_message("non snake case function name")
-                    .with_labels(vec![
-                        Label::primary(0, range).with_message("function names are snake case by convention")
-                    ])
+                    .with_labels(vec![Label::primary(0, range)
+                        .with_message("function names are snake case by convention")])
                     .with_notes(vec![format!("consider renaming to: '{}'", snake_case)])
             }
         }

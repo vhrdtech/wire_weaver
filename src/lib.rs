@@ -1,9 +1,9 @@
 pub mod error;
+mod passes;
+pub mod project;
+pub mod transform;
 pub mod user_error;
 pub mod warning;
-mod passes;
-pub mod transform;
-pub mod project;
 
 pub use error::Error;
 pub use user_error::{UserError, UserErrorKind};

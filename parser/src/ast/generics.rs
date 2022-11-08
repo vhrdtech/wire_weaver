@@ -1,7 +1,7 @@
-use ast::Generics;
 use super::prelude::*;
 use crate::ast::expr::ExprParse;
 use crate::ast::ty::TyParse;
+use ast::Generics;
 
 pub struct GenericsParse(pub Generics);
 
@@ -14,11 +14,11 @@ impl<'i> Parse<'i> for GenericsParse {
                 Rule::expression => {
                     let expr: ExprParse = input.parse()?;
                     params.push(ast::generics::GenericParam::Expr(expr.0))
-                },
+                }
                 _ => {
                     let ty: TyParse = input.parse()?;
                     params.push(ast::generics::GenericParam::Ty(ty.0))
-                },
+                }
             }
         }
         Ok(GenericsParse(Generics { params }))

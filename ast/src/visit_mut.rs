@@ -1,11 +1,10 @@
-use std::ops::DerefMut;
-use crate::*;
 use crate::attribute::{Attr, AttrKind};
 use crate::generics::GenericParam;
 use crate::ops::{BinaryOp, UnaryOp};
 use crate::struct_def::StructField;
 use crate::xpi_def::{UriSegmentSeed, XpiKind};
-
+use crate::*;
+use std::ops::DerefMut;
 
 pub trait VisitMut {
     fn visit_file(&mut self, i: &mut File) {
@@ -125,15 +124,13 @@ pub trait VisitMut {
     }
 }
 
-pub fn visit_file<V: VisitMut + ?Sized>(v: &mut V, node: &mut File)
-{
+pub fn visit_file<V: VisitMut + ?Sized>(v: &mut V, node: &mut File) {
     for (_, def) in &mut node.defs {
         v.visit_definition(def);
     }
 }
 
-pub fn visit_definition<V: VisitMut + ?Sized>(v: &mut V, node: &mut Definition)
-{
+pub fn visit_definition<V: VisitMut + ?Sized>(v: &mut V, node: &mut Definition) {
     match node {
         Definition::TypeAlias(type_alias_def) => v.visit_type_alias(type_alias_def),
         Definition::Enum(enum_def) => v.visit_enum_def(enum_def),
@@ -143,8 +140,7 @@ pub fn visit_definition<V: VisitMut + ?Sized>(v: &mut V, node: &mut Definition)
     }
 }
 
-pub fn visit_struct_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut StructDef)
-{
+pub fn visit_struct_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut StructDef) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.typename);
@@ -154,8 +150,7 @@ pub fn visit_struct_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut StructDef)
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_enum_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumDef)
-{
+pub fn visit_enum_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumDef) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.typename);
@@ -165,8 +160,7 @@ pub fn visit_enum_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumDef)
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_xpi_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiDef)
-{
+pub fn visit_xpi_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiDef) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_xpi_uri_segment(&mut node.uri_segment);
@@ -183,8 +177,7 @@ pub fn visit_xpi_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiDef)
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_xpi_uri_segment<V: VisitMut + ?Sized>(v: &mut V, node: &mut UriSegmentSeed)
-{
+pub fn visit_xpi_uri_segment<V: VisitMut + ?Sized>(v: &mut V, node: &mut UriSegmentSeed) {
     match node {
         UriSegmentSeed::Resolved(id) => v.visit_identifier(id),
         UriSegmentSeed::ExprOnly(expr) => v.visit_expr(expr),
@@ -204,13 +197,12 @@ pub fn visit_xpi_uri_segment<V: VisitMut + ?Sized>(v: &mut V, node: &mut UriSegm
     }
 }
 
-pub fn visit_xpi_kind<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiKind)
-{
+pub fn visit_xpi_kind<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiKind) {
     match node {
         XpiKind::Group => {}
         XpiKind::Array { num_bound, .. } => {
             v.visit_num_bound(num_bound);
-        },
+        }
         XpiKind::Property { .. } => {}
         XpiKind::Stream { .. } => {}
         XpiKind::Cell { .. } => {}
@@ -218,8 +210,7 @@ pub fn visit_xpi_kind<V: VisitMut + ?Sized>(v: &mut V, node: &mut XpiKind)
     }
 }
 
-pub fn visit_fn_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut FnDef)
-{
+pub fn visit_fn_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut FnDef) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.name);
@@ -235,39 +226,34 @@ pub fn visit_fn_def<V: VisitMut + ?Sized>(v: &mut V, node: &mut FnDef)
     }
 }
 
-pub fn visit_fn_args<V: VisitMut + ?Sized>(v: &mut V, node: &mut FnArguments)
-{
+pub fn visit_fn_args<V: VisitMut + ?Sized>(v: &mut V, node: &mut FnArguments) {
     for arg in &mut node.args {
         v.visit_identifier(&mut arg.name);
         v.visit_ty(&mut arg.ty);
     }
 }
 
-pub fn visit_type_alias<V: VisitMut + ?Sized>(v: &mut V, node: &mut TypeAliasDef)
-{
+pub fn visit_type_alias<V: VisitMut + ?Sized>(v: &mut V, node: &mut TypeAliasDef) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.typename);
     v.visit_ty(&mut node.ty);
 }
 
-pub fn visit_doc<V: VisitMut + ?Sized>(v: &mut V, node: &mut Doc)
-{
+pub fn visit_doc<V: VisitMut + ?Sized>(v: &mut V, node: &mut Doc) {
     for (_, span) in &mut node.lines {
         v.visit_span(span);
     }
 }
 
-pub fn visit_attrs<V: VisitMut + ?Sized>(v: &mut V, node: &mut Attrs)
-{
+pub fn visit_attrs<V: VisitMut + ?Sized>(v: &mut V, node: &mut Attrs) {
     for attr in &mut node.attrs {
         v.visit_attr(attr);
     }
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_attr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Attr)
-{
+pub fn visit_attr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Attr) {
     match &mut node.kind {
         AttrKind::Expr(expr) => v.visit_expr(expr),
         AttrKind::TT(_) => {}
@@ -276,8 +262,7 @@ pub fn visit_attr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Attr)
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_generics<V: VisitMut + ?Sized>(v: &mut V, node: &mut Generics)
-{
+pub fn visit_generics<V: VisitMut + ?Sized>(v: &mut V, node: &mut Generics) {
     for p in &mut node.params {
         match p {
             GenericParam::Ty(ty) => v.visit_ty(ty),
@@ -286,13 +271,11 @@ pub fn visit_generics<V: VisitMut + ?Sized>(v: &mut V, node: &mut Generics)
     }
 }
 
-pub fn visit_identifier<V: VisitMut + ?Sized>(v: &mut V, node: &mut Identifier)
-{
+pub fn visit_identifier<V: VisitMut + ?Sized>(v: &mut V, node: &mut Identifier) {
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_struct_def_field<V: VisitMut + ?Sized>(v: &mut V, node: &mut StructField)
-{
+pub fn visit_struct_def_field<V: VisitMut + ?Sized>(v: &mut V, node: &mut StructField) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.name);
@@ -300,8 +283,7 @@ pub fn visit_struct_def_field<V: VisitMut + ?Sized>(v: &mut V, node: &mut Struct
     v.visit_span(&mut node.span);
 }
 
-pub fn visit_enum_def_item<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumItem)
-{
+pub fn visit_enum_def_item<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumItem) {
     v.visit_doc(&mut node.doc);
     v.visit_attrs(&mut node.attrs);
     v.visit_identifier(&mut node.name);
@@ -317,19 +299,17 @@ pub fn visit_enum_def_item<V: VisitMut + ?Sized>(v: &mut V, node: &mut EnumItem)
                 for field in struct_fields {
                     v.visit_struct_def_field(field)
                 }
-            },
+            }
             EnumItemKind::Discriminant(discriminant) => v.visit_lit(discriminant),
-        }
+        },
     }
 }
 
-pub fn visit_span<V: VisitMut + ?Sized>(_v: &mut V, _node: &mut Span)
-{}
+pub fn visit_span<V: VisitMut + ?Sized>(_v: &mut V, _node: &mut Span) {}
 
-pub fn visit_ty<V: VisitMut + ?Sized>(v: &mut V, node: &mut Ty)
-{
+pub fn visit_ty<V: VisitMut + ?Sized>(v: &mut V, node: &mut Ty) {
     match &mut node.kind {
-        TyKind::Unit => {},
+        TyKind::Unit => {}
         TyKind::Boolean => v.visit_bool_ty(&mut node.span),
         TyKind::Discrete(discrete) => v.visit_discrete_ty(discrete, &mut node.span),
         TyKind::AutoNumber(autonum) => v.visit_autonum_ty(autonum),
@@ -364,7 +344,7 @@ pub fn visit_expr<V: VisitMut + ?Sized>(v: &mut V, node: &mut Expr) {
         Expr::ConsB(op, cons) => {
             let (cons0, cons1) = cons.deref_mut();
             v.visit_binary_expr(op, cons0, cons1);
-        },
+        }
     }
 }
 
@@ -372,7 +352,12 @@ pub fn visit_unary_expr<V: VisitMut + ?Sized>(v: &mut V, _op: &mut UnaryOp, cons
     v.visit_expr(cons);
 }
 
-pub fn visit_binary_expr<V: VisitMut + ?Sized>(v: &mut V, _op: &mut BinaryOp, cons0: &mut Expr, cons1: &mut Expr) {
+pub fn visit_binary_expr<V: VisitMut + ?Sized>(
+    v: &mut V,
+    _op: &mut BinaryOp,
+    cons0: &mut Expr,
+    cons1: &mut Expr,
+) {
     v.visit_expr(cons0);
     v.visit_expr(cons1);
 }
@@ -406,22 +391,18 @@ pub fn visit_path<V: VisitMut + ?Sized>(v: &mut V, node: &mut Path) {
     }
 }
 
-pub fn visit_bool_ty<V: VisitMut + ?Sized>(_v: &mut V, _span: &Span)
-{}
+pub fn visit_bool_ty<V: VisitMut + ?Sized>(_v: &mut V, _span: &Span) {}
 
-pub fn visit_discrete_ty<V: VisitMut + ?Sized>(v: &mut V, node: &mut DiscreteTy, _span: &Span)
-{
+pub fn visit_discrete_ty<V: VisitMut + ?Sized>(v: &mut V, node: &mut DiscreteTy, _span: &Span) {
     v.visit_num_bound(&mut node.num_bound);
 }
 
-pub fn visit_autonum_ty<V: VisitMut + ?Sized>(v: &mut V, autonum: &mut AutoNumber)
-{
+pub fn visit_autonum_ty<V: VisitMut + ?Sized>(v: &mut V, autonum: &mut AutoNumber) {
     v.visit_lit(&mut autonum.start);
     v.visit_lit(&mut autonum.step);
     v.visit_lit(&mut autonum.end);
 }
 
-pub fn visit_lit<V: VisitMut + ?Sized>(v: &mut V, node: &mut Lit)
-{
+pub fn visit_lit<V: VisitMut + ?Sized>(v: &mut V, node: &mut Lit) {
     v.visit_span(&mut node.span);
 }

@@ -15,8 +15,8 @@ path = "src/lib.rs"
 [dependencies]
 ast = { path = "./ast" }
 parser = { path = "./parser" }
-thiserror = "^1.0.34"
-either = "1.8"
+#thiserror = "^1.0.34"
+#either = "1.8"
 util = { path = "./util" }
 mtoken = { path = "./mtoken" }
 #peg = "0.8.0"

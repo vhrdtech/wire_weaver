@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use util::color;
 // use mtoken::{TokenTree, TokenStream, Delimiter, Group, token::IdentFlavor};
 // use mtoken::ext::TokenStreamExt;
-use crate::{Expr, Span, Path};
+use crate::{Expr, Path, Span};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Attrs {
@@ -26,9 +26,9 @@ pub struct Attrs {
 // }
 //
 impl Attrs {
-//     pub fn peg_test(&self) {
-//         println!("{:?}", tokenparser::path(&[Token::Ident(0), Token::Punct(':'), Token::Punct(':'), Token::Ident(1), Token::Punct(':'), Token::Punct(':'), Token::Ident(10)]));
-//     }
+    //     pub fn peg_test(&self) {
+    //         println!("{:?}", tokenparser::path(&[Token::Ident(0), Token::Punct(':'), Token::Punct(':'), Token::Ident(1), Token::Punct(':'), Token::Punct(':'), Token::Ident(10)]));
+    //     }
 
     /// Find attribute by name that is expected to be unique and return Ok with it, otherwise
     /// return Error::AttributeExpected or Error::AttributeMustBeUnique.
@@ -63,7 +63,7 @@ impl AttrKind {
     pub fn expect_expr(&self) -> Option<Expr> {
         match self {
             AttrKind::Expr(expr) => Some(expr.clone()),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -166,7 +166,8 @@ impl Display for Attrs {
         itertools::intersperse(
             self.attrs.iter().map(|attr| format!("{}", attr)),
             " ".to_owned(),
-        ).try_for_each(|s| write!(f, "{}", s))?;
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

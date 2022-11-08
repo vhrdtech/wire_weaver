@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::{Attrs, Doc, Generics, Identifier, Stmt, Ty};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FnDef {
@@ -26,9 +26,12 @@ pub struct FnArg {
 impl Display for FnArguments {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         itertools::intersperse(
-            self.args.iter().map(|arg| format!("{}: {}", arg.name, arg.ty)),
+            self.args
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.ty)),
             ", ".to_owned(),
-        ).try_for_each(|s| write!(f, "{}", s))?;
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

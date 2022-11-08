@@ -1,9 +1,9 @@
+use crate::error::XpiError;
+use core::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::traits::SerializeVlu4;
 use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
 use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
-use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize};
-use core::fmt::{Display, Formatter};
-use crate::error::XpiError;
+use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
 /// select the level to which UriMask applies.

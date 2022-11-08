@@ -1,7 +1,7 @@
-use ast::struct_def::StructField;
-use ast::StructDef;
 use crate::ast::prelude::*;
 use crate::ast::ty::TyParse;
+use ast::struct_def::StructField;
+use ast::StructDef;
 
 pub struct StructDefParse(pub StructDef);
 

@@ -1,9 +1,9 @@
-use ast::{DiscreteTy, Lit, NumBound};
-use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
-use crate::ast::paths::PathParse;
 use super::prelude::*;
+use crate::ast::paths::PathParse;
 use crate::ast::ty::{DiscreteTyParse, FloatTyParse};
 use crate::error::{ParseError, ParseErrorKind};
+use ast::lit::{DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
+use ast::{DiscreteTy, Lit, NumBound};
 
 pub struct LitParse(pub Lit);
 
@@ -29,7 +29,7 @@ impl<'i> Parse<'i> for LitParse {
                     kind: LitKind::Bool(bool_lit.as_str() == "true"),
                     span,
                 }
-            },
+            }
             Rule::float_lit => parse_float_lit(&mut input)?,
             Rule::discrete_lit => parse_discrete_lit(&mut input)?,
             Rule::char_lit => parse_char_lit(&mut input)?,
@@ -41,13 +41,13 @@ impl<'i> Parse<'i> for LitParse {
             // },
             Rule::array_lit => {
                 return Err(ParseErrorSource::Unimplemented("array lit"));
-            },
+            }
             _ => {
                 return Err(ParseErrorSource::internal_with_rule(
                     lit.as_rule(),
                     "Lit::parse: expected any_lit",
                 ));
-            },
+            }
         };
         Ok(LitParse(ast_lit))
     }
@@ -57,12 +57,19 @@ impl<'i> Parse<'i> for NumberLitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let lit: LitParse = input.parse()?;
         match lit.0.kind {
-            LitKind::Discrete(ds) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Discrete(ds), span: lit.0.span })),
-            LitKind::Fixed(fx) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Fixed(fx), span: lit.0.span })),
-            LitKind::Float(fl) => Ok(NumberLitParse(NumberLit { kind: NumberLitKind::Float(fl), span: lit.0.span })),
-            _ => {
-                Err(ParseErrorSource::internal("wrong any_number_lit rule"))
-            }
+            LitKind::Discrete(ds) => Ok(NumberLitParse(NumberLit {
+                kind: NumberLitKind::Discrete(ds),
+                span: lit.0.span,
+            })),
+            LitKind::Fixed(fx) => Ok(NumberLitParse(NumberLit {
+                kind: NumberLitKind::Fixed(fx),
+                span: lit.0.span,
+            })),
+            LitKind::Float(fl) => Ok(NumberLitParse(NumberLit {
+                kind: NumberLitKind::Float(fl),
+                span: lit.0.span,
+            })),
+            _ => Err(ParseErrorSource::internal("wrong any_number_lit rule")),
         }
     }
 }
@@ -93,12 +100,15 @@ fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         let ty: DiscreteTyParse = input.parse()?;
         (ty.0, true)
     } else {
-        (DiscreteTy {
-            is_signed: true,
-            bits: 32,
-            num_bound: NumBound::Unbound,
-            unit: (),
-        }, false)
+        (
+            DiscreteTy {
+                is_signed: true,
+                bits: 32,
+                num_bound: NumBound::Unbound,
+                unit: (),
+            },
+            false,
+        )
     };
     Ok(Lit {
         kind: LitKind::Discrete(DiscreteLit {
@@ -118,11 +128,13 @@ fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         .chars()
         .filter(|c| *c != '_')
         .collect::<String>();
-    let ty: FloatTyParse = input.parse_or_skip()?.unwrap_or(FloatTyParse(ast::ty::FloatTy {
-        bits: 64,
-        num_bound: ast::NumBound::Unbound,
-        unit: (),
-    }));
+    let ty: FloatTyParse = input
+        .parse_or_skip()?
+        .unwrap_or(FloatTyParse(ast::ty::FloatTy {
+            bits: 64,
+            num_bound: ast::NumBound::Unbound,
+            unit: (),
+        }));
 
     Ok(Lit {
         kind: LitKind::Float(ast::lit::FloatLit {

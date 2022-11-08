@@ -2,7 +2,7 @@
 pub mod ty;
 // pub mod item_tuple;
 pub mod identifier;
+pub mod path;
 pub mod serdes;
 pub mod struct_def;
 pub mod xpi;
-pub mod path;

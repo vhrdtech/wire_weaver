@@ -19,15 +19,9 @@ mod tests {
     #[test]
     fn it_works() {
         let mut ts = TokenStream::new();
-        ts.append(Ident::new(
-            Rc::new("x".to_string()),
-            IdentFlavor::Plain,
-        ));
+        ts.append(Ident::new(Rc::new("x".to_string()), IdentFlavor::Plain));
         ts.append(Punct::new('+', Spacing::Alone));
-        ts.append(Ident::new(
-            Rc::new("y".to_string()),
-            IdentFlavor::Plain,
-        ));
+        ts.append(Ident::new(Rc::new("y".to_string()), IdentFlavor::Plain));
         assert_eq!(format!("{}", ts), "x + y");
     }
 }

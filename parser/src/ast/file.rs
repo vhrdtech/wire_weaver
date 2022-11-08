@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use crate::ast::definition::DefinitionParse;
 use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
-use ast::span::SpanOrigin;
-use ast::VisitMut;
 use crate::span::{ast_span_from_pest, ChangeOrigin};
 use crate::warning::{ParseWarning, ParseWarningKind};
+use ast::span::SpanOrigin;
+use ast::VisitMut;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct FileParse {
@@ -20,10 +20,12 @@ pub struct FileParse {
 impl FileParse {
     pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
         let mut pi =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| Error {
-                kind: ErrorKind::Grammar(e),
-                origin: origin.clone(),
-                input: input.as_ref().to_owned(),
+            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| {
+                Error {
+                    kind: ErrorKind::Grammar(e),
+                    origin: origin.clone(),
+                    input: input.as_ref().to_owned(),
+                }
             })?;
         let mut defs = HashMap::new();
         let mut warnings = Vec::new();
@@ -93,11 +95,9 @@ impl FileParse {
             None => {}
         }
         if errors.is_empty() {
-            let line_starts = std::iter::once(0).chain(
-                input.as_ref()
-                    .match_indices('\n')
-                    .map(|(i, _)| i + 1)
-            ).collect();
+            let line_starts = std::iter::once(0)
+                .chain(input.as_ref().match_indices('\n').map(|(i, _)| i + 1))
+                .collect();
             let mut ast_file = ast::File {
                 origin: origin.clone(),
                 defs,
@@ -106,10 +106,7 @@ impl FileParse {
             };
             let mut change_origin = ChangeOrigin { to: origin };
             change_origin.visit_file(&mut ast_file);
-            Ok(FileParse {
-                ast_file,
-                warnings,
-            })
+            Ok(FileParse { ast_file, warnings })
         } else {
             Err(Error {
                 kind: ErrorKind::Parser(errors),
@@ -170,34 +167,36 @@ impl FileParse {
     }
 
     pub fn report(&self) -> Vec<Diagnostic<()>> {
-        self.warnings.iter().map(|warning| {
-            let range = warning.span.0..warning.span.1;
-            match &warning.kind {
-                ParseWarningKind::NonCamelCaseTypename => {
-                    Diagnostic::warning()
+        self.warnings
+            .iter()
+            .map(|warning| {
+                let range = warning.span.0..warning.span.1;
+                match &warning.kind {
+                    ParseWarningKind::NonCamelCaseTypename => Diagnostic::warning()
                         .with_message("non camel case typename")
                         .with_labels(vec![
                             Label::primary((), range).with_message("consider renaming to: '{}'")
-                        ])
-                }
-                ParseWarningKind::CellWithConstRo => {
-                    Diagnostic::warning()
+                        ]),
+                    ParseWarningKind::CellWithConstRo => Diagnostic::warning()
                         .with_message("resource containing cell with a constant or read only data")
                         .with_labels(vec![
                             Label::primary((), range).with_message("remove this Cell<_>")
                         ])
-                        .with_notes(vec!["const and read only resources are safe to use without a Cell".to_owned()])
-                }
-                ParseWarningKind::CellWithRoStream => {
-                    Diagnostic::warning()
+                        .with_notes(vec![
+                            "const and read only resources are safe to use without a Cell"
+                                .to_owned(),
+                        ]),
+                    ParseWarningKind::CellWithRoStream => Diagnostic::warning()
                         .with_message("resource containing cell with a read only stream")
                         .with_labels(vec![
                             Label::primary((), range).with_message("remove this Cell<_>")
                         ])
-                        .with_notes(vec!["read only streams are safe to use without a Cell".to_owned()])
+                        .with_notes(vec![
+                            "read only streams are safe to use without a Cell".to_owned()
+                        ]),
                 }
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     pub fn print_report(&self) {

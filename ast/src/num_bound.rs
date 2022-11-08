@@ -1,7 +1,7 @@
+use crate::lit::NumberLit;
+use crate::{Set, TryEvaluateInto, VecExpr};
 use std::fmt::{Display, Formatter};
 use util::color;
-use crate::{Set, TryEvaluateInto, VecExpr};
-use crate::lit::NumberLit;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NumBound {

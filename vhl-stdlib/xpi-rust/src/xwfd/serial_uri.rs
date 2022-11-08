@@ -1,10 +1,10 @@
-use vhl_stdlib::discrete::{U3, U4, U6};
-use vhl_stdlib::serdes::traits::SerializeVlu4;
-use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize};
+use crate::error::XpiError;
 use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
+use vhl_stdlib::discrete::{U3, U4, U6};
+use vhl_stdlib::serdes::traits::SerializeVlu4;
 use vhl_stdlib::serdes::vlu4::Vlu32;
-use crate::error::XpiError;
+use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 /// Sequence of numbers uniquely identifying one of the resources.
 /// If there is a group in the uri with not numerical index - it must be mapped into numbers.
@@ -40,7 +40,7 @@ pub(crate) enum SerialUriDiscriminant {
     MultiPart = 5,
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> SerialUri<I<>> {
+impl<I: Iterator<Item=Vlu32> + Clone> SerialUri<I> {
     pub fn iter(&self) -> SerialUriIter<I> {
         match self {
             SerialUri::OnePart4(a) => SerialUriIter::UpToThree {
@@ -80,12 +80,13 @@ impl<I: Iterator<Item=Vlu32> + Clone> SerialUri<I<>> {
             SerialUri::ThreePart444(_, _, _) => ThreePart444,
             SerialUri::ThreePart633(_, _, _) => ThreePart633,
             SerialUri::ThreePart664(_, _, _) => ThreePart664,
-            SerialUri::MultiPart(_) => MultiPart
+            SerialUri::MultiPart(_) => MultiPart,
         }
     }
 }
 
-impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XpiError>> DeserializeVlu4<'i> for SerialUri<I>
+impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XpiError>> DeserializeVlu4<'i>
+for SerialUri<I>
 {
     type Error = XpiError;
 
@@ -95,8 +96,7 @@ impl<'i, I: Iterator<Item=Vlu32> + DeserializeVlu4<'i, Error=XpiError>> Deserial
     }
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> SerializeVlu4 for SerialUri<I>
-{
+impl<I: Iterator<Item=Vlu32> + Clone> SerializeVlu4 for SerialUri<I> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -131,9 +131,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> SerializeVlu4 for SerialUri<I>
             }
             SerialUri::MultiPart(arr) => {
                 let arr_iter = &mut arr.clone();
-                wgr.unfold_as_vec(|| {
-                    arr_iter.next()
-                })?;
+                wgr.unfold_as_vec(|| arr_iter.next())?;
             }
         }
         Ok(())
@@ -148,7 +146,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> SerializeVlu4 for SerialUri<I>
             SerialUri::ThreePart664(_, _, _) => 4,
             SerialUri::MultiPart(_arr) => {
                 return SerDesSize::Unsized; // TODO: return something more proper?
-            },
+            }
         };
         SerDesSize::Sized(nibbles)
     }
@@ -165,16 +163,9 @@ impl<I: Iterator<Item=Vlu32> + Clone> IntoIterator for SerialUri<I> {
 
 #[derive(Clone)]
 pub enum SerialUriIter<I> {
-    UpToThree {
-        parts: [u8; 3],
-        len: u8,
-        pos: u8,
-    },
+    UpToThree { parts: [u8; 3], len: u8, pos: u8 },
     ArrIter(I),
-    ArrIterChain {
-        arr_iter: I,
-        last: Option<u32>,
-    },
+    ArrIterChain { arr_iter: I, last: Option<u32> },
 }
 
 impl<I: Iterator<Item=Vlu32> + Clone> Iterator for SerialUriIter<I> {
@@ -251,8 +242,8 @@ impl<I: Iterator<Item=Vlu32> + Clone> Debug for SerialUri<I> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib::discrete::{U3, U4, U6};
     use std::format;
+    use vhl_stdlib::discrete::{U3, U4, U6};
 
     use super::SerialUri;
     use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter};
@@ -268,7 +259,8 @@ mod test {
 
     #[test]
     fn two_part_uri_iter() {
-        let uri: SerialUri<Vlu4VecIter<Vlu32>> = SerialUri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
+        let uri: SerialUri<Vlu4VecIter<Vlu32>> =
+            SerialUri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), Some(2));

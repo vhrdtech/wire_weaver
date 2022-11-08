@@ -1,20 +1,20 @@
+use crate::node::addressing::RemoteNodeAddr;
+use crate::node::async_std::NodeError;
+use crate::node::filter::EventFilter;
+use crate::remote::remote_descriptor::RemoteDescriptor;
+use crate::remote::tcp::tcp_event_loop;
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use tokio::net::TcpStream;
-use crate::node::addressing::RemoteNodeAddr;
-use crate::node::async_std::NodeError;
-use xpi::owned::{Event};
-use xpi::owned::node_id::NodeId;
-use crate::remote::tcp::tcp_event_loop;
-use tracing::{warn, error, info, trace, instrument};
+use tracing::{error, info, instrument, trace, warn};
 use xpi::node_set::XpiGenericNodeSet;
-use crate::node::filter::EventFilter;
-use crate::remote::remote_descriptor::RemoteDescriptor;
-use xpi::owned::RequestId;
+use xpi::owned::node_id::NodeId;
+use xpi::owned::Event;
 use xpi::owned::Priority;
+use xpi::owned::RequestId;
 
 #[derive(Debug)]
 pub struct VhNode {
@@ -28,7 +28,9 @@ impl VhNode {
     ///
     /// Created node will contain xPI implementations of: semver, client and will answer to respective
     /// requests. Heartbeats will also be broadcasted.
-    pub async fn new_client(id: NodeId /* xPI client, generated or dynamically loaded */) -> VhNode {
+    pub async fn new_client(
+        id: NodeId, /* xPI client, generated or dynamically loaded */
+    ) -> VhNode {
         let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(1);
         tokio::spawn(async move {
@@ -156,7 +158,8 @@ impl VhNode {
 
         match ev.destination {
             XpiGenericNodeSet::Unicast(id) => {
-                if self_node_id != id { // && routing_enabled
+                if self_node_id != id {
+                    // && routing_enabled
                     for rd in remote_nodes {
                         if rd.reachable.contains(&id) {
                             if rd.to_event_loop.send(ev.clone()).await.is_ok() {
@@ -176,7 +179,10 @@ impl VhNode {
                         if rd.to_event_loop.send(ev.clone()).await.is_ok() {
                             trace!("Forwarded broadcast to: {:?}", rd.addr);
                         } else {
-                            error!("Failed to forward event to remote attachment event loop of: {:?}", rd.addr);
+                            error!(
+                                "Failed to forward event to remote attachment event loop of: {:?}",
+                                rd.addr
+                            );
                         }
                     }
                 }
@@ -213,19 +219,16 @@ impl VhNode {
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
                 tokio::spawn(async move {
-                    tcp_event_loop(
-                        id,
-                        tcp_stream,
-                        to_event_loop.clone(),
-                        rx,
-                    ).await
+                    tcp_event_loop(id, tcp_stream, to_event_loop.clone(), rx).await
                 });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: vec![NodeId(1)], // TODO: do not hardcode this
                     addr,
                     to_event_loop: tx,
                 };
-                self.tx_internal.send(InternalEvent::ConnectRemoteTcp(remote_descriptor)).await?;
+                self.tx_internal
+                    .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+                    .await?;
                 Ok(())
             }
         }
@@ -254,10 +257,7 @@ impl VhNode {
     pub async fn filter_one(&mut self, filter: EventFilter) -> Result<Event, NodeError> {
         let (tx, mut rx) = mpsc::channel(1);
         self.tx_internal
-            .send(InternalEvent::FilterOne(
-                filter,
-                tx,
-            ))
+            .send(InternalEvent::FilterOne(filter, tx))
             .await?;
         let ev = rx.next().await.ok_or(NodeError::FilterOneFail)?;
         Ok(ev)

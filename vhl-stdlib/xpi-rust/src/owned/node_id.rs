@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct NodeId(pub u32);

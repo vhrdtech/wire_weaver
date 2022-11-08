@@ -1,9 +1,9 @@
+use crate::priority::XpiGenericPriority;
+use core::fmt::{Display, Formatter};
 use vhl_stdlib::discrete::U2;
 use vhl_stdlib::serdes::bit_buf::BitBufMut;
 use vhl_stdlib::serdes::traits::SerializeBits;
 use vhl_stdlib::serdes::{bit_buf, BitBuf, DeserializeBits};
-use core::fmt::{Display, Formatter};
-use crate::priority::XpiGenericPriority;
 
 pub type Priority = XpiGenericPriority<U2>;
 

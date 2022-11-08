@@ -1,13 +1,13 @@
 use crate::lexer::Rule;
 use ast::SpanOrigin;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pest::error::InputLocation;
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -56,7 +56,7 @@ pub enum ParseErrorKind {
     FnWithMods,
     ConstWithMods,
     WoObserve,
-    StreamWithoutDirection
+    StreamWithoutDirection,
 }
 
 #[derive(Error, Debug)]
@@ -127,38 +127,31 @@ impl Error {
                         vec![Diagnostic::error()
                             .with_code("E0001")
                             .with_message("grammar error")
-                            .with_labels(vec![
-                                Label::primary((), range).with_message(message)
-                            ])]
+                            .with_labels(vec![Label::primary((), range).with_message(message)])]
                     }
                 }
             }
             ErrorKind::Parser(errors) => {
                 errors.iter().map(Self::parse_error_to_diagnostic).collect()
-            },
+            }
         }
     }
 
     fn parse_error_to_diagnostic(error: &ParseError) -> Diagnostic<()> {
         let range = error.span.0..error.span.1;
         match &error.kind {
-            ParseErrorKind::InternalError { rule, message } => {
-                Diagnostic::bug()
-                    .with_code("E0002")
-                    .with_message("internal parser error (unknown)")
-                    .with_labels(vec![
-                        Label::primary((), range).with_message(message.to_owned())
-                    ])
-                    .with_notes(vec![format!("grammar rule hint: {:?}", rule)])
-            }
-            ParseErrorKind::Unimplemented(thing) => {
-                Diagnostic::bug()
-                    .with_code("E0003")
-                    .with_message("internal parser error (unimplemented)")
-                    .with_labels(vec![
-                        Label::primary((), range).with_message(format!("{} is not yet implemented", thing))
-                    ])
-            }
+            ParseErrorKind::InternalError { rule, message } => Diagnostic::bug()
+                .with_code("E0002")
+                .with_message("internal parser error (unknown)")
+                .with_labels(vec![
+                    Label::primary((), range).with_message(message.to_owned())
+                ])
+                .with_notes(vec![format!("grammar rule hint: {:?}", rule)]),
+            ParseErrorKind::Unimplemented(thing) => Diagnostic::bug()
+                .with_code("E0003")
+                .with_message("internal parser error (unimplemented)")
+                .with_labels(vec![Label::primary((), range)
+                    .with_message(format!("{} is not yet implemented", thing))]),
             // ParseErrorKind::UnhandledUnexpectedInput => {}
             // ParseErrorKind::UserError => {}
             // ParseErrorKind::UnexpectedUnconsumedInput => {}
@@ -175,14 +168,12 @@ impl Error {
             // ParseErrorKind::WoObserve => {}
             // ParseErrorKind::CellWithConstRo => {}
             // ParseErrorKind::CellWithRoStream => {}
-            kind => {
-                Diagnostic::bug()
-                    .with_code("Exxx")
-                    .with_message("not yet properly rendered error")
-                    .with_labels(vec![
-                        Label::primary((), range).with_message(format!("error kind: {:?}", kind))
-                    ])
-            }
+            kind => Diagnostic::bug()
+                .with_code("Exxx")
+                .with_message("not yet properly rendered error")
+                .with_labels(vec![
+                    Label::primary((), range).with_message(format!("error kind: {:?}", kind))
+                ]),
         }
     }
 

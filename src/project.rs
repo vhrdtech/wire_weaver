@@ -1,12 +1,12 @@
-use std::collections::HashMap;
-use std::ops::Range;
-use codespan_reporting::files::Files;
-use ast::{Definition, File, Path, SpanOrigin, XpiDef};
-use crate::Error;
 use crate::user_error::UserError;
 use crate::warning::Warning;
+use crate::Error;
+use ast::{Definition, File, Path, SpanOrigin, XpiDef};
 use codespan_reporting::files::Error as CRError;
+use codespan_reporting::files::Files;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use std::collections::HashMap;
+use std::ops::Range;
 
 #[derive(Clone)]
 pub struct Project {
@@ -39,7 +39,9 @@ impl Project {
             let _ = path.pop_front();
             match path.pop_front() {
                 Some(id) => {
-                    let def = self.root.defs
+                    let def = self
+                        .root
+                        .defs
                         .get(&id)
                         .ok_or(Error::FindDef(format!("crate::{} not found", id)))?;
                     if path.is_empty() {
@@ -49,7 +51,9 @@ impl Project {
                             Definition::Xpi(xpi_def) => {
                                 Ok(Definition::Xpi(Self::find_in_xpi_def(xpi_def, path)?))
                             }
-                            _ => Err(Error::FindDef("only xpi definition can have child items".to_owned()))
+                            _ => Err(Error::FindDef(
+                                "only xpi definition can have child items".to_owned(),
+                            )),
                         }
                     }
                 }
@@ -74,9 +78,12 @@ impl Project {
                         };
                     }
                 }
-                Err(Error::FindDef(format!("find_in_xpi_def: not found: {}", search_key)))
+                Err(Error::FindDef(format!(
+                    "find_in_xpi_def: not found: {}",
+                    search_key
+                )))
             }
-            None => Ok(xpi_def.clone())
+            None => Ok(xpi_def.clone()),
         }
     }
 
@@ -84,13 +91,22 @@ impl Project {
         let def = self.find_def(path.clone())?;
         match def {
             Definition::Xpi(xpi_def) => Ok(xpi_def),
-            _ => Err(Error::FindXpiDef(format!("{} is not and xpi definition", path)))
+            _ => Err(Error::FindXpiDef(format!(
+                "{} is not and xpi definition",
+                path
+            ))),
         }
     }
 
     pub fn find_file_by_id(&self, file_id: usize) -> Result<&File, Error> {
-        let path = self.id_to_path.get(&file_id).ok_or(Error::FileNotFound(file_id))?;
-        Ok(self.local.get(path).expect("find_file_by_id: internal error"))
+        let path = self
+            .id_to_path
+            .get(&file_id)
+            .ok_or(Error::FileNotFound(file_id))?;
+        Ok(self
+            .local
+            .get(path)
+            .expect("find_file_by_id: internal error"))
     }
 
     pub fn print_report(&self) {
@@ -114,7 +130,11 @@ impl<'a> Files<'a> for Project {
         if id == 0 {
             Ok(self.root.origin.clone())
         } else {
-            Ok(self.find_file_by_id(id).map_err(|_| CRError::FileMissing)?.origin.clone())
+            Ok(self
+                .find_file_by_id(id)
+                .map_err(|_| CRError::FileMissing)?
+                .origin
+                .clone())
         }
     }
 
@@ -122,29 +142,41 @@ impl<'a> Files<'a> for Project {
         if id == 0 {
             Ok(self.root.input.as_str())
         } else {
-            Ok(self.find_file_by_id(id).map_err(|_| CRError::FileMissing)?.input.as_str())
+            Ok(self
+                .find_file_by_id(id)
+                .map_err(|_| CRError::FileMissing)?
+                .input
+                .as_str())
         }
     }
 
     fn line_index(&'a self, id: Self::FileId, byte_index: usize) -> Result<usize, CRError> {
         if id == 0 {
-            Ok(self.root.line_index(byte_index).map_err(|e| map_to_cr_err(e))?)
+            Ok(self
+                .root
+                .line_index(byte_index)
+                .map_err(|e| map_to_cr_err(e))?)
         } else {
             Ok(self
-                .find_file_by_id(id).map_err(|_| CRError::FileMissing)?
-                .line_index(byte_index).map_err(|e| map_to_cr_err(e))?
-            )
+                .find_file_by_id(id)
+                .map_err(|_| CRError::FileMissing)?
+                .line_index(byte_index)
+                .map_err(|e| map_to_cr_err(e))?)
         }
     }
 
     fn line_range(&'a self, id: Self::FileId, line_index: usize) -> Result<Range<usize>, CRError> {
         if id == 0 {
-            Ok(self.root.line_range(line_index).map_err(|e| map_to_cr_err(e))?)
+            Ok(self
+                .root
+                .line_range(line_index)
+                .map_err(|e| map_to_cr_err(e))?)
         } else {
             Ok(self
-                .find_file_by_id(id).map_err(|_| CRError::FileMissing)?
-                .line_range(line_index).map_err(|e| map_to_cr_err(e))?
-            )
+                .find_file_by_id(id)
+                .map_err(|_| CRError::FileMissing)?
+                .line_range(line_index)
+                .map_err(|e| map_to_cr_err(e))?)
         }
     }
 }

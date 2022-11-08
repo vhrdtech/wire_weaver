@@ -1,7 +1,7 @@
-use core::fmt::{Display, Formatter};
 use crate::error::XpiError;
 use crate::event_kind::XpiGenericEventKind;
 use crate::xwfd::{Rate, ResourceInfo};
+use core::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::NibbleBuf;
 
@@ -10,13 +10,13 @@ use vhl_stdlib::serdes::NibbleBuf;
 /// See [XpiGenericEventKind](crate::event_kind::XpiGenericEventKind) for detailed information.
 pub type EventKind<'ev> = XpiGenericEventKind<
     // &'ev [u8], // SL
-    Vlu4Vec<'ev, NibbleBuf<'ev>>, // VSL
-    Vlu4Vec<'ev, Rate>, // VR
-    Vlu4Vec<'ev, Result<NibbleBuf<'ev>, XpiError>>, // VRSL
-    Vlu4Vec<'ev, Result<(), XpiError>>, // VRU
+    Vlu4Vec<'ev, NibbleBuf<'ev>>,                      // VSL
+    Vlu4Vec<'ev, Rate>,                                // VR
+    Vlu4Vec<'ev, Result<NibbleBuf<'ev>, XpiError>>,    // VRSL
+    Vlu4Vec<'ev, Result<(), XpiError>>,                // VRU
     Vlu4Vec<'ev, Result<ResourceInfo<'ev>, XpiError>>, // VRI
-    (), // Node info
-    (), // Heartbeat info
+    (),                                                // Node info
+    (),                                                // Heartbeat info
 >;
 
 impl<'i> EventKind<'i> {
@@ -29,10 +29,14 @@ impl<'i> EventKind<'i> {
                 args_set: nrd.des_vlu4()?,
             }),
             1 => Ok(EventKind::Read),
-            2 => Ok(EventKind::Write { values: nrd.des_vlu4()? }),
+            2 => Ok(EventKind::Write {
+                values: nrd.des_vlu4()?,
+            }),
             3 => Ok(EventKind::OpenStreams),
             4 => Ok(EventKind::CloseStreams),
-            5 => Ok(EventKind::Subscribe { rates: nrd.des_vlu4()? }),
+            5 => Ok(EventKind::Subscribe {
+                rates: nrd.des_vlu4()?,
+            }),
             6 => Ok(EventKind::Unsubscribe),
             7 => Ok(EventKind::Borrow),
             8 => Ok(EventKind::Release),
@@ -78,11 +82,17 @@ impl<'i> Display for EventKind<'i> {
             EventKind::CallResults(results) => write!(f, "CallResults({:?})", results),
             EventKind::ReadResults(values) => write!(f, "ReadResults({:?})", values),
             EventKind::WriteResults(values) => write!(f, "WriteResults({:?})", values),
-            EventKind::OpenStreamsResults(results) => write!(f, "OpenStreamsResults({:?})", results),
-            EventKind::CloseStreamsResults(results) => write!(f, "CloseStreamsResults({:?})", results),
+            EventKind::OpenStreamsResults(results) => {
+                write!(f, "OpenStreamsResults({:?})", results)
+            }
+            EventKind::CloseStreamsResults(results) => {
+                write!(f, "CloseStreamsResults({:?})", results)
+            }
             EventKind::SubscribeResults(results) => write!(f, "SubscribeResults({:?})", results),
             EventKind::RateChangeResults(results) => write!(f, "RateChangeResults({:?})", results),
-            EventKind::UnsubscribeResults(results) => write!(f, "UnsubscribeResults({:?})", results),
+            EventKind::UnsubscribeResults(results) => {
+                write!(f, "UnsubscribeResults({:?})", results)
+            }
             EventKind::BorrowResults(results) => write!(f, "BorrowResults({:?})", results),
             EventKind::ReleaseResults(results) => write!(f, "ReleaseResults({:?})", results),
             EventKind::IntrospectResults(results) => write!(f, "IntrospectResults({:?})", results),

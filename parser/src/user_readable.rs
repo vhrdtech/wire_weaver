@@ -1,4 +1,3 @@
-
 use crate::lexer::Rule;
 
 pub fn rule_names(rule: &Rule) -> String {

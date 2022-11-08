@@ -1,9 +1,9 @@
-use ast::attribute::{Attr, AttrKind};
-use ast::Attrs;
+use super::prelude::*;
 use crate::ast::expr::ExprParse;
 use crate::ast::paths::PathParse;
-use super::prelude::*;
 use crate::lexer::Rule;
+use ast::attribute::{Attr, AttrKind};
+use ast::Attrs;
 
 #[derive(Debug, Clone)]
 pub struct AttrsParse(pub Attrs);
@@ -21,7 +21,10 @@ impl<'i> Parse<'i> for AttrsParse {
                 break;
             }
         }
-        Ok(AttrsParse(Attrs { attrs, span: input.span.clone() }))
+        Ok(AttrsParse(Attrs {
+            attrs,
+            span: input.span.clone(),
+        }))
     }
 }
 

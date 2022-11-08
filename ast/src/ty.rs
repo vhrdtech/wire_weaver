@@ -1,5 +1,5 @@
+use crate::{AutoNumber, Expr, FnArguments, Generics, NumBound, Path, Span};
 use std::fmt::{Debug, Display, Formatter};
-use crate::{NumBound, Expr, FnArguments, Generics, AutoNumber, Span, Path};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ty {
@@ -11,7 +11,7 @@ impl Ty {
     pub fn new(kind: TyKind) -> Self {
         Ty {
             kind,
-            span: Span::call_site()
+            span: Span::call_site(),
         }
     }
 }
@@ -26,27 +26,14 @@ pub enum TyKind {
     // FixedGeneric(Generics),
     Float(FloatTy),
     // FloatGeneric(Generics),
-    Array {
-        ty: Box<Ty>,
-        len_bound: NumBound,
-    },
-    Tuple {
-        types: Vec<Ty>,
-    },
-    Fn {
-        args: FnArguments,
-        ret_ty: Box<Ty>,
-    },
+    Array { ty: Box<Ty>, len_bound: NumBound },
+    Tuple { types: Vec<Ty> },
+    Fn { args: FnArguments, ret_ty: Box<Ty> },
     AutoNumber(AutoNumber),
     IndexTyOf(Expr),
-    Generic {
-        path: Path,
-        params: Generics,
-    },
+    Generic { path: Path, params: Generics },
     Char,
-    String {
-        len_bound: NumBound,
-    },
+    String { len_bound: NumBound },
     Ref(Path),
     Derive,
 }
@@ -111,7 +98,7 @@ impl Display for Ty {
                 } else {
                     write!(f, "str<{}>", len_bound)
                 }
-            },
+            }
             TyKind::Ref(path) => write!(f, "{}", path),
             TyKind::Derive => write!(f, "_"),
         }

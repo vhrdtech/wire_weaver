@@ -1,5 +1,3 @@
-use ast::{DiscreteTy, Ty, TyKind};
-use ast::ty::FloatTy;
 use super::prelude::*;
 use crate::ast::def_fn::FnArgumentsParse;
 use crate::ast::expr::ExprParse;
@@ -8,8 +6,10 @@ use crate::ast::lit::LitParse;
 use crate::ast::num_bound::NumBoundParse;
 use crate::ast::ops::BinaryOpParse;
 use crate::ast::paths::PathParse;
-use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::ast::unit::UnitParse;
+use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
+use ast::ty::FloatTy;
+use ast::{DiscreteTy, Ty, TyKind};
 
 pub struct TyParse(pub Ty);
 
@@ -33,11 +33,9 @@ impl<'i> Parse<'i> for TyParse {
             .ok_or_else(|| ParseErrorSource::internal("Wrong any_ty grammar"))?;
         let mut input = ParseInput::fork(any_ty, input);
         let ast_ty = match ty.as_rule() {
-            Rule::bool_ty => {
-                Ty {
-                    kind: TyKind::Boolean,
-                    span,
-                }
+            Rule::bool_ty => Ty {
+                kind: TyKind::Boolean,
+                span,
             },
             Rule::discrete_ty => {
                 let discrete_ty: DiscreteTyParse = input.parse()?;
@@ -48,14 +46,14 @@ impl<'i> Parse<'i> for TyParse {
             }
             Rule::fixed_ty => {
                 return Err(ParseErrorSource::Unimplemented("fixed ty"));
-            },
+            }
             Rule::floating_ty => {
                 let float_ty: FloatTyParse = input.parse()?;
                 Ty {
                     kind: TyKind::Float(float_ty.0),
                     span,
                 }
-            },
+            }
             Rule::textual_ty => {
                 if ty.as_str() == "char" {
                     Ty {
@@ -64,7 +62,9 @@ impl<'i> Parse<'i> for TyParse {
                     }
                 } else if ty.as_str() == "str" {
                     Ty {
-                        kind: TyKind::String { len_bound: ast::NumBound::Unbound },
+                        kind: TyKind::String {
+                            len_bound: ast::NumBound::Unbound,
+                        },
                         span,
                     }
                 } else {
@@ -98,7 +98,7 @@ impl<'i> Parse<'i> for TyParse {
                     ty.as_rule(),
                     "Ty::parse: unimplemented ty",
                 ));
-            },
+            }
         };
         Ok(TyParse(ast_ty))
     }
@@ -107,7 +107,8 @@ impl<'i> Parse<'i> for TyParse {
 impl<'i> Parse<'i> for DiscreteTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::discrete_ty)?, input);
-        let discrete_x_ty = input.pairs
+        let discrete_x_ty = input
+            .pairs
             .next()
             .ok_or(ParseErrorSource::internal("empty discrete_any_ty"))?;
         let bits: u32 = discrete_x_ty
@@ -128,8 +129,7 @@ impl<'i> Parse<'i> for DiscreteTyParse {
             bits,
             num_bound: num_bound.map(|b| b.0).unwrap_or(ast::NumBound::Unbound),
             unit: unit.map(|u| u.0).unwrap_or(()),
-        }
-        ))
+        }))
     }
 }
 
@@ -140,7 +140,8 @@ impl<'i> Parse<'i> for FloatTyParse {
         let bits: u32 = float_ty_inner
             .clone()
             .into_inner()
-            .next().ok_or(ParseErrorSource::internal("wrong float_ty"))?
+            .next()
+            .ok_or(ParseErrorSource::internal("wrong float_ty"))?
             .as_str()
             .parse()
             .map_err(|_| {
@@ -157,37 +158,36 @@ impl<'i> Parse<'i> for FloatTyParse {
     }
 }
 
-fn parse_ref_or_generic_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, ParseErrorSource> {
+fn parse_ref_or_generic_ty(
+    input: &mut ParseInput,
+    span: ast::Span,
+) -> Result<Ty, ParseErrorSource> {
     let path: PathParse = input.parse()?;
     match input.pairs.peek() {
-        Some(_) => {
-            match path.0.as_string().as_str() {
-                "autonum" => parse_autonum_ty(
-                    &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
-                    span,
-                ),
-                "indexof" => parse_indexof_ty(
-                    &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
-                    span,
-                ),
-                _ => {
-                    let params: GenericsParse = input.parse()?;
-                    Ok(Ty {
-                        kind: TyKind::Generic {
-                            path: path.0,
-                            params: params.0,
-                        },
-                        span,
-                    })
-                },
-            }
-        }
-        None => {
-            Ok(Ty {
-                kind: TyKind::Ref(path.0),
+        Some(_) => match path.0.as_string().as_str() {
+            "autonum" => parse_autonum_ty(
+                &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
                 span,
-            })
-        }
+            ),
+            "indexof" => parse_indexof_ty(
+                &mut ParseInput::fork(input.expect1(Rule::generics)?, input),
+                span,
+            ),
+            _ => {
+                let params: GenericsParse = input.parse()?;
+                Ok(Ty {
+                    kind: TyKind::Generic {
+                        path: path.0,
+                        params: params.0,
+                    },
+                    span,
+                })
+            }
+        },
+        None => Ok(Ty {
+            kind: TyKind::Ref(path.0),
+            span,
+        }),
     }
 }
 

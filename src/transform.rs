@@ -1,7 +1,7 @@
 use crate::passes::autonum_to_fixed::AutonumToFixed;
-use ast::{Visit, VisitMut};
 use crate::passes::idents_check::IdentsCheck;
 use crate::project::Project;
+use ast::{Visit, VisitMut};
 
 /// Do various AST passes that transform things
 pub fn transform(project: &mut Project) {
@@ -10,6 +10,8 @@ pub fn transform(project: &mut Project) {
 
     crate::passes::xpi_preprocess::xpi_preprocess(project);
 
-    let mut idents_check = IdentsCheck { warnings: &mut project.warnings };
+    let mut idents_check = IdentsCheck {
+        warnings: &mut project.warnings,
+    };
     idents_check.visit_file(&project.root);
 }

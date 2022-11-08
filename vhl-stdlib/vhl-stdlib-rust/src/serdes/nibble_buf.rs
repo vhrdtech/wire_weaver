@@ -1,14 +1,13 @@
-use core::fmt::{Debug, Display, Formatter};
-use core::marker::PhantomData;
-use core::ptr::copy_nonoverlapping;
-use core::iter::FusedIterator;
 use crate::discrete::U4;
 use crate::serdes::{
-    SerializeVlu4, DeserializeVlu4,
-    bit_buf, BitBuf, BitBufMut,
-    SerDesSize,
+    bit_buf,
     vlu4::{Vlu32, Vlu4VecBuilder},
+    BitBuf, BitBufMut, DeserializeVlu4, SerDesSize, SerializeVlu4,
 };
+use core::fmt::{Debug, Display, Formatter};
+use core::iter::FusedIterator;
+use core::marker::PhantomData;
+use core::ptr::copy_nonoverlapping;
 
 /// Buffer reader that treats input as a stream of nibbles.
 ///
@@ -50,7 +49,7 @@ pub enum Error {
 
     Vlu4Vec,
     InvalidErrorCode,
-    BitBuf
+    BitBuf,
 }
 
 impl Display for Error {
@@ -298,9 +297,7 @@ impl<'i> NibbleBuf<'i> {
     }
 
     pub fn iter(&self) -> NibbleBufIter {
-        NibbleBufIter {
-            buf: self.clone()
-        }
+        NibbleBufIter { buf: self.clone() }
     }
 
     #[cfg(not(feature = "no_std"))]
@@ -798,7 +795,7 @@ impl<'i> NibbleBufMut<'i> {
         where
             F: FnMut() -> Option<T>,
             T: SerializeVlu4<Error=SE>,
-            SE: From<Error>
+            SE: From<Error>,
     {
         let mut builder = Vlu4VecBuilder {
             nwr: NibbleBufMut {
@@ -828,7 +825,7 @@ impl<'i> NibbleBufMut<'i> {
         where
             F: FnOnce(&mut Vlu4VecBuilder<T>) -> Result<(), SE>,
             T: SerializeVlu4<Error=SE>,
-            SE: From<Error>
+            SE: From<Error>,
     {
         let mut builder = Vlu4VecBuilder {
             nwr: NibbleBufMut {

@@ -43,7 +43,7 @@ impl CodegenError {
     pub fn add_context(self, context: &'static str) -> Self {
         match self {
             CodegenError::Core(e) => CodegenError::CoreWithContext(e, context.to_owned()),
-            e => e
+            e => e,
         }
     }
 
@@ -65,7 +65,9 @@ impl CodegenError {
             CodegenError::Dispatch(description) => println!("Dispatch: {}", description),
             CodegenError::ExpectedExprAttribute => println!("ExpectedExprAttribute"),
             CodegenError::WrongAttributeSyntax(note) => println!("WrongAttributeSyntax: {}", note),
-            CodegenError::UnsupportedDispatchType(note) => println!("UnsupportedDispatchType: {}", note),
+            CodegenError::UnsupportedDispatchType(note) => {
+                println!("UnsupportedDispatchType: {}", note)
+            }
         }
     }
 }

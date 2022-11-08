@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub enum Error {
     AstError(ast::error::Error),

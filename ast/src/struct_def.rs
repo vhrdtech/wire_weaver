@@ -1,6 +1,6 @@
+use crate::{Attrs, Doc, Identifier, Span, Ty};
 use std::fmt::{Display, Formatter};
 use util::color;
-use crate::{Attrs, Doc, Identifier, Span, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructDef {
@@ -46,7 +46,8 @@ impl Display for StructDef {
         itertools::intersperse(
             self.fields.iter().map(|field| format!("{}", field)),
             ", ".to_owned(),
-        ).try_for_each(|s| write!(f, "{}", s))?;
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

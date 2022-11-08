@@ -15,14 +15,14 @@ pub trait Codegen {
 }
 
 pub mod prelude {
+    pub use super::error::CodegenError;
+    pub use super::Codegen;
+    pub use crate::dependencies::{Dependencies, Depends, Import, Package, RustCrateSource};
+    pub use ast::identifier::IdentifierContext;
     pub use mquote::mquote;
     pub use mtoken::ext::TokenStreamExt;
     pub use mtoken::token::IdentFlavor;
     pub use mtoken::{ToTokens, TokenStream};
-    pub use std::rc::Rc;
-    pub use ast::identifier::IdentifierContext;
-    pub use crate::dependencies::{Dependencies, Depends, Import, Package, RustCrateSource};
     pub use semver::VersionReq;
-    pub use super::Codegen;
-    pub use super::error::CodegenError;
+    pub use std::rc::Rc;
 }

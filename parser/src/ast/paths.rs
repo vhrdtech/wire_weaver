@@ -1,6 +1,6 @@
-use std::collections::VecDeque;
-use ast::Path;
 use super::prelude::*;
+use ast::Path;
+use std::collections::VecDeque;
 
 pub struct PathParse(pub Path);
 

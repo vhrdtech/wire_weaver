@@ -1,6 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::range::{CharRange, DiscreteRange, FixedRange, FloatingRange};
-
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Set {

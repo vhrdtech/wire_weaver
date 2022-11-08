@@ -26,7 +26,7 @@ pub enum Commands {
 pub struct GenerateArgs {
     /// Source file path, local path starting with /, file:, git: or reg:
     #[clap(value_parser)]
-    pub vhl_source: PathBuf
+    pub vhl_source: PathBuf,
 }
 
 #[derive(Args)]

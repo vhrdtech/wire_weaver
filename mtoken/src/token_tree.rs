@@ -72,7 +72,11 @@ pub struct Group {
 
 impl Group {
     pub fn new(delimiter: Delimiter, stream: TokenStream) -> Self {
-        Self { delimiter, stream, spacing_after: Spacing::Alone }
+        Self {
+            delimiter,
+            stream,
+            spacing_after: Spacing::Alone,
+        }
     }
 }
 
@@ -196,15 +200,14 @@ impl Debug for TokenTree {
                 }
             }
             TokenTree::Repetition(idx) => write!(f, "RI{}", idx),
-            TokenTree::RepetitionGroup(g, p) =>
-                write!(
-                    f,
-                    "{red}RG⸨{def}{} {:?}{red}⸩{def}",
-                    g,
-                    p,
-                    red = color::RED,
-                    def = color::DEFAULT,
-                ),
+            TokenTree::RepetitionGroup(g, p) => write!(
+                f,
+                "{red}RG⸨{def}{} {:?}{red}⸩{def}",
+                g,
+                p,
+                red = color::RED,
+                def = color::DEFAULT,
+            ),
         }
     }
 }

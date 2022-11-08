@@ -20,4 +20,3 @@ pub enum UriSegment {
     Ident { ident: Identifier },
     Index { ident: Identifier, by: VecLit },
 }
-

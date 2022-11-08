@@ -1,6 +1,6 @@
 use super::prelude::*;
-use std::rc::Rc;
 use ast::Doc;
+use std::rc::Rc;
 
 pub struct DocParse(pub Doc);
 

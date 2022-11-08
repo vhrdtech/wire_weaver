@@ -1,9 +1,6 @@
-use vhl_stdlib::max_bound_number;
-use vhl_stdlib::serdes::{
-    DeserializeVlu4, NibbleBuf,
-    SerializeVlu4, NibbleBufMut, SerDesSize,
-};
 use crate::error::XpiError;
+use vhl_stdlib::max_bound_number;
+use vhl_stdlib::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
 
 // Each outgoing request must be marked with an increasing number in order to distinguish
 // requests of the same kind and map responses.

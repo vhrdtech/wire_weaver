@@ -1,7 +1,9 @@
-use vhl_stdlib::serdes::{DeserializeVlu4, nibble_buf, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
 use crate::error::XpiError;
+use vhl_stdlib::serdes::{
+    nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
+};
 
-#[derive(Copy, Clone, Eq, PartialEq, )]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum XwfdInfo {
     OtherFormat,
     FormatIsXwfd,
@@ -31,7 +33,7 @@ impl<'i> DeserializeVlu4<'i> for XwfdInfo {
         match nrd.get_nibble()? {
             0b1000 => Ok(XwfdInfo::OtherFormat),
             0b0000 => Ok(XwfdInfo::FormatIsXwfd),
-            _ => Err(XpiError::WrongFormat)
+            _ => Err(XpiError::WrongFormat),
         }
     }
 }

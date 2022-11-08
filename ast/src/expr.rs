@@ -1,7 +1,7 @@
+use crate::ops::{BinaryOp, UnaryOp};
+use crate::{Lit, Path, Span, Ty};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
-use crate::{Lit, Path, Span, Ty};
-use crate::ops::{BinaryOp, UnaryOp};
 
 /// Expression in S-notation: 1 + 2 * 3 = (+ 1 (* 2 3))
 /// Atoms is everything except Cons variant, pre-processed by pest.
@@ -22,14 +22,14 @@ impl Expr {
     pub fn expect_ref(&self) -> Option<Path> {
         match self {
             Expr::Ref(path) => Some(path.clone()),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn expect_call(&self) -> Option<(Path, VecExpr)> {
         match self {
             Expr::Call { method, args } => Some((method.clone(), args.clone())),
-            _ => None
+            _ => None,
         }
     }
 
@@ -68,7 +68,8 @@ impl Expr {
             Expr::Ref(_) => "Ident",
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
-        }.to_owned()
+        }
+            .to_owned()
     }
 
     pub fn span(&self) -> Span {
@@ -142,7 +143,8 @@ impl Display for VecExpr {
         itertools::intersperse(
             self.0.iter().map(|expr| format!("{}", expr)),
             ", ".to_owned(),
-        ).try_for_each(|s| write!(f, "{}", s))?;
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

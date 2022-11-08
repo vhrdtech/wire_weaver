@@ -1,18 +1,12 @@
-use core::fmt::{Display, Formatter, Result as FmtResult};
-use vhl_stdlib::discrete::U9;
-use vhl_stdlib::serdes::{
-    BitBuf,
-    DeserializeCoupledBitsVlu4,
-    nibble_buf,
-    NibbleBuf,
-    NibbleBufMut,
-    SerDesSize,
-    SerializeVlu4,
-    vlu4::TraitSet,
-};
 use crate::error::XpiError;
 use crate::node_set::XpiGenericNodeSet;
 use crate::xwfd::NodeId;
+use core::fmt::{Display, Formatter, Result as FmtResult};
+use vhl_stdlib::discrete::U9;
+use vhl_stdlib::serdes::{
+    nibble_buf, vlu4::TraitSet, BitBuf, DeserializeCoupledBitsVlu4, NibbleBuf, NibbleBufMut,
+    SerDesSize, SerializeVlu4,
+};
 
 pub type NodeSet<'i> = XpiGenericNodeSet<NodeId, TraitSet<'i>>;
 
@@ -31,7 +25,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
             0b11 => {
                 let original_source = brd.des_bits()?;
                 Ok(NodeSet::Broadcast { original_source })
-            },
+            }
             _ => Err(XpiError::Internal),
         }
     }
@@ -40,9 +34,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
 impl<'i> NodeSet<'i> {
     pub fn ser_header(&self) -> U9 {
         let bits = match self {
-            NodeSet::Unicast(id) => {
-                0b00_000_0000 | (id.inner() as u16)
-            }
+            NodeSet::Unicast(id) => 0b00_000_0000 | (id.inner() as u16),
             NodeSet::UnicastTraits { .. } => {
                 todo!()
             }
@@ -116,7 +108,7 @@ impl<'i> Display for NodeSet<'i> {
                 traits,
             } => write!(f, "{}{}", destination, traits),
             NodeSet::Multicast { .. } => write!(f, "M_impl"),
-            NodeSet::Broadcast { .. } => write!(f, "*")
+            NodeSet::Broadcast { .. } => write!(f, "*"),
         }
     }
 }

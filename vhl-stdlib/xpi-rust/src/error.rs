@@ -112,7 +112,9 @@ impl SerializableError for XpiError {
             34 => ReplyBuilderError,
             35 => InternalBbqueueError,
 
-            _ => { return None; }
+            _ => {
+                return None;
+            }
         };
         Some(reason)
     }

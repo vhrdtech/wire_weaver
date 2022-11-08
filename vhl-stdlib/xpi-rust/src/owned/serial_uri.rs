@@ -1,10 +1,10 @@
+use crate::owned::convert_error::ConvertError;
+use crate::xwfd;
 use std::fmt::{Display, Formatter};
 use std::vec::IntoIter;
 use vhl_stdlib::discrete::{U3, U4, U6};
-use crate::owned::convert_error::ConvertError;
-use crate::xwfd;
-use vhl_stdlib::serdes::BitBufMut;
 use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4VecIter};
+use vhl_stdlib::serdes::BitBufMut;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerialUri {
@@ -15,7 +15,7 @@ impl SerialUri {
     pub fn new<S: AsRef<str>>(_uri: S) -> Self {
         // TODO: Proper serial uri parser
         SerialUri {
-            segments: vec![Vlu32(5)]
+            segments: vec![Vlu32(5)],
         }
     }
 
@@ -38,7 +38,9 @@ impl SerialUri {
             }
             (Some(s0), Some(s1), None, None) => {
                 if s0.0 <= 15 && s1.0 <= 15 {
-                    TwoPart44(unsafe { U4::new_unchecked(s0.0 as u8) }, unsafe { U4::new_unchecked(s1.0 as u8) })
+                    TwoPart44(unsafe { U4::new_unchecked(s0.0 as u8) }, unsafe {
+                        U4::new_unchecked(s1.0 as u8)
+                    })
                 } else {
                     MultiPart(self.segments.clone().into_iter())
                 }
@@ -46,11 +48,23 @@ impl SerialUri {
             (Some(s0), Some(s1), Some(s2), None) => {
                 if s0.0 <= 63 {
                     if s1.0 <= 63 && s2.0 <= 15 {
-                        ThreePart664(unsafe { U6::new_unchecked(s0.0 as u8) }, unsafe { U6::new_unchecked(s1.0 as u8) }, unsafe { U4::new_unchecked(s2.0 as u8) })
+                        ThreePart664(
+                            unsafe { U6::new_unchecked(s0.0 as u8) },
+                            unsafe { U6::new_unchecked(s1.0 as u8) },
+                            unsafe { U4::new_unchecked(s2.0 as u8) },
+                        )
                     } else if s1.0 <= 7 && s2.0 <= 7 {
-                        ThreePart633(unsafe { U6::new_unchecked(s0.0 as u8) }, unsafe { U3::new_unchecked(s1.0 as u8) }, unsafe { U3::new_unchecked(s2.0 as u8) })
+                        ThreePart633(
+                            unsafe { U6::new_unchecked(s0.0 as u8) },
+                            unsafe { U3::new_unchecked(s1.0 as u8) },
+                            unsafe { U3::new_unchecked(s2.0 as u8) },
+                        )
                     } else if s0.0 <= 15 && s1.0 <= 15 && s2.0 <= 15 {
-                        ThreePart444(unsafe { U4::new_unchecked(s0.0 as u8) }, unsafe { U4::new_unchecked(s1.0 as u8) }, unsafe { U4::new_unchecked(s2.0 as u8) })
+                        ThreePart444(
+                            unsafe { U4::new_unchecked(s0.0 as u8) },
+                            unsafe { U4::new_unchecked(s1.0 as u8) },
+                            unsafe { U4::new_unchecked(s2.0 as u8) },
+                        )
                     } else {
                         MultiPart(self.segments.clone().into_iter())
                     }
@@ -77,7 +91,7 @@ impl SerialUri {
 impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>> for SerialUri {
     fn from(uri: xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>) -> Self {
         SerialUri {
-            segments: uri.iter().map(|s| Vlu32(s)).collect()
+            segments: uri.iter().map(|s| Vlu32(s)).collect(),
         }
     }
 }

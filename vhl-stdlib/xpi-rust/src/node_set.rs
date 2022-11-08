@@ -6,10 +6,7 @@ pub enum XpiGenericNodeSet<NID, TS> {
 
     /// Event is targeted at only one node, but through traits interface.
     /// More expensive in terms of size and processing, but gives other benefits.
-    UnicastTraits {
-        destination: NID,
-        traits: TS,
-    },
+    UnicastTraits { destination: NID, traits: TS },
 
     /// Event is targeted at many nodes at once. Only nodes implementing a set of common traits can
     /// be addressed that way.
@@ -39,6 +36,6 @@ pub enum XpiGenericNodeSet<NID, TS> {
     /// Event is targeted at all nodes at once.
     Broadcast {
         /// For preventing loops
-        original_source: NID
+        original_source: NID,
     },
 }

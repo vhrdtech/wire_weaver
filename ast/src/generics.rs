@@ -1,5 +1,5 @@
+use crate::{Expr, Ty};
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Ty, Expr};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Generics {

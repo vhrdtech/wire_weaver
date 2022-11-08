@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::{DiscreteTy, FixedTy, Identifier, Path, Span};
 use crate::ty::FloatTy;
+use crate::{DiscreteTy, FixedTy, Identifier, Path, Span};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Lit {
@@ -102,10 +102,7 @@ pub enum EnumLitValue {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ArrayLit {
-    Init {
-        size: Box<Lit>,
-        val: Box<Lit>,
-    },
+    Init { size: Box<Lit>, val: Box<Lit> },
     List(Vec<Lit>),
 }
 

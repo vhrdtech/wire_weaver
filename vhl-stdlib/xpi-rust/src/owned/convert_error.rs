@@ -1,5 +1,5 @@
-use vhl_stdlib::serdes::{bit_buf, nibble_buf};
 use crate::error::XpiError;
+use vhl_stdlib::serdes::{bit_buf, nibble_buf};
 
 #[derive(Debug)]
 pub enum ConvertError {

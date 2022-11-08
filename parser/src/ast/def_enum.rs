@@ -1,9 +1,9 @@
-use ast::{EnumDef, EnumItem, EnumItemKind};
+use super::prelude::*;
 use crate::ast::def_struct::StructFieldsParse;
 use crate::ast::lit::LitParse;
-use super::prelude::*;
 use crate::ast::ty::TupleTyParse;
 use crate::error::ParseErrorSource;
+use ast::{EnumDef, EnumItem, EnumItemKind};
 
 pub struct EnumDefParse(pub EnumDef);
 
@@ -64,12 +64,14 @@ impl<'i> Parse<'i> for EnumItemKindParse {
                 Ok(EnumItemKindParse(EnumItemKind::Tuple(tuple_ty.0)))
             }
             Rule::enum_item_struct => {
-                let mut input = ParseInput::fork(input.expect1(Rule::enum_item_struct)?, &mut input);
+                let mut input =
+                    ParseInput::fork(input.expect1(Rule::enum_item_struct)?, &mut input);
                 let fields: StructFieldsParse = input.parse()?;
                 Ok(EnumItemKindParse(EnumItemKind::Struct(fields.0)))
-            },
+            }
             Rule::enum_item_discriminant => {
-                let mut input = ParseInput::fork(input.expect1(Rule::enum_item_discriminant)?, &mut input);
+                let mut input =
+                    ParseInput::fork(input.expect1(Rule::enum_item_discriminant)?, &mut input);
                 let lit: LitParse = input.parse()?;
                 Ok(EnumItemKindParse(EnumItemKind::Discriminant(lit.0)))
             }

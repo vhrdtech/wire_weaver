@@ -19,13 +19,13 @@
 #[derive(Copy, Clone, Debug)]
 pub enum XpiGenericEventKind<
     // SL,  // must be a slice, e.g. &'req [u8] or Vec<u8>
-    VSL, // must be an array of slices, e.g. Vlu4Vec<'req, &'req [u8]> or Vec<Vec<u8>>
-    VR,  // must be an array of rates, e.g. Vlu4Vec<'req, Rate> or Vec<Rate>
+    VSL,  // must be an array of slices, e.g. Vlu4Vec<'req, &'req [u8]> or Vec<Vec<u8>>
+    VR,   // must be an array of rates, e.g. Vlu4Vec<'req, Rate> or Vec<Rate>
     VRSL, // must be an array of Result<slice>, e.g. Vlu4Vec<'rep, Result<&'rep [u8], FailReason>>
     VRU,  // must be an array of Result<()>, e.g. Vlu4Vec<'rep, Result<(), FailReason>>
     VRI,  // must be an array of Result<ResourceInfo>
-    N, // Node info
-    H, // Heartbeat info
+    N,    // Node info
+    H,    // Heartbeat info
 > {
     /// Request binary descriptor block from a node.
     /// Descriptor block is a compiled binary version of a vhL source.
@@ -55,7 +55,6 @@ pub enum XpiGenericEventKind<
     // /// Do not cover all the weird use cases, so maybe better be replaced with full-blown expression
     // /// executor only were applicable and really needed?
     // ChainCall { args: SL },
-
     /// Read one or more resources.
     /// Reading several resources at once is more efficient as only one req-rep is needed in best case.
     /// Resources that support reads are: const, ro, ro + stream, rw, rw + stream
@@ -269,7 +268,6 @@ pub enum XpiEventDiscriminant {
     Release = 8,
     Introspect = 9,
     //ChainCall = 10,
-
     CallResults = 16,
     ReadResults = 17,
     WriteResults = 18,

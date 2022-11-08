@@ -1,8 +1,8 @@
+use ast::Identifier;
 use mtoken::ext::TokenStreamExt;
 use mtoken::token::IdentFlavor;
 use mtoken::{Ident, ToTokens, TokenStream};
 use std::rc::Rc;
-use ast::Identifier;
 
 pub struct IdentifierCG {
     pub inner: Identifier,

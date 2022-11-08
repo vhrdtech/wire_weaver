@@ -2,8 +2,8 @@ use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::struct_def::CGStructDef;
 use crate::rust::ty::CGTy;
-use semver::VersionReq;
 use ast::TyKind;
+use semver::VersionReq;
 
 pub struct StructSer<'ast> {
     pub inner: CGStructDef<'ast>,
@@ -12,7 +12,8 @@ pub struct StructSer<'ast> {
 impl<'ast> StructSer<'ast> {
     pub fn len_bytes(&self) -> Option<usize> {
         let mut len = 0;
-        for f in &self.inner.inner.fields { // TODO: use proper size calculation here
+        for f in &self.inner.inner.fields {
+            // TODO: use proper size calculation here
             // if !f.ty.is_sized() {
             //     return None;
             // }
@@ -40,7 +41,7 @@ pub struct StructSerField<'ast> {
 impl<'ast> ToTokens for StructSerField<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.ty.inner.kind {
-            TyKind::Unit => {},
+            TyKind::Unit => {}
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust r#"
                     put_bool
@@ -57,10 +58,8 @@ impl<'ast> ToTokens for StructSerField<'ast> {
                     tokens.append_all(mquote!(rust "ser_bytes"));
                 }
             }
-            TyKind::Ref(_) => {
-                tokens.append_all(mquote!(rust "ser_bytes"))
-            }
-            _ => unimplemented!()
+            TyKind::Ref(_) => tokens.append_all(mquote!(rust "ser_bytes")),
+            _ => unimplemented!(),
         }
     }
 }
@@ -72,7 +71,7 @@ pub struct StructDesField<'ast> {
 impl<'ast> ToTokens for StructDesField<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.ty.inner.kind {
-            TyKind::Unit => {},
+            TyKind::Unit => {}
             TyKind::Boolean => {
                 tokens.append_all(mquote!(rust "get_bool"));
             }
@@ -90,7 +89,7 @@ impl<'ast> ToTokens for StructDesField<'ast> {
             TyKind::Ref(_) => {
                 tokens.append_all(mquote!(rust "des_bytes"));
             }
-            k => unimplemented!("{:?}", k)
+            k => unimplemented!("{:?}", k),
         }
     }
 }
@@ -103,14 +102,9 @@ impl<'ast> ToTokens for StructSer<'ast> {
             .fields
             .iter()
             .map(|field| CGIdentifier { inner: &field.name });
-        let field_ser_methods = self
-            .inner
-            .inner
-            .fields
-            .iter()
-            .map(|f| StructSerField {
-                ty: CGTy { inner: &f.ty },
-            });
+        let field_ser_methods = self.inner.inner.fields.iter().map(|f| StructSerField {
+            ty: CGTy { inner: &f.ty },
+        });
         let len_bytes = self.len_bytes().unwrap();
         ts.append_all(mquote!(rust r#"
             impl SerializeBytes for Λ{self.inner.typename} {
@@ -160,14 +154,9 @@ impl<'ast> ToTokens for StructDes<'ast> {
             .fields
             .iter()
             .map(|field| CGIdentifier { inner: &field.name });
-        let field_des_methods = self
-            .inner
-            .inner
-            .fields
-            .iter()
-            .map(|f| StructDesField {
-                ty: CGTy { inner: &f.ty },
-            });
+        let field_des_methods = self.inner.inner.fields.iter().map(|f| StructDesField {
+            ty: CGTy { inner: &f.ty },
+        });
         tokens.append_all(mquote!(rust r#"
             impl<'i> DeserializeBytes<'i> for Λ{self.inner.typename} {
                 ȸtype Error = BufError;
@@ -242,7 +231,7 @@ mod test {
 
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
-            _ => panic!("Expected struct definition")
+            _ => panic!("Expected struct definition"),
         }
     }
 
@@ -274,7 +263,7 @@ mod test {
                 "#);
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
-            _ => panic!("Expected struct definition")
+            _ => panic!("Expected struct definition"),
         }
     }
 }

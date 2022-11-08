@@ -1,11 +1,11 @@
-use ast::Definition;
+use super::prelude::*;
 use crate::ast::def_enum::EnumDefParse;
 use crate::ast::def_fn::FnDefParse;
 use crate::ast::def_struct::StructDefParse;
 use crate::ast::def_type_alias::TypeAliasDefParse;
 use crate::ast::def_xpi_block::XpiDefParse;
-use super::prelude::*;
 use crate::error::ParseErrorSource;
+use ast::Definition;
 
 pub struct DefinitionParse(pub Definition);
 
@@ -22,7 +22,7 @@ impl<'i> Parse<'i> for DefinitionParse {
             Rule::enum_def => {
                 let enum_def: EnumDefParse = input.parse()?;
                 Definition::Enum(enum_def.0)
-            },
+            }
             Rule::struct_def => {
                 let struct_def: StructDefParse = input.parse()?;
                 Definition::Struct(struct_def.0)
@@ -30,7 +30,7 @@ impl<'i> Parse<'i> for DefinitionParse {
             Rule::type_alias_def => {
                 let ty_alias: TypeAliasDefParse = input.parse()?;
                 Definition::TypeAlias(ty_alias.0)
-            },
+            }
             Rule::xpi_block => {
                 let xpi_def: XpiDefParse = input.parse()?;
                 Definition::Xpi(xpi_def.0)
@@ -41,7 +41,7 @@ impl<'i> Parse<'i> for DefinitionParse {
             }
             _ => {
                 return Err(ParseErrorSource::internal("unexpected definition"));
-            },
+            }
         };
         Ok(DefinitionParse(ast_def))
     }

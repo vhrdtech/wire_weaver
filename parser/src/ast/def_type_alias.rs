@@ -1,6 +1,6 @@
-use ast::TypeAliasDef;
-use crate::ast::ty::TyParse;
 use super::prelude::*;
+use crate::ast::ty::TyParse;
+use ast::TypeAliasDef;
 
 pub struct TypeAliasDefParse(pub TypeAliasDef);
 

@@ -192,7 +192,6 @@ where
     }
 }
 
-
 // impl<'i, T, E> SerializeVlu4 for Vlu4VecIter<'i, T>
 //     where
 //         T: SerializeVlu4<Error = E> + DeserializeVlu4<'i, Error = E>,
@@ -298,7 +297,10 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     }
 
     #[cfg(feature = "buf-strict")]
-    fn size_hint_strict_check(size_hint: SerDesSize, actually_written: usize) -> Result<(), NibbleBufError> {
+    fn size_hint_strict_check(
+        size_hint: SerDesSize,
+        actually_written: usize,
+    ) -> Result<(), NibbleBufError> {
         match size_hint {
             SerDesSize::Sized(len) => {
                 // Sized types are written as is, without padding or length and expected to return correct len
@@ -596,7 +598,11 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
     where
         E: SerializableError + From<NibbleBufError>,
 {
-    pub fn put_result_nib_slice_with<F>(&mut self, size_hint: SerDesSize, mut f: F) -> Result<(), NibbleBufError>
+    pub fn put_result_nib_slice_with<F>(
+        &mut self,
+        size_hint: SerDesSize,
+        mut f: F,
+    ) -> Result<(), NibbleBufError>
         where
             F: FnMut(&mut NibbleBufMut) -> Result<(), E>,
     {
@@ -874,7 +880,10 @@ mod test {
         let mut nrd = NibbleBuf::new(&input, 13).unwrap();
         let results: Vlu4Vec<Result<NibbleBuf, UserError>> = nrd.des_vlu4().unwrap();
         let mut iter = results.iter();
-        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[0xaa, 0xbb], 4).unwrap())));
+        assert_eq!(
+            iter.next(),
+            Some(Ok(NibbleBuf::new(&[0xaa, 0xbb], 4).unwrap()))
+        );
         assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[0xcc], 2).unwrap())));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
@@ -902,7 +911,6 @@ mod test {
         assert_eq!(iter.next(), Some(Err(UserError::ErrorB)));
     }
 
-
     #[test]
     fn vec_of_nib_slice_results_builder() {
         let mut buf = [0u8; 64];
@@ -917,7 +925,10 @@ mod test {
         assert_eq!(&vec.rdr.buf[..10], hex!("50 60 10 20 30 40 40 51 00 20"));
 
         let mut iter = vec.iter();
-        assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[1, 2, 3], 6).unwrap())));
+        assert_eq!(
+            iter.next(),
+            Some(Ok(NibbleBuf::new(&[1, 2, 3], 6).unwrap()))
+        );
         assert_eq!(iter.next(), Some(Ok(NibbleBuf::new(&[4, 5], 4).unwrap())));
         assert_eq!(iter.next(), Some(Err(UserError::ErrorA)));
         assert_eq!(iter.next(), Some(Ok(NibbleBuf::new_all(&[]))));
@@ -1194,8 +1205,14 @@ mod test {
         let mut nrd = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<NibbleBuf> = nrd.des_vlu4().unwrap();
         let mut arr_iter = arr.iter();
-        assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xab, 0xcd], 4).unwrap()));
-        assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xef, 0x00], 3).unwrap()));
+        assert_eq!(
+            arr_iter.next(),
+            Some(NibbleBuf::new(&[0xab, 0xcd], 4).unwrap())
+        );
+        assert_eq!(
+            arr_iter.next(),
+            Some(NibbleBuf::new(&[0xef, 0x00], 3).unwrap())
+        );
         assert_eq!(arr_iter.next(), Some(NibbleBuf::new(&[0xa0], 1).unwrap()));
         assert_eq!(arr_iter.next(), None);
     }
@@ -1225,13 +1242,15 @@ mod test {
             nwr.put_u8(0xab)?;
             nwr.put_nibble(0xc)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::Sized(8), |nwr| {
             assert_eq!(nwr.nibbles_left(), 8);
             nwr.put_u16_be(0xaa55)?;
             nwr.put_u16_be(0xccdd)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 15);
@@ -1248,12 +1267,14 @@ mod test {
             assert_eq!(nwr.nibbles_left(), 6);
             nwr.put(&&[0xab, 0xcd][..])?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::SizedAligned(5, 1), |nwr| {
             assert_eq!(nwr.nibbles_left(), 6);
             nwr.put(&&[0xef, 0x01][..])?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 14);
@@ -1271,17 +1292,22 @@ mod test {
             nwr.put_u16_be(0xaabb)?;
             nwr.put_u16_be(0xccdd)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::Unsized, |nwr| {
             assert_eq!(nwr.nibbles_left(), 1024 - 5 - 8 - 4);
             nwr.put_u16_be(0xee01)?;
             nwr.put_u16_be(0x2345)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 25);
-        assert_eq!(nwr.buf[..13], hex!("28 89 0a ab bc cd d8 89 0e e0 12 34 50"));
+        assert_eq!(
+            nwr.buf[..13],
+            hex!("28 89 0a ab bc cd d8 89 0e e0 12 34 50")
+        );
     }
 
     #[test]
@@ -1295,13 +1321,15 @@ mod test {
             nwr.put_u16_be(0xaabb)?;
             nwr.put_u16_be(0xccdd)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::UnsizedBound(63), |nwr| {
             assert_eq!(nwr.nibbles_left(), 63);
             nwr.put_u16_be(0xee01)?;
             nwr.put_u16_be(0x2345)?;
             Ok(())
-        }).unwrap();
+        })
+            .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 21);

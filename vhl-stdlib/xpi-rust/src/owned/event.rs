@@ -1,22 +1,15 @@
-use crate::event::{XpiGenericEvent};
+use crate::event::XpiGenericEvent;
 use crate::owned::convert_error::ConvertError;
+use crate::owned::Priority;
 use crate::xwfd;
 use crate::xwfd::xwfd_info::XwfdInfo;
 use std::fmt::{Display, Formatter};
 use vhl_stdlib::discrete::U4;
-use vhl_stdlib::serdes::{NibbleBufMut};
-use crate::owned::Priority;
+use vhl_stdlib::serdes::NibbleBufMut;
 
 use super::{
-    NodeId,
-    NodeSet,
-    RequestId,
-    ResourceSet,
-    resource_set::ResourceSetConvertXwfd,
-    TraitSet,
-    SerialUri,
-    SerialMultiUri,
-    EventKind,
+    resource_set::ResourceSetConvertXwfd, EventKind, NodeId, NodeSet, RequestId, ResourceSet,
+    SerialMultiUri, SerialUri, TraitSet,
 };
 
 pub type Event = XpiGenericEvent<
@@ -27,7 +20,7 @@ pub type Event = XpiGenericEvent<
     EventKind,
     Priority,
     RequestId,
-    U4 // ttl
+    U4, // ttl
 >;
 
 impl Event {
@@ -52,10 +45,17 @@ impl Event {
 }
 
 impl Event {
-    pub fn new_heartbeat(source: NodeId, request_id: RequestId, priority: Priority, heartbeat_info: u32) -> Self {
+    pub fn new_heartbeat(
+        source: NodeId,
+        request_id: RequestId,
+        priority: Priority,
+        heartbeat_info: u32,
+    ) -> Self {
         Event {
             source,
-            destination: NodeSet::Broadcast { original_source: source },
+            destination: NodeSet::Broadcast {
+                original_source: source,
+            },
             resource_set: ResourceSet::Uri(SerialUri { segments: vec![] }),
             kind: EventKind::Heartbeat(heartbeat_info),
             priority,
@@ -95,7 +95,6 @@ impl Event {
     }
 }
 
-
 impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -133,28 +132,23 @@ impl<'i> From<xwfd::Event<'i>> for Event {
 
 #[cfg(test)]
 mod test {
-    use vhl_stdlib::discrete::U4;
-    use vhl_stdlib::serdes::NibbleBufMut;
-    use vhl_stdlib::serdes::vlu4::Vlu32;
     use crate::owned::{
-        ResourceSet,
-        NodeId,
-        NodeSet,
-        SerialUri,
-        RequestId,
-        Event,
-        EventKind,
-        Priority,
+        Event, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet, SerialUri,
     };
+    use vhl_stdlib::discrete::U4;
+    use vhl_stdlib::serdes::vlu4::Vlu32;
+    use vhl_stdlib::serdes::NibbleBufMut;
 
     #[test]
     fn ser_xwfd_request() {
         let ev = Event {
             source: NodeId(42),
             destination: NodeSet::Unicast(NodeId(85)),
-            resource_set: ResourceSet::Uri(SerialUri { segments: vec![Vlu32(3), Vlu32(12)] }),
+            resource_set: ResourceSet::Uri(SerialUri {
+                segments: vec![Vlu32(3), Vlu32(12)],
+            }),
             kind: EventKind::Call {
-                args_set: vec![vec![0xaa, 0xbb]]
+                args_set: vec![vec![0xaa, 0xbb]],
             },
             priority: Priority::Lossless(0),
             request_id: RequestId(27),
@@ -168,12 +162,12 @@ mod test {
         // assert_eq!(len, 10);
         let expected = [
             0b000_100_00, // n/a, priority, event kind group = requests
-            0b1_0101010, // is_xwfd_or_bigger, source
-            0b00_101010, // node set kind, destination 7:1
+            0b1_0101010,  // is_xwfd_or_bigger, source
+            0b00_101010,  // node set kind, destination 7:1
             0b1_001_0000, // destination 0, resources set kind, request kind = Call
-            0b0000_1010, // xwfd_info, ttl
-            0b0011_1100, // resource set: U4 / U4
-            0b0001_0010, // args set len = 1, slice len = 2 + no padding
+            0b0000_1010,  // xwfd_info, ttl
+            0b0011_1100,  // resource set: U4 / U4
+            0b0001_0010,  // args set len = 1, slice len = 2 + no padding
             0xaa,
             0xbb,
             0b000_11011,

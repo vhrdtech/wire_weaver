@@ -21,7 +21,9 @@ mod test {
         struct AstNode {
             name: String,
         }
-        let node = AstNode { name: "MyStruct".to_owned() };
+        let node = AstNode {
+            name: "MyStruct".to_owned(),
+        };
         let ts = mquote!(rust r#" struct Λ{node.name} {} "#);
         assert_eq!(format!("{}", ts), "struct MyStruct { }")
     }
@@ -73,6 +75,9 @@ mod test {
         let numbers1 = vec![1, 2, 3];
         let numbers2 = vec![6, 7];
         let ts = mquote!(rust r#" [ ⸨ ∀numbers1 + ( ⸨ ∀numbers2 * 2 ⸩+* ) ⸩,* ] "#);
-        assert_eq!(format!("{}", ts), "[1 + (6 * 2 + 7 * 2), 2 + (6 * 2 + 7 * 2), 3 + (6 * 2 + 7 * 2)]");
+        assert_eq!(
+            format!("{}", ts),
+            "[1 + (6 * 2 + 7 * 2), 2 + (6 * 2 + 7 * 2), 3 + (6 * 2 + 7 * 2)]"
+        );
     }
 }

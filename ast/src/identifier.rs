@@ -1,9 +1,9 @@
+use crate::Span;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 use util::color;
-use crate::Span;
 
 #[derive(Clone, Eq)]
 pub struct Identifier {
@@ -69,13 +69,20 @@ pub enum IdentifierContext {
     GenericName,
 
     /// Created by make_path! macro
-    MakePath
+    MakePath,
 }
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.sign_plus() {
-            write!(f, "Id:{}{}{} @{:#}", color::MAGENTA, self.symbols, color::DEFAULT, self.span)
+            write!(
+                f,
+                "Id:{}{}{} @{:#}",
+                color::MAGENTA,
+                self.symbols,
+                color::DEFAULT,
+                self.span
+            )
         } else if f.sign_minus() {
             write!(f, "{}", self.symbols)
         } else {

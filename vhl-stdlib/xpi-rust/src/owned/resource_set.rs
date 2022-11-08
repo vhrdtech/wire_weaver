@@ -1,15 +1,16 @@
-use std::fmt::{Display, Formatter};
-use std::vec::IntoIter;
 use crate::owned::convert_error::ConvertError;
 use crate::owned::{SerialMultiUri, SerialUri};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd;
-use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
+use std::fmt::{Display, Formatter};
+use std::vec::IntoIter;
 use vhl_stdlib::serdes::vlu4::Vlu32;
+use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 
 pub type ResourceSet = XpiGenericResourceSet<SerialUri, SerialMultiUri>;
 
-pub(crate) type ResourceSetConvertXwfd = XpiGenericResourceSet<xwfd::SerialUri<IntoIter<Vlu32>>, SerialMultiUri>;
+pub(crate) type ResourceSetConvertXwfd =
+XpiGenericResourceSet<xwfd::SerialUri<IntoIter<Vlu32>>, SerialMultiUri>;
 
 impl ResourceSet {
     pub(crate) fn ser_header_xwfd(
@@ -26,13 +27,10 @@ impl ResourceSet {
 }
 
 impl ResourceSetConvertXwfd {
-    pub(crate) fn ser_body_xwfd(
-        &self,
-        nwr: &mut NibbleBufMut,
-    ) -> Result<(), ConvertError> {
+    pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         match self {
             ResourceSetConvertXwfd::Uri(uri) => nwr.put(uri)?,
-            ResourceSetConvertXwfd::MultiUri(_) => unimplemented!()
+            ResourceSetConvertXwfd::MultiUri(_) => unimplemented!(),
         }
         Ok(())
     }
@@ -42,7 +40,7 @@ impl<'i> From<xwfd::ResourceSet<'i>> for ResourceSet {
     fn from(resource_set: xwfd::ResourceSet<'i>) -> Self {
         match resource_set {
             xwfd::ResourceSet::Uri(uri) => ResourceSet::Uri(uri.into()),
-            xwfd::ResourceSet::MultiUri(_) => unimplemented!()
+            xwfd::ResourceSet::MultiUri(_) => unimplemented!(),
         }
     }
 }

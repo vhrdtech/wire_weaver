@@ -1,7 +1,7 @@
-use ast::NumBound;
 use super::prelude::*;
 use crate::ast::expr::VecExprParse;
 use crate::ast::lit::NumberLitParse;
+use ast::NumBound;
 
 pub struct NumBoundParse(pub NumBound);
 
@@ -27,7 +27,9 @@ impl<'i> Parse<'i> for NumBoundParse {
             Rule::num_bound_list => {
                 let mut input = ParseInput::fork(bound, &mut input);
                 let exprs: VecExprParse = input.parse()?;
-                Ok(NumBoundParse(NumBound::Set(ast::TryEvaluateInto::NotResolved(exprs.0))))
+                Ok(NumBoundParse(NumBound::Set(
+                    ast::TryEvaluateInto::NotResolved(exprs.0),
+                )))
             }
             _ => return Err(ParseErrorSource::internal("wrong num_bound rule")),
         }

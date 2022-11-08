@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
 use crate::node_set::XpiGenericNodeSet;
 use crate::owned::convert_error::ConvertError;
 use crate::owned::node_id::NodeId;
 use crate::owned::trait_set::TraitSet;
 use crate::xwfd;
+use std::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
 
 pub type NodeSet = XpiGenericNodeSet<NodeId, TraitSet>;
@@ -44,7 +44,9 @@ impl<'i> From<xwfd::NodeSet<'i>> for NodeSet {
             xwfd::NodeSet::Unicast(dst) => NodeSet::Unicast(dst.into()),
             xwfd::NodeSet::UnicastTraits { .. } => unimplemented!(),
             xwfd::NodeSet::Multicast { .. } => unimplemented!(),
-            xwfd::NodeSet::Broadcast { original_source } => NodeSet::Broadcast { original_source: original_source.into() }
+            xwfd::NodeSet::Broadcast { original_source } => NodeSet::Broadcast {
+                original_source: original_source.into(),
+            },
         }
     }
 }
@@ -55,7 +57,7 @@ impl Display for NodeSet {
             NodeSet::Unicast(dst) => write!(f, "U_{}", dst),
             NodeSet::UnicastTraits { .. } => write!(f, "impl"),
             NodeSet::Multicast { .. } => write!(f, "multi"),
-            NodeSet::Broadcast { .. } => write!(f, "*")
+            NodeSet::Broadcast { .. } => write!(f, "*"),
         }
     }
 }

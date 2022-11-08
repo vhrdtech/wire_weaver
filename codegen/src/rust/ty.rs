@@ -1,5 +1,5 @@
-use ast::{Ty, TyKind};
 use crate::prelude::*;
+use ast::{Ty, TyKind};
 
 #[derive(Clone)]
 pub struct CGTy<'ast> {
@@ -9,7 +9,7 @@ pub struct CGTy<'ast> {
 impl<'ast> ToTokens for CGTy<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.inner.kind {
-            TyKind::Unit => {},
+            TyKind::Unit => {}
             TyKind::Boolean => {
                 tokens.append(mtoken::Ident::new(
                     Rc::new("bool".to_string()),
@@ -35,7 +35,7 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     Λdiscrete
                 "#));
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }

@@ -5,11 +5,11 @@ use crate::resource_set::XpiGenericResourceSet;
 #[derive(Clone, Debug)]
 pub struct XpiGenericEvent<
     NID, // NodeId
-    TS, // TraitSet
-    U, // SerialUri
-    MU, // SerialMultiUri
+    TS,  // TraitSet
+    U,   // SerialUri
+    MU,  // SerialMultiUri
     K,
-    P, // Priority
+    P,   // Priority
     RID, // Request - Response matching ID
     TTL,
 > {

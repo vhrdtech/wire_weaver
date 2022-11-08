@@ -15,7 +15,11 @@ pub struct Ident {
 
 impl Ident {
     pub fn new(sym: Rc<String>, flavor: IdentFlavor) -> Self {
-        Ident { sym, flavor, spacing: Spacing::Alone }
+        Ident {
+            sym,
+            flavor,
+            spacing: Spacing::Alone,
+        }
     }
 
     pub fn set_spacing(&mut self, spacing: Spacing) {
@@ -217,8 +221,7 @@ impl Literal {
     pub fn new(repr: String) -> Self {
         Self {
             repr,
-            spacing: Spacing::Alone
-            // span: Span::call_site()
+            spacing: Spacing::Alone, // span: Span::call_site()
         }
     }
 
@@ -312,8 +315,7 @@ impl ToTokens for usize {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.append(Literal {
             repr: self.to_string(),
-            spacing: Spacing::Alone
-            // span: Span::call_site()
+            spacing: Spacing::Alone, // span: Span::call_site()
         })
     }
 }

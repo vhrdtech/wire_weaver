@@ -1,6 +1,6 @@
 mod lexer;
 
-use quote::{quote, TokenStreamExt, ToTokens};
+use quote::{quote, ToTokens, TokenStreamExt};
 
 use proc_macro2::{Ident, Literal, Span};
 
@@ -132,11 +132,10 @@ impl ToTokens for Path {
         } else {
             quote! {}
         };
-        let segments = self.segments
+        let segments = self
+            .segments
             .iter()
-            .map(|s| {
-                Ident::new(s.as_str(), Span::call_site())
-            });
+            .map(|s| Ident::new(s.as_str(), Span::call_site()));
         tokens.append_all(quote! {
              #(#segments).* #is_tail_call
         });
@@ -155,13 +154,9 @@ fn interpolate_path(token: Pair<Rule>) -> Path {
                 true
             }
         })
-        .map(|path_segment| {
-            match path_segment.as_rule() {
-                Rule::interpolate_path_segment => {
-                    path_segment.as_str().to_owned()
-                }
-                r => panic!("{:?} was unexpected in interpolate", r)
-            }
+        .map(|path_segment| match path_segment.as_rule() {
+            Rule::interpolate_path_segment => path_segment.as_str().to_owned(),
+            r => panic!("{:?} was unexpected in interpolate", r),
         })
         .collect();
     Path {
@@ -184,8 +179,15 @@ fn tt_append(
     repetition_paths: &mut HashMap<Path, usize>,
 ) {
     match token.as_rule() {
-        Rule::delim_token_tree => tt_append_delim_token_tree(token, ts_builder, language, repetition_paths),
-        Rule::token => tt_append(token.into_inner().next().unwrap(), ts_builder, language, repetition_paths),
+        Rule::delim_token_tree => {
+            tt_append_delim_token_tree(token, ts_builder, language, repetition_paths)
+        }
+        Rule::token => tt_append(
+            token.into_inner().next().unwrap(),
+            ts_builder,
+            language,
+            repetition_paths,
+        ),
         Rule::interpolate => tt_append_interpolate(token, ts_builder, repetition_paths),
         Rule::repeat => tt_append_repetition(token, ts_builder, language, repetition_paths),
         Rule::ident => tt_append_ident(token, ts_builder, language),
@@ -221,9 +223,17 @@ fn tt_append_interpolate(
     ts_builder: &mut proc_macro2::TokenStream,
     repetition_paths: &mut HashMap<Path, usize>,
 ) {
-    let interpolate = token.into_inner().next().expect("Wrong interpolate grammar");
+    let interpolate = token
+        .into_inner()
+        .next()
+        .expect("Wrong interpolate grammar");
     let kind = interpolate.as_rule();
-    let path = interpolate_path(interpolate.into_inner().next().expect("Wrong interpolate grammar"));
+    let path = interpolate_path(
+        interpolate
+            .into_inner()
+            .next()
+            .expect("Wrong interpolate grammar"),
+    );
     match kind {
         Rule::interpolate_one => {
             ts_builder.append_all(quote! {
@@ -238,7 +248,7 @@ fn tt_append_interpolate(
                 ts.append(mtoken::TokenTree::Repetition(#repetition_idx));
             });
         }
-        r => panic!("Unexpected {:?}", r)
+        r => panic!("Unexpected {:?}", r),
     }
 }
 
@@ -246,7 +256,7 @@ fn tt_append_delim_token_tree(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
-    repetition_paths: &mut HashMap<Path, usize>
+    repetition_paths: &mut HashMap<Path, usize>,
 ) {
     let delimiter = match token.as_str().chars().next().unwrap() {
         '(' => proc_macro2::Ident::new("Parenthesis", Span::call_site()),
@@ -268,18 +278,22 @@ fn tt_append_repetition(
     token: Pair<Rule>,
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
-    repetition_paths: &mut HashMap<Path, usize>
+    repetition_paths: &mut HashMap<Path, usize>,
 ) {
     let mut separator = quote! { None };
     let mut delim_stream = new_ts_builder();
     for token in token.into_inner() {
         match token.as_rule() {
             Rule::repetition_separator => {
-                let ch = token.as_str().chars().next().expect("Wrong repetition_separator grammar");
+                let ch = token
+                    .as_str()
+                    .chars()
+                    .next()
+                    .expect("Wrong repetition_separator grammar");
                 let punct_lit = Literal::character(ch);
                 separator = quote! { Some(mtoken::Punct::new(#punct_lit, mtoken::Spacing::Alone)) };
             }
-            _ => tt_append(token, &mut delim_stream, language, repetition_paths)
+            _ => tt_append(token, &mut delim_stream, language, repetition_paths),
         }
     }
     ts_builder.append_all(quote! {

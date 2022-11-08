@@ -1,5 +1,5 @@
-use crate::{Doc, Attrs, Identifier, Span, Ty, Lit};
 use crate::struct_def::StructField;
+use crate::{Attrs, Doc, Identifier, Lit, Span, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EnumDef {

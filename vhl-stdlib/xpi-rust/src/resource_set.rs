@@ -11,10 +11,7 @@
 ///
 /// [MultiUri] is the only way to select several resources at once within one request.
 #[derive(Clone, Debug)]
-pub enum XpiGenericResourceSet<
-    U,
-    MU
-> {
+pub enum XpiGenericResourceSet<U, MU> {
     /// Select any one resource at any depth.
     /// Or root resource by providing 0 length Uri.
     Uri(U),

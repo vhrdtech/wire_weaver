@@ -1,8 +1,8 @@
-use std::net::AddrParseError;
 use futures::channel::mpsc::SendError;
+use std::net::AddrParseError;
 use thiserror::Error;
-use xpi::error::XpiError;
 use vhl_stdlib::serdes::nibble_buf;
+use xpi::error::XpiError;
 
 #[derive(Error, Debug)]
 pub enum NodeError {
@@ -29,5 +29,5 @@ pub enum NodeError {
     #[error("Expected different amount of: {}", .0)]
     ExpectedDifferentAmountOf(String),
     #[error("Local nibble_buf::Error")]
-    NibbleBufError(#[from] nibble_buf::Error)
+    NibbleBufError(#[from] nibble_buf::Error),
 }

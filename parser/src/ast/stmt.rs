@@ -1,12 +1,12 @@
-use crate::ast::definition::DefinitionParse;
 use super::prelude::*;
+use crate::ast::definition::DefinitionParse;
 use crate::ast::expr::ExprParse;
 use crate::ast::ty::TyParse;
 use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind};
 use crate::lexer::{Lexer, Rule};
 use ast::span::SpanOrigin;
-use ast::Stmt;
 use ast::stmt::LetStmt;
+use ast::Stmt;
 
 pub struct StmtParse(pub Stmt);
 
@@ -17,12 +17,11 @@ pub struct VecStmtParse(pub Vec<Stmt>);
 impl StmtParse {
     pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
         let input = input.as_ref();
-        let pairs =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::repl, input).map_err(|e| Error {
-                kind: ErrorKind::Grammar(e),
-                origin: origin.clone(),
-                input: input.to_owned(),
-            })?;
+        let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::repl, input).map_err(|e| Error {
+            kind: ErrorKind::Grammar(e),
+            origin: origin.clone(),
+            input: input.to_owned(),
+        })?;
         let mut errors = Vec::new();
 
         let input_parsed_str = pairs.as_str();
@@ -64,7 +63,9 @@ impl StmtParse {
                         ParseErrorKind::InternalError { rule, message }
                     }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
-                    ParseErrorSource::UnexpectedInput => ParseErrorKind::UnhandledUnexpectedInput(0),
+                    ParseErrorSource::UnexpectedInput => {
+                        ParseErrorKind::UnhandledUnexpectedInput(0)
+                    }
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
                 errors.push(ParseError { kind, rule, span });
@@ -89,7 +90,7 @@ impl<'i> Parse<'i> for StmtParse {
             Rule::let_stmt => {
                 let let_stmt: LetStmtParse = input.parse()?;
                 Ok(StmtParse(Stmt::Let(let_stmt.0)))
-            },
+            }
             Rule::expr_stmt => {
                 let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);

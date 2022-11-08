@@ -57,17 +57,17 @@ impl EventFilter {
                         return false;
                     }
                 } else {
-                    return false
+                    return false;
                 };
             }
             NodeSetFilter::UnicastTraits => unimplemented!(),
             NodeSetFilter::Multicast => unimplemented!(),
-            NodeSetFilter::Broadcast => {
-                match ev.destination {
-                    XpiGenericNodeSet::Broadcast { .. } => {}
-                    _ => { return false; }
+            NodeSetFilter::Broadcast => match ev.destination {
+                XpiGenericNodeSet::Broadcast { .. } => {}
+                _ => {
+                    return false;
                 }
-            }
+            },
         }
         match self.request_id {
             None => {}

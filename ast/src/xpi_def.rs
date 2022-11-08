@@ -1,7 +1,7 @@
+use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, NumBound, Span, TryEvaluateInto, Ty};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use util::color;
-use crate::{Attrs, Doc, Expr, FnArguments, Identifier, Lit, NumBound, Span, TryEvaluateInto, Ty};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpiDef {
@@ -74,15 +74,9 @@ pub enum XpiKind {
     /// `/borrowable_property<Cell<u8>>` - implicitly rw, otherwise no reason for a Cell
     /// `/write_only_cell<Cell< wo u8> >>`
     /// `/borrowable_stream<Cell< ro+stream u8 >>`
-    Cell {
-        inner: Box<XpiKind>,
-    },
+    Cell { inner: Box<XpiKind> },
     /// Callable method. `/method<fn ()>`, `/with_args_and_ret<fn (x: u8) -> u8>`
-    Method {
-        args: FnArguments,
-        ret_ty: Ty,
-    },
-
+    Method { args: FnArguments, ret_ty: Ty },
     // /// Not yet known kind (type alias or generic type used), can be Property, Cell or Method
     // Generic {
     //     transform: XpiResourceTransform,
@@ -103,7 +97,7 @@ impl XpiDef {
     pub fn expect_method_kind(&self) -> Option<(FnArguments, Ty)> {
         match &self.kind {
             XpiKind::Method { args, ret_ty } => Some((args.clone(), ret_ty.clone())),
-            _ => None
+            _ => None,
         }
     }
 
@@ -114,8 +108,9 @@ impl XpiDef {
             XpiKind::Property { .. } => "property",
             XpiKind::Stream { .. } => "stream",
             XpiKind::Cell { .. } => "Cell<_>",
-            XpiKind::Method { .. } => "method"
-        }.to_owned()
+            XpiKind::Method { .. } => "method",
+        }
+            .to_owned()
     }
 }
 
@@ -140,7 +135,7 @@ impl UriSegmentSeed {
     pub fn expect_resolved(&self) -> Option<Identifier> {
         match self {
             UriSegmentSeed::Resolved(id) => Some(id.clone()),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -187,17 +182,16 @@ impl Display for XpiDef {
             ",\n"
         } else {
             ", "
-        }.to_owned();
+        }
+            .to_owned();
         itertools::intersperse(
-            self.children
-                .iter()
-                .map(|child| {
-                    if is_alterante {
-                        format!("{:#}", child)
-                    } else {
-                        format!("{}", child)
-                    }
-                }),
+            self.children.iter().map(|child| {
+                if is_alterante {
+                    format!("{:#}", child)
+                } else {
+                    format!("{}", child)
+                }
+            }),
             separator,
         )
             .try_for_each(|s| write!(f, "{}", s))?;

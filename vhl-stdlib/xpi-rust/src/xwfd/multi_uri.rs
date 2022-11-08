@@ -1,15 +1,10 @@
-use core::fmt::{Display, Formatter};
-use vhl_stdlib::{
-    serdes::{
-        SerializeVlu4, DeserializeVlu4, SerDesSize,
-        NibbleBuf, NibbleBufMut,
-        vlu4::{Vlu4Vec, Vlu4VecIter, Vlu32},
-    }
-};
-use vhl_stdlib::serdes::nibble_buf;
+use super::{SerialUri, SerialUriIter, UriMask, UriMaskIter};
 use crate::error::XpiError;
-use super::{
-    UriMask, UriMaskIter, SerialUriIter, SerialUri,
+use core::fmt::{Display, Formatter};
+use vhl_stdlib::serdes::nibble_buf;
+use vhl_stdlib::serdes::{
+    vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
+    DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
 };
 
 /// Allows to select any combination of resources in order to perform read/write or stream
@@ -46,7 +41,10 @@ impl<'i> SerialMultiUri<'i> {
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_iter: Vlu4VecIter<Vlu32> = rdr_clone.des_vlu4().unwrap_or(Vlu4Vec::<Vlu32>::empty()).into_iter();
+        let uri_iter: Vlu4VecIter<Vlu32> = rdr_clone
+            .des_vlu4()
+            .unwrap_or(Vlu4Vec::<Vlu32>::empty())
+            .into_iter();
         let mask: UriMask = rdr_clone
             .des_vlu4()
             .unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty()));
@@ -201,11 +199,11 @@ impl<'i> Display for SerialMultiUri<'i> {
 mod test {
     extern crate std;
 
-    use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
     use crate::xwfd::multi_uri::SerialMultiUri;
     use crate::xwfd::UriMask;
-    use vhl_stdlib::serdes::NibbleBuf;
     use std::format;
+    use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
+    use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
     fn one_pair_mask_u16() {

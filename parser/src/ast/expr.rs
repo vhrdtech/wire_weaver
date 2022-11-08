@@ -1,9 +1,9 @@
-use ast::{Expr, VecExpr};
 use super::prelude::*;
 use crate::ast::lit::LitParse;
 use crate::ast::ops::{binary_from_rule, UnaryOpParse};
 use crate::ast::paths::PathParse;
 use crate::ast::ty::TyParse;
+use ast::{Expr, VecExpr};
 
 pub struct ExprParse(pub Expr);
 
@@ -30,7 +30,6 @@ impl<'i> Parse<'i> for ExprParse {
     }
 }
 
-
 impl<'i> Parse<'i> for VecExprParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut exprs = Vec::new();
@@ -56,14 +55,20 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let method: PathParse = input.parse()?;
             let mut input = ParseInput::fork(input.expect1(Rule::call_arguments)?, &mut input);
             let args: VecExprParse = input.parse()?;
-            Expr::Call { method: method.0, args: args.0 }
+            Expr::Call {
+                method: method.0,
+                args: args.0,
+            }
         }
         Rule::index_into_expr => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let object: PathParse = input.parse()?;
             let by: VecExprParse = input.parse()?;
-            Expr::Index { object: object.0, by: by.0 }
+            Expr::Index {
+                object: object.0,
+                by: by.0,
+            }
         }
         Rule::unary_expr => {
             let _ = input.pairs.next();
@@ -75,7 +80,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::lit => {
             let lit: LitParse = input.parse()?;
             Expr::Lit(lit.0)
-        },
+        }
         Rule::tuple_of_expressions => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
@@ -89,11 +94,11 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::ty => {
             let ty: TyParse = input.parse()?;
             Expr::Ty(Box::new(ty.0))
-        },
+        }
         Rule::path => {
             let path: PathParse = input.parse()?;
             Expr::Ref(path.0)
-        },
+        }
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
@@ -261,7 +266,10 @@ mod test {
         assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Mul, _)));
         if let ExprParse::ConsB(_, cons) = expr {
             assert!(matches!(cons.as_ref().0, ExprParse::Lit(_)));
-            assert!(matches!(cons.as_ref().1, ExprParse::ConsB(BinaryOpParse::Plus, _)));
+            assert!(matches!(
+                cons.as_ref().1,
+                ExprParse::ConsB(BinaryOpParse::Plus, _)
+            ));
         }
     }
 
@@ -294,7 +302,10 @@ mod test {
         let expr: ExprParse = parse_str("crate::log::#/full", Rule::expression);
         assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Path, _)));
         if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(cons.as_ref().0, ExprParse::ConsB(BinaryOpParse::Path, _)));
+            assert!(matches!(
+                cons.as_ref().0,
+                ExprParse::ConsB(BinaryOpParse::Path, _)
+            ));
             if let ExprParse::ConsB(_, cons) = &cons.as_ref().0 {
                 assert!(matches!(cons.as_ref().0, ExprParse::Id(_)));
                 assert!(matches!(cons.as_ref().1, ExprParse::Id(_)));

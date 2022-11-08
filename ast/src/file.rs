@@ -1,9 +1,9 @@
+use crate::error::Error;
+use crate::{Definition, Identifier, SpanOrigin};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use crate::{Definition, Identifier, SpanOrigin};
-use crate::error::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct File {
@@ -44,22 +44,22 @@ impl File {
 
         Ok(line_start..next_line_start)
     }
-//     pub fn from_parser_ast(file: ParserFile) -> Self {
-//         let mut file_core_ast = File {
-//             items: vec![]
-//         };
-//         for d in file.defs {
-//             match d.try_into() {
-//                 Ok(d) => file_core_ast.items.push(d),
-//                 Err(e) => {
-//                     println!("{:?}", e);
-//                 }
-//             }
-//         }
-//         let mut modifier = SpanOriginModifier { to: file.origin };
-//         modifier.visit_file(&mut file_core_ast);
-//         file_core_ast
-//     }
+    //     pub fn from_parser_ast(file: ParserFile) -> Self {
+    //         let mut file_core_ast = File {
+    //             items: vec![]
+    //         };
+    //         for d in file.defs {
+    //             match d.try_into() {
+    //                 Ok(d) => file_core_ast.items.push(d),
+    //                 Err(e) => {
+    //                     println!("{:?}", e);
+    //                 }
+    //             }
+    //         }
+    //         let mut modifier = SpanOriginModifier { to: file.origin };
+    //         modifier.visit_file(&mut file_core_ast);
+    //         file_core_ast
+    //     }
 }
 //
 // struct SpanOriginModifier {
@@ -70,7 +70,6 @@ impl File {
 //         i.origin = self.to.clone();
 //     }
 // }
-
 
 // impl<'i> From<ParserFile<'i>> for File {
 //     fn from(f: ParserFile<'i>) -> Self {

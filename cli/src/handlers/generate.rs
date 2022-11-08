@@ -1,15 +1,17 @@
-use std::rc::Rc;
-use ast::{make_path};
-use codegen::Codegen;
-use parser::ast::file::FileParse;
-use vhl::project::Project;
 use super::prelude::*;
 use crate::commands::GenerateArgs;
+use ast::make_path;
+use codegen::Codegen;
+use parser::ast::file::FileParse;
+use std::rc::Rc;
+use vhl::project::Project;
 
 pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
     let input = std::fs::read_to_string(generate_args.vhl_source.clone())
         .context(format!("unable to open '{:?}'", generate_args.vhl_source))?;
-    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(generate_args.vhl_source.clone())));
+    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(
+        generate_args.vhl_source.clone(),
+    )));
     let file = match FileParse::parse(&input, origin.clone()) {
         Ok(file) => file,
         Err(e) => {

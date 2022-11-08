@@ -1,8 +1,8 @@
-use ast::StructDef;
 use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
+use ast::StructDef;
 
 #[derive(Clone)]
 pub struct CGStructDef<'ast> {
@@ -45,11 +45,7 @@ impl<'ast> ToTokens for CGStructDef<'ast> {
             .fields
             .iter()
             .map(|f| CGIdentifier { inner: &f.name });
-        let field_types = self
-            .inner
-            .fields
-            .iter()
-            .map(|f| CGTy { inner: &f.ty });
+        let field_types = self.inner.fields.iter().map(|f| CGTy { inner: &f.ty });
         let derives = mquote!(rust " #[derive(Copy, Clone, Eq, PartialEq, Debug)] "); // TODO: make automatic and configurable
         tokens.append_all(mquote!(rust r#"
             Λderives
@@ -104,7 +100,7 @@ mod test {
 
                 assert_eq!(format!("{}", ts), format!("{}", ts_should_be));
             }
-            _ => panic!("Expected struct definition")
+            _ => panic!("Expected struct definition"),
         }
     }
 }

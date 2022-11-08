@@ -1,22 +1,18 @@
-use core::fmt::{Display, Formatter};
-use vhl_stdlib::{
-    discrete::U4,
-    serdes::{
-        DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
-        vlu4::{
-            TraitSet, Vlu32, Vlu4VecIter,
-        },
-    },
+use super::{
+    EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet, SerialMultiUri, SerialUri,
+    XwfdInfo,
 };
-use vhl_stdlib::discrete::{U3, U9};
 use crate::error::XpiError;
 use crate::event::XpiGenericEvent;
 use crate::event_kind::XpiEventDiscriminant;
-use super::{
-    NodeId,
-    Priority, RequestId, ResourceSet,
-    SerialUri, SerialMultiUri, NodeSet,
-    EventKind, XwfdInfo,
+use core::fmt::{Display, Formatter};
+use vhl_stdlib::discrete::{U3, U9};
+use vhl_stdlib::{
+    discrete::U4,
+    serdes::{
+        vlu4::{TraitSet, Vlu32, Vlu4VecIter},
+        DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
+    },
 };
 
 /// Highly space efficient xPI Event data structure supporting zero copy and no_std without alloc
@@ -208,16 +204,15 @@ impl<'i> Display for Event<'i> {
 mod test {
     extern crate std;
 
-    use hex_literal::hex;
-    use vhl_stdlib::discrete::{U2, U4};
-    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
     use crate::error::XpiError;
     use crate::event_kind::XpiEventDiscriminant;
     pub use crate::xwfd::{
-        Event, EventKind,
-        NodeId, Priority, RequestId, ResourceSet, SerialUri,
-        EventBuilder, XwfdError, NodeSet,
+        Event, EventBuilder, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet,
+        SerialUri, XwfdError,
     };
+    use hex_literal::hex;
+    use vhl_stdlib::discrete::{U2, U4};
+    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 
     #[test]
     fn des_is_xwdf_or_bigger_false() {
@@ -241,12 +236,12 @@ mod test {
     fn call_request_des() {
         let buf = [
             0b000_100_00, // n/a, priority, event kind group = requests
-            0b1_0101010, // is_xwfd_or_bigger, source
-            0b00_101010, // node set kind, destination 7:1
+            0b1_0101010,  // is_xwfd_or_bigger, source
+            0b00_101010,  // node set kind, destination 7:1
             0b1_001_0000, // destination 0, resources set kind, request kind = Call
-            0b0000_1010, // xwfd_info, ttl
-            0b0011_1100, // resource set: U4 / U4
-            0b0001_0010, // args set len = 1, slice len = 2 + no padding
+            0b0000_1010,  // xwfd_info, ttl
+            0b0011_1100,  // resource set: U4 / U4
+            0b0001_0010,  // args set len = 1, slice len = 2 + no padding
             0xaa,
             0xbb,
             0b000_11011,
@@ -289,7 +284,10 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
             NodeSet::Unicast(NodeId::new(85).unwrap()),
-            ResourceSet::Uri(SerialUri::TwoPart44(U4::new(3).unwrap(), U4::new(12).unwrap())),
+            ResourceSet::Uri(SerialUri::TwoPart44(
+                U4::new(3).unwrap(),
+                U4::new(12).unwrap(),
+            )),
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
@@ -310,12 +308,12 @@ mod test {
         assert_eq!(len, 10);
         let buf_expected = [
             0b000_100_00, // n/a, priority, event kind group = requests
-            0b1_0101010, // is_xwfd_or_bigger, source
-            0b00_101010, // node set kind, destination 7:1
+            0b1_0101010,  // is_xwfd_or_bigger, source
+            0b00_101010,  // node set kind, destination 7:1
             0b1_001_0000, // destination 0, resources set kind, request kind = Call
-            0b0000_1010, // xwfd_info, ttl
-            0b0011_1100, // resource set: U4 / U4
-            0b0001_0010, // args set len = 1, slice len = 2 + no padding
+            0b0000_1010,  // xwfd_info, ttl
+            0b0011_1100,  // resource set: U4 / U4
+            0b0001_0010,  // args set len = 1, slice len = 2 + no padding
             0xaa,
             0xbb,
             0b000_11011,
@@ -330,7 +328,10 @@ mod test {
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
             NodeSet::Unicast(NodeId::new(33).unwrap()),
-            ResourceSet::Uri(SerialUri::TwoPart44(U4::new(4).unwrap(), U4::new(5).unwrap())),
+            ResourceSet::Uri(SerialUri::TwoPart44(
+                U4::new(4).unwrap(),
+                U4::new(5).unwrap(),
+            )),
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
@@ -348,7 +349,10 @@ mod test {
 
         let (buf, len, _) = nwr.finish();
         assert_eq!(len, len);
-        assert_eq!(&buf[..len], hex!("01 d5 10 90 0a 45 20 20 aa bb 02 cc dd 1b"));
+        assert_eq!(
+            &buf[..len],
+            hex!("01 d5 10 90 0a 45 20 20 aa bb 02 cc dd 1b")
+        );
     }
 
     #[test]

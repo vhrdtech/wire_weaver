@@ -1,5 +1,5 @@
-pub mod node;
 pub mod error;
+pub mod node;
 
-pub use node::VhNode;
 pub use error::NodeError;
+pub use node::VhNode;

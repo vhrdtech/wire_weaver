@@ -1,7 +1,7 @@
 use crate::lexer::{Lexer, Rule};
+use ast::{SourceOrigin, SpanOrigin};
 use pest::iterators::{Pair, Pairs};
 use std::fmt::Write;
-use ast::{SourceOrigin, SpanOrigin};
 
 #[allow(unused_macros)]
 macro_rules! ppt {
@@ -9,9 +9,9 @@ macro_rules! ppt {
         crate::util::pest_print_tree($p.clone());
     };
 }
+use crate::error::{Error, ErrorKind};
 #[allow(unused_imports)]
 pub(crate) use ppt;
-use crate::error::{Error, ErrorKind};
 
 pub fn pest_print_tree(pairs: Pairs<Rule>) {
     let mut s = String::new();

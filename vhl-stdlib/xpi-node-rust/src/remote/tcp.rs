@@ -1,12 +1,12 @@
 use futures::channel::mpsc::{Receiver, Sender};
-use tokio::net::TcpStream;
-use xpi::owned::{Event, NodeId};
+use futures::{FutureExt, SinkExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use futures::{StreamExt, FutureExt, SinkExt};
 use tokio::net::tcp::WriteHalf;
+use tokio::net::TcpStream;
+use tracing::{error, info, instrument, trace};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
+use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
-use tracing::{instrument, trace, info, error};
 
 #[instrument(skip(stream, to_event_loop, from_event_loop))]
 pub async fn tcp_event_loop(
@@ -39,7 +39,7 @@ async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>)
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {
         Ok(ev) => {
-            trace!("rx {}B: {}", bytes.len(),  ev);
+            trace!("rx {}B: {}", bytes.len(), ev);
             let ev_owned: Event = ev.into();
             if to_event_loop.send(ev_owned).await.is_err() {
                 error!("mpsc fail");

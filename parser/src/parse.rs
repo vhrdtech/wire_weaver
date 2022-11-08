@@ -1,9 +1,9 @@
 use crate::error::{ParseError, ParseErrorKind, ParseErrorSource};
 use crate::lexer::Rule;
-use crate::warning::ParseWarning;
-use pest::iterators::{Pair, Pairs};
-use ast::Span;
 use crate::span::ast_span_from_pest;
+use crate::warning::ParseWarning;
+use ast::Span;
+use pest::iterators::{Pair, Pairs};
 
 pub struct ParseInput<'i, 'm> {
     pub pairs: Pairs<'i, Rule>,
@@ -65,7 +65,11 @@ impl<'i, 'm> ParseInput<'i, 'm> {
 
     /// Consume and return next pair if it exists with one of the specified rules.
     /// Otherwise return an error, leaving input as before.
-    pub fn expect1_either(&mut self, rule1: Rule, rule2: Rule) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+    pub fn expect1_either(
+        &mut self,
+        rule1: Rule,
+        rule2: Rule,
+    ) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         match self.pairs.peek() {
             Some(p1) => {
                 if p1.as_rule() == rule1 || p1.as_rule() == rule2 {
@@ -89,7 +93,9 @@ impl<'i, 'm> ParseInput<'i, 'm> {
 
     /// Consume and return next pair if it exists.
     pub fn expect1_any(&mut self) -> Result<Pair<'i, Rule>, ParseErrorSource> {
-        self.pairs.next().ok_or_else(|| ParseErrorSource::UnexpectedInput)
+        self.pairs
+            .next()
+            .ok_or_else(|| ParseErrorSource::UnexpectedInput)
     }
 
     pub fn push_error(&mut self, on_pair: &Pair<'i, Rule>, kind: ParseErrorKind) {

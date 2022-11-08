@@ -1,6 +1,6 @@
+use crate::{Identifier, Span};
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use crate::{Identifier, Span};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Path {
@@ -10,7 +10,7 @@ pub struct Path {
 impl Path {
     pub fn new() -> Self {
         Path {
-            segments: VecDeque::new()
+            segments: VecDeque::new(),
         }
     }
 
@@ -84,7 +84,8 @@ impl Display for Path {
         itertools::intersperse(
             self.segments.iter().map(|elem| format!("{:-}", elem)),
             "::".to_owned(),
-        ).try_for_each(|s| write!(f, "{}", s))?;
+        )
+            .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

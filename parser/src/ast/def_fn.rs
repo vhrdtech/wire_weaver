@@ -1,8 +1,8 @@
-use ast::{FnArg, FnArguments, FnDef};
 use super::prelude::*;
 use crate::ast::generics::GenericsParse;
 use crate::ast::stmt::VecStmtParse;
 use crate::ast::ty::TyParse;
+use ast::{FnArg, FnArguments, FnDef};
 
 pub struct FnDefParse(pub FnDef);
 
@@ -31,7 +31,6 @@ impl<'i> Parse<'i> for FnDefParse {
         }))
     }
 }
-
 
 impl<'i> Parse<'i> for FnArgumentsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {

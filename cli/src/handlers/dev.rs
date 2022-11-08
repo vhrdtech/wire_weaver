@@ -1,8 +1,8 @@
-use std::rc::Rc;
 use super::prelude::*;
-use parser::ast::file::FileParse;
-use vhl::project::Project;
 use crate::commands::DevArgs;
+use parser::ast::file::FileParse;
+use std::rc::Rc;
+use vhl::project::Project;
 
 pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
     let local_path = PathBuf::from(dev_args.vhl_source.clone());

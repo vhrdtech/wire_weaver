@@ -1,4 +1,4 @@
-use crate::dependencies::{Dependencies};
+use crate::dependencies::Dependencies;
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::path::PathCG;
@@ -6,10 +6,10 @@ use crate::rust::serdes::buf::size::size_in_byte_buf;
 use crate::rust::serdes::buf::struct_def::{StructDesField, StructSerField};
 use crate::rust::serdes::size::SerDesSizeCG;
 use crate::rust::ty::CGTy;
-use ast::xpi_def::XpiKind;
-use ast::{make_path, FnArguments, Ty, TyKind, Path, Span};
-use vhl::project::Project;
 use crate::CGPiece;
+use ast::xpi_def::XpiKind;
+use ast::{make_path, FnArguments, Path, Span, Ty, TyKind};
+use vhl::project::Project;
 
 pub struct DispatchCall<'i> {
     pub project: &'i Project,
@@ -25,8 +25,7 @@ impl<'i> Codegen for DispatchCall<'i> {
             deps: dependencies(),
             from: Span::call_site(),
         };
-        let handle_methods =
-            Self::handle_methods(self.project, &self.xpi_def_path)?;
+        let handle_methods = Self::handle_methods(self.project, &self.xpi_def_path)?;
         piece.ts.append_all(mquote!(rust r#"
             /// Dispatches a method call to a resource identified by uri.
             fn dispatch_call(mut uri: UriIter, call_type: DispatchCallType) -> Result<SerDesSize, FailReason>
@@ -45,9 +44,7 @@ impl<'ast> DispatchCall<'ast> {
     fn handle_methods(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
         let xpi_def = project.find_xpi_def(xpi_def_path.clone())?;
         let self_method = match &xpi_def.kind {
-            XpiKind::Method { .. } => {
-                Self::dispatch_method(project, xpi_def_path)?
-            }
+            XpiKind::Method { .. } => Self::dispatch_method(project, xpi_def_path)?,
             _ => {
                 mquote!(rust r#" Err(FailReason::NotAMethod) "#)
             }
@@ -93,7 +90,9 @@ impl<'ast> DispatchCall<'ast> {
             "all defined resources are handled"
         };
 
-        let xpi_def_path = PathCG { inner: xpi_def_path };
+        let xpi_def_path = PathCG {
+            inner: xpi_def_path,
+        };
         Ok(mquote!(rust r#"
             match uri.next() {
                 /◡/ dispatch Λxpi_def_path◡()⏎
@@ -108,7 +107,10 @@ impl<'ast> DispatchCall<'ast> {
         "#))
     }
 
-    fn dispatch_method(project: &Project, xpi_def_path: &Path) -> Result<TokenStream, CodegenError> {
+    fn dispatch_method(
+        project: &Project,
+        xpi_def_path: &Path,
+    ) -> Result<TokenStream, CodegenError> {
         let xpi_def = project.find_xpi_def(xpi_def_path.clone())?;
         // println!("attrs: {}", xpi_def.attrs);
         let dispatch = xpi_def
@@ -123,9 +125,9 @@ impl<'ast> DispatchCall<'ast> {
             .ok_or(CodegenError::Dispatch("expected call".to_owned()))?;
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
         // println!("args0: {}", args.0[0]);
-        let path = args.0[0]
-            .expect_ref()
-            .ok_or(CodegenError::Dispatch("expected path to user method".to_owned()))?;
+        let path = args.0[0].expect_ref().ok_or(CodegenError::Dispatch(
+            "expected path to user method".to_owned(),
+        ))?;
         let path = PathCG { inner: &path };
 
         let (args, ret_ty) = xpi_def

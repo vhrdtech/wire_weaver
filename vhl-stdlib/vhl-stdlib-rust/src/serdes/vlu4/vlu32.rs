@@ -65,7 +65,6 @@ impl SerializeVlu4 for Vlu32 {
         Ok(())
     }
 
-
     fn len_nibbles(&self) -> SerDesSize {
         let nibbles = self.len_nibbles_known_to_be_sized();
         SerDesSize::Sized(nibbles)
@@ -106,6 +105,8 @@ impl SerializeVlu4 for Vlu32Suboptimal {
     }
 
     fn len_nibbles(&self) -> SerDesSize {
-        SerDesSize::Sized(Vlu32(self.value).len_nibbles_known_to_be_sized() + self.additional_empty_nibbles)
+        SerDesSize::Sized(
+            Vlu32(self.value).len_nibbles_known_to_be_sized() + self.additional_empty_nibbles,
+        )
     }
 }

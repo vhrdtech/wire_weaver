@@ -1,2 +1,2 @@
-pub mod struct_def;
 pub mod size;
+pub mod struct_def;

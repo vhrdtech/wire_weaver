@@ -291,6 +291,10 @@ impl XpiResourceTyParse {
                         args,
                         ret_ty: ret_ty.deref().clone(),
                     })
+                } else if let TyKind::Unit = ty.0.kind {
+                    Ok(XpiKind::Group)
+                } else if let TyKind::Derive = ty.0.kind {
+                    Ok(XpiKind::Group)
                 } else {
                     Ok(XpiKind::Property {
                         access,

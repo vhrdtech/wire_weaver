@@ -18,7 +18,6 @@ pub enum Commands {
     Dev(DevArgs),
 
     /// REPL
-    #[clap(alias = "repl")]
     Repl(ReplArgs),
 }
 

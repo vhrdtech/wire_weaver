@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-clap = { version = "^3.2.19", features = ["derive"] }
+clap = { version = "4.0", features = ["derive"] }
 subprocess = "^0.2.9"
 pathsearch = "0.2.0"
 vhl = { path = ".." }

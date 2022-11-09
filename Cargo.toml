@@ -1,33 +1,16 @@
-[package]
-name = "vhl"
+[workspace.package]
 version = "0.3.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
-edition = "2018"
-keywords = ["language", "api", "m2m"]
-license = "MIT"
 description = ""
-readme = "README.md"
+documentation = ""
 
-[lib]
-name = "vhl"
-path = "src/lib.rs"
-
-[dependencies]
-ast = { path = "./ast" }
-parser = { path = "./parser" }
-#thiserror = "^1.0.34"
-#either = "1.8"
-util = { path = "./util" }
-mtoken = { path = "./mtoken" }
-#peg = "0.8.0"
+[workspace.dependencies]
 itertools = "0.10"
 codespan-reporting = "0.11"
 
-[dev-dependencies]
-mquote = { path = "./mquote" }
-
 [workspace]
 members = [
+    "vhl-core",
     "ast",
     "parser",
     "cli",

@@ -107,17 +107,17 @@ dependencies = [
 name = "cli"
 version = "0.2.0"
 dependencies = [
- "anyhow",
- "ast",
- "clap",
- "codegen",
- "parser",
- "pathsearch",
- "rustyline",
- "rustyline-derive",
- "subprocess",
- "util",
- "vhl",
+    "anyhow",
+    "ast",
+    "clap",
+    "codegen",
+    "parser",
+    "pathsearch",
+    "rustyline",
+    "rustyline-derive",
+    "subprocess",
+    "util",
+    "vhl-core",
 ]
 
 [[package]]
@@ -135,14 +135,14 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
- "ast",
- "itertools",
- "mquote",
- "mtoken",
- "semver",
- "thiserror",
- "vhl",
- "vhl-stdlib",
+    "ast",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "semver",
+    "thiserror",
+    "vhl-core",
+    "vhl-stdlib",
 ]
 
 [[package]]
@@ -458,11 +458,11 @@ dependencies = [
 name = "mquote"
 version = "0.1.0"
 dependencies = [
- "parser-test 0.2.0",
- "pest",
- "pest_derive",
- "proc-macro2",
- "quote",
+    "parser-test",
+    "pest",
+    "pest_derive",
+    "proc-macro2",
+    "quote",
 ]
 
 [[package]]
@@ -541,19 +541,13 @@ dependencies = [
 name = "parser"
 version = "0.1.0"
 dependencies = [
- "ast",
- "codespan-reporting",
- "parser-test 0.3.3",
- "pest",
- "pest_derive",
- "thiserror",
+    "ast",
+    "codespan-reporting",
+    "parser-test",
+    "pest",
+    "pest_derive",
+    "thiserror",
 ]
-
-[[package]]
-name = "parser-test"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3cc0deb389a5153e606775c11e483c4934c3789d5913958636917a1dce72881"
 
 [[package]]
 name = "parser-test"
@@ -1023,16 +1017,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "vhl"
-version = "0.3.0"
+name = "vhl-core"
+version = "0.1.0"
 dependencies = [
- "ast",
- "codespan-reporting",
- "itertools",
- "mquote",
- "mtoken",
- "parser",
- "util",
+    "ast",
+    "codespan-reporting",
+    "itertools",
+    "mquote",
+    "mtoken",
+    "parser",
+    "util",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 thiserror = "^1.0.33"
-vhl = { path = "../" }
+vhl-core = { path = "../vhl-core" }
 ast = { path = "../ast" }
 #quote = "1.0"
 #proc-macro2 = "1.0"
@@ -14,4 +14,4 @@ mquote = { path = "../mquote" }
 vhl-stdlib = { path = "../vhl-stdlib/vhl-stdlib-rust" }
 semver = { version = "^1.0.13", default-features = false }
 #rustfmt-nightly = { path = "../../rustfmt/" }
-itertools = "0.10"
+itertools = { workspace = true }

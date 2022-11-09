@@ -71,7 +71,7 @@ impl UserError {
 
             u => Diagnostic::bug()
                 .with_code("Exxxx")
-                .with_message("internal core error (unimplemented)")
+                .with_message("internal vhl_core error (unimplemented)")
                 .with_labels(vec![
                     Label::primary(0, range).with_message(format!("{:?}", u))
                 ]),

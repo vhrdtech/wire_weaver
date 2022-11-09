@@ -41,7 +41,7 @@ pub struct DevArgs {
     #[clap(short, long)]
     pub lexer: bool,
 
-    /// Print parser output (core AST)
+    /// Print parser output (vhl_core AST)
     #[clap(short, long)]
     pub parser: bool,
 

@@ -1,0 +1,16 @@
+[package]
+name = "vhl-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+itertools = { workspace = true }
+codespan-reporting = { workspace = true }
+
+ast = { path = "../ast" }
+parser = { path = "../parser" }
+util = { path = "../util" }
+mtoken = { path = "../mtoken" }
+
+[dev-dependencies]
+mquote = { path = "../mquote" }

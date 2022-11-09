@@ -13,4 +13,4 @@ xpi = { path = "../xpi-rust" }
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
 
 [features]
-dynamic = [] # include full vhl core allowing run time parsing of vhl files, expression evaluation, etc
+dynamic = [] # include full vhl vhl_core allowing run time parsing of vhl files, expression evaluation, etc

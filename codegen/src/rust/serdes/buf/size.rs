@@ -1,6 +1,6 @@
 use crate::error::CodegenError;
 use ast::{NumBound, Path, TryEvaluateInto, Ty, TyKind};
-use vhl::project::Project;
+use vhl_core::project::Project;
 use vhl_stdlib::serdes::SerDesSize;
 
 pub fn size_in_byte_buf(

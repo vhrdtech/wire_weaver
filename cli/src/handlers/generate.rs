@@ -4,7 +4,7 @@ use ast::make_path;
 use codegen::Codegen;
 use parser::ast::file::FileParse;
 use std::rc::Rc;
-use vhl::project::Project;
+use vhl_core::project::Project;
 
 pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
     let input = std::fs::read_to_string(generate_args.vhl_source.clone())

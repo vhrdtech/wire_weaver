@@ -9,7 +9,7 @@ use crate::rust::ty::CGTy;
 use crate::CGPiece;
 use ast::xpi_def::XpiKind;
 use ast::{make_path, FnArguments, Path, Span, Ty, TyKind};
-use vhl::project::Project;
+use vhl_core::project::Project;
 
 pub struct DispatchCall<'i> {
     pub project: &'i Project,

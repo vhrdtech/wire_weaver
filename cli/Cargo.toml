@@ -1,15 +1,15 @@
 [package]
 name = "cli"
 version = "0.2.0"
-authors = ["Roman Isaikin <romix.lab@gmail.com>"]
-edition = "2018"
+authors.workspace = true
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 subprocess = "^0.2.9"
 pathsearch = "0.2.0"
-vhl = { path = ".." }
+vhl-core = { path = "../vhl-core" }
 ast = { path = "../ast" }
 parser = { path = "../parser" }
 codegen = { path = "../codegen" }

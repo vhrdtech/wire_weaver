@@ -18,7 +18,7 @@ pub struct NodeInfo<'info> {
 #[derive(Copy, Clone, Debug)]
 pub enum PlatformInfo {
     Mcu {
-        // series, core, hw_info (name, revision, variant), firmware_info (name, features, version, repo+sha, crc, size, signature)
+        // series, vhl_core, hw_info (name, revision, variant), firmware_info (name, features, version, repo+sha, crc, size, signature)
     },
     Wasm {
         // running_on: PlatformInfo,

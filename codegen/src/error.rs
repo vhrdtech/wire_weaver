@@ -1,10 +1,10 @@
 pub enum CodegenError {
-    // #[error("Error originating in core module")]
-    Core(vhl::user_error::UserError),
-    CoreInternal(vhl::error::Error),
+    // #[error("Error originating in vhl_core module")]
+    Core(vhl_core::user_error::UserError),
+    CoreInternal(vhl_core::error::Error),
     Ast(ast::Error),
     // #[error("{}, context: {}", .0, .1)]
-    CoreWithContext(vhl::user_error::UserError, String),
+    CoreWithContext(vhl_core::user_error::UserError, String),
     // #[error("Internal error: {}", .0)]
     Internal(String),
     // #[error("xPI dispatch code generator: {}", .0)]
@@ -17,14 +17,14 @@ pub enum CodegenError {
     UnsupportedDispatchType(String),
 }
 
-impl From<vhl::user_error::UserError> for CodegenError {
-    fn from(e: vhl::user_error::UserError) -> Self {
+impl From<vhl_core::user_error::UserError> for CodegenError {
+    fn from(e: vhl_core::user_error::UserError) -> Self {
         CodegenError::Core(e)
     }
 }
 
-impl From<vhl::error::Error> for CodegenError {
-    fn from(e: vhl::error::Error) -> Self {
+impl From<vhl_core::error::Error> for CodegenError {
+    fn from(e: vhl_core::error::Error) -> Self {
         CodegenError::CoreInternal(e)
     }
 }
@@ -36,7 +36,7 @@ impl From<ast::Error> for CodegenError {
 }
 
 impl CodegenError {
-    pub fn core_with_context(core_err: vhl::user_error::UserError, context: &'static str) -> Self {
+    pub fn core_with_context(core_err: vhl_core::user_error::UserError, context: &'static str) -> Self {
         Self::CoreWithContext(core_err, context.to_owned())
     }
 

@@ -2,7 +2,7 @@ use super::prelude::*;
 use crate::commands::DevArgs;
 use parser::ast::file::FileParse;
 use std::rc::Rc;
-use vhl::project::Project;
+use vhl_core::project::Project;
 
 pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
     let local_path = PathBuf::from(dev_args.vhl_source.clone());
@@ -60,7 +60,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         //     }
         // }
         let mut project = Project::new(file.ast_file);
-        vhl::transform::transform(&mut project);
+        vhl_core::transform::transform(&mut project);
         project.print_report();
         if !project.errors.is_empty() {
             return Err(anyhow!("AST transforms failed due to errors"));

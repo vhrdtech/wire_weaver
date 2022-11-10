@@ -74,13 +74,17 @@ Simple checked numbers where only a range of values is allowed:
 
 Set of allowed values:
 
-* `u8<0..=8, 12, 16, 20, 24, 32, 48, 64>`
+* `u8 @{0..=8, 12, 16, 20, 24, 32, 48, 64}`
+
+Custom checker function:
+
+* `u8 @check_fun` where `fn check_fun(u8) -> bool`
 
 Modulo numbers:
 
-* `u8<mod 127>`
+* `u8 @{mod 127}`
 
-Mapped numbers - provide a function to map from one range to another:
+Mapped numbers - provide a function to map from one range to another. Modulo numbers are exactly that with fn being %N ?
 
 Number classes/traits?:
 

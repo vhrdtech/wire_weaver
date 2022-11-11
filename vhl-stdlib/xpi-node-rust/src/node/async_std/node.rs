@@ -2,19 +2,20 @@ use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::NodeError;
 use crate::node::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
-use crate::remote::tcp::tcp_event_loop;
+use crate::remote::tcp::{tcp_event_loop, tcp_server_acceptor};
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
-use tokio::net::TcpStream;
+use tokio::net::{TcpListener, TcpStream};
 use tracing::{error, info, instrument, trace, warn};
 use xpi::node_set::XpiGenericNodeSet;
 use xpi::owned::node_id::NodeId;
 use xpi::owned::Event;
 use xpi::owned::Priority;
 use xpi::owned::RequestId;
+use crate::node::async_std::internal_event::InternalEvent;
 
 #[derive(Debug)]
 pub struct VhNode {
@@ -30,6 +31,22 @@ impl VhNode {
     /// requests. Heartbeats will also be broadcasted.
     pub async fn new_client(
         id: NodeId, /* xPI client, generated or dynamically loaded */
+    ) -> VhNode {
+        let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
+        let (tx_internal, rx_internal) = mpsc::channel(1);
+        tokio::spawn(async move {
+            Self::process_events(id, rx_router, rx_internal).await;
+        });
+        VhNode {
+            id,
+            tx_to_event_loop: tx_to_even_loop,
+            tx_internal,
+            // nodes,
+        }
+    }
+
+    pub async fn new_server(
+        id: NodeId, /* xPI server, generated or dynamically loaded */
     ) -> VhNode {
         let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(1);
@@ -234,6 +251,25 @@ impl VhNode {
         }
     }
 
+    #[instrument(skip(self), fields(node_id = self.id.0))]
+    pub async fn listen(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
+        match addr {
+            RemoteNodeAddr::Tcp(ip_addr) => {
+                let listener = TcpListener::bind(ip_addr).await?;
+                info!("tcp: Listening on: {ip_addr}");
+
+                let id = self.id.clone();
+                let tx_to_event_loop = self.tx_to_event_loop.clone();
+                let tx_internal = self.tx_internal.clone();
+                tokio::spawn(async move {
+                    tcp_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await
+                });
+
+                Ok(())
+            }
+        }
+    }
+
     /// Send event to the event loop and return immediately. Event will be sent to another node or nodes
     /// directly or through one of the interfaces available depending on the destination.
     pub async fn submit_one(&mut self, ev: Event) -> Result<(), NodeError> {
@@ -277,12 +313,6 @@ fn tick_stream(period: Duration) -> impl Stream<Item=()> {
     })
 }
 
-#[derive(Debug)]
-enum InternalEvent {
-    ConnectInstance(NodeId, Sender<Event>),
-    ConnectRemoteTcp(RemoteDescriptor),
-    FilterOne(EventFilter, Sender<Event>), // TODO: add timeout to remove if filter_one no longer waits for it
-}
 
 // async fn outgoing_process(mut tcp_tx: OwnedWriteHalf, mut mpsc_rx: Receiver<VhLinkEvent>) {
 //     while let Some(ev) = mpsc_rx.next().await {

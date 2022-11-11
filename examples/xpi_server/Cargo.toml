@@ -5,3 +5,10 @@ edition = "2021"
 
 [dependencies]
 xpi-node = { path = "../../vhl-stdlib/xpi-node-rust" }
+xpi = { path = "../../vhl-stdlib/xpi-rust" }
+
+anyhow = { workspace = true }
+
+tokio = { version = "^1.20.1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

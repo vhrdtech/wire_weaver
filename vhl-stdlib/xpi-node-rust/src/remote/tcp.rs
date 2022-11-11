@@ -1,12 +1,51 @@
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{FutureExt, SinkExt, StreamExt};
+use futures::channel::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::WriteHalf;
-use tokio::net::TcpStream;
-use tracing::{error, info, instrument, trace};
+use tokio::net::{TcpListener, TcpStream};
+use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
+use crate::node::addressing::RemoteNodeAddr;
+use crate::node::async_std::internal_event::InternalEvent;
+use crate::remote::remote_descriptor::RemoteDescriptor;
+
+#[instrument(skip(listener, tx_to_event_loop, tx_internal))]
+pub(crate) async fn tcp_server_acceptor(
+    self_id: NodeId,
+    listener: TcpListener,
+    tx_to_event_loop: Sender<Event>,
+    mut tx_internal: Sender<InternalEvent>,
+) {
+    loop {
+        match listener.accept().await {
+            Ok((tcp_stream, remote_addr)) => {
+                info!("Got new connection from: {remote_addr}");
+                let (tx, rx) = mpsc::channel(64);
+                let to_event_loop = tx_to_event_loop.clone();
+                tokio::spawn(async move {
+                    tcp_event_loop(self_id, tcp_stream, to_event_loop.clone(), rx).await
+                });
+                let remote_descriptor = RemoteDescriptor {
+                    reachable: vec![NodeId(1)], // TODO: do not hardcode this
+                    addr: RemoteNodeAddr::Tcp(remote_addr),
+                    to_event_loop: tx,
+                };
+                match tx_internal
+                    .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+                    .await {
+                    Ok(_) => {}
+                    Err(_) => error!("tx_internal: send failed")
+                }
+            }
+            Err(e) => {
+                warn!("{e:?}");
+            }
+        }
+    }
+}
 
 #[instrument(skip(stream, to_event_loop, from_event_loop))]
 pub async fn tcp_event_loop(

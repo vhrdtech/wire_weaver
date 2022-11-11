@@ -5,6 +5,7 @@ description = ""
 documentation = ""
 
 [workspace.dependencies]
+anyhow = "1.0"
 itertools = "0.10"
 codespan-reporting = "0.11"
 
@@ -19,5 +20,7 @@ members = [
     "mquote",
     "vhl-stdlib/vhl-stdlib-rust",
     "vhl-stdlib/xpi-node-rust",
-    "vhl-stdlib/xpi-rust"
+    "vhl-stdlib/xpi-rust",
+    "eval",
+    "examples/xpi_server"
 ]

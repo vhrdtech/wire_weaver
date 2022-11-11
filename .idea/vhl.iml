@@ -22,6 +22,9 @@
       <sourceFolder url="file://$MODULE_DIR$/ast/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/vhl-stdlib-rust/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-node-rust/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/eval/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/eval/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/xpi_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-core/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

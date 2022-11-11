@@ -73,7 +73,7 @@ rs main {
 //	    State::Any => { // <- special case, present in all variants
 //          rs target<rw u8> {}
 //      }
-//      State::Run => { // <- one of the State enum variant's
+//      State::Run => { // <- one of the State enum variant's, take numbering from enum discriminant values
 //          rs stop<fn()> {}
 //      }
 //      State::Stop => {

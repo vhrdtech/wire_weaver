@@ -37,7 +37,7 @@ impl XpiDef {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum XpiKind {
-    /// Resource without a type is a group, like `/main {}`, used to group things in a logical manner.
+    /// Resource with a unit type - () is a group, like `/main {}`, used to group things in a logical manner.
     /// Any other resource is also implicitly a group.
     Group,
     /// Similar resources can be put into an array and accessed by index.
@@ -59,6 +59,7 @@ pub enum XpiKind {
         access: AccessMode,
         observable: bool,
         ty: Ty,
+        // is_celled: bool
     },
     /// Streams can be opened or closed, have a start and possibly an end.
     /// Auto wrapped in Cell? <-> mismatch with a property or a method, can also lead to race conditions
@@ -69,6 +70,7 @@ pub enum XpiKind {
         /// Ro is read from node, Wo is write to node, Rw is both
         dir: AccessMode,
         ty: Ty,
+        // is_celled: bool
     },
     /// `/borrowable_group<Cell<_>> { /child<rw u8> }`
     /// `/borrowable_property<Cell<u8>>` - implicitly rw, otherwise no reason for a Cell

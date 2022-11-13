@@ -68,15 +68,17 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
             xwfd::EventKind::Call { args_set } => EventKind::Call {
                 args_set: args_set.iter().map(|nb| nb.to_nibble_buf_owned()).collect(),
             },
-            // EventKind::Read => {}
-            // EventKind::Write { .. } => {}
-            // EventKind::OpenStreams => {}
-            // EventKind::CloseStreams => {}
-            // EventKind::Subscribe { .. } => {}
-            // EventKind::Unsubscribe => {}
-            // EventKind::Borrow => {}
-            // EventKind::Release => {}
-            // EventKind::Introspect => {}
+            xwfd::EventKind::Read => EventKind::Read,
+            xwfd::EventKind::Write { values } => EventKind::Write {
+                values: values.iter().map(|nb| nb.to_nibble_buf_owned()).collect(),
+            },
+            xwfd::EventKind::OpenStreams => EventKind::OpenStreams,
+            xwfd::EventKind::CloseStreams => EventKind::CloseStreams,
+            xwfd::EventKind::Subscribe { rates } => EventKind::Subscribe { rates: vec![] },
+            xwfd::EventKind::Unsubscribe => EventKind::Unsubscribe,
+            xwfd::EventKind::Borrow => EventKind::Borrow,
+            xwfd::EventKind::Release => EventKind::Release,
+            xwfd::EventKind::Introspect => EventKind::Introspect,
             xwfd::EventKind::CallResults(results) => EventKind::CallResults(
                 results
                     .iter()
@@ -110,14 +112,20 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
             xwfd::EventKind::ReleaseResults(results) => {
                 EventKind::ReleaseResults(results.iter().collect())
             }
-            //xwfd::EventKind::SubscribeResults(values) => {}
-            // EventKind::IntrospectResults(_) => {}
-            // EventKind::StreamUpdates(_) => {}
-            // EventKind::DiscoverNodes => {}
-            // EventKind::NodeInfo(_) => {}
-            // EventKind::Heartbeat(_) => {}
-            // EventKind::Forward => {}
-            _ => unimplemented!(),
+            xwfd::EventKind::SubscribeResults(immediate_values) => EventKind::SubscribeResults(
+                immediate_values
+                    .iter()
+                    .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
+                    .collect()
+            ),
+            xwfd::EventKind::IntrospectResults(values) => EventKind::IntrospectResults(vec![]),
+            xwfd::EventKind::StreamUpdates(slices) => EventKind::StreamUpdates(
+                slices.iter().map(|nb| nb.to_nibble_buf_owned()).collect()
+            ),
+            xwfd::EventKind::DiscoverNodes => EventKind::DiscoverNodes,
+            xwfd::EventKind::NodeInfo(_) => EventKind::NodeInfo(()),
+            xwfd::EventKind::Heartbeat(_) => EventKind::Heartbeat(123),
+            xwfd::EventKind::Forward => EventKind::Forward,
         }
     }
 }

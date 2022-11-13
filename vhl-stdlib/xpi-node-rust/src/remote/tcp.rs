@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{FutureExt, SinkExt, StreamExt};
 use futures::channel::mpsc;
@@ -25,8 +26,9 @@ pub(crate) async fn tcp_server_acceptor(
                 info!("Got new connection from: {remote_addr}");
                 let (tx, rx) = mpsc::channel(64);
                 let to_event_loop = tx_to_event_loop.clone();
+                let to_event_loop_internal = tx_internal.clone();
                 tokio::spawn(async move {
-                    tcp_event_loop(self_id, tcp_stream, to_event_loop.clone(), rx).await
+                    tcp_event_loop(self_id, remote_addr, tcp_stream, to_event_loop.clone(), to_event_loop_internal, rx).await
                 });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: vec![NodeId(1)], // TODO: do not hardcode this
@@ -47,22 +49,34 @@ pub(crate) async fn tcp_server_acceptor(
     }
 }
 
-#[instrument(skip(stream, to_event_loop, from_event_loop))]
+#[instrument(skip(stream, to_event_loop, to_event_loop_internal, from_event_loop))]
 pub async fn tcp_event_loop(
     _self_id: NodeId,
+    addr: SocketAddr,
     mut stream: TcpStream,
     mut to_event_loop: Sender<Event>,
+    mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
 ) {
-    info!("Entering tcp event loop");
+    info!("Entering tcp event loop on {addr}");
     let (mut tcp_rx, mut tcp_tx) = stream.split();
     let mut buf = [0u8; 10_000];
     loop {
         futures::select! {
             read_result = tcp_rx.read(&mut buf).fuse() => {
                 match read_result {
-                    Ok(len) => process_incoming_slice(&buf[..len], &mut to_event_loop).await,
-                    Err(e) => error!("Failed to read from tcp {:?}", e),
+                    Ok(len) => if len > 0 {
+                        process_incoming_slice(&buf[..len], &mut to_event_loop).await;
+                    },
+                    Err(e) => {
+                        error!("Failed to read from tcp {:?}", e);
+                         match to_event_loop_internal
+                            .send(InternalEvent::DropRemoteTcp(addr))
+                            .await {
+                                Ok(_) => {}
+                                Err(_) => error!("tx_internal: send failed")
+                            }
+                    },
                 }
             }
             ev = from_event_loop.select_next_some() => {
@@ -85,7 +99,7 @@ async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>)
             }
         }
         Err(e) => {
-            error!("xwfd deserialize error: {:?}", e);
+            error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
         }
     }
 }

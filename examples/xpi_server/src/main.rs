@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     let subscriber = FmtSubscriber::builder().with_max_level(Level::TRACE).finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let mut node = VhNode::new_server(NodeId(2)).await;
+    let mut node = VhNode::new_server(NodeId(0)).await;
 
     let addr = "tcp://127.0.0.1:7777";
     let addr = RemoteNodeAddr::parse(addr)

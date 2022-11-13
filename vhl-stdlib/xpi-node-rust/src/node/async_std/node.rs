@@ -130,6 +130,10 @@ impl VhNode {
                             info!("remote attachment {} registered", remote_descriptor);
                             remote_nodes.push(remote_descriptor);
                         }
+                        InternalEvent::DropRemoteTcp(remote_addr) => {
+                            info!("remote attachment {remote_addr} is being dropped");
+                            remote_nodes.retain(|rd| rd.addr != RemoteNodeAddr::Tcp(remote_addr));
+                        }
                     }
                 }
                 // tcp_rx_res = tcp_streams_rx => {
@@ -191,18 +195,18 @@ impl VhNode {
             XpiGenericNodeSet::UnicastTraits { .. } => unimplemented!(),
             XpiGenericNodeSet::Multicast { .. } => unimplemented!(),
             XpiGenericNodeSet::Broadcast { original_source } => {
-                if self_node_id != original_source {
-                    for rd in remote_nodes {
-                        if rd.to_event_loop.send(ev.clone()).await.is_ok() {
-                            trace!("Forwarded broadcast to: {:?}", rd.addr);
-                        } else {
-                            error!(
-                                "Failed to forward event to remote attachment event loop of: {:?}",
-                                rd.addr
-                            );
-                        }
-                    }
-                }
+                // if self_node_id != original_source {
+                //     for rd in remote_nodes {
+                //         if rd.to_event_loop.send(ev.clone()).await.is_ok() {
+                //             trace!("Forwarded broadcast to: {:?}", rd.addr);
+                //         } else {
+                //             error!(
+                //                 "Failed to forward event to remote attachment event loop of: {:?}",
+                //                 rd.addr
+                //             );
+                //         }
+                //     }
+                // }
             }
         }
         // if routing is enabled
@@ -235,11 +239,12 @@ impl VhNode {
                 let (tx, rx) = mpsc::channel(64);
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
+                let to_event_loop_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
-                    tcp_event_loop(id, tcp_stream, to_event_loop.clone(), rx).await
+                    tcp_event_loop(id, ip_addr, tcp_stream, to_event_loop.clone(), to_event_loop_internal, rx).await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    reachable: vec![NodeId(1)], // TODO: do not hardcode this
+                    reachable: vec![NodeId(0)], // TODO: do not hardcode this
                     addr,
                     to_event_loop: tx,
                 };

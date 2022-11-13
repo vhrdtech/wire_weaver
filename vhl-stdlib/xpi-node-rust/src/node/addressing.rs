@@ -1,7 +1,7 @@
 use crate::node::async_std::NodeError;
 use std::net::SocketAddr;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, )]
 pub enum RemoteNodeAddr {
     Tcp(SocketAddr),
     // Can,

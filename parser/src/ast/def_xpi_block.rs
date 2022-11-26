@@ -24,7 +24,7 @@ struct XpiBlockKeyValueParse {
 
 impl<'i> Parse<'i> for XpiDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_block)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_block, "XpiDefParse")?, input);
         let doc: DocParse = input.parse()?;
         let attrs: AttrsParse = input.parse()?;
         let uri_segment: UriSegmentSeedParse = input.parse()?;
@@ -33,7 +33,7 @@ impl<'i> Parse<'i> for XpiDefParse {
         let mut implements = Vec::new();
         let mut children = Vec::new();
         if input.pairs.peek().is_some() {
-            let mut input = ParseInput::fork(input.expect1(Rule::xpi_body)?, &mut input);
+            let mut input = ParseInput::fork(input.expect1(Rule::xpi_body, "XpiDefParse:body")?, &mut input);
 
             while let Some(p) = input.pairs.peek() {
                 match p.as_rule() {
@@ -43,7 +43,7 @@ impl<'i> Parse<'i> for XpiDefParse {
                     }
                     Rule::xpi_impl => {
                         let mut input =
-                            ParseInput::fork(input.expect1(Rule::xpi_impl)?, &mut input);
+                            ParseInput::fork(input.expect1(Rule::xpi_impl, "XpiDefParse:impl")?, &mut input);
                         let expr: ExprParse = input.parse()?;
                         implements.push(expr.0);
                     }
@@ -77,7 +77,7 @@ impl<'i> Parse<'i> for XpiDefParse {
 
 impl<'i> Parse<'i> for UriSegmentSeedParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_uri_segment)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_uri_segment, "UriSegmentSeedParse")?, input);
 
         let mut input_peek = input.pairs.clone();
         let (p1, p2, p3) = (input_peek.next(), input_peek.next(), input_peek.next());
@@ -124,12 +124,12 @@ enum XpiResourceTyInner {
 
 impl<'i> Parse<'i> for XpiResourceTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_ty)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_ty, "XpiResourceTyParse")?, input);
         let ty_inner = match input.pairs.peek() {
             Some(p) => match p.as_rule() {
                 Rule::resource_cell_ty => {
                     let mut input =
-                        ParseInput::fork(input.expect1(Rule::resource_cell_ty)?, &mut input);
+                        ParseInput::fork(input.expect1(Rule::resource_cell_ty, "XpiResourceTyParse:cell")?, &mut input);
                     Some(XpiResourceTyInner::Cell {
                         transform: input.parse_or_skip()?,
                         ty: input.parse()?,
@@ -160,7 +160,7 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
             },
             None => None,
         };
-        let serial = match input.expect1(Rule::xpi_serial) {
+        let serial = match input.expect1(Rule::xpi_serial, "XpiResourceTyParse:serial") {
             Ok(serial) => {
                 let serial: u32 = serial
                     .clone()
@@ -367,8 +367,8 @@ struct XpiResourceTransform {
 
 impl<'i> Parse<'i> for XpiResourceTransform {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_transform)?, input);
-        let access = input.expect1(Rule::access_mode)?;
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_transform, "XpiResourceTransform")?, input);
+        let access = input.expect1(Rule::access_mode, "XpiResourceTransform:access")?;
         let access = match access.as_str() {
             "const" => AccessMode::Const,
             "rw" => AccessMode::Rw,
@@ -391,7 +391,7 @@ impl<'i> Parse<'i> for XpiResourceTransform {
 
 impl<'i> Parse<'i> for XpiBlockKeyValueParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_field)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::xpi_field, "XpiBlockKeyValueParse")?, input);
         Ok(XpiBlockKeyValueParse {
             key: input.parse()?,
             value: input.parse()?,

@@ -7,7 +7,7 @@ pub struct GenericsParse(pub Generics);
 
 impl<'i> Parse<'i> for GenericsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::generics)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::generics, "GenericsParse")?, input);
         let mut params = Vec::new();
         while let Some(p) = input.pairs.peek() {
             match p.as_rule() {

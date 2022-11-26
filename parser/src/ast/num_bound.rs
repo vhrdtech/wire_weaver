@@ -7,7 +7,7 @@ pub struct NumBoundParse(pub NumBound);
 
 impl<'i> Parse<'i> for NumBoundParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::num_bound)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::num_bound, "NumBoundParse")?, input);
         let bound = input
             .pairs
             .next()

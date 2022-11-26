@@ -26,9 +26,8 @@ impl StmtParse {
 
         let input_parsed_str = pairs.as_str();
         if !input.contains(input_parsed_str) {
-            println!("parsed part: '{}'", input_parsed_str);
             errors.push(ParseError {
-                kind: ParseErrorKind::UnhandledUnexpectedInput(0),
+                kind: ParseErrorKind::UnexpectedUnconsumedInput(input_parsed_str.to_owned()),
                 rule: Rule::statement,
                 span: (input_parsed_str.len(), input.len()),
             });
@@ -63,8 +62,8 @@ impl StmtParse {
                         ParseErrorKind::InternalError { rule, message }
                     }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
-                    ParseErrorSource::UnexpectedInput => {
-                        ParseErrorKind::UnhandledUnexpectedInput(0)
+                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context } => {
+                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context }
                     }
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
@@ -81,11 +80,8 @@ impl StmtParse {
 
 impl<'i> Parse<'i> for StmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::statement)?, input);
-        let s = input
-            .pairs
-            .peek()
-            .ok_or_else(|| ParseErrorSource::UnexpectedInput)?;
+        let mut input = ParseInput::fork(input.expect1(Rule::statement, "StmtParse")?, input);
+        let s = input.expect1_any("StmtParse:s")?;
         match s.as_rule() {
             Rule::let_stmt => {
                 let let_stmt: LetStmtParse = input.parse()?;
@@ -116,7 +112,7 @@ impl<'i> Parse<'i> for StmtParse {
 
 impl<'i> Parse<'i> for LetStmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::let_stmt)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::let_stmt, "LetStmtParse")?, input);
         let ident: IdentifierParse<identifier::VariableDefName> = input.parse()?;
         let ty: Option<TyParse> = input.parse_or_skip()?;
         let expr: ExprParse = input.parse()?;

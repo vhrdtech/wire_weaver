@@ -11,21 +11,14 @@ pub struct VecExprParse(pub VecExpr);
 
 impl<'i> Parse<'i> for ExprParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        match input.pairs.peek() {
-            Some(p) => {
-                if p.as_rule() == Rule::expression_ticked {
-                    let mut input =
-                        ParseInput::fork(input.expect1(Rule::expression_ticked)?, input);
-                    let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
-                    pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
-                } else {
-                    let mut input = ParseInput::fork(input.expect1(Rule::expression)?, input);
-                    pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
-                }
-            }
-            None => {
-                return Err(ParseErrorSource::UnexpectedInput);
-            }
+        let p = input.expect1_either(Rule::expression_ticked, Rule::expression, "ExprParse")?;
+        if p.as_rule() == Rule::expression_ticked {
+            let mut input = ParseInput::fork(p, input);
+            let mut input = ParseInput::fork(input.expect1(Rule::expression, "ExprParse:ticked")?, &mut input);
+            pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
+        } else {
+            let mut input = ParseInput::fork(p, input);
+            pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
         }
     }
 }
@@ -53,7 +46,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let method: PathParse = input.parse()?;
-            let mut input = ParseInput::fork(input.expect1(Rule::call_arguments)?, &mut input);
+            let mut input = ParseInput::fork(input.expect1(Rule::call_arguments, "pratt_parser:call_expr")?, &mut input);
             let args: VecExprParse = input.parse()?;
             Expr::Call {
                 method: method.0,
@@ -74,7 +67,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let op: UnaryOpParse = input.parse()?;
-            let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
+            let mut input = ParseInput::fork(input.expect1(Rule::expression, "pratt_parser:unary")?, &mut input);
             Expr::ConsU(op.0, Box::new(pratt_parser(&mut input, 0)?))
         }
         Rule::lit => {
@@ -102,7 +95,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
-            let mut input = ParseInput::fork(input.expect1(Rule::expression)?, &mut input);
+            let mut input = ParseInput::fork(input.expect1(Rule::expression, "pratt_parser:expr_parenthesized")?, &mut input);
             pratt_parser(&mut input, 0)?
         }
 

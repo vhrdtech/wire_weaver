@@ -9,7 +9,7 @@ pub struct StructFieldsParse(pub Vec<StructField>);
 
 impl<'i> Parse<'i> for StructDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::struct_def)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::struct_def, "StructDefParse")?, input);
         let doc: DocParse = input.parse()?;
         let attrs: AttrsParse = input.parse()?;
         let typename: IdentifierParse<identifier::EnumTyName> = input.parse()?;
@@ -28,7 +28,7 @@ impl<'i> Parse<'i> for StructFieldsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut fields = Vec::new();
         while let Some(_) = input.pairs.peek() {
-            let mut input = ParseInput::fork(input.expect1(Rule::struct_field)?, input);
+            let mut input = ParseInput::fork(input.expect1(Rule::struct_field, "StructFieldsParse")?, input);
             let doc: DocParse = input.parse()?;
             let attrs: AttrsParse = input.parse()?;
             let name: IdentifierParse<identifier::StructFieldName> = input.parse()?;

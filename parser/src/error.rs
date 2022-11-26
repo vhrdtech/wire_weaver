@@ -41,9 +41,14 @@ pub enum ParseErrorKind {
         backtrace: String,
     },
     Unimplemented(&'static str),
-    UnhandledUnexpectedInput(usize),
+    UnhandledUnexpectedInput {
+        expect1: Option<Rule>,
+        expect2: Option<Rule>,
+        got: Option<Rule>,
+        context: &'static str,
+    },
     UserError,
-    UnexpectedUnconsumedInput,
+    UnexpectedUnconsumedInput(String),
 
     AutonumWrongForm,
     AutonumWrongArguments,
@@ -79,7 +84,7 @@ pub enum ParseErrorSource {
     /// Parser feature unimplemented
     /// TODO: add link to feature status on github here
     #[error(
-        "Parser feature unimplemented, consider contributing or look at features status here: _"
+    "Parser feature unimplemented, consider contributing or look at features status here: _"
     )]
     Unimplemented(&'static str),
     /// Not enough input or unexpected rule (because expected one is absent).
@@ -88,7 +93,12 @@ pub enum ParseErrorSource {
     /// current node can continue.
     /// Will be pushed onto error list in `ast/file.rs` if not ignored along the way.
     #[error("Not enough input or unexpected rule (because expected one is absent)")]
-    UnexpectedInput,
+    UnexpectedInput {
+        expect1: Option<Rule>,
+        expect2: Option<Rule>,
+        got: Option<Rule>,
+        context: &'static str,
+    },
     /// User provided erroneous input, invalid number for example.
     #[error("User provided erroneous input, invalid number for example")]
     UserError,
@@ -155,7 +165,22 @@ impl Error {
                 .with_message("internal parser error (unimplemented)")
                 .with_labels(vec![Label::primary((), range)
                     .with_message(format!("{} is not yet implemented", thing))]),
-            // ParseErrorKind::UnhandledUnexpectedInput => {}
+            ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context } => {
+                let note = match (expect1, expect2, got) {
+                    (Some(rule1), None, None) => format!("expected: {rule1:?}, got: None"),
+                    (Some(rule1), None, Some(got)) => format!("expected: {rule1:?}, got: {got:?}"),
+
+                    (Some(rule1), Some(rule2), None) => format!("expected: {rule1:?} or {rule2:?}, got: None"),
+                    (Some(rule1), Some(rule2), Some(got)) => format!("expected: {rule1:?} or {rule2:?}, got: {got:?}"),
+
+                    (None, None, None) => "expected any pair, got: None".to_owned(),
+                    (expect1, expect2, got) => format!("bug: expect1: {expect1:?} expect2: {expect2:?} got: {got:?}")
+                };
+                Diagnostic::error()
+                    .with_code("E0004")
+                    .with_message("unhandled unexpected input (probably a bug)")
+                    .with_notes(vec![note, format!("context: {}", context)])
+            }
             // ParseErrorKind::UserError => {}
             // ParseErrorKind::UnexpectedUnconsumedInput => {}
             // ParseErrorKind::AutonumWrongForm => {}

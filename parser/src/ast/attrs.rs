@@ -38,7 +38,7 @@ impl<'i> Parse<'i> for AttrParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let path: PathParse = input.parse()?;
 
-        let attr_input = input.expect1(Rule::attribute_input)?;
+        let attr_input = input.expect1(Rule::attribute_input, "AttrParse")?;
         let mut attr_input = ParseInput::fork(attr_input, input);
         let kind = match attr_input.pairs.peek() {
             Some(p) => {

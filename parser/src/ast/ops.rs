@@ -45,7 +45,7 @@ pub fn unary_from_rule(rule: Rule) -> Result<ast::ops::UnaryOp, ParseErrorSource
 
 impl<'i> Parse<'i> for BinaryOpParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let op = input.expect1(Rule::op_binary)?;
+        let op = input.expect1(Rule::op_binary, "BinaryOpParse")?;
         Ok(BinaryOpParse(binary_from_rule(
             op.into_inner()
                 .next()
@@ -57,7 +57,7 @@ impl<'i> Parse<'i> for BinaryOpParse {
 
 impl<'i> Parse<'i> for UnaryOpParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let op = input.expect1(Rule::op_unary)?;
+        let op = input.expect1(Rule::op_unary, "UnaryOpParse")?;
         Ok(UnaryOpParse(unary_from_rule(
             op.into_inner()
                 .next()

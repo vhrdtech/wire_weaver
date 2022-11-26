@@ -49,17 +49,27 @@ impl<'i, 'm> ParseInput<'i, 'm> {
 
     /// Consume and return next pair if it exists with specified rule. Otherwise return an error,
     /// leaving input as before.
-    pub fn expect1(&mut self, rule1: Rule) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+    pub fn expect1(&mut self, rule1: Rule, context: &'static str) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         match self.pairs.peek() {
             Some(p1) => {
                 if p1.as_rule() == rule1 {
                     let _ = self.pairs.next();
                     Ok(p1)
                 } else {
-                    Err(ParseErrorSource::UnexpectedInput)
+                    Err(ParseErrorSource::UnexpectedInput {
+                        expect1: Some(rule1),
+                        expect2: None,
+                        got: Some(p1.as_rule()),
+                        context,
+                    })
                 }
             }
-            None => Err(ParseErrorSource::UnexpectedInput),
+            None => Err(ParseErrorSource::UnexpectedInput {
+                expect1: Some(rule1),
+                expect2: None,
+                got: None,
+                context,
+            }),
         }
     }
 
@@ -69,6 +79,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         &mut self,
         rule1: Rule,
         rule2: Rule,
+        context: &'static str
     ) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         match self.pairs.peek() {
             Some(p1) => {
@@ -76,10 +87,20 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                     let _ = self.pairs.next();
                     Ok(p1)
                 } else {
-                    Err(ParseErrorSource::UnexpectedInput)
+                    Err(ParseErrorSource::UnexpectedInput {
+                        expect1: Some(rule1),
+                        expect2: Some(rule2),
+                        got: Some(p1.as_rule()),
+                        context,
+                    })
                 }
             }
-            None => Err(ParseErrorSource::UnexpectedInput),
+            None => Err(ParseErrorSource::UnexpectedInput {
+                expect1: Some(rule1),
+                expect2: Some(rule2),
+                got: None,
+                context,
+            }),
         }
     }
 
@@ -87,15 +108,21 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         &mut self,
         rule1: Rule,
         rule2: Rule,
+        context: &'static str
     ) -> Result<(Pair<'i, Rule>, Pair<'i, Rule>), ParseErrorSource> {
-        Ok((self.expect1(rule1)?, self.expect1(rule2)?))
+        Ok((self.expect1(rule1, context)?, self.expect1(rule2, context)?))
     }
 
     /// Consume and return next pair if it exists.
-    pub fn expect1_any(&mut self) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+    pub fn expect1_any(&mut self, context: &'static str) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         self.pairs
             .next()
-            .ok_or_else(|| ParseErrorSource::UnexpectedInput)
+            .ok_or_else(|| ParseErrorSource::UnexpectedInput {
+                expect1: None,
+                expect2: None,
+                got: None,
+                context,
+            })
     }
 
     pub fn push_error(&mut self, on_pair: &Pair<'i, Rule>, kind: ParseErrorKind) {
@@ -133,7 +160,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
             Err(e) => match e {
                 e @ ParseErrorSource::InternalError { .. } => Err(e),
                 e @ ParseErrorSource::Unimplemented(_) => Err(e),
-                ParseErrorSource::UnexpectedInput => Ok(None),
+                ParseErrorSource::UnexpectedInput { .. } => Ok(None),
                 e @ ParseErrorSource::UserError => Err(e),
             },
         }

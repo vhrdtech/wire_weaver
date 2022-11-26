@@ -81,26 +81,12 @@ mod sealed {
 // }
 impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for IdentifierParse<K> {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<IdentifierParse<K>, ParseErrorSource> {
-        let ident = match input.pairs.peek() {
-            Some(p) => match p.as_rule() {
-                Rule::identifier | Rule::identifier_continue => {
-                    // TODO: handle ident_continue better?
-                    let _ = input.pairs.next();
-                    p
-                }
-                _ => {
-                    return Err(ParseErrorSource::UnexpectedInput);
-                }
-            },
-            None => {
-                return Err(ParseErrorSource::UnexpectedInput);
-            }
-        };
+        let p = input.expect1_either(Rule::identifier, Rule::identifier_continue, "IdentifierParse")?;
         Ok(IdentifierParse(
             Identifier {
-                symbols: Rc::new(ident.as_str().to_owned()),
+                symbols: Rc::new(p.as_str().to_owned()),
                 context: K::context(),
-                span: ast_span_from_pest(ident.as_span()),
+                span: ast_span_from_pest(p.as_span()),
             },
             PhantomData,
         ))

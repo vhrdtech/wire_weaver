@@ -15,7 +15,7 @@ pub struct StructLitItemParse(pub StructLitItem);
 
 impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1_either(Rule::lit, Rule::number_lit)?, input);
+        let mut input = ParseInput::fork(input.expect1_either(Rule::lit, Rule::number_lit, "LitParse")?, input);
         // crate::util::pest_print_tree(input.pairs.clone());
         let lit = input
             .pairs
@@ -24,7 +24,7 @@ impl<'i> Parse<'i> for LitParse {
         let span = input.span.clone();
         let ast_lit = match lit.as_rule() {
             Rule::bool_lit => {
-                let bool_lit = input.expect1(Rule::bool_lit)?;
+                let bool_lit = input.expect1(Rule::bool_lit, "LitParse:bool_lit")?;
                 Lit {
                     kind: LitKind::Bool(bool_lit.as_str() == "true"),
                     span,
@@ -71,9 +71,9 @@ impl<'i> Parse<'i> for NumberLitParse {
 }
 
 fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::discrete_lit)?, input);
+    let mut input = ParseInput::fork(input.expect1(Rule::discrete_lit, "parse_discrete_lit")?, input);
     let span = input.span.clone();
-    let x_lit_raw = input.expect1_any()?;
+    let x_lit_raw = input.expect1_any("parse_discrete_lit:x_lit_raw")?;
     let (radix, x_str_raw) = match x_lit_raw.as_rule() {
         Rule::bin_lit_raw => (2, &x_lit_raw.as_str()[2..]),
         Rule::oct_lit_raw => (8, &x_lit_raw.as_str()[2..]),
@@ -117,8 +117,8 @@ fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::float_lit)?, input);
-    let fx = input.expect1(Rule::float_lit_internal)?.as_str();
+    let mut input = ParseInput::fork(input.expect1(Rule::float_lit, "parse_float_lit")?, input);
+    let fx = input.expect1(Rule::float_lit_internal, "parse_float_lit:fx")?.as_str();
     let fx = fx
         .to_owned()
         .chars()
@@ -143,8 +143,8 @@ fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_char_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::char_lit)?, input);
-    let char = input.expect1(Rule::char)?;
+    let mut input = ParseInput::fork(input.expect1(Rule::char_lit, "parse_char_lit")?, input);
+    let char = input.expect1(Rule::char, "parse_char_lit:char")?;
     if char.as_str().starts_with("\\\\") {
         Err(ParseErrorSource::internal("char escape is unimplemented"))
     } else {
@@ -157,8 +157,8 @@ fn parse_char_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_string_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::string_lit)?, input);
-    let string_inner = input.expect1(Rule::string_inner)?;
+    let mut input = ParseInput::fork(input.expect1(Rule::string_lit, "parse_string_lit")?, input);
+    let string_inner = input.expect1(Rule::string_inner, "parse_string_lit:inner")?;
     Ok(Lit {
         kind: LitKind::String(string_inner.as_str().to_owned()),
         span: input.span.clone(),
@@ -166,7 +166,7 @@ fn parse_string_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_tuple_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::tuple_lit)?, input);
+    let mut input = ParseInput::fork(input.expect1(Rule::tuple_lit, "parse_tuple_lit")?, input);
     let mut lits = vec![];
     while let Some(_) = input.pairs.peek() {
         let lit: LitParse = input.parse()?;
@@ -190,7 +190,7 @@ impl<'i> Parse<'i> for StructLitItemParse {
 }
 
 fn parse_struct_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::struct_lit)?, input);
+    let mut input = ParseInput::fork(input.expect1(Rule::struct_lit, "parse_struct_lit")?, input);
     let path: PathParse = input.parse()?;
     let mut items = vec![];
     while let Some(struct_lit_item) = input.pairs.next() {
@@ -208,8 +208,8 @@ fn parse_struct_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::array_lit)?, input);
-    let array_lit = input.expect1_either(Rule::array_fill_lit, Rule::vec_lit)?;
+    let mut input = ParseInput::fork(input.expect1(Rule::array_lit, "parse_array_lit")?, input);
+    let array_lit = input.expect1_either(Rule::array_fill_lit, Rule::vec_lit, "parse_array_lit:lit")?;
     let array_lit_kind = array_lit.as_rule();
     let mut input = ParseInput::fork(array_lit, &mut input);
     if array_lit_kind == Rule::array_fill_lit {
@@ -253,8 +253,8 @@ fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 }
 
 fn parse_xpi_serial(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::xpi_serial)?, input);
-    let serial = input.expect1(Rule::dec_lit_raw)?;
+    let mut input = ParseInput::fork(input.expect1(Rule::xpi_serial, "parse_xpi_serial")?, input);
+    let serial = input.expect1(Rule::dec_lit_raw, "parse_xpi_serial:raw")?;
     let serial = serial.as_str().replace("_", ""); // TODO: improve parsing speed?
     let serial = u32::from_str_radix(&serial, 10).map_err(|_| {
         input.errors.push(ParseError {

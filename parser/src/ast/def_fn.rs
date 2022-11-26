@@ -12,7 +12,7 @@ pub struct FnArgParse(pub FnArg);
 
 impl<'i> Parse<'i> for FnDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::def_fn)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::def_fn, "FnDefParse")?, input);
         let doc: DocParse = input.parse()?;
         let attrs: AttrsParse = input.parse()?;
         let name: IdentifierParse<identifier::FnName> = input.parse()?;
@@ -34,7 +34,7 @@ impl<'i> Parse<'i> for FnDefParse {
 
 impl<'i> Parse<'i> for FnArgumentsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::fn_args)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::fn_args, "FnArgumentsParse")?, input);
 
         let mut args = Vec::new();
         while let Some(_) = input.pairs.peek() {
@@ -47,7 +47,7 @@ impl<'i> Parse<'i> for FnArgumentsParse {
 
 impl<'i> Parse<'i> for FnArgParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::named_ty)?, input);
+        let mut input = ParseInput::fork(input.expect1(Rule::named_ty, "FnArgParse")?, input);
         let name: IdentifierParse<identifier::FnArgName> = input.parse()?;
         let ty: TyParse = input.parse()?;
         Ok(FnArgParse(FnArg {

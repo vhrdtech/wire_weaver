@@ -61,6 +61,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                         expect2: None,
                         got: Some(p1.as_rule()),
                         context,
+                        span: self.span.clone()
                     })
                 }
             }
@@ -69,6 +70,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: None,
                 got: None,
                 context,
+                span: self.span.clone()
             }),
         }
     }
@@ -92,6 +94,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                         expect2: Some(rule2),
                         got: Some(p1.as_rule()),
                         context,
+                        span: self.span.clone()
                     })
                 }
             }
@@ -100,6 +103,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: Some(rule2),
                 got: None,
                 context,
+                span: self.span.clone()
             }),
         }
     }
@@ -122,6 +126,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: None,
                 got: None,
                 context,
+                span: self.span.clone()
             })
     }
 

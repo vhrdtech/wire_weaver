@@ -1,5 +1,5 @@
 use crate::lexer::Rule;
-use ast::SpanOrigin;
+use ast::{Span, SpanOrigin};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
@@ -46,6 +46,7 @@ pub enum ParseErrorKind {
         expect2: Option<Rule>,
         got: Option<Rule>,
         context: &'static str,
+        span: Span,
     },
     UserError,
     UnexpectedUnconsumedInput(String),
@@ -98,6 +99,7 @@ pub enum ParseErrorSource {
         expect2: Option<Rule>,
         got: Option<Rule>,
         context: &'static str,
+        span: Span,
     },
     /// User provided erroneous input, invalid number for example.
     #[error("User provided erroneous input, invalid number for example")]
@@ -165,7 +167,7 @@ impl Error {
                 .with_message("internal parser error (unimplemented)")
                 .with_labels(vec![Label::primary((), range)
                     .with_message(format!("{} is not yet implemented", thing))]),
-            ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context } => {
+            ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span } => {
                 let note = match (expect1, expect2, got) {
                     (Some(rule1), None, None) => format!("expected: {rule1:?}, got: None"),
                     (Some(rule1), None, Some(got)) => format!("expected: {rule1:?}, got: {got:?}"),
@@ -176,10 +178,12 @@ impl Error {
                     (None, None, None) => "expected any pair, got: None".to_owned(),
                     (expect1, expect2, got) => format!("bug: expect1: {expect1:?} expect2: {expect2:?} got: {got:?}")
                 };
+                let range_secondary = span.start..span.end;
                 Diagnostic::error()
                     .with_code("E0004")
+                    .with_labels(vec![Label::primary((), range), Label::secondary((), range_secondary)])
                     .with_message("unhandled unexpected input (probably a bug)")
-                    .with_notes(vec![note, format!("context: {}", context)])
+                    .with_notes(vec![note, format!("parser context: {}", context)])
             }
             // ParseErrorKind::UserError => {}
             // ParseErrorKind::UnexpectedUnconsumedInput => {}

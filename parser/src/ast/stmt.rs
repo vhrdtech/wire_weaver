@@ -62,8 +62,8 @@ impl StmtParse {
                         ParseErrorKind::InternalError { rule, message }
                     }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
-                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context } => {
-                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context }
+                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context, span } => {
+                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span }
                     }
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };

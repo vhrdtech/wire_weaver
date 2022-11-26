@@ -3,7 +3,7 @@ use crate::ast::expr::ExprParse;
 use crate::ast::paths::PathParse;
 use crate::lexer::Rule;
 use ast::attribute::{Attr, AttrKind};
-use ast::Attrs;
+use ast::{Attrs, Expr};
 
 #[derive(Debug, Clone)]
 pub struct AttrsParse(pub Attrs);
@@ -37,6 +37,14 @@ pub struct AttrKindParse(pub AttrKind);
 impl<'i> Parse<'i> for AttrParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let path: PathParse = input.parse()?;
+
+        if input.pairs.peek().is_none() {
+            return Ok(AttrParse(Attr {
+                path: path.0,
+                kind: AttrKind::Expr(Expr::unit()),
+                span: input.span.clone(),
+            }))
+        }
 
         let attr_input = input.expect1(Rule::attribute_input, "AttrParse")?;
         let mut attr_input = ParseInput::fork(attr_input, input);

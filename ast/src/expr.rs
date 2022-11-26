@@ -1,5 +1,5 @@
 use crate::ops::{BinaryOp, UnaryOp};
-use crate::{Lit, Path, Span, Ty};
+use crate::{Lit, Path, Span, Ty, TyKind};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
@@ -19,6 +19,10 @@ pub enum Expr {
 }
 
 impl Expr {
+    pub fn unit() -> Expr {
+        Expr::Ty(Box::new(Ty::new(TyKind::Unit)))
+    }
+
     pub fn expect_ref(&self) -> Option<Path> {
         match self {
             Expr::Ref(path) => Some(path.clone()),

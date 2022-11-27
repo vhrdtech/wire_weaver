@@ -56,7 +56,7 @@ impl Event {
             destination: NodeSet::Broadcast {
                 original_source: source,
             },
-            resource_set: ResourceSet::Uri(SerialUri { segments: vec![] }),
+            resource_set: ResourceSet::Uri(SerialUri::empty()),
             kind: EventKind::Heartbeat(heartbeat_info),
             priority,
             request_id,

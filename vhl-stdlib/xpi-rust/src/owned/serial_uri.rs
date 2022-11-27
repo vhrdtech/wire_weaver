@@ -1,21 +1,44 @@
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
-use std::vec::IntoIter;
+use smallvec::{SmallVec, smallvec};
+// use smallvec::SmallVec;
 use vhl_stdlib::discrete::{U3, U4, U6};
 use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4VecIter};
 use vhl_stdlib::serdes::BitBufMut;
 
+pub const URI_STACK_SEGMENTS: usize = 6;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerialUri {
-    pub segments: Vec<Vlu32>,
+    // pub segments: Vec<Vlu32>,
+    segments: SmallVec<[Vlu32; URI_STACK_SEGMENTS]>, // TODO: use SmallVec
 }
 
 impl SerialUri {
-    pub fn new<S: AsRef<str>>(_uri: S) -> Self {
+    pub fn empty() -> Self {
+        SerialUri {
+            segments: SmallVec::new()
+        }
+    }
+
+    pub fn new(segments: &[u32]) -> Self {
+        SerialUri {
+            segments: segments.iter().map(|&s| Vlu32(s)).collect()
+        }
+    }
+
+    pub fn parse<S: AsRef<str>>(_uri: S) -> Self {
         // TODO: Proper serial uri parser
         SerialUri {
-            segments: vec![Vlu32(5)],
+            segments: smallvec![Vlu32(5)],
+        }
+    }
+
+    pub fn iter(&self) -> SerialUriIter {
+        SerialUriIter {
+            segments: &self.segments,
+            pos: 0,
         }
     }
 
@@ -24,7 +47,7 @@ impl SerialUri {
     pub(crate) fn ser_header_xwfd(
         &self,
         bwr: &mut BitBufMut,
-    ) -> Result<xwfd::SerialUri<IntoIter<Vlu32>>, ConvertError> {
+    ) -> Result<xwfd::SerialUri<smallvec::IntoIter<[Vlu32; URI_STACK_SEGMENTS]>>, ConvertError> {
         let mut iter = self.segments.iter();
         let s03 = (iter.next(), iter.next(), iter.next(), iter.next());
         use xwfd::SerialUri::*;
@@ -120,5 +143,24 @@ impl Display for SerialUri {
             write!(f, ")")?;
         }
         Ok(())
+    }
+}
+
+pub struct SerialUriIter<'a> {
+    pub segments: &'a [Vlu32],
+    pub pos: usize,
+}
+
+impl<'a> Iterator for SerialUriIter<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos < self.segments.len() {
+            let segment = self.segments[self.pos].0;
+            self.pos += 1;
+            Some(segment)
+        } else {
+            None
+        }
     }
 }

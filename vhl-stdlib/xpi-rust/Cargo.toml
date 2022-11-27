@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
+smallvec = { version = "1", optional = true }
 
 [dev-dependencies]
 hex-literal = "^0.3.4"
 
 [features]
+default = ["smallvec"]
 no_std = ["vhl-stdlib/no_std"]

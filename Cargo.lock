@@ -1334,6 +1334,7 @@ name = "xpi"
 version = "0.1.0"
 dependencies = [
  "hex-literal",
+ "smallvec",
  "vhl-stdlib",
 ]
 

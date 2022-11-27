@@ -122,8 +122,9 @@ impl VhNode {
                             nodes.insert(id, tx_handle);
                             info!("{}: connected to {} (executor local)", self_node_id.0, id.0);
                         }
-                        InternalEvent::FilterOne(filter, tx_handle) => {
-                            info!("{:?} registered", filter);
+                        InternalEvent::Filter(filter, tx_handle) => {
+                            let idx = filters.len();
+                            info!("filter {:?} registered with idx {idx}", filter);
                             filters.push((filter, tx_handle));
                         }
                         InternalEvent::ConnectRemoteTcp(remote_descriptor) => {
@@ -167,13 +168,21 @@ impl VhNode {
     ) {
         trace!("rx_from_instances: {}", ev);
         let mut filters_to_drop = vec![];
+        let mut forwards_count = 0;
         for (idx, (filter, tx_handle)) in filters.iter_mut().enumerate() {
             if filter.matches(&ev) {
-                let _ = tx_handle.send(ev.clone()).await; // TODO: count
-                filters_to_drop.push(idx);
+                let r = tx_handle.send(ev.clone()).await; // TODO: count
+                if r.is_ok() {
+                    forwards_count += 1;
+                }
+                if r.is_err() || filter.is_single_shot() {
+                    filters_to_drop.push(idx);
+                }
             }
         }
+        trace!("forwarded to {forwards_count} instances");
         for f in filters_to_drop {
+            trace!("dropping filter {f}");
             filters.remove(f);
         }
 
@@ -194,7 +203,7 @@ impl VhNode {
             }
             XpiGenericNodeSet::UnicastTraits { .. } => unimplemented!(),
             XpiGenericNodeSet::Multicast { .. } => unimplemented!(),
-            XpiGenericNodeSet::Broadcast { original_source } => {
+            XpiGenericNodeSet::Broadcast { .. } => {
                 // if self_node_id != original_source {
                 //     for rd in remote_nodes {
                 //         if rd.to_event_loop.send(ev.clone()).await.is_ok() {
@@ -298,7 +307,7 @@ impl VhNode {
     pub async fn filter_one(&mut self, filter: EventFilter) -> Result<Event, NodeError> {
         let (tx, mut rx) = mpsc::channel(1);
         self.tx_internal
-            .send(InternalEvent::FilterOne(filter, tx))
+            .send(InternalEvent::Filter(filter.single_shot(true), tx))
             .await?;
         let ev = rx.next().await.ok_or(NodeError::FilterOneFail)?;
         Ok(ev)
@@ -306,8 +315,12 @@ impl VhNode {
 
     /// Get a stream source with only the desired events in it.
     /// For subscribing to property updates and streams.
-    pub async fn filter_many(&mut self, _ev: Event) -> u32 {
-        todo!()
+    pub async fn filter_many(&mut self, filter: EventFilter) -> Result<Receiver<Event>, NodeError> {
+        let (tx, rx) = mpsc::channel(1);
+        self.tx_internal
+            .send(InternalEvent::Filter(filter.single_shot(false), tx))
+            .await?;
+        Ok(rx)
     }
 }
 

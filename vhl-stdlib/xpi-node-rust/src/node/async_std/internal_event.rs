@@ -9,5 +9,5 @@ pub enum InternalEvent {
     ConnectInstance(NodeId, Sender<Event>),
     ConnectRemoteTcp(RemoteDescriptor),
     DropRemoteTcp(SocketAddr),
-    FilterOne(EventFilter, Sender<Event>), // TODO: add timeout to remove if filter_one no longer waits for it
+    Filter(EventFilter, Sender<Event>), // TODO: add timeout to remove if filter_one no longer waits for it
 }

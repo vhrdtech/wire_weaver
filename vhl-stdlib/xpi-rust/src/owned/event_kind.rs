@@ -74,7 +74,7 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
             },
             xwfd::EventKind::OpenStreams => EventKind::OpenStreams,
             xwfd::EventKind::CloseStreams => EventKind::CloseStreams,
-            xwfd::EventKind::Subscribe { rates } => EventKind::Subscribe { rates: vec![] },
+            xwfd::EventKind::Subscribe { .. } => EventKind::Subscribe { rates: vec![] },
             xwfd::EventKind::Unsubscribe => EventKind::Unsubscribe,
             xwfd::EventKind::Borrow => EventKind::Borrow,
             xwfd::EventKind::Release => EventKind::Release,
@@ -118,7 +118,7 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
                     .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
                     .collect()
             ),
-            xwfd::EventKind::IntrospectResults(values) => EventKind::IntrospectResults(vec![]),
+            xwfd::EventKind::IntrospectResults(_values) => EventKind::IntrospectResults(vec![]),
             xwfd::EventKind::StreamUpdates(slices) => EventKind::StreamUpdates(
                 slices.iter().map(|nb| nb.to_nibble_buf_owned()).collect()
             ),

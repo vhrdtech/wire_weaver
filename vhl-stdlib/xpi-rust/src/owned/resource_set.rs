@@ -1,18 +1,25 @@
 use crate::owned::convert_error::ConvertError;
-use crate::owned::{SerialMultiUri, SerialUri};
+use crate::owned::{MultiUriOwned, UriOwned};
 use crate::resource_set::XpiGenericResourceSet;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
-use std::vec::IntoIter;
-use vhl_stdlib::serdes::vlu4::Vlu32;
 use vhl_stdlib::serdes::{BitBufMut, NibbleBufMut};
+use crate::owned::serial_multi_uri::MultiUriFlatIter;
+use crate::owned::serial_uri::URI_STACK_SEGMENTS;
 
-pub type ResourceSet = XpiGenericResourceSet<SerialUri, SerialMultiUri>;
+pub type ResourceSet = XpiGenericResourceSet<UriOwned, MultiUriOwned>;
 
 pub(crate) type ResourceSetConvertXwfd =
-XpiGenericResourceSet<xwfd::SerialUri<IntoIter<Vlu32>>, SerialMultiUri>;
+XpiGenericResourceSet<xwfd::SerialUri<smallvec::IntoIter<[u32; URI_STACK_SEGMENTS]>>, MultiUriOwned>;
 
 impl ResourceSet {
+    pub fn flat_iter(&self) -> MultiUriFlatIter {
+        match self {
+            ResourceSet::Uri(uri) => MultiUriFlatIter::OneUri(Some(uri.clone())),
+            ResourceSet::MultiUri(multi_uri) => multi_uri.flat_iter()
+        }
+    }
+
     pub(crate) fn ser_header_xwfd(
         &self,
         bwr: &mut BitBufMut,
@@ -29,7 +36,10 @@ impl ResourceSet {
 impl ResourceSetConvertXwfd {
     pub(crate) fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         match self {
-            ResourceSetConvertXwfd::Uri(uri) => nwr.put(uri)?,
+            ResourceSetConvertXwfd::Uri(uri) => {
+                let mut uri_iter = uri.iter();
+                nwr.unfold_as_vec(|| uri_iter.next())?;
+            },
             ResourceSetConvertXwfd::MultiUri(_) => unimplemented!(),
         }
         Ok(())

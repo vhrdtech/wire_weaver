@@ -165,7 +165,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> IntoIterator for SerialUri<I> {
 pub enum SerialUriIter<I> {
     UpToThree { parts: [u8; 3], len: u8, pos: u8 },
     ArrIter(I),
-    ArrIterChain { arr_iter: I, last: Option<u32> },
+    ArrIterChain { arr_iter: I, last: Option<Vlu32> },
 }
 
 impl<I: Iterator<Item=Vlu32> + Clone> Iterator for SerialUriIter<I> {
@@ -187,7 +187,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> Iterator for SerialUriIter<I> {
                 None => match *last {
                     Some(p) => {
                         *last = None;
-                        Some(p)
+                        Some(p.0)
                     }
                     None => None,
                 },

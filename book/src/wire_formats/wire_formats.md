@@ -27,9 +27,18 @@ Format features:
   like CRC or FEC).
 
 ## Binary sparse - `wfs`
+
 > Similar to vlu4 but uses byte buffers to increase processing speed where size is not such an issue.
 
+## Binary sparse compressed - `cwfs`?
+
+wfd / xwfd should still be more economical, as it kinda does decompression-while-processing, thus consuming much less
+memory.
+At the expense of much greater complexity though.
+Might also be still faster, as less memory is copied / put into ring buffers.
+
 ## Binary padded - `wfp`
+
 > Sparsely packed and properly padded for fast in-place processing.
 > Mainly targeted for inter-process communication.
 

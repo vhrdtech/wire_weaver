@@ -35,7 +35,7 @@ pub enum UriMask<I> {
     All(Vlu32),
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> UriMask<I> {
+impl<I: Iterator<Item=u32> + Clone> UriMask<I> {
     pub fn iter(&self) -> UriMaskIter<I> {
         match self {
             UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 { mask: *mask, pos: 0 },
@@ -50,7 +50,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> UriMask<I> {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, Vlu32>> {
+impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, u32>> {
     type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
@@ -68,7 +68,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, Vlu32>> {
                 Err(XpiError::UriMaskUnsupportedType)
             }
             5 => {
-                let arr: Vlu4Vec<Vlu32> = rdr.des_vlu4()?;
+                let arr: Vlu4Vec<u32> = rdr.des_vlu4()?;
                 Ok(UriMask::ByIndices(arr.into_iter()))
             },
             6 => {
@@ -84,7 +84,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, Vlu32>> {
     }
 }
 
-impl<'i> SerializeVlu4 for UriMask<Vlu4VecIter<'i, Vlu32>> {
+impl<'i> SerializeVlu4 for UriMask<Vlu4VecIter<'i, u32>> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -140,7 +140,7 @@ macro_rules! next_one_bit {
                 let selected = *$mask & (1 << ($bit_count - 1)) != 0;
                 *$mask <<= 1;
                 if selected {
-                    return Some(Vlu32(*$pos - 1));
+                    return Some(*$pos - 1);
                 } else {
                     if *$pos < $bit_count {
                         continue;
@@ -156,8 +156,8 @@ macro_rules! next_one_bit {
     };
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> IntoIterator for UriMask<I> {
-    type Item = Vlu32;
+impl<I: Iterator<Item=u32> + Clone> IntoIterator for UriMask<I> {
+    type Item = u32;
     type IntoIter = UriMaskIter<I>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -165,8 +165,8 @@ impl<I: Iterator<Item=Vlu32> + Clone> IntoIterator for UriMask<I> {
     }
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> Iterator for UriMaskIter<I> {
-    type Item = Vlu32;
+impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I> {
+    type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -177,7 +177,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> Iterator for UriMaskIter<I> {
             UriMaskIter::All { count, pos } => {
                 if *pos < *count {
                     *pos += 1;
-                    Some(Vlu32(*pos - 1))
+                    Some(*pos - 1)
                 } else {
                     None
                 }
@@ -207,7 +207,7 @@ fn count_ones(mut num: u32) -> (usize, Option<usize>) {
     (count, Some(count))
 }
 
-impl<I: Iterator<Item=Vlu32> + Clone> Display for UriMask<I> {
+impl<I: Iterator<Item=u32> + Clone> Display for UriMask<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "{{")?;
@@ -217,7 +217,7 @@ impl<I: Iterator<Item=Vlu32> + Clone> Display for UriMask<I> {
         let iter = self.iter();
         let len = iter.size_hint().0;
         for (i, id) in iter.enumerate() {
-            write!(f, "{}", id.0)?;
+            write!(f, "{}", id)?;
             if i < len - 1 {
                 write!(f, ", ")?;
             }
@@ -237,23 +237,23 @@ mod test {
 
     #[test]
     fn test_mask_u8() {
-        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByBitfield8(0b1010_0001);
+        let mask = UriMask::<Vlu4VecIter<u32>>::ByBitfield8(0b1010_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(2)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(7)));
+        assert_eq!(mask_iter.next(), Some(0));
+        assert_eq!(mask_iter.next(), Some(2));
+        assert_eq!(mask_iter.next(), Some(7));
         assert_eq!(mask_iter.next(), None);
     }
 
     #[test]
     fn test_mask_u32() {
-        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
+        let mask = UriMask::<Vlu4VecIter<u32>>::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(12)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(31)));
+        assert_eq!(mask_iter.next(), Some(0));
+        assert_eq!(mask_iter.next(), Some(12));
+        assert_eq!(mask_iter.next(), Some(31));
         assert_eq!(mask_iter.next(), None);
     }
 
@@ -261,24 +261,24 @@ mod test {
     fn test_mask_array() {
         let buf = [0b0010_1111, 0b0111_0001];
         let mut buf = NibbleBuf::new_all(&buf);
-        let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
-        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByIndices(arr.into_iter());
+        let arr: Vlu4Vec<u32> = buf.des_vlu4().unwrap();
+        let mask = UriMask::<Vlu4VecIter<u32>>::ByIndices(arr.into_iter());
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (2, Some(2)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(63)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(1)));
+        assert_eq!(mask_iter.next(), Some(63));
+        assert_eq!(mask_iter.next(), Some(1));
         assert_eq!(mask_iter.next(), None);
     }
 
     #[test]
     fn test_mask_all() {
-        let mask = UriMask::<Vlu4VecIter<Vlu32>>::All(Vlu32(4));
+        let mask = UriMask::<Vlu4VecIter<u32>>::All(Vlu32(4));
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (4, Some(4)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(1)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(2)));
-        assert_eq!(mask_iter.next(), Some(Vlu32(3)));
+        assert_eq!(mask_iter.next(), Some(0));
+        assert_eq!(mask_iter.next(), Some(1));
+        assert_eq!(mask_iter.next(), Some(2));
+        assert_eq!(mask_iter.next(), Some(3));
         assert_eq!(mask_iter.next(), None);
     }
 }

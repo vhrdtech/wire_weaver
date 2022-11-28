@@ -10,7 +10,7 @@ use vhl_stdlib::discrete::{U3, U9};
 use vhl_stdlib::{
     discrete::U4,
     serdes::{
-        vlu4::{TraitSet, Vlu32, Vlu4VecIter},
+        vlu4::{TraitSet, Vlu4VecIter},
         DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
     },
 };
@@ -21,7 +21,7 @@ use vhl_stdlib::{
 pub type Event<'ev> = XpiGenericEvent<
     NodeId,
     TraitSet<'ev>,
-    SerialUri<Vlu4VecIter<'ev, Vlu32>>,
+    SerialUri<Vlu4VecIter<'ev, u32>>,
     SerialMultiUri<'ev>,
     EventKind<'ev>,
     Priority,

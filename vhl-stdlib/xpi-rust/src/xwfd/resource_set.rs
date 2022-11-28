@@ -5,14 +5,14 @@ use core::fmt::{Display, Formatter, Result as FmtResult};
 use vhl_stdlib::discrete::U3;
 use vhl_stdlib::serdes::nibble_buf;
 use vhl_stdlib::serdes::{
-    vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
+    vlu4::{Vlu4Vec, Vlu4VecIter},
     BitBuf, DeserializeCoupledBitsVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
 };
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
 pub type ResourceSet<'i> =
-XpiGenericResourceSet<SerialUri<Vlu4VecIter<'i, Vlu32>>, SerialMultiUri<'i>>;
+XpiGenericResourceSet<SerialUri<Vlu4VecIter<'i, u32>>, SerialMultiUri<'i>>;
 
 impl<'i> ResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {
@@ -97,7 +97,7 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for ResourceSet<'i> {
                 )))
             }
             5 => {
-                let arr: Vlu4Vec<Vlu32> = vlu4_rdr.des_vlu4()?;
+                let arr: Vlu4Vec<u32> = vlu4_rdr.des_vlu4()?;
                 Ok(ResourceSet::Uri(SerialUri::MultiPart(arr.into_iter())))
             }
             6 => Ok(ResourceSet::MultiUri(vlu4_rdr.des_vlu4()?)),

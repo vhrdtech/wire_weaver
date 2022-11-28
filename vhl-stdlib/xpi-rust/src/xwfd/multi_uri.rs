@@ -3,7 +3,7 @@ use crate::error::XpiError;
 use core::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::nibble_buf;
 use vhl_stdlib::serdes::{
-    vlu4::{Vlu32, Vlu4Vec, Vlu4VecIter},
+    vlu4::{Vlu4Vec, Vlu4VecIter},
     DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
 };
 
@@ -41,13 +41,13 @@ impl<'i> SerialMultiUri<'i> {
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
         let mut rdr_clone = self.rdr.clone();
-        let uri_iter: Vlu4VecIter<Vlu32> = rdr_clone
+        let uri_iter: Vlu4VecIter<u32> = rdr_clone
             .des_vlu4()
-            .unwrap_or(Vlu4Vec::<Vlu32>::empty())
+            .unwrap_or(Vlu4Vec::<u32>::empty())
             .into_iter();
-        let mask: UriMask<Vlu4VecIter<Vlu32>> = rdr_clone
+        let mask: UriMask<Vlu4VecIter<u32>> = rdr_clone
             .des_vlu4()
-            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<Vlu32>::empty().iter()));
+            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<u32>::empty().iter()));
         MultiUriFlatIter::MultiUri {
             rdr: rdr_clone,
             len: self.parts_count,
@@ -65,7 +65,7 @@ pub struct MultiUriIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriIter<'i> {
-    type Item = (SerialUri<Vlu4VecIter<'i, Vlu32>>, UriMask<Vlu4VecIter<'i, Vlu32>>);
+    type Item = (SerialUri<Vlu4VecIter<'i, u32>>, UriMask<Vlu4VecIter<'i, u32>>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.len {
@@ -73,7 +73,7 @@ impl<'i> Iterator for MultiUriIter<'i> {
         }
         self.pos += 1;
 
-        let arr: Vlu4Vec<Vlu32> = self.rdr.des_vlu4().ok()?;
+        let arr: Vlu4Vec<u32> = self.rdr.des_vlu4().ok()?;
         Some((
             SerialUri::MultiPart(arr.into_iter()),
             self.rdr.des_vlu4().ok()?,
@@ -86,18 +86,18 @@ impl<'i> Iterator for MultiUriIter<'i> {
 }
 
 pub enum MultiUriFlatIter<'i> {
-    OneUri(Option<SerialUriIter<Vlu4VecIter<'i, Vlu32>>>),
+    OneUri(Option<SerialUriIter<Vlu4VecIter<'i, u32>>>),
     MultiUri {
         rdr: NibbleBuf<'i>,
         len: usize,
         pos: usize,
-        uri_iter: Vlu4VecIter<'i, Vlu32>,
-        mask_iter: UriMaskIter<Vlu4VecIter<'i, Vlu32>>,
+        uri_iter: Vlu4VecIter<'i, u32>,
+        mask_iter: UriMaskIter<Vlu4VecIter<'i, u32>>,
     },
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
-    type Item = SerialUriIter<Vlu4VecIter<'i, Vlu32>>;
+    type Item = SerialUriIter<Vlu4VecIter<'i, u32>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -124,8 +124,8 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                         }
                         *pos += 1;
 
-                        let uri_arr: Vlu4Vec<Vlu32> = rdr.des_vlu4().ok()?;
-                        let mask: UriMask<Vlu4VecIter<Vlu32>> = rdr.des_vlu4().ok()?;
+                        let uri_arr: Vlu4Vec<u32> = rdr.des_vlu4().ok()?;
+                        let mask: UriMask<Vlu4VecIter<u32>> = rdr.des_vlu4().ok()?;
                         *uri_iter = uri_arr.into_iter();
                         *mask_iter = mask.iter();
 
@@ -148,9 +148,9 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
         let mut rdr_before_elements = rdr.clone();
         for _ in 0..parts_count {
             // TODO: implement skip_vlu4() to not read data
-            let _uri_arr_len: Vlu4Vec<Vlu32> = rdr.des_vlu4()?;
-            // let _uri_len: SerialUri<Vlu4VecIter<Vlu32>> = rdr.des_vlu4()?;
-            let _mask: UriMask<Vlu4VecIter<Vlu32>> = rdr.des_vlu4()?;
+            let _uri_arr_len: Vlu4Vec<u32> = rdr.des_vlu4()?;
+            // let _uri_len: SerialUri<Vlu4VecIter<u32>> = rdr.des_vlu4()?;
+            let _mask: UriMask<Vlu4VecIter<u32>> = rdr.des_vlu4()?;
         }
         rdr_before_elements.shrink_to_pos_of(rdr)?;
         Ok(SerialMultiUri {
@@ -240,8 +240,8 @@ mod test {
         assert!(matches!(mask, UriMask::ByIndices(_)));
         if let UriMask::ByIndices(mut indices) = mask {
             // let mut indices_iter = indices.iter();
-            assert_eq!(indices.next(), Some(Vlu32(3)));
-            assert_eq!(indices.next(), Some(Vlu32(5)));
+            assert_eq!(indices.next(), Some(3));
+            assert_eq!(indices.next(), Some(5));
             assert_eq!(indices.next(), None);
         }
     }

@@ -1,43 +1,39 @@
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
-use smallvec::{SmallVec, smallvec};
-// use smallvec::SmallVec;
+use smallvec::SmallVec;
 use vhl_stdlib::discrete::{U3, U4, U6};
-use vhl_stdlib::serdes::vlu4::{Vlu32, Vlu4VecIter};
+use vhl_stdlib::serdes::vlu4::Vlu4VecIter;
 use vhl_stdlib::serdes::BitBufMut;
 
 pub const URI_STACK_SEGMENTS: usize = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SerialUri {
-    // pub segments: Vec<Vlu32>,
-    segments: SmallVec<[Vlu32; URI_STACK_SEGMENTS]>, // TODO: use SmallVec
+pub struct UriOwned {
+    segments: SmallVec<[u32; URI_STACK_SEGMENTS]>,
 }
 
-impl SerialUri {
+impl UriOwned {
     pub fn empty() -> Self {
-        SerialUri {
+        UriOwned {
             segments: SmallVec::new()
         }
     }
 
     pub fn new(segments: &[u32]) -> Self {
-        SerialUri {
-            segments: segments.iter().map(|&s| Vlu32(s)).collect()
+        UriOwned {
+            segments: segments.iter().map(|x| *x).collect()
         }
     }
 
     pub fn parse<S: AsRef<str>>(_uri: S) -> Self {
         // TODO: Proper serial uri parser
-        SerialUri {
-            segments: smallvec![Vlu32(5)],
-        }
+        todo!()
     }
 
     pub fn iter(&self) -> SerialUriIter {
         SerialUriIter {
-            segments: &self.segments,
+            segments: self.segments.clone(),
             pos: 0,
         }
     }
@@ -47,46 +43,46 @@ impl SerialUri {
     pub(crate) fn ser_header_xwfd(
         &self,
         bwr: &mut BitBufMut,
-    ) -> Result<xwfd::SerialUri<smallvec::IntoIter<[Vlu32; URI_STACK_SEGMENTS]>>, ConvertError> {
+    ) -> Result<xwfd::SerialUri<smallvec::IntoIter<[u32; URI_STACK_SEGMENTS]>>, ConvertError> {
         let mut iter = self.segments.iter();
         let s03 = (iter.next(), iter.next(), iter.next(), iter.next());
         use xwfd::SerialUri::*;
         let uri = match s03 {
-            (Some(s0), None, None, None) => {
-                if s0.0 <= 15 {
-                    OnePart4(unsafe { U4::new_unchecked(s0.0 as u8) })
+            (Some(&s0), None, None, None) => {
+                if s0 <= 15 {
+                    OnePart4(unsafe { U4::new_unchecked(s0 as u8) })
                 } else {
                     MultiPart(self.segments.clone().into_iter())
                 }
             }
-            (Some(s0), Some(s1), None, None) => {
-                if s0.0 <= 15 && s1.0 <= 15 {
-                    TwoPart44(unsafe { U4::new_unchecked(s0.0 as u8) }, unsafe {
-                        U4::new_unchecked(s1.0 as u8)
+            (Some(&s0), Some(&s1), None, None) => {
+                if s0 <= 15 && s1 <= 15 {
+                    TwoPart44(unsafe { U4::new_unchecked(s0 as u8) }, unsafe {
+                        U4::new_unchecked(s1 as u8)
                     })
                 } else {
                     MultiPart(self.segments.clone().into_iter())
                 }
             }
-            (Some(s0), Some(s1), Some(s2), None) => {
-                if s0.0 <= 63 {
-                    if s1.0 <= 63 && s2.0 <= 15 {
+            (Some(&s0), Some(&s1), Some(&s2), None) => {
+                if s0 <= 63 {
+                    if s1 <= 63 && s2 <= 15 {
                         ThreePart664(
-                            unsafe { U6::new_unchecked(s0.0 as u8) },
-                            unsafe { U6::new_unchecked(s1.0 as u8) },
-                            unsafe { U4::new_unchecked(s2.0 as u8) },
+                            unsafe { U6::new_unchecked(s0 as u8) },
+                            unsafe { U6::new_unchecked(s1 as u8) },
+                            unsafe { U4::new_unchecked(s2 as u8) },
                         )
-                    } else if s1.0 <= 7 && s2.0 <= 7 {
+                    } else if s1 <= 7 && s2 <= 7 {
                         ThreePart633(
-                            unsafe { U6::new_unchecked(s0.0 as u8) },
-                            unsafe { U3::new_unchecked(s1.0 as u8) },
-                            unsafe { U3::new_unchecked(s2.0 as u8) },
+                            unsafe { U6::new_unchecked(s0 as u8) },
+                            unsafe { U3::new_unchecked(s1 as u8) },
+                            unsafe { U3::new_unchecked(s2 as u8) },
                         )
-                    } else if s0.0 <= 15 && s1.0 <= 15 && s2.0 <= 15 {
+                    } else if s0 <= 15 && s1 <= 15 && s2 <= 15 {
                         ThreePart444(
-                            unsafe { U4::new_unchecked(s0.0 as u8) },
-                            unsafe { U4::new_unchecked(s1.0 as u8) },
-                            unsafe { U4::new_unchecked(s2.0 as u8) },
+                            unsafe { U4::new_unchecked(s0 as u8) },
+                            unsafe { U4::new_unchecked(s1 as u8) },
+                            unsafe { U4::new_unchecked(s2 as u8) },
                         )
                     } else {
                         MultiPart(self.segments.clone().into_iter())
@@ -111,10 +107,10 @@ impl SerialUri {
     // }
 }
 
-impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>> for SerialUri {
-    fn from(uri: xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>) -> Self {
-        SerialUri {
-            segments: uri.iter().map(|s| Vlu32(s)).collect(),
+impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, u32>>> for UriOwned {
+    fn from(uri: xwfd::SerialUri<Vlu4VecIter<'i, u32>>) -> Self {
+        UriOwned {
+            segments: uri.iter().collect(),
         }
     }
 }
@@ -125,7 +121,7 @@ impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, Vlu32>>> for SerialUri {
 //     SerialIndex { serial: u32, by: u32 },
 // }
 
-impl Display for SerialUri {
+impl Display for UriOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "Uri(/")?;
@@ -134,7 +130,7 @@ impl Display for SerialUri {
         }
         let mut uri_iter = self.segments.iter().peekable();
         while let Some(uri_part) = uri_iter.next() {
-            write!(f, "{}", uri_part.0)?;
+            write!(f, "{}", uri_part)?;
             if uri_iter.peek().is_some() {
                 write!(f, "/")?;
             }
@@ -146,17 +142,18 @@ impl Display for SerialUri {
     }
 }
 
-pub struct SerialUriIter<'a> {
-    pub segments: &'a [Vlu32],
-    pub pos: usize,
+#[derive(Clone)]
+pub struct SerialUriIter {
+    pub(crate) segments: SmallVec<[u32; URI_STACK_SEGMENTS]>,
+    pos: usize,
 }
 
-impl<'a> Iterator for SerialUriIter<'a> {
+impl Iterator for SerialUriIter {
     type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos < self.segments.len() {
-            let segment = self.segments[self.pos].0;
+            let segment = self.segments[self.pos];
             self.pos += 1;
             Some(segment)
         } else {

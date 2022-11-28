@@ -221,6 +221,10 @@ impl VhNode {
         // if routing is enabled
     }
 
+    pub fn new_tx_handle(&self) -> Sender<Event> {
+        self.tx_to_event_loop.clone()
+    }
+
     async fn connect_instance(&mut self, other: &mut VhNode) -> Result<(), NodeError> {
         self.tx_internal
             .send(InternalEvent::ConnectInstance(

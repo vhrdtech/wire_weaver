@@ -21,6 +21,6 @@ pub use rate::Rate;
 pub use request_id::RequestId;
 pub use resource_info::ResourceInfo;
 pub use resource_set::ResourceSet;
-pub use serial_multi_uri::SerialMultiUri;
-pub use serial_uri::SerialUri;
+pub use serial_multi_uri::MultiUriOwned;
+pub use serial_uri::UriOwned;
 pub use trait_set::TraitSet;

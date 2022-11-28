@@ -9,14 +9,14 @@ use vhl_stdlib::serdes::NibbleBufMut;
 
 use super::{
     resource_set::ResourceSetConvertXwfd, EventKind, NodeId, NodeSet, RequestId, ResourceSet,
-    SerialMultiUri, SerialUri, TraitSet,
+    MultiUriOwned, UriOwned, TraitSet,
 };
 
 pub type Event = XpiGenericEvent<
     NodeId,
     TraitSet,
-    SerialUri,
-    SerialMultiUri,
+    UriOwned,
+    MultiUriOwned,
     EventKind,
     Priority,
     RequestId,
@@ -56,7 +56,7 @@ impl Event {
             destination: NodeSet::Broadcast {
                 original_source: source,
             },
-            resource_set: ResourceSet::Uri(SerialUri::empty()),
+            resource_set: ResourceSet::Uri(UriOwned::empty()),
             kind: EventKind::Heartbeat(heartbeat_info),
             priority,
             request_id,
@@ -133,7 +133,7 @@ impl<'i> From<xwfd::Event<'i>> for Event {
 #[cfg(test)]
 mod test {
     use crate::owned::{
-        Event, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet, SerialUri,
+        Event, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet, UriOwned,
     };
     use vhl_stdlib::discrete::U4;
     use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
@@ -143,7 +143,7 @@ mod test {
         let ev = Event {
             source: NodeId(42),
             destination: NodeSet::Unicast(NodeId(85)),
-            resource_set: ResourceSet::Uri(SerialUri::new(&[3, 12])),
+            resource_set: ResourceSet::Uri(UriOwned::new(&[3, 12])),
             kind: EventKind::Call {
                 args_set: vec![NibbleBuf::new_all(&[0xaa, 0xbb]).to_nibble_buf_owned()],
             },

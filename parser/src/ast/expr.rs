@@ -225,7 +225,6 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
 mod test {
     use super::ExprParse;
     use ast::{Expr, ops::{UnaryOp, BinaryOp}};
-    use crate::ast::ops::{BinaryOpParse, UnaryOpParse};
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
 

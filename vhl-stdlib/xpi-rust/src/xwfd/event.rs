@@ -10,10 +10,11 @@ use vhl_stdlib::discrete::{U3, U9};
 use vhl_stdlib::{
     discrete::U4,
     serdes::{
-        vlu4::{TraitSet, Vlu4VecIter},
+        vlu4::TraitSet,
         DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
     },
 };
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
 /// Highly space efficient xPI Event data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -21,7 +22,7 @@ use vhl_stdlib::{
 pub type Event<'ev> = XpiGenericEvent<
     NodeId,
     TraitSet<'ev>,
-    SerialUri<Vlu4VecIter<'ev, u32>>,
+    SerialUri<Vlu4Vec<'ev, u32>>,
     SerialMultiUri<'ev>,
     EventKind<'ev>,
     Priority,

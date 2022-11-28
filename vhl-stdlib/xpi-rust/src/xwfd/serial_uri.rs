@@ -2,7 +2,7 @@ use core::fmt::{Debug, Display, Formatter};
 use core::iter::FusedIterator;
 use vhl_stdlib::discrete::{U3, U4, U6};
 use vhl_stdlib::serdes::traits::SerializeVlu4;
-use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 /// Sequence of numbers uniquely identifying one of the resources.
@@ -39,8 +39,8 @@ pub(crate) enum SerialUriDiscriminant {
     MultiPart = 5,
 }
 
-impl<I: Iterator<Item=u32> + Clone> SerialUri<I> {
-    pub fn iter(&self) -> SerialUriIter<I> {
+impl<I: IntoIterator<Item=u32> + Clone> SerialUri<I> {
+    pub fn iter(&self) -> SerialUriIter<I::IntoIter> {
         match self {
             SerialUri::OnePart4(a) => SerialUriIter::UpToThree {
                 parts: [a.inner(), 0, 0],
@@ -67,7 +67,7 @@ impl<I: Iterator<Item=u32> + Clone> SerialUri<I> {
                 len: 3,
                 pos: 0,
             },
-            SerialUri::MultiPart(arr) => SerialUriIter::ArrIter(arr.clone()),
+            SerialUri::MultiPart(arr) => SerialUriIter::ArrIter(arr.clone().into_iter()),
         }
     }
 
@@ -84,17 +84,17 @@ impl<I: Iterator<Item=u32> + Clone> SerialUri<I> {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for SerialUri<Vlu4VecIter<'i, u32>>
+impl<'i> DeserializeVlu4<'i> for SerialUri<Vlu4Vec<'i, u32>>
 {
     type Error = nibble_buf::Error;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let arr: Vlu4Vec<u32> = rdr.des_vlu4()?;
-        Ok(SerialUri::MultiPart(arr.into_iter()))
+        Ok(SerialUri::MultiPart(arr))
     }
 }
 
-impl<'i> SerializeVlu4 for SerialUri<Vlu4VecIter<'i, u32>> {
+impl<'i> SerializeVlu4 for SerialUri<Vlu4Vec<'i, u32>> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -128,8 +128,9 @@ impl<'i> SerializeVlu4 for SerialUri<Vlu4VecIter<'i, u32>> {
                 })?;
             }
             SerialUri::MultiPart(arr) => {
-                let arr_iter = &mut arr.clone();
-                wgr.unfold_as_vec(|| arr_iter.next())?;
+                // let arr_iter = &mut arr.clone();
+                wgr.put(arr)?;
+                // wgr.unfold_as_vec(|| arr_iter.next())?;
             }
         }
         Ok(())
@@ -150,9 +151,11 @@ impl<'i> SerializeVlu4 for SerialUri<Vlu4VecIter<'i, u32>> {
     }
 }
 
-impl<I: Iterator<Item=u32> + Clone> IntoIterator for SerialUri<I> {
+impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for SerialUri<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     type Item = u32;
-    type IntoIter = SerialUriIter<I>;
+    type IntoIter = SerialUriIter<I::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -220,7 +223,9 @@ impl<I: Iterator<Item=u32> + Clone> Display for SerialUriIter<I> {
     }
 }
 
-impl<I: Iterator<Item=u32> + Clone> Display for SerialUri<I> {
+impl<I: IntoIterator<Item=u32> + Clone> Display for SerialUri<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "Uri(/{:#})", self.iter())
@@ -230,7 +235,9 @@ impl<I: Iterator<Item=u32> + Clone> Display for SerialUri<I> {
     }
 }
 
-impl<I: Iterator<Item=u32> + Clone> Debug for SerialUri<I> {
+impl<I: IntoIterator<Item=u32> + Clone> Debug for SerialUri<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:#}", self)
     }
@@ -244,12 +251,12 @@ mod test {
     use vhl_stdlib::discrete::{U3, U4, U6};
 
     use super::SerialUri;
-    use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+    use vhl_stdlib::serdes::vlu4::Vlu4Vec;
     use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
     fn one_part_uri_iter() {
-        let uri: SerialUri<Vlu4VecIter<u32>> = SerialUri::OnePart4(U4::new(1).unwrap());
+        let uri: SerialUri<Vlu4Vec<u32>> = SerialUri::OnePart4(U4::new(1).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), None);
@@ -257,7 +264,7 @@ mod test {
 
     #[test]
     fn two_part_uri_iter() {
-        let uri: SerialUri<Vlu4VecIter<u32>> =
+        let uri: SerialUri<Vlu4Vec<u32>> =
             SerialUri::TwoPart44(U4::new(1).unwrap(), U4::new(2).unwrap());
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
@@ -267,7 +274,7 @@ mod test {
 
     #[test]
     fn three_part_uri_iter() {
-        let uri: SerialUri<Vlu4VecIter<u32>> = SerialUri::ThreePart633(
+        let uri: SerialUri<Vlu4Vec<u32>> = SerialUri::ThreePart633(
             U6::new(35).unwrap(),
             U3::new(4).unwrap(),
             U3::new(3).unwrap(),
@@ -284,7 +291,7 @@ mod test {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<u32> = buf.des_vlu4().unwrap();
-        let uri: SerialUri<Vlu4VecIter<u32>> = SerialUri::MultiPart(arr.into_iter());
+        let uri: SerialUri<Vlu4Vec<u32>> = SerialUri::MultiPart(arr);
         let mut uri_iter = uri.iter();
         assert_eq!(uri_iter.next(), Some(1));
         assert_eq!(uri_iter.next(), Some(2));
@@ -312,7 +319,7 @@ mod test {
         let buf = [0x51, 0x23, 0x45];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<u32> = buf.des_vlu4().unwrap();
-        let uri: SerialUri<Vlu4VecIter<u32>> = SerialUri::MultiPart(arr.into_iter());
+        let uri: SerialUri<Vlu4Vec<u32>> = SerialUri::MultiPart(arr);
         assert_eq!(format!("{:#}", uri), "Uri(/1/2/3/4/5)");
         assert_eq!(format!("{}", uri), "/1/2/3/4/5");
     }

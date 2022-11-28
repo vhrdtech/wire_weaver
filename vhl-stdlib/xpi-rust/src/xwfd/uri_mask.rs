@@ -2,7 +2,7 @@ use crate::error::XpiError;
 use core::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::traits::SerializeVlu4;
 use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
-use vhl_stdlib::serdes::vlu4::{Vlu4Vec, Vlu4VecIter};
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
 /// Mask that allows to select many resources at a particular level. Used in combination with [Uri] to
@@ -35,8 +35,8 @@ pub enum UriMask<I> {
     All(Vlu32),
 }
 
-impl<I: Iterator<Item=u32> + Clone> UriMask<I> {
-    pub fn iter(&self) -> UriMaskIter<I> {
+impl<I: IntoIterator<Item=u32> + Clone> UriMask<I> {
+    pub fn iter(&self) -> UriMaskIter<I::IntoIter> {
         match self {
             UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 { mask: *mask, pos: 0 },
             UriMask::ByBitfield16(mask) => UriMaskIter::ByBitfield16 { mask: *mask, pos: 0 },
@@ -50,7 +50,7 @@ impl<I: Iterator<Item=u32> + Clone> UriMask<I> {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, u32>> {
+impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
     type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
@@ -69,7 +69,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, u32>> {
             }
             5 => {
                 let arr: Vlu4Vec<u32> = rdr.des_vlu4()?;
-                Ok(UriMask::ByIndices(arr.into_iter()))
+                Ok(UriMask::ByIndices(arr))
             },
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
@@ -84,7 +84,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4VecIter<'i, u32>> {
     }
 }
 
-impl<'i> SerializeVlu4 for UriMask<Vlu4VecIter<'i, u32>> {
+impl<'i> SerializeVlu4 for UriMask<Vlu4Vec<'i, u32>> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -102,8 +102,9 @@ impl<'i> SerializeVlu4 for UriMask<Vlu4VecIter<'i, u32>> {
                 wgr.put_u32_be(*b)?;
             }
             UriMask::ByIndices(arr) => {
-                let arr_iter = &mut arr.clone();
-                wgr.unfold_as_vec(|| arr_iter.next())?;
+                // let arr_iter = &mut arr.clone();
+                // wgr.unfold_as_vec(|| arr_iter.next())?;
+                wgr.put(arr)?;
             }
             UriMask::All(max) => {
                 wgr.put_nibble(6)?;
@@ -118,7 +119,7 @@ impl<'i> SerializeVlu4 for UriMask<Vlu4VecIter<'i, u32>> {
             UriMask::ByBitfield8(_) => SerDesSize::Sized(3),
             UriMask::ByBitfield16(_) => SerDesSize::Sized(5),
             UriMask::ByBitfield32(_) => SerDesSize::Sized(9),
-            UriMask::ByIndices(arr) => SerDesSize::Sized(arr.size_hint().0),
+            UriMask::ByIndices(_arr) => SerDesSize::Unsized, // TODO: Vlu4Vec::serdes_size() here
             UriMask::All(max) => max.len_nibbles(),
         }
     }
@@ -156,16 +157,20 @@ macro_rules! next_one_bit {
     };
 }
 
-impl<I: Iterator<Item=u32> + Clone> IntoIterator for UriMask<I> {
+impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for UriMask<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     type Item = u32;
-    type IntoIter = UriMaskIter<I>;
+    type IntoIter = UriMaskIter<I::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I> {
+impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -207,7 +212,9 @@ fn count_ones(mut num: u32) -> (usize, Option<usize>) {
     (count, Some(count))
 }
 
-impl<I: Iterator<Item=u32> + Clone> Display for UriMask<I> {
+impl<I: IntoIterator<Item=u32> + Clone> Display for UriMask<I>
+    where <I as IntoIterator>::IntoIter: Clone,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             write!(f, "{{")?;
@@ -237,7 +244,7 @@ mod test {
 
     #[test]
     fn test_mask_u8() {
-        let mask = UriMask::<Vlu4VecIter<u32>>::ByBitfield8(0b1010_0001);
+        let mask = UriMask::<Vlu4Vec<u32>>::ByBitfield8(0b1010_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
         assert_eq!(mask_iter.next(), Some(0));
@@ -248,7 +255,7 @@ mod test {
 
     #[test]
     fn test_mask_u32() {
-        let mask = UriMask::<Vlu4VecIter<u32>>::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
+        let mask = UriMask::<Vlu4Vec<u32>>::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
         assert_eq!(mask_iter.next(), Some(0));
@@ -262,7 +269,7 @@ mod test {
         let buf = [0b0010_1111, 0b0111_0001];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<u32> = buf.des_vlu4().unwrap();
-        let mask = UriMask::<Vlu4VecIter<u32>>::ByIndices(arr.into_iter());
+        let mask = UriMask::<Vlu4Vec<u32>>::ByIndices(arr);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (2, Some(2)));
         assert_eq!(mask_iter.next(), Some(63));
@@ -272,7 +279,7 @@ mod test {
 
     #[test]
     fn test_mask_all() {
-        let mask = UriMask::<Vlu4VecIter<u32>>::All(Vlu32(4));
+        let mask = UriMask::<Vlu4Vec<u32>>::All(Vlu32(4));
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (4, Some(4)));
         assert_eq!(mask_iter.next(), Some(0));

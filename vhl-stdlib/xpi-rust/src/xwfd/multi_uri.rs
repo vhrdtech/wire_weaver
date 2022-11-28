@@ -45,9 +45,9 @@ impl<'i> SerialMultiUri<'i> {
             .des_vlu4()
             .unwrap_or(Vlu4Vec::<u32>::empty())
             .into_iter();
-        let mask: UriMask<Vlu4VecIter<u32>> = rdr_clone
+        let mask: UriMask<Vlu4Vec<u32>> = rdr_clone
             .des_vlu4()
-            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<u32>::empty().iter()));
+            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<u32>::empty()));
         MultiUriFlatIter::MultiUri {
             rdr: rdr_clone,
             len: self.parts_count,
@@ -65,7 +65,7 @@ pub struct MultiUriIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriIter<'i> {
-    type Item = (SerialUri<Vlu4VecIter<'i, u32>>, UriMask<Vlu4VecIter<'i, u32>>);
+    type Item = (SerialUri<Vlu4Vec<'i, u32>>, UriMask<Vlu4Vec<'i, u32>>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.len {
@@ -75,7 +75,7 @@ impl<'i> Iterator for MultiUriIter<'i> {
 
         let arr: Vlu4Vec<u32> = self.rdr.des_vlu4().ok()?;
         Some((
-            SerialUri::MultiPart(arr.into_iter()),
+            SerialUri::MultiPart(arr),
             self.rdr.des_vlu4().ok()?,
         ))
     }
@@ -125,7 +125,7 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
                         *pos += 1;
 
                         let uri_arr: Vlu4Vec<u32> = rdr.des_vlu4().ok()?;
-                        let mask: UriMask<Vlu4VecIter<u32>> = rdr.des_vlu4().ok()?;
+                        let mask: UriMask<Vlu4Vec<u32>> = rdr.des_vlu4().ok()?;
                         *uri_iter = uri_arr.into_iter();
                         *mask_iter = mask.iter();
 
@@ -150,7 +150,7 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
             // TODO: implement skip_vlu4() to not read data
             let _uri_arr_len: Vlu4Vec<u32> = rdr.des_vlu4()?;
             // let _uri_len: SerialUri<Vlu4VecIter<u32>> = rdr.des_vlu4()?;
-            let _mask: UriMask<Vlu4VecIter<u32>> = rdr.des_vlu4()?;
+            let _mask: UriMask<Vlu4Vec<u32>> = rdr.des_vlu4()?;
         }
         rdr_before_elements.shrink_to_pos_of(rdr)?;
         Ok(SerialMultiUri {
@@ -239,10 +239,10 @@ mod test {
 
         assert!(matches!(mask, UriMask::ByIndices(_)));
         if let UriMask::ByIndices(mut indices) = mask {
-            // let mut indices_iter = indices.iter();
-            assert_eq!(indices.next(), Some(3));
-            assert_eq!(indices.next(), Some(5));
-            assert_eq!(indices.next(), None);
+            let mut indices_iter = indices.iter();
+            assert_eq!(indices_iter.next(), Some(3));
+            assert_eq!(indices_iter.next(), Some(5));
+            assert_eq!(indices_iter.next(), None);
         }
     }
 

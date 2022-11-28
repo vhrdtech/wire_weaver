@@ -1,9 +1,10 @@
 use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
+use std::slice::Iter;
 use smallvec::SmallVec;
 use vhl_stdlib::discrete::{U3, U4, U6};
-use vhl_stdlib::serdes::vlu4::Vlu4VecIter;
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::BitBufMut;
 
 pub const URI_STACK_SEGMENTS: usize = 6;
@@ -26,16 +27,17 @@ impl UriOwned {
         }
     }
 
+    pub fn push(&mut self, segment: u32) {
+        self.segments.push(segment);
+    }
+
     pub fn parse<S: AsRef<str>>(_uri: S) -> Self {
         // TODO: Proper serial uri parser
         todo!()
     }
 
-    pub fn iter(&self) -> SerialUriIter {
-        SerialUriIter {
-            segments: self.segments.clone(),
-            pos: 0,
-        }
+    pub fn iter(&self) -> Iter<u32> {
+        self.segments.iter()
     }
 
     /// Determine most optimal xwfd::SerialUri and serialize it's kind into provided buffer.
@@ -107,8 +109,8 @@ impl UriOwned {
     // }
 }
 
-impl<'i> From<xwfd::SerialUri<Vlu4VecIter<'i, u32>>> for UriOwned {
-    fn from(uri: xwfd::SerialUri<Vlu4VecIter<'i, u32>>) -> Self {
+impl<'i> From<xwfd::SerialUri<Vlu4Vec<'i, u32>>> for UriOwned {
+    fn from(uri: xwfd::SerialUri<Vlu4Vec<'i, u32>>) -> Self {
         UriOwned {
             segments: uri.iter().collect(),
         }
@@ -141,23 +143,23 @@ impl Display for UriOwned {
         Ok(())
     }
 }
-
-#[derive(Clone)]
-pub struct SerialUriIter {
-    pub(crate) segments: SmallVec<[u32; URI_STACK_SEGMENTS]>,
-    pos: usize,
-}
-
-impl Iterator for SerialUriIter {
-    type Item = u32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.pos < self.segments.len() {
-            let segment = self.segments[self.pos];
-            self.pos += 1;
-            Some(segment)
-        } else {
-            None
-        }
-    }
-}
+//
+// #[derive(Clone)]
+// pub struct SerialUriIter<'a> {
+//     segments: Iter<'a, u32>,
+//     pos: usize,
+// }
+//
+// impl Iterator for SerialUriIter {
+//     type Item = u32;
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if self.pos < self.segments.len() {
+//             let segment = self.segments[self.pos];
+//             self.pos += 1;
+//             Some(segment)
+//         } else {
+//             None
+//         }
+//     }
+// }

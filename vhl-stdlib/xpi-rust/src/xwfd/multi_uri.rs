@@ -207,7 +207,7 @@ mod test {
 
     #[test]
     fn one_pair_mask_u16() {
-        let buf = [0x13, 0x12, 0x31, 0xab, 0xcd];
+        let buf = [0x13, 0x12, 0x31, 0x80, 0x88];
         let mut rdr = NibbleBuf::new_all(&buf);
         let multi_uri: SerialMultiUri = rdr.des_vlu4().unwrap();
         let mut multi_uri_iter = multi_uri.iter();
@@ -220,7 +220,7 @@ mod test {
         assert_eq!(uri_iter.next(), Some(3));
         assert_eq!(uri_iter.next(), None);
 
-        assert!(matches!(mask, UriMask::ByBitfield16(0xabcd)));
+        assert!(matches!(mask, UriMask::ByBitfield16(0x8088)));
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod test {
         assert_eq!(uri_iter.next(), None);
 
         assert!(matches!(mask, UriMask::ByIndices(_)));
-        if let UriMask::ByIndices(mut indices) = mask {
+        if let UriMask::ByIndices(indices) = mask {
             let mut indices_iter = indices.iter();
             assert_eq!(indices_iter.next(), Some(3));
             assert_eq!(indices_iter.next(), Some(5));

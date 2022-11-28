@@ -110,3 +110,39 @@ impl SerializeVlu4 for Vlu32Suboptimal {
         )
     }
 }
+
+macro_rules! serialize_unsigned {
+    ($ty:ty) => {
+        impl SerializeVlu4 for $ty {
+            type Error = NibbleBufError;
+
+            fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+                nwr.put(&Vlu32(*self as u32))?;
+                Ok(())
+            }
+
+            fn len_nibbles(&self) -> SerDesSize {
+                Vlu32(*self as u32).len_nibbles()
+            }
+        }
+    };
+}
+serialize_unsigned!(u8);
+serialize_unsigned!(u16);
+serialize_unsigned!(u32);
+
+macro_rules! deserialize_unsigned {
+    ($ty:ty, $method:ident) => {
+        impl<'i> DeserializeVlu4<'i> for $ty {
+            type Error = NibbleBufError;
+
+            fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+                let num: Vlu32 = nrd.des_vlu4()?;
+                Ok(num.0 as $ty)
+            }
+        }
+    };
+}
+// deserialize_unsigned!(u8, get_u8);
+// deserialize_unsigned!(u16, get_u16_be);
+deserialize_unsigned!(u32, get_u32_be);

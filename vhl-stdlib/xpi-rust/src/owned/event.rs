@@ -136,19 +136,16 @@ mod test {
         Event, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet, SerialUri,
     };
     use vhl_stdlib::discrete::U4;
-    use vhl_stdlib::serdes::vlu4::Vlu32;
-    use vhl_stdlib::serdes::NibbleBufMut;
+    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 
     #[test]
     fn ser_xwfd_request() {
         let ev = Event {
             source: NodeId(42),
             destination: NodeSet::Unicast(NodeId(85)),
-            resource_set: ResourceSet::Uri(SerialUri {
-                segments: vec![Vlu32(3), Vlu32(12)],
-            }),
+            resource_set: ResourceSet::Uri(SerialUri::new(&[3, 12])),
             kind: EventKind::Call {
-                args_set: vec![vec![0xaa, 0xbb]],
+                args_set: vec![NibbleBuf::new_all(&[0xaa, 0xbb]).to_nibble_buf_owned()],
             },
             priority: Priority::Lossless(0),
             request_id: RequestId(27),

@@ -468,13 +468,14 @@ impl<'i> Parse<'i> for XpiBlockKeyValueParse {
 
 #[cfg(test)]
 mod test {
-    use super::DefXpiBlock;
+    use crate::ast::def_xpi_block::XpiDefParse;
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
 
     #[test]
     fn impl_interface() {
-        let xpi: DefXpiBlock = parse_str("/main{ impl log::#/full; }", Rule::xpi_block);
-        assert_eq!(xpi.body.implements.len(), 1);
+        let xpi: XpiDefParse = parse_str("rs main{ impl log::full; }", Rule::xpi_block);
+        let xpi = xpi.0;
+        assert_eq!(xpi.implements.len(), 1);
     }
 }

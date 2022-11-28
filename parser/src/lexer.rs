@@ -80,11 +80,11 @@ mod test {
         let span2 = "|||||";
         let expected1 = [Rule::expression];
         let expected2 = [
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
         ];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
@@ -139,7 +139,7 @@ mod test {
         let span4 = "    |  | ";
         let expected1 = [Rule::expression];
         let expected2 = [Rule::call_expr];
-        let expected3 = [Rule::identifier, Rule::call_arguments];
+        let expected3 = [Rule::path, Rule::call_arguments];
         let expected4 = [Rule::expression, Rule::expression];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
@@ -156,9 +156,9 @@ mod test {
         let span3 = "        ^-^^------^";
         let expected1 = [Rule::expression];
         let expected2 = [
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
             Rule::call_expr,
         ];
@@ -185,11 +185,11 @@ mod test {
         let expected3 = [
             Rule::lit,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
-            Rule::identifier,
+            Rule::path,
             Rule::op_binary,
             Rule::call_expr,
         ];
@@ -207,7 +207,7 @@ mod test {
         let expected1 = [Rule::expression];
         let expected1b = [Rule::call_expr];
         let expected2 = [
-            Rule::identifier,
+            Rule::path,
             Rule::call_arguments,
             Rule::index_arguments,
         ];
@@ -225,7 +225,7 @@ mod test {
         let expected1 = [Rule::expression];
         let expected1b = [Rule::call_expr];
         let expected2 = [
-            Rule::identifier,
+            Rule::path,
             Rule::index_arguments,
             Rule::call_arguments,
         ];
@@ -242,50 +242,50 @@ mod test {
         let span2 = "^----^^----^";
         let expected1 = [Rule::expression];
         let expected1b = [Rule::index_into_expr];
-        let expected2 = [Rule::identifier, Rule::index_arguments];
+        let expected2 = [Rule::path, Rule::index_arguments];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span1, expected1b));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
     }
 
-    #[test]
-    fn resource_path_index() {
-        let input = "#/sensors/acc/raw[0]";
-        let span1 = "^------------------^";
-        let span2 = "||^-----^|^-^|^----^";
-        let expected1 = [Rule::expression];
-        let expected2 = [
-            Rule::resource_path_start,
-            Rule::op_binary,
-            Rule::identifier,
-            Rule::op_binary,
-            Rule::identifier,
-            Rule::op_binary,
-            Rule::index_into_expr,
-        ];
-        let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        assert!(verify(parsed.clone(), vec![], span1, expected1));
-        assert!(verify(parsed.clone(), vec![0], span2, expected2));
-    }
+    // #[test]
+    // fn resource_path_index() {
+    //     let input = "#/sensors/acc/raw[0]";
+    //     let span1 = "^------------------^";
+    //     let span2 = "||^-----^|^-^|^----^";
+    //     let expected1 = [Rule::expression];
+    //     let expected2 = [
+    //         Rule::resource_path_start,
+    //         Rule::op_binary,
+    //         Rule::identifier,
+    //         Rule::op_binary,
+    //         Rule::identifier,
+    //         Rule::op_binary,
+    //         Rule::index_into_expr,
+    //     ];
+    //     let parsed = Lexer::parse(Rule::expression, input).unwrap();
+    //     assert!(verify(parsed.clone(), vec![], span1, expected1));
+    //     assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    // }
 
-    #[test]
-    fn resource_path_relative() {
-        let input = "#./#../xyz"; // TODO: add lint to discourage paths like that
-        let span1 = "^--------^";
-        let span2 = "^^|^-^|^-^";
-        let expected1 = [Rule::expression];
-        let expected2 = [
-            Rule::resource_path_start,
-            Rule::op_binary,
-            Rule::resource_path_start,
-            Rule::op_binary,
-            Rule::identifier,
-        ];
-        let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        assert!(verify(parsed.clone(), vec![], span1, expected1));
-        assert!(verify(parsed.clone(), vec![0], span2, expected2));
-    }
+    // #[test]
+    // fn resource_path_relative() {
+    //     let input = "#./#../xyz"; // TODO: add lint to discourage paths like that
+    //     let span1 = "^--------^";
+    //     let span2 = "^^|^-^|^-^";
+    //     let expected1 = [Rule::expression];
+    //     let expected2 = [
+    //         Rule::resource_path_start,
+    //         Rule::op_binary,
+    //         Rule::resource_path_start,
+    //         Rule::op_binary,
+    //         Rule::identifier,
+    //     ];
+    //     let parsed = Lexer::parse(Rule::expression, input).unwrap();
+    //     assert!(verify(parsed.clone(), vec![], span1, expected1));
+    //     assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    // }
 
     #[test]
     fn tuple_of_expressions() {
@@ -312,17 +312,17 @@ mod test {
         assert!(verify(parsed.clone(), vec![0], spans, expected2));
     }
 
-    #[test]
-    fn discrete_unsigned_expr() {
-        let input = "u<4+4>";
-        let span1 = "^----^";
-        let span2 = " ^---^";
-        let expected1 = [Rule::discrete_unsigned_ty];
-        let expected2 = [Rule::generics];
-        let parsed = Lexer::parse(Rule::discrete_unsigned_ty, input).unwrap();
-        assert!(verify(parsed.clone(), vec![], span1, expected1));
-        assert!(verify(parsed.clone(), vec![0], span2, expected2));
-    }
+    // #[test]
+    // fn discrete_unsigned_expr() {
+    //     let input = "u<4+4>";
+    //     let span1 = "^----^";
+    //     let span2 = " ^---^";
+    //     let expected1 = [Rule::discrete_unsigned_ty];
+    //     let expected2 = [Rule::generics];
+    //     let parsed = Lexer::parse(Rule::discrete_unsigned_ty, input).unwrap();
+    //     assert!(verify(parsed.clone(), vec![], span1, expected1));
+    //     assert!(verify(parsed.clone(), vec![0], span2, expected2));
+    // }
 
     #[test]
     fn fixed_ty_directly() {
@@ -333,18 +333,18 @@ mod test {
         assert!(verify(parsed, vec![], spans, expected));
     }
 
-    #[test]
-    fn fixed_ty_expr_directly() {
-        let input = "uq<3, 12>";
-        let spans = "^-------^";
-        let expected = [Rule::fixed_unsigned_ty];
-        let parsed = Lexer::parse(Rule::fixed_unsigned_ty, input).unwrap();
-        assert!(verify(parsed, vec![], spans, expected));
-    }
+    // #[test]
+    // fn fixed_ty_expr_directly() {
+    //     let input = "uq<3, 12>";
+    //     let spans = "^-------^";
+    //     let expected = [Rule::fixed_unsigned_ty];
+    //     let parsed = Lexer::parse(Rule::fixed_unsigned_ty, input).unwrap();
+    //     assert!(verify(parsed, vec![], spans, expected));
+    // }
 
     #[test]
     fn xpi_group() {
-        let input = "/group {}";
+        let input = "rs group {}";
         let spans = " ^---^ ^^";
         let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
@@ -353,7 +353,7 @@ mod test {
 
     #[test]
     fn xpi_resource_with_unit() {
-        let input = "/speed<f32 `m/s`> {}";
+        let input = "rs speed<f32 `m/s`> {}";
         let span1 = " ^---^^---------^ ^^";
         let span2 = "       ^-------^    ";
         let span3 = "            ^-^     ";
@@ -368,7 +368,7 @@ mod test {
 
     #[test]
     fn xpi_const_property_resource() {
-        let input = "/channel_count<const indexof<#./channel>> {}";
+        let input = "rs channel_count<const indexof<#./channel>> {}";
         let span1 = "^------------------------------------------^";
         let span2 = " ^-----------^^-------------------------^ ^^";
         let span3 = "               ^----^^-----------------^    ";
@@ -383,7 +383,7 @@ mod test {
 
     #[test]
     fn xpi_array_property_resource() {
-        let input = "/channels<[indexof<#../channel>; 3..=4]> {}";
+        let input = "rs channels<[indexof<#../channel>; 3..=4]> {}";
         let span1 = "^-----------------------------------------^";
         let span2 = " ^------^^-----------------------------^ ^^";
         let span3 = "          ^---------------------------^    ";
@@ -398,7 +398,7 @@ mod test {
 
     #[test]
     fn xpi_method_resource() {
-        let input = "/query<fn()> {}";
+        let input = "rs query<fn()> {}";
         let span1 = "^-------------^";
         let span2 = "       ^--^    ";
         let expected1 = [Rule::xpi_block];
@@ -410,7 +410,7 @@ mod test {
 
     #[test]
     fn xpi_name_interpolation() {
-        let input = "/velocity_`'x'..'z'` {}";
+        let input = "rs velocity_`'x'..'z'` {}";
         let span1 = " ^-----------------^ ^^";
         let span2 = " ^-------^^--------^   ";
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_body];
@@ -423,7 +423,7 @@ mod test {
 
     #[test]
     fn xpi_grouping_nested() {
-        let input = "/group { /nested{} }";
+        let input = "rs group { /nested{} }";
         let spans = " ^---^ ^-----------^";
         let expected = [Rule::xpi_uri_segment, Rule::xpi_body];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
@@ -432,7 +432,7 @@ mod test {
 
     #[test]
     fn xpi_fields() {
-        let input = "/group { field: 123; field: 1; }";
+        let input = "rs group { field: 123; field: 1; }";
         let span1 = " ^---^ ^-----------------------^";
         let span2 = "         ^---------^ ^-------^  ";
         let span3 = "         ^---^  ^-^         I   ";
@@ -449,7 +449,7 @@ mod test {
 
     #[test]
     fn xpi_field_and_group() {
-        let input = "/group { field: 1; /inner{} }";
+        let input = "rs group { field: 1; /inner{} }";
         let spans = "         ^-------^ ^------^  ";
         let expected = [Rule::xpi_field, Rule::xpi_block];
         let parsed = Lexer::parse(Rule::xpi_block, input).unwrap();
@@ -458,7 +458,7 @@ mod test {
 
     #[test]
     fn xpi_resource_type_and_serial() {
-        let input = "/resource<u8, #0> {}";
+        let input = "rs resource<u8, #0> {}";
         let span1 = " ^------^^------^ ^^";
         let span2 = "          ^^  ^^    ";
         let expected1 = [Rule::xpi_uri_segment, Rule::xpi_resource_ty, Rule::xpi_body];
@@ -502,28 +502,28 @@ mod test {
         let input = "Cell<_>";
         let span1 = "^--^^-^";
         let span2 = "     | ";
-        let expected1 = [Rule::identifier, Rule::generics];
+        let expected1 = [Rule::path, Rule::generics];
         let expected2 = [Rule::ty];
-        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
+        let parsed = Lexer::parse(Rule::ty, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed, vec![0, 1], span2, expected2));
     }
 
-    #[test]
-    fn type_parameter_xpi_path() {
-        let input = "Cell<#../channel>";
-        let spans = "^--^^-----------^";
-        let expected = [Rule::identifier, Rule::generics];
-        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
-        assert!(verify(parsed, vec![0], spans, expected));
-    }
+    // #[test]
+    // fn type_parameter_xpi_path() {
+    //     let input = "Cell<#../channel>";
+    //     let spans = "^--^^-----------^";
+    //     let expected = [Rule::identifier, Rule::generics];
+    //     let parsed = Lexer::parse(Rule::ty, input).unwrap();
+    //     assert!(verify(parsed, vec![0], spans, expected));
+    // }
 
     #[test]
     fn type_parameters() {
         let input = "alias<u16, _>";
         let spans = "^---^^------^";
-        let expected = [Rule::identifier, Rule::generics];
-        let parsed = Lexer::parse(Rule::generic_ty, input).unwrap();
+        let expected = [Rule::path, Rule::generics];
+        let parsed = Lexer::parse(Rule::ty, input).unwrap();
         assert!(verify(parsed, vec![0], spans, expected));
     }
 
@@ -632,7 +632,7 @@ mod test {
 
     #[test]
     fn si_unit_of() {
-        let input = "unit_of(#./position) / s";
+        let input = "unit_of(position) / s";
         let span1 = "^----------------------^";
         let span2 = "^-----^^-----------^ | |";
         let expected1 = [Rule::si_expr];
@@ -667,7 +667,7 @@ mod test {
         let span3 = "              ^------------------^ ";
         let expected1 = [Rule::type_alias_def];
         let expected2 = [Rule::identifier, Rule::ty];
-        let expected3 = [Rule::generic_ty];
+        let expected3 = [Rule::ty];
         let parsed = Lexer::parse(Rule::definition, input).unwrap();
         assert!(verify(parsed.clone(), vec![0], span1, expected1));
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
@@ -686,12 +686,12 @@ mod test {
         assert!(verify(parsed.clone(), vec![0, 0], span2, expected2));
     }
 
-    #[test]
-    fn path_to_xpi_block() {
-        let input = "log::#/full";
-        let span1 = "^---------^";
-        let expected1 = [Rule::expression];
-        let parsed = Lexer::parse(Rule::expression, input).unwrap();
-        assert!(verify(parsed.clone(), vec![], span1, expected1));
-    }
+    // #[test]
+    // fn path_to_xpi_block() {
+    //     let input = "log::#/full";
+    //     let span1 = "^---------^";
+    //     let expected1 = [Rule::expression];
+    //     let parsed = Lexer::parse(Rule::expression, input).unwrap();
+    //     assert!(verify(parsed.clone(), vec![], span1, expected1));
+    // }
 }

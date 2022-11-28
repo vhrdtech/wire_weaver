@@ -35,13 +35,14 @@ pub(crate) mod test {
     use crate::lexer::{Lexer, Rule};
     use crate::parse::{Parse, ParseInput};
     use crate::pest::Parser;
+    use crate::span::ast_span_from_pest;
 
     pub(crate) fn parse_str<'i, T: Parse<'i>>(input: &'i str, as_rule: Rule) -> T {
         let pairs = Lexer::parse(as_rule, input).unwrap();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
         let pair_peek = pairs.peek().unwrap();
-        let mut input = ParseInput::new(pairs, pair_peek.as_span(), &mut warnings, &mut errors);
+        let mut input = ParseInput::new(pairs, ast_span_from_pest(pair_peek.as_span()), &mut warnings, &mut errors);
         let result: T = input.parse().unwrap();
         assert!(warnings.is_empty());
         assert!(errors.is_empty());

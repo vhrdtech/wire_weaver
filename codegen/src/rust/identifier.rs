@@ -23,14 +23,12 @@ mod test {
     use super::*;
     use ast::{IdentifierContext, Span};
     use mquote::mquote;
-    use parser::span::Span;
-    use vhl::ast::identifier::IdentifierContext;
 
     #[test]
     fn identifier() {
-        let ast_ident = vhl::ast::identifier::Identifier {
+        let ast_ident = Identifier {
             symbols: Rc::new("value".to_string()),
-            context: IdentifierContext::UserTyName,
+            context: IdentifierContext::VariableRefName,
             span: Span::call_site(),
         };
         let cg_ident = CGIdentifier { inner: &ast_ident };
@@ -41,9 +39,9 @@ mod test {
 
     #[test]
     fn identifier_via_mquote() {
-        let ast_ident = vhl::ast::identifier::Identifier {
+        let ast_ident = Identifier {
             symbols: Rc::new("value".to_string()),
-            context: IdentifierContext::UserTyName,
+            context: IdentifierContext::VariableRefName,
             span: Span::call_site(),
         };
         let cg_ident = CGIdentifier { inner: &ast_ident };

@@ -2,7 +2,7 @@ use core::ops::Add;
 
 /// Size of a type serialized into buffer of any kind,
 /// in buffer elements (bits / nibbles / bytes / etc).
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SerDesSize {
     /// Size is known, no alignment requirements
     Sized(usize),

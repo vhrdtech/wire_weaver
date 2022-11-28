@@ -224,6 +224,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
 #[cfg(test)]
 mod test {
     use super::ExprParse;
+    use ast::{Expr, ops::{UnaryOp, BinaryOp}};
     use crate::ast::ops::{BinaryOpParse, UnaryOpParse};
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
@@ -231,37 +232,41 @@ mod test {
     #[test]
     fn single_lit() {
         let expr: ExprParse = parse_str("7", Rule::expression);
-        assert!(matches!(expr, ExprParse::Lit(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::Lit(_)));
     }
 
     #[test]
     fn not_false() {
         let expr: ExprParse = parse_str("!false", Rule::expression);
-        assert!(matches!(expr, ExprParse::ConsU(UnaryOpParse::Not, _)));
-        if let ExprParse::ConsU(_, cons) = expr {
-            assert!(matches!(cons.as_ref(), ExprParse::Lit(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::ConsU(UnaryOp::Not, _)));
+        if let Expr::ConsU(_, cons) = expr {
+            assert!(matches!(cons.as_ref(), Expr::Lit(_)));
         }
     }
 
     #[test]
     fn one_plus_two() {
         let expr: ExprParse = parse_str("1+2", Rule::expression);
-        assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Plus, _)));
-        if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(cons.as_ref().0, ExprParse::Lit(_)));
-            assert!(matches!(cons.as_ref().1, ExprParse::Lit(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Plus, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Lit(_)));
         }
     }
 
     #[test]
     fn expr_in_paren() {
         let expr: ExprParse = parse_str("1 * (2 + 3)", Rule::expression);
-        assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Mul, _)));
-        if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(cons.as_ref().0, ExprParse::Lit(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Mul, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
             assert!(matches!(
                 cons.as_ref().1,
-                ExprParse::ConsB(BinaryOpParse::Plus, _)
+                Expr::ConsB(BinaryOp::Plus, _)
             ));
         }
     }
@@ -269,62 +274,66 @@ mod test {
     #[test]
     fn call_fn() {
         let expr: ExprParse = parse_str("fun(1, 2)", Rule::expression);
-        assert!(matches!(expr, ExprParse::Call(_, _)));
-        if let ExprParse::Call(id, args) = expr {
-            assert_eq!(id.name, "fun");
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::Call {..}));
+        if let Expr::Call { method, args } = expr {
+            assert_eq!(method.as_string(), "fun");
             assert_eq!(args.0.len(), 2);
-            assert!(matches!(args.0[0], ExprParse::Lit(_)));
-            assert!(matches!(args.0[1], ExprParse::Lit(_)));
+            assert!(matches!(args.0[0], Expr::Lit(_)));
+            assert!(matches!(args.0[1], Expr::Lit(_)));
         }
     }
 
     #[test]
     fn index_array() {
         let expr: ExprParse = parse_str("arr[0, 5]", Rule::expression);
-        assert!(matches!(expr, ExprParse::IndexInto(_, _)));
-        if let ExprParse::Call(id, args) = expr {
-            assert_eq!(id.name, "arr");
-            assert_eq!(args.0.len(), 2);
-            assert!(matches!(args.0[0], ExprParse::Lit(_)));
-            assert!(matches!(args.0[1], ExprParse::Lit(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::Index {..}));
+        if let Expr::Index { object, by } = expr {
+            assert_eq!(object.as_string(), "arr");
+            assert_eq!(by.0.len(), 2);
+            assert!(matches!(by.0[0], Expr::Lit(_)));
+            assert!(matches!(by.0[1], Expr::Lit(_)));
         }
     }
 
-    #[test]
-    fn path_to_xpi_block() {
-        let expr: ExprParse = parse_str("crate::log::#/full", Rule::expression);
-        assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Path, _)));
-        if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(
-                cons.as_ref().0,
-                ExprParse::ConsB(BinaryOpParse::Path, _)
-            ));
-            if let ExprParse::ConsB(_, cons) = &cons.as_ref().0 {
-                assert!(matches!(cons.as_ref().0, ExprParse::Id(_)));
-                assert!(matches!(cons.as_ref().1, ExprParse::Id(_)));
-            }
-        }
-    }
+    // #[test]
+    // fn path_to_xpi_block() {
+    //     let expr: ExprParse = parse_str("crate::log::#/full", Rule::expression);
+    //     let expr = expr.0;
+    //     assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+    //     if let Expr::ConsB(_, cons) = expr {
+    //         assert!(matches!(
+    //             cons.as_ref().0,
+    //             Expr::ConsB(BinaryOp::Path, _)
+    //         ));
+    //         if let Expr::ConsB(_, cons) = &cons.as_ref().0 {
+    //             assert!(matches!(cons.as_ref().0, Expr::Id(_)));
+    //             assert!(matches!(cons.as_ref().1, Expr::Id(_)));
+    //         }
+    //     }
+    // }
 
     #[test]
     fn associated_const_of_ty() {
         let expr: ExprParse = parse_str("u32::MAX", Rule::expression);
         let expr = expr.0;
         println!("{:?}", expr);
-        assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Path, _)));
-        if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(cons.as_ref().0, ExprParse::Ty(_)));
-            assert!(matches!(cons.as_ref().1, ExprParse::Id(_)));
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Ty(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Ref(_)));
         }
     }
 
     #[test]
     fn associated_const_of_generic_ty() {
         let expr: ExprParse = parse_str("Ty<1,2>::MAX", Rule::expression);
-        assert!(matches!(expr, ExprParse::ConsB(BinaryOpParse::Path, _)));
-        if let ExprParse::ConsB(_, cons) = expr {
-            assert!(matches!(cons.as_ref().0, ExprParse::Ty(_)));
-            assert!(matches!(cons.as_ref().1, ExprParse::Id(_)));
+        let expr = expr.0;
+        assert!(matches!(expr, Expr::ConsB(BinaryOp::Path, _)));
+        if let Expr::ConsB(_, cons) = expr {
+            assert!(matches!(cons.as_ref().0, Expr::Ty(_)));
+            assert!(matches!(cons.as_ref().1, Expr::Ref(_)));
         }
     }
 

@@ -238,11 +238,11 @@ mod test {
         assert_eq!(uri_iter.next(), None);
 
         assert!(matches!(mask, UriMask::ByIndices(_)));
-        if let UriMask::ByIndices(indices) = mask {
-            let mut indices_iter = indices.iter();
-            assert_eq!(indices_iter.next(), Some(Vlu32(3)));
-            assert_eq!(indices_iter.next(), Some(Vlu32(5)));
-            assert_eq!(indices_iter.next(), None);
+        if let UriMask::ByIndices(mut indices) = mask {
+            // let mut indices_iter = indices.iter();
+            assert_eq!(indices.next(), Some(Vlu32(3)));
+            assert_eq!(indices.next(), Some(Vlu32(5)));
+            assert_eq!(indices.next(), None);
         }
     }
 

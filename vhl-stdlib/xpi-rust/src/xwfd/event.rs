@@ -208,28 +208,28 @@ mod test {
     use crate::event_kind::XpiEventDiscriminant;
     pub use crate::xwfd::{
         Event, EventBuilder, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet,
-        SerialUri, XwfdError,
+        SerialUri
     };
     use hex_literal::hex;
     use vhl_stdlib::discrete::{U2, U4};
-    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
+    use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4};
 
     #[test]
     fn des_is_xwdf_or_bigger_false() {
         let buf = hex!("02 55 10 90 04 50");
         let mut nrd = NibbleBuf::new_all(&buf);
-        let r: Result<Event, XwfdError> = nrd.des_vlu4();
+        let r: Result<Event, XpiError> = nrd.des_vlu4();
 
-        matches!(r, Err(XwfdError::WrongFormat));
+        matches!(r, Err(XpiError::WrongFormat));
     }
 
     #[test]
     fn des_is_xwdf_info_other_format() {
         let buf = hex!("02 d5 10 90 84 50");
         let mut nrd = NibbleBuf::new_all(&buf);
-        let r: Result<Event, XwfdError> = nrd.des_vlu4();
+        let r: Result<Event, XpiError> = nrd.des_vlu4();
 
-        matches!(r, Err(XwfdError::WrongFormat));
+        matches!(r, Err(XpiError::WrongFormat));
     }
 
     #[test]
@@ -269,10 +269,10 @@ mod test {
         assert!(matches!(event.kind, EventKind::Call { .. }));
         if let EventKind::Call { args_set: args } = event.kind {
             assert_eq!(args.len(), 1);
-            let slice = args.iter().next().unwrap();
-            assert_eq!(slice.len(), 2);
-            assert_eq!(slice[0], 0xaa);
-            assert_eq!(slice[1], 0xbb);
+            let mut slice = args.iter().next().unwrap();
+            assert_eq!(slice.len_nibbles(), SerDesSize::Sized(2));
+            assert_eq!(slice.get_nibble().unwrap(), 0xaa);
+            assert_eq!(slice.get_nibble().unwrap(), 0xbb);
         }
         assert!(nrd.is_at_end());
     }
@@ -280,20 +280,27 @@ mod test {
     #[test]
     fn call_request_ser() {
         let mut buf = [0u8; 32];
-        let request_builder = EventBuilder::new(
+        let event_builder = EventBuilder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(42).unwrap(),
-            NodeSet::Unicast(NodeId::new(85).unwrap()),
-            ResourceSet::Uri(SerialUri::TwoPart44(
-                U4::new(3).unwrap(),
-                U4::new(12).unwrap(),
-            )),
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
-        )
-            .unwrap();
-        let nwr = request_builder
+        ).unwrap();
+        let node_set = NodeSet::Unicast(NodeId::new(85).unwrap());
+        let resource_set = ResourceSet::Uri(SerialUri::TwoPart44(
+            U4::new(3).unwrap(),
+            U4::new(12).unwrap(),
+        ));
+        let event_builder_resource_set_state = event_builder.build_node_set_with(|mut nwr| {
+            nwr.put(&node_set).unwrap();
+            Ok((node_set.ser_header(), nwr))
+        }).unwrap();
+        let event_builder_kind_state = event_builder_resource_set_state.build_resource_set_with(|mut nwr| {
+            nwr.put(&resource_set).unwrap();
+            Ok((resource_set.ser_header(), nwr))
+        }).unwrap();
+        let nwr = event_builder_kind_state
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<&[u8]>();
 
@@ -324,20 +331,27 @@ mod test {
     #[test]
     fn call_reply_ser() {
         let mut buf = [0u8; 32];
-        let reply_builder = EventBuilder::new(
+        let event_builder = EventBuilder::new(
             NibbleBufMut::new_all(&mut buf),
             NodeId::new(85).unwrap(),
-            NodeSet::Unicast(NodeId::new(33).unwrap()),
-            ResourceSet::Uri(SerialUri::TwoPart44(
-                U4::new(4).unwrap(),
-                U4::new(5).unwrap(),
-            )),
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
-        )
-            .unwrap();
-        let nwr = reply_builder
+        ).unwrap();
+        let node_set = NodeSet::Unicast(NodeId::new(33).unwrap());
+        let resource_set = ResourceSet::Uri(SerialUri::TwoPart44(
+            U4::new(4).unwrap(),
+            U4::new(5).unwrap(),
+        ));
+        let event_builder_resource_set_state = event_builder.build_node_set_with(|mut nwr| {
+            nwr.put(&node_set).unwrap();
+            Ok((node_set.ser_header(), nwr))
+        }).unwrap();
+        let event_builder_kind_state = event_builder_resource_set_state.build_resource_set_with(|mut nwr| {
+            nwr.put(&resource_set).unwrap();
+            Ok((resource_set.ser_header(), nwr))
+        }).unwrap();
+        let nwr = event_builder_kind_state
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<Result<&[u8], XpiError>>();
                 vb.put(&Ok(&[0xaa, 0xbb][..]))?;
@@ -378,8 +392,8 @@ mod test {
         }
         if let EventKind::CallResults(result) = event.kind {
             let mut result_iter = result.iter();
-            assert_eq!(result_iter.next(), Some(Ok(&[0xaa, 0xbb][..])));
-            assert_eq!(result_iter.next(), Some(Ok(&[0xcc, 0xdd][..])));
+            assert_eq!(result_iter.next(), Some(Ok(NibbleBuf::new_all(&[0xaa, 0xbb][..]))));
+            assert_eq!(result_iter.next(), Some(Ok(NibbleBuf::new_all(&[0xcc, 0xdd][..]))));
             assert_eq!(result_iter.next(), None);
         } else {
             panic!("Expected EventKind::CallResults(_)");

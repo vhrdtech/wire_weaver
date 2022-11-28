@@ -195,17 +195,16 @@ impl<'ast> Depends for StructDes<'ast> {
 
 #[cfg(test)]
 mod test {
+    use ast::{Definition, Identifier, SourceOrigin, SpanOrigin};
     use mquote::mquote;
-    use parser::span::{SourceOrigin, SpanOrigin};
-    use vhl::ast::file::Definition;
+    use parser::ast::file::FileParse;
 
     #[test]
     fn struct_ser_buf() {
         let vhl_input = "struct Point { x: u16, y: u16 }";
         let origin = SpanOrigin::Parser(SourceOrigin::Str);
-        let ast_parser = parser::ast::file::File::parse(vhl_input, origin).unwrap();
-        let ast_core = vhl::ast::file::File::from_parser_ast(ast_parser);
-        match &ast_core.items[0] {
+        let ast = FileParse::parse(vhl_input, origin).unwrap();
+        match &ast.ast_file.defs[&Identifier::new("Point")] {
             Definition::Struct(struct_def) => {
                 let cg_struct_def = super::CGStructDef::new(struct_def);
                 let cg_struct_serdes = super::StructSer {
@@ -239,9 +238,8 @@ mod test {
     fn struct_des_buf() {
         let vhl_input = "struct Point { x: u16, y: u16 }";
         let origin = SpanOrigin::Parser(SourceOrigin::Str);
-        let ast_parser = parser::ast::file::File::parse(vhl_input, origin).unwrap();
-        let ast_core = vhl::ast::file::File::from_parser_ast(ast_parser);
-        match &ast_core.items[0] {
+        let ast = FileParse::parse(vhl_input, origin).unwrap();
+        match &ast.ast_file.defs[&Identifier::new("Point")] {
             Definition::Struct(struct_def) => {
                 let cg_struct_def = super::CGStructDef::new(struct_def);
                 let cg_struct_serdes = super::StructDes {

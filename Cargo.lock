@@ -152,6 +152,7 @@ dependencies = [
  "itertools",
  "mquote",
  "mtoken",
+ "parser",
  "semver",
  "thiserror",
  "vhl-core",

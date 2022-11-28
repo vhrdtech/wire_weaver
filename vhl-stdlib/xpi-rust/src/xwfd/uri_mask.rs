@@ -237,23 +237,23 @@ mod test {
 
     #[test]
     fn test_mask_u8() {
-        let mask = UriMask::ByBitfield8(0b1010_0001);
+        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByBitfield8(0b1010_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
-        assert_eq!(mask_iter.next(), Some(0));
-        assert_eq!(mask_iter.next(), Some(2));
-        assert_eq!(mask_iter.next(), Some(7));
+        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(2)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(7)));
         assert_eq!(mask_iter.next(), None);
     }
 
     #[test]
     fn test_mask_u32() {
-        let mask = UriMask::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
+        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByBitfield32(0b1000_0000_0000_1000_0000_0000_0000_0001);
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (3, Some(3)));
-        assert_eq!(mask_iter.next(), Some(0));
-        assert_eq!(mask_iter.next(), Some(12));
-        assert_eq!(mask_iter.next(), Some(31));
+        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(12)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(31)));
         assert_eq!(mask_iter.next(), None);
     }
 
@@ -262,23 +262,23 @@ mod test {
         let buf = [0b0010_1111, 0b0111_0001];
         let mut buf = NibbleBuf::new_all(&buf);
         let arr: Vlu4Vec<Vlu32> = buf.des_vlu4().unwrap();
-        let mask = UriMask::ByIndices(arr);
+        let mask = UriMask::<Vlu4VecIter<Vlu32>>::ByIndices(arr.into_iter());
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (2, Some(2)));
-        assert_eq!(mask_iter.next(), Some(63));
-        assert_eq!(mask_iter.next(), Some(1));
+        assert_eq!(mask_iter.next(), Some(Vlu32(63)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(1)));
         assert_eq!(mask_iter.next(), None);
     }
 
     #[test]
     fn test_mask_all() {
-        let mask = UriMask::All(Vlu32(4));
+        let mask = UriMask::<Vlu4VecIter<Vlu32>>::All(Vlu32(4));
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (4, Some(4)));
-        assert_eq!(mask_iter.next(), Some(0));
-        assert_eq!(mask_iter.next(), Some(1));
-        assert_eq!(mask_iter.next(), Some(2));
-        assert_eq!(mask_iter.next(), Some(3));
+        assert_eq!(mask_iter.next(), Some(Vlu32(0)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(1)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(2)));
+        assert_eq!(mask_iter.next(), Some(Vlu32(3)));
         assert_eq!(mask_iter.next(), None);
     }
 }

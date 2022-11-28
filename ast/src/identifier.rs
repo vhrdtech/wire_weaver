@@ -12,6 +12,16 @@ pub struct Identifier {
     pub span: Span,
 }
 
+impl Identifier {
+    pub fn new<S: AsRef<str>>(s: S) -> Self {
+        Identifier {
+            symbols: Rc::new(s.as_ref().to_owned()),
+            context: IdentifierContext::VariableRefName,
+            span: Span::call_site(),
+        }
+    }
+}
+
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
         self.symbols == other.symbols

@@ -7,6 +7,7 @@ edition = "2021"
 thiserror = "^1.0.33"
 vhl-core = { path = "../vhl-core" }
 ast = { path = "../ast" }
+parser = { path = "../parser" }
 #quote = "1.0"
 #proc-macro2 = "1.0"
 mtoken = { path = "../mtoken" }

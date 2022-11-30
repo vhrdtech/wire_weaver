@@ -280,9 +280,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         }
     }
 
-    pub fn put<'a, E>(&mut self, element: &T) -> Result<(), E>
+    pub fn put<E>(&mut self, element: &T) -> Result<(), E>
         where
-            T: SerializeVlu4<Error=E> + 'a,
+            T: SerializeVlu4<Error=E>,
             E: From<NibbleBufError>,
     {
         self.start_putting_element()?;

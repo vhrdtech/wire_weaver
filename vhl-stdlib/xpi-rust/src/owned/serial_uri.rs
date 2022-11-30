@@ -1,11 +1,9 @@
-use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
 use std::slice::Iter;
 use smallvec::SmallVec;
 use vhl_stdlib::discrete::{U3, U4, U6};
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
-use vhl_stdlib::serdes::BitBufMut;
 
 pub const URI_STACK_SEGMENTS: usize = 6;
 
@@ -41,11 +39,11 @@ impl UriOwned {
     }
 
     /// Determine most optimal xwfd::SerialUri and serialize it's kind into provided buffer.
-    /// Remember this kind to not repeat the process later, when serializing actual data.
+    /// Remember this kind (by constructing xwfd::SerialUri) to not repeat the process later,
+    /// when serializing actual data.
     pub(crate) fn ser_header_xwfd(
         &self,
-        bwr: &mut BitBufMut,
-    ) -> Result<xwfd::SerialUri<smallvec::IntoIter<[u32; URI_STACK_SEGMENTS]>>, ConvertError> {
+    ) -> xwfd::SerialUri<smallvec::IntoIter<[u32; URI_STACK_SEGMENTS]>> {
         let mut iter = self.segments.iter();
         let s03 = (iter.next(), iter.next(), iter.next(), iter.next());
         use xwfd::SerialUri::*;
@@ -95,8 +93,8 @@ impl UriOwned {
             }
             (_, _, _, _) => MultiPart(self.segments.clone().into_iter()),
         };
-        bwr.put_up_to_8(3, uri.discriminant() as u8)?;
-        Ok(uri)
+        // bwr.put_up_to_8(3, uri.discriminant() as u8)?;
+        uri
     }
     //
     // pub(crate) fn ser_body_xwfd(

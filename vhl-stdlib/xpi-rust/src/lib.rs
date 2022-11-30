@@ -17,3 +17,7 @@ pub mod xwfd;
 
 #[cfg(not(feature = "no_std"))]
 pub mod owned;
+
+pub mod reply_size_hint;
+
+pub use reply_size_hint::ReplySizeHint;

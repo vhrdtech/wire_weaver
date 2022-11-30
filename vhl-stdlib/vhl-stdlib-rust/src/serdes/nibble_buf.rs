@@ -481,6 +481,15 @@ impl<'i> NibbleBufMut<'i> {
         }
     }
 
+    pub fn to_nibble_buf(self) -> NibbleBuf<'i> {
+        NibbleBuf {
+            buf: self.buf,
+            len_nibbles: self.idx,
+            idx: 0,
+            is_at_byte_boundary: true,
+        }
+    }
+
     /// Convert to BitBufMut and call f closure with it.
     /// Closure must leave BitBufMut at 4 bit boundary, otherwise UnalignedAccess error is returned.
     /// If closure fails, it's error is returned. Since there are 2 kind of errors being used,

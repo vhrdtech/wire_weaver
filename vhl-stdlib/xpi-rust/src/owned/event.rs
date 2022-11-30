@@ -70,6 +70,7 @@ impl Event {
         let kind = self.kind.discriminant() as u8;
         let kind54 = kind >> 4;
         let kind30 = kind & 0xF;
+
         nwr.as_bit_buf::<_, ConvertError>(|bwr| {
             bwr.put_up_to_8(3, 0b000)?; // unused 31:29
             let priority: xwfd::Priority = self.priority.try_into()?;
@@ -79,10 +80,15 @@ impl Event {
             let node_id: xwfd::NodeId = self.source.try_into()?;
             bwr.put(&node_id)?; // bits 22:16
             self.destination.ser_header_xwfd(bwr)?; // bits 15:7 - destination node or node set
-            resource_set = Some(self.resource_set.ser_header_xwfd(bwr)?);
+
+            let rsc = self.resource_set.ser_header_xwfd()?;
+            bwr.put(&rsc.discriminant())?;
+            resource_set = Some(rsc);
+
             bwr.put_up_to_8(4, kind30)?;
             Ok(())
         })?;
+
         nwr.put(&XwfdInfo::FormatIsXwfd)?;
         nwr.put_nibble(self.ttl.inner())?;
         self.destination.ser_body_xwfd(nwr)?;

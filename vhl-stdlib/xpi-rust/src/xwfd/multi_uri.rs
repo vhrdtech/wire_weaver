@@ -97,6 +97,7 @@ pub enum MultiUriFlatIter<'i> {
 }
 
 impl<'i> Iterator for MultiUriFlatIter<'i> {
+    // must yield iterators, otherwise allocator would be needed
     type Item = SerialUriIter<Vlu4VecIter<'i, u32>>;
 
     fn next(&mut self) -> Option<Self::Item> {

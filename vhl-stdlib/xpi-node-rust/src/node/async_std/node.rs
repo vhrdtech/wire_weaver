@@ -151,6 +151,17 @@ impl VhNode {
                     }
                     uptime += 1;
                     heartbeat_request_id += 1;
+
+                    for (node_id, sender) in &nodes {
+                        if sender.is_closed() {
+                            warn!("Node instance with node id {node_id} is down");
+                        }
+                    }
+                    for remote_node in &remote_nodes {
+                        if remote_node.to_event_loop.is_closed() {
+                            warn!("Remote node attachment to {:?} is down", remote_node.reachable);
+                        }
+                    }
                 }
                 complete => {
                     warn!("{}: unexpected complete", self_node_id.0);

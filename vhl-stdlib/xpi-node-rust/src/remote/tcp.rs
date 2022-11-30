@@ -87,7 +87,7 @@ pub async fn tcp_event_loop(
 }
 
 async fn process_incoming_slice(bytes: &[u8], to_event_loop: &mut Sender<Event>) {
-    // trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes);
+    trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes);
     let mut nrd = NibbleBuf::new_all(bytes);
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {

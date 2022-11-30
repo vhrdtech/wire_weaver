@@ -106,6 +106,14 @@ pub struct EventBuilderKindState<'i> {
     resource_set_header: U3,
 }
 
+pub struct EventBuilderKindStateSplitted {
+    source: NodeId,
+    request_id: RequestId,
+    priority: Priority,
+    node_set_header: U9,
+    resource_set_header: U3,
+}
+
 impl<'i> EventBuilder<'i> {
     pub fn new(
         mut nwr: NibbleBufMut<'i>,
@@ -163,6 +171,41 @@ impl<'i> EventBuilderKindState<'i> {
             F: FnMut(NibbleBufMut<'i>) -> Result<(XpiEventDiscriminant, NibbleBufMut<'i>), XpiError>,
     {
         let (kind, mut nwr) = f(self.nwr)?;
+        let kind = kind as u8;
+        let kind54 = kind >> 4;
+        let kind30 = kind & 0xF;
+        nwr.align_to_byte()?;
+        nwr.put(&self.request_id).unwrap();
+        nwr.rewind::<_, XpiError>(0, |nwr| {
+            nwr.as_bit_buf::<_, XpiError>(|bwr| {
+                bwr.put_up_to_8(3, 0b000)?; // unused 31:29
+                bwr.put(&self.priority)?; // bits 28:26
+                bwr.put_up_to_8(2, kind54)?; // bits 25:24 - discriminant of event kind
+                bwr.put_bit(true)?; // bit 23, is_xwfd_or_bigger
+                bwr.put(&self.source)?; // bits 22:16
+                bwr.put_up_to_16(9, self.node_set_header.inner())?; // bits 15:7 - dst node set discriminant + node id if unicast
+                bwr.put_up_to_8(3, self.resource_set_header.inner())?; // bits 6:4 - discriminant of ResourceSet+Uri
+                bwr.put_up_to_8(4, kind30)?; // bits 3:0 - discriminant of event kind
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        Ok(nwr)
+    }
+
+    pub fn split_self(self) -> (NibbleBufMut<'i>, EventBuilderKindStateSplitted) {
+        (self.nwr, EventBuilderKindStateSplitted {
+            source: self.source,
+            request_id: self.request_id,
+            priority: self.priority,
+            node_set_header: self.node_set_header,
+            resource_set_header: self.resource_set_header,
+        })
+    }
+}
+
+impl EventBuilderKindStateSplitted {
+    pub fn finish(self, mut nwr: NibbleBufMut, kind: XpiEventDiscriminant) -> Result<NibbleBufMut, XpiError> {
         let kind = kind as u8;
         let kind54 = kind >> 4;
         let kind30 = kind & 0xF;

@@ -65,11 +65,11 @@ impl UriOwned {
                 }
             }
             (Some(&s0), Some(&s1), Some(&s2), None) => {
-                if s0 <= 63 {
-                    if s1 <= 63 && s2 <= 15 {
-                        ThreePart664(
-                            unsafe { U6::new_unchecked(s0 as u8) },
-                            unsafe { U6::new_unchecked(s1 as u8) },
+                if s0 <= 63 && s1 <= 63 && s2 <= 15 {
+                    if s0 <= 15 && s1 <= 15 && s2 <= 15 {
+                        ThreePart444(
+                            unsafe { U4::new_unchecked(s0 as u8) },
+                            unsafe { U4::new_unchecked(s1 as u8) },
                             unsafe { U4::new_unchecked(s2 as u8) },
                         )
                     } else if s1 <= 7 && s2 <= 7 {
@@ -78,14 +78,12 @@ impl UriOwned {
                             unsafe { U3::new_unchecked(s1 as u8) },
                             unsafe { U3::new_unchecked(s2 as u8) },
                         )
-                    } else if s0 <= 15 && s1 <= 15 && s2 <= 15 {
-                        ThreePart444(
-                            unsafe { U4::new_unchecked(s0 as u8) },
-                            unsafe { U4::new_unchecked(s1 as u8) },
+                    } else {
+                        ThreePart664(
+                            unsafe { U6::new_unchecked(s0 as u8) },
+                            unsafe { U6::new_unchecked(s1 as u8) },
                             unsafe { U4::new_unchecked(s2 as u8) },
                         )
-                    } else {
-                        MultiPart(self.segments.clone().into_iter())
                     }
                 } else {
                     MultiPart(self.segments.clone().into_iter())

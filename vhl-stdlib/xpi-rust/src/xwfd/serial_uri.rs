@@ -94,7 +94,7 @@ impl<'i> DeserializeVlu4<'i> for SerialUri<Vlu4Vec<'i, u32>>
     }
 }
 
-impl<'i> SerializeVlu4 for SerialUri<Vlu4Vec<'i, u32>> {
+impl<'i, I: IntoIterator<Item=u32> + Clone> SerializeVlu4 for SerialUri<I> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -128,9 +128,8 @@ impl<'i> SerializeVlu4 for SerialUri<Vlu4Vec<'i, u32>> {
                 })?;
             }
             SerialUri::MultiPart(arr) => {
-                // let arr_iter = &mut arr.clone();
-                wgr.put(arr)?;
-                // wgr.unfold_as_vec(|| arr_iter.next())?;
+                let mut arr_iter = arr.clone().into_iter();
+                wgr.unfold_as_vec(|| arr_iter.next())?;
             }
         }
         Ok(())

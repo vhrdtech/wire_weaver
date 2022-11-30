@@ -40,8 +40,7 @@ impl ResourceSetConvertXwfd {
     pub fn ser_body_xwfd(&self, nwr: &mut NibbleBufMut) -> Result<(), ConvertError> {
         match self {
             ResourceSetConvertXwfd::Uri(uri) => {
-                let mut uri_iter = uri.iter();
-                nwr.unfold_as_vec(|| uri_iter.next())?;
+                nwr.put(uri)?;
             },
             ResourceSetConvertXwfd::MultiUri(_) => unimplemented!(),
         }

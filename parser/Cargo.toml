@@ -12,6 +12,3 @@ ast = { path = "../ast" }
 
 [dev-dependencies]
 parser-test = "0.3"
-
-[features]
-backtrace = []

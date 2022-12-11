@@ -4,8 +4,6 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pest::error::InputLocation;
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use thiserror::Error;
@@ -37,8 +35,6 @@ pub enum ParseErrorKind {
     InternalError {
         rule: Option<Rule>,
         message: &'static str,
-        #[cfg(feature = "backtrace")]
-        backtrace: String,
     },
     Unimplemented(&'static str),
     UnhandledUnexpectedInput {
@@ -77,8 +73,6 @@ pub enum ParseErrorSource {
     /// TODO: add auto link to github here
     #[error("Parser internal error, please file a bug is one doesn't yet exists.")]
     InternalError {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
         rule: Option<Rule>,
         message: &'static str,
     },
@@ -109,8 +103,6 @@ pub enum ParseErrorSource {
 impl ParseErrorSource {
     pub fn internal(message: &'static str) -> ParseErrorSource {
         ParseErrorSource::InternalError {
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
             rule: None,
             message,
         }
@@ -118,8 +110,6 @@ impl ParseErrorSource {
 
     pub fn internal_with_rule(rule: Rule, message: &'static str) -> ParseErrorSource {
         ParseErrorSource::InternalError {
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
             rule: Some(rule),
             message,
         }

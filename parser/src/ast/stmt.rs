@@ -50,14 +50,6 @@ impl StmtParse {
             Ok(stmt) => Ok(stmt),
             Err(e) => {
                 let kind = match e {
-                    #[cfg(feature = "backtrace")]
-                    ParseErrorSource::InternalError { rule, backtrace } => {
-                        ParseErrorKind::InternalError {
-                            rule,
-                            backtrace: backtrace.to_string(),
-                        }
-                    }
-                    #[cfg(not(feature = "backtrace"))]
                     ParseErrorSource::InternalError { rule, message } => {
                         ParseErrorKind::InternalError { rule, message }
                     }

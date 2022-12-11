@@ -43,6 +43,17 @@ can be easily distinguished with bits 5 and 4. I.e. for all requests kind5:4 = 0
 for all multicast/broadcast kind5:4=10 for all other kind5:4=11.
 This might be helpful if hardware filters are to be used.
 
+### Resource set kind:
+
+* 0: One segment of 4 bits (/0..=15)
+* 1: Two segments of 4 bits (/0..=15 /0..=15)
+* 2: Three segments of 4 bits (/0..=15 /0..=15 /0..=15)
+* 3: Three segments of 6, 3 and 3 bits (/0..=63 /0..=7 /0..=7)
+* 4: Three segments of 6, 6 and 4 bits (/0..=63 /0..=63 /0..=15)
+* 5: Any number of segments as vlu4 array
+* 6: MultiUri (see below)
+* 7: Reserved
+
 ## Compatibility between wire formats
 
 There is a mechanism to determine which wire format is being processed. However, it is not required to support all of
@@ -59,7 +70,5 @@ Decision process:
 3. TBD
 
 ### xwfd_info (4b):
-
-* 1000: Other format
 * 0000: xwfd
 * _: reserved

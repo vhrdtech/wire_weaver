@@ -49,6 +49,9 @@ pub enum XpiError {
 
     /// Method call or property write was expecting a slice with arguments, but it wasn't provided.
     NoArgumentsProvided,
+
+    /// Out of bounds resources array access
+    OutOfBounds
 }
 
 impl SerializableError for XpiError {
@@ -80,6 +83,8 @@ impl SerializableError for XpiError {
             InternalBitBufError => 33,
             ReplyBuilderError => 34,
             InternalBbqueueError => 35,
+
+            OutOfBounds => 40,
         }
     }
 
@@ -112,11 +117,17 @@ impl SerializableError for XpiError {
             34 => ReplyBuilderError,
             35 => InternalBbqueueError,
 
+            40 => OutOfBounds,
+
             _ => {
                 return None;
             }
         };
         Some(reason)
+    }
+
+    fn max_code() -> u32 {
+        40
     }
 }
 

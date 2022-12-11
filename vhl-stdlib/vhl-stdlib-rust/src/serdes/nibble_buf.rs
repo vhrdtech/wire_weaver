@@ -317,6 +317,14 @@ impl<'i> NibbleBuf<'i> {
 
 #[cfg(not(feature = "no_std"))]
 impl NibbleBufOwned {
+    pub fn new() -> NibbleBufOwned {
+        NibbleBufOwned {
+            buf: vec![],
+            len_nibbles: 0,
+            is_at_byte_boundary: true,
+        }
+    }
+
     pub fn to_nibble_buf_ref(&self) -> NibbleBuf {
         NibbleBuf {
             buf: &self.buf,

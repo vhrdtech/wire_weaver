@@ -37,10 +37,19 @@ impl StmtParse {
                 input: input.to_owned(),
             });
         }
-        // println!("{:?}", pairs);
 
-        // TODO: Improve this
-        let pair = pairs.peek().unwrap();
+        let Some(pair) = pairs.peek() else {
+            errors.push(ParseError {
+                kind: ParseErrorKind::EmptyInput,
+                rule: Rule::statement,
+                span: (input_parsed_str.len(), input.len()),
+            });
+            return Err(Error {
+                kind: ErrorKind::Parser(errors),
+                origin,
+                input: input.to_owned(),
+            });
+        };
         let span = (pair.as_span().start(), pair.as_span().end());
         let rule = pair.as_rule();
         let pair_span = ast_span_from_pest(pair.as_span());
@@ -86,9 +95,11 @@ impl<'i> Parse<'i> for StmtParse {
                 let semicolon_present = input.pairs.next().is_some();
                 Ok(StmtParse(Stmt::Expr(expr.0, semicolon_present)))
             }
-            Rule::braced_statement => {
-                todo!()
-            }
+            // Rule::braced_statement => {
+            //     let mut input = ParseInput::fork(s, &mut input);
+            //     let stmt: StmtParse = input.parse()?;
+            //     Ok(stmt)
+            // }
             Rule::definition => {
                 let mut input = ParseInput::fork(s, &mut input);
                 let def: DefinitionParse = input.parse()?;

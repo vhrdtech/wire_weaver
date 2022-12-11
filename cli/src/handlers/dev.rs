@@ -50,15 +50,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
         if !file.warnings.is_empty() {
             file.print_report();
         }
-        // println!("{:#}", file.ast_file);
-        // match dev_args.definition {
-        //     Some(_name) => {
-        //         todo!()
-        //     }
-        //     None => {
-        //         println!("{:?}", ast_core);
-        //     }
-        // }
+
         let mut project = Project::new(file.ast_file);
         vhl_core::transform::transform(&mut project);
         project.print_report();

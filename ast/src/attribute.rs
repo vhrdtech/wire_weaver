@@ -125,7 +125,6 @@ impl AttrKind {
 //                         ts.append(mtoken::Ident::new(Rc::new(ident_lit), IdentFlavor::Plain));
 //                     }
 //                     Rule::lit => {
-//                         todo!()
 //                     }
 //                     Rule::punctuation => {
 //                         let punct: Vec<char> = token.as_str().chars().collect();

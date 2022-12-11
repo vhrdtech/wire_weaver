@@ -46,6 +46,7 @@ pub enum ParseErrorKind {
     },
     UserError,
     UnexpectedUnconsumedInput(String),
+    EmptyInput,
 
     AutonumWrongForm,
     AutonumWrongArguments,

@@ -12,7 +12,6 @@ pub struct XpiDef {
     pub kind: XpiKind,
     pub kv: HashMap<Identifier, TryEvaluateInto<Expr, Lit>>,
     pub implements: Vec<Expr>,
-    // TODO: change to ?
     pub children: Vec<XpiDef>,
     pub span: Span,
 }

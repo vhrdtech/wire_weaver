@@ -109,8 +109,8 @@ definition = { type_alias_def | const_def | struct_def | tuple_struct_def | enum
 let_stmt = { "let" ~ identifier ~ (":" ~ ty)? ~ "=" ~ expression ~ punct_semicolon }
 punct_semicolon = { ";" }
 expr_stmt = { expression ~ punct_semicolon? }
-statement = { let_stmt | braced_statement | definition | expr_stmt }
-braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
+statement = { let_stmt | /*braced_statement | */  definition | expr_stmt }
+// braced_statement = { "{" ~ statement ~ "}"  ~ ";"? }
 
 // Literals
 bool_lit = { "true" | "false" }

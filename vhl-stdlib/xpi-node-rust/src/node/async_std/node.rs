@@ -32,14 +32,14 @@ impl VhNode {
     pub async fn new_client(
         id: NodeId, /* xPI client, generated or dynamically loaded */
     ) -> VhNode {
-        let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
-        let (tx_internal, rx_internal) = mpsc::channel(1);
+        let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
+        let (tx_internal, rx_internal) = mpsc::channel(16);
         tokio::spawn(async move {
             Self::process_events(id, rx_router, rx_internal).await;
         });
         VhNode {
             id,
-            tx_to_event_loop: tx_to_even_loop,
+            tx_to_event_loop,
             tx_internal,
             // nodes,
         }
@@ -48,14 +48,14 @@ impl VhNode {
     pub async fn new_server(
         id: NodeId, /* xPI server, generated or dynamically loaded */
     ) -> VhNode {
-        let (tx_to_even_loop, rx_router) = mpsc::channel(64); // TODO: config
-        let (tx_internal, rx_internal) = mpsc::channel(1);
+        let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
+        let (tx_internal, rx_internal) = mpsc::channel(16);
         tokio::spawn(async move {
             Self::process_events(id, rx_router, rx_internal).await;
         });
         VhNode {
             id,
-            tx_to_event_loop: tx_to_even_loop,
+            tx_to_event_loop,
             tx_internal,
             // nodes,
         }
@@ -121,6 +121,10 @@ impl VhNode {
                         InternalEvent::ConnectInstance(id, tx_handle) => {
                             nodes.insert(id, tx_handle);
                             info!("{}: connected to {} (executor local)", self_node_id.0, id.0);
+                        }
+                        InternalEvent::DisconnectInstance(id) => {
+                            nodes.remove(&id);
+                            info!("{}: disconnected from {}", self_node_id.0, id.0);
                         }
                         InternalEvent::Filter(filter, tx_handle) => {
                             let idx = filters.len();
@@ -247,14 +251,24 @@ impl VhNode {
         Ok(())
     }
 
-    pub async fn connect_instances(node_a: &mut Self, node_b: &mut Self) -> Result<(), NodeError> {
-        node_a.connect_instance(node_b).await?;
-        node_b.connect_instance(node_a).await?; // TODO: if failed, disconnect self
+    async fn disconnect_instance(&mut self, other_node_id: NodeId) -> Result<(), NodeError> {
+        self.tx_internal.send(InternalEvent::DisconnectInstance(other_node_id)).await?;
         Ok(())
     }
 
+    pub async fn connect_instances(node_a: &mut Self, node_b: &mut Self) -> Result<(), NodeError> {
+        node_a.connect_instance(node_b).await?;
+        match node_b.connect_instance(node_a).await {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                node_a.disconnect_instance(node_b.id).await?;
+                Ok(())
+            }
+        }
+    }
+
     #[instrument(skip(self), fields(node_id = self.id.0))]
-    pub async fn connect_remote(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
+    pub async fn connect_remote(&mut self, addr: RemoteNodeAddr, remote_reachable: Vec<NodeId>) -> Result<(), NodeError> {
         match addr {
             RemoteNodeAddr::Tcp(ip_addr) => {
                 info!("tcp: Connecting to remote");
@@ -268,7 +282,7 @@ impl VhNode {
                     tcp_event_loop(id, ip_addr, tcp_stream, to_event_loop.clone(), to_event_loop_internal, rx).await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    reachable: vec![NodeId(0)], // TODO: do not hardcode this
+                    reachable: remote_reachable,
                     addr,
                     to_event_loop: tx,
                 };

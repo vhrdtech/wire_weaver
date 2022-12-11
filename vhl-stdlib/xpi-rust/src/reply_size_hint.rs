@@ -1,4 +1,5 @@
-use vhl_stdlib::serdes::SerDesSize;
+use vhl_stdlib::serdes::{SerDesSize, SerializableError, SerializeVlu4};
+use vhl_stdlib::serdes::vlu4::Vlu32;
 use crate::error::XpiError;
 
 #[derive(Copy, Clone)]
@@ -29,11 +30,10 @@ impl ReplySizeHint {
     }
 
     pub fn immediate_error_xwfs(err: XpiError) -> Self {
-        let err: Err(err);
         ReplySizeHint::Immediate {
-            max_size: err.len_nibbles(),
+            max_size: Vlu32(XpiError::max_code()).len_nibbles(),
             raw_size: SerDesSize::Sized(0),
-            preliminary_result: err,
+            preliminary_result: Err(err),
         }
     }
 }

@@ -20,11 +20,20 @@ pub enum ReplySizeHint {
 }
 
 impl ReplySizeHint {
-    pub fn immediate(max: SerDesSize, raw: SerDesSize, preliminary: Result<(), XpiError>) -> Self {
+    pub fn preliminary_ok(max: SerDesSize, raw: SerDesSize) -> Self {
         ReplySizeHint::Immediate {
             max_size: max,
             raw_size: raw,
-            preliminary_result: preliminary,
+            preliminary_result: Ok(()),
+        }
+    }
+
+    pub fn immediate_error_xwfs(err: XpiError) -> Self {
+        let err: Err(err);
+        ReplySizeHint::Immediate {
+            max_size: err.len_nibbles(),
+            raw_size: SerDesSize::Sized(0),
+            preliminary_result: err,
         }
     }
 }

@@ -29,11 +29,11 @@ impl Decoder for MvlbCrc32Codec {
     }
 }
 
-impl Encoder<&[u8]> for MvlbCrc32Codec
+impl Encoder<Vec<u8>> for MvlbCrc32Codec
 {
     type Error = XpiError;
 
-    fn encode(&mut self, item: &[u8], dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: Vec<u8>, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let item_len = item.len();
         let len_len = if item_len <= 127 {
             1

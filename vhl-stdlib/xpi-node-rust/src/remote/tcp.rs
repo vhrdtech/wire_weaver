@@ -60,7 +60,7 @@ pub(crate) async fn tcp_server_acceptor(
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     addr: SocketAddr,
-    mut frames_sink: SplitSink<Framed<TcpStream, MvlbCrc32Codec>, &[u8]>,
+    mut frames_sink: SplitSink<Framed<TcpStream, MvlbCrc32Codec>, Vec<u8>>,
     mut frames_source: SplitStream<Framed<TcpStream, MvlbCrc32Codec>>,
     mut to_event_loop: Sender<Event>,
     mut to_event_loop_internal: Sender<InternalEvent>,
@@ -127,10 +127,26 @@ async fn process_incoming_slice(bytes: Vec<u8>, to_event_loop: &mut Sender<Event
     }
 }
 
-async fn serialize_and_send(ev: Event, frames_sink: &mut SplitSink<Framed<TcpStream, MvlbCrc32Codec>, &[u8]>) {
-    match frames_sink.send(&[1, 2, 3, 4]).await {
-        Ok(_) => {}
-        Err(e) => error!("Ecnoder for tcp error: {e:?}")
+async fn serialize_and_send(
+    ev: Event,
+    frames_sink: &mut SplitSink<Framed<TcpStream, MvlbCrc32Codec>, Vec<u8>>,
+) {
+    let mut buf = Vec::new();
+    buf.resize(10_000, 0);
+    let mut nwr = NibbleBufMut::new_all(&mut buf);
+    match ev.ser_xwfd(&mut nwr) {
+        Ok(()) => {
+            let (_, len, _) = nwr.finish();
+            trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
+            buf.resize(len, 0);
+            match frames_sink.send(buf).await {
+                Ok(_) => {}
+                Err(e) => error!("Encoder for tcp error: {e:?}")
+            }
+        }
+        Err(e) => {
+            error!("convert to xwfd failed: {:?}", e);
+        }
     }
 }
 //

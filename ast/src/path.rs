@@ -62,6 +62,12 @@ impl Path {
     }
 }
 
+impl Default for Path {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[macro_export]
 macro_rules! make_path {
     ($($path:ident)::+) => {

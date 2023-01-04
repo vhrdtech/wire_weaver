@@ -96,8 +96,8 @@ impl<'i> Parse<'i> for UriSegmentSeedParse {
                 let ident: IdentifierParse<identifier::XpiUriSegmentName> = input.parse()?;
                 ast::xpi_def::UriSegmentSeed::ExprThenNamedPart(expr.0, ident.0)
             }
-        } else if p1.is_some() {
-            if p1.unwrap().as_rule() == Rule::identifier {
+        } else if let Some(p1) = p1 {
+            if p1.as_rule() == Rule::identifier {
                 let ident: IdentifierParse<identifier::XpiUriSegmentName> = input.parse()?;
                 ast::xpi_def::UriSegmentSeed::Resolved(ident.0)
             } else {
@@ -181,8 +181,8 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
         XpiResourceTyParse::from_ty_and_serial(
             ty_inner,
             serial,
-            &mut input.warnings,
-            &mut input.errors,
+            input.warnings,
+            input.errors,
         )
     }
 }
@@ -229,7 +229,7 @@ impl XpiResourceTyParse {
         errors: &mut Vec<ParseError>,
     ) -> Result<XpiKind, ParseErrorSource> {
         let access = transform.map(|t| t.access).unwrap_or(AccessMode::ImpliedRo);
-        let modifier = transform.map(|t| t.modifier).flatten();
+        let modifier = transform.and_then(|t| t.modifier);
         match modifier {
             Some(m) => {
                 if let TyKind::Fn { .. } = ty.0.kind {
@@ -265,18 +265,18 @@ impl XpiResourceTyParse {
                     }
                     XpiResourceModifier::Stream => match access {
                         AccessMode::ImpliedRo => {
-                            return Err(Self::push_error(
+                            Err(Self::push_error(
                                 errors,
                                 ParseErrorKind::StreamWithoutDirection,
                                 ty.0.span,
-                            ));
+                            ))
                         }
                         AccessMode::Const => {
-                            return Err(Self::push_error(
+                            Err(Self::push_error(
                                 errors,
                                 ParseErrorKind::ConstWithMods,
                                 ty.0.span,
-                            ));
+                            ))
                         }
                         _ => Ok(XpiKind::Stream {
                             dir: access,

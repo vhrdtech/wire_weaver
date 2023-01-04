@@ -84,11 +84,11 @@ impl<'i> DeserializeVlu4<'i> for Vlu32 {
                     return Err(NibbleBufError::MalformedVlu4U32);
                 }
             }
-            num = num | (nib as u32 & 0b111);
+            num |= nib as u32 & 0b111;
             if nib & 0b1000 == 0 {
                 break;
             }
-            num = num << 3;
+            num <<= 3;
         }
         Ok(Vlu32(num))
     }

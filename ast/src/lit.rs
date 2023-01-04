@@ -39,12 +39,7 @@ pub enum NumberLitKind {
 impl Lit {
     pub fn is_a_number(&self) -> bool {
         use LitKind::*;
-        match self.kind {
-            Discrete(_) => true,
-            Fixed(_) => true,
-            Float(_) => true,
-            _ => false,
-        }
+        matches!(self.kind, Discrete(_) | Fixed(_) | Float(_))
     }
 
     pub fn is_same_kind(&self, other: &Self) -> bool {
@@ -64,12 +59,10 @@ impl DiscreteLit {
     pub fn to_usize(&self) -> Option<usize> {
         if self.ty.is_signed {
             None
+        } else if self.val <= (usize::MAX as u128) {
+            Some(self.val as usize)
         } else {
-            if self.val <= (usize::MAX as u128) {
-                Some(self.val as usize)
-            } else {
-                None
-            }
+            None
         }
     }
 }

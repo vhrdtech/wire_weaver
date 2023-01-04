@@ -149,6 +149,7 @@ impl<'i> NibbleBuf<'i> {
         Ok(())
     }
 
+    /// Get one nibble or return an OutOfBounds error otherwise.
     pub fn get_nibble(&mut self) -> Result<u8, Error> {
         if self.is_at_end() {
             return Err(Error::OutOfBounds);
@@ -156,7 +157,7 @@ impl<'i> NibbleBuf<'i> {
         Ok(unsafe { self.get_nibble_unchecked() })
     }
 
-    pub unsafe fn get_nibble_unchecked(&mut self) -> u8 {
+    unsafe fn get_nibble_unchecked(&mut self) -> u8 {
         if self.is_at_byte_boundary {
             let val = *self.buf.get_unchecked(self.idx);
             self.is_at_byte_boundary = false;
@@ -189,19 +190,17 @@ impl<'i> NibbleBuf<'i> {
         Ok(())
     }
 
-    pub unsafe fn skip_unchecked(&mut self, nibble_count: usize) {
+    unsafe fn skip_unchecked(&mut self, nibble_count: usize) {
         if self.is_at_byte_boundary {
             if nibble_count % 2 != 0 {
                 self.is_at_byte_boundary = false;
             }
             self.idx += nibble_count / 2;
+        } else if nibble_count % 2 != 0 {
+            self.is_at_byte_boundary = true;
+            self.idx += nibble_count / 2 + 1;
         } else {
-            if nibble_count % 2 != 0 {
-                self.is_at_byte_boundary = true;
-                self.idx += nibble_count / 2 + 1;
-            } else {
-                self.idx += nibble_count / 2;
-            }
+            self.idx += nibble_count / 2;
         }
     }
 
@@ -297,7 +296,7 @@ impl<'i> NibbleBuf<'i> {
     }
 
     pub fn iter(&self) -> NibbleBufIter {
-        NibbleBufIter { buf: self.clone() }
+        NibbleBufIter { buf: *self }
     }
 
     #[cfg(not(feature = "no_std"))]
@@ -332,6 +331,12 @@ impl NibbleBufOwned {
             idx: 0,
             is_at_byte_boundary: self.is_at_byte_boundary,
         }
+    }
+}
+
+impl Default for NibbleBufOwned {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -416,7 +421,7 @@ impl SerializeVlu4 for NibbleBufOwned {
 impl<'i> Display for NibbleBuf<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "NibbleBuf(")?;
-        let mut buf = self.clone();
+        let mut buf = *self;
         if buf.nibbles_pos() > 0 {
             write!(f, "<{}< ", buf.nibbles_pos())?;
         }
@@ -590,13 +595,11 @@ impl<'i> NibbleBufMut<'i> {
                 self.is_at_byte_boundary = false;
             }
             self.idx += nibble_count / 2;
+        } else if nibble_count % 2 != 0 {
+            self.is_at_byte_boundary = true;
+            self.idx += nibble_count / 2 + 1;
         } else {
-            if nibble_count % 2 != 0 {
-                self.is_at_byte_boundary = true;
-                self.idx += nibble_count / 2 + 1;
-            } else {
-                self.idx += nibble_count / 2;
-            }
+            self.idx += nibble_count / 2;
         }
         Ok(())
     }
@@ -647,7 +650,7 @@ impl<'i> NibbleBufMut<'i> {
         Ok(())
     }
 
-    pub unsafe fn put_nibble_unchecked(&mut self, nib: u8) {
+    unsafe fn put_nibble_unchecked(&mut self, nib: u8) {
         if self.is_at_byte_boundary {
             let b = self.buf.get_unchecked_mut(self.idx);
             *b &= 0b0000_1111;
@@ -844,8 +847,8 @@ impl<'i> NibbleBufMut<'i> {
             };
             unsafe {
                 copy_nonoverlapping(
-                    other.buf.as_ptr().offset(other.idx as isize),
-                    self.buf.as_mut_ptr().offset(self.idx as isize),
+                    other.buf.as_ptr().add(other.idx),
+                    self.buf.as_mut_ptr().add(self.idx),
                     bytes_to_copy,
                 );
             }
@@ -863,14 +866,14 @@ impl<'i> NibbleBufMut<'i> {
             };
             unsafe {
                 copy_nonoverlapping(
-                    other.buf.as_ptr().offset(other.idx as isize + 1),
-                    self.buf.as_mut_ptr().offset(self.idx as isize),
+                    other.buf.as_ptr().add(other.idx + 1),
+                    self.buf.as_mut_ptr().add(self.idx),
                     bytes_to_copy,
                 );
             }
             self.idx += bytes_to_copy;
         } else {
-            let mut other_clone = other.clone();
+            let mut other_clone = *other;
             while !other_clone.is_at_end() {
                 unsafe { self.put_nibble_unchecked(other_clone.get_nibble_unchecked()) }
             }

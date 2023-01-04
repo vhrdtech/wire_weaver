@@ -29,7 +29,7 @@ impl Add<Span> for Span {
         Span {
             start: min(self.start, rhs.start),
             end: max(self.end, rhs.end),
-            origin: self.origin.clone(),
+            origin: self.origin,
         }
     }
 }

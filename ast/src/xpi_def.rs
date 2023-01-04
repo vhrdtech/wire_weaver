@@ -178,7 +178,7 @@ impl Display for XpiDef {
         let is_alterante = f.alternate();
         let separator = if is_alterante {
             if !self.children.is_empty() {
-                writeln!(f, "")?;
+                writeln!(f)?;
             }
             ",\n"
         } else {

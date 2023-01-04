@@ -125,7 +125,7 @@ pub trait Visit {
 }
 
 pub fn visit_file<V: Visit + ?Sized>(v: &mut V, node: &File) {
-    for (_, def) in &node.defs {
+    for def in node.defs.values() {
         v.visit_definition(def);
     }
 }

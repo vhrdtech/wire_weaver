@@ -38,7 +38,7 @@ impl<'i> Buf<'i> {
         }
         let bit_buf = BitBuf::new_all(unsafe {
             &*core::ptr::slice_from_raw_parts(
-                self.buf.as_ptr().offset(self.idx as isize),
+                self.buf.as_ptr().add(self.idx),
                 byte_count,
             )
         });
@@ -53,7 +53,7 @@ impl<'i> Buf<'i> {
         }
         let nibble_buf = NibbleBuf::new_all(unsafe {
             &*core::ptr::slice_from_raw_parts(
-                self.buf.as_ptr().offset(self.idx as isize),
+                self.buf.as_ptr().add(self.idx),
                 byte_count,
             )
         });
@@ -94,7 +94,7 @@ impl<'i> Buf<'i> {
         let mut bytes = [0u8; 2];
         unsafe {
             copy_nonoverlapping(
-                self.buf.as_ptr().offset(self.idx as isize),
+                self.buf.as_ptr().add(self.idx),
                 bytes.as_mut_ptr(),
                 2,
             );
@@ -111,7 +111,7 @@ impl<'i> Buf<'i> {
         let mut bytes = [0u8; 2];
         unsafe {
             copy_nonoverlapping(
-                self.buf.as_ptr().offset(self.idx as isize),
+                self.buf.as_ptr().add(self.idx),
                 bytes.as_mut_ptr(),
                 2,
             );
@@ -219,7 +219,7 @@ impl<'i> BufMut<'i> {
         unsafe {
             copy_nonoverlapping(
                 bytes.as_ptr(),
-                self.buf.as_mut_ptr().offset(self.idx as isize),
+                self.buf.as_mut_ptr().add(self.idx),
                 2,
             );
         }
@@ -235,7 +235,7 @@ impl<'i> BufMut<'i> {
         unsafe {
             copy_nonoverlapping(
                 bytes.as_ptr(),
-                self.buf.as_mut_ptr().offset(self.idx as isize),
+                self.buf.as_mut_ptr().add(self.idx),
                 2,
             );
         }

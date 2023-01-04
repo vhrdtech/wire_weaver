@@ -27,7 +27,7 @@ impl<'i> Parse<'i> for StructDefParse {
 impl<'i> Parse<'i> for StructFieldsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut fields = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let mut input = ParseInput::fork(input.expect1(Rule::struct_field, "StructFieldsParse")?, input);
             let doc: DocParse = input.parse()?;
             let attrs: AttrsParse = input.parse()?;

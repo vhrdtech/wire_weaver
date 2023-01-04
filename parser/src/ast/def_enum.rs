@@ -31,7 +31,7 @@ impl<'i> Parse<'i> for EnumDefParse {
 impl<'i> Parse<'i> for EnumItemsParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut entries = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let mut input = ParseInput::fork(input.expect1(Rule::enum_item, "EnumItemsParse")?, input);
             let doc: DocParse = input.parse()?;
             let attrs: AttrsParse = input.parse()?;
@@ -75,7 +75,7 @@ impl<'i> Parse<'i> for EnumItemKindParse {
                 let lit: LitParse = input.parse()?;
                 Ok(EnumItemKindParse(EnumItemKind::Discriminant(lit.0)))
             }
-            _ => return Err(ParseErrorSource::internal("unexpected enum kind")),
+            _ => Err(ParseErrorSource::internal("unexpected enum kind")),
         }
     }
 }

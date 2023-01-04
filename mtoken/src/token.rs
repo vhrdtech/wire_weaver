@@ -58,20 +58,12 @@ impl Debug for Ident {
 
 fn is_rust_keyword(ident: &str) -> bool {
     // TODO: Add full list or Rust keywords
-    match ident {
-        "type" => true,
-
-        _ => false,
-    }
+    matches!(ident, "type" | "match")
 }
 
 fn is_dart_keyword(ident: &str) -> bool {
     // TODO: Add full list of Dart keywords
-    match ident {
-        "part" => true,
-
-        _ => false,
-    }
+    matches!(ident, "part")
 }
 
 impl ToTokens for Ident {
@@ -120,7 +112,7 @@ impl Punct {
 impl Display for Punct {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.ch == '⏎' {
-            write!(f, "\n")
+            writeln!(f)
         } else {
             write!(f, "{}", self.ch)
         }

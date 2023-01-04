@@ -37,7 +37,7 @@ impl<'i> Parse<'i> for FnArgumentsParse {
         let mut input = ParseInput::fork(input.expect1(Rule::fn_args, "FnArgumentsParse")?, input);
 
         let mut args = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let fn_arg: FnArgParse = input.parse()?;
             args.push(fn_arg.0);
         }

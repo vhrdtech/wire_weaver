@@ -20,6 +20,9 @@ macro_rules! max_bound_number {
                 $type_name($max)
             }
 
+            /// # Safety
+            ///
+            /// Skip bounds checking if you are sure the number is less than `2^N_bits - 1`
             pub unsafe fn new_unchecked(x: $base_type) -> $type_name {
                 $type_name(x)
             }

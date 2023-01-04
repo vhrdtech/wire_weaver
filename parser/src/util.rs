@@ -26,7 +26,7 @@ pub fn pest_tree(pairs: Pairs<Rule>) -> String {
 }
 
 fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Write) {
-    let all_input = pairs.as_str().clone();
+    let all_input = pairs.as_str();
     let mut level = 0;
     let all_input_index_shift = pairs.peek().map(|p| p.as_span().start()).unwrap_or(0);
     for p in pairs {

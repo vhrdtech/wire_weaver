@@ -101,7 +101,7 @@ impl VecExpr {
         self.0
             .iter()
             .skip(1)
-            .fold(self.0[0].span().clone(), |prev, expr| prev + expr.span())
+            .fold(self.0[0].span(), |prev, expr| prev + expr.span())
     }
 }
 

@@ -26,7 +26,7 @@ impl<'i, T: DeserializeVlu4<'i>> Vlu4Vec<'i, T> {
     }
 
     pub fn iter(&self) -> Vlu4VecIter<'i, T> {
-        let mut rdr_clone = self.rdr.clone();
+        let mut rdr_clone = self.rdr;
         // NOTE: unwrap_or: should not happen, checked in DeserializeVlu4
         let mut stride_len = rdr_clone.get_nibble().unwrap_or(0) as usize;
         let is_last_stride = if stride_len <= 14 {
@@ -47,6 +47,10 @@ impl<'i, T: DeserializeVlu4<'i>> Vlu4Vec<'i, T> {
 
     pub fn len(&self) -> usize {
         self.total_len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.total_len > 0
     }
 }
 
@@ -180,7 +184,7 @@ where
             for _ in 0..stride_len {
                 let element = elements_iter
                     .next()
-                    .ok_or_else(|| NibbleBufError::Vlu4Vec)?;
+                    .ok_or(NibbleBufError::Vlu4Vec)?;
                 wgr.put(&element)?;
             }
         }
@@ -221,7 +225,7 @@ impl<'i, T: DeserializeVlu4<'i, Error=E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i,
     type Error = E;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let mut rdr_clone = rdr.clone();
+        let mut rdr_clone = *rdr;
 
         let mut total_len = 0;
         loop {
@@ -305,19 +309,19 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             SerDesSize::Sized(len) => {
                 // Sized types are written as is, without padding or length and expected to return correct len
                 if actually_written != len {
-                    return Err(NibbleBufError::InvalidSizedEstimate.into());
+                    return Err(NibbleBufError::InvalidSizedEstimate);
                 }
             }
             SerDesSize::SizedAligned(len, padding) => {
                 // Sized aligned types might write up to padding more elements
                 if actually_written < len || actually_written > len + padding {
-                    return Err(NibbleBufError::InvalidSizedAlignedEstimate.into());
+                    return Err(NibbleBufError::InvalidSizedAlignedEstimate);
                 }
             }
             SerDesSize::Unsized => {}
             SerDesSize::UnsizedBound(max_len) => {
                 if actually_written > max_len {
-                    return Err(NibbleBufError::InvalidUnsizedBoundEstimate.into());
+                    return Err(NibbleBufError::InvalidUnsizedBoundEstimate);
                 }
             }
         }
@@ -531,7 +535,7 @@ impl<'i> Vlu4VecBuilder<'i, &'i [u8]> {
     pub fn put_aligned(&mut self, slice: &[u8]) -> Result<(), NibbleBufError> {
         self.start_putting_element()?;
         self.put_len_bytes_and_align(slice.len())?;
-        if slice.len() != 0 {
+        if !slice.is_empty() {
             self.nwr.put_slice(slice)?;
         }
         self.finish_putting_element()?;
@@ -588,7 +592,7 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
                 self.nwr.put(&Vlu32(e.error_code()))?;
                 self.finish_putting_element()?;
-                return Ok(());
+                Ok(())
             }
         }
     }
@@ -626,7 +630,7 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
                 self.nwr.put(&Vlu32(e.error_code()))?;
                 self.finish_putting_element()?;
-                return Ok(());
+                Ok(())
             }
         }
     }
@@ -641,7 +645,7 @@ impl<'i> DeserializeVlu4<'i> for &'i [u8] {
             return Ok(&[]);
         }
         rdr.align_to_byte()?;
-        Ok(rdr.get_slice(len)?)
+        rdr.get_slice(len)
     }
 }
 
@@ -649,7 +653,7 @@ impl SerializeVlu4 for &[u8] {
     type Error = NibbleBufError;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        if self.len() == 0 {
+        if self.is_empty() {
             wgr.put_nibble(0)?;
             return Ok(());
         }
@@ -684,7 +688,7 @@ impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
     }
 }
 
-impl<'i, T, E, SE> SerializeVlu4 for Result<T, E>
+impl<T, E, SE> SerializeVlu4 for Result<T, E>
     where
         T: SerializeVlu4<Error=SE>,
         E: SerializableError,

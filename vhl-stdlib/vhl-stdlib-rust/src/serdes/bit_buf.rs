@@ -236,7 +236,7 @@ impl<'i> BitBufMut<'i> {
     }
 
     pub fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
-        let bit = if bit { 1u8 } else { 0u8 };
+        let bit = u8::from(bit);
         self.put_up_to_8(1, bit)
     }
 

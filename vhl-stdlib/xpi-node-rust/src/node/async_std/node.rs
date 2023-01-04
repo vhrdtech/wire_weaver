@@ -9,12 +9,14 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
+use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use xpi::node_set::XpiGenericNodeSet;
 use xpi::owned::node_id::NodeId;
 use xpi::owned::Event;
 use xpi::owned::Priority;
 use xpi::owned::RequestId;
+use crate::codec::mvlb_crc32_codec::MvlbCrc32Codec;
 use crate::node::async_std::internal_event::InternalEvent;
 
 #[derive(Debug)]
@@ -273,13 +275,15 @@ impl VhNode {
             RemoteNodeAddr::Tcp(ip_addr) => {
                 info!("tcp: Connecting to remote");
                 let tcp_stream = TcpStream::connect(ip_addr).await?;
+                let codec = MvlbCrc32Codec::new_with_max_length(512); // TODO: do not hardcode
+                let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
                 info!("Connected");
                 let (tx, rx) = mpsc::channel(64);
                 let id = self.id.clone();
                 let to_event_loop = self.tx_to_event_loop.clone();
                 let to_event_loop_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
-                    tcp_event_loop(id, ip_addr, tcp_stream, to_event_loop.clone(), to_event_loop_internal, rx).await
+                    tcp_event_loop(id, ip_addr, frames_sink, frames_source, to_event_loop.clone(), to_event_loop_internal, rx).await
                 });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: remote_reachable,

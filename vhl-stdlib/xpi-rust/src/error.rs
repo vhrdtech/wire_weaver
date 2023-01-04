@@ -1,5 +1,6 @@
 use core::fmt::Display;
 use core::fmt::Formatter;
+use std::io::Error;
 use vhl_stdlib::serdes::{bit_buf, buf, nibble_buf, SerializableError};
 
 /// Error that is transferred across the wire for example in response to requests.
@@ -46,6 +47,7 @@ pub enum XpiError {
     InternalBitBufError,
     InternalBbqueueError,
     ReplyBuilderError,
+    IoError,
 
     /// Method call or property write was expecting a slice with arguments, but it wasn't provided.
     NoArgumentsProvided,
@@ -83,6 +85,7 @@ impl SerializableError for XpiError {
             InternalBitBufError => 33,
             ReplyBuilderError => 34,
             InternalBbqueueError => 35,
+            IoError => 36,
 
             OutOfBounds => 40,
         }
@@ -116,6 +119,7 @@ impl SerializableError for XpiError {
             33 => InternalBitBufError,
             34 => ReplyBuilderError,
             35 => InternalBbqueueError,
+            36 => IoError,
 
             40 => OutOfBounds,
 
@@ -157,3 +161,10 @@ impl Display for XpiError {
 
 #[cfg(not(feature = "no_std"))]
 impl std::error::Error for XpiError {}
+
+#[cfg(not(feature = "no_std"))]
+impl From<std::io::Error> for XpiError {
+    fn from(_: Error) -> Self {
+        XpiError::IoError
+    }
+}

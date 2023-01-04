@@ -84,10 +84,8 @@ impl File {
 //
 //     fn try_from(pd: ParserDefinition<'i>) -> Result<Self, Self::Error> {
 //         match pd {
-//             ParserDefinition::Const(_) => todo!(),
 //             ParserDefinition::Enum(ed) => Ok(Definition::Enum(ed.try_into()?)),
 //             ParserDefinition::Struct(sd) => Ok(Definition::Struct(sd.into())),
-//             ParserDefinition::Function(_) => todo!(),
 //             ParserDefinition::TypeAlias(a) => Ok(Definition::TypeAlias(a.try_into()?)),
 //             ParserDefinition::XpiBlock(xpi) => Ok(Definition::Xpi(XpiDef::convert_from_parser(xpi, true)?)),
 //         }

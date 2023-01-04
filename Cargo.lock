@@ -1099,9 +1099,23 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
 dependencies = [
- "futures-core",
- "pin-project-lite",
- "tokio",
+    "futures-core",
+    "pin-project-lite",
+    "tokio",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bb2e075f03b3d66d8d8785356224ba688d2906a371015e225beeb65ca92c740"
+dependencies = [
+    "bytes",
+    "futures-core",
+    "futures-sink",
+    "pin-project-lite",
+    "tokio",
+    "tracing",
 ]
 
 [[package]]
@@ -1110,9 +1124,9 @@ version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
- "cfg-if",
- "pin-project-lite",
- "tracing-attributes",
+    "cfg-if",
+    "pin-project-lite",
+    "tracing-attributes",
  "tracing-core",
 ]
 
@@ -1343,13 +1357,15 @@ dependencies = [
 name = "xpi-node"
 version = "0.1.0"
 dependencies = [
- "futures",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "vhl-stdlib",
- "xpi",
+    "bytes",
+    "futures",
+    "thiserror",
+    "tokio",
+    "tokio-stream",
+    "tokio-util",
+    "tracing",
+    "vhl-stdlib",
+    "xpi",
 ]
 
 [[package]]

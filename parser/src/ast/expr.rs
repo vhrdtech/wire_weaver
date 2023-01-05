@@ -15,10 +15,10 @@ impl<'i> Parse<'i> for ExprParse {
         if p.as_rule() == Rule::expression_ticked {
             let mut input = ParseInput::fork(p, input);
             let mut input = ParseInput::fork(input.expect1(Rule::expression, "ExprParse:ticked")?, &mut input);
-            pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
+            Ok(ExprParse(pratt_parser(&mut input, 0)?))
         } else {
             let mut input = ParseInput::fork(p, input);
-            pratt_parser(&mut input, 0).map(|expr| ExprParse(expr))
+            Ok(ExprParse(pratt_parser(&mut input, 0)?))
         }
     }
 }
@@ -26,7 +26,7 @@ impl<'i> Parse<'i> for ExprParse {
 impl<'i> Parse<'i> for VecExprParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut exprs = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let expr: ExprParse = input.parse()?;
             exprs.push(expr.0);
         }
@@ -78,7 +78,7 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let mut exprs = vec![];
-            while let Some(_) = input.pairs.peek() {
+            while input.pairs.peek().is_some() {
                 let expr: ExprParse = input.parse()?;
                 exprs.push(expr.0);
             }
@@ -115,18 +115,13 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         }
     };
 
-    loop {
-        let op = match input.pairs.peek() {
-            Some(p) => binary_from_rule(
-                p.into_inner()
-                    .next()
-                    .ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected binary op"))?
-                    .as_rule(),
-            )?,
-            None => {
-                break;
-            }
-        };
+    while let Some(op) = input.pairs.peek() {
+        let op = binary_from_rule(
+            op.into_inner()
+                .next()
+                .ok_or_else(|| ParseErrorSource::internal("pratt_parser: expected binary op"))?
+                .as_rule(),
+        )?;
 
         let (l_bp, r_bp) = op.binding_power();
         if l_bp < min_bp {

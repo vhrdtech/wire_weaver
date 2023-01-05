@@ -212,8 +212,8 @@ impl Error {
 
     fn pest_location_to_range(loc: &InputLocation) -> Range<usize> {
         match loc {
-            InputLocation::Pos(start) => (*start..*start).into(),
-            InputLocation::Span((start, end)) => (*start..*end).into(),
+            InputLocation::Pos(start) => *start..*start,
+            InputLocation::Span((start, end)) => *start..*end,
         }
     }
 }
@@ -234,7 +234,7 @@ impl Display for Error {
                             self.origin,
                             pest_err
                                 .clone()
-                                .renamed_rules(|r| crate::user_readable::rule_names(r))
+                                .renamed_rules(crate::user_readable::rule_names)
                         )
                     }
                     Err(e) => {

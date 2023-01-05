@@ -11,7 +11,7 @@ use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
-use crate::codec::mvlb_crc32_codec::MvlbCrc32Codec;
+use crate::codec::mvlb_crc32_codec::MvlbCodec;
 use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::internal_event::InternalEvent;
 use crate::remote::remote_descriptor::RemoteDescriptor;
@@ -60,8 +60,8 @@ pub(crate) async fn tcp_server_acceptor(
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     addr: SocketAddr,
-    mut frames_sink: SplitSink<Framed<TcpStream, MvlbCrc32Codec>, Vec<u8>>,
-    mut frames_source: SplitStream<Framed<TcpStream, MvlbCrc32Codec>>,
+    mut frames_sink: SplitSink<Framed<TcpStream, MvlbCodec>, Vec<u8>>,
+    mut frames_source: SplitStream<Framed<TcpStream, MvlbCodec>>,
     mut to_event_loop: Sender<Event>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
@@ -129,7 +129,7 @@ async fn process_incoming_slice(bytes: Vec<u8>, to_event_loop: &mut Sender<Event
 
 async fn serialize_and_send(
     ev: Event,
-    frames_sink: &mut SplitSink<Framed<TcpStream, MvlbCrc32Codec>, Vec<u8>>,
+    frames_sink: &mut SplitSink<Framed<TcpStream, MvlbCodec>, Vec<u8>>,
 ) {
     let mut buf = Vec::new();
     buf.resize(10_000, 0);

@@ -15,7 +15,7 @@ pub struct LetStmtParse(pub LetStmt);
 pub struct VecStmtParse(pub Vec<Stmt>);
 
 impl StmtParse {
-    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Box<Error>> {
         let input = input.as_ref();
         let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::repl, input).map_err(|e| Error {
             kind: ErrorKind::Grammar(e),
@@ -31,11 +31,11 @@ impl StmtParse {
                 rule: Rule::statement,
                 span: (input_parsed_str.len(), input.len()),
             });
-            return Err(Error {
+            return Err(Box::new(Error {
                 kind: ErrorKind::Parser(errors),
                 origin,
                 input: input.to_owned(),
-            });
+            }));
         }
 
         let Some(pair) = pairs.peek() else {
@@ -44,11 +44,11 @@ impl StmtParse {
                 rule: Rule::statement,
                 span: (input_parsed_str.len(), input.len()),
             });
-            return Err(Error {
+            return Err(Box::new(Error {
                 kind: ErrorKind::Parser(errors),
                 origin,
                 input: input.to_owned(),
-            });
+            }));
         };
         let span = (pair.as_span().start(), pair.as_span().end());
         let rule = pair.as_rule();
@@ -69,11 +69,11 @@ impl StmtParse {
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
                 errors.push(ParseError { kind, rule, span });
-                Err(Error {
+                Err(Box::new(Error {
                     kind: ErrorKind::Parser(errors),
                     origin,
                     input: input.to_owned(),
-                })
+                }))
             }
         }
     }
@@ -130,7 +130,7 @@ impl<'i> Parse<'i> for LetStmtParse {
 impl<'i> Parse<'i> for VecStmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut stmts = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let stmt: StmtParse = input.parse()?;
             stmts.push(stmt.0);
         }

@@ -89,7 +89,7 @@ impl<'i> Parse<'i> for TyParse {
                 Ty {
                     kind: TyKind::Fn {
                         args: args.0,
-                        ret_ty: ret_ty.map(|ty| Box::new(ty.0)).unwrap_or(Box::new(Ty {
+                        ret_ty: ret_ty.map(|ty| Box::new(ty.0)).unwrap_or_else(|| Box::new(Ty {
                             kind: TyKind::Unit,
                             span: span.clone(),
                         })),
@@ -114,12 +114,12 @@ impl<'i> Parse<'i> for DiscreteTyParse {
         let discrete_x_ty = input
             .pairs
             .next()
-            .ok_or(ParseErrorSource::internal("empty discrete_any_ty"))?;
+            .ok_or_else(|| ParseErrorSource::internal("empty discrete_any_ty"))?;
         let bits: u32 = discrete_x_ty
             .as_str()
-            .strip_prefix("u")
-            .or(discrete_x_ty.as_str().strip_prefix("i"))
-            .ok_or(ParseErrorSource::internal("wrong discrete prefix"))?
+            .strip_prefix('u')
+            .or_else(|| discrete_x_ty.as_str().strip_prefix('i'))
+            .ok_or_else(|| ParseErrorSource::internal("wrong discrete prefix"))?
             .parse()
             .map_err(|_| {
                 input.push_error(&discrete_x_ty, ParseErrorKind::IntParseError);
@@ -145,7 +145,7 @@ impl<'i> Parse<'i> for FloatTyParse {
             .clone()
             .into_inner()
             .next()
-            .ok_or(ParseErrorSource::internal("wrong float_ty"))?
+            .ok_or_else(|| ParseErrorSource::internal("wrong float_ty"))?
             .as_str()
             .parse()
             .map_err(|_| {
@@ -285,7 +285,7 @@ fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::tuple_ty, "parse_tuple_ty")?, input);
     let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields, "parse_tuple_ty:fields")?, &mut input);
     let mut types = Vec::new();
-    while let Some(_) = input.pairs.peek() {
+    while input.pairs.peek().is_some() {
         let ty: TyParse = input.parse()?;
         types.push(ty.0);
     }
@@ -299,7 +299,7 @@ impl<'i> Parse<'i> for TupleTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields, "TupleTyParse")?, input);
         let mut tys = Vec::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let ty: TyParse = input.parse()?;
             tys.push(ty.0);
         }

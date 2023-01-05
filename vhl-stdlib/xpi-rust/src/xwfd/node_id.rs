@@ -7,6 +7,6 @@ impl<'i> DeserializeVlu4<'i> for NodeId {
     type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        Ok(NodeId::new(rdr.get_u8()?).ok_or_else(|| XpiError::NodeIdAbove127)?)
+        NodeId::new(rdr.get_u8()?).ok_or(XpiError::NodeIdAbove127)
     }
 }

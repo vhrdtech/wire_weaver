@@ -32,9 +32,10 @@ impl<'i> DeserializeCoupledBitsVlu4<'i> for NodeSet<'i> {
 }
 
 impl<'i> NodeSet<'i> {
+    #[allow(clippy::unusual_byte_groupings)]
     pub fn ser_header(&self) -> U9 {
         let bits = match self {
-            NodeSet::Unicast(id) => 0b00_000_0000 | (id.inner() as u16),
+            NodeSet::Unicast(id) => id.inner() as u16,
             NodeSet::UnicastTraits { .. } => {
                 todo!()
             }
@@ -83,7 +84,7 @@ impl<'i> SerializeVlu4 for NodeSet<'i> {
         match self {
             NodeSet::Unicast(_) | NodeSet::Broadcast { .. } => {
                 // Unicast was already serialized into header, no need to add anything
-                return Ok(());
+                Ok(())
             }
             NodeSet::UnicastTraits { .. } => {
                 todo!()

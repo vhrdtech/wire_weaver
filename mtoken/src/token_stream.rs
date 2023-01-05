@@ -25,9 +25,8 @@ impl TokenStream {
     /// Modify spacing of the latest token tree inserted.
     /// Used to remove spaces with ∅ sign it mquote! when this is important.
     pub fn modify_last_spacing(&mut self, spacing: Spacing) {
-        match self.inner.back_mut() {
-            Some(tt) => tt.modify_spacing(spacing),
-            None => {}
+        if let Some(tt) = self.inner.back_mut() {
+            tt.modify_spacing(spacing)
         }
     }
 
@@ -69,13 +68,10 @@ impl TokenStream {
                             match t.clone() {
                                 TokenTree::Repetition(idx) => {
                                     match streams_in_this_group.get_mut(&idx) {
-                                        Some(streams) => match streams.pop_front() {
-                                            Some(repeat_over_ts) => {
-                                                for t in repeat_over_ts.inner {
-                                                    tts_reassemble.inner.push_back(t);
-                                                }
+                                        Some(streams) => if let Some(repeat_over_ts) = streams.pop_front() {
+                                            for t in repeat_over_ts.inner {
+                                                tts_reassemble.inner.push_back(t);
                                             }
-                                            None => {}
                                         },
                                         None => {
                                             panic!("Internal error in interpolate_repetitions_inner: {}", idx)
@@ -89,16 +85,13 @@ impl TokenStream {
                                         None,
                                     ) {
                                         tts_reassemble.inner.push_back(tt);
-                                        match separator.clone() {
-                                            Some(p) => {
-                                                if p.is_sequence_delimiter() {
-                                                    tts_reassemble.inner.back_mut().map(|tt| {
-                                                        tt.modify_spacing(Spacing::Joint)
-                                                    });
+                                        if let Some(p) = separator.clone() {
+                                            if p.is_sequence_delimiter() {
+                                                if let Some(tt) = tts_reassemble.inner.back_mut() {
+                                                    tt.modify_spacing(Spacing::Joint)
                                                 }
-                                                tts_reassemble.inner.push_back(p.into())
                                             }
-                                            None => {}
+                                            tts_reassemble.inner.push_back(p.into())
                                         }
                                     }
                                 }
@@ -118,17 +111,13 @@ impl TokenStream {
                             }
                         }
                         if i < streams_len - 1 {
-                            match separator.clone() {
-                                Some(p) => {
-                                    if p.is_sequence_delimiter() {
-                                        tts_reassemble
-                                            .inner
-                                            .back_mut()
-                                            .map(|tt| tt.modify_spacing(Spacing::Joint));
+                            if let Some(p) = separator.clone() {
+                                if p.is_sequence_delimiter() {
+                                    if let Some(tt) = tts_reassemble.inner.back_mut() {
+                                        tt.modify_spacing(Spacing::Joint)
                                     }
-                                    tts_reassemble.inner.push_back(p.into())
                                 }
-                                None => {}
+                                tts_reassemble.inner.push_back(p.into())
                             }
                         }
                     }
@@ -139,13 +128,10 @@ impl TokenStream {
                         .expect("Repetition can only be inside a repetition group delimited by ⸨ ⸩")
                         .get_mut(&idx)
                     {
-                        Some(streams) => match streams.pop_front() {
-                            Some(repeat_over_ts) => {
-                                for t in repeat_over_ts.inner {
-                                    tts_reassemble.inner.push_back(t);
-                                }
+                        Some(streams) => if let Some(repeat_over_ts) = streams.pop_front() {
+                            for t in repeat_over_ts.inner {
+                                tts_reassemble.inner.push_back(t);
                             }
-                            None => {}
                         },
                         None => {
                             panic!("Internal error in interpolate_repetitions_inner: {}", idx)
@@ -175,7 +161,7 @@ impl TokenStream {
         for t in &ts.inner {
             match t {
                 TokenTree::Repetition(idx) => {
-                    let streams = streams_all.get(&idx).unwrap().clone();
+                    let streams = streams_all.get(idx).unwrap().clone();
                     let next_streams_len = streams.len();
                     to.insert(*idx, streams);
                     len = match len {
@@ -261,6 +247,12 @@ impl TokenStream {
     //     }
     //     tts_reassemble
     // }
+}
+
+impl Default for TokenStream {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Display for TokenStream {

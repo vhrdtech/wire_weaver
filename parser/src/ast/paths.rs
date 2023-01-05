@@ -9,7 +9,7 @@ impl<'i> Parse<'i> for PathParse {
         let simple_path = input.expect1(Rule::path, "PathParse")?;
         let mut input = ParseInput::fork(simple_path, input);
         let mut segments = VecDeque::new();
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let segment: IdentifierParse<identifier::PathSegment> = input.parse()?;
             segments.push_back(segment.0);
         }

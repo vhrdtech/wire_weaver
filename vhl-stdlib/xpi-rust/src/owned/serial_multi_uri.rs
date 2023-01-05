@@ -34,6 +34,12 @@ impl MultiUriOwned {
     }
 }
 
+impl Default for MultiUriOwned {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Display for MultiUriOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "MultiUri()")

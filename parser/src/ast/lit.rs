@@ -83,7 +83,7 @@ fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
             return Err(ParseErrorSource::internal("wrong discrete_lit rule"));
         }
     };
-    let x_str_raw = x_str_raw.replace("_", ""); // TODO: improve parsing speed?
+    let x_str_raw = x_str_raw.replace('_', ""); // TODO: improve parsing speed?
     let val = u128::from_str_radix(&x_str_raw, radix).map_err(|_| {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IntParseError,
@@ -134,7 +134,7 @@ fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 
     Ok(Lit {
         kind: LitKind::Float(ast::lit::FloatLit {
-            digits: fx.to_owned(),
+            digits: fx,
             ty: ty.0,
             is_ty_forced: false,
         }),
@@ -168,7 +168,7 @@ fn parse_string_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 fn parse_tuple_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::tuple_lit, "parse_tuple_lit")?, input);
     let mut lits = vec![];
-    while let Some(_) = input.pairs.peek() {
+    while input.pairs.peek().is_some() {
         let lit: LitParse = input.parse()?;
         lits.push(lit.0);
     }
@@ -241,7 +241,7 @@ fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         })
     } else {
         let mut items = vec![];
-        while let Some(_) = input.pairs.peek() {
+        while input.pairs.peek().is_some() {
             let val: LitParse = input.parse()?;
             items.push(val.0);
         }
@@ -255,8 +255,8 @@ fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 fn parse_xpi_serial(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::xpi_serial, "parse_xpi_serial")?, input);
     let serial = input.expect1(Rule::dec_lit_raw, "parse_xpi_serial:raw")?;
-    let serial = serial.as_str().replace("_", ""); // TODO: improve parsing speed?
-    let serial = u32::from_str_radix(&serial, 10).map_err(|_| {
+    let serial = serial.as_str().replace('_', ""); // TODO: improve parsing speed?
+    let serial = serial.parse::<u32>().map_err(|_| {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IntParseError,
             rule: Rule::xpi_serial,

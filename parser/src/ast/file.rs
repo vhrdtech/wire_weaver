@@ -18,8 +18,8 @@ pub struct FileParse {
 }
 
 impl FileParse {
-    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Error> {
-        let mut pi =
+    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Box<Error>> {
+        let mut input_pairs =
             <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| {
                 Error {
                     kind: ErrorKind::Grammar(e),
@@ -30,60 +30,58 @@ impl FileParse {
         let mut defs = HashMap::new();
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
-        match pi.next() {
-            Some(pair) => {
-                let mut pi = pair.into_inner();
-                while let Some(p) = pi.peek() {
-                    match p.as_rule() {
-                        // Rule::inner_attribute => {
-                        //     let attr = pi.next();
-                        // }
-                        Rule::EOI => {
-                            break;
-                        }
-                        // silent in rules
-                        // Rule::COMMENT => {
-                        //     let _ = pi.next();
-                        // }
-                        _ => {
-                            let pair = pi.next().unwrap();
-                            let pair_span = pair.as_span();
-                            let rule = pair.as_rule();
-                            let span = (pair.as_span().start(), pair.as_span().end());
-                            let mut input = ParseInput::new(
-                                pair.into_inner(),
-                                ast_span_from_pest(pair_span),
-                                &mut warnings,
-                                &mut errors,
-                            );
-                            let def: Result<DefinitionParse, _> = input.parse();
-                            match def {
-                                Ok(def) => {
-                                    let def = def.0;
-                                    defs.insert(def.name(), def);
-                                }
-                                Err(e) => {
-                                    let kind = match e {
-                                        ParseErrorSource::InternalError { rule, message } => {
-                                            ParseErrorKind::InternalError { rule, message }
-                                        }
-                                        ParseErrorSource::Unimplemented(f) => {
-                                            ParseErrorKind::Unimplemented(f)
-                                        }
-                                        ParseErrorSource::UnexpectedInput { expect1, expect2, got, context, span } => {
-                                            ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span }
-                                        }
-                                        ParseErrorSource::UserError => ParseErrorKind::UserError,
-                                    };
-                                    errors.push(ParseError { kind, rule, span });
-                                }
+        if let Some(pair) = input_pairs.next() {
+            let mut pi = pair.into_inner();
+            while let Some(p) = pi.peek() {
+                match p.as_rule() {
+                    // Rule::inner_attribute => {
+                    //     let attr = pi.next();
+                    // }
+                    Rule::EOI => {
+                        break;
+                    }
+                    // silent in rules
+                    // Rule::COMMENT => {
+                    //     let _ = pi.next();
+                    // }
+                    _ => {
+                        let pair = pi.next().unwrap();
+                        let pair_span = pair.as_span();
+                        let rule = pair.as_rule();
+                        let span = (pair.as_span().start(), pair.as_span().end());
+                        let mut input = ParseInput::new(
+                            pair.into_inner(),
+                            ast_span_from_pest(pair_span),
+                            &mut warnings,
+                            &mut errors,
+                        );
+                        let def: Result<DefinitionParse, _> = input.parse();
+                        match def {
+                            Ok(def) => {
+                                let def = def.0;
+                                defs.insert(def.name(), def);
+                            }
+                            Err(e) => {
+                                let kind = match e {
+                                    ParseErrorSource::InternalError { rule, message } => {
+                                        ParseErrorKind::InternalError { rule, message }
+                                    }
+                                    ParseErrorSource::Unimplemented(f) => {
+                                        ParseErrorKind::Unimplemented(f)
+                                    }
+                                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context, span } => {
+                                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span }
+                                    }
+                                    ParseErrorSource::UserError => ParseErrorKind::UserError,
+                                };
+                                errors.push(ParseError { kind, rule, span });
                             }
                         }
                     }
                 }
             }
-            None => {}
         }
+
         if errors.is_empty() {
             let line_starts = std::iter::once(0)
                 .chain(input.as_ref().match_indices('\n').map(|(i, _)| i + 1))
@@ -98,11 +96,11 @@ impl FileParse {
             change_origin.visit_file(&mut ast_file);
             Ok(FileParse { ast_file, warnings })
         } else {
-            Err(Error {
+            Err(Box::new(Error {
                 kind: ErrorKind::Parser(errors),
                 origin: origin.clone(),
                 input: input.as_ref().to_owned(),
-            })
+            }))
         }
     }
 
@@ -110,48 +108,37 @@ impl FileParse {
         input: S,
         def_name: S,
         origin: SpanOrigin,
-    ) -> Result<Option<String>, Error> {
+    ) -> Result<Option<String>, Box<Error>> {
         let input = input.as_ref();
         let def_name = def_name.as_ref();
-        let mut pi =
+        let mut input_pairs =
             <Lexer as pest::Parser<Rule>>::parse(Rule::file, input).map_err(|e| Error {
                 kind: ErrorKind::Grammar(e),
                 origin: origin.clone(),
                 input: input.to_owned(),
             })?;
         let mut tree = None;
-        match pi.next() {
-            // Rule::file
-            Some(pair) => {
-                let mut pi = pair.into_inner();
-                while let Some(p) = pi.next() {
-                    match p.as_rule() {
-                        Rule::definition => {
-                            let mut name = None;
-                            for p in p.clone().into_inner().flatten() {
-                                match p.as_rule() {
-                                    Rule::identifier => {
-                                        name = Some(p.as_str());
-                                        break;
-                                    }
-                                    _ => continue,
-                                };
+        if let Some(pair) = input_pairs.next() {
+            for p in pair.into_inner() {
+                if p.as_rule() == Rule::definition {
+                    let mut name = None;
+                    for p in p.clone().into_inner().flatten() {
+                        match p.as_rule() {
+                            Rule::identifier => {
+                                name = Some(p.as_str());
+                                break;
                             }
-                            match name {
-                                Some(name) => {
-                                    if name == def_name {
-                                        tree = Some(crate::util::pest_tree(p.into_inner()));
-                                        break;
-                                    }
-                                }
-                                None => {}
-                            }
+                            _ => continue,
+                        };
+                    }
+                    if let Some(name) = name {
+                        if name == def_name {
+                            tree = Some(crate::util::pest_tree(p.into_inner()));
+                            break;
                         }
-                        _ => {}
                     }
                 }
             }
-            None => {}
         }
         Ok(tree)
     }

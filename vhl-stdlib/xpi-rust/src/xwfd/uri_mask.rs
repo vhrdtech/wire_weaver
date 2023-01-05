@@ -178,7 +178,7 @@ impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I>
             UriMaskIter::ByBitfield8 { mask, pos } => next_one_bit!(mask, pos, 8),
             UriMaskIter::ByBitfield16 { mask, pos } => next_one_bit!(mask, pos, 16),
             UriMaskIter::ByBitfield32 { mask, pos } => next_one_bit!(mask, pos, 32),
-            UriMaskIter::ByIndices { iter } => iter.next().map(|x| x),
+            UriMaskIter::ByIndices { iter } => iter.next(),
             UriMaskIter::All { count, pos } => {
                 if *pos < *count {
                     *pos += 1;

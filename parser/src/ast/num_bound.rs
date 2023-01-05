@@ -31,7 +31,7 @@ impl<'i> Parse<'i> for NumBoundParse {
                     ast::TryEvaluateInto::NotResolved(exprs.0),
                 )))
             }
-            _ => return Err(ParseErrorSource::internal("wrong num_bound rule")),
+            _ => Err(ParseErrorSource::internal("wrong num_bound rule")),
         }
     }
 }

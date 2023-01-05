@@ -31,23 +31,27 @@ impl<'i> SerialMultiUri<'i> {
         self.parts_count
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.parts_count == 0
+    }
+
     pub fn iter(&self) -> MultiUriIter {
         MultiUriIter {
-            rdr: self.rdr.clone(),
+            rdr: self.rdr,
             len: self.parts_count,
             pos: 0,
         }
     }
 
     pub fn flat_iter(&self) -> MultiUriFlatIter {
-        let mut rdr_clone = self.rdr.clone();
+        let mut rdr_clone = self.rdr;
         let uri_iter: Vlu4VecIter<u32> = rdr_clone
             .des_vlu4()
-            .unwrap_or(Vlu4Vec::<u32>::empty())
+            .unwrap_or_else(|_| Vlu4Vec::<u32>::empty())
             .into_iter();
         let mask: UriMask<Vlu4Vec<u32>> = rdr_clone
             .des_vlu4()
-            .unwrap_or(UriMask::ByIndices(Vlu4Vec::<u32>::empty()));
+            .unwrap_or_else(|_| UriMask::ByIndices(Vlu4Vec::<u32>::empty()));
         MultiUriFlatIter::MultiUri {
             rdr: rdr_clone,
             len: self.parts_count,
@@ -146,7 +150,7 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
         let parts_count = rdr.get_vlu4_u32()? as usize;
-        let mut rdr_before_elements = rdr.clone();
+        let mut rdr_before_elements = *rdr;
         for _ in 0..parts_count {
             // TODO: implement skip_vlu4() to not read data
             let _uri_arr_len: Vlu4Vec<u32> = rdr.des_vlu4()?;

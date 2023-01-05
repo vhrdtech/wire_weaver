@@ -27,9 +27,8 @@ pub fn pest_tree(pairs: Pairs<Rule>) -> String {
 
 fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Write) {
     let all_input = pairs.as_str();
-    let mut level = 0;
     let all_input_index_shift = pairs.peek().map(|p| p.as_span().start()).unwrap_or(0);
-    for p in pairs {
+    for (level, p) in pairs.enumerate() {
         pest_print_pair(
             p,
             all_input,
@@ -39,19 +38,18 @@ fn pest_print_tree_inner(pairs: Pairs<Rule>, print_input: bool, w: &mut dyn Writ
             vec![level],
             w,
         );
-        level = level + 1;
     }
 }
 
-pub fn pest_file_parse_tree(input: &str) -> Result<String, Error> {
+pub fn pest_file_parse_tree(input: &str) -> Result<String, Box<Error>> {
     let parsed = match <Lexer as pest::Parser<Rule>>::parse(Rule::file, input) {
         Ok(parsed) => parsed,
         Err(e) => {
-            return Err(Error {
+            return Err(Box::new(Error {
                 kind: ErrorKind::Grammar(e),
                 origin: SpanOrigin::Parser(SourceOrigin::Str),
                 input: input.to_owned(),
-            })
+            }))
         }
     };
     let mut s = String::new();
@@ -59,15 +57,15 @@ pub fn pest_file_parse_tree(input: &str) -> Result<String, Error> {
     Ok(s)
 }
 
-pub fn pest_stmt_parse_tree(input: &str) -> Result<String, Error> {
+pub fn pest_stmt_parse_tree(input: &str) -> Result<String, Box<Error>> {
     let parsed = match <Lexer as pest::Parser<Rule>>::parse(Rule::statement, input) {
         Ok(parsed) => parsed,
         Err(e) => {
-            return Err(Error {
+            return Err(Box::new(Error {
                 kind: ErrorKind::Grammar(e),
                 origin: SpanOrigin::Parser(SourceOrigin::Str),
                 input: input.to_owned(),
-            })
+            }))
         }
     };
     let mut s = String::new();
@@ -81,7 +79,7 @@ fn pest_print_pair(
     all_input_index_shift: usize,
     print_input: bool,
     indent: u32,
-    level: Vec<u32>,
+    level: Vec<usize>,
     w: &mut dyn Write,
 ) {
     print_n_tabs(indent, w);
@@ -116,8 +114,7 @@ fn pest_print_pair(
         }
     }
 
-    let mut child = 0;
-    for p in pair.into_inner() {
+    for (child, p) in pair.into_inner().enumerate() {
         let mut level = level.clone();
         level.push(child);
         pest_print_pair(
@@ -129,7 +126,6 @@ fn pest_print_pair(
             level,
             w,
         );
-        child = child + 1;
     }
 }
 

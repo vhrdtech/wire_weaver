@@ -13,6 +13,7 @@ futures = { version = "0.3.24" }
 tracing = "0.1"
 xpi = { path = "../xpi-rust" }
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
+crc-any = "2.4"
 
 [features]
 dynamic = [] # include full vhl vhl_core allowing run time parsing of vhl files, expression evaluation, etc

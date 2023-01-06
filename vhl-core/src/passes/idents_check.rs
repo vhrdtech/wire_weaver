@@ -16,7 +16,7 @@ impl<'i> Visit for IdentsCheck<'i> {
             IdentifierContext::XpiUriSegmentName => {}
             IdentifierContext::XpiKeyName => {}
             IdentifierContext::FnName => {
-                if i.symbols.chars().find(|c| c.is_uppercase()).is_some() {
+                if i.symbols.chars().any(|c| c.is_uppercase()) {
                     self.warnings.push(Warning {
                         kind: WarningKind::NonSnakeCaseFnName(i.symbols.clone()),
                         span: i.span.clone(),

@@ -63,18 +63,12 @@ impl<'a> Iterator for MultiUriFlatIter<'a> {
                 return uri.take();
             }
             MultiUriFlatIter::MultiUri { pairs_iter, current } => {
-                match current {
-                    Some((uri_seed, mask_iter)) => {
-                        match mask_iter.next() {
-                            Some(segment) => {
-                                let mut uri = uri_seed.clone();
-                                uri.push(segment);
-                                return Some(uri);
-                            }
-                            None => {}
-                        }
+                if let Some((uri_seed, mask_iter)) = current {
+                    if let Some(segment) = mask_iter.next() {
+                        let mut uri = uri_seed.clone();
+                        uri.push(segment);
+                        return Some(uri);
                     }
-                    None => {}
                 }
                 match pairs_iter.next() { // if mask_iter is exhausted or self.current is None
                     Some((uri_seed, uri_mask)) => {

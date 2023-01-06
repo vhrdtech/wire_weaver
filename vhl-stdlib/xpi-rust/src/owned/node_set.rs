@@ -13,14 +13,14 @@ impl NodeSet {
         match &self {
             NodeSet::Unicast(node_id) => {
                 bwr.put_up_to_8(2, 0b00)?;
-                let node_id: xwfd::NodeId = node_id.clone().try_into()?;
+                let node_id: xwfd::NodeId = (*node_id).try_into()?;
                 bwr.put(&node_id)?;
             }
             NodeSet::UnicastTraits { .. } => unimplemented!(),
             NodeSet::Multicast { .. } => unimplemented!(),
             NodeSet::Broadcast { original_source } => {
                 bwr.put_up_to_8(2, 0b11)?;
-                let node_id: xwfd::NodeId = original_source.clone().try_into()?;
+                let node_id: xwfd::NodeId = (*original_source).try_into()?;
                 bwr.put(&node_id)?;
             }
         }

@@ -18,69 +18,52 @@ pub struct CollectArrays<'i> {
 
 impl<'i> VisitMut for CollectArrays<'i> {
     fn visit_xpi_kind(&mut self, kind: &mut XpiKind) {
-        match kind {
-            XpiKind::Property {
-                access,
-                observable,
-                ty,
-            } => {
-                let span = ty.span.clone();
+        if let XpiKind::Property { access, observable, ty } = kind {
+            let span = ty.span.clone();
+            if let TyKind::Array { ty, len_bound } = &ty.kind {
+                let self_path = make_path!(Self);
                 match &ty.kind {
-                    TyKind::Array { ty, len_bound } => {
-                        let self_path = make_path!(Self);
-                        match &ty.kind {
-                            TyKind::Ref(path) => {
-                                if *path == self_path {
-                                    if *access != AccessMode::ImpliedRo || *observable {
-                                        self.errors.push(UserError {
-                                            kind: UserErrorKind::XpiArrayWithModifier,
-                                            span,
-                                        });
-                                    }
-                                    *kind = XpiKind::Array {
-                                        num_bound: len_bound.clone(),
-                                        is_celled: false,
-                                    };
-                                    return;
-                                }
+                    TyKind::Ref(path) => {
+                        if *path == self_path {
+                            if *access != AccessMode::ImpliedRo || *observable {
+                                self.errors.push(UserError {
+                                    kind: UserErrorKind::XpiArrayWithModifier,
+                                    span,
+                                });
                             }
-                            TyKind::Generic { path, params } => {
-                                if path.as_string() == "Cell" && params.params.len() == 1 {
-                                    match &params.params[0] {
-                                        GenericParam::Ty(ty) => match &ty.kind {
-                                            TyKind::Ref(path) => {
-                                                if *path == self_path {
-                                                    if *access != AccessMode::ImpliedRo
-                                                        || *observable
-                                                    {
-                                                        self.errors.push(UserError {
-                                                            kind:
-                                                            UserErrorKind::XpiArrayWithModifier,
-                                                            span,
-                                                        });
-                                                    }
-                                                    *kind = XpiKind::Array {
-                                                        num_bound: len_bound.clone(),
-                                                        is_celled: true,
-                                                    };
-                                                    return;
-                                                }
-                                            }
-                                            _ => {}
-                                        },
-                                        GenericParam::Expr(_) => {}
+                            *kind = XpiKind::Array {
+                                num_bound: len_bound.clone(),
+                                is_celled: false,
+                            };
+                        }
+                    }
+                    TyKind::Generic { path, params } => {
+                        if path.as_string() == "Cell" && params.params.len() == 1 {
+                            match &params.params[0] {
+                                GenericParam::Ty(ty) => if let TyKind::Ref(path) = &ty.kind {
+                                    if *path == self_path {
+                                        if *access != AccessMode::ImpliedRo
+                                            || *observable
+                                        {
+                                            self.errors.push(UserError {
+                                                kind:
+                                                UserErrorKind::XpiArrayWithModifier,
+                                                span,
+                                            });
+                                        }
+                                        *kind = XpiKind::Array {
+                                            num_bound: len_bound.clone(),
+                                            is_celled: true,
+                                        };
                                     }
-                                }
+                                },
+                                GenericParam::Expr(_) => {}
                             }
-                            _ => {}
                         }
                     }
                     _ => {}
                 }
             }
-            _ => {}
         }
-
-        // self.visit_xpi_kind(kind);
     }
 }

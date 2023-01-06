@@ -133,3 +133,9 @@ impl ImportMerger {
         s
     }
 }
+
+impl Default for ImportMerger {
+    fn default() -> Self {
+        Self::new()
+    }
+}

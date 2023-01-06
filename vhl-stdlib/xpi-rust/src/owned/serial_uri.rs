@@ -21,7 +21,7 @@ impl UriOwned {
 
     pub fn new(segments: &[u32]) -> Self {
         UriOwned {
-            segments: segments.iter().map(|x| *x).collect()
+            segments: segments.iter().copied().collect()
         }
     }
 
@@ -47,7 +47,7 @@ impl UriOwned {
         let mut iter = self.segments.iter();
         let s03 = (iter.next(), iter.next(), iter.next(), iter.next());
         use xwfd::SerialUri::*;
-        let uri = match s03 {
+        match s03 {
             (Some(&s0), None, None, None) => {
                 if s0 <= 15 {
                     OnePart4(unsafe { U4::new_unchecked(s0 as u8) })
@@ -90,19 +90,8 @@ impl UriOwned {
                 }
             }
             (_, _, _, _) => MultiPart(self.segments.clone().into_iter()),
-        };
-        // bwr.put_up_to_8(3, uri.discriminant() as u8)?;
-        uri
+        }
     }
-    //
-    // pub(crate) fn ser_body_xwfd(
-    //     &self,
-    //     nwr: &mut NibbleBufMut,
-    //     uri_kind: xwfd::SerialUriDiscriminant,
-    // ) -> Result<(), ConvertError> {
-    //
-    //     Ok(())
-    // }
 }
 
 impl<'i> From<xwfd::SerialUri<Vlu4Vec<'i, u32>>> for UriOwned {

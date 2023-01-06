@@ -21,7 +21,7 @@ impl<'ast> StructSer<'ast> {
                 TyKind::Unit => 0,
                 TyKind::Boolean => 1,
                 TyKind::Discrete(discrete) => {
-                    (discrete.bits / 8 + if discrete.bits % 2 != 0 { 1 } else { 0 }) as usize
+                    (discrete.bits / 8 + u32::from(discrete.bits % 2 != 0)) as usize
                 }
                 _ => unimplemented!(), // ?
             };

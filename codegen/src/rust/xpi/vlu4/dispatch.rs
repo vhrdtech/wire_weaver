@@ -116,16 +116,16 @@ impl<'ast> DispatchCall<'ast> {
         let dispatch = xpi_def
             .attrs
             .get_unique(make_path!(dispatch))
-            .ok_or(CodegenError::Dispatch("expected dispatch attr".to_owned()))?;
+            .ok_or_else(|| CodegenError::Dispatch("expected dispatch attr".to_owned()))?;
         let expr = dispatch
             .expect_expr()
-            .ok_or(CodegenError::Dispatch("expected expr".to_owned()))?;
+            .ok_or_else(|| CodegenError::Dispatch("expected expr".to_owned()))?;
         let (kind, args) = expr
             .expect_call()
-            .ok_or(CodegenError::Dispatch("expected call".to_owned()))?;
+            .ok_or_else(|| CodegenError::Dispatch("expected call".to_owned()))?;
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
         // println!("args0: {}", args.0[0]);
-        let path = args.0[0].expect_ref().ok_or(CodegenError::Dispatch(
+        let path = args.0[0].expect_ref().ok_or_else(|| CodegenError::Dispatch(
             "expected path to user method".to_owned(),
         ))?;
         let path = PathCG { inner: &path };
@@ -192,7 +192,7 @@ impl<'ast> DispatchCall<'ast> {
             Ok((TokenStream::new(), mquote!(rust r#" Ok(0) "#)))
         } else {
             let ser_method = StructSerField {
-                ty: CGTy { inner: &ret_ty },
+                ty: CGTy { inner: ret_ty },
             };
             Ok((
                 mquote!(rust r#" let ret = "#),

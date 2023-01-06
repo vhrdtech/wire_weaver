@@ -43,7 +43,7 @@ impl Project {
                         .root
                         .defs
                         .get(&id)
-                        .ok_or(Error::FindDef(format!("crate::{} not found", id)))?;
+                        .ok_or_else(|| Error::FindDef(format!("crate::{} not found", id)))?;
                     if path.is_empty() {
                         Ok(def.clone())
                     } else {
@@ -58,7 +58,7 @@ impl Project {
                     }
                 }
                 None => {
-                    return Err(Error::FindDef("crate root is not a definition".to_owned()));
+                    Err(Error::FindDef("crate root is not a definition".to_owned()))
                 }
             }
         } else {
@@ -155,13 +155,13 @@ impl<'a> Files<'a> for Project {
             Ok(self
                 .root
                 .line_index(byte_index)
-                .map_err(|e| map_to_cr_err(e))?)
+                .map_err(map_to_cr_err)?)
         } else {
             Ok(self
                 .find_file_by_id(id)
                 .map_err(|_| CRError::FileMissing)?
                 .line_index(byte_index)
-                .map_err(|e| map_to_cr_err(e))?)
+                .map_err(map_to_cr_err)?)
         }
     }
 
@@ -170,13 +170,13 @@ impl<'a> Files<'a> for Project {
             Ok(self
                 .root
                 .line_range(line_index)
-                .map_err(|e| map_to_cr_err(e))?)
+                .map_err(map_to_cr_err)?)
         } else {
             Ok(self
                 .find_file_by_id(id)
                 .map_err(|_| CRError::FileMissing)?
                 .line_range(line_index)
-                .map_err(|e| map_to_cr_err(e))?)
+                .map_err(map_to_cr_err)?)
         }
     }
 }

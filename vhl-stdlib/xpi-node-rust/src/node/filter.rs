@@ -120,3 +120,9 @@ impl EventFilter {
         true
     }
 }
+
+impl Default for EventFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -187,7 +187,7 @@ impl VhNode {
         let mut filters_to_drop = vec![];
         let mut forwards_count = 0;
         for (idx, (filter, tx_handle)) in filters.iter_mut().enumerate() {
-            if filter.matches(&ev) {
+            if filter.matches(ev) {
                 let r = tx_handle.send(ev.clone()).await; // TODO: count
                 if r.is_ok() {
                     forwards_count += 1;
@@ -279,7 +279,7 @@ impl VhNode {
                 let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
                 info!("Connected");
                 let (tx, rx) = mpsc::channel(64);
-                let id = self.id.clone();
+                let id = self.id;
                 let to_event_loop = self.tx_to_event_loop.clone();
                 let to_event_loop_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
@@ -305,7 +305,7 @@ impl VhNode {
                 let listener = TcpListener::bind(ip_addr).await?;
                 info!("tcp: Listening on: {ip_addr}");
 
-                let id = self.id.clone();
+                let id = self.id;
                 let tx_to_event_loop = self.tx_to_event_loop.clone();
                 let tx_internal = self.tx_internal.clone();
                 tokio::spawn(async move {

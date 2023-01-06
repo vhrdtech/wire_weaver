@@ -10,9 +10,9 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
     let input = std::fs::read_to_string(generate_args.vhl_source.clone())
         .context(format!("unable to open '{:?}'", generate_args.vhl_source))?;
     let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(
-        generate_args.vhl_source.clone(),
+        generate_args.vhl_source,
     )));
-    let file = match FileParse::parse(&input, origin.clone()) {
+    let file = match FileParse::parse(&input, origin) {
         Ok(file) => file,
         Err(e) => {
             e.print_report();

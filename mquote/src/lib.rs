@@ -41,12 +41,12 @@ pub fn mquote(ts: TokenStream) -> TokenStream {
     };
     let debug = ts.next().is_some();
 
-    let mquote_ts = if mquote_ts.starts_with("\"") {
+    let mquote_ts = if mquote_ts.starts_with('\"') {
         &mquote_ts[1..mquote_ts.len() - 1]
     } else {
         let mut pound_count = 1;
         let mquote_ts_ascii = mquote_ts.as_str().as_bytes();
-        while mquote_ts_ascii[pound_count] == '#' as u8 {
+        while mquote_ts_ascii[pound_count] == b'#' {
             pound_count += 1;
         }
         &mquote_ts[pound_count + 1..mquote_ts.len() - pound_count]
@@ -242,7 +242,7 @@ fn tt_append_interpolate(
         }
         Rule::interpolate_rep => {
             let paths_count = repetition_paths.len();
-            let repetition_idx = *repetition_paths.entry(path.clone()).or_insert(paths_count);
+            let repetition_idx = *repetition_paths.entry(path).or_insert(paths_count);
             let repetition_idx = Literal::usize_unsuffixed(repetition_idx);
             ts_builder.append_all(quote! {
                 ts.append(mtoken::TokenTree::Repetition(#repetition_idx));
@@ -307,7 +307,7 @@ fn tt_append_ident(
     ts_builder: &mut proc_macro2::TokenStream,
     language: Language,
 ) {
-    let cancel_auto_raw = token.as_str().chars().next().unwrap() == 'ȸ';
+    let cancel_auto_raw = token.as_str().starts_with('ȸ');
     let (ident_lit, flavor) = if cancel_auto_raw {
         let ident_skip: String = token.as_str().chars().skip(1).collect();
         (

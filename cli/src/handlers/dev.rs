@@ -8,12 +8,12 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
     let local_path = PathBuf::from(dev_args.vhl_source.clone());
     let input = std::fs::read_to_string(local_path.clone())
         .context(format!("unable to open '{:?}'", dev_args.vhl_source))?;
-    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(local_path.clone())));
+    let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(local_path)));
 
     if dev_args.lexer {
         match dev_args.definition {
             Some(name) => {
-                let tree = match FileParse::parse_tree(&input, &name, origin.clone()) {
+                let tree = match FileParse::parse_tree(&input, &name, origin) {
                     Ok(t) => t,
                     Err(e) => {
                         println!("{}", e);
@@ -40,7 +40,7 @@ pub fn dev_subcmd(dev_args: DevArgs) -> Result<()> {
             }
         }
     } else if dev_args.parser {
-        let file = match FileParse::parse(&input, origin.clone()) {
+        let file = match FileParse::parse(&input, origin) {
             Ok(file) => file,
             Err(e) => {
                 e.print_report();

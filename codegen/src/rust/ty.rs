@@ -23,12 +23,10 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     } else {
                         "u"
                     }
+                } else if discrete.is_signed {
+                    "VI"
                 } else {
-                    if discrete.is_signed {
-                        "VI"
-                    } else {
-                        "VU"
-                    }
+                    "VU"
                 };
                 let discrete = format!("{}{}", is_signed, discrete.bits);
                 tokens.append_all(mquote!(rust r#"

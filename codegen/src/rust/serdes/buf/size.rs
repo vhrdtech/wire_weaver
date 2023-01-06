@@ -29,9 +29,9 @@ pub fn size_in_byte_buf(
             NumBound::Set(set) => match set {
                 TryEvaluateInto::Resolved(set) => Ok(SerDesSize::UnsizedBound(set.max_len())),
                 TryEvaluateInto::NotResolved(_) | TryEvaluateInto::Error => {
-                    return Err(CodegenError::Internal(
+                    Err(CodegenError::Internal(
                         "size_in_byte_buf: not processed AST is given to codegen".to_owned(),
-                    ));
+                    ))
                 }
             },
         },
@@ -44,9 +44,9 @@ pub fn size_in_byte_buf(
         | TyKind::AutoNumber(_)
         | TyKind::IndexTyOf(_)
         | TyKind::Generic { .. } => {
-            return Err(CodegenError::Internal(
+            Err(CodegenError::Internal(
                 "size_in_byte_buf: wrong AST is given to codegen".to_owned(),
-            ));
+            ))
         }
     }
 }

@@ -1,23 +1,18 @@
-use std::net::SocketAddr;
-use futures::channel::mpsc::{Receiver, Sender};
-use futures::{FutureExt, SinkExt, StreamExt};
+use crate::codec::mvlb_crc32_codec::MvlbCodec;
+use crate::node::addressing::RemoteNodeAddr;
+use crate::node::async_std::internal_event::InternalEvent;
+use crate::remote::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc;
+use futures::channel::mpsc::{Receiver, Sender};
 use futures::stream::{SplitSink, SplitStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::WriteHalf;
+use futures::{SinkExt, StreamExt};
+use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
-use crate::codec::mvlb_crc32_codec::MvlbCodec;
-use crate::node::addressing::RemoteNodeAddr;
-use crate::node::async_std::internal_event::InternalEvent;
-use crate::remote::remote_descriptor::RemoteDescriptor;
-
-const TX_BBBUFFER_MTU: usize = 1024;
-const TX_BBBUFFER_LEN: usize = 10_240;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn tcp_server_acceptor(
@@ -33,10 +28,20 @@ pub(crate) async fn tcp_server_acceptor(
                 let (tx, rx) = mpsc::channel(64);
                 let to_event_loop = tx_to_event_loop.clone();
                 let to_event_loop_internal = tx_internal.clone();
-                // tokio::spawn(async move {
-                //     tcp_event_loop(self_id, remote_addr, tcp_stream, to_event_loop.clone(), to_event_loop_internal, rx).await
-                // });
-                todo!();
+                let (frames_sink, frames_source) =
+                    Framed::new(tcp_stream, MvlbCodec::new_with_max_length(512, 512 * 3)).split(); // TODO: do no hardcode
+                tokio::spawn(async move {
+                    tcp_event_loop(
+                        self_id,
+                        remote_addr,
+                        frames_sink,
+                        frames_source,
+                        to_event_loop.clone(),
+                        to_event_loop_internal,
+                        rx,
+                    )
+                        .await
+                });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: vec![],
                     addr: RemoteNodeAddr::Tcp(remote_addr),
@@ -44,9 +49,10 @@ pub(crate) async fn tcp_server_acceptor(
                 };
                 match tx_internal
                     .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
-                    .await {
+                    .await
+                {
                     Ok(_) => {}
-                    Err(_) => error!("tx_internal: send failed")
+                    Err(_) => error!("tx_internal: send failed"),
                 }
             }
             Err(e) => {
@@ -56,14 +62,14 @@ pub(crate) async fn tcp_server_acceptor(
     }
 }
 
-#[instrument(skip(to_event_loop, to_event_loop_internal, from_event_loop))]
+#[instrument(skip(to_event_loop, _to_event_loop_internal, from_event_loop))]
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     addr: SocketAddr,
     mut frames_sink: SplitSink<Framed<TcpStream, MvlbCodec>, Vec<u8>>,
-    mut frames_source: SplitStream<Framed<TcpStream, MvlbCodec>>,
+    frames_source: SplitStream<Framed<TcpStream, MvlbCodec>>,
     mut to_event_loop: Sender<Event>,
-    mut to_event_loop_internal: Sender<InternalEvent>,
+    _to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
 ) {
     info!("Entering tcp event loop on {addr}");
@@ -101,8 +107,6 @@ pub async fn tcp_event_loop(
             //     }
             // }
             ev = from_event_loop.select_next_some() => {
-                // serialize_and_commit(ev, &mut tx_prod);
-                // consume_and_write(&mut tx_cons, &mut tcp_tx).await;
                 serialize_and_send(ev, &mut frames_sink).await;
             },
         }
@@ -141,7 +145,7 @@ async fn serialize_and_send(
             buf.resize(len, 0);
             match frames_sink.send(buf).await {
                 Ok(_) => {}
-                Err(e) => error!("Encoder for tcp error: {e:?}")
+                Err(e) => error!("Encoder for tcp error: {e:?}"),
             }
         }
         Err(e) => {

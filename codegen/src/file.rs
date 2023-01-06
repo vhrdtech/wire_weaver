@@ -69,3 +69,9 @@ impl CGFile {
         Ok((whole_file, depends_on))
     }
 }
+
+impl Default for CGFile {
+    fn default() -> Self {
+        Self::new()
+    }
+}

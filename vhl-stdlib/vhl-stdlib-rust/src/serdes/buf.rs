@@ -2,6 +2,7 @@ use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::{DeserializeBytes, SerializeBytes};
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::ptr::copy_nonoverlapping;
+use crate::serdes::vlu32b::Vlu32B;
 
 /// Buffer reader that treats input as a stream of bytes
 ///
@@ -16,6 +17,7 @@ pub struct Buf<'i> {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     OutOfBounds,
+    MalformedVlu32B,
     // TODO: replace by one common error in ll-buf crate
     NibbleBufError(crate::serdes::nibble_buf::Error),
     // UnalignedAccess,
@@ -119,6 +121,16 @@ impl<'i> Buf<'i> {
         let val = u16::from_le_bytes(bytes);
         self.idx += 2;
         Ok(val)
+    }
+
+    pub fn get_vlu32b(&mut self) -> Result<u32, Error> {
+        let val: Vlu32B = Vlu32B::des_bytes(self)?;
+        Ok(val.0)
+    }
+
+    pub fn skip_vlu32b(&mut self) -> Result<(), Error> {
+        while self.get_u8()? & 0b1000_0000 != 0 {}
+        Ok(())
     }
 
     pub fn des_bytes<'di, T: DeserializeBytes<'i>>(&'di mut self) -> Result<T, T::Error> {
@@ -243,8 +255,12 @@ impl<'i> BufMut<'i> {
         Ok(())
     }
 
+    pub fn put_vlu32b(&mut self, val: u32) -> Result<(), Error> {
+        Vlu32B(val).ser_bytes(self)
+    }
+
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeBytes<Error = E>>(&mut self, t: &T) -> Result<(), E> {
+    pub fn put<E, T: SerializeBytes<Error=E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_bytes(self)
     }
 }

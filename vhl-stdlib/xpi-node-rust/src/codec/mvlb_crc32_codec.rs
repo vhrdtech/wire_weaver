@@ -16,7 +16,6 @@ use vhl_stdlib::serdes::BufMut as VhlBufMut;
 /// though this might need more checking.
 /// Alternative is not using marks at all (only length and crc), but decoding is more resource intensive then.
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // TODO: remove me
 pub struct MvlbCodec {
     state: State,
 
@@ -26,8 +25,7 @@ pub struct MvlbCodec {
     error_threshold: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
-#[allow(dead_code)] // TODO: remove me
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum State {
     /// Initial state or when found 0xaa, 0x55, but not yet received length and valid crc.
     /// When marker is found, transition into WaitingForHeader.
@@ -61,15 +59,13 @@ impl Decoder for MvlbCodec {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        println!("s: {:?} blen: {} bcap: {}", self.state, buf.len(), buf.capacity());
-
         loop {
             match self.state {
                 State::MaybeAtTheBoundary => {
                     // Determine how far into the buffer we'll search for a [0xaa, 0x55] separator.
                     let read_to = cmp::min(self.max_length.saturating_add(1), buf.len());
                     let marker_offset = buf[..read_to]
-                        .chunks_exact(2)
+                        .windows(2)
                         .position(|halfw| halfw == &[0xaa, 0x55]);
                     match marker_offset {
                         Some(offset) => {
@@ -115,6 +111,12 @@ impl Decoder for MvlbCodec {
                     let length = rd.get_vlu32b();
                     match length {
                         Ok(len) => {
+                            if len as usize > self.max_length {
+                                // incorrect length, start over and search for a new marker
+                                self.state = State::MaybeAtTheBoundary;
+                                continue;
+                            }
+
                             let mut crc16 = crc_any::CRCu16::crc16ccitt_false();
                             crc16.digest(&buf[..rd.byte_pos()]);
                             let expected_crc = crc16.get_crc();
@@ -141,6 +143,9 @@ impl Decoder for MvlbCodec {
                     }
                     let crc = buf.get_u16_le();
                     if crc == expected_crc {
+                        // now that we now the length, reserve needed capacity for
+                        // frame data itself and next header of a maximum size
+                        buf.reserve(len + 9);
                         self.state = State::WaitingForFullFrame { len };
                     } else {
                         // malformed header, probably garbage, try to find new marker
@@ -155,10 +160,15 @@ impl Decoder for MvlbCodec {
                         self.discarded = self.discarded.saturating_sub(frame.len() / 10);
                         Ok(Some(frame))
                     } else {
-                        Ok(None)
+                        // not enough data received yet for a full frame
+                        return Ok(None)
                     }
                 }
             }
+
+            // only 1 iteration per run in test mode, so that state can be inspected with asserts.
+            #[cfg(test)]
+            return Ok(None)
         }
     }
 }
@@ -197,7 +207,7 @@ impl Encoder<Bytes> for MvlbCodec {
 mod test {
     use bytes::{Bytes, BytesMut};
     use tokio_util::codec::{Decoder, Encoder};
-    use crate::codec::mvlb_crc32_codec::MvlbCodec;
+    use crate::codec::mvlb_crc32_codec::{MvlbCodec, State};
 
     #[test]
     fn encode_lt127() {
@@ -230,9 +240,32 @@ mod test {
 
     #[test]
     fn decode_proper_start() {
-        let mut buf = BytesMut::from(&[0xaa, 0x55, 5, 85, 177, 1, 2, 3, 4, 5][..]);
+        let mut buf = BytesMut::from(&[0xaa, 0x55, 5, 0x55, 0xb1, 1, 2, 3, 4, 5][..]);
         let mut codec = MvlbCodec::new_with_max_length(16384);
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        assert_eq!(codec.state, State::WaitingForLength);
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        assert_eq!(codec.state, State::WaitingForCrc { len: 5, expected_crc: 0xb155 });
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        assert_eq!(codec.state, State::WaitingForFullFrame { len: 5 });
         let frame = codec.decode(&mut buf).unwrap();
+        assert_eq!(codec.state, State::MaybeAtTheBoundary);
+        assert_eq!(frame, Some(Bytes::from(&[1, 2, 3, 4, 5][..])));
+    }
+
+    #[test]
+    fn decode_garbage_start() {
+        let mut buf = BytesMut::from(&[1, 2, 3, 0xaa, 0x55, 5, 85, 177, 1, 2, 3, 4, 5][..]);
+        let mut codec = MvlbCodec::new_with_max_length(16384);
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        assert_eq!(codec.state, State::WaitingForLength);
+        assert_eq!(codec.discarded, 3);
+        assert_eq!(buf.len(), 8);
+
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        assert!(matches!(codec.decode(&mut buf), Ok(None)));
+        let frame = codec.decode(&mut buf).unwrap();
+        assert_eq!(codec.state, State::MaybeAtTheBoundary);
         assert_eq!(frame, Some(Bytes::from(&[1, 2, 3, 4, 5][..])));
     }
 }

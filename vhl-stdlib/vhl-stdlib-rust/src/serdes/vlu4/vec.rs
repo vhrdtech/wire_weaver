@@ -640,7 +640,7 @@ impl<'i> DeserializeVlu4<'i> for &'i [u8] {
     type Error = NibbleBufError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let len = rdr.get_vlu4_u32()? as usize;
+        let len = rdr.get_vlu32n()? as usize;
         if len == 0 {
             return Ok(&[]);
         }
@@ -678,7 +678,7 @@ impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
     type Error = NibbleBufError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let code = rdr.get_vlu4_u32()?;
+        let code = rdr.get_vlu32n()?;
         if code == 0 {
             Ok(Ok(T::des_vlu4(rdr)?))
         } else {

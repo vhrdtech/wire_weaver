@@ -149,7 +149,7 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
     type Error = XpiError;
 
     fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let parts_count = rdr.get_vlu4_u32()? as usize;
+        let parts_count = rdr.get_vlu32n()? as usize;
         let mut rdr_before_elements = *rdr;
         for _ in 0..parts_count {
             // TODO: implement skip_vlu4() to not read data
@@ -169,7 +169,7 @@ impl<'i> SerializeVlu4 for SerialMultiUri<'i> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        wgr.put_vlu4_u32(self.parts_count as u32)?;
+        wgr.put_vlu32n(self.parts_count as u32)?;
         for (uri, mask) in self.iter() {
             wgr.put(&uri)?;
             wgr.put(&mask)?;

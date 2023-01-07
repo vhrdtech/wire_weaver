@@ -81,7 +81,7 @@ impl<'i> DeserializeVlu4<'i> for Vlu32N {
             if i == 10 {
                 // maximum 32 bits in 11 nibbles, 11th nibble should be the last
                 if nib & 0b1000 != 0 {
-                    return Err(NibbleBufError::MalformedVlu4U32);
+                    return Err(NibbleBufError::MalformedVlu32N);
                 }
             }
             num |= nib as u32 & 0b111;
@@ -158,10 +158,10 @@ mod test {
     fn read_vlu4_u32_single_nibble() {
         let buf = [0b0111_0010, 0b0000_0001];
         let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(7));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(2));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(1));
+        assert_eq!(rdr.get_vlu32n(), Ok(7));
+        assert_eq!(rdr.get_vlu32n(), Ok(2));
+        assert_eq!(rdr.get_vlu32n(), Ok(0));
+        assert_eq!(rdr.get_vlu32n(), Ok(1));
         assert!(rdr.is_at_end());
     }
 
@@ -169,11 +169,11 @@ mod test {
     fn read_vlu4_u32_multi_nibble() {
         let buf = [0b1111_0111, 0b1001_0000, 0b1000_0111];
         let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(63));
+        assert_eq!(rdr.get_vlu32n(), Ok(63));
         assert_eq!(rdr.nibbles_pos(), 2);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0b001000));
+        assert_eq!(rdr.get_vlu32n(), Ok(0b001000));
         assert_eq!(rdr.nibbles_pos(), 4);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0b111));
+        assert_eq!(rdr.get_vlu32n(), Ok(0b111));
         assert!(rdr.is_at_end());
     }
 
@@ -181,7 +181,7 @@ mod test {
     fn read_vlu4_u32_max() {
         let buf = [0b1011_1111, 0xff, 0xff, 0xff, 0xff, 0x70];
         let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(u32::MAX));
+        assert_eq!(rdr.get_vlu32n(), Ok(u32::MAX));
         assert_eq!(rdr.get_nibble(), Ok(0));
         assert!(rdr.is_at_end());
     }
@@ -191,7 +191,7 @@ mod test {
         // ignore bit 33
         let buf = [0b1111_1111, 0xff, 0xff, 0xff, 0xff, 0x70];
         let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(u32::MAX));
+        assert_eq!(rdr.get_vlu32n(), Ok(u32::MAX));
         assert_eq!(rdr.get_nibble(), Ok(0));
         assert!(rdr.is_at_end());
     }
@@ -201,7 +201,7 @@ mod test {
         // more nibbles than expected for u32
         let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
         let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Err(Error::MalformedVlu4U32));
+        assert_eq!(rdr.get_vlu32n(), Err(Error::MalformedVlu32N));
         assert_eq!(rdr.nibbles_left(), 1);
     }
 
@@ -209,7 +209,7 @@ mod test {
     fn write_vlu4_u32_3() {
         let mut buf = [0u8; 4];
         let mut wgr = NibbleBufMut::new_all(&mut buf);
-        wgr.put_vlu4_u32(3).unwrap();
+        wgr.put_vlu32n(3).unwrap();
         assert_eq!(wgr.nibbles_pos(), 1);
         assert_eq!(buf[0], 0b0011_0000);
     }
@@ -217,13 +217,13 @@ mod test {
     // ≈ 1.5M/s on Core i7 8700K
     // ≈ 47min to complete on all 32 bit numbers
     #[test]
-    fn round_trip_vlu4_u32() {
+    fn round_trip_vlu32n() {
         let mut buf = [0u8; 11];
         let numbers = [0, 7, 8, 63, 64, 511, 512, u32::MAX - 1, u32::MAX];
         for i in numbers {
             {
                 let mut wgr = NibbleBufMut::new_all(&mut buf);
-                wgr.put_vlu4_u32(i).unwrap();
+                wgr.put_vlu32n(i).unwrap();
                 assert!(!wgr.is_at_end());
             }
             // if i % 10_000_000 == 0 {
@@ -232,7 +232,7 @@ mod test {
             // }
 
             let mut rgr = NibbleBuf::new_all(&mut buf);
-            assert_eq!(rgr.get_vlu4_u32(), Ok(i));
+            assert_eq!(rgr.get_vlu32n(), Ok(i));
         }
     }
 }

@@ -36,7 +36,7 @@ pub enum Error {
     // #[error("Out of bounds access")]
     OutOfBounds,
     // #[error("Wrong vlu4 number")]
-    MalformedVlu4U32,
+    MalformedVlu32N,
     // #[error("Unaligned access for slice")]
     UnalignedAccess,
 
@@ -170,12 +170,12 @@ impl<'i> NibbleBuf<'i> {
         }
     }
 
-    pub fn get_vlu4_u32(&mut self) -> Result<u32, Error> {
+    pub fn get_vlu32n(&mut self) -> Result<u32, Error> {
         let val: Vlu32N = Vlu32N::des_vlu4(self)?;
         Ok(val.0)
     }
 
-    pub fn skip_vlu4_u32(&mut self) -> Result<(), Error> {
+    pub fn skip_vlu32n(&mut self) -> Result<(), Error> {
         while self.get_nibble()? & 0b1000 != 0 {}
         Ok(())
     }
@@ -287,7 +287,7 @@ impl<'i> NibbleBuf<'i> {
         F: Fn(u32) -> E,        // result error mapping closure
         T::Error: From<Error>,  // deserialization error of T
     {
-        let code = self.get_vlu4_u32()?;
+        let code = self.get_vlu32n()?;
         if code == 0 {
             T::des_vlu4(self).map(|t| Ok(t))
         } else {
@@ -386,7 +386,7 @@ impl<'i> DeserializeVlu4<'i> for NibbleBuf<'i> {
     type Error = Error;
 
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let len = nrd.get_vlu4_u32()?;
+        let len = nrd.get_vlu32n()?;
         nrd.get_buf_slice(len as usize)
     }
 }
@@ -665,7 +665,7 @@ impl<'i> NibbleBufMut<'i> {
         }
     }
 
-    pub fn put_vlu4_u32(&mut self, val: u32) -> Result<(), Error> {
+    pub fn put_vlu32n(&mut self, val: u32) -> Result<(), Error> {
         Vlu32N(val).ser_vlu4(self)
     }
 

@@ -72,7 +72,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
                 Ok(UriMask::ByIndices(arr))
             },
             6 => {
-                let amount = rdr.get_vlu4_u32()?;
+                let amount = rdr.get_vlu32n()?;
                 Ok(UriMask::All(Vlu32N(amount)))
             }
             7 => Err(XpiError::ReservedDiscard),

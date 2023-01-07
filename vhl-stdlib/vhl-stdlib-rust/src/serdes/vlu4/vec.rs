@@ -834,6 +834,10 @@ mod test {
                 _ => None,
             }
         }
+
+        fn max_code() -> u32 {
+            3
+        }
     }
 
     #[test]

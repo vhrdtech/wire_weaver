@@ -987,57 +987,6 @@ mod test {
     }
 
     #[test]
-    fn read_vlu4_u32_single_nibble() {
-        let buf = [0b0111_0010, 0b0000_0001];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(7));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(2));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0));
-        assert_eq!(rdr.get_vlu4_u32(), Ok(1));
-        assert!(rdr.is_at_end());
-    }
-
-    #[test]
-    fn read_vlu4_u32_multi_nibble() {
-        let buf = [0b1111_0111, 0b1001_0000, 0b1000_0111];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(63));
-        assert_eq!(rdr.nibbles_pos(), 2);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0b001000));
-        assert_eq!(rdr.nibbles_pos(), 4);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(0b111));
-        assert!(rdr.is_at_end());
-    }
-
-    #[test]
-    fn read_vlu4_u32_max() {
-        let buf = [0b1011_1111, 0xff, 0xff, 0xff, 0xff, 0x70];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(u32::MAX));
-        assert_eq!(rdr.get_nibble(), Ok(0));
-        assert!(rdr.is_at_end());
-    }
-
-    #[test]
-    fn read_vlu4_u32_max_plus1() {
-        // ignore bit 33
-        let buf = [0b1111_1111, 0xff, 0xff, 0xff, 0xff, 0x70];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Ok(u32::MAX));
-        assert_eq!(rdr.get_nibble(), Ok(0));
-        assert!(rdr.is_at_end());
-    }
-
-    #[test]
-    fn read_vlu4_u32_max_plus_nibble() {
-        // more nibbles than expected for u32
-        let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
-        let mut rdr = NibbleBuf::new_all(&buf);
-        assert_eq!(rdr.get_vlu4_u32(), Err(Error::MalformedVlu4U32));
-        assert_eq!(rdr.nibbles_left(), 1);
-    }
-
-    #[test]
     fn write_nibbles() {
         let mut buf = [0u8; 2];
         let mut wgr = NibbleBufMut::new_all(&mut buf);
@@ -1052,37 +1001,6 @@ mod test {
         assert_eq!(buf[1], 0x34);
         assert_eq!(byte_pos, 2);
         assert_eq!(is_at_byte_boundary, true);
-    }
-
-    #[test]
-    fn write_vlu4_u32_3() {
-        let mut buf = [0u8; 4];
-        let mut wgr = NibbleBufMut::new_all(&mut buf);
-        wgr.put_vlu4_u32(3).unwrap();
-        assert_eq!(wgr.nibbles_pos(), 1);
-        assert_eq!(buf[0], 0b0011_0000);
-    }
-
-    // ≈ 1.5M/s on Core i7 8700K
-    // ≈ 47min to complete on all 32 bit numbers
-    #[test]
-    fn round_trip_vlu4_u32() {
-        let mut buf = [0u8; 11];
-        let numbers = [0, 7, 8, 63, 64, 511, 512, u32::MAX - 1, u32::MAX];
-        for i in numbers {
-            {
-                let mut wgr = NibbleBufMut::new_all(&mut buf);
-                wgr.put_vlu4_u32(i).unwrap();
-                assert!(!wgr.is_at_end());
-            }
-            // if i % 10_000_000 == 0 {
-            //     println!("{}", i);
-            //     std::io::stdout().flush().unwrap();
-            // }
-
-            let mut rgr = NibbleBuf::new_all(&mut buf);
-            assert_eq!(rgr.get_vlu4_u32(), Ok(i));
-        }
     }
 
     #[test]

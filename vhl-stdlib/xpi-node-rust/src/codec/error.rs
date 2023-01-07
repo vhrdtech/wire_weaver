@@ -1,6 +1,7 @@
 #[derive(Debug,)]
 pub enum Error {
     TooBig,
+    ErrorThresholdReached,
     Io(std::io::Error),
 
 }

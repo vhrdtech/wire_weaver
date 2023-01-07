@@ -6,7 +6,7 @@ use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 /// Bit order is Big Endian.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Vlu32(pub u32);
+pub struct Vlu32N(pub u32);
 
 /// Used for in-place buffer writing without prior knowledge of it's length.
 /// Originally bigger number is written (representing remaining space or max bound of SerDesSize).
@@ -17,7 +17,7 @@ pub struct Vlu32Suboptimal {
     pub value: u32,
 }
 
-impl Vlu32 {
+impl Vlu32N {
     pub fn len_nibbles_known_to_be_sized(&self) -> usize {
         match self.0 {
             0..=7 => 1,
@@ -35,7 +35,7 @@ impl Vlu32 {
     }
 }
 
-impl SerializeVlu4 for Vlu32 {
+impl SerializeVlu4 for Vlu32N {
     type Error = NibbleBufError;
 
     fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -71,7 +71,7 @@ impl SerializeVlu4 for Vlu32 {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for Vlu32 {
+impl<'i> DeserializeVlu4<'i> for Vlu32N {
     type Error = NibbleBufError;
 
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
@@ -90,7 +90,7 @@ impl<'i> DeserializeVlu4<'i> for Vlu32 {
             }
             num <<= 3;
         }
-        Ok(Vlu32(num))
+        Ok(Vlu32N(num))
     }
 }
 
@@ -101,12 +101,12 @@ impl SerializeVlu4 for Vlu32Suboptimal {
         for _ in 0..self.additional_empty_nibbles {
             nwr.put_nibble(0b1000)?;
         }
-        Vlu32(self.value).ser_vlu4(nwr)
+        Vlu32N(self.value).ser_vlu4(nwr)
     }
 
     fn len_nibbles(&self) -> SerDesSize {
         SerDesSize::Sized(
-            Vlu32(self.value).len_nibbles_known_to_be_sized() + self.additional_empty_nibbles,
+            Vlu32N(self.value).len_nibbles_known_to_be_sized() + self.additional_empty_nibbles,
         )
     }
 }
@@ -117,12 +117,12 @@ macro_rules! serialize_unsigned {
             type Error = NibbleBufError;
 
             fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-                nwr.put(&Vlu32(*self as u32))?;
+                nwr.put(&Vlu32N(*self as u32))?;
                 Ok(())
             }
 
             fn len_nibbles(&self) -> SerDesSize {
-                Vlu32(*self as u32).len_nibbles()
+                Vlu32N(*self as u32).len_nibbles()
             }
         }
     };
@@ -137,7 +137,7 @@ macro_rules! deserialize_unsigned {
             type Error = NibbleBufError;
 
             fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-                let num: Vlu32 = nrd.des_vlu4()?;
+                let num: Vlu32N = nrd.des_vlu4()?;
                 Ok(num.0 as $ty)
             }
         }

@@ -1,7 +1,7 @@
 use crate::error::XpiError;
 use core::fmt::{Display, Formatter};
 use vhl_stdlib::serdes::traits::SerializeVlu4;
-use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
+use vhl_stdlib::serdes::vlu4::vlu32n::Vlu32N;
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 
@@ -32,7 +32,7 @@ pub enum UriMask<I> {
     ByIndices(I),
     /// Select all resources, either resource count must to be known, or endless iterator must be
     /// stopped later
-    All(Vlu32),
+    All(Vlu32N),
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> UriMask<I> {
@@ -73,7 +73,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
             },
             6 => {
                 let amount = rdr.get_vlu4_u32()?;
-                Ok(UriMask::All(Vlu32(amount)))
+                Ok(UriMask::All(Vlu32N(amount)))
             }
             7 => Err(XpiError::ReservedDiscard),
             _ => {
@@ -279,7 +279,7 @@ mod test {
 
     #[test]
     fn test_mask_all() {
-        let mask = UriMask::<Vlu4Vec<u32>>::All(Vlu32(4));
+        let mask = UriMask::<Vlu4Vec<u32>>::All(Vlu32N(4));
         let mut mask_iter = mask.iter();
         assert_eq!(mask_iter.size_hint(), (4, Some(4)));
         assert_eq!(mask_iter.next(), Some(0));

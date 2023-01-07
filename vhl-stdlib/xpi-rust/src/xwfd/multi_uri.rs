@@ -207,7 +207,7 @@ mod test {
     use crate::xwfd::multi_uri::SerialMultiUri;
     use crate::xwfd::UriMask;
     use std::format;
-    use vhl_stdlib::serdes::vlu4::vlu32::Vlu32;
+    use vhl_stdlib::serdes::vlu4::vlu32n::Vlu32N;
     use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
@@ -267,14 +267,14 @@ mod test {
         assert_eq!(uri_iter.next(), Some(2));
         assert_eq!(uri_iter.next(), None);
 
-        assert!(matches!(mask0, UriMask::All(Vlu32(3))));
+        assert!(matches!(mask0, UriMask::All(Vlu32N(3))));
 
         let mut uri_iter = uri1.iter();
         assert_eq!(uri_iter.next(), Some(5));
         assert_eq!(uri_iter.next(), Some(6));
         assert_eq!(uri_iter.next(), None);
 
-        assert!(matches!(mask1, UriMask::All(Vlu32(7))));
+        assert!(matches!(mask1, UriMask::All(Vlu32N(7))));
     }
 
     #[test]

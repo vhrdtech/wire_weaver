@@ -1,6 +1,6 @@
 use crate::serdes::nibble_buf::Error as NibbleBufError;
 use crate::serdes::traits::{SerializableError, SerializeVlu4};
-use crate::serdes::vlu4::vlu32::{Vlu32, Vlu32Suboptimal};
+use crate::serdes::vlu4::vlu32n::{Vlu32N, Vlu32Suboptimal};
 use crate::serdes::{DeserializeVlu4, SerDesSize};
 use crate::serdes::{NibbleBuf, NibbleBufMut};
 use core::fmt::{Debug, Display, Formatter};
@@ -360,7 +360,7 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             SerDesSize::Sized(len_nibbles) => len_nibbles,
             SerDesSize::SizedAligned(len_nibbles, max_padding) => len_nibbles + max_padding,
             SerDesSize::Unsized => {
-                let len_len = Vlu32(self.nwr.nibbles_left() as u32).len_nibbles_known_to_be_sized();
+                let len_len = Vlu32N(self.nwr.nibbles_left() as u32).len_nibbles_known_to_be_sized();
                 self.nwr.nibbles_left() - len_len
             }
             SerDesSize::UnsizedBound(max_len_nibbles) => max_len_nibbles,
@@ -369,7 +369,7 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             return Err(NibbleBufError::OutOfBounds.into());
         }
         let pos_before_len = self.nwr.nibbles_pos();
-        self.nwr.put(&Vlu32(buf_len as u32))?;
+        self.nwr.put(&Vlu32N(buf_len as u32))?;
 
         let (len_nibbles, pos_before_data) = if self.nwr.is_at_byte_boundary {
             (buf_len, 0)
@@ -392,8 +392,8 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
         Self::size_hint_strict_check(size_hint, actually_written)?;
 
         self.nwr.rewind(pos_before_len, |nwr| {
-            let len_len_original = Vlu32(buf_len as u32).len_nibbles_known_to_be_sized();
-            let len_len_actual = Vlu32(actually_written as u32).len_nibbles_known_to_be_sized();
+            let len_len_original = Vlu32N(buf_len as u32).len_nibbles_known_to_be_sized();
+            let len_len_actual = Vlu32N(actually_written as u32).len_nibbles_known_to_be_sized();
             nwr.put(&Vlu32Suboptimal {
                 additional_empty_nibbles: len_len_original - len_len_actual,
                 value: actually_written as u32,
@@ -460,7 +460,7 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     }
 
     fn put_len_bytes_and_align(&mut self, len_bytes: usize) -> Result<(), NibbleBufError> {
-        self.nwr.put(&Vlu32(len_bytes as u32))?;
+        self.nwr.put(&Vlu32N(len_bytes as u32))?;
         self.nwr.align_to_byte()?;
         Ok(())
     }
@@ -590,7 +590,7 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
             Err(e) => {
                 self.nwr.restore_state(state)?;
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
-                self.nwr.put(&Vlu32(e.error_code()))?;
+                self.nwr.put(&Vlu32N(e.error_code()))?;
                 self.finish_putting_element()?;
                 Ok(())
             }
@@ -628,7 +628,7 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
             Err(e) => {
                 self.nwr.restore_state(state)?;
                 self.stride_len_idx_nibbles = stride_len_idx_nibbles_before;
-                self.nwr.put(&Vlu32(e.error_code()))?;
+                self.nwr.put(&Vlu32N(e.error_code()))?;
                 self.finish_putting_element()?;
                 Ok(())
             }
@@ -657,7 +657,7 @@ impl SerializeVlu4 for &[u8] {
             wgr.put_nibble(0)?;
             return Ok(());
         }
-        wgr.put(&Vlu32(self.len() as u32))?;
+        wgr.put(&Vlu32N(self.len() as u32))?;
         wgr.align_to_byte()?;
         wgr.put_slice(self)?;
         Ok(())
@@ -665,7 +665,7 @@ impl SerializeVlu4 for &[u8] {
 
     fn len_nibbles(&self) -> SerDesSize {
         // length is written in bytes to conserve space, but SerDesSize returned must be in nibbles
-        let len_len = Vlu32(self.len() as u32).len_nibbles_known_to_be_sized();
+        let len_len = Vlu32N(self.len() as u32).len_nibbles_known_to_be_sized();
         SerDesSize::SizedAligned(len_len + self.len() * 2, 1)
     }
 }
@@ -704,7 +704,7 @@ impl<T, E, SE> SerializeVlu4 for Result<T, E>
                 Ok(())
             }
             Err(e) => {
-                wgr.put(&Vlu32(e.error_code()))?;
+                wgr.put(&Vlu32N(e.error_code()))?;
                 Ok(())
             }
         }
@@ -713,7 +713,7 @@ impl<T, E, SE> SerializeVlu4 for Result<T, E>
     fn len_nibbles(&self) -> SerDesSize {
         match self {
             Ok(t) => t.len_nibbles() + 1,
-            Err(e) => Vlu32(e.error_code()).len_nibbles(),
+            Err(e) => Vlu32N(e.error_code()).len_nibbles(),
         }
     }
 }
@@ -756,7 +756,7 @@ impl SerializeVlu4 for Vec<u8> {
 
     fn len_nibbles(&self) -> SerDesSize {
         // length is written in bytes to conserve space, but SerDesSize returned must be in nibbles
-        let len_len = Vlu32(self.len() as u32).len_nibbles_known_to_be_sized();
+        let len_len = Vlu32N(self.len() as u32).len_nibbles_known_to_be_sized();
         SerDesSize::SizedAligned(len_len + self.len() * 2, 1)
     }
 }

@@ -1,7 +1,7 @@
 use crate::discrete::U4;
 use crate::serdes::{
     bit_buf,
-    vlu4::{Vlu32, Vlu4VecBuilder},
+    vlu4::{Vlu32N, Vlu4VecBuilder},
     BitBuf, BitBufMut, DeserializeVlu4, SerDesSize, SerializeVlu4,
 };
 use core::fmt::{Debug, Display, Formatter};
@@ -171,7 +171,7 @@ impl<'i> NibbleBuf<'i> {
     }
 
     pub fn get_vlu4_u32(&mut self) -> Result<u32, Error> {
-        let val: Vlu32 = Vlu32::des_vlu4(self)?;
+        let val: Vlu32N = Vlu32N::des_vlu4(self)?;
         Ok(val.0)
     }
 
@@ -395,12 +395,12 @@ impl<'i> SerializeVlu4 for NibbleBuf<'i> {
     type Error = Error;
 
     fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        nwr.put(&Vlu32(self.nibbles_left() as u32))?;
+        nwr.put(&Vlu32N(self.nibbles_left() as u32))?;
         nwr.put_nibble_buf(self)
     }
 
     fn len_nibbles(&self) -> SerDesSize {
-        let len_len = Vlu32(self.nibbles_left() as u32).len_nibbles_known_to_be_sized();
+        let len_len = Vlu32N(self.nibbles_left() as u32).len_nibbles_known_to_be_sized();
         SerDesSize::Sized(len_len + self.nibbles_left())
     }
 }
@@ -666,7 +666,7 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     pub fn put_vlu4_u32(&mut self, val: u32) -> Result<(), Error> {
-        Vlu32(val).ser_vlu4(self)
+        Vlu32N(val).ser_vlu4(self)
     }
 
     pub fn align_to_byte(&mut self) -> Result<(), Error> {

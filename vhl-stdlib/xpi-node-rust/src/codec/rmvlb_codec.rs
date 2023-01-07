@@ -7,8 +7,12 @@ use vhl_stdlib::serdes::Buf as VhlBuf;
 use vhl_stdlib::serdes::buf::Error as VhlBufError;
 use vhl_stdlib::serdes::BufMut as VhlBufMut;
 
-/// Marked, variable length codec working with byte slice frames.
-/// To be used only with lossless underlying transports like TCP.
+/// Marked + reinforced, variable length codec working with byte slice frames.
+/// To be used only with lossless underlying transports like TCP, as only frame headers are crc checked.
+///
+/// Wire format
+/// ---
+/// `[..., 0xaa, 0x55, len: Vlu32B (1-5B), crc16 of len bytes, frame bytes, ...]`
 ///
 /// Start marker of 0x55, 0xaa is used to quickly find potential frame boundaries.
 /// CRC16 of the length only is added as well, to potentially guard against reading garbage if started
@@ -16,7 +20,7 @@ use vhl_stdlib::serdes::BufMut as VhlBufMut;
 /// though this might need more checking.
 /// Alternative is not using marks at all (only length and crc), but decoding is more resource intensive then.
 #[derive(Clone, Debug)]
-pub struct MvlbCodec {
+pub struct RmvlbCodec {
     state: State,
 
     max_length: usize,
@@ -43,9 +47,9 @@ enum State {
     },
 }
 
-impl MvlbCodec {
-    pub fn new_with_max_length(max_length: usize) -> MvlbCodec {
-        MvlbCodec {
+impl RmvlbCodec {
+    pub fn new_with_max_length(max_length: usize) -> RmvlbCodec {
+        RmvlbCodec {
             state: State::MaybeAtTheBoundary,
             max_length,
             discarded: 0,
@@ -54,7 +58,7 @@ impl MvlbCodec {
     }
 }
 
-impl Decoder for MvlbCodec {
+impl Decoder for RmvlbCodec {
     type Item = Bytes;
     type Error = Error;
 
@@ -173,7 +177,7 @@ impl Decoder for MvlbCodec {
     }
 }
 
-impl Encoder<Bytes> for MvlbCodec {
+impl Encoder<Bytes> for RmvlbCodec {
     type Error = Error;
 
     fn encode(&mut self, item: Bytes, buf: &mut BytesMut) -> Result<(), Self::Error> {
@@ -207,12 +211,12 @@ impl Encoder<Bytes> for MvlbCodec {
 mod test {
     use bytes::{Bytes, BytesMut};
     use tokio_util::codec::{Decoder, Encoder};
-    use crate::codec::mvlb_crc32_codec::{MvlbCodec, State};
+    use crate::codec::rmvlb_codec::{RmvlbCodec, State};
 
     #[test]
     fn encode_lt127() {
         let mut buf = BytesMut::with_capacity(512);
-        let mut codec = MvlbCodec::new_with_max_length(512);
+        let mut codec = RmvlbCodec::new_with_max_length(512);
         codec.encode(Bytes::from(&[1, 2, 3, 4, 5][..]), &mut buf).unwrap();
         assert_eq!(buf.len(), 10);
         assert_eq!(&buf[..], [0xaa, 0x55, 5, 85, 177, 1, 2, 3, 4, 5]);
@@ -221,7 +225,7 @@ mod test {
     #[test]
     fn encode_lt16_383() {
         let mut buf = BytesMut::with_capacity(2048);
-        let mut codec = MvlbCodec::new_with_max_length(1024);
+        let mut codec = RmvlbCodec::new_with_max_length(1024);
         let frame: Vec<u8> = (0..1024).map(|v| (v % 255) as u8).collect();
         codec.encode(Bytes::from(Bytes::from(frame)), &mut buf).unwrap();
         assert_eq!(buf.len(), 6 + 1024);
@@ -231,7 +235,7 @@ mod test {
     #[test]
     fn encode_lt2_097_151() {
         let mut buf = BytesMut::with_capacity(32768);
-        let mut codec = MvlbCodec::new_with_max_length(16384);
+        let mut codec = RmvlbCodec::new_with_max_length(16384);
         let frame: Vec<u8> = (0..16384).map(|v| (v % 255) as u8).collect();
         codec.encode(Bytes::from(Bytes::from(frame)), &mut buf).unwrap();
         assert_eq!(buf.len(), 7 + 16384);
@@ -241,7 +245,7 @@ mod test {
     #[test]
     fn decode_proper_start() {
         let mut buf = BytesMut::from(&[0xaa, 0x55, 5, 0x55, 0xb1, 1, 2, 3, 4, 5][..]);
-        let mut codec = MvlbCodec::new_with_max_length(16384);
+        let mut codec = RmvlbCodec::new_with_max_length(16384);
         assert!(matches!(codec.decode(&mut buf), Ok(None)));
         assert_eq!(codec.state, State::WaitingForLength);
         assert!(matches!(codec.decode(&mut buf), Ok(None)));
@@ -256,7 +260,7 @@ mod test {
     #[test]
     fn decode_garbage_start() {
         let mut buf = BytesMut::from(&[1, 2, 3, 0xaa, 0x55, 5, 85, 177, 1, 2, 3, 4, 5][..]);
-        let mut codec = MvlbCodec::new_with_max_length(16384);
+        let mut codec = RmvlbCodec::new_with_max_length(16384);
         assert!(matches!(codec.decode(&mut buf), Ok(None)));
         assert_eq!(codec.state, State::WaitingForLength);
         assert_eq!(codec.discarded, 3);

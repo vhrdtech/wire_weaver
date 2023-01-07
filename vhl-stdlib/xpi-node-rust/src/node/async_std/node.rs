@@ -16,7 +16,7 @@ use xpi::owned::node_id::NodeId;
 use xpi::owned::Event;
 use xpi::owned::Priority;
 use xpi::owned::RequestId;
-use crate::codec::mvlb_crc32_codec::MvlbCodec;
+use crate::codec::rmvlb_codec::RmvlbCodec;
 use crate::node::async_std::internal_event::InternalEvent;
 
 #[derive(Debug)]
@@ -275,7 +275,7 @@ impl VhNode {
             RemoteNodeAddr::Tcp(ip_addr) => {
                 info!("tcp: Connecting to remote");
                 let tcp_stream = TcpStream::connect(ip_addr).await?;
-                let codec = MvlbCodec::new_with_max_length(512, 512 * 3); // TODO: do not hardcode
+                let codec = RmvlbCodec::new_with_max_length(512); // TODO: do not hardcode
                 let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
                 info!("Connected");
                 let (tx, rx) = mpsc::channel(64);

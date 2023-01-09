@@ -14,6 +14,7 @@ use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
+use crate::codec::Error;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn tcp_server_acceptor(
@@ -63,25 +64,28 @@ pub(crate) async fn tcp_server_acceptor(
     }
 }
 
-#[instrument(skip(to_event_loop, frames_sink, frames_source, _to_event_loop_internal, from_event_loop))]
+#[instrument(skip(to_event_loop, frames_sink, frames_source, to_event_loop_internal, from_event_loop))]
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     addr: SocketAddr,
     mut frames_sink: SplitSink<Framed<TcpStream, RmvlbCodec>, Bytes>,
     frames_source: SplitStream<Framed<TcpStream, RmvlbCodec>>,
     mut to_event_loop: Sender<Event>,
-    _to_event_loop_internal: Sender<InternalEvent>,
+    mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
 ) {
     info!("Entering tcp event loop on {addr}");
     let mut frames_source = frames_source.fuse();
-
     loop {
         futures::select! {
             frame = frames_source.next() => {
                 match frame {
                     Some(Ok(frame)) => {
-                        process_incoming_frame(frame, &mut to_event_loop).await;
+                        let should_terminate = process_incoming_frame(frame, &mut to_event_loop).await;
+                        if should_terminate {
+                            let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                            break;
+                        }
                     }
                     Some(Err(e)) => {
                        error!("Decoder from tcp error: {:?}", e);
@@ -92,14 +96,23 @@ pub async fn tcp_event_loop(
                 }
             }
             ev = from_event_loop.select_next_some() => {
-                serialize_and_send(ev, &mut frames_sink).await;
+                let should_terminate = serialize_and_send(ev, &mut frames_sink).await;
+                if should_terminate {
+                    let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                    break;
+                }
             },
+            complete => {
+                error!("Unexpected select! completion, exiting");
+                let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                break;
+            }
         }
     }
 }
 
-async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>) {
-    trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes);
+async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>) -> bool {
+    trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes.as_slice());
     let mut nrd = NibbleBuf::new_all(&bytes);
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {
@@ -107,19 +120,21 @@ async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>)
             trace!("rx {}B: {}", bytes.len(), ev);
             let ev_owned: Event = ev.into();
             if to_event_loop.send(ev_owned).await.is_err() {
-                error!("mpsc fail");
+                error!("mpsc fail, main event loop must have crashed?");
+                return true
             }
         }
         Err(e) => {
             error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
         }
     }
+    false
 }
 
 async fn serialize_and_send(
     ev: Event,
     frames_sink: &mut SplitSink<Framed<TcpStream, RmvlbCodec>, Bytes>,
-) {
+) -> bool {
     let mut buf = Vec::new();
     buf.resize(10_000, 0);
     let mut nwr = NibbleBufMut::new_all(&mut buf);
@@ -130,13 +145,25 @@ async fn serialize_and_send(
             buf.resize(len, 0);
             match frames_sink.send(Bytes::from(buf)).await {
                 Ok(_) => {}
-                Err(e) => error!("Encoder for tcp error: {e:?}"),
+                Err(e) => match e {
+                    Error::TooBig => warn!("Attempted to send too big frame"),
+                    Error::ErrorThresholdReached => {
+                        error!("Codec error threshold reached, must be garbage on the other end, closing");
+                        return true
+                    }
+                    Error::Io(io_err) => {
+                        // TODO: is there any ignorable errors?
+                        info!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
+                        return true
+                    }
+                }
             }
         }
         Err(e) => {
             error!("convert to xwfd failed: {:?}", e);
         }
     }
+    false
 }
 //
 // fn serialize_and_commit<'tx>(ev: Event, tx_prod: &mut Producer<TX_BBBUFFER_LEN>) {

@@ -44,7 +44,7 @@ pub(crate) async fn tcp_server_acceptor(
                         .await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    reachable: vec![],
+                    reachable: vec![NodeId(1)], // TODO: Do not hardcode
                     addr: RemoteNodeAddr::Tcp(remote_addr),
                     to_event_loop: tx,
                 };

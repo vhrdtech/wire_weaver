@@ -41,7 +41,9 @@ impl EventKind {
             EventKind::CallResults(results) => {
                 nwr.put_vec_with(|vb| results.iter().try_for_each(|result| vb.put(result)))?;
             }
-            // EventKind::ReadResults(_) => {}
+            EventKind::ReadResults(results) => {
+                nwr.put_vec_with(|vb| results.iter().try_for_each(|result| vb.put(result)))?;
+            }
             // EventKind::WriteResults(_) => {}
             // EventKind::OpenStreamsResults(_) => {}
             // EventKind::CloseStreamsResults(_) => {}
@@ -56,7 +58,7 @@ impl EventKind {
             // EventKind::NodeInfo(_) => {}
             EventKind::Heartbeat(_) => {}
             // EventKind::Forward => {}
-            _ => unimplemented!(),
+            u => unimplemented!("{u:?}"),
         }
         Ok(())
     }

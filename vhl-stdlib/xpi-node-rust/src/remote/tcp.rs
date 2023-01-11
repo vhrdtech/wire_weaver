@@ -112,7 +112,7 @@ pub async fn tcp_event_loop(
 }
 
 async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>) -> bool {
-    trace!("rx: {} bytes: {:2x?}", bytes.len(), bytes.as_slice());
+    trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     let mut nrd = NibbleBuf::new_all(&bytes);
     let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
     match ev {
@@ -153,7 +153,7 @@ async fn serialize_and_send(
                     }
                     Error::Io(io_err) => {
                         // TODO: is there any ignorable errors?
-                        info!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
+                        warn!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
                         return true
                     }
                 }

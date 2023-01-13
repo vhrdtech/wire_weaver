@@ -82,13 +82,12 @@ impl StmtParse {
 impl<'i> Parse<'i> for StmtParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
         let mut input = ParseInput::fork(input.expect1(Rule::statement, "StmtParse")?, input);
-        let s = input.expect1_any("StmtParse:s")?;
-        match s.as_rule() {
-            Rule::let_stmt => {
+        match input.pairs.peek().map(|r| (r.clone(), r.as_rule())) {
+            Some((_, Rule::let_stmt)) => {
                 let let_stmt: LetStmtParse = input.parse()?;
                 Ok(StmtParse(Stmt::Let(let_stmt.0)))
             }
-            Rule::expr_stmt => {
+            Some((s, Rule::expr_stmt)) => {
                 let _ = input.pairs.next();
                 let mut input = ParseInput::fork(s, &mut input);
                 let expr: ExprParse = input.parse()?;
@@ -100,15 +99,16 @@ impl<'i> Parse<'i> for StmtParse {
             //     let stmt: StmtParse = input.parse()?;
             //     Ok(stmt)
             // }
-            Rule::definition => {
+            Some((s, Rule::definition)) => {
                 let mut input = ParseInput::fork(s, &mut input);
                 let def: DefinitionParse = input.parse()?;
                 Ok(StmtParse(Stmt::Def(def.0)))
             }
-            _ => Err(ParseErrorSource::internal_with_rule(
+            Some((s, _)) => Err(ParseErrorSource::internal_with_rule(
                 s.as_rule(),
-                "Stmt::parse: unexpected rule",
+                "StmtParse: unexpected rule",
             )),
+            None => Err(ParseErrorSource::internal("StmtParse: wrong grammar"))
         }
     }
 }

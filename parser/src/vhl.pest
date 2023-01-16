@@ -14,7 +14,9 @@ integer_number = @{ ("-" ~ natural_number) | whole_number }
 /// Identifier, very permissive to allow parse stage to pass and show user friendly warning/error later in lint phase.
 identifier = @{ (XID_START | "_") ~ XID_CONTINUE* }
 identifier_continue = @{ XID_CONTINUE+ }
-path = { "::"? ~ identifier ~ ("::" ~ identifier)* }
+
+path_segment = _{ identifier ~ index_arguments? }
+path = { "::"? ~ path_segment ~ ("::" ~ path_segment)* }
 
 // Boolean
 bool_ty = { "bool" }

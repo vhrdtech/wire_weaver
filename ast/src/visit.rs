@@ -382,7 +382,7 @@ pub fn visit_num_bound<V: Visit + ?Sized>(_v: &mut V, node: &NumBound) {
 
 pub fn visit_path<V: Visit + ?Sized>(v: &mut V, node: &Path) {
     for segment in &node.segments {
-        v.visit_identifier(segment);
+        v.visit_identifier(&segment.ident);
     }
 }
 

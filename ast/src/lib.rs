@@ -39,7 +39,7 @@ pub use generics::Generics;
 pub use identifier::{Identifier, IdentifierContext};
 pub use lit::{Lit, VecLit};
 pub use num_bound::NumBound;
-pub use path::Path;
+pub use path::{Path, PathSegment};
 pub use range::{CharRange, DiscreteRange, FixedRange, FloatingRange};
 pub use set::Set;
 pub use stmt::Stmt;

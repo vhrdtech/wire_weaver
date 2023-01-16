@@ -14,7 +14,7 @@ impl<'ast> ToTokens for PathCG<'ast> {
             self.inner
                 .segments
                 .iter()
-                .map(|elem| CGIdentifier { inner: elem }),
+                .map(|elem| CGIdentifier { inner: &elem.ident }),
             mquote!(rust r#" :: "#),
         );
     }

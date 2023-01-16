@@ -1,6 +1,7 @@
 use super::prelude::*;
 use ast::Path;
 use std::collections::VecDeque;
+use ast::path::PathSegment;
 
 pub struct PathParse(pub Path);
 
@@ -11,7 +12,10 @@ impl<'i> Parse<'i> for PathParse {
         let mut segments = VecDeque::new();
         while input.pairs.peek().is_some() {
             let segment: IdentifierParse<identifier::PathSegment> = input.parse()?;
-            segments.push_back(segment.0);
+            segments.push_back(PathSegment {
+                ident: segment.0,
+                index: None,
+            });
         }
         Ok(PathParse(Path { segments }))
     }

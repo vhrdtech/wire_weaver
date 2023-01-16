@@ -111,9 +111,10 @@ pub fn repl_xpi_cmd(_repl_xpi: ReplArgs) -> Result<()> {
                 }
             }
         } else {
-            match parser::ast::stmt::StmtParse::parse(stmt.as_str(), repl_origin.clone()) {
+            match parser::ast::stmt::StmtParseDetached::parse_detached(stmt.as_str(), repl_origin.clone()) {
                 Ok(stmt) => {
-                    println!("{:?}", stmt.0);
+                    stmt.print_warnings_report();
+                    println!("{:?}", stmt.stmt);
                 }
                 Err(e) => {
                     e.print_report();

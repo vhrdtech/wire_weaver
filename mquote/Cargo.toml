@@ -7,8 +7,8 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-pest = "2.1"
-pest_derive = "2.1"
+pest = { workspace = true }
+pest_derive = { workspace = true }
 quote = "1.0"
 proc-macro2 = "1.0"
 

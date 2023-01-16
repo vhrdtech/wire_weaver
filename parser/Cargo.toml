@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pest = "2.1"
-pest_derive = "2.1"
+pest = { workspace = true }
+pest_derive = { workspace = true }
 thiserror = "1.0"
 codespan-reporting = { workspace = true }
 ast = { path = "../ast" }

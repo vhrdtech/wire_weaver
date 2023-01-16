@@ -15,8 +15,8 @@ integer_number = @{ ("-" ~ natural_number) | whole_number }
 identifier = @{ (XID_START | "_") ~ XID_CONTINUE* }
 identifier_continue = @{ XID_CONTINUE+ }
 
-path_segment = _{ identifier ~ index_arguments? }
-path = { "::"? ~ path_segment ~ ("::" ~ path_segment)* }
+path_index = { identifier ~ index_arguments }
+path = { "::"? ~ (path_index | identifier) ~ ("::" ~ (path_index | identifier))* }
 
 // Boolean
 bool_ty = { "bool" }
@@ -165,6 +165,7 @@ vec_lit = { lit ~ ("," ~ lit)* ~ ","? }
 array_lit = { "[" ~ (array_fill_lit | vec_lit) ~ "]" }
 lit_inner = _{ bool_lit | fixed_lit | float_lit | discrete_lit | xpi_serial | char_lit | string_lit | tuple_lit | struct_lit }
 lit = { array_lit | lit_inner }
+// lit_list = _{ lit ~ ("," ~ lit)* ~ ","? }
 
 // Operators
 op_not = { "!" } // Bitwise NOT or Boolean NOT

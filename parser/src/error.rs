@@ -63,6 +63,7 @@ pub enum ParseErrorKind {
 
     ArrayFillLitWithNotDiscreteSize,
     ArrayFillLitWrongSize,
+    WrongIndexInPath(&'static str),
 }
 
 #[derive(Error, Debug)]
@@ -172,7 +173,7 @@ impl Error {
                 let range_secondary = span.start..span.end;
                 Diagnostic::error()
                     .with_code("E0004")
-                    .with_labels(vec![Label::primary((), range), Label::secondary((), range_secondary)])
+                    .with_labels(vec![Label::secondary((), range), Label::primary((), range_secondary)])
                     .with_message("unhandled unexpected input (probably a bug)")
                     .with_notes(vec![note, format!("parser context: {}", context)])
             }

@@ -134,7 +134,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         self.errors.push(ParseError {
             kind,
             rule: on_pair.as_rule(),
-            span: (on_pair.as_span().start(), on_pair.as_span().end()),
+            span: on_pair.as_span().start()..on_pair.as_span().end(),
         })
     }
 }

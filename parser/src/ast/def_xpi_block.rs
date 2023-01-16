@@ -143,7 +143,7 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
                         input.errors.push(ParseError {
                             kind: ParseErrorKind::CellWithAccessModifier,
                             rule: p.as_rule(),
-                            span: (p.as_span().start(), p.as_span().end()),
+                            span: p.as_span().start()..p.as_span().end(),
                         });
                         return Err(ParseErrorSource::UserError);
                     }
@@ -218,7 +218,7 @@ impl XpiResourceTyParse {
         errors.push(ParseError {
             kind,
             rule: Rule::xpi_resource_ty,
-            span: (span.start, span.end),
+            span: span.to_range(),
         });
         ParseErrorSource::UserError
     }
@@ -328,7 +328,7 @@ impl XpiResourceTyParse {
                     warnings.push(ParseWarning {
                         kind: ParseWarningKind::CellWithConstRo,
                         rule: Rule::xpi_resource_ty,
-                        span: (span.start, span.end),
+                        span: span.to_range(),
                     });
                     return Ok(inner);
                 }
@@ -338,7 +338,7 @@ impl XpiResourceTyParse {
                     warnings.push(ParseWarning {
                         kind: ParseWarningKind::CellWithRoStream,
                         rule: Rule::xpi_resource_ty,
-                        span: (span.start, span.end),
+                        span: span.to_range(),
                     });
                     return Ok(inner);
                 }

@@ -88,7 +88,7 @@ fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IntParseError,
             rule: Rule::dec_lit_raw,
-            span: (span.start, span.end),
+            span: span.to_range(),
         });
         ParseErrorSource::UserError
     })?;
@@ -215,7 +215,7 @@ fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     if array_lit_kind == Rule::array_fill_lit {
         let val: LitParse = input.parse()?;
         let size: LitParse = input.parse()?;
-        let size_span = (size.0.span.start, size.0.span.end);
+        let size_span = size.0.span.to_range();
         let LitKind::Discrete(size) = size.0.kind else {
             input.errors.push(ParseError {
                 kind: ParseErrorKind::ArrayFillLitWithNotDiscreteSize,
@@ -260,7 +260,7 @@ fn parse_xpi_serial(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
         input.errors.push(ParseError {
             kind: ParseErrorKind::IntParseError,
             rule: Rule::xpi_serial,
-            span: (input.span.start, input.span.end),
+            span: input.span.to_range(),
         });
         ParseErrorSource::UserError
     })?;

@@ -1,10 +1,11 @@
+use std::ops::Range;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseWarning {
     pub kind: ParseWarningKind,
     pub rule: crate::lexer::Rule,
-    pub span: (usize, usize),
+    pub span: Range<usize>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -17,7 +18,7 @@ pub enum ParseWarningKind {
 
 impl ParseWarning {
     pub fn to_diagnostic(&self) -> Diagnostic<()> {
-        let range = self.span.0..self.span.1;
+        let range = self.span.clone();
         match &self.kind {
             ParseWarningKind::NonCamelCaseTypename => Diagnostic::warning()
                 .with_message("non camel case typename")

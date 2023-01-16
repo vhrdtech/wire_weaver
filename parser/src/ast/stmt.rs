@@ -40,7 +40,7 @@ impl StmtParseDetached {
             errors.push(ParseError {
                 kind: ParseErrorKind::UnexpectedUnconsumedInput(input_parsed_str.to_owned()),
                 rule: Rule::statement,
-                span: (input_parsed_str.len(), input.len()),
+                span: input_parsed_str.len()..input.len(),
             });
             return Err(Box::new(Error {
                 kind: ErrorKind::Parser(errors),
@@ -53,7 +53,7 @@ impl StmtParseDetached {
             errors.push(ParseError {
                 kind: ParseErrorKind::EmptyInput,
                 rule: Rule::statement,
-                span: (input_parsed_str.len(), input.len()),
+                span: input_parsed_str.len()..input.len(),
             });
             return Err(Box::new(Error {
                 kind: ErrorKind::Parser(errors),
@@ -61,7 +61,7 @@ impl StmtParseDetached {
                 input: input.to_owned(),
             }));
         };
-        let span = (pair.as_span().start(), pair.as_span().end());
+        let span = pair.as_span().start()..pair.as_span().end();
         let rule = pair.as_rule();
         let pair_span = ast_span_from_pest(pair.as_span());
         let mut warnings = Vec::new();

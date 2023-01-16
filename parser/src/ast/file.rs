@@ -48,7 +48,7 @@ impl FileParse {
                         let pair = pi.next().unwrap();
                         let pair_span = pair.as_span();
                         let rule = pair.as_rule();
-                        let span = (pair.as_span().start(), pair.as_span().end());
+                        let span = pair.as_span().start()..pair.as_span().end();
                         let mut input = ParseInput::new(
                             pair.into_inner(),
                             ast_span_from_pest(pair_span),

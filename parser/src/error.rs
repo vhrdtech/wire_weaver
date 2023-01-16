@@ -27,7 +27,7 @@ pub enum ErrorKind {
 pub struct ParseError {
     pub kind: ParseErrorKind,
     pub rule: crate::lexer::Rule,
-    pub span: (usize, usize),
+    pub span: Range<usize>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -144,7 +144,7 @@ impl Error {
     }
 
     fn parse_error_to_diagnostic(error: &ParseError) -> Diagnostic<()> {
-        let range = error.span.0..error.span.1;
+        let range = error.span.clone();
         match &error.kind {
             ParseErrorKind::InternalError { rule, message } => Diagnostic::bug()
                 .with_code("E0002")

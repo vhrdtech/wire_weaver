@@ -10,7 +10,7 @@ pub struct Path {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PathSegment {
     pub ident: Identifier,
-    pub index: Option<usize>,
+    pub index: Option<u32>,
 }
 
 impl Path {

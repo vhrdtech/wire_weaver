@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::Add;
+use std::ops::{Add, Range};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -18,6 +18,10 @@ impl Span {
             end: 0,
             origin: SpanOrigin::Coder,
         }
+    }
+
+    pub fn to_range(&self) -> Range<usize> {
+        self.start..self.end
     }
 }
 

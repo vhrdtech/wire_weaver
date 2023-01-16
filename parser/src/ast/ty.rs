@@ -203,7 +203,7 @@ fn parse_autonum_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
             input.errors.push(ParseError {
                 kind: ParseErrorKind::AutonumWrongArguments,
                 rule: Rule::ty,
-                span: (span.start, span.end),
+                span: span.to_range(),
             });
 
             match e {
@@ -229,7 +229,7 @@ fn parse_autonum_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
         input.errors.push(ParseError {
             kind: ParseErrorKind::AutonumWrongArguments,
             rule: Rule::ty,
-            span: (span.start, span.end),
+            span: span.to_range(),
         });
         return Err(ParseErrorSource::UserError);
     }
@@ -257,7 +257,7 @@ fn parse_indexof_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
         input.errors.push(ParseError {
             kind: ParseErrorKind::IndexOfWrongForm,
             rule: Rule::ty,
-            span: (span.start, span.end),
+            span: span.to_range(),
         });
         return Err(ParseErrorSource::UserError);
     }

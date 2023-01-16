@@ -3,10 +3,10 @@ use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind, ParseErrorSourc
 use crate::lexer::{Lexer, Rule};
 use crate::parse::ParseInput;
 use crate::span::{ast_span_from_pest, ChangeOrigin};
-use crate::warning::{ParseWarning, ParseWarningKind};
+use crate::warning::ParseWarning;
 use ast::span::SpanOrigin;
 use ast::VisitMut;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::collections::HashMap;
@@ -146,33 +146,7 @@ impl FileParse {
     pub fn report(&self) -> Vec<Diagnostic<()>> {
         self.warnings
             .iter()
-            .map(|warning| {
-                let range = warning.span.0..warning.span.1;
-                match &warning.kind {
-                    ParseWarningKind::NonCamelCaseTypename => Diagnostic::warning()
-                        .with_message("non camel case typename")
-                        .with_labels(vec![
-                            Label::primary((), range).with_message("consider renaming to: '{}'")
-                        ]),
-                    ParseWarningKind::CellWithConstRo => Diagnostic::warning()
-                        .with_message("resource containing cell with a constant or read only data")
-                        .with_labels(vec![
-                            Label::primary((), range).with_message("remove this Cell<_>")
-                        ])
-                        .with_notes(vec![
-                            "const and read only resources are safe to use without a Cell"
-                                .to_owned(),
-                        ]),
-                    ParseWarningKind::CellWithRoStream => Diagnostic::warning()
-                        .with_message("resource containing cell with a read only stream")
-                        .with_labels(vec![
-                            Label::primary((), range).with_message("remove this Cell<_>")
-                        ])
-                        .with_notes(vec![
-                            "read only streams are safe to use without a Cell".to_owned()
-                        ]),
-                }
-            })
+            .map(ParseWarning::to_diagnostic)
             .collect()
     }
 

@@ -1,3 +1,5 @@
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use super::prelude::*;
 use crate::ast::definition::DefinitionParse;
 use crate::ast::expr::ExprParse;
@@ -7,15 +9,24 @@ use crate::lexer::{Lexer, Rule};
 use ast::span::SpanOrigin;
 use ast::stmt::LetStmt;
 use ast::Stmt;
+use crate::warning::ParseWarning;
 
+// Used when parsing whole file
 pub struct StmtParse(pub Stmt);
+
+// Used in REPL
+pub struct StmtParseDetached {
+    pub stmt: Stmt,
+    pub input: String,
+    pub warnings: Vec<ParseWarning>,
+}
 
 pub struct LetStmtParse(pub LetStmt);
 
 pub struct VecStmtParse(pub Vec<Stmt>);
 
-impl StmtParse {
-    pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Box<Error>> {
+impl StmtParseDetached {
+    pub fn parse_detached<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Box<Error>> {
         let input = input.as_ref();
         let pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::repl, input).map_err(|e| Error {
             kind: ErrorKind::Grammar(e),
@@ -55,8 +66,9 @@ impl StmtParse {
         let pair_span = ast_span_from_pest(pair.as_span());
         let mut warnings = Vec::new();
         let mut input_parse = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
-        match input_parse.parse() {
-            Ok(stmt) => Ok(stmt),
+        let stmt_parse: Result<StmtParse, ParseErrorSource> = input_parse.parse();
+        match stmt_parse {
+            Ok(stmt) => Ok(StmtParseDetached { stmt: stmt.0, input: input.to_owned(), warnings }),
             Err(e) => {
                 let kind = match e {
                     ParseErrorSource::InternalError { rule, message } => {
@@ -75,6 +87,15 @@ impl StmtParse {
                     input: input.to_owned(),
                 }))
             }
+        }
+    }
+
+    pub fn print_warnings_report(&self) {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+        let file = SimpleFile::new("str", &self.input);
+        for diagnostic in self.warnings.iter().map(ParseWarning::to_diagnostic) {
+            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
         }
     }
 }

@@ -12,7 +12,7 @@ type UriMaskIterOwned = UriMaskIter<<UriMaskArr as IntoIterator>::IntoIter>;
 
 #[derive(Clone, Debug)]
 pub struct MultiUriOwned {
-    pairs: SmallVec<[(UriOwned, UriMaskOwned); 2]>,
+    pub(crate) pairs: SmallVec<[(UriOwned, UriMaskOwned); 2]>,
 }
 
 impl MultiUriOwned {

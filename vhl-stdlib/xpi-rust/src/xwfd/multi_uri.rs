@@ -148,16 +148,16 @@ impl<'i> Iterator for MultiUriFlatIter<'i> {
 impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
     type Error = XpiError;
 
-    fn des_vlu4<'di>(rdr: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
-        let parts_count = rdr.get_vlu32n()? as usize;
-        let mut rdr_before_elements = *rdr;
+    fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
+        let parts_count = nrd.get_vlu32n()? as usize;
+        let mut rdr_before_elements = *nrd;
         for _ in 0..parts_count {
             // TODO: implement skip_vlu4() to not read data
-            let _uri_arr_len: Vlu4Vec<u32> = rdr.des_vlu4()?;
+            let _uri_arr_len: Vlu4Vec<u32> = nrd.des_vlu4()?;
             // let _uri_len: SerialUri<Vlu4VecIter<u32>> = rdr.des_vlu4()?;
-            let _mask: UriMask<Vlu4Vec<u32>> = rdr.des_vlu4()?;
+            let _mask: UriMask<Vlu4Vec<u32>> = nrd.des_vlu4()?;
         }
-        rdr_before_elements.shrink_to_pos_of(rdr)?;
+        rdr_before_elements.shrink_to_pos_of(nrd)?;
         Ok(SerialMultiUri {
             rdr: rdr_before_elements,
             parts_count,
@@ -168,11 +168,11 @@ impl<'i> DeserializeVlu4<'i> for SerialMultiUri<'i> {
 impl<'i> SerializeVlu4 for SerialMultiUri<'i> {
     type Error = nibble_buf::Error;
 
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
-        wgr.put_vlu32n(self.parts_count as u32)?;
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+        nwr.put_vlu32n(self.parts_count as u32)?;
         for (uri, mask) in self.iter() {
-            wgr.put(&uri)?;
-            wgr.put(&mask)?;
+            nwr.put(&uri)?;
+            nwr.put(&mask)?;
         }
         Ok(())
     }

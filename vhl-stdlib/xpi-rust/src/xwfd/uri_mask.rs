@@ -29,6 +29,7 @@ pub enum UriMask<I> {
     // ByBitfield64(u64),
     // ByBitfield128(u128),
     /// Allows to choose one or more resource by their indices
+    // Array accesses are not very well mapped onto this model
     ByIndices(I),
     /// Select all resources, either resource count must to be known, or endless iterator must be
     /// stopped later
@@ -84,31 +85,30 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
     }
 }
 
-impl<'i> SerializeVlu4 for UriMask<Vlu4Vec<'i, u32>> {
+impl<I: IntoIterator<Item=u32> + Clone> SerializeVlu4 for UriMask<I> {
     type Error = nibble_buf::Error;
 
-    fn ser_vlu4(&self, wgr: &mut NibbleBufMut) -> Result<(), Self::Error> {
+    fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
         match self {
             UriMask::ByBitfield8(b) => {
-                wgr.put_nibble(0)?;
-                wgr.put_u8(*b)?;
+                nwr.put_nibble(0)?;
+                nwr.put_u8(*b)?;
             }
             UriMask::ByBitfield16(b) => {
-                wgr.put_nibble(1)?;
-                wgr.put_u16_be(*b)?;
+                nwr.put_nibble(1)?;
+                nwr.put_u16_be(*b)?;
             }
             UriMask::ByBitfield32(b) => {
-                wgr.put_nibble(2)?;
-                wgr.put_u32_be(*b)?;
+                nwr.put_nibble(2)?;
+                nwr.put_u32_be(*b)?;
             }
             UriMask::ByIndices(arr) => {
-                // let arr_iter = &mut arr.clone();
-                // wgr.unfold_as_vec(|| arr_iter.next())?;
-                wgr.put(arr)?;
+                let mut arr_iter = arr.clone().into_iter();
+                nwr.unfold_as_vec(|| arr_iter.next())?;
             }
             UriMask::All(max) => {
-                wgr.put_nibble(6)?;
-                wgr.put(max)?;
+                nwr.put_nibble(6)?;
+                nwr.put(max)?;
             }
         }
         Ok(())

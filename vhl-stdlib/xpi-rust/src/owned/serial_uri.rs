@@ -7,9 +7,9 @@ use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
 pub const URI_STACK_SEGMENTS: usize = 6;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct UriOwned {
-    segments: SmallVec<[u32; URI_STACK_SEGMENTS]>,
+    pub(crate) segments: SmallVec<[u32; URI_STACK_SEGMENTS]>,
 }
 
 impl UriOwned {

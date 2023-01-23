@@ -31,7 +31,7 @@ impl ResourceSet {
             XpiGenericResourceSet::Uri(uri) => {
                 Ok(ResourceSetConvertXwfd::Uri(uri.ser_header_xwfd()))
             }
-            XpiGenericResourceSet::MultiUri(_multi_uri) => todo!(),
+            XpiGenericResourceSet::MultiUri(multi_uri) => Ok(ResourceSetConvertXwfd::MultiUri(multi_uri.clone())),
         }
     }
 }
@@ -42,7 +42,14 @@ impl ResourceSetConvertXwfd {
             ResourceSetConvertXwfd::Uri(uri) => {
                 nwr.put(uri)?;
             },
-            ResourceSetConvertXwfd::MultiUri(_) => unimplemented!(),
+            ResourceSetConvertXwfd::MultiUri(multi_uri) => {
+                nwr.put_vlu32n(multi_uri.pairs.len() as u32)?;
+                for (uri, mask) in &multi_uri.pairs {
+                    let mut uri_iter = uri.segments.iter();
+                    nwr.unfold_as_vec(|| uri_iter.next().map(|x| *x))?;
+                    nwr.put(mask)?;
+                }
+            },
         }
         Ok(())
     }
@@ -61,7 +68,7 @@ impl<'i> From<xwfd::ResourceSet<'i>> for ResourceSet {
     fn from(resource_set: xwfd::ResourceSet<'i>) -> Self {
         match resource_set {
             xwfd::ResourceSet::Uri(uri) => ResourceSet::Uri(uri.into()),
-            xwfd::ResourceSet::MultiUri(_) => unimplemented!(),
+            xwfd::ResourceSet::MultiUri(multi_uri) => ResourceSet::MultiUri(multi_uri.into()),
         }
     }
 }

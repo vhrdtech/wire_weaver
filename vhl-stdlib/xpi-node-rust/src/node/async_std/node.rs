@@ -148,7 +148,7 @@ impl VhNode {
                 // }
                 // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
-                    trace!("{}: local heartbeat", self_node_id.0);
+                    // trace!("{}: local heartbeat", self_node_id.0);
                     let heartbeat_ev = Event::new_heartbeat(self_node_id, RequestId(heartbeat_request_id), Priority::Lossy(0), uptime);
                     for rd in &mut remote_nodes {
                         if rd.to_event_loop.send(heartbeat_ev.clone()).await.is_err() {
@@ -183,7 +183,6 @@ impl VhNode {
         filters: &mut Vec<(EventFilter, Sender<Event>)>,
         remote_nodes: &mut Vec<RemoteDescriptor>,
     ) {
-        trace!("rx_from_instances: {}", ev);
         let mut filters_to_drop = vec![];
         let mut forwards_count = 0;
         for (idx, (filter, tx_handle)) in filters.iter_mut().enumerate() {
@@ -197,11 +196,13 @@ impl VhNode {
                 }
             }
         }
-        trace!("forwarded to {forwards_count} instances");
+        // trace!("forwarded to {forwards_count} instances");
         for f in filters_to_drop {
             trace!("dropping filter {f}");
             filters.remove(f);
         }
+
+        let mut attachments_addrs = vec![];
 
         match ev.destination {
             XpiGenericNodeSet::Unicast(id) => {
@@ -210,7 +211,8 @@ impl VhNode {
                     for rd in remote_nodes {
                         if rd.reachable.contains(&id) {
                             if rd.to_event_loop.send(ev.clone()).await.is_ok() {
-                                trace!("Forwarded to attachment event loop: {:?}", rd.addr);
+                                // trace!("Forwarded to attachment event loop: {:?}", rd.addr);
+                                attachments_addrs.push(rd.addr.clone());
                             } else {
                                 error!("Failed to forward event to remote attachment event loop of: {:?}", rd.addr);
                             }
@@ -236,6 +238,7 @@ impl VhNode {
             }
         }
         // if routing is enabled
+        trace!("rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}");
     }
 
     pub fn new_tx_handle(&self) -> Sender<Event> {

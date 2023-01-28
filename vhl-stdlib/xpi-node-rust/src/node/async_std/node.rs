@@ -12,7 +12,7 @@ use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
-use tracing::{error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use xpi::node_set::XpiGenericNodeSet;
 use xpi::owned::node_id::NodeId;
 use xpi::owned::Event;
@@ -119,29 +119,13 @@ impl VhNode {
                     ).await;
                 }
                 ev_int = rx_internal.select_next_some() => {
-                    match ev_int {
-                        InternalEvent::ConnectInstance(id, tx_handle) => {
-                            nodes.insert(id, tx_handle);
-                            info!("{}: connected to {} (executor local)", self_node_id.0, id.0);
-                        }
-                        InternalEvent::DisconnectInstance(id) => {
-                            nodes.remove(&id);
-                            info!("{}: disconnected from {}", self_node_id.0, id.0);
-                        }
-                        InternalEvent::Filter(filter, tx_handle) => {
-                            let idx = filters.len();
-                            info!("filter {:?} registered with idx {idx}", filter);
-                            filters.push((filter, tx_handle));
-                        }
-                        InternalEvent::ConnectRemoteTcp(remote_descriptor) => {
-                            info!("remote attachment {} registered", remote_descriptor);
-                            remote_nodes.push(remote_descriptor);
-                        }
-                        InternalEvent::DropRemoteTcp(remote_addr) => {
-                            info!("remote attachment {remote_addr} is being dropped");
-                            remote_nodes.retain(|rd| rd.addr != RemoteNodeAddr::Tcp(remote_addr));
-                        }
-                    }
+                    Self::process_internal_events(
+                        self_node_id,
+                        ev_int,
+                        &mut nodes,
+                        &mut filters,
+                        &mut remote_nodes
+                    ).await;
                 }
                 // tcp_rx_res = tcp_streams_rx => {
                 //     println!("tcp rx: {:?}", tcp_rx_res);
@@ -243,6 +227,58 @@ impl VhNode {
         trace!(
             "rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}"
         );
+    }
+
+    async fn process_internal_events(
+        self_node_id: NodeId,
+        ev: InternalEvent,
+        nodes: &mut HashMap<NodeId, Sender<Event>>,
+        filters: &mut Vec<(EventFilter, Sender<Event>)>,
+        remote_nodes: &mut Vec<RemoteDescriptor>,
+    ) {
+        match ev {
+            InternalEvent::ConnectInstance(id, tx_handle) => {
+                nodes.insert(id, tx_handle);
+                info!("{}: connected to {} (executor local)", self_node_id.0, id.0);
+            }
+            InternalEvent::DisconnectInstance(id) => {
+                nodes.remove(&id);
+                info!("{}: disconnected from {}", self_node_id.0, id.0);
+            }
+            InternalEvent::Filter(filter, tx_handle) => {
+                let idx = filters.len();
+                info!("filter {:?} registered with idx {idx}", filter);
+                filters.push((filter, tx_handle));
+            }
+            InternalEvent::ConnectRemoteTcp(remote_descriptor) => {
+                info!("remote attachment {} registered", remote_descriptor);
+                remote_nodes.push(remote_descriptor);
+            }
+            InternalEvent::DropRemoteTcp(remote_addr) => {
+                info!("remote attachment {remote_addr} is being dropped");
+                let was_reachable = remote_nodes
+                    .iter()
+                    .filter(|rd| rd.addr == RemoteNodeAddr::Tcp(remote_addr))
+                    .map(|rd| rd.reachable.clone())
+                    .next().unwrap_or(vec![]);
+                remote_nodes.retain(|rd| rd.addr != RemoteNodeAddr::Tcp(remote_addr));
+
+                // Drop filters that relied on remote node being online
+                let mut dropped_count = 0;
+                filters.retain(|(filter, _)| {
+                    for remote_id in &was_reachable {
+                        if filter.is_waiting_for_node(*remote_id) && filter.is_drop_on_remote_disconnect() {
+                            dropped_count += 1;
+                            return false
+                        }
+                    }
+                    true
+                });
+                if dropped_count != 0 {
+                    debug!("{dropped_count} filter(s) was dropped due to remote node going offline");
+                }
+            }
+        }
     }
 
     fn drop_timed_out_filters(filters: &mut Vec<(EventFilter, Sender<Event>)>) {

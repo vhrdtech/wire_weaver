@@ -160,7 +160,7 @@ async fn serialize_and_send(
             }
         }
         Err(e) => {
-            error!("convert to xwfd failed: {:?}", e);
+            error!("convert of event: {ev} to xwfd failed: {e:?}");
         }
     }
     false

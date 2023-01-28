@@ -171,7 +171,7 @@ pub enum XpiGenericEventKind<
     /// Result of a request to change observing / publishing rate.
     RateChangeResults(VRU),
 
-    /// Result of an attempt to unsubscribe from a stream of from an observable property.
+    /// Result of an attempt to unsubscribe from a stream or from an observable property.
     /// Unsubscribing twice will result in an error.
     UnsubscribeResults(VRU),
 

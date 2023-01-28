@@ -17,7 +17,9 @@ pub struct XpiGenericEvent<
     pub source: NID,
     /// Destination node or nodes
     pub destination: XpiGenericNodeSet<NID, TS>,
-    /// Set of resources that are considered in this request
+    /// Set of resources that are considered in this request.
+    /// If event is a request, then this resource set is in context of a destination node.
+    /// If event is a response, multicast or broadcast, then this resource set is in context of a source node.
     pub resource_set: XpiGenericResourceSet<U, MU>,
     pub kind: K,
     /// Priority selection: lossy or lossless (to an extent).

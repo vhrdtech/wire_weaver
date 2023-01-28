@@ -33,7 +33,7 @@ impl EventKind {
             }
             EventKind::OpenStreams => {}
             EventKind::CloseStreams => {}
-            // EventKind::Subscribe { .. } => {}
+            EventKind::Subscribe { rates } => {}
             EventKind::Unsubscribe => {}
             EventKind::Borrow => {}
             EventKind::Release => {}
@@ -47,7 +47,9 @@ impl EventKind {
             // EventKind::WriteResults(_) => {}
             // EventKind::OpenStreamsResults(_) => {}
             // EventKind::CloseStreamsResults(_) => {}
-            // EventKind::SubscribeResults(_) => {}
+            EventKind::SubscribeResults(immediate_updates) => {
+                nwr.put_vec_with(|vb| immediate_updates.iter().try_for_each(|value| vb.put(value)))?;
+            }
             // EventKind::RateChangeResults(_) => {}
             // EventKind::UnsubscribeResults(_) => {}
             // EventKind::BorrowResults(_) => {}

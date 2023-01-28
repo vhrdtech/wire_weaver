@@ -63,8 +63,7 @@ pub enum XpiGenericEventKind<
     /// Write one or more resources.
     /// Resources that support writes are: wo, wo + stream, rw, rw + stream, stream_in<T> when open only.
     Write {
-        /// Must be exactly the size of non-zero resources selected for writing in order of
-        /// increasing serial numbers, depth first.
+        /// Values to be written, must be the same length as a resource set in order
         values: VSL,
     },
 
@@ -78,7 +77,7 @@ pub enum XpiGenericEventKind<
     /// one result is returned on read, but one or many after subscribing.
     ///
     /// Only opened streams can be written into, read from or subscribed to.
-    /// Stream thus have a start and an end in contrast to properties with a +stream modifier.
+    /// Stream thus have a start and an end in contrast to properties with a +observe modifier.
     /// Stream are also inherently Borrowable (so writing stream_in<T> is equivalent to Cell<stream_in<T>>).
     /// When opening a closed stream, it is automatically borrowed. Opening an open stream returns an error.
     OpenStreams,

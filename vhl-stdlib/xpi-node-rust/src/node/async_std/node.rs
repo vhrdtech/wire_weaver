@@ -1,4 +1,6 @@
+use crate::codec::rmvlb_codec::RmvlbCodec;
 use crate::node::addressing::RemoteNodeAddr;
+use crate::node::async_std::internal_event::InternalEvent;
 use crate::node::async_std::NodeError;
 use crate::node::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
@@ -16,8 +18,6 @@ use xpi::owned::node_id::NodeId;
 use xpi::owned::Event;
 use xpi::owned::Priority;
 use xpi::owned::RequestId;
-use crate::codec::rmvlb_codec::RmvlbCodec;
-use crate::node::async_std::internal_event::InternalEvent;
 
 #[derive(Debug)]
 pub struct VhNode {
@@ -168,6 +168,8 @@ impl VhNode {
                             warn!("Remote node attachment to {:?} is down", remote_node.reachable);
                         }
                     }
+
+                    Self::drop_timed_out_filters(&mut filters);
                 }
                 complete => {
                     warn!("{}: unexpected complete", self_node_id.0);
@@ -238,7 +240,18 @@ impl VhNode {
             }
         }
         // if routing is enabled
-        trace!("rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}");
+        trace!(
+            "rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}"
+        );
+    }
+
+    fn drop_timed_out_filters(filters: &mut Vec<(EventFilter, Sender<Event>)>) {
+        let filters_len_pre = filters.len();
+        filters.retain(|(filter, _)| !filter.is_timed_out());
+        let diff = filters_len_pre - filters.len();
+        if diff > 0 {
+            warn!("Dropped {diff} filters due to timeout");
+        }
     }
 
     pub fn new_tx_handle(&self) -> Sender<Event> {
@@ -257,7 +270,9 @@ impl VhNode {
     }
 
     async fn disconnect_instance(&mut self, other_node_id: NodeId) -> Result<(), NodeError> {
-        self.tx_internal.send(InternalEvent::DisconnectInstance(other_node_id)).await?;
+        self.tx_internal
+            .send(InternalEvent::DisconnectInstance(other_node_id))
+            .await?;
         Ok(())
     }
 
@@ -273,7 +288,11 @@ impl VhNode {
     }
 
     #[instrument(skip(self), fields(node_id = self.id.0))]
-    pub async fn connect_remote(&mut self, addr: RemoteNodeAddr, remote_reachable: Vec<NodeId>) -> Result<(), NodeError> {
+    pub async fn connect_remote(
+        &mut self,
+        addr: RemoteNodeAddr,
+        remote_reachable: Vec<NodeId>,
+    ) -> Result<(), NodeError> {
         match addr {
             RemoteNodeAddr::Tcp(ip_addr) => {
                 info!("tcp: Connecting to remote");
@@ -286,7 +305,16 @@ impl VhNode {
                 let to_event_loop = self.tx_to_event_loop.clone();
                 let to_event_loop_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
-                    tcp_event_loop(id, ip_addr, frames_sink, frames_source, to_event_loop.clone(), to_event_loop_internal, rx).await
+                    tcp_event_loop(
+                        id,
+                        ip_addr,
+                        frames_sink,
+                        frames_source,
+                        to_event_loop.clone(),
+                        to_event_loop_internal,
+                        rx,
+                    )
+                        .await
                 });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: remote_reachable,
@@ -342,10 +370,15 @@ impl VhNode {
     /// Afterwards the channel is dropped.
     pub async fn filter_one(&mut self, filter: EventFilter) -> Result<Event, NodeError> {
         let (tx, mut rx) = mpsc::channel(1);
+        let timeout = filter.timeout();
         self.tx_internal
             .send(InternalEvent::Filter(filter.single_shot(true), tx))
             .await?;
-        let ev = rx.next().await.ok_or(NodeError::FilterOneFail)?;
+        let ev = tokio::time::timeout(timeout, rx.next())
+            .await
+            .map_err(|_| NodeError::Timeout)?
+            .ok_or(NodeError::FilterOneFail)?;
+        // let ev = rx.next().await.ok_or(NodeError::FilterOneFail)?;
         Ok(ev)
     }
 
@@ -366,7 +399,6 @@ fn tick_stream(period: Duration) -> impl Stream<Item=()> {
         Some(((), p))
     })
 }
-
 
 // async fn outgoing_process(mut tcp_tx: OwnedWriteHalf, mut mpsc_rx: Receiver<VhLinkEvent>) {
 //     while let Some(ev) = mpsc_rx.next().await {

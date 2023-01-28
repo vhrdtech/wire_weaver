@@ -1,3 +1,4 @@
+use std::time::{Duration, Instant};
 use xpi::event_kind::XpiEventDiscriminant;
 use xpi::node_set::XpiGenericNodeSet;
 use xpi::owned::{Event, NodeId, NodeSet, RequestId};
@@ -30,16 +31,21 @@ pub struct EventFilter {
     kind: EventKindFilter,
     request_id: Option<RequestId>,
     single_shot: bool,
+
+    created_at: Instant,
+    timeout: Duration,
 }
 
 impl EventFilter {
-    pub fn new() -> Self {
+    pub fn new(timeout: Duration) -> Self {
         EventFilter {
             src: SourceFilter::Any,
             dst: NodeSetFilter::Any,
             kind: EventKindFilter::Any,
             request_id: None,
             single_shot: true,
+            created_at: Instant::now(),
+            timeout,
         }
     }
 
@@ -119,10 +125,18 @@ impl EventFilter {
         }
         true
     }
+
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn is_timed_out(&self) -> bool {
+        Instant::now().duration_since(self.created_at) > self.timeout
+    }
 }
 
 impl Default for EventFilter {
     fn default() -> Self {
-        Self::new()
+        Self::new(Duration::from_millis(500))
     }
 }

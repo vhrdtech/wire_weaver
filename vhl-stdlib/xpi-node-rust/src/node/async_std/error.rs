@@ -20,8 +20,10 @@ pub enum NodeError {
     // AttachFailed(String),
     #[error("futures::mpsc error")]
     MpscSendError(#[from] SendError),
-    #[error("Filter one: waited for rx but got None")]
+    #[error("filter_one: channel was dropped, probably due to timeout or local node crashing")]
     FilterOneFail,
+    #[error("Timeout")]
+    Timeout,
     #[error("Expected reply, got {}", .0)]
     ExpectedReply(String),
     #[error("Expected reply with kind: {}, got: {}", .0, .1)]

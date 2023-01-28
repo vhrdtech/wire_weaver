@@ -374,11 +374,17 @@ impl VhNode {
         self.tx_internal
             .send(InternalEvent::Filter(filter.single_shot(true), tx))
             .await?;
-        let ev = tokio::time::timeout(timeout, rx.next())
-            .await
-            .map_err(|_| NodeError::Timeout)?
-            .ok_or(NodeError::FilterOneFail)?;
-        // let ev = rx.next().await.ok_or(NodeError::FilterOneFail)?;
+        let ev = match timeout {
+            Some(timeout) => {
+                tokio::time::timeout(timeout, rx.next())
+                    .await
+                    .map_err(|_| NodeError::Timeout)?
+                    .ok_or(NodeError::FilterOneFail)?
+            }
+            None => {
+                rx.next().await.ok_or(NodeError::FilterOneFail)?
+            }
+        };
         Ok(ev)
     }
 

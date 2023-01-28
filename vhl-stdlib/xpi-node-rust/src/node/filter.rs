@@ -30,14 +30,15 @@ pub struct EventFilter {
     dst: NodeSetFilter,
     kind: EventKindFilter,
     request_id: Option<RequestId>,
+
     single_shot: bool,
 
     created_at: Instant,
-    timeout: Duration,
+    timeout: Option<Duration>,
 }
 
 impl EventFilter {
-    pub fn new(timeout: Duration) -> Self {
+    pub fn new() -> Self {
         EventFilter {
             src: SourceFilter::Any,
             dst: NodeSetFilter::Any,
@@ -45,7 +46,19 @@ impl EventFilter {
             request_id: None,
             single_shot: true,
             created_at: Instant::now(),
-            timeout,
+            timeout: None,
+        }
+    }
+
+    pub fn new_with_timeout(timeout: Duration) -> Self {
+        EventFilter {
+            src: SourceFilter::Any,
+            dst: NodeSetFilter::Any,
+            kind: EventKindFilter::Any,
+            request_id: None,
+            single_shot: true,
+            created_at: Instant::now(),
+            timeout: Some(timeout),
         }
     }
 
@@ -126,17 +139,24 @@ impl EventFilter {
         true
     }
 
-    pub fn timeout(&self) -> Duration {
+    pub fn timeout(&self) -> Option<Duration> {
         self.timeout
     }
 
     pub fn is_timed_out(&self) -> bool {
-        Instant::now().duration_since(self.created_at) > self.timeout
+        match self.timeout {
+            Some(timeout) => {
+                Instant::now().duration_since(self.created_at) > timeout
+            }
+            None => {
+                false
+            }
+        }
     }
 }
 
 impl Default for EventFilter {
     fn default() -> Self {
-        Self::new(Duration::from_millis(500))
+        Self::new_with_timeout(Duration::from_millis(500))
     }
 }

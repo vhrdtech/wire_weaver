@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 use xpi::event_kind::XpiEventDiscriminant;
 use xpi::node_set::XpiGenericNodeSet;
-use xpi::owned::{Event, NodeId, NodeSet, RequestId};
+use xpi::owned::{Event, NodeId, NodeSet, RequestId, UriOwned};
 
 #[derive(Debug)]
 pub enum SourceFilter {
@@ -22,12 +22,20 @@ pub enum NodeSetFilter {
 pub enum EventKindFilter {
     Any,
     One(XpiEventDiscriminant),
+    Two(XpiEventDiscriminant, XpiEventDiscriminant),
+}
+
+#[derive(Debug)]
+pub enum ResourceSetFilter {
+    Any,
+    ContainsUri(UriOwned),
 }
 
 #[derive(Debug)]
 pub struct EventFilter {
     src: SourceFilter,
     dst: NodeSetFilter,
+    resource_set: ResourceSetFilter,
     kind: EventKindFilter,
     request_id: Option<RequestId>,
 
@@ -35,6 +43,7 @@ pub struct EventFilter {
 
     created_at: Instant,
     timeout: Option<Duration>,
+    drop_on_remote_disconnecting: bool,
 }
 
 impl EventFilter {
@@ -42,11 +51,13 @@ impl EventFilter {
         EventFilter {
             src: SourceFilter::Any,
             dst: NodeSetFilter::Any,
+            resource_set: ResourceSetFilter::Any,
             kind: EventKindFilter::Any,
             request_id: None,
             single_shot: true,
             created_at: Instant::now(),
             timeout: None,
+            drop_on_remote_disconnecting: true,
         }
     }
 
@@ -54,11 +65,13 @@ impl EventFilter {
         EventFilter {
             src: SourceFilter::Any,
             dst: NodeSetFilter::Any,
+            resource_set: ResourceSetFilter::Any,
             kind: EventKindFilter::Any,
             request_id: None,
             single_shot: true,
             created_at: Instant::now(),
             timeout: Some(timeout),
+            drop_on_remote_disconnecting: true,
         }
     }
 
@@ -72,6 +85,11 @@ impl EventFilter {
         self
     }
 
+    pub fn resource_set(mut self, resource_set_filter: ResourceSetFilter) -> Self {
+        self.resource_set = resource_set_filter;
+        self
+    }
+
     pub fn kind(mut self, filter_kind: EventKindFilter) -> Self {
         self.kind = filter_kind;
         self
@@ -79,6 +97,11 @@ impl EventFilter {
 
     pub fn request_id(mut self, request_id: RequestId) -> Self {
         self.request_id = Some(request_id);
+        self
+    }
+
+    pub fn drop_on_remote_disconnect(mut self, drop_or_not: bool) -> Self {
+        self.drop_on_remote_disconnecting = drop_or_not;
         self
     }
 
@@ -96,6 +119,11 @@ impl EventFilter {
             EventKindFilter::Any => {}
             EventKindFilter::One(discriminant) => {
                 if discriminant != ev.kind.discriminant() {
+                    return false;
+                }
+            }
+            EventKindFilter::Two(discriminant1, discriminant2) => {
+                if ev.kind.discriminant() != discriminant1 && ev.kind.discriminant() != discriminant2 {
                     return false;
                 }
             }
@@ -128,6 +156,14 @@ impl EventFilter {
                 }
             },
         }
+        match &self.resource_set {
+            ResourceSetFilter::Any => {}
+            ResourceSetFilter::ContainsUri(uri) => {
+                if !ev.resource_set.flat_iter().any(|u| &u == uri) {
+                    return false;
+                }
+            }
+        }
         match self.request_id {
             None => {}
             Some(req_id) => {
@@ -151,6 +187,17 @@ impl EventFilter {
             None => {
                 false
             }
+        }
+    }
+
+    pub fn is_drop_on_remote_disconnect(&self) -> bool {
+        self.drop_on_remote_disconnecting
+    }
+
+    pub fn is_waiting_for_node(&self, remote_id: NodeId) -> bool {
+        match self.src {
+            SourceFilter::Any => false,
+            SourceFilter::NodeId(id) => id == remote_id
         }
     }
 }

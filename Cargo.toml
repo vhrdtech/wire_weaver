@@ -6,8 +6,8 @@ documentation = ""
 
 [workspace.dependencies]
 anyhow = "1.0"
-pest = "2.5"
-pest_derive = "2.5"
+pest = "2.6"
+pest_derive = "2.6"
 itertools = "0.10"
 codespan-reporting = "0.11"
 

@@ -72,7 +72,81 @@ impl DiscreteTy {
     }
 }
 
-impl Ty {}
+pub struct TyTraits {
+    pub is_copy: bool,
+    pub is_clone: bool,
+    pub is_eq: bool,
+    pub is_partial_eq: bool,
+}
+
+impl TyTraits {
+    pub fn ccep_true() -> Self {
+        TyTraits {
+            is_copy: true,
+            is_clone: true,
+            is_eq: true,
+            is_partial_eq: true,
+        }
+    }
+}
+
+impl Default for TyTraits {
+    fn default() -> Self {
+        TyTraits {
+            is_copy: false,
+            is_clone: false,
+            is_eq: false,
+            is_partial_eq: false,
+        }
+    }
+}
+
+impl core::ops::BitAnd for TyTraits {
+    type Output = TyTraits;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        TyTraits {
+            is_copy: self.is_copy & rhs.is_copy,
+            is_clone: self.is_clone & rhs.is_clone,
+            is_eq: self.is_eq & rhs.is_eq,
+            is_partial_eq: self.is_partial_eq & rhs.is_partial_eq,
+        }
+    }
+}
+
+impl Ty {
+    pub fn ty_traits(&self) -> TyTraits {
+        use TyKind::*;
+        match &self.kind {
+            Unit | Boolean => TyTraits::ccep_true(),
+            Discrete(_) | Fixed(_) => TyTraits::ccep_true(),
+            Float(_) => TyTraits {
+                is_copy: true,
+                is_clone: true,
+                is_eq: false,
+                is_partial_eq: true,
+            },
+            Array { ty, .. } => ty.ty_traits(),
+            Tuple { types } => {
+                let mut traits = TyTraits::ccep_true();
+                for ty in types {
+                    traits = traits & ty.ty_traits();
+                }
+                traits
+            }
+            Char => TyTraits::ccep_true(),
+            String { .. } => TyTraits {
+                is_copy: false,
+                is_clone: true,
+                is_eq: true,
+                is_partial_eq: true,
+            },
+            Ref(_) => todo!("process AST and pre resolve ty traits for refs"),
+            Fn { .. } => unimplemented!(),
+            AutoNumber(_) | IndexTyOf(_) | Generic { .. } | Derive => panic!("Ty::ty_traits() called on unprocessed AST")
+        }
+    }
+}
 
 impl Display for Ty {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

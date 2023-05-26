@@ -1,11 +1,13 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use toml::Value;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub info: Info,
     pub main: Main,
-    pub dependencies: Dependencies,
-    pub gen: GenerateTargets,
+    pub dependencies: Option<Dependencies>,
+    pub gen: Option<GenerateTargets>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -22,18 +24,19 @@ pub struct Main {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dependencies {
-
+    #[serde(flatten)]
+    deps: HashMap<String, Value>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenerateTargets {
-    pub rust: TargetRust,
+    pub rust: Option<TargetRust>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TargetRust {
-    pub core: TargetRustCore,
-    pub xpi: TargetRustXpi
+    pub core: Vec<TargetRustCore>,
+    pub xpi: Vec<TargetRustXpi>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -41,8 +44,8 @@ pub struct TargetRustCore {
     #[serde(rename = "crate")]
     pub target_crate: String,
     #[serde(rename = "derive")]
-    pub add_derives: Vec<String>,
-    pub serdes: Vec<RustSerDes>,
+    pub add_derives: Option<Vec<String>>,
+    pub serdes: Option<Vec<RustSerDes>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -66,4 +69,6 @@ pub struct TargetRustXpi {
 pub enum RustXpiFlavor {
     #[serde(rename = "nostd_sync")]
     NostdSync,
+    #[serde(rename = "async")]
+    Async,
 }

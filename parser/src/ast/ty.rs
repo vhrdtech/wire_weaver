@@ -34,12 +34,14 @@ impl<'i> Parse<'i> for TyParse {
         let mut input = ParseInput::fork(any_ty, input);
         let ast_ty = match ty.as_rule() {
             Rule::bool_ty => Ty {
+                attrs: None,
                 kind: TyKind::Boolean,
                 span,
             },
             Rule::discrete_ty => {
                 let discrete_ty: DiscreteTyParse = input.parse()?;
                 Ty {
+                    attrs: None,
                     kind: TyKind::Discrete(discrete_ty.0),
                     span,
                 }
@@ -50,6 +52,7 @@ impl<'i> Parse<'i> for TyParse {
             Rule::floating_ty => {
                 let float_ty: FloatTyParse = input.parse()?;
                 Ty {
+                    attrs: None,
                     kind: TyKind::Float(float_ty.0),
                     span,
                 }
@@ -57,11 +60,13 @@ impl<'i> Parse<'i> for TyParse {
             Rule::textual_ty => {
                 if ty.as_str() == "char" {
                     Ty {
+                        attrs: None,
                         kind: TyKind::Char,
                         span,
                     }
                 } else if ty.as_str() == "str" {
                     Ty {
+                        attrs: None,
                         kind: TyKind::String {
                             len_bound: ast::NumBound::Unbound,
                         },
@@ -75,10 +80,12 @@ impl<'i> Parse<'i> for TyParse {
             Rule::array_ty => parse_array_ty(&mut input)?,
             Rule::path => parse_ref_or_generic_ty(&mut input, span)?,
             Rule::derive => Ty {
+                attrs: None,
                 kind: TyKind::Derive,
                 span,
             },
             Rule::unit => Ty {
+                attrs: None,
                 kind: TyKind::Unit,
                 span,
             },
@@ -88,10 +95,12 @@ impl<'i> Parse<'i> for TyParse {
                 let args: FnArgumentsParse = input.parse()?;
                 let ret_ty: Option<TyParse> = input.parse_or_skip()?;
                 Ty {
+                    attrs: None,
                     kind: TyKind::Fn {
                         args: args.0,
                         ret_ty: ret_ty.map(|ty| Box::new(ty.0)).unwrap_or_else(|| {
                             Box::new(Ty {
+                                attrs: None,
                                 kind: TyKind::Unit,
                                 span: span.clone(),
                             })
@@ -190,6 +199,7 @@ fn parse_ref_or_generic_ty(
             _ => {
                 let params: GenericsParse = input.parse()?;
                 Ok(Ty {
+                    attrs: None,
                     kind: TyKind::Generic {
                         path: path.0,
                         params: params.0,
@@ -199,6 +209,7 @@ fn parse_ref_or_generic_ty(
             }
         },
         None => Ok(Ty {
+            attrs: None,
             kind: TyKind::Ref(path.0),
             span,
         }),
@@ -247,6 +258,7 @@ fn parse_autonum_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
     let inclusive = range_op.0 == ast::ops::BinaryOp::ClosedRange;
 
     Ok(Ty {
+        attrs: None,
         kind: TyKind::AutoNumber(ast::AutoNumber {
             start: start.0,
             step: step.0,
@@ -273,6 +285,7 @@ fn parse_indexof_ty(input: &mut ParseInput, span: ast::Span) -> Result<Ty, Parse
     }
     let expr: ExprParse = input.parse()?;
     Ok(Ty {
+        attrs: None,
         kind: TyKind::IndexTyOf(expr.0),
         span,
     })
@@ -283,6 +296,7 @@ fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
     let ty: TyParse = input.parse()?;
     let len_bound: NumBoundParse = input.parse()?;
     Ok(Ty {
+        attrs: None,
         kind: TyKind::Array {
             ty: Box::new(ty.0),
             len_bound: len_bound.0,
@@ -303,6 +317,7 @@ fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
         types.push(ty.0);
     }
     Ok(Ty {
+        attrs: None,
         kind: TyKind::Tuple { types },
         span: input.span.clone(),
     })

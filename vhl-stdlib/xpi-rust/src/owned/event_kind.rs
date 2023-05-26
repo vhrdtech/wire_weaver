@@ -33,7 +33,7 @@ impl EventKind {
             }
             EventKind::OpenStreams => {}
             EventKind::CloseStreams => {}
-            EventKind::Subscribe { rates } => {}
+            EventKind::Subscribe { .. } => {}
             EventKind::Unsubscribe => {}
             EventKind::Borrow => {}
             EventKind::Release => {}

@@ -1,8 +1,9 @@
-use crate::{AutoNumber, Expr, FnArguments, Generics, NumBound, Path, Span};
+use crate::{Attrs, AutoNumber, Expr, FnArguments, Generics, NumBound, Path, Span};
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ty {
+    pub attrs: Option<Attrs>,
     pub kind: TyKind,
     pub span: Span,
 }
@@ -10,6 +11,7 @@ pub struct Ty {
 impl Ty {
     pub fn new(kind: TyKind) -> Self {
         Ty {
+            attrs: None,
             kind,
             span: Span::call_site(),
         }

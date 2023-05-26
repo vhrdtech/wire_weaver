@@ -35,7 +35,8 @@ impl<'i> Parse<'i> for StructFieldsParse {
             let doc: DocParse = input.parse()?;
             let attrs: AttrsParse = input.parse()?;
             let name: IdentifierParse<identifier::StructFieldName> = input.parse()?;
-            let ty: TyParse = input.parse()?;
+            let mut ty: TyParse = input.parse()?;
+            ty.0.attrs = Some(attrs.0.clone());
             fields.push(StructField {
                 doc: doc.0,
                 attrs: attrs.0,

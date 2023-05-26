@@ -1,11 +1,9 @@
-use std::io::Read;
 use std::iter;
-use itertools::Itertools;
 use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
-use ast::{Span, StructDef};
+use ast::StructDef;
 use ast::ty::TyTraits;
 use crate::file::CGPiece;
 
@@ -68,9 +66,9 @@ impl<'ast> CGStructDef<'ast> {
         }
         let ty_traits = ty_traits_to_string(ty_traits);
         let supported_derives: String = if ty_traits.is_empty() {
-            derive_passthrough.iter().map(|s| s.as_ref()).intersperse(",").collect()
+            itertools::intersperse(derive_passthrough.iter().map(|s| s.as_ref()), ",").collect()
         } else {
-            iter::once(ty_traits).chain(derive_passthrough).intersperse(",".to_owned()).collect()
+            itertools::intersperse(iter::once(ty_traits).chain(derive_passthrough), ",".to_owned()).collect()
         };
 
         piece.ts.append_all(mquote!(rust r#"
@@ -87,7 +85,7 @@ impl<'ast> CGStructDef<'ast> {
 fn ty_traits_to_string(ty_traits: TyTraits) -> String {
     let ty_traits = [ty_traits.is_copy, ty_traits.is_clone, ty_traits.is_eq, ty_traits.is_partial_eq];
     let names = ["Copy", "Clone", "Eq", "PartialEq"];
-    ty_traits.iter().enumerate().filter(|(_, is_impl)| **is_impl).map(|(idx, _)| names[idx]).intersperse(",").collect()
+    itertools::intersperse(ty_traits.iter().enumerate().filter(|(_, is_impl)| **is_impl).map(|(idx, _)| names[idx]), ",").collect()
 }
 
 impl<'ast> Depends for CGStructDef<'ast> {

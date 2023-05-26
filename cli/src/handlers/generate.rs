@@ -1,11 +1,9 @@
 use super::prelude::*;
 use crate::commands::GenerateArgs;
 use crate::config;
-use ast::{make_path, Definition};
-use codegen::Codegen;
+use ast::Definition;
 use log::{debug, info};
 use parser::ast::file::FileParse;
-use std::io::Read;
 use std::rc::Rc;
 use vhl_core::project::Project;
 
@@ -51,12 +49,12 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
 
 fn generate_rust(
     project: &Project,
-    info: &config::Info,
+    _info: &config::Info,
     target: &config::TargetRust,
 ) -> Result<()> {
     for core in &target.core {
         let mut cg_file = codegen::file::CGFile::new();
-        for (id, def) in &project.root.defs {
+        for (_id, def) in &project.root.defs {
             match def {
                 Definition::Struct(struct_def) => {
                     let cg_struct_def = codegen::rust::struct_def::CGStructDef::new(&struct_def);

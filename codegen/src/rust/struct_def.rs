@@ -2,7 +2,8 @@ use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
-use ast::StructDef;
+use ast::{Span, StructDef};
+use crate::file::CGPiece;
 
 #[derive(Clone)]
 pub struct CGStructDef<'ast> {
@@ -20,6 +21,22 @@ impl<'ast> CGStructDef<'ast> {
             //     .map(|item| item.clone().into())
             //     .collect()
         }
+    }
+}
+
+impl<'i> Codegen for CGStructDef<'i> {
+    type Error = CodegenError;
+
+    fn codegen(&self) -> Result<CGPiece, Self::Error> {
+        let mut piece = CGPiece {
+            ts: TokenStream::new(),
+            deps: self.dependencies(),
+            from: self.inner.span.clone(),
+        };
+
+        self.to_tokens(&mut piece.ts);
+
+        Ok(piece)
     }
 }
 

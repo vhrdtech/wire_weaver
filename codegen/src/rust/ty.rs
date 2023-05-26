@@ -33,7 +33,7 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     Λdiscrete
                 "#));
             }
-            _ => unimplemented!(),
+            kind => unimplemented!("{:?}", kind),
         }
     }
 }

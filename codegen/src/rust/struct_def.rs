@@ -1,14 +1,18 @@
+use std::io::Read;
+use std::iter;
+use itertools::Itertools;
 use crate::dependencies::{Dependencies, Depends};
 use crate::prelude::*;
 use crate::rust::identifier::CGIdentifier;
 use crate::rust::ty::CGTy;
 use ast::{Span, StructDef};
+use ast::ty::TyTraits;
 use crate::file::CGPiece;
 
 #[derive(Clone)]
 pub struct CGStructDef<'ast> {
     pub typename: CGIdentifier<'ast>,
-    pub inner: &'ast StructDef, // pub fields: Vec<CGStructField>,
+    pub inner: &'ast StructDef,
 }
 
 impl<'ast> CGStructDef<'ast> {
@@ -17,60 +21,73 @@ impl<'ast> CGStructDef<'ast> {
             typename: CGIdentifier {
                 inner: &struct_def.typename,
             },
-            inner: struct_def, // fields: struct_def.fields.fields.iter()
-            //     .map(|item| item.clone().into())
-            //     .collect()
+            inner: struct_def,
         }
     }
-}
 
-impl<'i> Codegen for CGStructDef<'i> {
-    type Error = CodegenError;
-
-    fn codegen(&self) -> Result<CGPiece, Self::Error> {
+    pub fn codegen(&self, try_to_derive: &Vec<String>) -> Result<CGPiece, CodegenError> {
         let mut piece = CGPiece {
             ts: TokenStream::new(),
             deps: self.dependencies(),
             from: self.inner.span.clone(),
         };
 
-        self.to_tokens(&mut piece.ts);
-
-        Ok(piece)
-    }
-}
-
-// #[derive(Clone)]
-// pub struct CGStructField {
-//     pub name: Identifier,
-//     pub ty: Ty,
-// }
-//
-// impl From<vhl::ast::struct_def::StructField> for CGStructField {
-//     fn from(field: vhl::ast::struct_def::StructField) -> Self {
-//         CGStructField {
-//             name: field.name.into(),
-//             ty: field.ty.into(),
-//         }
-//     }
-// }
-
-impl<'ast> ToTokens for CGStructDef<'ast> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
         let field_names = self
             .inner
             .fields
             .iter()
             .map(|f| CGIdentifier { inner: &f.name });
         let field_types = self.inner.fields.iter().map(|f| CGTy { inner: &f.ty });
-        let derives = mquote!(rust " #[derive(Copy, Clone, Eq, PartialEq, Debug)] "); // TODO: make automatic and configurable
-        tokens.append_all(mquote!(rust r#"
-            Λderives
+
+        let mut ty_traits = TyTraits::default();
+        let derive_passthrough: Vec<String> = try_to_derive.iter().cloned().filter(|d| {
+            match d.as_str() {
+                "Copy" => {
+                    ty_traits.is_copy = true;
+                    false
+                },
+                "Clone" => {
+                    ty_traits.is_clone = true;
+                    false
+                },
+                "Eq" => {
+                    ty_traits.is_eq = true;
+                    false
+                },
+                "PartialEq" => {
+                    ty_traits.is_partial_eq = true;
+                    false
+                },
+                _ => {
+                    true // pass through all other traits as asked
+                }
+            }
+        }).collect();
+        for field in &self.inner.fields {
+            ty_traits = ty_traits & field.ty.ty_traits();
+        }
+        let ty_traits = ty_traits_to_string(ty_traits);
+        let supported_derives: String = if ty_traits.is_empty() {
+            derive_passthrough.iter().map(|s| s.as_ref()).intersperse(",").collect()
+        } else {
+            iter::once(ty_traits).chain(derive_passthrough).intersperse(",".to_owned()).collect()
+        };
+
+        piece.ts.append_all(mquote!(rust r#"
+            #[derive(Λsupported_derives)]
             pub struct Λ{self.typename} {
                 ⸨ pub ∀field_names : ∀field_types ⸩,*
             }
         "#));
+
+        Ok(piece)
     }
+}
+
+fn ty_traits_to_string(ty_traits: TyTraits) -> String {
+    let ty_traits = [ty_traits.is_copy, ty_traits.is_clone, ty_traits.is_eq, ty_traits.is_partial_eq];
+    let names = ["Copy", "Clone", "Eq", "PartialEq"];
+    ty_traits.iter().enumerate().filter(|(_, is_impl)| **is_impl).map(|(idx, _)| names[idx]).intersperse(",").collect()
 }
 
 impl<'ast> Depends for CGStructDef<'ast> {
@@ -81,14 +98,6 @@ impl<'ast> Depends for CGStructDef<'ast> {
         }
     }
 }
-
-// impl ToTokens for CGStructField {
-//     fn to_tokens(&self, tokens: &mut TokenStream) {
-//         tokens.append_all(mquote!(rust r#"
-//             pub #{self.name}: #{self.ty}
-//         "#));
-//     }
-// }
 
 #[cfg(test)]
 mod test {

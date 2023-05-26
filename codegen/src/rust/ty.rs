@@ -33,6 +33,11 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     Λdiscrete
                 "#));
             }
+            TyKind::Float(float) => {
+                tokens.append_all(mquote!(rust r#"
+                    f◡Λ{float.bits}
+                "#));
+            }
             kind => unimplemented!("{:?}", kind),
         }
     }

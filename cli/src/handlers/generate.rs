@@ -66,7 +66,7 @@ fn generate_rust(
                     // let cg_struct_des = codegen::rust::serdes::buf::struct_def::StructDes {
                     //     inner: cg_struct_def.clone(),
                     // };
-                    match cg_struct_def.codegen() {
+                    match cg_struct_def.codegen(&core.add_derives) {
                         Ok(piece) => {
                             cg_file.push(piece);
                         }

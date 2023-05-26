@@ -39,7 +39,7 @@ pub struct TargetRustCore {
     #[serde(rename = "crate")]
     pub target_crate: String,
     #[serde(rename = "derive")]
-    pub add_derives: Option<Vec<String>>,
+    pub add_derives: Vec<String>,
     pub serdes: Option<Vec<RustSerDes>>,
 }
 

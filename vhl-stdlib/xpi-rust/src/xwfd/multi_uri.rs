@@ -78,10 +78,7 @@ impl<'i> Iterator for MultiUriIter<'i> {
         self.pos += 1;
 
         let arr: Vlu4Vec<u32> = self.rdr.des_vlu4().ok()?;
-        Some((
-            SerialUri::MultiPart(arr),
-            self.rdr.des_vlu4().ok()?,
-        ))
+        Some((SerialUri::MultiPart(arr), self.rdr.des_vlu4().ok()?))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

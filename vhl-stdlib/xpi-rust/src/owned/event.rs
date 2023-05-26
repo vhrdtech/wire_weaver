@@ -8,8 +8,8 @@ use vhl_stdlib::discrete::U4;
 use vhl_stdlib::serdes::NibbleBufMut;
 
 use super::{
-    resource_set::ResourceSetConvertXwfd, EventKind, NodeId, NodeSet, RequestId, ResourceSet,
-    MultiUriOwned, UriOwned, TraitSet,
+    resource_set::ResourceSetConvertXwfd, EventKind, MultiUriOwned, NodeId, NodeSet, RequestId,
+    ResourceSet, TraitSet, UriOwned,
 };
 
 pub type Event = XpiGenericEvent<

@@ -43,10 +43,8 @@ pub fn size_in_byte_buf(
         | TyKind::Fn { .. }
         | TyKind::AutoNumber(_)
         | TyKind::IndexTyOf(_)
-        | TyKind::Generic { .. } => {
-            Err(CodegenError::Internal(
-                "size_in_byte_buf: wrong AST is given to codegen".to_owned(),
-            ))
-        }
+        | TyKind::Generic { .. } => Err(CodegenError::Internal(
+            "size_in_byte_buf: wrong AST is given to codegen".to_owned(),
+        )),
     }
 }

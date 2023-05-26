@@ -1,5 +1,5 @@
-use std::ops::Range;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use std::ops::Range;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseWarning {
@@ -31,8 +31,7 @@ impl ParseWarning {
                     Label::primary((), range).with_message("remove this Cell<_>")
                 ])
                 .with_notes(vec![
-                    "const and read only resources are safe to use without a Cell"
-                        .to_owned(),
+                    "const and read only resources are safe to use without a Cell".to_owned(),
                 ]),
             ParseWarningKind::CellWithRoStream => Diagnostic::warning()
                 .with_message("resource containing cell with a read only stream")

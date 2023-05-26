@@ -83,16 +83,19 @@ impl<'i> Parse<'i> for TyParse {
                 span,
             },
             Rule::fn_ty => {
-                let mut input = ParseInput::fork(input.expect1(Rule::fn_ty, "TyParse:fn_ty")?, &mut input);
+                let mut input =
+                    ParseInput::fork(input.expect1(Rule::fn_ty, "TyParse:fn_ty")?, &mut input);
                 let args: FnArgumentsParse = input.parse()?;
                 let ret_ty: Option<TyParse> = input.parse_or_skip()?;
                 Ty {
                     kind: TyKind::Fn {
                         args: args.0,
-                        ret_ty: ret_ty.map(|ty| Box::new(ty.0)).unwrap_or_else(|| Box::new(Ty {
-                            kind: TyKind::Unit,
-                            span: span.clone(),
-                        })),
+                        ret_ty: ret_ty.map(|ty| Box::new(ty.0)).unwrap_or_else(|| {
+                            Box::new(Ty {
+                                kind: TyKind::Unit,
+                                span: span.clone(),
+                            })
+                        }),
                     },
                     span,
                 }
@@ -110,7 +113,8 @@ impl<'i> Parse<'i> for TyParse {
 
 impl<'i> Parse<'i> for DiscreteTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::discrete_ty, "DiscreteTyParse")?, input);
+        let mut input =
+            ParseInput::fork(input.expect1(Rule::discrete_ty, "DiscreteTyParse")?, input);
         let discrete_x_ty = input
             .pairs
             .next()
@@ -170,11 +174,17 @@ fn parse_ref_or_generic_ty(
     match input.pairs.peek() {
         Some(_) => match path.0.as_string().as_str() {
             "autonum" => parse_autonum_ty(
-                &mut ParseInput::fork(input.expect1(Rule::generics, "parse_ref_or_generic_ty")?, input),
+                &mut ParseInput::fork(
+                    input.expect1(Rule::generics, "parse_ref_or_generic_ty")?,
+                    input,
+                ),
                 span,
             ),
             "indexof" => parse_indexof_ty(
-                &mut ParseInput::fork(input.expect1(Rule::generics, "parse_ref_or_generic_ty")?, input),
+                &mut ParseInput::fork(
+                    input.expect1(Rule::generics, "parse_ref_or_generic_ty")?,
+                    input,
+                ),
                 span,
             ),
             _ => {
@@ -283,7 +293,10 @@ fn parse_array_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
 
 fn parse_tuple_ty(input: &mut ParseInput) -> Result<Ty, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::tuple_ty, "parse_tuple_ty")?, input);
-    let mut input = ParseInput::fork(input.expect1(Rule::tuple_fields, "parse_tuple_ty:fields")?, &mut input);
+    let mut input = ParseInput::fork(
+        input.expect1(Rule::tuple_fields, "parse_tuple_ty:fields")?,
+        &mut input,
+    );
     let mut types = Vec::new();
     while input.pairs.peek().is_some() {
         let ty: TyParse = input.parse()?;

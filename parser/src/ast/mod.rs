@@ -42,7 +42,12 @@ pub(crate) mod test {
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
         let pair_peek = pairs.peek().unwrap();
-        let mut input = ParseInput::new(pairs, ast_span_from_pest(pair_peek.as_span()), &mut warnings, &mut errors);
+        let mut input = ParseInput::new(
+            pairs,
+            ast_span_from_pest(pair_peek.as_span()),
+            &mut warnings,
+            &mut errors,
+        );
         let result: T = input.parse().unwrap();
         assert!(warnings.is_empty());
         assert!(errors.is_empty());

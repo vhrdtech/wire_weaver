@@ -26,7 +26,7 @@ pub enum LitKind {
     Struct(StructLit),
     Enum(EnumLit),
     Array(ArrayLit),
-    XpiSerial(u32)
+    XpiSerial(u32),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -36,7 +36,10 @@ impl From<ast::Error> for CodegenError {
 }
 
 impl CodegenError {
-    pub fn core_with_context(core_err: vhl_core::user_error::UserError, context: &'static str) -> Self {
+    pub fn core_with_context(
+        core_err: vhl_core::user_error::UserError,
+        context: &'static str,
+    ) -> Self {
         Self::CoreWithContext(core_err, context.to_owned())
     }
 

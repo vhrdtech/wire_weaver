@@ -1,7 +1,7 @@
 mod commands;
+mod config;
 mod handlers;
 pub mod util;
-mod config;
 
 use crate::commands::Commands;
 use anyhow::{anyhow, Result};

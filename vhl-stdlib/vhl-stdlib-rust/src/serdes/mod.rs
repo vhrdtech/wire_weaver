@@ -3,8 +3,8 @@ pub mod buf;
 pub mod nibble_buf;
 pub mod size;
 pub mod traits;
-pub mod vlu4;
 pub mod vlu32b;
+pub mod vlu4;
 
 pub use bit_buf::{BitBuf, BitBufMut};
 pub use buf::{Buf, BufMut};

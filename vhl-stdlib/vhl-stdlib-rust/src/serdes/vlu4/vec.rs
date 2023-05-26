@@ -182,9 +182,7 @@ where
             };
             elements_left -= stride_len;
             for _ in 0..stride_len {
-                let element = elements_iter
-                    .next()
-                    .ok_or(NibbleBufError::Vlu4Vec)?;
+                let element = elements_iter.next().ok_or(NibbleBufError::Vlu4Vec)?;
                 wgr.put(&element)?;
             }
         }
@@ -360,7 +358,8 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
             SerDesSize::Sized(len_nibbles) => len_nibbles,
             SerDesSize::SizedAligned(len_nibbles, max_padding) => len_nibbles + max_padding,
             SerDesSize::Unsized => {
-                let len_len = Vlu32N(self.nwr.nibbles_left() as u32).len_nibbles_known_to_be_sized();
+                let len_len =
+                    Vlu32N(self.nwr.nibbles_left() as u32).len_nibbles_known_to_be_sized();
                 self.nwr.nibbles_left() - len_len
             }
             SerDesSize::UnsizedBound(max_len_nibbles) => max_len_nibbles,

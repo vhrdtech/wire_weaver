@@ -18,7 +18,12 @@ pub struct CollectArrays<'i> {
 
 impl<'i> VisitMut for CollectArrays<'i> {
     fn visit_xpi_kind(&mut self, kind: &mut XpiKind) {
-        if let XpiKind::Property { access, observable, ty } = kind {
+        if let XpiKind::Property {
+            access,
+            observable,
+            ty,
+        } = kind
+        {
             let span = ty.span.clone();
             if let TyKind::Array { ty, len_bound } = &ty.kind {
                 let self_path = make_path!(Self);
@@ -40,23 +45,22 @@ impl<'i> VisitMut for CollectArrays<'i> {
                     TyKind::Generic { path, params } => {
                         if path.as_string() == "Cell" && params.params.len() == 1 {
                             match &params.params[0] {
-                                GenericParam::Ty(ty) => if let TyKind::Ref(path) = &ty.kind {
-                                    if *path == self_path {
-                                        if *access != AccessMode::ImpliedRo
-                                            || *observable
-                                        {
-                                            self.errors.push(UserError {
-                                                kind:
-                                                UserErrorKind::XpiArrayWithModifier,
-                                                span,
-                                            });
+                                GenericParam::Ty(ty) => {
+                                    if let TyKind::Ref(path) = &ty.kind {
+                                        if *path == self_path {
+                                            if *access != AccessMode::ImpliedRo || *observable {
+                                                self.errors.push(UserError {
+                                                    kind: UserErrorKind::XpiArrayWithModifier,
+                                                    span,
+                                                });
+                                            }
+                                            *kind = XpiKind::Array {
+                                                num_bound: len_bound.clone(),
+                                                is_celled: true,
+                                            };
                                         }
-                                        *kind = XpiKind::Array {
-                                            num_bound: len_bound.clone(),
-                                            is_celled: true,
-                                        };
                                     }
-                                },
+                                }
                                 GenericParam::Expr(_) => {}
                             }
                         }

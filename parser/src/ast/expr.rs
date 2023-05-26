@@ -14,7 +14,10 @@ impl<'i> Parse<'i> for ExprParse {
         let p = input.expect1_either(Rule::expression_ticked, Rule::expression, "ExprParse")?;
         if p.as_rule() == Rule::expression_ticked {
             let mut input = ParseInput::fork(p, input);
-            let mut input = ParseInput::fork(input.expect1(Rule::expression, "ExprParse:ticked")?, &mut input);
+            let mut input = ParseInput::fork(
+                input.expect1(Rule::expression, "ExprParse:ticked")?,
+                &mut input,
+            );
             Ok(ExprParse(pratt_parser(&mut input, 0)?))
         } else {
             let mut input = ParseInput::fork(p, input);
@@ -46,7 +49,10 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let method: PathParse = input.parse()?;
-            let mut input = ParseInput::fork(input.expect1(Rule::call_arguments, "pratt_parser:call_expr")?, &mut input);
+            let mut input = ParseInput::fork(
+                input.expect1(Rule::call_arguments, "pratt_parser:call_expr")?,
+                &mut input,
+            );
             let args: VecExprParse = input.parse()?;
             Expr::Call {
                 method: method.0,
@@ -67,7 +73,10 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
             let op: UnaryOpParse = input.parse()?;
-            let mut input = ParseInput::fork(input.expect1(Rule::expression, "pratt_parser:unary")?, &mut input);
+            let mut input = ParseInput::fork(
+                input.expect1(Rule::expression, "pratt_parser:unary")?,
+                &mut input,
+            );
             Expr::ConsU(op.0, Box::new(pratt_parser(&mut input, 0)?))
         }
         Rule::lit => {
@@ -95,7 +104,10 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
         Rule::expression_parenthesized => {
             let _ = input.pairs.next();
             let mut input = ParseInput::fork(pair, input);
-            let mut input = ParseInput::fork(input.expect1(Rule::expression, "pratt_parser:expr_parenthesized")?, &mut input);
+            let mut input = ParseInput::fork(
+                input.expect1(Rule::expression, "pratt_parser:expr_parenthesized")?,
+                &mut input,
+            );
             pratt_parser(&mut input, 0)?
         }
 
@@ -219,9 +231,12 @@ fn pratt_parser(input: &mut ParseInput, min_bp: u8) -> Result<Expr, ParseErrorSo
 #[cfg(test)]
 mod test {
     use super::ExprParse;
-    use ast::{Expr, ops::{UnaryOp, BinaryOp}};
     use crate::ast::test::parse_str;
     use crate::lexer::Rule;
+    use ast::{
+        ops::{BinaryOp, UnaryOp},
+        Expr,
+    };
 
     #[test]
     fn single_lit() {
@@ -258,10 +273,7 @@ mod test {
         assert!(matches!(expr, Expr::ConsB(BinaryOp::Mul, _)));
         if let Expr::ConsB(_, cons) = expr {
             assert!(matches!(cons.as_ref().0, Expr::Lit(_)));
-            assert!(matches!(
-                cons.as_ref().1,
-                Expr::ConsB(BinaryOp::Plus, _)
-            ));
+            assert!(matches!(cons.as_ref().1, Expr::ConsB(BinaryOp::Plus, _)));
         }
     }
 
@@ -269,7 +281,7 @@ mod test {
     fn call_fn() {
         let expr: ExprParse = parse_str("fun(1, 2)", Rule::expression);
         let expr = expr.0;
-        assert!(matches!(expr, Expr::Call {..}));
+        assert!(matches!(expr, Expr::Call { .. }));
         if let Expr::Call { method, args } = expr {
             assert_eq!(method.as_string(), "fun");
             assert_eq!(args.0.len(), 2);
@@ -282,7 +294,7 @@ mod test {
     fn index_array() {
         let expr: ExprParse = parse_str("arr[0, 5]", Rule::expression);
         let expr = expr.0;
-        assert!(matches!(expr, Expr::Index {..}));
+        assert!(matches!(expr, Expr::Index { .. }));
         if let Expr::Index { object, by } = expr {
             assert_eq!(object.as_string(), "arr");
             assert_eq!(by.0.len(), 2);

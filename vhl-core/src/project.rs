@@ -57,9 +57,7 @@ impl Project {
                         }
                     }
                 }
-                None => {
-                    Err(Error::FindDef("crate root is not a definition".to_owned()))
-                }
+                None => Err(Error::FindDef("crate root is not a definition".to_owned())),
             }
         } else {
             todo!()
@@ -152,10 +150,7 @@ impl<'a> Files<'a> for Project {
 
     fn line_index(&'a self, id: Self::FileId, byte_index: usize) -> Result<usize, CRError> {
         if id == 0 {
-            Ok(self
-                .root
-                .line_index(byte_index)
-                .map_err(map_to_cr_err)?)
+            Ok(self.root.line_index(byte_index).map_err(map_to_cr_err)?)
         } else {
             Ok(self
                 .find_file_by_id(id)
@@ -167,10 +162,7 @@ impl<'a> Files<'a> for Project {
 
     fn line_range(&'a self, id: Self::FileId, line_index: usize) -> Result<Range<usize>, CRError> {
         if id == 0 {
-            Ok(self
-                .root
-                .line_range(line_index)
-                .map_err(map_to_cr_err)?)
+            Ok(self.root.line_range(line_index).map_err(map_to_cr_err)?)
         } else {
             Ok(self
                 .find_file_by_id(id)

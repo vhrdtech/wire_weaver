@@ -39,10 +39,21 @@ pub enum UriMask<I> {
 impl<I: IntoIterator<Item=u32> + Clone> UriMask<I> {
     pub fn iter(&self) -> UriMaskIter<I::IntoIter> {
         match self {
-            UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 { mask: *mask, pos: 0 },
-            UriMask::ByBitfield16(mask) => UriMaskIter::ByBitfield16 { mask: *mask, pos: 0 },
-            UriMask::ByBitfield32(mask) => UriMaskIter::ByBitfield32 { mask: *mask, pos: 0 },
-            UriMask::ByIndices(iter) => UriMaskIter::ByIndices { iter: iter.clone().into_iter() },
+            UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 {
+                mask: *mask,
+                pos: 0,
+            },
+            UriMask::ByBitfield16(mask) => UriMaskIter::ByBitfield16 {
+                mask: *mask,
+                pos: 0,
+            },
+            UriMask::ByBitfield32(mask) => UriMaskIter::ByBitfield32 {
+                mask: *mask,
+                pos: 0,
+            },
+            UriMask::ByIndices(iter) => UriMaskIter::ByIndices {
+                iter: iter.clone().into_iter(),
+            },
             UriMask::All(count) => UriMaskIter::All {
                 count: count.0,
                 pos: 0,
@@ -71,7 +82,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
             5 => {
                 let arr: Vlu4Vec<u32> = rdr.des_vlu4()?;
                 Ok(UriMask::ByIndices(arr))
-            },
+            }
             6 => {
                 let amount = rdr.get_vlu32n()?;
                 Ok(UriMask::All(Vlu32N(amount)))
@@ -158,7 +169,8 @@ macro_rules! next_one_bit {
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for UriMask<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     type Item = u32;
     type IntoIter = UriMaskIter<I::IntoIter>;
@@ -169,7 +181,8 @@ impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for UriMask<I>
 }
 
 impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     type Item = u32;
 
@@ -213,7 +226,8 @@ fn count_ones(mut num: u32) -> (usize, Option<usize>) {
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> Display for UriMask<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {

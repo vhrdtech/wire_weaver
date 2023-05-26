@@ -19,13 +19,11 @@ pub struct FileParse {
 
 impl FileParse {
     pub fn parse<S: AsRef<str>>(input: S, origin: SpanOrigin) -> Result<Self, Box<Error>> {
-        let mut input_pairs =
-            <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref()).map_err(|e| {
-                Error {
-                    kind: ErrorKind::Grammar(e),
-                    origin: origin.clone(),
-                    input: input.as_ref().to_owned(),
-                }
+        let mut input_pairs = <Lexer as pest::Parser<Rule>>::parse(Rule::file, input.as_ref())
+            .map_err(|e| Error {
+                kind: ErrorKind::Grammar(e),
+                origin: origin.clone(),
+                input: input.as_ref().to_owned(),
             })?;
         let mut defs = HashMap::new();
         let mut warnings = Vec::new();
@@ -69,9 +67,19 @@ impl FileParse {
                                     ParseErrorSource::Unimplemented(f) => {
                                         ParseErrorKind::Unimplemented(f)
                                     }
-                                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context, span } => {
-                                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span }
-                                    }
+                                    ParseErrorSource::UnexpectedInput {
+                                        expect1,
+                                        expect2,
+                                        got,
+                                        context,
+                                        span,
+                                    } => ParseErrorKind::UnhandledUnexpectedInput {
+                                        expect1,
+                                        expect2,
+                                        got,
+                                        context,
+                                        span,
+                                    },
                                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                                 };
                                 errors.push(ParseError { kind, rule, span });

@@ -53,7 +53,7 @@ pub enum XpiError {
     NoArgumentsProvided,
 
     /// Out of bounds resources array access
-    OutOfBounds
+    OutOfBounds,
 }
 
 impl SerializableError for XpiError {

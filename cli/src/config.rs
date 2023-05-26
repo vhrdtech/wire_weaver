@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use toml::Value;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub info: Info,
-    pub main: Main,
     pub dependencies: Option<Dependencies>,
     pub gen: Option<GenerateTargets>,
 }
@@ -15,17 +14,13 @@ pub struct Info {
     pub name: String,
     pub version: String,
     pub authors: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Main {
-    pub src: String,
+    pub src: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dependencies {
     #[serde(flatten)]
-    deps: HashMap<String, Value>
+    deps: HashMap<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

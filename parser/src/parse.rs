@@ -49,7 +49,11 @@ impl<'i, 'm> ParseInput<'i, 'm> {
 
     /// Consume and return next pair if it exists with specified rule. Otherwise return an error,
     /// leaving input as before.
-    pub fn expect1(&mut self, rule1: Rule, context: &'static str) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+    pub fn expect1(
+        &mut self,
+        rule1: Rule,
+        context: &'static str,
+    ) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         match self.pairs.peek() {
             Some(p1) => {
                 if p1.as_rule() == rule1 {
@@ -61,7 +65,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                         expect2: None,
                         got: Some(p1.as_rule()),
                         context,
-                        span: self.span.clone()
+                        span: self.span.clone(),
                     })
                 }
             }
@@ -70,7 +74,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: None,
                 got: None,
                 context,
-                span: self.span.clone()
+                span: self.span.clone(),
             }),
         }
     }
@@ -81,7 +85,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         &mut self,
         rule1: Rule,
         rule2: Rule,
-        context: &'static str
+        context: &'static str,
     ) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         match self.pairs.peek() {
             Some(p1) => {
@@ -94,7 +98,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                         expect2: Some(rule2),
                         got: Some(p1.as_rule()),
                         context,
-                        span: self.span.clone()
+                        span: self.span.clone(),
                     })
                 }
             }
@@ -103,7 +107,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: Some(rule2),
                 got: None,
                 context,
-                span: self.span.clone()
+                span: self.span.clone(),
             }),
         }
     }
@@ -112,13 +116,16 @@ impl<'i, 'm> ParseInput<'i, 'm> {
         &mut self,
         rule1: Rule,
         rule2: Rule,
-        context: &'static str
+        context: &'static str,
     ) -> Result<(Pair<'i, Rule>, Pair<'i, Rule>), ParseErrorSource> {
         Ok((self.expect1(rule1, context)?, self.expect1(rule2, context)?))
     }
 
     /// Consume and return next pair if it exists.
-    pub fn expect1_any(&mut self, context: &'static str) -> Result<Pair<'i, Rule>, ParseErrorSource> {
+    pub fn expect1_any(
+        &mut self,
+        context: &'static str,
+    ) -> Result<Pair<'i, Rule>, ParseErrorSource> {
         self.pairs
             .next()
             .ok_or_else(|| ParseErrorSource::UnexpectedInput {
@@ -126,7 +133,7 @@ impl<'i, 'm> ParseInput<'i, 'm> {
                 expect2: None,
                 got: None,
                 context,
-                span: self.span.clone()
+                span: self.span.clone(),
             })
     }
 

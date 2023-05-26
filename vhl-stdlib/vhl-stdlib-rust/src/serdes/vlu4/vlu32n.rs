@@ -151,8 +151,8 @@ deserialize_unsigned!(u32, get_u32_be);
 mod test {
     extern crate std;
 
-    use crate::serdes::{NibbleBuf, NibbleBufMut};
     use crate::serdes::nibble_buf::Error;
+    use crate::serdes::{NibbleBuf, NibbleBufMut};
 
     #[test]
     fn read_vlu4_u32_single_nibble() {

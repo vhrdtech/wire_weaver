@@ -2,7 +2,9 @@ use super::prelude::*;
 use crate::ast::paths::PathParse;
 use crate::ast::ty::{DiscreteTyParse, FloatTyParse};
 use crate::error::{ParseError, ParseErrorKind};
-use ast::lit::{ArrayLit, DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem};
+use ast::lit::{
+    ArrayLit, DiscreteLit, LitKind, NumberLit, NumberLitKind, StructLit, StructLitItem,
+};
 use ast::{DiscreteTy, Lit, NumBound};
 
 pub struct LitParse(pub Lit);
@@ -15,7 +17,10 @@ pub struct StructLitItemParse(pub StructLitItem);
 
 impl<'i> Parse<'i> for LitParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1_either(Rule::lit, Rule::number_lit, "LitParse")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1_either(Rule::lit, Rule::number_lit, "LitParse")?,
+            input,
+        );
         // crate::util::pest_print_tree(input.pairs.clone());
         let lit = input
             .pairs
@@ -71,7 +76,10 @@ impl<'i> Parse<'i> for NumberLitParse {
 }
 
 fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
-    let mut input = ParseInput::fork(input.expect1(Rule::discrete_lit, "parse_discrete_lit")?, input);
+    let mut input = ParseInput::fork(
+        input.expect1(Rule::discrete_lit, "parse_discrete_lit")?,
+        input,
+    );
     let span = input.span.clone();
     let x_lit_raw = input.expect1_any("parse_discrete_lit:x_lit_raw")?;
     let (radix, x_str_raw) = match x_lit_raw.as_rule() {
@@ -118,7 +126,9 @@ fn parse_discrete_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 
 fn parse_float_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::float_lit, "parse_float_lit")?, input);
-    let fx = input.expect1(Rule::float_lit_internal, "parse_float_lit:fx")?.as_str();
+    let fx = input
+        .expect1(Rule::float_lit_internal, "parse_float_lit:fx")?
+        .as_str();
     let fx = fx
         .to_owned()
         .chars()
@@ -209,7 +219,8 @@ fn parse_struct_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
 
 fn parse_array_lit(input: &mut ParseInput) -> Result<Lit, ParseErrorSource> {
     let mut input = ParseInput::fork(input.expect1(Rule::array_lit, "parse_array_lit")?, input);
-    let array_lit = input.expect1_either(Rule::array_fill_lit, Rule::vec_lit, "parse_array_lit:lit")?;
+    let array_lit =
+        input.expect1_either(Rule::array_fill_lit, Rule::vec_lit, "parse_array_lit:lit")?;
     let array_lit_kind = array_lit.as_rule();
     let mut input = ParseInput::fork(array_lit, &mut input);
     if array_lit_kind == Rule::array_fill_lit {

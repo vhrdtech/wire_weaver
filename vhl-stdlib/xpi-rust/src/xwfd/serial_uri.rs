@@ -84,8 +84,7 @@ impl<I: IntoIterator<Item=u32> + Clone> SerialUri<I> {
     }
 }
 
-impl<'i> DeserializeVlu4<'i> for SerialUri<Vlu4Vec<'i, u32>>
-{
+impl<'i> DeserializeVlu4<'i> for SerialUri<Vlu4Vec<'i, u32>> {
     type Error = nibble_buf::Error;
 
     fn des_vlu4<'di>(nrd: &'di mut NibbleBuf<'i>) -> Result<Self, Self::Error> {
@@ -151,7 +150,8 @@ impl<I: IntoIterator<Item=u32> + Clone> SerializeVlu4 for SerialUri<I> {
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for SerialUri<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     type Item = u32;
     type IntoIter = SerialUriIter<I::IntoIter>;
@@ -223,7 +223,8 @@ impl<I: Iterator<Item=u32> + Clone> Display for SerialUriIter<I> {
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> Display for SerialUri<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
@@ -235,7 +236,8 @@ impl<I: IntoIterator<Item=u32> + Clone> Display for SerialUri<I>
 }
 
 impl<I: IntoIterator<Item=u32> + Clone> Debug for SerialUri<I>
-    where <I as IntoIterator>::IntoIter: Clone,
+    where
+        <I as IntoIterator>::IntoIter: Clone,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:#}", self)

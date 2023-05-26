@@ -1,15 +1,15 @@
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use super::prelude::*;
 use crate::ast::definition::DefinitionParse;
 use crate::ast::expr::ExprParse;
 use crate::ast::ty::TyParse;
 use crate::error::{Error, ErrorKind, ParseError, ParseErrorKind};
 use crate::lexer::{Lexer, Rule};
+use crate::warning::ParseWarning;
 use ast::span::SpanOrigin;
 use ast::stmt::LetStmt;
 use ast::Stmt;
-use crate::warning::ParseWarning;
+use codespan_reporting::files::SimpleFile;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 
 // Used when parsing whole file
 pub struct StmtParse(pub Stmt);
@@ -68,16 +68,30 @@ impl StmtParseDetached {
         let mut input_parse = ParseInput::new(pairs, pair_span, &mut warnings, &mut errors);
         let stmt_parse: Result<StmtParse, ParseErrorSource> = input_parse.parse();
         match stmt_parse {
-            Ok(stmt) => Ok(StmtParseDetached { stmt: stmt.0, input: input.to_owned(), warnings }),
+            Ok(stmt) => Ok(StmtParseDetached {
+                stmt: stmt.0,
+                input: input.to_owned(),
+                warnings,
+            }),
             Err(e) => {
                 let kind = match e {
                     ParseErrorSource::InternalError { rule, message } => {
                         ParseErrorKind::InternalError { rule, message }
                     }
                     ParseErrorSource::Unimplemented(f) => ParseErrorKind::Unimplemented(f),
-                    ParseErrorSource::UnexpectedInput { expect1, expect2, got, context, span } => {
-                        ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span }
-                    }
+                    ParseErrorSource::UnexpectedInput {
+                        expect1,
+                        expect2,
+                        got,
+                        context,
+                        span,
+                    } => ParseErrorKind::UnhandledUnexpectedInput {
+                        expect1,
+                        expect2,
+                        got,
+                        context,
+                        span,
+                    },
                     ParseErrorSource::UserError => ParseErrorKind::UserError,
                 };
                 errors.push(ParseError { kind, rule, span });
@@ -95,7 +109,8 @@ impl StmtParseDetached {
         let config = codespan_reporting::term::Config::default();
         let file = SimpleFile::new("str", &self.input);
         for diagnostic in self.warnings.iter().map(ParseWarning::to_diagnostic) {
-            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
+            codespan_reporting::term::emit(&mut writer.lock(), &config, &file, &diagnostic)
+                .unwrap();
         }
     }
 }
@@ -129,7 +144,7 @@ impl<'i> Parse<'i> for StmtParse {
                 s.as_rule(),
                 "StmtParse: unexpected rule",
             )),
-            None => Err(ParseErrorSource::internal("StmtParse: wrong grammar"))
+            None => Err(ParseErrorSource::internal("StmtParse: wrong grammar")),
         }
     }
 }

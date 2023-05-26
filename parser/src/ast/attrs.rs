@@ -43,7 +43,7 @@ impl<'i> Parse<'i> for AttrParse {
                 path: path.0,
                 kind: AttrKind::Expr(Expr::unit()),
                 span: input.span.clone(),
-            }))
+            }));
         }
 
         let attr_input = input.expect1(Rule::attribute_input, "AttrParse")?;

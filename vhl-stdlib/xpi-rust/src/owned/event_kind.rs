@@ -48,7 +48,9 @@ impl EventKind {
             // EventKind::OpenStreamsResults(_) => {}
             // EventKind::CloseStreamsResults(_) => {}
             EventKind::SubscribeResults(immediate_updates) => {
-                nwr.put_vec_with(|vb| immediate_updates.iter().try_for_each(|value| vb.put(value)))?;
+                nwr.put_vec_with(|vb| {
+                    immediate_updates.iter().try_for_each(|value| vb.put(value))
+                })?;
             }
             // EventKind::RateChangeResults(_) => {}
             // EventKind::UnsubscribeResults(_) => {}
@@ -120,12 +122,12 @@ impl<'i> From<xwfd::EventKind<'i>> for EventKind {
                 immediate_values
                     .iter()
                     .map(|r| r.map(|nb| nb.to_nibble_buf_owned()))
-                    .collect()
+                    .collect(),
             ),
             xwfd::EventKind::IntrospectResults(_values) => EventKind::IntrospectResults(vec![]),
-            xwfd::EventKind::StreamUpdates(slices) => EventKind::StreamUpdates(
-                slices.iter().map(|nb| nb.to_nibble_buf_owned()).collect()
-            ),
+            xwfd::EventKind::StreamUpdates(slices) => {
+                EventKind::StreamUpdates(slices.iter().map(|nb| nb.to_nibble_buf_owned()).collect())
+            }
             xwfd::EventKind::DiscoverNodes => EventKind::DiscoverNodes,
             xwfd::EventKind::NodeInfo(_) => EventKind::NodeInfo(()),
             xwfd::EventKind::Heartbeat(_) => EventKind::Heartbeat(123),

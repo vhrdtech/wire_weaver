@@ -33,7 +33,10 @@ impl<'i> Parse<'i> for XpiDefParse {
         let mut implements = Vec::new();
         let mut children = Vec::new();
         if input.pairs.peek().is_some() {
-            let mut input = ParseInput::fork(input.expect1(Rule::xpi_body, "XpiDefParse:body")?, &mut input);
+            let mut input = ParseInput::fork(
+                input.expect1(Rule::xpi_body, "XpiDefParse:body")?,
+                &mut input,
+            );
 
             while let Some(p) = input.pairs.peek() {
                 match p.as_rule() {
@@ -42,8 +45,10 @@ impl<'i> Parse<'i> for XpiDefParse {
                         kv.insert(pair.key.0, TryEvaluateInto::NotResolved(pair.value.0));
                     }
                     Rule::xpi_impl => {
-                        let mut input =
-                            ParseInput::fork(input.expect1(Rule::xpi_impl, "XpiDefParse:impl")?, &mut input);
+                        let mut input = ParseInput::fork(
+                            input.expect1(Rule::xpi_impl, "XpiDefParse:impl")?,
+                            &mut input,
+                        );
                         let expr: ExprParse = input.parse()?;
                         implements.push(expr.0);
                     }
@@ -77,7 +82,10 @@ impl<'i> Parse<'i> for XpiDefParse {
 
 impl<'i> Parse<'i> for UriSegmentSeedParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_uri_segment, "UriSegmentSeedParse")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1(Rule::xpi_uri_segment, "UriSegmentSeedParse")?,
+            input,
+        );
 
         let mut input_peek = input.pairs.clone();
         let (p1, p2, p3) = (input_peek.next(), input_peek.next(), input_peek.next());
@@ -124,12 +132,17 @@ enum XpiResourceTyInner {
 
 impl<'i> Parse<'i> for XpiResourceTyParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_ty, "XpiResourceTyParse")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1(Rule::xpi_resource_ty, "XpiResourceTyParse")?,
+            input,
+        );
         let ty_inner = match input.pairs.peek() {
             Some(p) => match p.as_rule() {
                 Rule::resource_cell_ty => {
-                    let mut input =
-                        ParseInput::fork(input.expect1(Rule::resource_cell_ty, "XpiResourceTyParse:cell")?, &mut input);
+                    let mut input = ParseInput::fork(
+                        input.expect1(Rule::resource_cell_ty, "XpiResourceTyParse:cell")?,
+                        &mut input,
+                    );
                     Some(XpiResourceTyInner::Cell {
                         transform: input.parse_or_skip()?,
                         ty: input.parse()?,
@@ -178,12 +191,7 @@ impl<'i> Parse<'i> for XpiResourceTyParse {
             Err(_) => None,
         };
 
-        XpiResourceTyParse::from_ty_and_serial(
-            ty_inner,
-            serial,
-            input.warnings,
-            input.errors,
-        )
+        XpiResourceTyParse::from_ty_and_serial(ty_inner, serial, input.warnings, input.errors)
     }
 }
 
@@ -264,20 +272,16 @@ impl XpiResourceTyParse {
                         })
                     }
                     XpiResourceModifier::Stream => match access {
-                        AccessMode::ImpliedRo => {
-                            Err(Self::push_error(
-                                errors,
-                                ParseErrorKind::StreamWithoutDirection,
-                                ty.0.span,
-                            ))
-                        }
-                        AccessMode::Const => {
-                            Err(Self::push_error(
-                                errors,
-                                ParseErrorKind::ConstWithMods,
-                                ty.0.span,
-                            ))
-                        }
+                        AccessMode::ImpliedRo => Err(Self::push_error(
+                            errors,
+                            ParseErrorKind::StreamWithoutDirection,
+                            ty.0.span,
+                        )),
+                        AccessMode::Const => Err(Self::push_error(
+                            errors,
+                            ParseErrorKind::ConstWithMods,
+                            ty.0.span,
+                        )),
                         _ => Ok(XpiKind::Stream {
                             dir: access,
                             ty: ty.0,
@@ -367,7 +371,10 @@ struct XpiResourceTransform {
 
 impl<'i> Parse<'i> for XpiResourceTransform {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_resource_transform, "XpiResourceTransform")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1(Rule::xpi_resource_transform, "XpiResourceTransform")?,
+            input,
+        );
         let access = input.expect1(Rule::access_mode, "XpiResourceTransform:access")?;
         let access = match access.as_str() {
             "const" => AccessMode::Const,
@@ -391,7 +398,10 @@ impl<'i> Parse<'i> for XpiResourceTransform {
 
 impl<'i> Parse<'i> for XpiBlockKeyValueParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::xpi_field, "XpiBlockKeyValueParse")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1(Rule::xpi_field, "XpiBlockKeyValueParse")?,
+            input,
+        );
         Ok(XpiBlockKeyValueParse {
             key: input.parse()?,
             value: input.parse()?,

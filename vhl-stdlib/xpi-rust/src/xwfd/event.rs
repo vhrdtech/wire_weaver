@@ -7,14 +7,13 @@ use crate::event::XpiGenericEvent;
 use crate::event_kind::XpiEventDiscriminant;
 use core::fmt::{Display, Formatter};
 use vhl_stdlib::discrete::{U3, U9};
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use vhl_stdlib::{
     discrete::U4,
     serdes::{
-        vlu4::TraitSet,
-        DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
+        vlu4::TraitSet, DeserializeCoupledBitsVlu4, DeserializeVlu4, NibbleBuf, NibbleBufMut,
     },
 };
-use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
 /// Highly space efficient xPI Event data structure supporting zero copy and no_std without alloc
 /// even for variable length arrays or strings.
@@ -194,18 +193,25 @@ impl<'i> EventBuilderKindState<'i> {
     }
 
     pub fn split_self(self) -> (NibbleBufMut<'i>, EventBuilderKindStateSplitted) {
-        (self.nwr, EventBuilderKindStateSplitted {
-            source: self.source,
-            request_id: self.request_id,
-            priority: self.priority,
-            node_set_header: self.node_set_header,
-            resource_set_header: self.resource_set_header,
-        })
+        (
+            self.nwr,
+            EventBuilderKindStateSplitted {
+                source: self.source,
+                request_id: self.request_id,
+                priority: self.priority,
+                node_set_header: self.node_set_header,
+                resource_set_header: self.resource_set_header,
+            },
+        )
     }
 }
 
 impl EventBuilderKindStateSplitted {
-    pub fn finish(self, mut nwr: NibbleBufMut, kind: XpiEventDiscriminant) -> Result<NibbleBufMut, XpiError> {
+    pub fn finish(
+        self,
+        mut nwr: NibbleBufMut,
+        kind: XpiEventDiscriminant,
+    ) -> Result<NibbleBufMut, XpiError> {
         let kind = kind as u8;
         let kind54 = kind >> 4;
         let kind30 = kind & 0xF;
@@ -252,7 +258,7 @@ mod test {
     use crate::event_kind::XpiEventDiscriminant;
     pub use crate::xwfd::{
         Event, EventBuilder, EventKind, NodeId, NodeSet, Priority, RequestId, ResourceSet,
-        SerialUri
+        SerialUri,
     };
     use hex_literal::hex;
     use vhl_stdlib::discrete::{U2, U4};
@@ -330,20 +336,25 @@ mod test {
             RequestId::new(27).unwrap(),
             Priority::Lossless(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
-        ).unwrap();
+        )
+            .unwrap();
         let node_set = NodeSet::Unicast(NodeId::new(85).unwrap());
         let resource_set = ResourceSet::Uri(SerialUri::TwoPart44(
             U4::new(3).unwrap(),
             U4::new(12).unwrap(),
         ));
-        let event_builder_resource_set_state = event_builder.build_node_set_with(|mut nwr| {
-            nwr.put(&node_set).unwrap();
-            Ok((node_set.ser_header(), nwr))
-        }).unwrap();
-        let event_builder_kind_state = event_builder_resource_set_state.build_resource_set_with(|mut nwr| {
-            nwr.put(&resource_set).unwrap();
-            Ok((resource_set.ser_header(), nwr))
-        }).unwrap();
+        let event_builder_resource_set_state = event_builder
+            .build_node_set_with(|mut nwr| {
+                nwr.put(&node_set).unwrap();
+                Ok((node_set.ser_header(), nwr))
+            })
+            .unwrap();
+        let event_builder_kind_state = event_builder_resource_set_state
+            .build_resource_set_with(|mut nwr| {
+                nwr.put(&resource_set).unwrap();
+                Ok((resource_set.ser_header(), nwr))
+            })
+            .unwrap();
         let nwr = event_builder_kind_state
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<&[u8]>();
@@ -381,20 +392,25 @@ mod test {
             RequestId::new(27).unwrap(),
             Priority::Lossy(U2::new(0).unwrap()),
             U4::new(0xa).unwrap(),
-        ).unwrap();
+        )
+            .unwrap();
         let node_set = NodeSet::Unicast(NodeId::new(33).unwrap());
         let resource_set = ResourceSet::Uri(SerialUri::TwoPart44(
             U4::new(4).unwrap(),
             U4::new(5).unwrap(),
         ));
-        let event_builder_resource_set_state = event_builder.build_node_set_with(|mut nwr| {
-            nwr.put(&node_set).unwrap();
-            Ok((node_set.ser_header(), nwr))
-        }).unwrap();
-        let event_builder_kind_state = event_builder_resource_set_state.build_resource_set_with(|mut nwr| {
-            nwr.put(&resource_set).unwrap();
-            Ok((resource_set.ser_header(), nwr))
-        }).unwrap();
+        let event_builder_resource_set_state = event_builder
+            .build_node_set_with(|mut nwr| {
+                nwr.put(&node_set).unwrap();
+                Ok((node_set.ser_header(), nwr))
+            })
+            .unwrap();
+        let event_builder_kind_state = event_builder_resource_set_state
+            .build_resource_set_with(|mut nwr| {
+                nwr.put(&resource_set).unwrap();
+                Ok((resource_set.ser_header(), nwr))
+            })
+            .unwrap();
         let nwr = event_builder_kind_state
             .build_kind_with(|nwr| {
                 let mut vb = nwr.put_vec::<Result<&[u8], XpiError>>();
@@ -436,8 +452,14 @@ mod test {
         }
         if let EventKind::CallResults(result) = event.kind {
             let mut result_iter = result.iter();
-            assert_eq!(result_iter.next(), Some(Ok(NibbleBuf::new_all(&[0xaa, 0xbb][..]))));
-            assert_eq!(result_iter.next(), Some(Ok(NibbleBuf::new_all(&[0xcc, 0xdd][..]))));
+            assert_eq!(
+                result_iter.next(),
+                Some(Ok(NibbleBuf::new_all(&[0xaa, 0xbb][..])))
+            );
+            assert_eq!(
+                result_iter.next(),
+                Some(Ok(NibbleBuf::new_all(&[0xcc, 0xdd][..])))
+            );
             assert_eq!(result_iter.next(), None);
         } else {
             panic!("Expected EventKind::CallResults(_)");

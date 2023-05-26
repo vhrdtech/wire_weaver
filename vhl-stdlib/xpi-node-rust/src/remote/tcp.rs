@@ -1,20 +1,20 @@
 use crate::codec::rmvlb_codec::RmvlbCodec;
+use crate::codec::Error;
 use crate::node::addressing::RemoteNodeAddr;
 use crate::node::async_std::internal_event::InternalEvent;
 use crate::remote::remote_descriptor::RemoteDescriptor;
+use bytes::Bytes;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use std::net::SocketAddr;
-use bytes::Bytes;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
 use xpi::xwfd;
-use crate::codec::Error;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn tcp_server_acceptor(
@@ -64,7 +64,13 @@ pub(crate) async fn tcp_server_acceptor(
     }
 }
 
-#[instrument(skip(to_event_loop, frames_sink, frames_source, to_event_loop_internal, from_event_loop))]
+#[instrument(skip(
+to_event_loop,
+frames_sink,
+frames_source,
+to_event_loop_internal,
+from_event_loop
+))]
 pub async fn tcp_event_loop(
     _self_id: NodeId,
     addr: SocketAddr,
@@ -121,7 +127,7 @@ async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>)
             let ev_owned: Event = ev.into();
             if to_event_loop.send(ev_owned).await.is_err() {
                 error!("mpsc fail, main event loop must have crashed?");
-                return true
+                return true;
             }
         }
         Err(e) => {
@@ -149,14 +155,14 @@ async fn serialize_and_send(
                     Error::TooBig => warn!("Attempted to send too big frame"),
                     Error::ErrorThresholdReached => {
                         error!("Codec error threshold reached, must be garbage on the other end, closing");
-                        return true
+                        return true;
                     }
                     Error::Io(io_err) => {
                         // TODO: is there any ignorable errors?
                         warn!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
-                        return true
+                        return true;
                     }
-                }
+                },
             }
         }
         Err(e) => {

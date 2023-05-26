@@ -260,22 +260,27 @@ impl VhNode {
                     .iter()
                     .filter(|rd| rd.addr == RemoteNodeAddr::Tcp(remote_addr))
                     .map(|rd| rd.reachable.clone())
-                    .next().unwrap_or(vec![]);
+                    .next()
+                    .unwrap_or(vec![]);
                 remote_nodes.retain(|rd| rd.addr != RemoteNodeAddr::Tcp(remote_addr));
 
                 // Drop filters that relied on remote node being online
                 let mut dropped_count = 0;
                 filters.retain(|(filter, _)| {
                     for remote_id in &was_reachable {
-                        if filter.is_waiting_for_node(*remote_id) && filter.is_drop_on_remote_disconnect() {
+                        if filter.is_waiting_for_node(*remote_id)
+                            && filter.is_drop_on_remote_disconnect()
+                        {
                             dropped_count += 1;
-                            return false
+                            return false;
                         }
                     }
                     true
                 });
                 if dropped_count != 0 {
-                    debug!("{dropped_count} filter(s) was dropped due to remote node going offline");
+                    debug!(
+                        "{dropped_count} filter(s) was dropped due to remote node going offline"
+                    );
                 }
             }
         }
@@ -411,15 +416,11 @@ impl VhNode {
             .send(InternalEvent::Filter(filter.single_shot(true), tx))
             .await?;
         let ev = match timeout {
-            Some(timeout) => {
-                tokio::time::timeout(timeout, rx.next())
-                    .await
-                    .map_err(|_| NodeError::Timeout)?
-                    .ok_or(NodeError::FilterOneFail)?
-            }
-            None => {
-                rx.next().await.ok_or(NodeError::FilterOneFail)?
-            }
+            Some(timeout) => tokio::time::timeout(timeout, rx.next())
+                .await
+                .map_err(|_| NodeError::Timeout)?
+                .ok_or(NodeError::FilterOneFail)?,
+            None => rx.next().await.ok_or(NodeError::FilterOneFail)?,
         };
         Ok(ev)
     }

@@ -1,10 +1,10 @@
-use core::fmt::{Display, Formatter};
-use smallvec::SmallVec;
 use crate::owned::UriOwned;
-use crate::xwfd::{UriMask, UriMaskIter};
-use core::slice::Iter;
-use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 use crate::xwfd;
+use crate::xwfd::{UriMask, UriMaskIter};
+use core::fmt::{Display, Formatter};
+use core::slice::Iter;
+use smallvec::SmallVec;
+use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
 type UriMaskArr = SmallVec<[u32; 4]>;
 type UriMaskOwned = UriMask<UriMaskArr>;
@@ -18,7 +18,7 @@ pub struct MultiUriOwned {
 impl MultiUriOwned {
     pub fn new() -> Self {
         MultiUriOwned {
-            pairs: SmallVec::new()
+            pairs: SmallVec::new(),
         }
     }
 
@@ -62,7 +62,10 @@ impl<'a> Iterator for MultiUriFlatIter<'a> {
             MultiUriFlatIter::OneUri(uri) => {
                 return uri.take();
             }
-            MultiUriFlatIter::MultiUri { pairs_iter, current } => {
+            MultiUriFlatIter::MultiUri {
+                pairs_iter,
+                current,
+            } => {
                 if let Some((uri_seed, mask_iter)) = current {
                     if let Some(segment) = mask_iter.next() {
                         let mut uri = uri_seed.clone();
@@ -70,14 +73,16 @@ impl<'a> Iterator for MultiUriFlatIter<'a> {
                         return Some(uri);
                     }
                 }
-                match pairs_iter.next() { // if mask_iter is exhausted or self.current is None
+                match pairs_iter.next() {
+                    // if mask_iter is exhausted or self.current is None
                     Some((uri_seed, uri_mask)) => {
                         let uri_seed = uri_seed.clone();
                         let mask_iter = uri_mask.iter();
                         // update and call next() recursively (once) down below to avoid duplicated code
                         *current = Some((uri_seed, mask_iter));
                     }
-                    None => { // nothing to yield anymore
+                    None => {
+                        // nothing to yield anymore
                         *current = None;
                         return None;
                     }
@@ -116,9 +121,10 @@ impl<'i> From<UriMask<Vlu4Vec<'i, u32>>> for UriMaskOwned {
 impl<'i> From<xwfd::SerialMultiUri<'i>> for MultiUriOwned {
     fn from(multi_uri: xwfd::SerialMultiUri<'i>) -> Self {
         MultiUriOwned {
-            pairs: multi_uri.iter().map(|(uri, mask)| {
-                (uri.into(), mask.into())
-            }).collect()
+            pairs: multi_uri
+                .iter()
+                .map(|(uri, mask)| (uri.into(), mask.into()))
+                .collect(),
         }
     }
 }
@@ -127,8 +133,8 @@ impl<'i> From<xwfd::SerialMultiUri<'i>> for MultiUriOwned {
 mod test {
     extern crate std;
 
-    use vhl_stdlib::serdes::NibbleBuf;
     use super::*;
+    use vhl_stdlib::serdes::NibbleBuf;
 
     #[test]
     fn one_pair_mask_u16() {

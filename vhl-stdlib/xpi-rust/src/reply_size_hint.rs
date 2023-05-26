@@ -1,6 +1,6 @@
-use vhl_stdlib::serdes::{SerDesSize, SerializableError, SerializeVlu4};
-use vhl_stdlib::serdes::vlu4::Vlu32N;
 use crate::error::XpiError;
+use vhl_stdlib::serdes::vlu4::Vlu32N;
+use vhl_stdlib::serdes::{SerDesSize, SerializableError, SerializeVlu4};
 
 #[derive(Copy, Clone)]
 pub enum ReplySizeHint {

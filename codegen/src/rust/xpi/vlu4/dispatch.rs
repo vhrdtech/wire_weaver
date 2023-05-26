@@ -125,9 +125,9 @@ impl<'ast> DispatchCall<'ast> {
             .ok_or_else(|| CodegenError::Dispatch("expected call".to_owned()))?;
         // let flavor = args.0[0].expect_ident()?.symbols.clone();
         // println!("args0: {}", args.0[0]);
-        let path = args.0[0].expect_ref().ok_or_else(|| CodegenError::Dispatch(
-            "expected path to user method".to_owned(),
-        ))?;
+        let path = args.0[0]
+            .expect_ref()
+            .ok_or_else(|| CodegenError::Dispatch("expected path to user method".to_owned()))?;
         let path = PathCG { inner: &path };
 
         let (args, ret_ty) = xpi_def

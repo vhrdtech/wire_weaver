@@ -1,8 +1,8 @@
-use std::net::SocketAddr;
-use xpi::owned::{Event, NodeId};
-use futures::channel::mpsc::Sender;
 use crate::node::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
+use futures::channel::mpsc::Sender;
+use std::net::SocketAddr;
+use xpi::owned::{Event, NodeId};
 
 #[derive(Debug)]
 pub enum InternalEvent {

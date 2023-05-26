@@ -1,7 +1,7 @@
 use crate::xwfd;
+use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
 use std::slice::Iter;
-use smallvec::SmallVec;
 use vhl_stdlib::discrete::{U3, U4, U6};
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
@@ -15,13 +15,13 @@ pub struct UriOwned {
 impl UriOwned {
     pub fn empty() -> Self {
         UriOwned {
-            segments: SmallVec::new()
+            segments: SmallVec::new(),
         }
     }
 
     pub fn new(segments: &[u32]) -> Self {
         UriOwned {
-            segments: segments.iter().copied().collect()
+            segments: segments.iter().copied().collect(),
         }
     }
 

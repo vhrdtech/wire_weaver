@@ -123,7 +123,9 @@ impl EventFilter {
                 }
             }
             EventKindFilter::Two(discriminant1, discriminant2) => {
-                if ev.kind.discriminant() != discriminant1 && ev.kind.discriminant() != discriminant2 {
+                if ev.kind.discriminant() != discriminant1
+                    && ev.kind.discriminant() != discriminant2
+                {
                     return false;
                 }
             }
@@ -181,12 +183,8 @@ impl EventFilter {
 
     pub fn is_timed_out(&self) -> bool {
         match self.timeout {
-            Some(timeout) => {
-                Instant::now().duration_since(self.created_at) > timeout
-            }
-            None => {
-                false
-            }
+            Some(timeout) => Instant::now().duration_since(self.created_at) > timeout,
+            None => false,
         }
     }
 
@@ -197,7 +195,7 @@ impl EventFilter {
     pub fn is_waiting_for_node(&self, remote_id: NodeId) -> bool {
         match self.src {
             SourceFilter::Any => false,
-            SourceFilter::NodeId(id) => id == remote_id
+            SourceFilter::NodeId(id) => id == remote_id,
         }
     }
 }

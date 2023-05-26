@@ -5,14 +5,13 @@ use core::fmt::{Display, Formatter, Result as FmtResult};
 use vhl_stdlib::discrete::U3;
 use vhl_stdlib::serdes::nibble_buf;
 use vhl_stdlib::serdes::{
-    vlu4::Vlu4Vec,
-    BitBuf, DeserializeCoupledBitsVlu4, NibbleBuf, NibbleBufMut, SerDesSize, SerializeVlu4,
+    vlu4::Vlu4Vec, BitBuf, DeserializeCoupledBitsVlu4, NibbleBuf, NibbleBufMut, SerDesSize,
+    SerializeVlu4,
 };
 
 /// Vlu4 implementation of XpiGenericResourceSet.
 /// See documentation for [XpiGenericResourceSet](crate::xpi::addressing::XpiGenericResourceSet)
-pub type ResourceSet<'i> =
-XpiGenericResourceSet<SerialUri<Vlu4Vec<'i, u32>>, SerialMultiUri<'i>>;
+pub type ResourceSet<'i> = XpiGenericResourceSet<SerialUri<Vlu4Vec<'i, u32>>, SerialMultiUri<'i>>;
 
 impl<'i> ResourceSet<'i> {
     pub fn flat_iter(&'i self) -> MultiUriFlatIter<'i> {

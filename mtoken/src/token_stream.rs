@@ -68,11 +68,13 @@ impl TokenStream {
                             match t.clone() {
                                 TokenTree::Repetition(idx) => {
                                     match streams_in_this_group.get_mut(&idx) {
-                                        Some(streams) => if let Some(repeat_over_ts) = streams.pop_front() {
-                                            for t in repeat_over_ts.inner {
-                                                tts_reassemble.inner.push_back(t);
+                                        Some(streams) => {
+                                            if let Some(repeat_over_ts) = streams.pop_front() {
+                                                for t in repeat_over_ts.inner {
+                                                    tts_reassemble.inner.push_back(t);
+                                                }
                                             }
-                                        },
+                                        }
                                         None => {
                                             panic!("Internal error in interpolate_repetitions_inner: {}", idx)
                                         }
@@ -128,11 +130,13 @@ impl TokenStream {
                         .expect("Repetition can only be inside a repetition group delimited by ⸨ ⸩")
                         .get_mut(&idx)
                     {
-                        Some(streams) => if let Some(repeat_over_ts) = streams.pop_front() {
-                            for t in repeat_over_ts.inner {
-                                tts_reassemble.inner.push_back(t);
+                        Some(streams) => {
+                            if let Some(repeat_over_ts) = streams.pop_front() {
+                                for t in repeat_over_ts.inner {
+                                    tts_reassemble.inner.push_back(t);
+                                }
                             }
-                        },
+                        }
                         None => {
                             panic!("Internal error in interpolate_repetitions_inner: {}", idx)
                         }

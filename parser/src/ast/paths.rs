@@ -1,11 +1,11 @@
 use super::prelude::*;
-use ast::{Expr, Path};
-use std::collections::VecDeque;
-use ast::lit::LitKind;
-use ast::path::PathSegment;
 use crate::ast::expr::VecExprParse;
 use crate::error::{ParseError, ParseErrorKind};
 use crate::warning::{ParseWarning, ParseWarningKind};
+use ast::lit::LitKind;
+use ast::path::PathSegment;
+use ast::{Expr, Path};
+use std::collections::VecDeque;
 
 pub struct PathParse(pub Path);
 
@@ -22,9 +22,13 @@ impl<'i> Parse<'i> for PathParse {
                     index: None,
                 }
             } else {
-                let mut input = ParseInput::fork(input.expect1(Rule::path_index, "PathParse:2")?, &mut input);
+                let mut input =
+                    ParseInput::fork(input.expect1(Rule::path_index, "PathParse:2")?, &mut input);
                 let ident: IdentifierParse<identifier::PathSegment> = input.parse()?;
-                let mut input = ParseInput::fork(input.expect1(Rule::index_arguments, "PathParse:3")?, &mut input);
+                let mut input = ParseInput::fork(
+                    input.expect1(Rule::index_arguments, "PathParse:3")?,
+                    &mut input,
+                );
                 let index: VecExprParse = input.parse()?;
                 let exprs = index.0;
                 let span = exprs.span();
@@ -57,7 +61,9 @@ impl<'i> Parse<'i> for PathParse {
                         discrete.val as u32
                     } else {
                         input.errors.push(ParseError {
-                            kind: ParseErrorKind::WrongIndexInPath("index in path must be a discrete number"),
+                            kind: ParseErrorKind::WrongIndexInPath(
+                                "index in path must be a discrete number",
+                            ),
                             rule: Rule::path,
                             span: span.to_range(),
                         });
@@ -65,7 +71,9 @@ impl<'i> Parse<'i> for PathParse {
                     }
                 } else {
                     input.errors.push(ParseError {
-                        kind: ParseErrorKind::WrongIndexInPath("index in path must be a discrete number"),
+                        kind: ParseErrorKind::WrongIndexInPath(
+                            "index in path must be a discrete number",
+                        ),
                         rule: Rule::path,
                         span: span.to_range(),
                     });

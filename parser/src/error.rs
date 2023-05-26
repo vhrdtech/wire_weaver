@@ -81,7 +81,7 @@ pub enum ParseErrorSource {
     /// Parser feature unimplemented
     /// TODO: add link to feature status on github here
     #[error(
-    "Parser feature unimplemented, consider contributing or look at features status here: _"
+        "Parser feature unimplemented, consider contributing or look at features status here: _"
     )]
     Unimplemented(&'static str),
     /// Not enough input or unexpected rule (because expected one is absent).
@@ -159,21 +159,36 @@ impl Error {
                 .with_message("internal parser error (unimplemented)")
                 .with_labels(vec![Label::primary((), range)
                     .with_message(format!("{} is not yet implemented", thing))]),
-            ParseErrorKind::UnhandledUnexpectedInput { expect1, expect2, got, context, span } => {
+            ParseErrorKind::UnhandledUnexpectedInput {
+                expect1,
+                expect2,
+                got,
+                context,
+                span,
+            } => {
                 let note = match (expect1, expect2, got) {
                     (Some(rule1), None, None) => format!("expected: {rule1:?}, got: None"),
                     (Some(rule1), None, Some(got)) => format!("expected: {rule1:?}, got: {got:?}"),
 
-                    (Some(rule1), Some(rule2), None) => format!("expected: {rule1:?} or {rule2:?}, got: None"),
-                    (Some(rule1), Some(rule2), Some(got)) => format!("expected: {rule1:?} or {rule2:?}, got: {got:?}"),
+                    (Some(rule1), Some(rule2), None) => {
+                        format!("expected: {rule1:?} or {rule2:?}, got: None")
+                    }
+                    (Some(rule1), Some(rule2), Some(got)) => {
+                        format!("expected: {rule1:?} or {rule2:?}, got: {got:?}")
+                    }
 
                     (None, None, None) => "expected any pair, got: None".to_owned(),
-                    (expect1, expect2, got) => format!("bug: expect1: {expect1:?} expect2: {expect2:?} got: {got:?}")
+                    (expect1, expect2, got) => {
+                        format!("bug: expect1: {expect1:?} expect2: {expect2:?} got: {got:?}")
+                    }
                 };
                 let range_secondary = span.start..span.end;
                 Diagnostic::error()
                     .with_code("E0004")
-                    .with_labels(vec![Label::secondary((), range), Label::primary((), range_secondary)])
+                    .with_labels(vec![
+                        Label::secondary((), range),
+                        Label::primary((), range_secondary),
+                    ])
                     .with_message("unhandled unexpected input (probably a bug)")
                     .with_notes(vec![note, format!("parser context: {}", context)])
             }

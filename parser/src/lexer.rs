@@ -206,11 +206,7 @@ mod test {
         let span2 = "^-^^-^^---^";
         let expected1 = [Rule::expression];
         let expected1b = [Rule::call_expr];
-        let expected2 = [
-            Rule::path,
-            Rule::call_arguments,
-            Rule::index_arguments,
-        ];
+        let expected2 = [Rule::path, Rule::call_arguments, Rule::index_arguments];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span1, expected1b));
@@ -224,11 +220,7 @@ mod test {
         let span2 = "^-^^---^^-^";
         let expected1 = [Rule::expression];
         let expected1b = [Rule::call_expr];
-        let expected2 = [
-            Rule::path,
-            Rule::index_arguments,
-            Rule::call_arguments,
-        ];
+        let expected2 = [Rule::path, Rule::index_arguments, Rule::call_arguments];
         let parsed = Lexer::parse(Rule::expression, input).unwrap();
         assert!(verify(parsed.clone(), vec![], span1, expected1));
         assert!(verify(parsed.clone(), vec![0], span1, expected1b));

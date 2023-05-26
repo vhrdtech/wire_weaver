@@ -6,7 +6,10 @@ pub struct TypeAliasDefParse(pub TypeAliasDef);
 
 impl<'i> Parse<'i> for TypeAliasDefParse {
     fn parse<'m>(input: &mut ParseInput<'i, 'm>) -> Result<Self, ParseErrorSource> {
-        let mut input = ParseInput::fork(input.expect1(Rule::type_alias_def, "TypeAliasDefParse")?, input);
+        let mut input = ParseInput::fork(
+            input.expect1(Rule::type_alias_def, "TypeAliasDefParse")?,
+            input,
+        );
 
         let doc: DocParse = input.parse()?;
         let attrs: AttrsParse = input.parse()?;

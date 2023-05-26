@@ -1,8 +1,8 @@
 use crate::serdes::bit_buf::BitBufMut;
 use crate::serdes::traits::{DeserializeBytes, SerializeBytes};
+use crate::serdes::vlu32b::Vlu32B;
 use crate::serdes::{BitBuf, NibbleBuf, NibbleBufMut};
 use core::ptr::copy_nonoverlapping;
-use crate::serdes::vlu32b::Vlu32B;
 
 /// Buffer reader that treats input as a stream of bytes
 ///
@@ -39,10 +39,7 @@ impl<'i> Buf<'i> {
             return Err(Error::OutOfBounds);
         }
         let bit_buf = BitBuf::new_all(unsafe {
-            &*core::ptr::slice_from_raw_parts(
-                self.buf.as_ptr().add(self.idx),
-                byte_count,
-            )
+            &*core::ptr::slice_from_raw_parts(self.buf.as_ptr().add(self.idx), byte_count)
         });
         self.idx += byte_count;
 
@@ -54,10 +51,7 @@ impl<'i> Buf<'i> {
             return Err(Error::OutOfBounds);
         }
         let nibble_buf = NibbleBuf::new_all(unsafe {
-            &*core::ptr::slice_from_raw_parts(
-                self.buf.as_ptr().add(self.idx),
-                byte_count,
-            )
+            &*core::ptr::slice_from_raw_parts(self.buf.as_ptr().add(self.idx), byte_count)
         });
         self.idx += byte_count;
 
@@ -95,11 +89,7 @@ impl<'i> Buf<'i> {
         }
         let mut bytes = [0u8; 2];
         unsafe {
-            copy_nonoverlapping(
-                self.buf.as_ptr().add(self.idx),
-                bytes.as_mut_ptr(),
-                2,
-            );
+            copy_nonoverlapping(self.buf.as_ptr().add(self.idx), bytes.as_mut_ptr(), 2);
         }
         let val = u16::from_be_bytes(bytes);
         self.idx += 2;
@@ -112,11 +102,7 @@ impl<'i> Buf<'i> {
         }
         let mut bytes = [0u8; 2];
         unsafe {
-            copy_nonoverlapping(
-                self.buf.as_ptr().add(self.idx),
-                bytes.as_mut_ptr(),
-                2,
-            );
+            copy_nonoverlapping(self.buf.as_ptr().add(self.idx), bytes.as_mut_ptr(), 2);
         }
         let val = u16::from_le_bytes(bytes);
         self.idx += 2;
@@ -229,11 +215,7 @@ impl<'i> BufMut<'i> {
         }
         let bytes = val.to_be_bytes();
         unsafe {
-            copy_nonoverlapping(
-                bytes.as_ptr(),
-                self.buf.as_mut_ptr().add(self.idx),
-                2,
-            );
+            copy_nonoverlapping(bytes.as_ptr(), self.buf.as_mut_ptr().add(self.idx), 2);
         }
         self.idx += 2;
         Ok(())
@@ -245,11 +227,7 @@ impl<'i> BufMut<'i> {
         }
         let bytes = val.to_le_bytes();
         unsafe {
-            copy_nonoverlapping(
-                bytes.as_ptr(),
-                self.buf.as_mut_ptr().add(self.idx),
-                2,
-            );
+            copy_nonoverlapping(bytes.as_ptr(), self.buf.as_mut_ptr().add(self.idx), 2);
         }
         self.idx += 2;
         Ok(())

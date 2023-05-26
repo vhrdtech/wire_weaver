@@ -1,12 +1,15 @@
 mod commands;
 mod handlers;
 pub mod util;
+mod config;
 
 use crate::commands::Commands;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 
 fn main() -> Result<()> {
+    pretty_env_logger::init();
+
     let cli = commands::Cli::parse();
 
     match cli.command {

@@ -16,3 +16,7 @@ codegen = { path = "../codegen" }
 rustyline = "^10.0.0"
 rustyline-derive = "^0.7.0"
 util = { path = "../util" }
+log = "0"
+pretty_env_logger = "0"
+toml = "0.7"
+serde = { version = "1.0", features = ["derive"] }

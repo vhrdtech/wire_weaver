@@ -5,6 +5,7 @@ use crate::node::async_std::NodeError;
 use crate::node::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
 use crate::remote::tcp::{tcp_event_loop, tcp_server_acceptor};
+use crate::remote::ws::ws_server_acceptor;
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
@@ -334,17 +335,18 @@ impl VhNode {
         addr: RemoteNodeAddr,
         remote_reachable: Vec<NodeId>,
     ) -> Result<(), NodeError> {
-        match addr {
+        let id = self.id;
+        let to_event_loop = self.tx_to_event_loop.clone();
+        let to_event_loop_internal = self.tx_internal.clone();
+
+        let to_event_loop = match addr {
             RemoteNodeAddr::Tcp(ip_addr) => {
-                info!("tcp: Connecting to remote");
+                info!("tcp: Connecting to remote {ip_addr}");
                 let tcp_stream = TcpStream::connect(ip_addr).await?;
                 let codec = RmvlbCodec::new_with_max_length(512); // TODO: do not hardcode
                 let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
                 info!("Connected");
                 let (tx, rx) = mpsc::channel(64);
-                let id = self.id;
-                let to_event_loop = self.tx_to_event_loop.clone();
-                let to_event_loop_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
                     tcp_event_loop(
                         id,
@@ -355,33 +357,65 @@ impl VhNode {
                         to_event_loop_internal,
                         rx,
                     )
-                        .await
+                    .await
                 });
-                let remote_descriptor = RemoteDescriptor {
-                    reachable: remote_reachable,
-                    addr,
-                    to_event_loop: tx,
-                };
-                self.tx_internal
-                    .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
-                    .await?;
-                Ok(())
+                tx
             }
-        }
+            RemoteNodeAddr::Ws(ip_addr) => {
+                let url = format!("ws://{ip_addr}");
+                info!("ws: Connecting to remote {url}");
+                let (ws_stream, _) = tokio_tungstenite::connect_async(url).await.unwrap();
+                let (frames_sink, frames_source) = ws_stream.split();
+                info!("connected");
+                let (tx, rx) = mpsc::channel(64);
+                tokio::spawn(async move {
+                    crate::remote::ws::ws_event_loop(
+                        id,
+                        ip_addr,
+                        frames_sink,
+                        frames_source,
+                        to_event_loop.clone(),
+                        to_event_loop_internal,
+                        rx,
+                    )
+                    .await
+                });
+                tx
+            }
+        };
+        let remote_descriptor = RemoteDescriptor {
+            reachable: remote_reachable,
+            addr,
+            to_event_loop,
+        };
+        self.tx_internal
+            .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+            .await?;
+        Ok(())
     }
 
     #[instrument(skip(self), fields(node_id = self.id.0))]
     pub async fn listen(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
+        let id = self.id;
+        let tx_to_event_loop = self.tx_to_event_loop.clone();
+        let tx_internal = self.tx_internal.clone();
         match addr {
             RemoteNodeAddr::Tcp(ip_addr) => {
                 let listener = TcpListener::bind(ip_addr).await?;
                 info!("tcp: Listening on: {ip_addr}");
 
-                let id = self.id;
-                let tx_to_event_loop = self.tx_to_event_loop.clone();
-                let tx_internal = self.tx_internal.clone();
                 tokio::spawn(async move {
                     tcp_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await
+                });
+
+                Ok(())
+            }
+            RemoteNodeAddr::Ws(ip_addr) => {
+                let listener = TcpListener::bind(ip_addr).await?;
+                info!("ws: Listening on: {ip_addr}");
+
+                tokio::spawn(async move {
+                    ws_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await
                 });
 
                 Ok(())
@@ -436,7 +470,7 @@ impl VhNode {
     }
 }
 
-fn tick_stream(period: Duration) -> impl Stream<Item=()> {
+fn tick_stream(period: Duration) -> impl Stream<Item = ()> {
     futures::stream::unfold(period, move |p| async move {
         tokio::time::sleep(period).await;
         Some(((), p))

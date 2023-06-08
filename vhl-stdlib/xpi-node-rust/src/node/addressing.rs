@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RemoteNodeAddr {
     Tcp(SocketAddr),
+    Ws(SocketAddr),
     // Can,
     // Usb,
     // Ipc,

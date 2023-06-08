@@ -10,10 +10,12 @@ tokio-stream = { version = "^0.1.9" }
 tokio-util = { version = "0.7.4", features = ["codec"] }
 bytes = "1.2.1"
 futures = { version = "0.3.25" }
+futures-util = "0.3"
 tracing = "0.1"
 xpi = { path = "../xpi-rust" }
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
 crc-any = "2.4"
+tokio-tungstenite = "0.19"
 
 [features]
 dynamic = [] # include full vhl vhl_core allowing run time parsing of vhl files, expression evaluation, etc

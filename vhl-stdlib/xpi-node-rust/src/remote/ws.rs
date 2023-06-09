@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use std::net::SocketAddr;
 
 use crate::node::addressing::RemoteNodeAddr;
@@ -83,7 +84,7 @@ pub async fn ws_event_loop(
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
 ) {
-    info!("Entering tcp event loop on {addr}");
+    info!("Entering websocket event loop on {addr}");
     // let mut ws_source = ws_source.fuse();
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
@@ -127,19 +128,24 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
     // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     match ws_message {
         Message::Binary(bytes) => {
-            let mut nrd = NibbleBuf::new_all(&bytes);
-            let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
+            // let mut nrd = NibbleBuf::new_all(&bytes);
+            // let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
+            let cur = Cursor::new(bytes);
+            let mut de = rmp_serde::Deserializer::new(cur);
+            let ev: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
             match ev {
                 Ok(ev) => {
-                    trace!("rx {}B: {}", bytes.len(), ev);
-                    let ev_owned: Event = ev.into();
-                    if to_event_loop.send(ev_owned).await.is_err() {
+                    // trace!("rx {}B: {}", bytes.len(), ev);
+                    trace!("{ev}");
+                    // let ev_owned: Event = ev.into(); // xwfd into owned
+                    if to_event_loop.send(ev).await.is_err() {
                         error!("mpsc fail, main event loop must have crashed?");
                         return true;
                     }
                 }
                 Err(e) => {
-                    error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
+                    // error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
+                    error!("rmp deserialize error {e:?}");
                 }
             }
         }
@@ -154,27 +160,42 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
     false
 }
 
-async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
-    let mut buf = Vec::new();
-    buf.resize(10_000, 0);
-    let mut nwr = NibbleBufMut::new_all(&mut buf);
+pub(crate) async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
-    match ev.ser_xwfd(&mut nwr) {
-        Ok(()) => {
-            let (_, len, _) = nwr.finish();
-            // trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
-            buf.resize(len, 0);
+    trace!("sending: {ev}");
 
-            match ws_sink.send(Message::Binary(buf)).await {
-                Ok(_) => {}
-                Err(_) => {
-                    error!("ws send error");
-                }
+    let mut buf = Vec::new();
+    match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {
+        Ok(()) => match ws_sink.send(Message::Binary(buf)).await {
+            Ok(_) => {}
+            Err(_) => {
+                error!("ws send error");
+                return true;
             }
-        }
+        },
         Err(e) => {
-            error!("convert of event: {ev} to xwfd failed: {e:?}");
+            error!("rmp serialize error {e:?}");
         }
     }
+    // let mut buf = Vec::new();
+    // buf.resize(10_000, 0);
+    // let mut nwr = NibbleBufMut::new_all(&mut buf);
+    // match ev.ser_xwfd(&mut nwr) {
+    //     Ok(()) => {
+    //         let (_, len, _) = nwr.finish();
+    //         // trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
+    //         buf.resize(len, 0);
+
+    //         match ws_sink.send(Message::Binary(buf)).await {
+    //             Ok(_) => {}
+    //             Err(_) => {
+    //                 error!("ws send error");
+    //             }
+    //         }
+    //     }
+    //     Err(e) => {
+    //         error!("convert of event: {ev} to xwfd failed: {e:?}");
+    //     }
+    // }
     false
 }

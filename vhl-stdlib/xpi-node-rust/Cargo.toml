@@ -15,7 +15,9 @@ tracing = "0.1"
 xpi = { path = "../xpi-rust" }
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
 crc-any = "2.4"
+serde = "1"
 tokio-tungstenite = "0.19"
+rmp-serde = "1.1"
 
 [features]
 dynamic = [] # include full vhl vhl_core allowing run time parsing of vhl files, expression evaluation, etc

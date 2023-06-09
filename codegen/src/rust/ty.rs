@@ -9,7 +9,11 @@ pub struct CGTy<'ast> {
 impl<'ast> ToTokens for CGTy<'ast> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self.inner.kind {
-            TyKind::Unit => {}
+            TyKind::Unit => {
+                tokens.append_all(mquote!(rust r#"
+                    ()
+                "#));
+            }
             TyKind::Boolean => {
                 tokens.append(mtoken::Ident::new(
                     Rc::new("bool".to_string()),
@@ -36,6 +40,13 @@ impl<'ast> ToTokens for CGTy<'ast> {
             TyKind::Float(float) => {
                 tokens.append_all(mquote!(rust r#"
                     f◡Λ{float.bits}
+                "#));
+            }
+            TyKind::Array { ty, len_bound } => {
+                println!("tycg attrs: {:?}", self.inner.attrs);
+                let ty = CGTy { inner: &ty };
+                tokens.append_all(mquote!(rust r#"
+                    [Λty; todo]
                 "#));
             }
             kind => unimplemented!("{:?}", kind),

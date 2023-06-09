@@ -33,7 +33,10 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
                     return Err(anyhow!("Input contains syntax errors"));
                 }
             };
-            let project = Project::new(file.ast_file);
+            let mut project = Project::new(file.ast_file);
+            debug!("Processing AST");
+            vhl_core::transform::transform(&mut project);
+            project.print_report();
 
             if let Some(targets) = config.gen {
                 if let Some(target_rust) = targets.rust {

@@ -9,13 +9,11 @@ pub struct IdentsCheck<'i> {
 
 impl<'i> Visit for IdentsCheck<'i> {
     fn visit_identifier(&mut self, i: &Identifier) {
+        use IdentifierContext::*;
         match i.context {
-            IdentifierContext::TyAlias => {}
-            IdentifierContext::BuiltinTyName => {}
-            IdentifierContext::PathSegment => {}
-            IdentifierContext::XpiUriSegmentName => {}
-            IdentifierContext::XpiKeyName => {}
-            IdentifierContext::FnName => {
+            TyAlias => {}
+            BuiltinTyName => {}
+            FnName | StructFieldName | FnArgName | XpiKeyName | XpiUriSegmentName | PathSegment => {
                 if i.symbols.chars().any(|c| c.is_uppercase()) {
                     self.warnings.push(Warning {
                         kind: WarningKind::NonSnakeCaseFnName(i.symbols.clone()),
@@ -23,15 +21,13 @@ impl<'i> Visit for IdentsCheck<'i> {
                     });
                 }
             }
-            IdentifierContext::FnArgName => {}
-            IdentifierContext::VariableDefName => {}
-            IdentifierContext::VariableRefName => {}
-            IdentifierContext::StructTyName => {}
-            IdentifierContext::StructFieldName => {}
-            IdentifierContext::EnumTyName => {}
-            IdentifierContext::EnumFieldName => {}
-            IdentifierContext::GenericName => {}
-            IdentifierContext::MakePath => {}
+            VariableDefName => {}
+            VariableRefName => {}
+            StructTyName => {}
+            EnumTyName => {}
+            EnumFieldName => {}
+            GenericName => {}
+            MakePath => {}
         }
     }
 }

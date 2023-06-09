@@ -2,7 +2,7 @@ use crate::node_set::XpiGenericNodeSet;
 use crate::resource_set::XpiGenericResourceSet;
 
 /// Root data type exchanged by nodes
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct XpiGenericEvent<
     NID, // NodeId
     TS,  // TraitSet

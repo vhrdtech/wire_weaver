@@ -11,6 +11,7 @@ edition = "2021"
 #enum-kinds = { version = "^0.5.1", features = ["no-stdlib"] }
 #enum-primitive-derive = "^0.1"
 #num-traits = "^0.1"
+serde = { version = "1", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 hex-literal = "^0.3.4"

@@ -19,7 +19,7 @@ use vhl_stdlib::serdes::{nibble_buf, DeserializeVlu4, NibbleBuf, NibbleBufMut, S
 ///         /v
 /// For example at level /a LevelMask::ByBitfield(0b011) selects /a/2 and /a/3
 /// If the same mask were applied at level /b then /b/y and /b/z would be selected.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum UriMask<I> {
     /// Allows to choose any subgroup of up to 128 resources
     /// Resource serial are mapped as Little Endian, so that adding resources to the end do not change previously used masks.
@@ -36,7 +36,7 @@ pub enum UriMask<I> {
     All(Vlu32N),
 }
 
-impl<I: IntoIterator<Item=u32> + Clone> UriMask<I> {
+impl<I: IntoIterator<Item = u32> + Clone> UriMask<I> {
     pub fn iter(&self) -> UriMaskIter<I::IntoIter> {
         match self {
             UriMask::ByBitfield8(mask) => UriMaskIter::ByBitfield8 {
@@ -96,7 +96,7 @@ impl<'i> DeserializeVlu4<'i> for UriMask<Vlu4Vec<'i, u32>> {
     }
 }
 
-impl<I: IntoIterator<Item=u32> + Clone> SerializeVlu4 for UriMask<I> {
+impl<I: IntoIterator<Item = u32> + Clone> SerializeVlu4 for UriMask<I> {
     type Error = nibble_buf::Error;
 
     fn ser_vlu4(&self, nwr: &mut NibbleBufMut) -> Result<(), Self::Error> {
@@ -168,9 +168,9 @@ macro_rules! next_one_bit {
     };
 }
 
-impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for UriMask<I>
-    where
-        <I as IntoIterator>::IntoIter: Clone,
+impl<I: IntoIterator<Item = u32> + Clone> IntoIterator for UriMask<I>
+where
+    <I as IntoIterator>::IntoIter: Clone,
 {
     type Item = u32;
     type IntoIter = UriMaskIter<I::IntoIter>;
@@ -180,9 +180,9 @@ impl<I: IntoIterator<Item=u32> + Clone> IntoIterator for UriMask<I>
     }
 }
 
-impl<I: Iterator<Item=u32> + Clone> Iterator for UriMaskIter<I>
-    where
-        <I as IntoIterator>::IntoIter: Clone,
+impl<I: Iterator<Item = u32> + Clone> Iterator for UriMaskIter<I>
+where
+    <I as IntoIterator>::IntoIter: Clone,
 {
     type Item = u32;
 
@@ -225,9 +225,9 @@ fn count_ones(mut num: u32) -> (usize, Option<usize>) {
     (count, Some(count))
 }
 
-impl<I: IntoIterator<Item=u32> + Clone> Display for UriMask<I>
-    where
-        <I as IntoIterator>::IntoIter: Clone,
+impl<I: IntoIterator<Item = u32> + Clone> Display for UriMask<I>
+where
+    <I as IntoIterator>::IntoIter: Clone,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {

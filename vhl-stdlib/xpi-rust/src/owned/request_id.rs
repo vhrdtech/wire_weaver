@@ -2,7 +2,7 @@ use crate::owned::convert_error::ConvertError;
 use crate::xwfd;
 use std::fmt::{Display, Formatter};
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RequestId(pub u32);
 
 impl TryInto<xwfd::RequestId> for RequestId {

@@ -19,7 +19,7 @@
 /// If loss occurs in lossless mode, it is flagged as an error.
 ///
 /// Priority may be mapped into fewer levels by the underlying Link? (needed for constrained channels)
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum XpiGenericPriority<T> {
     Lossy(T),
     Lossless(T),

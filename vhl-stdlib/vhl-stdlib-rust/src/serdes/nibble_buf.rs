@@ -24,7 +24,7 @@ pub struct NibbleBuf<'i> {
 }
 
 #[cfg(not(feature = "no_std"))]
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct NibbleBufOwned {
     pub buf: Vec<u8>,
     pub len_nibbles: usize,
@@ -538,9 +538,9 @@ impl<'i> NibbleBufMut<'i> {
     /// assert_eq!(buf[0], 0b1010_1011);
     /// ```
     pub fn as_bit_buf<F, E>(&mut self, mut f: F) -> Result<(), E>
-        where
-            F: FnMut(&mut BitBufMut) -> Result<(), E>,
-            E: From<bit_buf::Error>,
+    where
+        F: FnMut(&mut BitBufMut) -> Result<(), E>,
+        E: From<bit_buf::Error>,
     {
         let bit_idx = if self.is_at_byte_boundary { 0 } else { 4 };
         let mut bit_buf = BitBufMut {
@@ -778,10 +778,10 @@ impl<'i> NibbleBufMut<'i> {
     /// Put Vlu4Vec into this buffer taking elements from the provided closure, while it returns Some.
     /// Takes self by mutable reference instead of by value as [put_vec](Self::put_vec);
     pub fn unfold_as_vec<T, F, SE>(&mut self, mut f: F) -> Result<(), SE>
-        where
-            F: FnMut() -> Option<T>,
-            T: SerializeVlu4<Error=SE>,
-            SE: From<Error>,
+    where
+        F: FnMut() -> Option<T>,
+        T: SerializeVlu4<Error = SE>,
+        SE: From<Error>,
     {
         let mut builder = Vlu4VecBuilder {
             nwr: NibbleBufMut {
@@ -808,10 +808,10 @@ impl<'i> NibbleBufMut<'i> {
 
     /// Create Vlu4VecBuilder and call provided closure with it without consuming self.
     pub fn put_vec_with<T, F, SE>(&mut self, f: F) -> Result<(), SE>
-        where
-            F: FnOnce(&mut Vlu4VecBuilder<T>) -> Result<(), SE>,
-            T: SerializeVlu4<Error=SE>,
-            SE: From<Error>,
+    where
+        F: FnOnce(&mut Vlu4VecBuilder<T>) -> Result<(), SE>,
+        T: SerializeVlu4<Error = SE>,
+        SE: From<Error>,
     {
         let mut builder = Vlu4VecBuilder {
             nwr: NibbleBufMut {
@@ -883,7 +883,7 @@ impl<'i> NibbleBufMut<'i> {
     }
 
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeVlu4<Error=E>>(&mut self, t: &T) -> Result<(), E> {
+    pub fn put<E, T: SerializeVlu4<Error = E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_vlu4(self)
     }
 

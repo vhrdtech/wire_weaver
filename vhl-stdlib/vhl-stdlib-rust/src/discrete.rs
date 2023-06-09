@@ -5,7 +5,7 @@ use crate::serdes::{BitBuf, DeserializeBits, DeserializeVlu4, NibbleBuf};
 #[macro_export]
 macro_rules! max_bound_number {
     ($type_name: ident, $base_type: ty, $max: literal, $fmt: literal) => {
-        #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+        #[derive(Copy, Clone, Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
         pub struct $type_name($base_type);
         impl $type_name {
             pub const fn new(x: $base_type) -> Option<$type_name> {

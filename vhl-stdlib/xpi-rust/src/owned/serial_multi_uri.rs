@@ -10,7 +10,7 @@ type UriMaskArr = SmallVec<[u32; 4]>;
 type UriMaskOwned = UriMask<UriMaskArr>;
 type UriMaskIterOwned = UriMaskIter<<UriMaskArr as IntoIterator>::IntoIter>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct MultiUriOwned {
     pub(crate) pairs: SmallVec<[(UriOwned, UriMaskOwned); 2]>,
 }

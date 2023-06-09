@@ -10,7 +10,7 @@
 /// If both choices are the same size, choose [Uri].
 ///
 /// [MultiUri] is the only way to select several resources at once within one request.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum XpiGenericResourceSet<U, MU> {
     /// Select any one resource at any depth.
     /// Or root resource by providing 0 length Uri.

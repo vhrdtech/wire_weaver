@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum XpiGenericNodeSet<NID, TS> {
     /// Event is targeted at only one specific node.
     /// Any resources can be used from the node's vhL description.

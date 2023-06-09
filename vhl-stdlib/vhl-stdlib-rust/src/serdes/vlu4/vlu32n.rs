@@ -5,7 +5,7 @@ use crate::serdes::{DeserializeVlu4, NibbleBuf, NibbleBufMut, SerDesSize};
 /// Variable length encoded u32 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 /// Bit order is Big Endian.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Vlu32N(pub u32);
 
 /// Used for in-place buffer writing without prior knowledge of it's length.

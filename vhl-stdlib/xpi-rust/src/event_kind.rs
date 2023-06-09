@@ -16,7 +16,7 @@
 ///
 /// Each request will result in one or more replies (or zero if loss occurred). This is due to:
 /// buffer space available, sync vs async resources, priorities and other factors.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum XpiGenericEventKind<
     // SL,  // must be a slice, e.g. &'req [u8] or Vec<u8>
     VSL,  // must be an array of slices, e.g. Vlu4Vec<'req, &'req [u8]> or Vec<Vec<u8>>

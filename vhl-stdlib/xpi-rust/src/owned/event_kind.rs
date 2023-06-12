@@ -66,6 +66,18 @@ impl EventKind {
         }
         Ok(())
     }
+
+    pub fn flip_with_error(&self) -> Self {
+        match &self {
+            EventKind::Call { args_set } => EventKind::CallResults(
+                args_set
+                    .iter()
+                    .map(|_| Result::Err(XpiError::Disconnected))
+                    .collect(),
+            ),
+            u => unimplemented!("{u:?}"),
+        }
+    }
 }
 
 impl<'i> From<xwfd::EventKind<'i>> for EventKind {

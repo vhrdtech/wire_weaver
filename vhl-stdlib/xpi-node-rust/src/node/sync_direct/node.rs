@@ -15,6 +15,7 @@ pub struct SyncDirectClient {
     rx_internal: UnboundedReceiver<InternalResp>,
 }
 
+#[derive(Debug)]
 pub enum InternalReq {
     AddInstance {
         tx: UnboundedSender<Event>,

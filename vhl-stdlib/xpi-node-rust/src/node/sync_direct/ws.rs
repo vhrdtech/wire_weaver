@@ -47,8 +47,6 @@ pub async fn ws_event_loop(
                                 // Connection was dropped by server
                                 warn!("{e}");
                                 close_connection = true;
-                                // trace!("break B");
-                                // break;
                             }
                         }
                     }
@@ -100,7 +98,8 @@ pub async fn ws_event_loop(
                     event = events_rx.recv() => {
                         match event {
                             Some(event) => {
-                                debug!("Dropping event {event} because client is disconnected");
+                                warn!("Replying with error to {event} because of disconnected state");
+                                reply_with_error(event, &mut instances).await;
                             }
                             None => {
                                 trace!("break F");
@@ -141,9 +140,8 @@ pub async fn ws_event_loop(
                                 info!("Stopping due to user request");
                                 break;
                             }
-                            _ => {
-                                trace!("break I");
-                                break;
+                            ignore => {
+                                trace!("ignoring due to disconnected state: {ignore:?}");
                             }
                         }
                     }
@@ -203,4 +201,20 @@ async fn process_incoming_frame(
     }
 
     false
+}
+
+/// TODO: many cases not handled
+async fn reply_with_error(
+    event: Event,
+    instances: &mut HashMap<NodeId, (UnboundedSender<Event>, String)>,
+) {
+    let mut reply = event.clone();
+    reply.kind = event.kind.flip_with_error();
+    if let NodeSet::Unicast(id) = event.destination {
+        reply.source = id;
+    }
+    reply.destination = NodeSet::Unicast(event.source);
+    if let Some((tx, _)) = instances.get(&event.source) {
+        tx.send(reply).unwrap();
+    }
 }

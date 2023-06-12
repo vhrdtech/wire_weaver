@@ -31,6 +31,8 @@ pub enum XpiError {
     BadUri,
     /// Returned by dispatcher if trying to call a resource which is not a method
     NotAMethod,
+    /// There is not connection to remote node at the moment
+    Disconnected,
 
     ReservedDiscard,
     WrongFormat,
@@ -74,6 +76,7 @@ impl SerializableError for XpiError {
             BadUri => 12,
             NotAMethod => 13,
             NoArgumentsProvided => 14,
+            Disconnected => 15,
 
             ReservedDiscard => 20,
             WrongFormat => 21,
@@ -108,6 +111,7 @@ impl SerializableError for XpiError {
             12 => BadUri,
             13 => NotAMethod,
             14 => NoArgumentsProvided,
+            15 => Disconnected,
 
             20 => ReservedDiscard,
             21 => WrongFormat,

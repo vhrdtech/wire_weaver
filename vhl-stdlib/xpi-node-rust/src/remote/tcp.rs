@@ -42,7 +42,7 @@ pub(crate) async fn tcp_server_acceptor(
                         to_event_loop_internal,
                         rx,
                     )
-                        .await
+                    .await
                 });
                 let remote_descriptor = RemoteDescriptor {
                     reachable: vec![NodeId(1)], // TODO: Do not hardcode
@@ -50,7 +50,7 @@ pub(crate) async fn tcp_server_acceptor(
                     to_event_loop: tx,
                 };
                 match tx_internal
-                    .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+                    .send(InternalEvent::ConnectRemote(remote_descriptor))
                     .await
                 {
                     Ok(_) => {}
@@ -65,11 +65,11 @@ pub(crate) async fn tcp_server_acceptor(
 }
 
 #[instrument(skip(
-to_event_loop,
-frames_sink,
-frames_source,
-to_event_loop_internal,
-from_event_loop
+    to_event_loop,
+    frames_sink,
+    frames_source,
+    to_event_loop_internal,
+    from_event_loop
 ))]
 pub async fn tcp_event_loop(
     _self_id: NodeId,
@@ -89,7 +89,7 @@ pub async fn tcp_event_loop(
                     Some(Ok(frame)) => {
                         let should_terminate = process_incoming_frame(frame, &mut to_event_loop).await;
                         if should_terminate {
-                            let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                            let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Tcp(addr))).await;
                             break;
                         }
                     }
@@ -104,13 +104,13 @@ pub async fn tcp_event_loop(
             ev = from_event_loop.select_next_some() => {
                 let should_terminate = serialize_and_send(ev, &mut frames_sink).await;
                 if should_terminate {
-                    let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Tcp(addr))).await;
                     break;
                 }
             },
             complete => {
                 error!("Unexpected select! completion, exiting");
-                let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Tcp(addr))).await;
                 break;
             }
         }

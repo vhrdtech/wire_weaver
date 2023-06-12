@@ -40,11 +40,15 @@ pub async fn ws_event_loop(
                                 close_connection = process_incoming_frame(frame, &mut instances).await;
                             }
                             Ok(None) => {
+                                trace!("break A");
                                 break;
                             }
                             Err(e) => {
+                                // Connection was dropped by server
                                 warn!("{e}");
-                                break;
+                                close_connection = true;
+                                // trace!("break B");
+                                // break;
                             }
                         }
                     }
@@ -55,6 +59,7 @@ pub async fn ws_event_loop(
                                 close_connection = crate::remote::ws::serialize_and_send(event, ws_tx).await;
                             }
                             None => {
+                                trace!("break C");
                                 break;
                             }
                         }
@@ -67,6 +72,7 @@ pub async fn ws_event_loop(
                                 next_id += 1; // TODO: recycle
                                 instances.insert(id, (tx, name));
                                 if internal_tx.send(InternalResp::InstanceCreated { id }).is_err() {
+                                    trace!("break D");
                                     break;
                                 }
                             }
@@ -74,12 +80,15 @@ pub async fn ws_event_loop(
                                 warn!("Cannot connect to {addr:?}, while being already connected");
                             }
                             Some(InternalReq::Disconnect) => {
+                                info!("Disconnecting due to user request");
                                 close_connection = true;
                             }
                             Some(InternalReq::Stop) => {
+                                info!("Stopping due to user request");
                                 break;
                             }
                             _ => {
+                                trace!("break E");
                                 break;
                             }
                         }
@@ -94,6 +103,7 @@ pub async fn ws_event_loop(
                                 debug!("Dropping event {event} because client is disconnected");
                             }
                             None => {
+                                trace!("break F");
                                 break;
                             }
                         }
@@ -105,6 +115,7 @@ pub async fn ws_event_loop(
                                 next_id += 1; // TODO: recycle
                                 instances.insert(id, (tx, name));
                                 if internal_tx.send(InternalResp::InstanceCreated { id }).is_err() {
+                                    trace!("break G");
                                     break;
                                 }
                             }
@@ -127,9 +138,11 @@ pub async fn ws_event_loop(
                                 }
                             }
                             Some(InternalReq::Stop) => {
+                                info!("Stopping due to user request");
                                 break;
                             }
                             _ => {
+                                trace!("break I");
                                 break;
                             }
                         }

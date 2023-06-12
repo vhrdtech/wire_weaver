@@ -251,19 +251,19 @@ impl VhNode {
                 info!("filter {:?} registered with idx {idx}", filter);
                 filters.push((filter, tx_handle));
             }
-            InternalEvent::ConnectRemoteTcp(remote_descriptor) => {
+            InternalEvent::ConnectRemote(remote_descriptor) => {
                 info!("remote attachment {} registered", remote_descriptor);
                 remote_nodes.push(remote_descriptor);
             }
-            InternalEvent::DropRemoteTcp(remote_addr) => {
-                info!("remote attachment {remote_addr} is being dropped");
+            InternalEvent::DropRemote(remote_addr) => {
+                info!("remote attachment {remote_addr:?} is being dropped");
                 let was_reachable = remote_nodes
                     .iter()
-                    .filter(|rd| rd.addr == RemoteNodeAddr::Tcp(remote_addr))
+                    .filter(|rd| rd.addr == remote_addr)
                     .map(|rd| rd.reachable.clone())
                     .next()
                     .unwrap_or(vec![]);
-                remote_nodes.retain(|rd| rd.addr != RemoteNodeAddr::Tcp(remote_addr));
+                remote_nodes.retain(|rd| rd.addr != remote_addr);
 
                 // Drop filters that relied on remote node being online
                 let mut dropped_count = 0;
@@ -389,7 +389,7 @@ impl VhNode {
             to_event_loop,
         };
         self.tx_internal
-            .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+            .send(InternalEvent::ConnectRemote(remote_descriptor))
             .await?;
         Ok(())
     }

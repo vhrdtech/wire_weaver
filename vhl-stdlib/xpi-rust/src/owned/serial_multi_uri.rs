@@ -6,9 +6,9 @@ use core::slice::Iter;
 use smallvec::SmallVec;
 use vhl_stdlib::serdes::vlu4::Vlu4Vec;
 
-type UriMaskArr = SmallVec<[u32; 4]>;
-type UriMaskOwned = UriMask<UriMaskArr>;
-type UriMaskIterOwned = UriMaskIter<<UriMaskArr as IntoIterator>::IntoIter>;
+pub type UriMaskArr = SmallVec<[u32; 4]>;
+pub type UriMaskOwned = UriMask<UriMaskArr>;
+pub type UriMaskIterOwned = UriMaskIter<<UriMaskArr as IntoIterator>::IntoIter>;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct MultiUriOwned {
@@ -42,7 +42,11 @@ impl Default for MultiUriOwned {
 
 impl Display for MultiUriOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "MultiUri()")
+        write!(f, "MultiUri(")?;
+        for uri in self.flat_iter() {
+            write!(f, "{uri} ")?;
+        }
+        write!(f, ")")
     }
 }
 

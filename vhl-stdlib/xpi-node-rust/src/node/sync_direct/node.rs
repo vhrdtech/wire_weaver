@@ -76,6 +76,11 @@ impl SyncDirectClient {
         self.tx_internal.send(InternalReq::Connect(addr));
         Ok(())
     }
+
+    pub fn disconnect_and_stop(&mut self) {
+        self.tx_internal.send(InternalReq::Disconnect).ok();
+        self.tx_internal.send(InternalReq::Stop).ok();
+    }
 }
 
 pub struct SyncDirectHandle {
@@ -114,6 +119,17 @@ impl SyncDirectHandle {
             }
         }
         //trace!("rx_flatten: {:?}", self.rx_flatten);
+    }
+
+    pub fn try_recv(&mut self) -> Option<Event> {
+        match self.rx.try_recv() {
+            Ok(ev) => Some(ev),
+            Err(TryRecvError::Empty) => None,
+            _ => {
+                error!("async part is down");
+                None
+            }
+        }
     }
 
     pub fn poll_one(&mut self, request_id: RequestId) -> Option<Event> {

@@ -11,9 +11,9 @@ use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
-use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
+// use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::owned::{Event, NodeId};
-use xpi::xwfd;
+// use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
@@ -49,12 +49,12 @@ pub(crate) async fn ws_server_acceptor(
                     .await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    reachable: vec![NodeId(1)], // TODO: Do not hardcode
+                    reachable: vec![NodeId(1), NodeId(2), NodeId(3), NodeId(4)], // TODO: Do not hardcode
                     addr: RemoteNodeAddr::Ws(remote_addr),
                     to_event_loop: tx,
                 };
                 match tx_internal
-                    .send(InternalEvent::ConnectRemoteTcp(remote_descriptor))
+                    .send(InternalEvent::ConnectRemote(remote_descriptor))
                     .await
                 {
                     Ok(_) => {}
@@ -95,7 +95,7 @@ pub async fn ws_event_loop(
                     Ok(Some(frame)) => {
                         let should_terminate = process_incoming_frame(frame, &mut to_event_loop).await;
                         if should_terminate {
-                            let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                            let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Ws(addr))).await;
                             break;
                         }
                     }
@@ -111,7 +111,7 @@ pub async fn ws_event_loop(
             ev = from_event_loop.select_next_some() => {
                 let should_terminate = serialize_and_send(ev, &mut ws_sink).await;
                 if should_terminate {
-                    let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
+                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Ws(addr))).await;
                     break;
                 }
             },

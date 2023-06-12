@@ -324,6 +324,15 @@ impl NibbleBufOwned {
         }
     }
 
+    pub fn from_vec(buf: Vec<u8>) -> Self {
+        let len_nibbles = buf.len() * 2;
+        NibbleBufOwned {
+            buf,
+            len_nibbles,
+            is_at_byte_boundary: true,
+        }
+    }
+
     pub fn to_nibble_buf_ref(&self) -> NibbleBuf {
         NibbleBuf {
             buf: &self.buf,
@@ -331,6 +340,10 @@ impl NibbleBufOwned {
             idx: 0,
             is_at_byte_boundary: self.is_at_byte_boundary,
         }
+    }
+
+    pub fn inner(self) -> Vec<u8> {
+        self.buf
     }
 }
 

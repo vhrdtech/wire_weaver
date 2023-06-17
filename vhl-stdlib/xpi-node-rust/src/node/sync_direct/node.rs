@@ -7,7 +7,7 @@ use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, info, trace, warn};
-use xpi::owned::{Event, NodeId, NodeSet, RequestId};
+use xpi::node_owned::{Event, NodeId, NodeSet, RequestId};
 
 pub struct SyncDirectClient {
     tx_events: UnboundedSender<Event>,

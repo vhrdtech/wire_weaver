@@ -3,5 +3,5 @@ pub mod node;
 pub mod remote;
 
 pub mod prelude {
-    pub use xpi::owned::{Event, EventKind, NodeId, NodeSet, Priority, ResourceSet, UriOwned};
+    pub use xpi::node_owned::{Event, EventKind, NodeId, NodeSet, Priority, ResourceSet, UriOwned};
 }

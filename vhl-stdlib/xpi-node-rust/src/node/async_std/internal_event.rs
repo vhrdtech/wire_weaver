@@ -2,7 +2,7 @@ use crate::node::{addressing::RemoteNodeAddr, filter::EventFilter};
 use crate::remote::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc::Sender;
 use std::net::SocketAddr;
-use xpi::owned::{Event, NodeId};
+use xpi::node_owned::{Event, NodeId};
 
 #[derive(Debug)]
 pub enum InternalEvent {

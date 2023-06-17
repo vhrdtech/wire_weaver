@@ -34,6 +34,8 @@ pub enum XpiGenericNodeSet<NID, TS> {
     },
 
     /// Event is targeted at all nodes at once.
+    /// ver 0.2.0: use Multicast with traits = [Broadcast] and keep this Reserved?
+    /// reserve e.g. trait gid = 0 for Broadcast, that way message stays the same in size.
     Broadcast {
         /// For preventing loops
         original_source: NID,

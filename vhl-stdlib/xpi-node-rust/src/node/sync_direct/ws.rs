@@ -8,7 +8,7 @@ use futures_util::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::owned::{Event, NodeId, NodeSet};
+use xpi::node_owned::{Event, NodeId, NodeSet};
 
 use crate::node::addressing::RemoteNodeAddr;
 

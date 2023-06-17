@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::time::Duration;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use xpi::owned::NodeId;
+use xpi::node_owned::NodeId;
 use xpi_node::node::addressing::RemoteNodeAddr;
 use xpi_node::node::async_std::VhNode;
 

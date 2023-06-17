@@ -13,7 +13,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::owned::{Event, NodeId};
+use xpi::node_owned::{Event, NodeId};
 use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]

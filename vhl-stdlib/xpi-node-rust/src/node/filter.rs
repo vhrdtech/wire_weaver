@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 use xpi::event_kind::XpiEventDiscriminant;
+use xpi::node_owned::{Event, NodeId, NodeSet, RequestId, UriOwned};
 use xpi::node_set::XpiGenericNodeSet;
-use xpi::owned::{Event, NodeId, NodeSet, RequestId, UriOwned};
 
 #[derive(Debug)]
 pub enum SourceFilter {

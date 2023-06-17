@@ -35,6 +35,14 @@ uavcan stack.
 |------------|------------|------------|-------------------|------------|--------------|-------------------|----------|
 | n/a        | priority   | kind5:4    | is_xwfd_or_bigger | src        | dst_node_set | resource set kind | kind3:0  |
 
+v0.2.0
+priority = 3b
+version = 1b
+reserved = 1b
+src = 7b
+dst_node_set = 9b
+ev_count = 8b
+
 ### Event kind (6b):
 
 Event kind discriminant values are assigned in such a way, that different logical groups (requests, replies, multicast,

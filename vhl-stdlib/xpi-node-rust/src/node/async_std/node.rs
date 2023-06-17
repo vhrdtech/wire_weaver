@@ -14,11 +14,11 @@ use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, instrument, trace, warn};
+use xpi::node_owned::node_id::NodeId;
+use xpi::node_owned::Event;
+use xpi::node_owned::Priority;
+use xpi::node_owned::RequestId;
 use xpi::node_set::XpiGenericNodeSet;
-use xpi::owned::node_id::NodeId;
-use xpi::owned::Event;
-use xpi::owned::Priority;
-use xpi::owned::RequestId;
 
 #[derive(Debug)]
 pub struct VhNode {

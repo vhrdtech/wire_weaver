@@ -11,12 +11,12 @@ pub enum XpiError {
     /// Node reboot was detected before it was able to answer
     DeviceRebooted,
     /// Request or response wasn't fitted into memory because more important data was needing space at a time.
-    PriorityLoss,
+    // PriorityLoss,
     /// Request rejected by rate shaper, even if space was available, not to exceed underlying channel bandwidth.
     /// Rejecting function calls and other non-streaming operations must be avoided.
     /// First lossy requests / subscriptions should be shaped. Then lossless (while still giving a fair
     /// chance to lossy ones) and in the latest are all other requests and responses.
-    ShaperReject,
+    // ShaperReject,
     /// When trying to access a resource that was already borrowed by someone else
     ResourceIsAlreadyBorrowed,
     /// When trying to unsubscribe twice from a resource
@@ -37,20 +37,19 @@ pub enum XpiError {
     ReservedDiscard,
     WrongFormat,
     /// Not all nodes support 64 and 128 uri masks
-    UriMaskUnsupportedType,
+    // UriMaskUnsupportedType,
     /// xwfd format uses 7 bits for node addresses
-    NodeIdAbove127,
+    // NodeIdAbove127,
 
     /// Unexpected internal error, reported instead of all were to be panic/unwrap/unreachable.
     Internal,
     Unimplemented,
-    InternalBufError,
-    InternalNibbleBufError,
-    InternalBitBufError,
-    InternalBbqueueError,
-    ReplyBuilderError,
-    IoError,
-
+    // InternalBufError,
+    // InternalNibbleBufError,
+    // InternalBitBufError,
+    // InternalBbqueueError,
+    // ReplyBuilderError,
+    // IoError,
     /// Method call or property write was expecting a slice with arguments, but it wasn't provided.
     NoArgumentsProvided,
 
@@ -99,8 +98,8 @@ impl SerializableError for XpiError {
         let reason = match value {
             1 => Timeout,
             2 => DeviceRebooted,
-            3 => PriorityLoss,
-            4 => ShaperReject,
+            // 3 => PriorityLoss,
+            // 4 => ShaperReject,
             5 => ResourceIsAlreadyBorrowed,
             6 => AlreadyUnsubscribed,
             7 => StreamIsAlreadyOpen,
@@ -115,16 +114,13 @@ impl SerializableError for XpiError {
 
             20 => ReservedDiscard,
             21 => WrongFormat,
-            22 => UriMaskUnsupportedType,
-            23 => NodeIdAbove127,
-
-            31 => InternalBufError,
-            32 => InternalNibbleBufError,
-            33 => InternalBitBufError,
-            34 => ReplyBuilderError,
-            35 => InternalBbqueueError,
-            36 => IoError,
-
+            // 22 => UriMaskUnsupportedType,
+            // 23 => NodeIdAbove127,
+            // 32 => InternalNibbleBufError,
+            // 33 => InternalBitBufError,
+            // 34 => ReplyBuilderError,
+            // 35 => InternalBbqueueError,
+            // 36 => IoError,
             40 => OutOfBounds,
 
             _ => {
@@ -139,36 +135,18 @@ impl SerializableError for XpiError {
     }
 }
 
-impl From<buf::Error> for XpiError {
-    fn from(_: buf::Error) -> Self {
-        XpiError::InternalBufError
-    }
-}
-
-impl From<nibble_buf::Error> for XpiError {
-    fn from(_: nibble_buf::Error) -> Self {
-        XpiError::InternalNibbleBufError
-    }
-}
-
-impl From<bit_buf::Error> for XpiError {
-    fn from(_: bit_buf::Error) -> Self {
-        XpiError::InternalBitBufError
-    }
-}
-
 impl Display for XpiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-#[cfg(not(feature = "no_std"))]
-impl std::error::Error for XpiError {}
+// #[cfg(not(feature = "no_std"))]
+// impl std::error::Error for XpiError {}
 
-#[cfg(not(feature = "no_std"))]
-impl From<std::io::Error> for XpiError {
-    fn from(_: Error) -> Self {
-        XpiError::IoError
-    }
-}
+// #[cfg(not(feature = "no_std"))]
+// impl From<std::io::Error> for XpiError {
+//     fn from(_: Error) -> Self {
+//         XpiError::IoError
+//     }
+// }

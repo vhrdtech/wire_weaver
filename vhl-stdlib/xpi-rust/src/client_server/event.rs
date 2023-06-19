@@ -1,5 +1,5 @@
-use super::{Address, Error, Reply, Request, RequestId};
-use smallvec::SmallVec;
+use super::{Address, Error, Nrl, Reply, ReplyAck, Request, RequestId, RequestKind};
+use smallvec::{smallvec, SmallVec};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
@@ -41,6 +41,23 @@ impl Event {
                 })
             }
             EventKind::Reply { .. } => None,
+        }
+    }
+
+    pub fn new_heartbeat(source: Address, destination: Address, seq: RequestId) -> Self {
+        Event {
+            source,
+            destination,
+            kind: EventKind::Request {
+                actions: smallvec![Request {
+                    tr: None,
+                    nrl: Nrl::default(),
+                    reply_ack: ReplyAck::Ack,
+                    kind: RequestKind::Ping
+                }],
+                bail_on_error: false,
+            },
+            seq: Some(seq),
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::node::addressing::RemoteNodeAddr;
 use futures::channel::mpsc::Sender;
 use std::fmt::{Debug, Display, Formatter};
-use xpi::node_owned::{Event, NodeId};
+use xpi::client_server::{Event, NodeId};
 
 pub struct RemoteDescriptor {
     pub reachable: Vec<NodeId>,

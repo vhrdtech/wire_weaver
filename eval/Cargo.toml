@@ -7,4 +7,4 @@ edition = "2021"
 rhai = "*"
 #anyhow = { workspace = true }
 
-xpi-node = { path = "../vhl-stdlib/xpi-node-rust" }
+# xpi-node = { path = "../vhl-stdlib/xpi-node-rust" }

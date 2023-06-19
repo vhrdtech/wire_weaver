@@ -9,7 +9,7 @@ pub mod request;
 
 pub use address::Address;
 pub use event::{Event, EventKind};
-pub use reply::{Reply, ReplyKind};
+pub use reply::{Reply, ReplyKind, ReplyKindDiscriminants};
 pub use request::{Request, RequestKind};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -23,7 +23,13 @@ pub struct TraitDescriptor {
     pub trait_id: u64,
 }
 
-pub type Nrl = SmallVec<[u32; 3]>;
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Nrl(pub SmallVec<[u32; 3]>);
+impl Default for Nrl {
+    fn default() -> Self {
+        Nrl(SmallVec::new())
+    }
+}
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Error {

@@ -13,8 +13,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::node_owned::{Event, NodeId};
-use xpi::xwfd;
+use xpi::client_server::{Event, NodeId};
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn tcp_server_acceptor(
@@ -120,20 +119,20 @@ pub async fn tcp_event_loop(
 async fn process_incoming_frame(bytes: Bytes, to_event_loop: &mut Sender<Event>) -> bool {
     // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     let mut nrd = NibbleBuf::new_all(&bytes);
-    let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
-    match ev {
-        Ok(ev) => {
-            trace!("rx {}B: {}", bytes.len(), ev);
-            let ev_owned: Event = ev.into();
-            if to_event_loop.send(ev_owned).await.is_err() {
-                error!("mpsc fail, main event loop must have crashed?");
-                return true;
-            }
-        }
-        Err(e) => {
-            error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
-        }
-    }
+    // let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
+    // match ev {
+    //     Ok(ev) => {
+    //         trace!("rx {}B: {}", bytes.len(), ev);
+    //         let ev_owned: Event = ev.into();
+    //         if to_event_loop.send(ev_owned).await.is_err() {
+    //             error!("mpsc fail, main event loop must have crashed?");
+    //             return true;
+    //         }
+    //     }
+    //     Err(e) => {
+    //         error!("xwfd deserialize error: {:?} bytes: {:02x?}", e, bytes);
+    //     }
+    // }
     false
 }
 
@@ -144,31 +143,31 @@ async fn serialize_and_send(
     let mut buf = Vec::new();
     buf.resize(10_000, 0);
     let mut nwr = NibbleBufMut::new_all(&mut buf);
-    match ev.ser_xwfd(&mut nwr) {
-        Ok(()) => {
-            let (_, len, _) = nwr.finish();
-            // trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
-            buf.resize(len, 0);
-            match frames_sink.send(Bytes::from(buf)).await {
-                Ok(_) => {}
-                Err(e) => match e {
-                    Error::TooBig => warn!("Attempted to send too big frame"),
-                    Error::ErrorThresholdReached => {
-                        error!("Codec error threshold reached, must be garbage on the other end, closing");
-                        return true;
-                    }
-                    Error::Io(io_err) => {
-                        // TODO: is there any ignorable errors?
-                        warn!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
-                        return true;
-                    }
-                },
-            }
-        }
-        Err(e) => {
-            error!("convert of event: {ev} to xwfd failed: {e:?}");
-        }
-    }
+    // match ev.ser_xwfd(&mut nwr) {
+    //     Ok(()) => {
+    //         let (_, len, _) = nwr.finish();
+    //         // trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
+    //         buf.resize(len, 0);
+    //         match frames_sink.send(Bytes::from(buf)).await {
+    //             Ok(_) => {}
+    //             Err(e) => match e {
+    //                 Error::TooBig => warn!("Attempted to send too big frame"),
+    //                 Error::ErrorThresholdReached => {
+    //                     error!("Codec error threshold reached, must be garbage on the other end, closing");
+    //                     return true;
+    //                 }
+    //                 Error::Io(io_err) => {
+    //                     // TODO: is there any ignorable errors?
+    //                     warn!("IO Error: {io_err:?}, probably remote end disconnected, terminating event loop as well");
+    //                     return true;
+    //                 }
+    //             },
+    //         }
+    //     }
+    //     Err(e) => {
+    //         error!("convert of event: {ev} to xwfd failed: {e:?}");
+    //     }
+    // }
     false
 }
 //

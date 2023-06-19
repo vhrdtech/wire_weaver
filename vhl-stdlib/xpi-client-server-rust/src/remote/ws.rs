@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
 // use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::node_owned::{Event, NodeId};
+use xpi::client_server::{Event, NodeId};
 // use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
@@ -136,7 +136,7 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
             match ev {
                 Ok(ev) => {
                     // trace!("rx {}B: {}", bytes.len(), ev);
-                    trace!("{ev}");
+                    trace!("{ev:?}");
                     // let ev_owned: Event = ev.into(); // xwfd into owned
                     if to_event_loop.send(ev).await.is_err() {
                         error!("mpsc fail, main event loop must have crashed?");
@@ -162,7 +162,7 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
 
 pub(crate) async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
-    trace!("sending: {ev}");
+    trace!("sending: {ev:?}");
 
     let mut buf = Vec::new();
     match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {

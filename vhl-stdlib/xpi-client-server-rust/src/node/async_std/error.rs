@@ -13,7 +13,7 @@ pub enum NodeError {
     #[error("IO error")]
     IoError(#[from] std::io::Error),
     #[error("xPI error")]
-    XpiError(#[from] XpiError),
+    XpiError(XpiError),
     #[error("Attempted to attach node with same id({}) twice", .0)]
     NodeAlreadyAttached(u32),
     // #[error("Attach failed: {}", .0)]

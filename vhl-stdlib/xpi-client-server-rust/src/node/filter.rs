@@ -1,7 +1,5 @@
 use std::time::{Duration, Instant};
-use xpi::event_kind::XpiEventDiscriminant;
-use xpi::node_owned::{Event, NodeId, NodeSet, RequestId, UriOwned};
-use xpi::node_set::XpiGenericNodeSet;
+use xpi::client_server::{Event, NodeId, Nrl, ReplyKindDiscriminants, RequestId};
 
 #[derive(Debug)]
 pub enum SourceFilter {
@@ -14,21 +12,19 @@ pub enum NodeSetFilter {
     Any,
     NodeId(NodeId),
     UnicastTraits,
-    Multicast,
-    Broadcast,
 }
 
 #[derive(Debug)]
 pub enum EventKindFilter {
     Any,
-    One(XpiEventDiscriminant),
-    Two(XpiEventDiscriminant, XpiEventDiscriminant),
+    ReplyWithKind(ReplyKindDiscriminants),
+    ReplyWithKindEither(ReplyKindDiscriminants, ReplyKindDiscriminants),
 }
 
 #[derive(Debug)]
 pub enum ResourceSetFilter {
     Any,
-    ContainsUri(UriOwned),
+    ContainsUri(Nrl),
 }
 
 #[derive(Debug)]
@@ -115,25 +111,25 @@ impl EventFilter {
     }
 
     pub fn matches(&self, ev: &Event) -> bool {
-        match self.kind {
-            EventKindFilter::Any => {}
-            EventKindFilter::One(discriminant) => {
-                if discriminant != ev.kind.discriminant() {
-                    return false;
-                }
-            }
-            EventKindFilter::Two(discriminant1, discriminant2) => {
-                if ev.kind.discriminant() != discriminant1
-                    && ev.kind.discriminant() != discriminant2
-                {
-                    return false;
-                }
-            }
-        }
+        // match self.kind {
+        //     EventKindFilter::Any => {}
+        //     EventKindFilter::ReplyWithKind(discriminant) => {
+        //         if discriminant != ReplyKindDiscriminants::from(ev.kind) {
+        //             return false;
+        //         }
+        //     }
+        //     EventKindFilter::ReplyWithKindEither(discriminant1, discriminant2) => {
+        //         if ev.kind.discriminant() != discriminant1
+        //             && ev.kind.discriminant() != discriminant2
+        //         {
+        //             return false;
+        //         }
+        //     }
+        // }
         match self.src {
             SourceFilter::Any => {}
             SourceFilter::NodeId(id) => {
-                if ev.source != id {
+                if ev.source.node_id != id {
                     return false;
                 }
             }
@@ -141,35 +137,20 @@ impl EventFilter {
         match self.dst {
             NodeSetFilter::Any => {}
             NodeSetFilter::NodeId(id) => {
-                if let NodeSet::Unicast(ev_id) = ev.destination {
-                    if id != ev_id {
-                        return false;
-                    }
-                } else {
-                    return false;
-                };
-            }
-            NodeSetFilter::UnicastTraits => unimplemented!(),
-            NodeSetFilter::Multicast => unimplemented!(),
-            NodeSetFilter::Broadcast => match ev.destination {
-                XpiGenericNodeSet::Broadcast { .. } => {}
-                _ => {
+                if ev.destination.node_id != id {
                     return false;
                 }
-            },
+            }
+            NodeSetFilter::UnicastTraits => unimplemented!(),
         }
         match &self.resource_set {
             ResourceSetFilter::Any => {}
-            ResourceSetFilter::ContainsUri(uri) => {
-                if !ev.resource_set.flat_iter().any(|u| &u == uri) {
-                    return false;
-                }
-            }
+            _ => unimplemented!(),
         }
         match self.request_id {
             None => {}
             Some(req_id) => {
-                if req_id != ev.request_id {
+                if Some(req_id) != ev.seq {
                     return false;
                 }
             }

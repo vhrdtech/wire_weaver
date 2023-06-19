@@ -7,6 +7,7 @@ edition = "2021"
 vhl-stdlib = { path = "../vhl-stdlib-rust" }
 smallvec = { version = "1", features = ["serde"], optional = true }
 serde = { version = "1", features = ["derive"] }
+strum = { version = "0.25", no-default-features = true, features = ["derive"] }
 
 [dev-dependencies]
 hex-literal = "^0.3.4"

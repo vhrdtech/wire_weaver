@@ -1,5 +1,6 @@
 use super::Error;
 use super::Nrl;
+use strum::EnumDiscriminants;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Reply {
@@ -7,7 +8,7 @@ pub struct Reply {
     pub kind: ReplyKind,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, EnumDiscriminants)]
 pub enum ReplyKind {
     CallResult { ret_value: Result<Vec<u8>, Error> },
     ReadResult { value: Result<Vec<u8>, Error> },

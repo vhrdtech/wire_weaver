@@ -14,11 +14,7 @@ use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::node_owned::node_id::NodeId;
-use xpi::node_owned::Event;
-use xpi::node_owned::Priority;
-use xpi::node_owned::RequestId;
-use xpi::node_set::XpiGenericNodeSet;
+use xpi::client_server::{Event, NodeId, RequestId};
 
 #[derive(Debug)]
 pub struct VhNode {
@@ -145,7 +141,7 @@ impl VhNode {
 
                     for (node_id, sender) in &nodes {
                         if sender.is_closed() {
-                            warn!("Node instance with node id {node_id} is down");
+                            warn!("Node instance with node id {node_id:?} is down");
                         }
                     }
                     for remote_node in &remote_nodes {

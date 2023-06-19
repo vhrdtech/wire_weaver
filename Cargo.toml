@@ -21,7 +21,8 @@ members = [
     "mtoken",
     "mquote",
     "vhl-stdlib/vhl-stdlib-rust",
-    "vhl-stdlib/xpi-node-rust",
+    # "vhl-stdlib/xpi-node-rust",
+    "vhl-stdlib/xpi-client-server-rust",
     "vhl-stdlib/xpi-rust",
     "eval",
     "examples/xpi_server"

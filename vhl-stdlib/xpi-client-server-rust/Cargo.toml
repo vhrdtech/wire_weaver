@@ -1,5 +1,5 @@
 [package]
-name = "xpi-node"
+name = "xpi-client-server"
 version = "0.1.0"
 edition = "2021"
 

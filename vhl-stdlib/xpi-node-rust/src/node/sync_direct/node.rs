@@ -1,13 +1,12 @@
 use crate::node::addressing::RemoteNodeAddr;
 
 use super::error::Error;
-use futures_util::StreamExt;
 use std::collections::HashMap;
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
-use tracing::{error, info, trace, warn};
-use xpi::node_owned::{Event, NodeId, NodeSet, RequestId};
+use tracing::{error, trace, warn};
+use xpi::client_server::{Event, NodeId, RequestId};
 
 pub struct SyncDirectClient {
     tx_events: UnboundedSender<Event>,
@@ -107,8 +106,12 @@ impl SyncDirectHandle {
         loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    let bucket = self.rx_flatten.entry(ev.request_id).or_default();
-                    bucket.push(ev);
+                    if let Some(request_id) = ev.seq {
+                        let bucket = self.rx_flatten.entry(request_id).or_default();
+                        bucket.push(ev);
+                    } else {
+                        warn!("Dropped event without request id: {ev:?}");
+                    }
                 }
                 Err(TryRecvError::Empty) => {
                     break;

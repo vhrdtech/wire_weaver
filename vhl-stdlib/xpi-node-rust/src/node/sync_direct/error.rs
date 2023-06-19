@@ -1,7 +1,7 @@
 use std::net::AddrParseError;
 
 use thiserror::Error;
-use xpi::error::XpiError;
+use xpi::client_server::Error as XpiError;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -12,5 +12,5 @@ pub enum Error {
     #[error("IO error")]
     IoError(#[from] std::io::Error),
     #[error("xPI error")]
-    XpiError(#[from] XpiError),
+    XpiError(XpiError),
 }

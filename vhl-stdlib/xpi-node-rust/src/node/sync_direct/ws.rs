@@ -8,7 +8,7 @@ use futures_util::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::node_owned::{Event, NodeId, NodeSet};
+use xpi::client_server::{Event, NodeId};
 
 use crate::node::addressing::RemoteNodeAddr;
 
@@ -98,7 +98,7 @@ pub async fn ws_event_loop(
                     event = events_rx.recv() => {
                         match event {
                             Some(event) => {
-                                warn!("Replying with error to {event} because of disconnected state");
+                                warn!("Replying with error to {event:?} because of disconnected state");
                                 reply_with_error(event, &mut instances).await;
                             }
                             None => {
@@ -177,13 +177,12 @@ async fn process_incoming_frame(
             match ev {
                 Ok(ev) => {
                     // trace!("rx {}B: {}", bytes.len(), ev);
-                    trace!("received: {ev}");
-                    if let NodeSet::Unicast(id) = ev.destination {
-                        if let Some((tx, name)) = instances.get_mut(&id) {
-                            if tx.send(ev).is_err() {
-                                debug!("dropping instance with id: {id} ({name})");
-                                instances.remove(&id);
-                            }
+                    trace!("received: {ev:?}");
+                    let destination_node = ev.destination.node_id;
+                    if let Some((tx, name)) = instances.get_mut(&destination_node) {
+                        if tx.send(ev).is_err() {
+                            debug!("dropping instance with id: {destination_node:?} ({name})");
+                            instances.remove(&destination_node);
                         }
                     }
                 }
@@ -208,13 +207,15 @@ async fn reply_with_error(
     event: Event,
     instances: &mut HashMap<NodeId, (UnboundedSender<Event>, String)>,
 ) {
-    let mut reply = event.clone();
-    reply.kind = event.kind.flip_with_error();
-    if let NodeSet::Unicast(id) = event.destination {
-        reply.source = id;
-    }
-    reply.destination = NodeSet::Unicast(event.source);
-    if let Some((tx, _)) = instances.get(&event.source) {
-        tx.send(reply).unwrap();
+    // let mut reply = event.clone();
+    // reply.kind = event.kind.flip_with_error();
+    // if let NodeSet::Unicast(id) = event.destination {
+    //     reply.source = id;
+    // }
+    // reply.destination = NodeSet::Unicast(event.source);
+    if let Some(reply) = event.flip_with_error(xpi::client_server::Error::Disconnected) {
+        if let Some((tx, _)) = instances.get(&event.source.node_id) {
+            tx.send(reply).unwrap();
+        }
     }
 }

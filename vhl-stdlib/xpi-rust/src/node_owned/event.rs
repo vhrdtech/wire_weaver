@@ -12,6 +12,44 @@
 //     ResourceSet, TraitSet, UriOwned,
 // };
 
+pub struct Event {
+    pub source: NodeId,
+    pub destination: NodeSet,
+    pub base_nrl: (),
+    pub kind: (),
+    pub priority: Priority,
+    pub seq: Option<u32>,
+    pub ttl: Ttl,
+}
+
+pub struct NodeId(u32);
+
+pub enum NodeSet {
+    Unicast {
+        node_id: NodeId,
+    },
+
+    /// both only for 'impl once <trait>';
+    /// otherwise: introspect, figure out a full nrl and use as normal
+    UnicastTraits {
+        node_id: NodeId,
+        // all nrl all relative to this traits in order, /0 - first trait
+        traits: TraitSet,
+    },
+    Multicast {
+        // all nrls relative to traits
+        all_that_impl: TraitSet,
+        original_source: NodeId,
+    },
+
+    Broadcast,
+}
+
+pub struct Ttl(u8);
+pub type Priority = ();
+
+pub type TraitSet = Vec<TraitDescriptor>;
+pub type TraitDescriptor = u64;
 // pub type Event = XpiGenericEvent<
 //     NodeId,
 //     TraitSet,

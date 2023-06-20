@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::net::SocketAddr;
 
 use crate::node::addressing::RemoteNodeAddr;
-use crate::node::async_std::internal_event::InternalEvent;
+use crate::node::server::internal_event::InternalEvent;
 use crate::remote::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};

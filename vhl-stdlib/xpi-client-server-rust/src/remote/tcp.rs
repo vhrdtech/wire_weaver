@@ -1,7 +1,7 @@
 use crate::codec::rmvlb_codec::RmvlbCodec;
 use crate::codec::Error;
 use crate::node::addressing::RemoteNodeAddr;
-use crate::node::async_std::internal_event::InternalEvent;
+use crate::node::server::internal_event::InternalEvent;
 use crate::remote::remote_descriptor::RemoteDescriptor;
 use bytes::Bytes;
 use futures::channel::mpsc;

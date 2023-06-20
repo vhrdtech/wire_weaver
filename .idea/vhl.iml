@@ -26,6 +26,7 @@
       <sourceFolder url="file://$MODULE_DIR$/eval/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/xpi_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-client-server-rust/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

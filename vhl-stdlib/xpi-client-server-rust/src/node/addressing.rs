@@ -1,4 +1,4 @@
-use crate::node::async_std::NodeError;
+use crate::node::server::NodeError;
 use std::net::SocketAddr;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

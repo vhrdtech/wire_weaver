@@ -8,7 +8,7 @@ use tokio::sync::mpsc::{
 use tracing::{error, trace, warn};
 use xpi::client_server::{Event, NodeId, RequestId};
 
-pub struct SyncDirectClient {
+pub struct ClientManager {
     tx_events: UnboundedSender<Event>,
     tx_internal: UnboundedSender<InternalReq>,
     rx_internal: UnboundedReceiver<InternalResp>,
@@ -29,8 +29,8 @@ pub enum InternalResp {
     InstanceCreated { id: NodeId },
 }
 
-impl SyncDirectClient {
-    pub fn new() -> (SyncDirectClient, impl std::future::Future<Output = ()>) {
+impl ClientManager {
+    pub fn new() -> (ClientManager, impl std::future::Future<Output = ()>) {
         let (tx_events, rx_events) = unbounded_channel();
         let (tx_self, rx_router) = unbounded_channel();
         let (tx_router, rx_self) = unbounded_channel();
@@ -38,7 +38,7 @@ impl SyncDirectClient {
         let event_loop = super::ws::ws_event_loop(rx_events, rx_router, tx_router);
 
         (
-            SyncDirectClient {
+            ClientManager {
                 tx_events,
                 tx_internal: tx_self,
                 rx_internal: rx_self,
@@ -47,7 +47,7 @@ impl SyncDirectClient {
         )
     }
 
-    pub fn blocking_split<S: AsRef<str>>(&mut self, name: S) -> Result<SyncDirectHandle, Error> {
+    pub fn blocking_split<S: AsRef<str>>(&mut self, name: S) -> Result<Client, Error> {
         let (tx_router, rx_node) = unbounded_channel();
 
         self.tx_internal
@@ -62,7 +62,7 @@ impl SyncDirectClient {
                 return Err(Error::SplitFailed);
             }
         };
-        Ok(SyncDirectHandle {
+        Ok(Client {
             id,
             seq: 0,
             tx: self.tx_events.clone(),
@@ -83,7 +83,7 @@ impl SyncDirectClient {
     }
 }
 
-pub struct SyncDirectHandle {
+pub struct Client {
     id: NodeId,
     seq: u32,
     tx: UnboundedSender<Event>,
@@ -91,7 +91,7 @@ pub struct SyncDirectHandle {
     rx_flatten: HashMap<RequestId, Vec<Event>>,
 }
 
-impl SyncDirectHandle {
+impl Client {
     pub fn id(&self) -> NodeId {
         self.id
     }

@@ -1,4 +1,4 @@
 pub mod addressing;
-pub mod async_std;
+pub mod server;
 pub mod filter;
-pub mod sync_direct;
+pub mod client;

@@ -20,10 +20,15 @@ members = [
     "codegen",
     "mtoken",
     "mquote",
-    "vhl-stdlib-rust/vhl-stdlib-rust",
-    # "vhl-stdlib-rust/xpi-node-rust",
+    "vhl-stdlib-rust/vhl-stdlib",
+    "vhl-stdlib-rust/xpi-node",
     "vhl-stdlib-rust/xpi-client-server",
     "vhl-stdlib-rust/xpi",
+    "vhl-stdlib-rust/wfd",
+    "vhl-stdlib-rust/wfd-serde",
+    "vhl-stdlib-rust/wfs",
+    "vhl-stdlib-rust/wfs-serde",
+    "vhl-stdlib-rust/rmvlb-codec",
     "eval",
     "examples/xpi_server"
 ]

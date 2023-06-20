@@ -18,15 +18,15 @@
       <sourceFolder url="file://$MODULE_DIR$/util/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mtoken/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/xpi-util/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-rust/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ast/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/vhl-stdlib-rust/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-node-rust/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/eval/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/eval/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/xpi_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib/xpi-client-server-rust/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/vhl-stdlib/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/xpi-client-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/xpi-node-rust/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/xpi/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

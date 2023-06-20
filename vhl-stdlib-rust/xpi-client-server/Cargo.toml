@@ -13,7 +13,7 @@ futures = { version = "0.3.25" }
 futures-util = "0.3"
 tracing = "0.1"
 xpi = { path = "../xpi" }
-vhl-stdlib = { path = "../vhl-stdlib-rust" }
+vhl-stdlib = { path = "../vhl-stdlib" }
 crc-any = "2.4"
 serde = "1"
 tokio-tungstenite = "0.19"

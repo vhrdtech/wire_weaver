@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-vhl-stdlib = { path = "../vhl-stdlib-rust" }
+vhl-stdlib = { path = "../vhl-stdlib" }
 smallvec = { version = "1", features = ["serde"], optional = true }
 serde = { version = "1", features = ["derive"] }
 strum = { version = "0.25", no-default-features = true, features = ["derive"] }

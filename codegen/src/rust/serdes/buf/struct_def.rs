@@ -126,7 +126,7 @@ impl<'ast> ToTokens for StructSer<'ast> {
 impl<'ast> Depends for StructSer<'ast> {
     fn dependencies(&self) -> Dependencies {
         let depends = vec![Package::RustCrate(
-            RustCrateSource::Crates("vhl-stdlib-rust".to_string()),
+            RustCrateSource::Crates("vhl-stdlib".to_string()),
             VersionReq::parse("0.1.0").unwrap(),
         )];
 
@@ -174,7 +174,7 @@ impl<'ast> ToTokens for StructDes<'ast> {
 impl<'ast> Depends for StructDes<'ast> {
     fn dependencies(&self) -> Dependencies {
         let depends = vec![Package::RustCrate(
-            RustCrateSource::Crates("vhl-stdlib-rust".to_string()),
+            RustCrateSource::Crates("vhl-stdlib".to_string()),
             VersionReq::parse("0.1.0").unwrap(),
         )];
         use Import::*;

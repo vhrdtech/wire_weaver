@@ -8,7 +8,7 @@ use futures_util::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server::{Event, NodeId};
+use xpi::client_server_owned::{Event, NodeId};
 
 use crate::node::addressing::RemoteNodeAddr;
 
@@ -213,7 +213,7 @@ async fn reply_with_error(
     //     reply.source = id;
     // }
     // reply.destination = NodeSet::Unicast(event.source);
-    if let Some(reply) = event.flip_with_error(xpi::client_server::Error::Disconnected) {
+    if let Some(reply) = event.flip_with_error(xpi::client_server_owned::Error::Disconnected) {
         if let Some((tx, _)) = instances.get(&event.source.node_id) {
             tx.send(reply).unwrap();
         }

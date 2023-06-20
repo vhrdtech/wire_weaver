@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-xpi-client-server = { path = "../../vhl-stdlib/xpi-client-server-rust" }
-xpi = { path = "../../vhl-stdlib/xpi-rust" }
+xpi-client-server = { path = "../../vhl-stdlib-rust/xpi-client-server" }
+xpi = { path = "../../vhl-stdlib-rust/xpi" }
 
 anyhow = { workspace = true }
 

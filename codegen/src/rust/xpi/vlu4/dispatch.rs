@@ -208,7 +208,7 @@ impl<'ast> DispatchCall<'ast> {
 
 fn dependencies() -> Dependencies {
     let depends = vec![Package::RustCrate(
-        RustCrateSource::Crates("vhl-stdlib".to_string()),
+        RustCrateSource::Crates("vhl-stdlib-rust".to_string()),
         VersionReq::parse("0.1.0").unwrap(),
     )];
 

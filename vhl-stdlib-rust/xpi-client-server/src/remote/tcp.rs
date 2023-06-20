@@ -13,7 +13,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, info, instrument, trace, warn};
 use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::client_server::{Event, NodeId};
+use xpi::client_server_owned::{Event, NodeId};
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn tcp_server_acceptor(

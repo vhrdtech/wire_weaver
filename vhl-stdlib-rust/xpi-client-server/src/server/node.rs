@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server::{Event, NodeId, RequestId};
+use xpi::client_server_owned::{Event, NodeId, RequestId};
 
 #[derive(Debug)]
 pub struct VhNode {

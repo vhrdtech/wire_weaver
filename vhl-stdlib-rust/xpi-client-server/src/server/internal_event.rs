@@ -1,7 +1,7 @@
 use crate::node::{addressing::RemoteNodeAddr, filter::EventFilter};
 use crate::remote::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc::Sender;
-use xpi::client_server::{Event, NodeId};
+use xpi::client_server_owned::{Event, NodeId};
 
 #[derive(Debug)]
 pub enum InternalEvent {

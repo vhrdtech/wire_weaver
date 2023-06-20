@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server::{Event, NodeId, RequestId};
+use xpi::client_server_owned::{Event, NodeId, RequestId};
 
 pub struct ClientManager {
     tx_events: UnboundedSender<Event>,

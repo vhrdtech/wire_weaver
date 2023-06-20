@@ -18,4 +18,4 @@ pub mod node_owned;
 // pub mod reply_size_hint;
 // pub use reply_size_hint::ReplySizeHint;
 
-pub mod client_server;
+pub mod client_server_owned;

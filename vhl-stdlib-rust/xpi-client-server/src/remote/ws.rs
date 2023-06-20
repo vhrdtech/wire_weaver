@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
 // use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::client_server::{Event, NodeId};
+use xpi::client_server_owned::{Event, NodeId};
 // use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]

@@ -1043,6 +1043,12 @@ dependencies = [
 [[package]]
 name = "rmvlb-codec"
 version = "0.1.0"
+dependencies = [
+ "bytes",
+ "crc-any",
+ "tokio-util",
+ "vhl-stdlib",
+]
 
 [[package]]
 name = "rustix"
@@ -1773,7 +1779,6 @@ name = "xpi-client-server"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "crc-any",
  "futures",
  "futures-util",
  "rmp-serde",
@@ -1782,7 +1787,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",
- "tokio-util",
  "tracing",
  "vhl-stdlib",
  "xpi",

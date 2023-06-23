@@ -7,7 +7,7 @@ pub mod event;
 pub mod reply;
 pub mod request;
 
-pub use address::Address;
+pub use address::{Address, Protocol};
 pub use event::{Event, EventKind};
 pub use reply::{Reply, ReplyKind, ReplyKindDiscriminants};
 pub use request::{Request, RequestKind};

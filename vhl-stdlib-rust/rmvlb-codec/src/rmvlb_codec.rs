@@ -65,7 +65,7 @@ impl Decoder for RmvlbCodec {
                     let read_to = cmp::min(self.max_length.saturating_add(1), buf.len());
                     let marker_offset = buf[..read_to]
                         .windows(2)
-                        .position(|halfw| halfw == &[0xaa, 0x55]);
+                        .position(|halfw| *halfw == [0xaa, 0x55]);
                     match marker_offset {
                         Some(offset) => {
                             self.state = State::WaitingForLength;
@@ -207,7 +207,7 @@ impl Encoder<Bytes> for RmvlbCodec {
 
 #[cfg(test)]
 mod test {
-    use crate::codec::rmvlb_codec::{RmvlbCodec, State};
+    use super::{RmvlbCodec, State};
     use bytes::{Bytes, BytesMut};
     use tokio_util::codec::{Decoder, Encoder};
 
@@ -227,9 +227,7 @@ mod test {
         let mut buf = BytesMut::with_capacity(2048);
         let mut codec = RmvlbCodec::new_with_max_length(1024);
         let frame: Vec<u8> = (0..1024).map(|v| (v % 255) as u8).collect();
-        codec
-            .encode(Bytes::from(Bytes::from(frame)), &mut buf)
-            .unwrap();
+        codec.encode(Bytes::from(frame), &mut buf).unwrap();
         assert_eq!(buf.len(), 6 + 1024);
         assert_eq!(&buf[..11], [0xaa, 0x55, 0x88, 0, 62, 143, 0, 1, 2, 3, 4]);
     }
@@ -239,9 +237,7 @@ mod test {
         let mut buf = BytesMut::with_capacity(32768);
         let mut codec = RmvlbCodec::new_with_max_length(16384);
         let frame: Vec<u8> = (0..16384).map(|v| (v % 255) as u8).collect();
-        codec
-            .encode(Bytes::from(Bytes::from(frame)), &mut buf)
-            .unwrap();
+        codec.encode(Bytes::from(frame), &mut buf).unwrap();
         assert_eq!(buf.len(), 7 + 16384);
         assert_eq!(
             &buf[..12],

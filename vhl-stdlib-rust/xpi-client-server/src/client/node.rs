@@ -1,12 +1,10 @@
-use crate::node::addressing::RemoteNodeAddr;
-
 use super::error::Error;
 use std::collections::HashMap;
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Event, NodeId, RequestId};
+use xpi::client_server_owned::{Address, Event, NodeId, RequestId};
 
 pub struct ClientManager {
     tx_events: UnboundedSender<Event>,
@@ -20,7 +18,7 @@ pub enum InternalReq {
         tx: UnboundedSender<Event>,
         name: String,
     },
-    Connect(RemoteNodeAddr),
+    Connect(Address),
     Disconnect,
     Stop,
 }
@@ -72,7 +70,7 @@ impl ClientManager {
     }
 
     pub fn connect(&mut self, addr: &str) -> Result<(), Error> {
-        let addr = RemoteNodeAddr::parse(addr).unwrap();
+        let addr = Address::parse(addr).unwrap();
         self.tx_internal.send(InternalReq::Connect(addr));
         Ok(())
     }

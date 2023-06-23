@@ -20,3 +20,9 @@ pub enum WireFormat {
     Wfs,
     Wfd,
 }
+
+impl Address {
+    pub fn parse<S: AsRef<str>>(s: S) -> Option<Self> {
+        todo!()
+    }
+}

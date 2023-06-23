@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
+use super::node::{InternalReq, InternalResp};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     StreamExt, TryStreamExt,
@@ -8,11 +9,7 @@ use futures_util::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server_owned::{Event, NodeId};
-
-use crate::node::addressing::RemoteNodeAddr;
-
-use super::node::{InternalReq, InternalResp};
+use xpi::client_server_owned::{Event, NodeId, Protocol};
 
 #[instrument(skip(events_rx, internal_rx, internal_tx))]
 pub async fn ws_event_loop(
@@ -119,10 +116,10 @@ pub async fn ws_event_loop(
                                 }
                             }
                             Some(InternalReq::Connect(addr)) => {
-                                match addr {
-                                    RemoteNodeAddr::Tcp(_) => unimplemented!(),
-                                    RemoteNodeAddr::Ws(ip_addr) => {
-                                        let url = format!("ws://{ip_addr}");
+                                match addr.protocol {
+                                    Protocol::Tcp { .. } => unimplemented!(),
+                                    Protocol::Ws { addr, port } => {
+                                        let url = format!("ws://{addr}:{port}");
                                         info!("ws: Connecting to remote {url}");
                                         let ws_stream = match tokio_tungstenite::connect_async(url).await {
                                             Ok((ws_stream, _)) => ws_stream,

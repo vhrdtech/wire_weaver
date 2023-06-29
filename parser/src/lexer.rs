@@ -14,7 +14,7 @@ mod test {
         I: IntoIterator<Item = Rule>,
     {
         for n in level {
-            input = input.skip(n).next().unwrap().into_inner();
+            input = input.nth(n).unwrap().into_inner();
         }
         // println!("{:?}", input);
         let output = input.map(|t| {

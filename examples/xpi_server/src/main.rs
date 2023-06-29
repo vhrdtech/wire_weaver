@@ -1,10 +1,9 @@
-use anyhow::{Context, Result};
+use anyhow::{Result};
+use xpi::client_server_owned::NodeId;
+use xpi_client_server::server::Server;
 use std::time::Duration;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use xpi::node_owned::NodeId;
-use xpi_node::node::addressing::RemoteNodeAddr;
-use xpi_node::node::async_std::VhNode;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,12 +12,12 @@ async fn main() -> Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let mut node = VhNode::new_server(NodeId(0)).await;
+    let mut node = Server::new(NodeId(0)).await;
 
-    let addr = "tcp://127.0.0.1:7777";
-    let addr = RemoteNodeAddr::parse(addr)
-        .context(format!("unable to parse socket address: '{}'", addr))?;
-    node.listen(addr).await?;
+    // let addr = "tcp://127.0.0.1:7777";
+    // let addr = RemoteNodeAddr::parse(addr)
+    //     .context(format!("unable to parse socket address: '{}'", addr))?;
+    node.listen(xpi::client_server_owned::Protocol::Ws { ip_addr: "127.0.0.1".parse().unwrap(), port: 7777 }).await?;
 
     tokio::time::sleep(Duration::from_secs(60)).await;
     Ok(())

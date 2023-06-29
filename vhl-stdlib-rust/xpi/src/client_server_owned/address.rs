@@ -22,7 +22,7 @@ pub enum Protocol {
 // }
 
 impl Address {
-    pub fn parse<S: AsRef<str>>(s: S) -> Option<Self> {
+    pub fn parse<S: AsRef<str>>(_s: S) -> Option<Self> {
         todo!()
     }
 }

@@ -1,7 +1,7 @@
 use core::fmt::Display;
 use core::fmt::Formatter;
-use std::io::Error;
-use vhl_stdlib::serdes::{bit_buf, buf, nibble_buf, SerializableError};
+
+use vhl_stdlib::serdes::{SerializableError};
 
 /// Error that is transferred across the wire for example in response to requests.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -63,8 +63,8 @@ impl SerializableError for XpiError {
         match self {
             Timeout => 1, // 0 is no error
             DeviceRebooted => 2,
-            PriorityLoss => 3,
-            ShaperReject => 4,
+            _PriorityLoss => 3,
+            _ShaperReject => 4,
             ResourceIsAlreadyBorrowed => 5,
             AlreadyUnsubscribed => 6,
             StreamIsAlreadyOpen => 7,
@@ -79,15 +79,15 @@ impl SerializableError for XpiError {
 
             ReservedDiscard => 20,
             WrongFormat => 21,
-            UriMaskUnsupportedType => 22,
-            NodeIdAbove127 => 23,
+            _UriMaskUnsupportedType => 22,
+            _NodeIdAbove127 => 23,
 
-            InternalBufError => 31,
-            InternalNibbleBufError => 32,
-            InternalBitBufError => 33,
-            ReplyBuilderError => 34,
-            InternalBbqueueError => 35,
-            IoError => 36,
+            _InternalBufError => 31,
+            _InternalNibbleBufError => 32,
+            _InternalBitBufError => 33,
+            _ReplyBuilderError => 34,
+            _InternalBbqueueError => 35,
+            _IoError => 36,
 
             OutOfBounds => 40,
         }

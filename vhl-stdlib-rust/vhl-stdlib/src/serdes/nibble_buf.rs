@@ -1013,7 +1013,7 @@ mod test {
         assert_eq!(buf[0], 0x12);
         assert_eq!(buf[1], 0x34);
         assert_eq!(byte_pos, 2);
-        assert_eq!(is_at_byte_boundary, true);
+        assert!(is_at_byte_boundary);
     }
 
     #[test]
@@ -1138,7 +1138,7 @@ mod test {
         let (wgr_buf, pos, is_at_byte_boundary) = wgr.finish();
         assert_eq!(wgr_buf, &[0x1a, 0xbc, 0xde, 0xf0]);
         assert_eq!(pos, 3);
-        assert_eq!(is_at_byte_boundary, false);
+        assert!(!is_at_byte_boundary);
     }
 
     #[test]
@@ -1155,7 +1155,7 @@ mod test {
         let (wgr_buf, pos, is_at_byte_boundary) = wgr.finish();
         assert_eq!(wgr_buf, &[0xff, 0xbc, 0xde, 0xf0]);
         assert_eq!(pos, 3);
-        assert_eq!(is_at_byte_boundary, false);
+        assert!(!is_at_byte_boundary);
     }
 
     #[test]

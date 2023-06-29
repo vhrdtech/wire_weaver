@@ -399,7 +399,7 @@ mod test {
         bwr.put_bit(false).unwrap();
         bwr.put_bit(true).unwrap();
         let (buf, byte_pos, bit_pos) = bwr.finish();
-        assert_eq!(buf[0], 0b10101_000);
+        assert_eq!(buf[0], 0b1010_1000);
         assert_eq!(byte_pos, 0);
         assert_eq!(bit_pos, 5);
     }

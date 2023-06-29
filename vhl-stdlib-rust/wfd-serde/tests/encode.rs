@@ -1,8 +1,8 @@
 extern crate wfd_serde;
 
-use std::io::Cursor;
-use serde::Serialize;
-use wfd_serde::error::Error;
+
+
+
 use wfd_serde::serialize_with_flavor;
 use wfd_serde::ser_flavors::Slice;
 

@@ -42,9 +42,9 @@ impl<'ast> ToTokens for CGTy<'ast> {
                     f◡Λ{float.bits}
                 "#));
             }
-            TyKind::Array { ty, len_bound } => {
+            TyKind::Array { ty, len_bound: _ } => {
                 println!("tycg attrs: {:?}", self.inner.attrs);
-                let ty = CGTy { inner: &ty };
+                let ty = CGTy { inner: ty };
                 tokens.append_all(mquote!(rust r#"
                     [Λty; todo]
                 "#));

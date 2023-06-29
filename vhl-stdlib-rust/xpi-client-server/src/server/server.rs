@@ -6,9 +6,9 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
-use tokio::net::{TcpListener, TcpStream};
-use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server_owned::{Event, NodeId, RequestId, Address, Protocol};
+use tokio::net::{TcpListener};
+use tracing::{error, info, instrument, trace, warn};
+use xpi::client_server_owned::{Event, NodeId, Address, Protocol};
 
 use super::NodeError;
 use super::internal_event::InternalEvent;
@@ -98,8 +98,8 @@ impl Server {
 
         let heartbeat = tick_stream(Duration::from_secs(1)).fuse();
         // let mut heartbeat = tokio::time::interval(Duration::from_millis(1000));
-        let mut uptime: u32 = 0;
-        let mut heartbeat_request_id: u32 = 0;
+        let _uptime: u32 = 0;
+        let _heartbeat_request_id: u32 = 0;
 
         futures::pin_mut!(heartbeat);
         loop {
@@ -360,11 +360,11 @@ impl Server {
     }
 
     #[instrument(skip(self), fields(node_id = self.id.0))]
-    pub async fn listen(&mut self, addr: Address) -> Result<(), NodeError> {
+    pub async fn listen(&mut self, protocol: Protocol) -> Result<(), NodeError> {
         let id = self.id;
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();
-        match addr.protocol {
+        match protocol {
             Protocol::Tcp { .. } => {
                 // let listener = TcpListener::bind(ip_addr).await?;
                 // info!("tcp: Listening on: {ip_addr}");

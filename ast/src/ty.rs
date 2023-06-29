@@ -74,6 +74,7 @@ impl DiscreteTy {
     }
 }
 
+#[derive(Default)]
 pub struct TyTraits {
     pub is_copy: bool,
     pub is_clone: bool,
@@ -92,16 +93,7 @@ impl TyTraits {
     }
 }
 
-impl Default for TyTraits {
-    fn default() -> Self {
-        TyTraits {
-            is_copy: false,
-            is_clone: false,
-            is_eq: false,
-            is_partial_eq: false,
-        }
-    }
-}
+
 
 impl core::ops::BitAnd for TyTraits {
     type Output = TyTraits;

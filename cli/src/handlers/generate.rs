@@ -26,7 +26,7 @@ pub fn generate_subcmd(generate_args: GenerateArgs) -> Result<()> {
             let input = std::fs::read_to_string(&main_path)
                 .context(format!("unable to open '{:?}'", &main_path))?;
             let origin = SpanOrigin::Parser(SourceOrigin::File(Rc::new(main_path)));
-            let file = match FileParse::parse(&input, origin) {
+            let file = match FileParse::parse(input, origin) {
                 Ok(file) => file,
                 Err(e) => {
                     e.print_report();
@@ -60,7 +60,7 @@ fn generate_rust(
         for (_id, def) in &project.root.defs {
             match def {
                 Definition::Struct(struct_def) => {
-                    let cg_struct_def = codegen::rust::struct_def::CGStructDef::new(&struct_def);
+                    let cg_struct_def = codegen::rust::struct_def::CGStructDef::new(struct_def);
                     // let cg_struct_ser = codegen::rust::serdes::buf::struct_def::StructSer {
                     //     inner: cg_struct_def.clone(),
                     // };

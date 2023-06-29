@@ -999,7 +999,7 @@ mod test {
         wgr.put(&slices).unwrap();
         let (output_buf, _, is_at_byte_boundary) = wgr.finish();
         assert_eq!(output_buf, &[0x22, 0xab, 0xcd, 0x20, 0xef, 0xfe]);
-        assert_eq!(is_at_byte_boundary, true);
+        assert!(is_at_byte_boundary);
     }
 
     #[test]
@@ -1016,7 +1016,7 @@ mod test {
         wgr.put(&slices).unwrap();
         let (output_buf, _, is_at_byte_boundary) = wgr.finish();
         assert_eq!(output_buf, hex!("72 20 ab cd 20 ef fe"));
-        assert_eq!(is_at_byte_boundary, true);
+        assert!(is_at_byte_boundary);
     }
 
     #[test]

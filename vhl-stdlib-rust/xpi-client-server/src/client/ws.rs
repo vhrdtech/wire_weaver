@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use super::node::{InternalReq, InternalResp};
+use super::client::{InternalReq, InternalResp};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     StreamExt, TryStreamExt,
@@ -118,8 +118,8 @@ pub async fn ws_event_loop(
                             Some(InternalReq::Connect(addr)) => {
                                 match addr.protocol {
                                     Protocol::Tcp { .. } => unimplemented!(),
-                                    Protocol::Ws { addr, port } => {
-                                        let url = format!("ws://{addr}:{port}");
+                                    Protocol::Ws { ip_addr, port } => {
+                                        let url = format!("ws://{ip_addr}:{port}");
                                         info!("ws: Connecting to remote {url}");
                                         let ws_stream = match tokio_tungstenite::connect_async(url).await {
                                             Ok((ws_stream, _)) => ws_stream,

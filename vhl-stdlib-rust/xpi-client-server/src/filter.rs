@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use xpi::client_server::{Event, NodeId, Nrl, ReplyKindDiscriminants, RequestId};
+use xpi::client_server_owned::{Event, NodeId, Nrl, ReplyKindDiscriminants, RequestId};
 
 #[derive(Debug)]
 pub enum SourceFilter {

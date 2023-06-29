@@ -5,21 +5,21 @@ use std::net::IpAddr;
 pub struct Address {
     pub protocol: Protocol,
     pub node_id: NodeId,
-    pub wire_format: WireFormat,
+    // pub wire_format: WireFormat,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Protocol {
-    Tcp { addr: IpAddr, port: u16 },
-    Ws { addr: IpAddr, port: u16 },
+    Tcp { ip_addr: IpAddr, port: u16 },
+    Ws { ip_addr: IpAddr, port: u16 },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum WireFormat {
-    MessagePack,
-    Wfs,
-    Wfd,
-}
+// #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+// pub enum WireFormat {
+//     MessagePack,
+//     Wfs,
+//     Wfd,
+// }
 
 impl Address {
     pub fn parse<S: AsRef<str>>(s: S) -> Option<Self> {

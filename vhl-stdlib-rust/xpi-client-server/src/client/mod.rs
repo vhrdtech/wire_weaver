@@ -1,5 +1,5 @@
 pub mod error;
-pub mod node;
+pub mod client;
 pub mod ws;
 
-pub use node::{ClientManager, Client};
+pub use client::{ClientManager, Client};

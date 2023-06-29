@@ -1,9 +1,7 @@
 use std::io::Cursor;
-use std::net::SocketAddr;
 
-use crate::node::addressing::RemoteNodeAddr;
-use crate::node::server::internal_event::InternalEvent;
 use crate::remote::remote_descriptor::RemoteDescriptor;
+use crate::server::internal_event::InternalEvent;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 // use futures::{SinkExt, StreamExt};
@@ -12,7 +10,7 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
 // use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::client_server_owned::{Event, NodeId};
+use xpi::client_server_owned::{Event, NodeId, Protocol};
 // use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
@@ -35,11 +33,12 @@ pub(crate) async fn ws_server_acceptor(
                 let (tx, rx) = mpsc::channel(64);
                 let to_event_loop = tx_to_event_loop.clone();
                 let to_event_loop_internal = tx_internal.clone();
+                let protocol = Protocol::Ws { ip_addr: remote_addr.ip(), port: remote_addr.port() };
 
                 tokio::spawn(async move {
                     ws_event_loop(
                         self_id,
-                        remote_addr,
+                        protocol,
                         ws_sink,
                         ws_source,
                         to_event_loop.clone(),
@@ -49,8 +48,7 @@ pub(crate) async fn ws_server_acceptor(
                     .await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    reachable: vec![NodeId(1), NodeId(2), NodeId(3), NodeId(4)], // TODO: Do not hardcode
-                    addr: RemoteNodeAddr::Ws(remote_addr),
+                    protocol, 
                     to_event_loop: tx,
                 };
                 match tx_internal
@@ -77,14 +75,14 @@ pub(crate) async fn ws_server_acceptor(
 ))]
 pub async fn ws_event_loop(
     _self_id: NodeId,
-    addr: SocketAddr,
+    protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
     mut to_event_loop: Sender<Event>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<Event>,
 ) {
-    info!("Entering websocket event loop on {addr}");
+    info!("Entering websocket event loop on {protocol:?}");
     // let mut ws_source = ws_source.fuse();
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
@@ -95,7 +93,7 @@ pub async fn ws_event_loop(
                     Ok(Some(frame)) => {
                         let should_terminate = process_incoming_frame(frame, &mut to_event_loop).await;
                         if should_terminate {
-                            let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Ws(addr))).await;
+                            let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
                         }
                     }
@@ -111,7 +109,7 @@ pub async fn ws_event_loop(
             ev = from_event_loop.select_next_some() => {
                 let should_terminate = serialize_and_send(ev, &mut ws_sink).await;
                 if should_terminate {
-                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(RemoteNodeAddr::Ws(addr))).await;
+                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                     break;
                 }
             },

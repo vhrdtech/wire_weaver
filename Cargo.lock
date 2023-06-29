@@ -1657,6 +1657,11 @@ version = "0.1.0"
 [[package]]
 name = "wfd-serde"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "wfd",
+]
 
 [[package]]
 name = "wfs"

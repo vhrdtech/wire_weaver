@@ -1,11 +1,10 @@
-use crate::node::addressing::RemoteNodeAddr;
 use futures::channel::mpsc::Sender;
 use std::fmt::{Debug, Display, Formatter};
-use xpi::client_server_owned::{Event, NodeId};
+use xpi::client_server_owned::{Event, Protocol};
 
 pub struct RemoteDescriptor {
-    pub reachable: Vec<NodeId>,
-    pub addr: RemoteNodeAddr,
+    // pub reachable: Vec<NodeId>,
+    pub protocol: Protocol,
     pub to_event_loop: Sender<Event>,
 }
 
@@ -19,8 +18,8 @@ impl Display for RemoteDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "RemoteDescriptor{{ {:?} at {:?} }}",
-            self.reachable, self.addr
+            "RemoteDescriptor{{ at {:?} }}",
+            self.protocol
         )
     }
 }

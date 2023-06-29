@@ -1,10 +1,5 @@
-use crate::codec::rmvlb_codec::RmvlbCodec;
-use crate::node::addressing::RemoteNodeAddr;
-use crate::node::server::internal_event::InternalEvent;
-use crate::node::server::NodeError;
-use crate::node::filter::EventFilter;
+use crate::filter::EventFilter;
 use crate::remote::remote_descriptor::RemoteDescriptor;
-use crate::remote::tcp::{tcp_event_loop, tcp_server_acceptor};
 use crate::remote::ws::ws_server_acceptor;
 use core::time::Duration;
 use futures::channel::mpsc;
@@ -12,31 +7,49 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use std::collections::HashMap;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_util::codec::Framed;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server_owned::{Event, NodeId, RequestId};
+use xpi::client_server_owned::{Event, NodeId, RequestId, Address, Protocol};
+
+use super::NodeError;
+use super::internal_event::InternalEvent;
 
 #[derive(Debug)]
-pub struct VhNode {
+pub struct Server {
     id: NodeId,
     tx_to_event_loop: Sender<Event>,
     tx_internal: Sender<InternalEvent>,
 }
 
-impl VhNode {
-    /// Create a node with a sole purpose of sending requests to another nodes.
-    ///
-    /// Created node will contain xPI implementations of: semver, client and will answer to respective
-    /// requests. Heartbeats will also be broadcasted.
-    pub async fn new_client(
-        id: NodeId, /* xPI client, generated or dynamically loaded */
-    ) -> VhNode {
+impl Server {
+    // Create a node with a sole purpose of sending requests to another nodes.
+    //
+    // Created node will contain xPI implementations of: semver, client and will answer to respective
+    // requests. Heartbeats will also be broadcasted.
+    // pub async fn new_client(
+    //     id: NodeId, /* xPI client, generated or dynamically loaded */
+    // ) -> Server {
+    //     let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
+    //     let (tx_internal, rx_internal) = mpsc::channel(16);
+    //     tokio::spawn(async move {
+    //         Self::process_events(id, rx_router, rx_internal).await;
+    //     });
+    //     Server {
+    //         id,
+    //         tx_to_event_loop,
+    //         tx_internal,
+    //         // nodes,
+    //     }
+    // }
+
+    pub async fn new(
+        id: NodeId,
+    ) -> Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
         tokio::spawn(async move {
             Self::process_events(id, rx_router, rx_internal).await;
         });
-        VhNode {
+        Server {
             id,
             tx_to_event_loop,
             tx_internal,
@@ -44,25 +57,9 @@ impl VhNode {
         }
     }
 
-    pub async fn new_server(
-        id: NodeId, /* xPI server, generated or dynamically loaded */
-    ) -> VhNode {
-        let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
-        let (tx_internal, rx_internal) = mpsc::channel(16);
-        tokio::spawn(async move {
-            Self::process_events(id, rx_router, rx_internal).await;
-        });
-        VhNode {
-            id,
-            tx_to_event_loop,
-            tx_internal,
-            // nodes,
-        }
-    }
-
-    pub fn node_id(&self) -> NodeId {
-        self.id
-    }
+    // pub fn node_id(&self) -> NodeId {
+    //     self.id
+    // }
 
     // pub async fn new_server
     // pub async fn new_router
@@ -78,11 +75,11 @@ impl VhNode {
     ///     Option::take()'n into local nodes hashmap.
     #[instrument(skip(rx_from_instances, rx_internal))]
     async fn process_events(
-        self_node_id: NodeId,
+        id: NodeId,
         mut rx_from_instances: Receiver<Event>,
         mut rx_internal: Receiver<InternalEvent>,
     ) {
-        info!("Entering event loop");
+        info!("Entering event loop {id:?}");
         // send out heartbeats
         // answer introspects
         // process read/write/subscribe
@@ -109,7 +106,6 @@ impl VhNode {
             futures::select! {
                 ev = rx_from_instances.select_next_some() => {
                     Self::process_events_from_instances(
-                        self_node_id,
                         &ev,
                         &mut filters,
                         &mut remote_nodes
@@ -117,7 +113,6 @@ impl VhNode {
                 }
                 ev_int = rx_internal.select_next_some() => {
                     Self::process_internal_events(
-                        self_node_id,
                         ev_int,
                         &mut nodes,
                         &mut filters,
@@ -129,15 +124,15 @@ impl VhNode {
                 // }
                 // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
-                    // trace!("{}: local heartbeat", self_node_id.0);
-                    let heartbeat_ev = Event::new_heartbeat(self_node_id, RequestId(heartbeat_request_id), Priority::Lossy(0), uptime);
-                    for rd in &mut remote_nodes {
-                        if rd.to_event_loop.send(heartbeat_ev.clone()).await.is_err() {
-                            error!("Failed to forward heartbeat to remote attachment event loop of: {:?}", rd.addr);
-                        }
-                    }
-                    uptime += 1;
-                    heartbeat_request_id += 1;
+                    // trace!("{}: local heartbeat", id.0);
+                    // let heartbeat_ev = Event::new_heartbeat(id, RequestId(heartbeat_request_id), Priority::Lossy(0), uptime);
+                    // for rd in &mut remote_nodes {
+                    //     if rd.to_event_loop.send(heartbeat_ev.clone()).await.is_err() {
+                    //         error!("Failed to forward heartbeat to remote attachment event loop of: {:?}", rd.addr);
+                    //     }
+                    // }
+                    // uptime += 1;
+                    // heartbeat_request_id += 1;
 
                     for (node_id, sender) in &nodes {
                         if sender.is_closed() {
@@ -146,14 +141,14 @@ impl VhNode {
                     }
                     for remote_node in &remote_nodes {
                         if remote_node.to_event_loop.is_closed() {
-                            warn!("Remote node attachment to {:?} is down", remote_node.reachable);
+                            warn!("Remote node attachment to {:?} is down", remote_node.protocol);
                         }
                     }
 
                     Self::drop_timed_out_filters(&mut filters);
                 }
                 complete => {
-                    warn!("{}: unexpected complete", self_node_id.0);
+                    warn!("unexpected complete");
                     break;
                 }
             }
@@ -161,7 +156,6 @@ impl VhNode {
     }
 
     async fn process_events_from_instances(
-        self_node_id: NodeId,
         ev: &Event,
         filters: &mut Vec<(EventFilter, Sender<Event>)>,
         remote_nodes: &mut Vec<RemoteDescriptor>,
@@ -187,47 +181,22 @@ impl VhNode {
 
         let mut attachments_addrs = vec![];
 
-        match ev.destination {
-            XpiGenericNodeSet::Unicast(id) => {
-                if self_node_id != id {
-                    // && routing_enabled
-                    for rd in remote_nodes {
-                        if rd.reachable.contains(&id) {
-                            if rd.to_event_loop.send(ev.clone()).await.is_ok() {
-                                // trace!("Forwarded to attachment event loop: {:?}", rd.addr);
-                                attachments_addrs.push(rd.addr.clone());
-                            } else {
-                                error!("Failed to forward event to remote attachment event loop of: {:?}", rd.addr);
-                            }
-                        }
-                    }
+        for rd in remote_nodes {
+            if rd.protocol == ev.destination.protocol {
+                if rd.to_event_loop.send(ev.clone()).await.is_ok() {
+                    // trace!("Forwarded to attachment event loop: {:?}", rd.addr);
+                    attachments_addrs.push(rd.protocol);
+                } else {
+                    error!("Failed to forward event to remote attachment event loop of: {:?}", rd.protocol);
                 }
             }
-            XpiGenericNodeSet::UnicastTraits { .. } => unimplemented!(),
-            XpiGenericNodeSet::Multicast { .. } => unimplemented!(),
-            XpiGenericNodeSet::Broadcast { .. } => {
-                // if self_node_id != original_source {
-                //     for rd in remote_nodes {
-                //         if rd.to_event_loop.send(ev.clone()).await.is_ok() {
-                //             trace!("Forwarded broadcast to: {:?}", rd.addr);
-                //         } else {
-                //             error!(
-                //                 "Failed to forward event to remote attachment event loop of: {:?}",
-                //                 rd.addr
-                //             );
-                //         }
-                //     }
-                // }
-            }
         }
-        // if routing is enabled
         trace!(
-            "rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}"
+            "rx from instances: {ev:?} -> {forwards_count} instances and -> {attachments_addrs:?}"
         );
     }
 
     async fn process_internal_events(
-        self_node_id: NodeId,
         ev: InternalEvent,
         nodes: &mut HashMap<NodeId, Sender<Event>>,
         filters: &mut Vec<(EventFilter, Sender<Event>)>,
@@ -236,11 +205,11 @@ impl VhNode {
         match ev {
             InternalEvent::ConnectInstance(id, tx_handle) => {
                 nodes.insert(id, tx_handle);
-                info!("{}: connected to {} (executor local)", self_node_id.0, id.0);
+                info!("connected to {} (executor local)", id.0);
             }
             InternalEvent::DisconnectInstance(id) => {
                 nodes.remove(&id);
-                info!("{}: disconnected from {}", self_node_id.0, id.0);
+                info!("disconnected from {}", id.0);
             }
             InternalEvent::Filter(filter, tx_handle) => {
                 let idx = filters.len();
@@ -248,37 +217,38 @@ impl VhNode {
                 filters.push((filter, tx_handle));
             }
             InternalEvent::ConnectRemote(remote_descriptor) => {
-                info!("remote attachment {} registered", remote_descriptor);
+                info!("remote attachment {:?} registered", remote_descriptor);
                 remote_nodes.push(remote_descriptor);
             }
             InternalEvent::DropRemote(remote_addr) => {
                 info!("remote attachment {remote_addr:?} is being dropped");
-                let was_reachable = remote_nodes
-                    .iter()
-                    .filter(|rd| rd.addr == remote_addr)
-                    .map(|rd| rd.reachable.clone())
-                    .next()
-                    .unwrap_or(vec![]);
-                remote_nodes.retain(|rd| rd.addr != remote_addr);
+                todo!()
+                // let was_reachable = remote_nodes
+                //     .iter()
+                //     .filter(|rd| rd.addr == remote_addr)
+                //     .map(|rd| rd.reachable.clone())
+                //     .next()
+                //     .unwrap_or(vec![]);
+                // remote_nodes.retain(|rd| rd.addr != remote_addr);
 
-                // Drop filters that relied on remote node being online
-                let mut dropped_count = 0;
-                filters.retain(|(filter, _)| {
-                    for remote_id in &was_reachable {
-                        if filter.is_waiting_for_node(*remote_id)
-                            && filter.is_drop_on_remote_disconnect()
-                        {
-                            dropped_count += 1;
-                            return false;
-                        }
-                    }
-                    true
-                });
-                if dropped_count != 0 {
-                    debug!(
-                        "{dropped_count} filter(s) was dropped due to remote node going offline"
-                    );
-                }
+                // // Drop filters that relied on remote node being online
+                // let mut dropped_count = 0;
+                // filters.retain(|(filter, _)| {
+                //     for remote_id in &was_reachable {
+                //         if filter.is_waiting_for_node(*remote_id)
+                //             && filter.is_drop_on_remote_disconnect()
+                //         {
+                //             dropped_count += 1;
+                //             return false;
+                //         }
+                //     }
+                //     true
+                // });
+                // if dropped_count != 0 {
+                //     debug!(
+                //         "{dropped_count} filter(s) was dropped due to remote node going offline"
+                //     );
+                // }
             }
         }
     }
@@ -296,7 +266,7 @@ impl VhNode {
         self.tx_to_event_loop.clone()
     }
 
-    async fn connect_instance(&mut self, other: &mut VhNode) -> Result<(), NodeError> {
+    async fn connect_instance(&mut self, other: &mut Server) -> Result<(), NodeError> {
         self.tx_internal
             .send(InternalEvent::ConnectInstance(
                 other.id,
@@ -328,37 +298,37 @@ impl VhNode {
     #[instrument(skip(self), fields(node_id = self.id.0))]
     pub async fn connect_remote(
         &mut self,
-        addr: RemoteNodeAddr,
-        remote_reachable: Vec<NodeId>,
+        addr: Address,
     ) -> Result<(), NodeError> {
         let id = self.id;
         let to_event_loop = self.tx_to_event_loop.clone();
         let to_event_loop_internal = self.tx_internal.clone();
 
-        let to_event_loop = match addr {
-            RemoteNodeAddr::Tcp(ip_addr) => {
-                info!("tcp: Connecting to remote {ip_addr}");
-                let tcp_stream = TcpStream::connect(ip_addr).await?;
-                let codec = RmvlbCodec::new_with_max_length(512); // TODO: do not hardcode
-                let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
-                info!("Connected");
-                let (tx, rx) = mpsc::channel(64);
-                tokio::spawn(async move {
-                    tcp_event_loop(
-                        id,
-                        ip_addr,
-                        frames_sink,
-                        frames_source,
-                        to_event_loop.clone(),
-                        to_event_loop_internal,
-                        rx,
-                    )
-                    .await
-                });
-                tx
+        let to_event_loop = match addr.protocol {
+            Protocol::Tcp { .. } => {
+                todo!()
+                // info!("tcp: Connecting to remote {ip_addr}");
+                // let tcp_stream = TcpStream::connect(ip_addr).await?;
+                // let codec = RmvlbCodec::new_with_max_length(512); // TODO: do not hardcode
+                // let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
+                // info!("Connected");
+                // let (tx, rx) = mpsc::channel(64);
+                // tokio::spawn(async move {
+                //     tcp_event_loop(
+                //         id,
+                //         ip_addr,
+                //         frames_sink,
+                //         frames_source,
+                //         to_event_loop.clone(),
+                //         to_event_loop_internal,
+                //         rx,
+                //     )
+                //     .await
+                // });
+                // tx
             }
-            RemoteNodeAddr::Ws(ip_addr) => {
-                let url = format!("ws://{ip_addr}");
+            Protocol::Ws { ip_addr, port } => {
+                let url = format!("ws://{ip_addr}:{port}");
                 info!("ws: Connecting to remote {url}");
                 let (ws_stream, _) = tokio_tungstenite::connect_async(url).await.unwrap();
                 let (frames_sink, frames_source) = ws_stream.split();
@@ -367,7 +337,7 @@ impl VhNode {
                 tokio::spawn(async move {
                     crate::remote::ws::ws_event_loop(
                         id,
-                        ip_addr,
+                        addr.protocol,
                         frames_sink,
                         frames_source,
                         to_event_loop.clone(),
@@ -380,8 +350,7 @@ impl VhNode {
             }
         };
         let remote_descriptor = RemoteDescriptor {
-            reachable: remote_reachable,
-            addr,
+            protocol: addr.protocol,
             to_event_loop,
         };
         self.tx_internal
@@ -391,24 +360,25 @@ impl VhNode {
     }
 
     #[instrument(skip(self), fields(node_id = self.id.0))]
-    pub async fn listen(&mut self, addr: RemoteNodeAddr) -> Result<(), NodeError> {
+    pub async fn listen(&mut self, addr: Address) -> Result<(), NodeError> {
         let id = self.id;
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();
-        match addr {
-            RemoteNodeAddr::Tcp(ip_addr) => {
-                let listener = TcpListener::bind(ip_addr).await?;
-                info!("tcp: Listening on: {ip_addr}");
+        match addr.protocol {
+            Protocol::Tcp { .. } => {
+                // let listener = TcpListener::bind(ip_addr).await?;
+                // info!("tcp: Listening on: {ip_addr}");
 
-                tokio::spawn(async move {
-                    tcp_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await
-                });
+                // tokio::spawn(async move {
+                //     tcp_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await
+                // });
 
-                Ok(())
+                // Ok(())
+                unimplemented!()
             }
-            RemoteNodeAddr::Ws(ip_addr) => {
-                let listener = TcpListener::bind(ip_addr).await?;
-                info!("ws: Listening on: {ip_addr}");
+            Protocol::Ws {ip_addr, port } => {
+                let listener = TcpListener::bind((ip_addr, port)).await?;
+                info!("ws: Listening on: {ip_addr}:{port}");
 
                 tokio::spawn(async move {
                     ws_server_acceptor(id, listener, tx_to_event_loop, tx_internal).await

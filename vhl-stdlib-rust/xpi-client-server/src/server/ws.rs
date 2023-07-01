@@ -4,14 +4,11 @@ use crate::server::internal_event::InternalEvent;
 use crate::server::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
-// use futures::{SinkExt, StreamExt};
 use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
-// use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
 use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
-// use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn ws_server_acceptor(

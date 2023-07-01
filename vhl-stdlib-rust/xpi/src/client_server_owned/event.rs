@@ -70,4 +70,14 @@ impl Event {
             seq,
         }
     }
+
+    pub fn request_single(action: Request, seq: RequestId) -> Self {
+        Event {
+            kind: EventKind::Request {
+                actions: smallvec![action],
+                bail_on_error: true,
+            },
+            seq,
+        }
+    }
 }

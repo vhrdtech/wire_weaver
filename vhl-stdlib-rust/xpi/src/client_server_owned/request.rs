@@ -26,6 +26,15 @@ pub enum RequestKind {
 }
 
 impl Request {
+    pub fn call(nrl: Nrl, args: Vec<u8>) -> Self {
+        Request {
+            tr: None,
+            nrl,
+            reply_ack: ReplyAck::Ack,
+            kind: RequestKind::Call { args },
+        }
+    }
+
     pub fn flip_with_error(&self, err: Error) -> Reply {
         let kind = match self.kind {
             RequestKind::Call { .. } => ReplyKind::CallResult {

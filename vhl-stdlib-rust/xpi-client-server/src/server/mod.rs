@@ -52,17 +52,8 @@ impl Server {
         Server {
             tx_to_event_loop,
             tx_internal,
-            // nodes,
         }
     }
-
-    // pub fn node_id(&self) -> NodeId {
-    //     self.id
-    // }
-
-    // pub async fn new_server
-    // pub async fn new_router
-    // pub async fn new_tracer
 
     /// Process all the xPI events that may be received from other nodes and send it's own.
     /// Route local traffic between nodes or through one of the transport channels to the
@@ -90,7 +81,6 @@ impl Server {
 
         // tx handles to another nodes running on remote machines or in another processes
         let mut remote_nodes: Vec<RemoteDescriptor> = Vec::new();
-
         // tx handles to Self for filter_one and filter_many
         let mut filters: Vec<(EventFilter, Sender<AddressableEvent>)> = Vec::new();
 
@@ -132,16 +122,13 @@ impl Server {
                     // uptime += 1;
                     // heartbeat_request_id += 1;
 
-                    // for (node_id, sender) in &nodes {
-                    //     if sender.is_closed() {
-                    //         warn!("Node instance with node id {node_id:?} is down");
-                    //     }
-                    // }
-                    for remote_node in &remote_nodes {
-                        if remote_node.to_event_loop.is_closed() {
-                            warn!("Remote node attachment to {:?} is down", remote_node.protocol);
+                    remote_nodes.retain(|attch| {
+                        if attch.to_event_loop.is_closed() {
+                            warn!("Remote node attachment to {:?} is down, dropping", attch.protocol);
+                            return false;
                         }
-                    }
+                        true
+                    });
 
                     Self::drop_timed_out_filters(&mut filters);
                 }

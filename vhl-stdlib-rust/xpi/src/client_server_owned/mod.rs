@@ -30,6 +30,15 @@ impl Default for Nrl {
         Nrl(SmallVec::new())
     }
 }
+impl Nrl {
+    pub fn new(parts: &[u32]) -> Self {
+        Nrl(parts.into())
+    }
+
+    pub fn iter(&self) -> core::slice::Iter<u32> {
+        self.0.iter()
+    }
+}
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Error {
@@ -44,4 +53,13 @@ pub enum ReplyAck {
     Nack,
     /// Do not reply regardless of a result
     Ignore,
+}
+
+pub mod prelude {
+    pub use super::event::Event;
+    pub use super::reply::Reply;
+    pub use super::request::Request;
+    pub use super::Nrl;
+    pub use super::Protocol;
+    pub use super::RequestId;
 }

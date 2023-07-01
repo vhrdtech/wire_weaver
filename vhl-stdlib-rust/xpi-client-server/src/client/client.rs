@@ -4,7 +4,7 @@ use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Address, Event, NodeId, RequestId};
+use xpi::client_server_owned::{Event, NodeId, RequestId, Protocol};
 
 pub struct ClientManager {
     tx_events: UnboundedSender<Event>,
@@ -18,7 +18,7 @@ pub enum InternalReq {
         tx: UnboundedSender<Event>,
         name: String,
     },
-    Connect(Address),
+    Connect(Protocol),
     Disconnect,
     Stop,
 }
@@ -69,9 +69,9 @@ impl ClientManager {
         })
     }
 
-    pub fn connect(&mut self, addr: &str) -> Result<(), Error> {
-        let addr = Address::parse(addr).unwrap();
-        self.tx_internal.send(InternalReq::Connect(addr));
+    pub fn connect(&mut self, protocol: Protocol) -> Result<(), Error> {
+        // let addr = Address::parse(addr).unwrap();
+        self.tx_internal.send(InternalReq::Connect(protocol)).unwrap();
         Ok(())
     }
 

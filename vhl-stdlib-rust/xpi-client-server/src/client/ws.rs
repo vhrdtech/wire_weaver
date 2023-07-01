@@ -115,8 +115,8 @@ pub async fn ws_event_loop(
                                     break;
                                 }
                             }
-                            Some(InternalReq::Connect(addr)) => {
-                                match addr.protocol {
+                            Some(InternalReq::Connect(protocol)) => {
+                                match protocol {
                                     Protocol::Tcp { .. } => unimplemented!(),
                                     Protocol::Ws { ip_addr, port } => {
                                         let url = format!("ws://{ip_addr}:{port}");

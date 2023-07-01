@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
-use crate::remote::remote_descriptor::RemoteDescriptor;
 use crate::server::internal_event::InternalEvent;
+use crate::server::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 // use futures::{SinkExt, StreamExt};
@@ -10,14 +10,13 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, trace, warn};
 // use vhl_stdlib::serdes::{NibbleBuf, NibbleBufMut};
-use xpi::client_server_owned::{Event, NodeId, Protocol};
+use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
 // use xpi::xwfd;
 
 #[instrument(skip(listener, tx_to_event_loop, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
-    self_id: NodeId,
     listener: TcpListener,
-    tx_to_event_loop: Sender<Event>,
+    tx_to_event_loop: Sender<AddressableEvent>,
     mut tx_internal: Sender<InternalEvent>,
 ) {
     loop {
@@ -33,11 +32,13 @@ pub(crate) async fn ws_server_acceptor(
                 let (tx, rx) = mpsc::channel(64);
                 let to_event_loop = tx_to_event_loop.clone();
                 let to_event_loop_internal = tx_internal.clone();
-                let protocol = Protocol::Ws { ip_addr: remote_addr.ip(), port: remote_addr.port() };
+                let protocol = Protocol::Ws {
+                    ip_addr: remote_addr.ip(),
+                    port: remote_addr.port(),
+                };
 
                 tokio::spawn(async move {
                     ws_event_loop(
-                        self_id,
                         protocol,
                         ws_sink,
                         ws_source,
@@ -48,7 +49,7 @@ pub(crate) async fn ws_server_acceptor(
                     .await
                 });
                 let remote_descriptor = RemoteDescriptor {
-                    protocol, 
+                    protocol,
                     to_event_loop: tx,
                 };
                 match tx_internal
@@ -74,13 +75,12 @@ pub(crate) async fn ws_server_acceptor(
     from_event_loop
 ))]
 pub async fn ws_event_loop(
-    _self_id: NodeId,
     protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    mut to_event_loop: Sender<Event>,
+    mut to_event_loop: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
-    mut from_event_loop: Receiver<Event>,
+    mut from_event_loop: Receiver<AddressableEvent>,
 ) {
     info!("Entering websocket event loop on {protocol:?}");
     // let mut ws_source = ws_source.fuse();
@@ -91,7 +91,7 @@ pub async fn ws_event_loop(
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(frame, &mut to_event_loop).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut to_event_loop).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -122,7 +122,11 @@ pub async fn ws_event_loop(
     }
 }
 
-async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<Event>) -> bool {
+async fn process_incoming_frame(
+    protocol: Protocol,
+    ws_message: Message,
+    to_event_loop: &mut Sender<AddressableEvent>,
+) -> bool {
     // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     match ws_message {
         Message::Binary(bytes) => {
@@ -130,13 +134,15 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
             // let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
             let cur = Cursor::new(bytes);
             let mut de = rmp_serde::Deserializer::new(cur);
-            let ev: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
-            match ev {
-                Ok(ev) => {
-                    // trace!("rx {}B: {}", bytes.len(), ev);
-                    trace!("{ev:?}");
-                    // let ev_owned: Event = ev.into(); // xwfd into owned
-                    if to_event_loop.send(ev).await.is_err() {
+            let event: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
+            match event {
+                Ok(event) => {
+                    trace!("{event:?}");
+                    if to_event_loop
+                        .send(AddressableEvent { protocol, event })
+                        .await
+                        .is_err()
+                    {
                         error!("mpsc fail, main event loop must have crashed?");
                         return true;
                     }
@@ -158,12 +164,12 @@ async fn process_incoming_frame(ws_message: Message, to_event_loop: &mut Sender<
     false
 }
 
-pub(crate) async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
+pub(crate) async fn serialize_and_send(ev: AddressableEvent, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
     trace!("sending: {ev:?}");
 
     let mut buf = Vec::new();
-    match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {
+    match serde::Serialize::serialize(&ev.event, &mut rmp_serde::Serializer::new(&mut buf)) {
         Ok(()) => match ws_sink.send(Message::Binary(buf)).await {
             Ok(_) => {}
             Err(_) => {

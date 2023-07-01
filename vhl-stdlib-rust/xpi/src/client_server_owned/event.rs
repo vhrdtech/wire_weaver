@@ -1,13 +1,19 @@
-use super::{Address, Error, Nrl, Reply, ReplyAck, Request, RequestId, RequestKind};
+use super::{Error, Nrl, Protocol, Reply, ReplyAck, Request, RequestId, RequestKind};
 use smallvec::{smallvec, SmallVec};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
-    pub source: Address,
-    pub destination: Address,
+    // pub source: Option<Address>,
+    // pub destination: Option<Address>,
     // pub base_nrl: Option<Nrl>,
     pub kind: EventKind,
-    pub seq: Option<RequestId>,
+    pub seq: RequestId,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct AddressableEvent {
+    pub protocol: Protocol,
+    pub event: Event,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -34,8 +40,8 @@ impl Event {
                         .collect(),
                 };
                 Some(Event {
-                    source: self.destination.clone(),
-                    destination: self.source.clone(),
+                    // source: self.destination.clone(),
+                    // destination: self.source.clone(),
                     kind,
                     seq: self.seq,
                 })
@@ -44,10 +50,14 @@ impl Event {
         }
     }
 
-    pub fn new_heartbeat(source: Address, destination: Address, seq: RequestId) -> Self {
+    pub fn new_heartbeat(
+        // source: Option<Address>,
+        // destination: Option<Address>,
+        seq: RequestId,
+    ) -> Self {
         Event {
-            source,
-            destination,
+            // source,
+            // destination,
             kind: EventKind::Request {
                 actions: smallvec![Request {
                     tr: None,
@@ -57,7 +67,7 @@ impl Event {
                 }],
                 bail_on_error: false,
             },
-            seq: Some(seq),
+            seq,
         }
     }
 }

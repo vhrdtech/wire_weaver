@@ -9,7 +9,7 @@ use futures_util::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server_owned::{Event, NodeId, Protocol};
+use xpi::client_server_owned::{Event, Protocol};
 
 #[instrument(skip(events_rx, internal_rx, internal_tx))]
 pub async fn ws_event_loop(
@@ -51,7 +51,7 @@ pub async fn ws_event_loop(
                     event = events_rx.recv() => {
                         match event {
                             Some(event) => {
-                                close_connection = crate::remote::ws::serialize_and_send(event, ws_tx).await;
+                                close_connection = serialize_and_send(event, ws_tx).await;
                             }
                             None => {
                                 trace!("break C");
@@ -175,7 +175,13 @@ async fn process_incoming_frame(
                 Ok(ev) => {
                     // trace!("rx {}B: {}", bytes.len(), ev);
                     trace!("received: {ev:?}");
-                    let destination_node = ev.destination.node_id;
+                    let destination_node = match ev.destination {
+                        Some(addr) => addr.node_id,
+                        None => {
+                            warn!("no destination in received event, ignoring it");
+                            return false;
+                        }
+                    };
                     if let Some((tx, name)) = instances.get_mut(&destination_node) {
                         if tx.send(ev).is_err() {
                             debug!("dropping instance with id: {destination_node:?} ({name})");
@@ -211,8 +217,10 @@ async fn reply_with_error(
     // }
     // reply.destination = NodeSet::Unicast(event.source);
     if let Some(reply) = event.flip_with_error(xpi::client_server_owned::Error::Disconnected) {
-        if let Some((tx, _)) = instances.get(&event.source.node_id) {
-            tx.send(reply).unwrap();
+        if let Some(src) = event.source {
+            if let Some((tx, _)) = instances.get(&src.node_id) {
+                tx.send(reply).unwrap();
+            }
         }
     }
 }

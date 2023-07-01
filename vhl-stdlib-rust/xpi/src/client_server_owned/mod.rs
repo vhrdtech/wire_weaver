@@ -7,16 +7,16 @@ pub mod event;
 pub mod reply;
 pub mod request;
 
-pub use address::{Address, Protocol};
-pub use event::{Event, EventKind};
+pub use address::Protocol;
+pub use event::{AddressableEvent, Event, EventKind};
 pub use reply::{Reply, ReplyKind, ReplyKindDiscriminants};
 pub use request::{Request, RequestKind};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RequestId(pub u32);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct NodeId(pub u32);
+// #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+// pub struct NodeId(pub u32);
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TraitDescriptor {

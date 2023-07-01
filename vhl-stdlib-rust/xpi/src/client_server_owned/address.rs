@@ -1,12 +1,11 @@
-use super::NodeId;
 use std::net::IpAddr;
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct Address {
-    pub protocol: Protocol,
-    pub node_id: NodeId,
-    // pub wire_format: WireFormat,
-}
+// #[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+// pub struct Address {
+//     pub protocol: Protocol,
+//     pub node_id: NodeId,
+//     // pub wire_format: WireFormat,
+// }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Protocol {
@@ -21,8 +20,8 @@ pub enum Protocol {
 //     Wfd,
 // }
 
-impl Address {
-    pub fn parse<S: AsRef<str>>(_s: S) -> Option<Self> {
-        todo!()
-    }
-}
+// impl Address {
+//     pub fn parse<S: AsRef<str>>(_s: S) -> Option<Self> {
+//         todo!()
+//     }
+// }

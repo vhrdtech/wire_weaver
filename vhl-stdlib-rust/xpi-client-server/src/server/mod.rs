@@ -10,7 +10,7 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
-use tracing::{error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
 
 use error::NodeError;
@@ -47,7 +47,7 @@ impl Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
         tokio::spawn(async move {
-            Self::process_events(rx_router, rx_internal).await;
+            Self::event_loop(rx_router, rx_internal).await;
         });
         Server {
             tx_to_event_loop,
@@ -64,7 +64,7 @@ impl Server {
     /// rx_internal: when new node is added, message is sent to this channel and it's handle is
     ///     Option::take()'n into local nodes hashmap.
     #[instrument(skip(rx_from_instances, rx_internal))]
-    async fn process_events(
+    async fn event_loop(
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,
     ) {
@@ -74,13 +74,9 @@ impl Server {
         // process read/write/subscribe
         // process method calls
         // process timeouts
-        // rate shaper?
-
-        // tx handles to another node instances running on the same executor
-        // let mut nodes: HashMap<NodeId, Sender<AddressableEvent>> = HashMap::new();
 
         // tx handles to another nodes running on remote machines or in another processes
-        let mut remote_nodes: Vec<RemoteDescriptor> = Vec::new();
+        let mut clients: Vec<RemoteDescriptor> = Vec::new();
         // tx handles to Self for filter_one and filter_many
         let mut filters: Vec<(EventFilter, Sender<AddressableEvent>)> = Vec::new();
 
@@ -93,10 +89,10 @@ impl Server {
         loop {
             futures::select! {
                 ev = rx_from_instances.select_next_some() => {
-                    Self::process_events_from_instances(
+                    Self::process_events(
                         &ev,
                         &mut filters,
-                        &mut remote_nodes
+                        &mut clients
                     ).await;
                 }
                 ev_int = rx_internal.select_next_some() => {
@@ -104,13 +100,9 @@ impl Server {
                         ev_int,
                         // &mut nodes,
                         &mut filters,
-                        &mut remote_nodes
+                        &mut clients
                     ).await;
                 }
-                // tcp_rx_res = tcp_streams_rx => {
-                //     println!("tcp rx: {:?}", tcp_rx_res);
-                // }
-                // _ = heartbeat.tick() => {
                 _ = heartbeat.next() => {
                     // trace!("{}: local heartbeat", id.0);
                     // let heartbeat_ev = Event::new_heartbeat(id, RequestId(heartbeat_request_id), Priority::Lossy(0), uptime);
@@ -122,9 +114,10 @@ impl Server {
                     // uptime += 1;
                     // heartbeat_request_id += 1;
 
-                    remote_nodes.retain(|attch| {
+                    // Drop disconnected clients
+                    clients.retain(|attch| {
                         if attch.to_event_loop.is_closed() {
-                            warn!("Remote node attachment to {:?} is down, dropping", attch.protocol);
+                            warn!("Remote node attachment to {} is down, dropping", attch.protocol);
                             return false;
                         }
                         true
@@ -140,7 +133,7 @@ impl Server {
         }
     }
 
-    async fn process_events_from_instances(
+    async fn process_events(
         ev: &AddressableEvent,
         filters: &mut Vec<(EventFilter, Sender<AddressableEvent>)>,
         remote_nodes: &mut Vec<RemoteDescriptor>,
@@ -148,8 +141,12 @@ impl Server {
         let mut filters_to_drop = vec![];
         let mut forwards_count = 0;
         for (idx, (filter, tx_handle)) in filters.iter_mut().enumerate() {
+            if !ev.is_inbound {
+                // event is supposed to be sent to on of the clients, see below
+                continue;
+            }
             if filter.matches(&ev.event) {
-                let r = tx_handle.send(ev.clone()).await; // TODO: count
+                let r = tx_handle.send(ev.clone()).await;
                 if r.is_ok() {
                     forwards_count += 1;
                 }
@@ -158,7 +155,6 @@ impl Server {
                 }
             }
         }
-        // trace!("forwarded to {forwards_count} instances");
         for f in filters_to_drop {
             trace!("dropping filter {f}");
             filters.remove(f);
@@ -167,20 +163,20 @@ impl Server {
         let mut attachments_addrs = vec![];
 
         for rd in remote_nodes {
-            if rd.protocol == ev.protocol {
+            if !ev.is_inbound && rd.protocol == ev.protocol {
                 if rd.to_event_loop.send(ev.clone()).await.is_ok() {
                     // trace!("Forwarded to attachment event loop: {:?}", rd.addr);
                     attachments_addrs.push(rd.protocol);
                 } else {
                     error!(
-                        "Failed to forward event to remote attachment event loop of: {:?}",
+                        "Failed to forward event to remote attachment event loop of: {}",
                         rd.protocol
                     );
                 }
             }
         }
         trace!(
-            "rx from instances: {ev:?} -> {forwards_count} instances and -> {attachments_addrs:?}"
+            "rx from instances: {ev} -> {forwards_count} instances and -> {attachments_addrs:?}"
         );
     }
 
@@ -191,14 +187,6 @@ impl Server {
         remote_nodes: &mut Vec<RemoteDescriptor>,
     ) {
         match ev {
-            // InternalEvent::ConnectInstance(id, tx_handle) => {
-            //     nodes.insert(id, tx_handle);
-            //     info!("connected to {} (executor local)", id.0);
-            // }
-            // InternalEvent::DisconnectInstance(id) => {
-            //     nodes.remove(&id);
-            //     info!("disconnected from {}", id.0);
-            // }
             InternalEvent::Filter(filter, tx_handle) => {
                 let idx = filters.len();
                 info!("filter {:?} registered with idx {idx}", filter);
@@ -209,8 +197,7 @@ impl Server {
                 remote_nodes.push(remote_descriptor);
             }
             InternalEvent::DropRemote(remote_addr) => {
-                info!("remote attachment {remote_addr:?} is being dropped");
-                todo!()
+                info!("remote attachment {remote_addr} is being dropped");
                 // let was_reachable = remote_nodes
                 //     .iter()
                 //     .filter(|rd| rd.addr == remote_addr)
@@ -219,7 +206,7 @@ impl Server {
                 //     .unwrap_or(vec![]);
                 // remote_nodes.retain(|rd| rd.addr != remote_addr);
 
-                // // Drop filters that relied on remote node being online
+                // TODO: Drop filters that relied on remote node being online
                 // let mut dropped_count = 0;
                 // filters.retain(|(filter, _)| {
                 //     for remote_id in &was_reachable {
@@ -429,10 +416,3 @@ fn tick_stream(period: Duration) -> impl Stream<Item = ()> {
         Some(((), p))
     })
 }
-
-// async fn outgoing_process(mut tcp_tx: OwnedWriteHalf, mut mpsc_rx: Receiver<VhLinkEvent>) {
-//     while let Some(ev) = mpsc_rx.next().await {
-//         println!("outgoing_process: got event: {:?}", ev);
-//         let r = tcp_tx.write_all(&[0x3, 0xa1, 0x16, 0x60, 0x10, 0x52, 0x55, 0x19,  0x0,  0xa,  0x0, 0x14,  0x0,  0x5,  0x0,  0x7,  0x0, 0x1b]).await;
-//     }
-// }

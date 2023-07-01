@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use super::{Error, Nrl, Protocol, Reply, ReplyAck, Request, RequestId, RequestKind};
 use smallvec::{smallvec, SmallVec};
 
@@ -10,9 +12,10 @@ pub struct Event {
     pub seq: RequestId,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub struct AddressableEvent {
     pub protocol: Protocol,
+    pub is_inbound: bool,
     pub event: Event,
 }
 
@@ -79,5 +82,52 @@ impl Event {
             },
             seq,
         }
+    }
+}
+
+impl Display for Event {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.kind {
+            EventKind::Request {
+                actions,
+                bail_on_error,
+            } => {
+                if actions.len() == 1 {
+                    write!(f, "{}@{}", actions[0], self.seq.0)?;
+                } else {
+                    write!(f, "{}[", actions.len())?;
+                    for req in actions {
+                        write!(f, "{req}, ")?;
+                    }
+                    write!(f, "]")?;
+                    if *bail_on_error {
+                        write!(f, "+bail_on_error")?;
+                    }
+                }
+            }
+            EventKind::Reply { results } => {
+                if results.len() == 1 {
+                    write!(f, "{}@{}", results[0], self.seq.0)?;
+                } else {
+                    write!(f, "{}[", results.len())?;
+                    for res in results {
+                        write!(f, "{res}, ")?;
+                    }
+                    write!(f, "]")?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Display for AddressableEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.is_inbound {
+            write!(f, "rx_")?;
+        } else {
+            write!(f, "tx_")?;
+        }
+        write!(f, "{} {}", self.protocol, self.event)
     }
 }

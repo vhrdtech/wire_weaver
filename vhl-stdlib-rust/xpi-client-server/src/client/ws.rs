@@ -169,7 +169,7 @@ async fn process_incoming_frame(
             match ev {
                 Ok(ev) => {
                     // trace!("rx {}B: {}", bytes.len(), ev);
-                    trace!("received: {ev:?}");
+                    trace!("received: {ev}");
                     let destination_node = (ev.seq.0 >> 24) as u8;
                     if let Some((tx, name)) = instances.get_mut(&destination_node) {
                         if tx.send(ev).is_err() {
@@ -208,7 +208,7 @@ async fn reply_with_error(
 
 async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
-    trace!("sending: {ev:?}");
+    trace!("sending: {ev}");
 
     let mut buf = Vec::new();
     match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {

@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use super::{Error, Nrl, ReplyAck, TraitDescriptor};
 use super::{Reply, ReplyKind};
 
@@ -49,11 +51,29 @@ impl Request {
             RequestKind::Borrow => ReplyKind::BorrowResult { status: Err(err) },
             RequestKind::Release => ReplyKind::ReadResult { value: Err(err) },
             RequestKind::Introspect => ReplyKind::IntrospectResult { vhl: Err(err) },
-            RequestKind::Ping => todo!(),
+            RequestKind::Ping => ReplyKind::Pong { payload: Err(err) },
         };
         Reply {
             nrl: self.nrl.clone(),
             kind,
+        }
+    }
+}
+
+impl Display for Request {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.kind {
+            RequestKind::Call { args } => write!(f, "Call{}({args:x?})", self.nrl),
+            RequestKind::Read => write!(f, "Read{}", self.nrl),
+            RequestKind::Write { value } => write!(f, "Write{}({value:x?})", self.nrl),
+            RequestKind::OpenStream => write!(f, "OpenStream{}", self.nrl),
+            RequestKind::CloseStream => write!(f, "CloseStream{}", self.nrl),
+            RequestKind::Subscribe => write!(f, "Subscribe{}", self.nrl),
+            RequestKind::Unsubscribe => write!(f, "Unsubscribe{}", self.nrl),
+            RequestKind::Borrow => write!(f, "Borrow{}", self.nrl),
+            RequestKind::Release => write!(f, "Release{}", self.nrl),
+            RequestKind::Introspect => write!(f, "Introspect{}", self.nrl),
+            RequestKind::Ping => write!(f, "Ping{}", self.nrl),
         }
     }
 }

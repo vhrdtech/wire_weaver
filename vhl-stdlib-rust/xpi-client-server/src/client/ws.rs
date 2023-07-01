@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use super::client::{InternalReq, InternalResp};
+use super::{InternalReq, InternalResp};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     Sink, SinkExt, StreamExt, TryStreamExt,

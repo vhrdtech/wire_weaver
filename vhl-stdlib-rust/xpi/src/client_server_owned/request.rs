@@ -1,7 +1,9 @@
 use core::fmt::Display;
 
-use super::{Error, Nrl, ReplyAck, TraitDescriptor};
-use super::{Reply, ReplyKind};
+use crate::error::XpiError;
+
+use super::Reply;
+use super::{Nrl, ReplyAck, TraitDescriptor};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Request {
@@ -37,25 +39,25 @@ impl Request {
         }
     }
 
-    pub fn flip_with_error(&self, err: Error) -> Reply {
-        let kind = match self.kind {
-            RequestKind::Call { .. } => ReplyKind::CallResult {
-                ret_value: Err(err),
-            },
-            RequestKind::Read => ReplyKind::ReadResult { value: Err(err) },
-            RequestKind::Write { .. } => ReplyKind::WriteResult { status: Err(err) },
-            RequestKind::OpenStream => ReplyKind::OpenStreamResult { status: Err(err) },
-            RequestKind::CloseStream => ReplyKind::CloseStreamResult { status: Err(err) },
-            RequestKind::Subscribe => ReplyKind::SubscribeResult { status: Err(err) },
-            RequestKind::Unsubscribe => ReplyKind::UnsubscribeResult { status: Err(err) },
-            RequestKind::Borrow => ReplyKind::BorrowResult { status: Err(err) },
-            RequestKind::Release => ReplyKind::ReadResult { value: Err(err) },
-            RequestKind::Introspect => ReplyKind::IntrospectResult { vhl: Err(err) },
-            RequestKind::Ping => ReplyKind::Pong { payload: Err(err) },
-        };
+    pub fn flip_with_error(&self, err: XpiError) -> Reply {
+        // let kind = match self.kind {
+        //     RequestKind::Call { .. } => ReplyKind::CallResult {
+        //         ret_value: Err(err),
+        //     },
+        //     RequestKind::Read => ReplyKind::ReadResult { value: Err(err) },
+        //     RequestKind::Write { .. } => ReplyKind::WriteResult { status: Err(err) },
+        //     RequestKind::OpenStream => ReplyKind::OpenStreamResult { status: Err(err) },
+        //     RequestKind::CloseStream => ReplyKind::CloseStreamResult { status: Err(err) },
+        //     RequestKind::Subscribe => ReplyKind::SubscribeResult { status: Err(err) },
+        //     RequestKind::Unsubscribe => ReplyKind::UnsubscribeResult { status: Err(err) },
+        //     RequestKind::Borrow => ReplyKind::BorrowResult { status: Err(err) },
+        //     RequestKind::Release => ReplyKind::ReadResult { value: Err(err) },
+        //     RequestKind::Introspect => ReplyKind::IntrospectResult { vhl: Err(err) },
+        //     RequestKind::Ping => ReplyKind::Pong { payload: Err(err) },
+        // };
         Reply {
             nrl: self.nrl.clone(),
-            kind,
+            kind: Err(err),
         }
     }
 }

@@ -1,6 +1,8 @@
 use core::fmt::Display;
 
-use super::{Error, Nrl, Protocol, Reply, ReplyAck, Request, RequestId, RequestKind};
+use crate::error::XpiError;
+
+use super::{Nrl, Protocol, Reply, ReplyAck, Request, RequestId, RequestKind};
 use smallvec::{smallvec, SmallVec};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -33,14 +35,11 @@ pub enum EventKind {
 }
 
 impl Event {
-    pub fn flip_with_error(&self, err: Error) -> Option<Event> {
+    pub fn flip_with_error(&self, err: XpiError) -> Option<Event> {
         match &self.kind {
             EventKind::Request { actions, .. } => {
                 let kind = EventKind::Reply {
-                    results: actions
-                        .iter()
-                        .map(|a| a.flip_with_error(err.clone()))
-                        .collect(),
+                    results: actions.iter().map(|a| a.flip_with_error(err)).collect(),
                 };
                 Some(Event {
                     // source: self.destination.clone(),
@@ -81,6 +80,21 @@ impl Event {
                 bail_on_error: true,
             },
             seq,
+        }
+    }
+}
+
+impl AddressableEvent {
+    pub fn prepare_reply(&self, reserve_len: usize) -> AddressableEvent {
+        let mut results = SmallVec::new();
+        results.reserve(reserve_len);
+        AddressableEvent {
+            protocol: self.protocol,
+            is_inbound: false,
+            event: Event {
+                kind: EventKind::Reply { results },
+                seq: self.event.seq,
+            },
         }
     }
 }

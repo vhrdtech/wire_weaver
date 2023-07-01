@@ -198,7 +198,7 @@ async fn reply_with_error(
     event: Event,
     instances: &mut HashMap<u8, (UnboundedSender<Event>, String)>,
 ) {
-    if let Some(reply) = event.flip_with_error(xpi::client_server_owned::Error::Disconnected) {
+    if let Some(reply) = event.flip_with_error(xpi::error::XpiError::Disconnected) {
         let seq_subset = (event.seq.0 >> 24) as u8;
         if let Some((tx, _)) = instances.get(&seq_subset) {
             tx.send(reply).unwrap();

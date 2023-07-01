@@ -23,10 +23,10 @@ pub struct TraitDescriptor {
     pub trait_id: u64,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Error {
-    Disconnected,
-}
+// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+// pub enum Error {
+//     Disconnected,
+// }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ReplyAck {
@@ -39,10 +39,11 @@ pub enum ReplyAck {
 }
 
 pub mod prelude {
-    pub use super::event::Event;
-    pub use super::reply::Reply;
-    pub use super::request::Request;
+    pub use super::event::{Event, EventKind};
+    pub use super::reply::{Reply, ReplyKind};
+    pub use super::request::{Request, RequestKind};
     pub use super::Nrl;
     pub use super::Protocol;
     pub use super::RequestId;
+    pub use smallvec::SmallVec;
 }

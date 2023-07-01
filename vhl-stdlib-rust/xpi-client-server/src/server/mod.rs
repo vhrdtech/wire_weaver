@@ -10,11 +10,20 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt};
 use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
 
 use error::NodeError;
 use internal_event::InternalEvent;
+
+pub mod prelude {
+    pub use super::error::NodeError;
+    pub use super::Server;
+    pub use crate::filter::EventFilter;
+    pub use xpi::client_server_owned::prelude::*;
+    pub use xpi::client_server_owned::AddressableEvent;
+    pub use xpi::error::XpiError;
+}
 
 #[derive(Debug)]
 pub struct Server {

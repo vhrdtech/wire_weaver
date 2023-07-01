@@ -13,4 +13,6 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("xPI error")]
     XpiError(XpiError),
+    #[error("")]
+    QueueError,
 }

@@ -4,7 +4,7 @@ use std::io::Cursor;
 use super::client::{InternalReq, InternalResp};
 use futures_util::{
     stream::{SplitSink, SplitStream},
-    StreamExt, TryStreamExt,
+    Sink, SinkExt, StreamExt, TryStreamExt,
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_tungstenite::tungstenite::Message;
@@ -22,8 +22,7 @@ pub async fn ws_event_loop(
     info!("Entering sync client event loop");
     // tokio::pin!(ws_rx);
     // tokio::pin!(ws_tx);
-    let mut instances: HashMap<NodeId, (UnboundedSender<Event>, String)> = HashMap::new();
-    let mut next_id = 1u32; // TODO: this is a hack, use (ip, port, id)?
+    let mut instances: HashMap<u8, (UnboundedSender<Event>, String)> = HashMap::new();
     let mut ws_txrx: Option<(SplitSink<_, _>, SplitStream<_>)> = None;
     let mut close_connection = false;
 
@@ -62,11 +61,9 @@ pub async fn ws_event_loop(
 
                     internal_req = internal_rx.recv() => {
                         match internal_req {
-                            Some(InternalReq::AddInstance { tx, name }) => {
-                                let id = NodeId(next_id);
-                                next_id += 1; // TODO: recycle
-                                instances.insert(id, (tx, name));
-                                if internal_tx.send(InternalResp::InstanceCreated { id }).is_err() {
+                            Some(InternalReq::AddInstance { seq_subset, tx, name }) => {
+                                instances.insert(seq_subset, (tx, name));
+                                if internal_tx.send(InternalResp::InstanceCreated).is_err() {
                                     trace!("break D");
                                     break;
                                 }
@@ -106,11 +103,9 @@ pub async fn ws_event_loop(
                     }
                     internal_req = internal_rx.recv() => {
                         match internal_req {
-                            Some(InternalReq::AddInstance { tx, name }) => {
-                                let id = NodeId(next_id);
-                                next_id += 1; // TODO: recycle
-                                instances.insert(id, (tx, name));
-                                if internal_tx.send(InternalResp::InstanceCreated { id }).is_err() {
+                            Some(InternalReq::AddInstance { seq_subset, tx, name }) => {
+                                instances.insert(seq_subset, (tx, name));
+                                if internal_tx.send(InternalResp::InstanceCreated).is_err() {
                                     trace!("break G");
                                     break;
                                 }
@@ -163,7 +158,7 @@ pub async fn ws_event_loop(
 
 async fn process_incoming_frame(
     ws_message: Message,
-    instances: &mut HashMap<NodeId, (UnboundedSender<Event>, String)>,
+    instances: &mut HashMap<u8, (UnboundedSender<Event>, String)>,
 ) -> bool {
     // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     match ws_message {
@@ -175,13 +170,7 @@ async fn process_incoming_frame(
                 Ok(ev) => {
                     // trace!("rx {}B: {}", bytes.len(), ev);
                     trace!("received: {ev:?}");
-                    let destination_node = match ev.destination {
-                        Some(addr) => addr.node_id,
-                        None => {
-                            warn!("no destination in received event, ignoring it");
-                            return false;
-                        }
-                    };
+                    let destination_node = (ev.seq.0 >> 24) as u8;
                     if let Some((tx, name)) = instances.get_mut(&destination_node) {
                         if tx.send(ev).is_err() {
                             debug!("dropping instance with id: {destination_node:?} ({name})");
@@ -205,22 +194,35 @@ async fn process_incoming_frame(
     false
 }
 
-/// TODO: many cases not handled
 async fn reply_with_error(
     event: Event,
-    instances: &mut HashMap<NodeId, (UnboundedSender<Event>, String)>,
+    instances: &mut HashMap<u8, (UnboundedSender<Event>, String)>,
 ) {
-    // let mut reply = event.clone();
-    // reply.kind = event.kind.flip_with_error();
-    // if let NodeSet::Unicast(id) = event.destination {
-    //     reply.source = id;
-    // }
-    // reply.destination = NodeSet::Unicast(event.source);
     if let Some(reply) = event.flip_with_error(xpi::client_server_owned::Error::Disconnected) {
-        if let Some(src) = event.source {
-            if let Some((tx, _)) = instances.get(&src.node_id) {
-                tx.send(reply).unwrap();
-            }
+        let seq_subset = (event.seq.0 >> 24) as u8;
+        if let Some((tx, _)) = instances.get(&seq_subset) {
+            tx.send(reply).unwrap();
         }
     }
+}
+
+async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
+    tokio::pin!(ws_sink);
+    trace!("sending: {ev:?}");
+
+    let mut buf = Vec::new();
+    match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {
+        Ok(()) => match ws_sink.send(Message::Binary(buf)).await {
+            Ok(_) => {}
+            Err(_) => {
+                error!("ws send error");
+                return true;
+            }
+        },
+        Err(e) => {
+            error!("rmp serialize error {e:?}");
+        }
+    }
+
+    false
 }

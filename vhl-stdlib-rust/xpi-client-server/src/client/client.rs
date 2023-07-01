@@ -4,9 +4,10 @@ use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Event, NodeId, RequestId, Protocol};
+use xpi::client_server_owned::{Event, Protocol, RequestId};
 
 pub struct ClientManager {
+    seq_subset: u8,
     tx_events: UnboundedSender<Event>,
     tx_internal: UnboundedSender<InternalReq>,
     rx_internal: UnboundedReceiver<InternalResp>,
@@ -15,6 +16,7 @@ pub struct ClientManager {
 #[derive(Debug)]
 pub enum InternalReq {
     AddInstance {
+        seq_subset: u8,
         tx: UnboundedSender<Event>,
         name: String,
     },
@@ -24,7 +26,7 @@ pub enum InternalReq {
 }
 
 pub enum InternalResp {
-    InstanceCreated { id: NodeId },
+    InstanceCreated,
 }
 
 impl ClientManager {
@@ -37,6 +39,7 @@ impl ClientManager {
 
         (
             ClientManager {
+                seq_subset: 0,
                 tx_events,
                 tx_internal: tx_self,
                 rx_internal: rx_self,
@@ -48,20 +51,23 @@ impl ClientManager {
     pub fn blocking_split<S: AsRef<str>>(&mut self, name: S) -> Result<Client, Error> {
         let (tx_router, rx_node) = unbounded_channel();
 
+        let seq_subset = self.seq_subset;
+        self.seq_subset += 1; // TODO: handle overflow
         self.tx_internal
             .send(InternalReq::AddInstance {
+                seq_subset,
                 tx: tx_router,
                 name: name.as_ref().to_owned(),
             })
             .map_err(|_| Error::SplitFailed)?;
-        let id = match self.rx_internal.blocking_recv() {
-            Some(InternalResp::InstanceCreated { id }) => id,
+        match self.rx_internal.blocking_recv() {
+            Some(InternalResp::InstanceCreated) => {}
             _ => {
                 return Err(Error::SplitFailed);
             }
-        };
+        }
         Ok(Client {
-            id,
+            seq_subset,
             seq: 0,
             tx: self.tx_events.clone(),
             rx: rx_node,
@@ -71,7 +77,9 @@ impl ClientManager {
 
     pub fn connect(&mut self, protocol: Protocol) -> Result<(), Error> {
         // let addr = Address::parse(addr).unwrap();
-        self.tx_internal.send(InternalReq::Connect(protocol)).unwrap();
+        self.tx_internal
+            .send(InternalReq::Connect(protocol))
+            .unwrap();
         Ok(())
     }
 
@@ -82,7 +90,7 @@ impl ClientManager {
 }
 
 pub struct Client {
-    id: NodeId,
+    seq_subset: u8,
     seq: u32,
     tx: UnboundedSender<Event>,
     rx: UnboundedReceiver<Event>,
@@ -90,13 +98,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn id(&self) -> NodeId {
-        self.id
+    pub fn recycle_request_id(&mut self, _seq: RequestId) {
+        todo!()
     }
 
     pub fn next_request_id(&mut self) -> RequestId {
-        let rid = RequestId(self.seq);
-        self.seq = self.seq.wrapping_add(1);
+        let rid = RequestId(((self.seq_subset as u32) << 24) + self.seq);
+        self.seq = self.seq.wrapping_add(1); // TODO: recycle request ids
         rid
     }
 
@@ -104,12 +112,8 @@ impl Client {
         loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if let Some(request_id) = ev.seq {
-                        let bucket = self.rx_flatten.entry(request_id).or_default();
-                        bucket.push(ev);
-                    } else {
-                        warn!("Dropped event without request id: {ev:?}");
-                    }
+                    let bucket = self.rx_flatten.entry(ev.seq).or_default();
+                    bucket.push(ev);
                 }
                 Err(TryRecvError::Empty) => {
                     break;
@@ -151,7 +155,7 @@ impl Client {
         }
     }
 
-    pub fn send(&mut self, event: Event) -> Result<(), ()> {
-        self.tx.send(event).map_err(|_| ())
+    pub fn send(&mut self, event: Event) -> Result<(), Error> {
+        self.tx.send(event).map_err(|_| Error::QueueError)
     }
 }

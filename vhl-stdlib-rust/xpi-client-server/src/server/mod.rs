@@ -123,14 +123,14 @@ impl Server {
                     // uptime += 1;
                     // heartbeat_request_id += 1;
 
-                    // Drop disconnected clients
-                    clients.retain(|attch| {
-                        if attch.to_event_loop.is_closed() {
-                            warn!("Remote node attachment to {} is down, dropping", attch.protocol);
-                            return false;
-                        }
-                        true
-                    });
+                    // Drop disconnected clients - not needed since InternalEvent::DropRemote does this
+                    // clients.retain(|attch| {
+                    //     if attch.to_event_loop.is_closed() {
+                    //         warn!("Remote node attachment to {} is down, dropping", attch.protocol);
+                    //         return false;
+                    //     }
+                    //     true
+                    // });
 
                     Self::drop_timed_out_filters(&mut filters);
                 }
@@ -213,7 +213,7 @@ impl Server {
                 //     .map(|rd| rd.reachable.clone())
                 //     .next()
                 //     .unwrap_or(vec![]);
-                // remote_nodes.retain(|rd| rd.addr != remote_addr);
+                remote_nodes.retain(|rd| rd.protocol != remote_addr);
 
                 // TODO: Drop filters that relied on remote node being online
                 // let mut dropped_count = 0;

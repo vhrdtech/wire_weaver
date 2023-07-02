@@ -79,7 +79,7 @@ pub async fn ws_event_loop(
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<AddressableEvent>,
 ) {
-    info!("Entering websocket event loop on {protocol}");
+    info!("Event loop started");
     // let mut ws_source = ws_source.fuse();
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
@@ -167,7 +167,7 @@ async fn process_incoming_frame(
 
 pub(crate) async fn serialize_and_send(ev: AddressableEvent, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
-    trace!("sending: {ev}");
+    // trace!("sending: {ev}");
 
     let mut buf = Vec::new();
     match serde::Serialize::serialize(&ev.event, &mut rmp_serde::Serializer::new(&mut buf)) {

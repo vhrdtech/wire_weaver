@@ -208,7 +208,7 @@ async fn reply_with_error(
 
 async fn serialize_and_send(ev: Event, ws_sink: impl Sink<Message>) -> bool {
     tokio::pin!(ws_sink);
-    trace!("sending: {ev}");
+    // trace!("sending: {ev}");
 
     let mut buf = Vec::new();
     match serde::Serialize::serialize(&ev, &mut rmp_serde::Serializer::new(&mut buf)) {

@@ -9,6 +9,15 @@ use tokio::sync::mpsc::{
 use tracing::{error, trace, warn};
 use xpi::client_server_owned::{Event, Protocol, RequestId};
 
+pub mod prelude {
+    pub use super::error::Error as NodeError;
+    pub use super::Client;
+    pub use rmp_serde;
+    pub use std::io::Cursor;
+    pub use xpi::client_server_owned::prelude::*;
+    pub use xpi::error::XpiError;
+}
+
 pub struct ClientManager {
     seq_subset: u8,
     tx_events: UnboundedSender<Event>,
@@ -63,12 +72,9 @@ impl ClientManager {
                 name: name.as_ref().to_owned(),
             })
             .map_err(|_| Error::SplitFailed)?;
-        match self.rx_internal.blocking_recv() {
-            Some(InternalResp::InstanceCreated) => {}
-            _ => {
-                return Err(Error::SplitFailed);
-            }
-        }
+        let Some(InternalResp::InstanceCreated) = self.rx_internal.blocking_recv() else {
+            return Err(Error::SplitFailed);
+        };
         Ok(Client {
             seq_subset,
             seq: 0,

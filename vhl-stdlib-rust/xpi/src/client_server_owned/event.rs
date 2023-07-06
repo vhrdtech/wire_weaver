@@ -52,14 +52,23 @@ impl Event {
         }
     }
 
-    pub fn new_heartbeat(
-        // source: Option<Address>,
-        // destination: Option<Address>,
-        seq: RequestId,
-    ) -> Self {
+    pub fn call(seq: RequestId, nrl: Nrl, args: Vec<u8>) -> Self {
         Event {
-            // source,
-            // destination,
+            kind: EventKind::Request {
+                actions: smallvec![Request {
+                    tr: None,
+                    nrl,
+                    reply_ack: ReplyAck::Ack,
+                    kind: RequestKind::Call { args }
+                }],
+                bail_on_error: false,
+            },
+            seq,
+        }
+    }
+
+    pub fn heartbeat(seq: RequestId) -> Self {
+        Event {
             kind: EventKind::Request {
                 actions: smallvec![Request {
                     tr: None,
@@ -73,7 +82,7 @@ impl Event {
         }
     }
 
-    pub fn request_single(action: Request, seq: RequestId) -> Self {
+    pub fn request(action: Request, seq: RequestId) -> Self {
         Event {
             kind: EventKind::Request {
                 actions: smallvec![action],

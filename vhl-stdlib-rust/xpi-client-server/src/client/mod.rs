@@ -81,6 +81,7 @@ impl ClientManager {
             tx: self.tx_events.clone(),
             rx: rx_node,
             rx_flatten: HashMap::new(),
+            status: ClientStatus::default(),
         })
     }
 
@@ -104,9 +105,14 @@ pub struct Client {
     tx: UnboundedSender<Event>,
     rx: UnboundedReceiver<Event>,
     rx_flatten: HashMap<RequestId, Vec<Event>>,
+    status: ClientStatus,
 }
 
 impl Client {
+    pub fn status(&self) -> ClientStatus {
+        self.status
+    }
+
     pub fn recycle_request_id(&mut self, _seq: RequestId) {
         todo!()
     }
@@ -129,6 +135,7 @@ impl Client {
                 }
                 _ => {
                     error!("receive_events got Err from channel, error?");
+                    self.status = ClientStatus::Error;
                     break;
                 }
             }
@@ -142,6 +149,7 @@ impl Client {
             Err(TryRecvError::Empty) => None,
             _ => {
                 error!("async part is down");
+                self.status = ClientStatus::Error;
                 None
             }
         }
@@ -164,7 +172,22 @@ impl Client {
         }
     }
 
-    pub fn send(&mut self, event: Event) -> Result<(), Error> {
-        self.tx.send(event).map_err(|_| Error::QueueError)
+    pub fn send(&mut self, event: Event) {
+        if self.tx.send(event).is_err() {
+            self.status = ClientStatus::Error;
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ClientStatus {
+    Norminal,
+    Warning,
+    Error,
+}
+
+impl Default for ClientStatus {
+    fn default() -> Self {
+        ClientStatus::Norminal
     }
 }

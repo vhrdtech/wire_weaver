@@ -52,7 +52,7 @@ impl Event {
         }
     }
 
-    pub fn call(seq: RequestId, nrl: Nrl, args: Vec<u8>) -> Self {
+    pub fn call(nrl: Nrl, args: Vec<u8>, seq: RequestId) -> Self {
         Event {
             kind: EventKind::Request {
                 actions: smallvec![Request {

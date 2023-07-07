@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use crate::error::XpiError;
 
-use super::{Nrl, Protocol, Reply, ReplyAck, Request, RequestId, RequestKind};
+use super::{Nrl, Protocol, Reply, ReplyAck, ReplyKind, Request, RequestId, RequestKind};
 use smallvec::{smallvec, SmallVec};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -62,6 +62,30 @@ impl Event {
                     kind: RequestKind::Call { args }
                 }],
                 bail_on_error: false,
+            },
+            seq,
+        }
+    }
+
+    pub fn stream_update(nrl: Nrl, data: Vec<u8>, seq: RequestId) -> Self {
+        Event {
+            kind: EventKind::Reply {
+                results: smallvec![Reply {
+                    nrl,
+                    kind: Ok(ReplyKind::StreamUpdate { data })
+                }],
+            },
+            seq,
+        }
+    }
+
+    pub fn stream_closed(nrl: Nrl, seq: RequestId) -> Self {
+        Event {
+            kind: EventKind::Reply {
+                results: smallvec![Reply {
+                    nrl,
+                    kind: Ok(ReplyKind::StreamClosed)
+                }],
             },
             seq,
         }

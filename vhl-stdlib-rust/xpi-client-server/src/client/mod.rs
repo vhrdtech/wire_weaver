@@ -2,12 +2,13 @@ pub mod error;
 pub mod ws;
 
 use error::Error;
-use std::collections::HashMap;
+use smallvec::smallvec;
+use std::{collections::HashMap, time::Instant};
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Event, Protocol, RequestId};
+use xpi::client_server_owned::{Event, EventKind, Protocol, Reply, ReplyKind, Request, RequestId};
 
 pub mod prelude {
     pub use super::error::Error as NodeError;
@@ -82,6 +83,7 @@ impl ClientManager {
             rx: rx_node,
             rx_flatten: HashMap::new(),
             status: ClientStatus::default(),
+            seq_status: HashMap::new(),
         })
     }
 
@@ -106,6 +108,7 @@ pub struct Client {
     rx: UnboundedReceiver<Event>,
     rx_flatten: HashMap<RequestId, Vec<Event>>,
     status: ClientStatus,
+    seq_status: HashMap<RequestId, SeqStatus>,
 }
 
 impl Client {
@@ -113,13 +116,19 @@ impl Client {
         self.status
     }
 
-    pub fn recycle_request_id(&mut self, _seq: RequestId) {
+    fn recycle_request_id(&mut self, _seq: RequestId) {
         todo!()
     }
 
     pub fn next_request_id(&mut self) -> RequestId {
         let rid = RequestId(((self.seq_subset as u32) << 24) + self.seq);
         self.seq = self.seq.wrapping_add(1); // TODO: recycle request ids
+        self.seq_status.insert(
+            rid,
+            SeqStatus::AwaitingReply {
+                created: Instant::now(),
+            },
+        );
         rid
     }
 
@@ -127,6 +136,39 @@ impl Client {
         loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
+                    if let EventKind::Reply { results } = &ev.kind {
+                        for reply in results {
+                            match &reply.kind {
+                                Ok(kind) => match kind {
+                                    ReplyKind::ReturnValue { .. }
+                                    | ReplyKind::ReadValue { .. }
+                                    | ReplyKind::Written => todo!(),
+                                    ReplyKind::StreamOpened
+                                    | ReplyKind::StreamUpdate { .. }
+                                    | ReplyKind::Subscribed => {
+                                        match self.seq_status.get_mut(&ev.seq) {
+                                            Some(status) => {
+                                                *status = SeqStatus::Streaming {
+                                                    last_update: Instant::now(),
+                                                }
+                                            }
+                                            None => {
+                                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", reply.nrl, ev.seq);
+                                            }
+                                        }
+                                    }
+                                    ReplyKind::StreamClosed => todo!(),
+                                    ReplyKind::RateChanged => todo!(),
+                                    ReplyKind::Unsubscribed => todo!(),
+                                    ReplyKind::Borrowed => todo!(),
+                                    ReplyKind::Released => todo!(),
+                                    ReplyKind::Introspect { .. } => todo!(),
+                                    ReplyKind::Pong { .. } => todo!(),
+                                },
+                                Err(_) => {}
+                            }
+                        }
+                    }
                     let bucket = self.rx_flatten.entry(ev.seq).or_default();
                     bucket.push(ev);
                 }
@@ -172,8 +214,35 @@ impl Client {
         }
     }
 
-    pub fn send(&mut self, event: Event) {
-        if self.tx.send(event).is_err() {
+    // pub fn send(&mut self, mut event: Event) {
+    //     if self.tx.send(event).is_err() {
+    //         self.status = ClientStatus::Error;
+    //     }
+    // }
+
+    pub fn send_request(&mut self, req: Request) -> RequestId {
+        let seq = self.next_request_id();
+        let ev = Event {
+            kind: EventKind::Request {
+                actions: smallvec![req],
+                bail_on_error: false,
+            },
+            seq,
+        };
+        if self.tx.send(ev).is_err() {
+            self.status = ClientStatus::Error;
+        }
+        seq
+    }
+
+    pub fn send_reply(&mut self, rep: Reply, seq: RequestId) {
+        let ev = Event {
+            kind: EventKind::Reply {
+                results: smallvec![rep],
+            },
+            seq,
+        };
+        if self.tx.send(ev).is_err() {
             self.status = ClientStatus::Error;
         }
     }
@@ -190,4 +259,10 @@ impl Default for ClientStatus {
     fn default() -> Self {
         ClientStatus::Norminal
     }
+}
+
+enum SeqStatus {
+    AwaitingReply { created: Instant },
+    Empty { since: Instant },
+    Streaming { last_update: Instant },
 }

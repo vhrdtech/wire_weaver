@@ -2,7 +2,7 @@ pub mod error;
 pub mod ws;
 
 use error::Error;
-use smallvec::smallvec;
+use smallvec::{smallvec, SmallVec};
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
@@ -14,6 +14,7 @@ pub mod prelude {
     pub use super::error::Error as NodeError;
     pub use super::Client;
     pub use rmp_serde;
+    pub use smallvec::smallvec;
     pub use std::io::Cursor;
     pub use xpi::client_server_owned::prelude::*;
     pub use xpi::error::XpiError;
@@ -222,11 +223,20 @@ impl Client {
         }
     }
 
-    // pub fn send(&mut self, mut event: Event) {
-    //     if self.tx.send(event).is_err() {
-    //         self.status = ClientStatus::Error;
-    //     }
-    // }
+    pub fn send_requests(&mut self, requests: SmallVec<[Request; 1]>) -> RequestId {
+        let seq = self.next_request_id();
+        let ev = Event {
+            kind: EventKind::Request {
+                actions: requests,
+                bail_on_error: false,
+            },
+            seq,
+        };
+        if self.tx.send(ev).is_err() {
+            self.status = ClientStatus::Error;
+        }
+        seq
+    }
 
     pub fn send_request(&mut self, req: Request) -> RequestId {
         let seq = self.next_request_id();

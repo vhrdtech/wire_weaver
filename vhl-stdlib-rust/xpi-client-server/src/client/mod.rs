@@ -3,7 +3,7 @@ pub mod ws;
 
 use error::Error;
 use smallvec::{smallvec, SmallVec};
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, fmt::Display, time::Instant};
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
@@ -196,7 +196,10 @@ impl Client {
 
     pub fn try_recv(&mut self) -> Option<Event> {
         match self.rx.try_recv() {
-            Ok(ev) => Some(ev),
+            Ok(ev) => {
+                self.recycle_request_id(&ev);
+                Some(ev)
+            }
             Err(TryRecvError::Empty) => None,
             _ => {
                 error!("async part is down");
@@ -268,6 +271,14 @@ impl Client {
     pub fn seq_status(&self) -> &HashMap<RequestId, SeqStatus> {
         &self.seq_status
     }
+
+    pub fn debug_report(&self) -> String {
+        let mut s = String::new();
+        for (id, status) in self.seq_status.iter() {
+            s += &format!("{id:?}: {status}\n");
+        }
+        s
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
@@ -283,4 +294,26 @@ pub enum SeqStatus {
     AwaitingReply { created: Instant },
     Done { since: Instant },
     Streaming { last_update: Instant },
+}
+
+impl Display for SeqStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SeqStatus::AwaitingReply { created } => write!(
+                f,
+                "AwaitingReply for: {}s",
+                Instant::now().duration_since(*created).as_secs()
+            ),
+            SeqStatus::Done { since } => write!(
+                f,
+                "Done since: {}s",
+                Instant::now().duration_since(*since).as_secs()
+            ),
+            SeqStatus::Streaming { last_update } => write!(
+                f,
+                "Streaming, last update: {}s",
+                Instant::now().duration_since(*last_update).as_secs()
+            ),
+        }
+    }
 }

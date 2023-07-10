@@ -116,13 +116,53 @@ impl Client {
         self.status
     }
 
-    fn recycle_request_id(&mut self, _seq: RequestId) {
-        todo!()
+    fn recycle_request_id(&mut self, ev: &Event) {
+        // TODO: remove old request ids
+        if let EventKind::Reply { results } = &ev.kind {
+            for reply in results {
+                match &reply.kind {
+                    Ok(kind) => match kind {
+                        ReplyKind::StreamOpened
+                        | ReplyKind::StreamUpdate { .. }
+                        | ReplyKind::Subscribed => match self.seq_status.get_mut(&ev.seq) {
+                            Some(status) => {
+                                *status = SeqStatus::Streaming {
+                                    last_update: Instant::now(),
+                                }
+                            }
+                            None => {
+                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", reply.nrl, ev.seq);
+                            }
+                        },
+                        _ => match self.seq_status.get_mut(&ev.seq) {
+                            Some(status) => {
+                                if let SeqStatus::Done { .. } = *status {
+                                    warn!("Got a second reply for {:?}?", ev.seq);
+                                }
+                                *status = SeqStatus::Done {
+                                    since: Instant::now(),
+                                };
+                            }
+                            None => {
+                                warn!("Got reply for an unknown request: {:?}", ev.seq);
+                            }
+                        },
+                    },
+                    Err(_) => {}
+                }
+            }
+        }
     }
 
     pub fn next_request_id(&mut self) -> RequestId {
-        let rid = RequestId(((self.seq_subset as u32) << 24) + self.seq);
-        self.seq = self.seq.wrapping_add(1); // TODO: recycle request ids
+        let rid = loop {
+            let rid = RequestId(((self.seq_subset as u32) << 24) + self.seq);
+            self.seq = self.seq.wrapping_add(1);
+            if self.seq_status.contains_key(&rid) {
+                continue;
+            }
+            break rid;
+        };
         self.seq_status.insert(
             rid,
             SeqStatus::AwaitingReply {
@@ -136,39 +176,7 @@ impl Client {
         loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if let EventKind::Reply { results } = &ev.kind {
-                        for reply in results {
-                            match &reply.kind {
-                                Ok(kind) => match kind {
-                                    ReplyKind::ReturnValue { .. }
-                                    | ReplyKind::ReadValue { .. }
-                                    | ReplyKind::Written => todo!(),
-                                    ReplyKind::StreamOpened
-                                    | ReplyKind::StreamUpdate { .. }
-                                    | ReplyKind::Subscribed => {
-                                        match self.seq_status.get_mut(&ev.seq) {
-                                            Some(status) => {
-                                                *status = SeqStatus::Streaming {
-                                                    last_update: Instant::now(),
-                                                }
-                                            }
-                                            None => {
-                                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", reply.nrl, ev.seq);
-                                            }
-                                        }
-                                    }
-                                    ReplyKind::StreamClosed => todo!(),
-                                    ReplyKind::RateChanged => todo!(),
-                                    ReplyKind::Unsubscribed => todo!(),
-                                    ReplyKind::Borrowed => todo!(),
-                                    ReplyKind::Released => todo!(),
-                                    ReplyKind::Introspect { .. } => todo!(),
-                                    ReplyKind::Pong { .. } => todo!(),
-                                },
-                                Err(_) => {}
-                            }
-                        }
-                    }
+                    self.recycle_request_id(&ev);
                     let bucket = self.rx_flatten.entry(ev.seq).or_default();
                     bucket.push(ev);
                 }
@@ -246,23 +254,23 @@ impl Client {
             self.status = ClientStatus::Error;
         }
     }
+
+    pub fn seq_status(&self) -> &HashMap<RequestId, SeqStatus> {
+        &self.seq_status
+    }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum ClientStatus {
+    #[default]
     Norminal,
     Warning,
     Error,
 }
 
-impl Default for ClientStatus {
-    fn default() -> Self {
-        ClientStatus::Norminal
-    }
-}
-
-enum SeqStatus {
+#[derive(Debug)]
+pub enum SeqStatus {
     AwaitingReply { created: Instant },
-    Empty { since: Instant },
+    Done { since: Instant },
     Streaming { last_update: Instant },
 }

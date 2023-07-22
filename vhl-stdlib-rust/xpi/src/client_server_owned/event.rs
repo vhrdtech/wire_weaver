@@ -2,14 +2,14 @@ use core::fmt::Display;
 
 use crate::error::XpiError;
 
-use super::{Nrl, Protocol, Reply, ReplyAck, ReplyKind, Request, RequestId, RequestKind};
-use smallvec::{smallvec, SmallVec};
+use super::{Nrl, Protocol, ReplyKind, RequestId, RequestKind};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     // pub source: Option<Address>,
     // pub destination: Option<Address>,
     // pub base_nrl: Option<Nrl>,
+    pub nrl: Nrl,
     pub kind: EventKind,
     pub seq: RequestId,
 }
@@ -23,28 +23,30 @@ pub struct AddressableEvent {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum EventKind {
+    // Request {
+    //     // If multiple actions are targeted at one sub level
+    //     // common_nrl: Option<Nrl>,
+    //     actions: SmallVec<[Request; 1]>,
+    //     bail_on_error: bool,
+    // },
+    // Reply {
+    //     results: SmallVec<[Reply; 1]>,
+    // },
     Request {
-        // If multiple actions are targeted at one sub level
-        // common_nrl: Option<Nrl>,
-        actions: SmallVec<[Request; 1]>,
-        bail_on_error: bool,
+        kind: RequestKind,
     },
     Reply {
-        results: SmallVec<[Reply; 1]>,
+        result: Result<ReplyKind, XpiError>
     },
 }
 
 impl Event {
     pub fn flip_with_error(&self, err: XpiError) -> Option<Event> {
         match &self.kind {
-            EventKind::Request { actions, .. } => {
-                let kind = EventKind::Reply {
-                    results: actions.iter().map(|a| a.flip_with_error(err.clone())).collect(),
-                };
+            EventKind::Request { .. } => {
                 Some(Event {
-                    // source: self.destination.clone(),
-                    // destination: self.source.clone(),
-                    kind,
+                    nrl: self.nrl.clone(),
+                    kind: EventKind::Reply { result: Err(err) },
                     seq: self.seq,
                 })
             }
@@ -54,14 +56,9 @@ impl Event {
 
     pub fn call(nrl: Nrl, args: Vec<u8>, seq: RequestId) -> Self {
         Event {
+            nrl,
             kind: EventKind::Request {
-                actions: smallvec![Request {
-                    tr: None,
-                    nrl,
-                    reply_ack: ReplyAck::Ack,
-                    kind: RequestKind::Call { args }
-                }],
-                bail_on_error: false,
+                kind: RequestKind::Call { args }
             },
             seq,
         }
@@ -69,11 +66,9 @@ impl Event {
 
     pub fn stream_update(nrl: Nrl, data: Vec<u8>, seq: RequestId) -> Self {
         Event {
+            nrl,
             kind: EventKind::Reply {
-                results: smallvec![Reply {
-                    nrl,
-                    kind: Ok(ReplyKind::StreamUpdate { data })
-                }],
+                result: Ok(ReplyKind::StreamUpdate { data })
             },
             seq,
         }
@@ -81,11 +76,9 @@ impl Event {
 
     pub fn stream_closed(nrl: Nrl, seq: RequestId) -> Self {
         Event {
+            nrl,
             kind: EventKind::Reply {
-                results: smallvec![Reply {
-                    nrl,
-                    kind: Ok(ReplyKind::StreamClosed)
-                }],
+                result: Ok(ReplyKind::StreamClosed)
             },
             seq,
         }
@@ -93,78 +86,49 @@ impl Event {
 
     pub fn heartbeat(seq: RequestId) -> Self {
         Event {
+            nrl: Nrl::default(),
             kind: EventKind::Request {
-                actions: smallvec![Request {
-                    tr: None,
-                    nrl: Nrl::default(),
-                    reply_ack: ReplyAck::Ack,
-                    kind: RequestKind::Ping
-                }],
-                bail_on_error: false,
+                kind: RequestKind::Ping
             },
             seq,
         }
     }
 
-    pub fn request(action: Request, seq: RequestId) -> Self {
-        Event {
-            kind: EventKind::Request {
-                actions: smallvec![action],
-                bail_on_error: true,
-            },
-            seq,
-        }
-    }
+    // pub fn request(kind: RequestKind, seq: RequestId) -> Self {
+    //     Event {
+    //         kind,
+    //         seq,
+    //     }
+    // }
 }
 
-impl AddressableEvent {
-    pub fn prepare_reply(&self, reserve_len: usize) -> AddressableEvent {
-        let mut results = SmallVec::new();
-        results.reserve(reserve_len);
-        AddressableEvent {
-            protocol: self.protocol,
-            is_inbound: false,
-            event: Event {
-                kind: EventKind::Reply { results },
-                seq: self.event.seq,
-            },
-        }
-    }
-}
+// impl AddressableEvent {
+//     pub fn prepare_reply(&self, reserve_len: usize) -> AddressableEvent {
+//         let mut results = SmallVec::new();
+//         results.reserve(reserve_len);
+//         AddressableEvent {
+//             protocol: self.protocol,
+//             is_inbound: false,
+//             event: Event {
+//                 kind: EventKind::Reply { results },
+//                 seq: self.event.seq,
+//             },
+//         }
+//     }
+// }
 
 impl Display for Event {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.kind {
             EventKind::Request {
-                actions,
-                bail_on_error,
+                kind
             } => {
-                if actions.len() == 1 {
-                    write!(f, "{}@{}", actions[0], self.seq.0)?;
-                } else {
-                    write!(f, "{}[", actions.len())?;
-                    for req in actions {
-                        write!(f, "{req}, ")?;
-                    }
-                    write!(f, "]")?;
-                    if *bail_on_error {
-                        write!(f, "+bail_on_error")?;
-                    }
-                }
+                write!(f, "{kind}")
             }
-            EventKind::Reply { results } => {
-                if results.len() == 1 {
-                    write!(f, "{}@{}", results[0], self.seq.0)?;
-                } else {
-                    write!(f, "{}[", results.len())?;
-                    for res in results {
-                        write!(f, "{res}, ")?;
-                    }
-                    write!(f, "]")?;
-                }
+            EventKind::Reply { result } => {
+                write!(f, "{result:?}")
             }
         }
-        Ok(())
     }
 }
 

@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     node.listen(xpi::client_server_owned::Protocol::Ws {
         ip_addr: "127.0.0.1".parse().unwrap(),
         port: 7777,
-    })
+    }, Vec::new())
     .await?;
 
     tokio::time::sleep(Duration::from_secs(60)).await;

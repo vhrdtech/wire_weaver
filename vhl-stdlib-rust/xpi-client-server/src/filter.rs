@@ -100,7 +100,12 @@ impl EventFilter {
         match &self.nrl_filter {
             NrlFilter::Any => {}
             NrlFilter::Contains(nrl) => {
-                if ev.
+                if ev.nrl.0.len() < nrl.0.len() {
+                    return false;
+                }
+                if nrl.0[..] != ev.nrl.0[..nrl.0.len()] {
+                    return false;
+                }
             },
         }
         match self.request_id {

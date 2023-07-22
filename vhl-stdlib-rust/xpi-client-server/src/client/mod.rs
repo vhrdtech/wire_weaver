@@ -2,13 +2,13 @@ pub mod error;
 pub mod ws;
 
 use error::Error;
-use smallvec::{smallvec, SmallVec};
 use std::{collections::HashMap, fmt::Display, time::Instant};
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Event, EventKind, Protocol, Reply, ReplyKind, Request, RequestId};
+use xpi::client_server_owned::{Event, EventKind, Nrl, Protocol, ReplyKind, RequestId, RequestKind};
+use xpi::error::XpiError;
 
 pub mod prelude {
     pub use super::error::Error as NodeError;
@@ -119,9 +119,9 @@ impl Client {
 
     fn recycle_request_id(&mut self, ev: &Event) {
         // TODO: remove old request ids
-        if let EventKind::Reply { results } = &ev.kind {
-            for reply in results {
-                match &reply.kind {
+        if let EventKind::Reply { result } = &ev.kind {
+            // for reply in results {
+                match &result {
                     Ok(kind) => match kind {
                         ReplyKind::StreamOpened
                         | ReplyKind::StreamUpdate { .. }
@@ -132,7 +132,7 @@ impl Client {
                                 }
                             }
                             None => {
-                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", reply.nrl, ev.seq);
+                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", ev.nrl, ev.seq);
                             }
                         },
                         _ => match self.seq_status.get_mut(&ev.seq) {
@@ -151,7 +151,7 @@ impl Client {
                     },
                     Err(_) => {}
                 }
-            }
+            // }
         }
     }
 
@@ -226,12 +226,12 @@ impl Client {
         }
     }
 
-    pub fn send_requests(&mut self, requests: SmallVec<[Request; 1]>) -> RequestId {
+    pub fn send_request(&mut self, nrl: Nrl, kind: RequestKind) -> RequestId {
         let seq = self.next_request_id();
         let ev = Event {
+            nrl,
             kind: EventKind::Request {
-                actions: requests,
-                bail_on_error: false,
+                kind,
             },
             seq,
         };
@@ -241,25 +241,11 @@ impl Client {
         seq
     }
 
-    pub fn send_request(&mut self, req: Request) -> RequestId {
-        let seq = self.next_request_id();
+    pub fn send_reply(&mut self, nrl: Nrl, result: Result<ReplyKind, XpiError>, seq: RequestId) {
         let ev = Event {
-            kind: EventKind::Request {
-                actions: smallvec![req],
-                bail_on_error: false,
-            },
-            seq,
-        };
-        if self.tx.send(ev).is_err() {
-            self.status = ClientStatus::Error;
-        }
-        seq
-    }
-
-    pub fn send_reply(&mut self, rep: Reply, seq: RequestId) {
-        let ev = Event {
+            nrl,
             kind: EventKind::Reply {
-                results: smallvec![rep],
+                result,
             },
             seq,
         };

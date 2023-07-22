@@ -1,15 +1,12 @@
 use core::fmt::Display;
 
-use crate::error::XpiError;
-
-use super::Nrl;
 use strum::EnumDiscriminants;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct Reply {
-    pub nrl: Nrl,
-    pub kind: Result<ReplyKind, XpiError>,
-}
+// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+// pub struct Reply {
+//     // pub nrl: Nrl,
+//     pub kind: Result<ReplyKind, XpiError>,
+// }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, EnumDiscriminants)]
 pub enum ReplyKind {
@@ -28,45 +25,42 @@ pub enum ReplyKind {
     Pong { payload: () },
 }
 
-impl Display for Reply {
+impl Display for ReplyKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self.kind {
-            Ok(reply_kind) => match reply_kind {
-                ReplyKind::ReturnValue { data } => write!(f, "ReturnValue{}({data:x?})", self.nrl),
-                ReplyKind::ReadValue { data } => write!(f, "ReadValue{}({data:x?})", self.nrl),
-                ReplyKind::Written => {
-                    write!(f, "Written{}", self.nrl)
-                }
-                ReplyKind::StreamOpened => {
-                    write!(f, "StreamOpened{}", self.nrl)
-                }
-                ReplyKind::StreamUpdate { data } => {
-                    write!(f, "StreamUpdate{}({data:x?})", self.nrl)
-                }
-                ReplyKind::StreamClosed => {
-                    write!(f, "StreamClosed{}", self.nrl)
-                }
-                ReplyKind::Subscribed => {
-                    write!(f, "Subscribed{}", self.nrl)
-                }
-                ReplyKind::RateChanged => {
-                    write!(f, "RateCRateChangedhangeResult{}", self.nrl)
-                }
-                ReplyKind::Unsubscribed => {
-                    write!(f, "Unsubscribed{}", self.nrl)
-                }
-                ReplyKind::Borrowed => {
-                    write!(f, "Borrowed{}", self.nrl)
-                }
-                ReplyKind::Released => {
-                    write!(f, "Released{}", self.nrl)
-                }
-                ReplyKind::Introspect { vhl } => {
-                    write!(f, "Introspect{}({vhl:x?})", self.nrl)
-                }
-                ReplyKind::Pong { payload } => write!(f, "Pong{}({payload:x?})", self.nrl),
-            },
-            Err(e) => write!(f, "{e}"),
+        match self {
+            ReplyKind::ReturnValue { data } => write!(f, "ReturnValue({data:x?})"),
+            ReplyKind::ReadValue { data } => write!(f, "ReadValue({data:x?})"),
+            ReplyKind::Written => {
+                write!(f, "Written")
+            }
+            ReplyKind::StreamOpened => {
+                write!(f, "StreamOpened")
+            }
+            ReplyKind::StreamUpdate { data } => {
+                write!(f, "StreamUpdate({data:x?})")
+            }
+            ReplyKind::StreamClosed => {
+                write!(f, "StreamClosed")
+            }
+            ReplyKind::Subscribed => {
+                write!(f, "Subscribed")
+            }
+            ReplyKind::RateChanged => {
+                write!(f, "RateCRateChangedhangeResult")
+            }
+            ReplyKind::Unsubscribed => {
+                write!(f, "Unsubscribed")
+            }
+            ReplyKind::Borrowed => {
+                write!(f, "Borrowed")
+            }
+            ReplyKind::Released => {
+                write!(f, "Released")
+            }
+            ReplyKind::Introspect { vhl } => {
+                write!(f, "Introspect({vhl:x?})")
+            }
+            ReplyKind::Pong { payload } => write!(f, "Pong({payload:x?})"),
         }
     }
 }

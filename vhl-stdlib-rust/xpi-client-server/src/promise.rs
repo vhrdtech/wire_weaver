@@ -21,9 +21,8 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
         if let Promise::Waiting(rid) = self {
             if let Some(ev) = client.poll_one(*rid) {
                 // trace!("got promised answer {ev:?}");
-                if let EventKind::Reply { results } = ev.kind {
-                    if results.len() == 1 {
-                        match &results[0].kind {
+                if let EventKind::Reply { result } = ev.kind {
+                        match result {
                             Ok(r) => {
                                 if let ReplyKind::ReturnValue { data } = r {
                                     let cur = Cursor::new(data);
@@ -39,9 +38,6 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
                                 *self = Promise::Err(e.clone());
                             }
                         }
-                    } else {
-                        *self = Promise::Err(XpiError::Internal);
-                    }
                     return true;
                 }
             }

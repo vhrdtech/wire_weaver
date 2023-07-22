@@ -10,24 +10,30 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, instrument, warn};
 use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
 
-#[instrument(skip(listener, tx_to_event_loop, tx_internal))]
+#[instrument(skip(listener, tx_to_bridge, subgroup_handlers, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
     listener: TcpListener,
-    tx_to_event_loop: Sender<AddressableEvent>,
+    subgroup_handlers: Vec<super::SubGroupHandle>,
+    tx_to_bridge: Sender<AddressableEvent>,
     mut tx_internal: Sender<InternalEvent>,
 ) {
     loop {
         match listener.accept().await {
             Ok((tcp_stream, remote_addr)) => {
                 info!("Got new connection from: {remote_addr}");
-                let ws_stream = tokio_tungstenite::accept_async(tcp_stream)
-                    .await
-                    .expect("Error during the websocket handshake occured");
+                let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
+                    Ok(ws_stream) => ws_stream,
+                    Err(e) => {
+                        warn!("Error during the websocket handshake occurred {e:?}");
+                        continue;
+                    }
+                };
 
-                let (ws_sink, ws_source) = futures_util::StreamExt::split(ws_stream);
+                let (ws_sink, ws_source) = StreamExt::split(ws_stream);
 
                 let (tx, rx) = mpsc::channel(64);
-                let to_event_loop = tx_to_event_loop.clone();
+                let tx_to_bridge = tx_to_bridge.clone();
+                let subgroup_handlers = subgroup_handlers.clone();
                 let to_event_loop_internal = tx_internal.clone();
                 let protocol = Protocol::Ws {
                     ip_addr: remote_addr.ip(),
@@ -39,7 +45,8 @@ pub(crate) async fn ws_server_acceptor(
                         protocol,
                         ws_sink,
                         ws_source,
-                        to_event_loop.clone(),
+                        subgroup_handlers,
+                        tx_to_bridge.clone(),
                         to_event_loop_internal,
                         rx,
                     )
@@ -65,7 +72,8 @@ pub(crate) async fn ws_server_acceptor(
 }
 
 #[instrument(skip(
-    to_event_loop,
+    tx_to_bridge,
+    subgroup_handlers,
     ws_sink,
     ws_source,
     to_event_loop_internal,
@@ -75,7 +83,8 @@ pub async fn ws_event_loop(
     protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    mut to_event_loop: Sender<AddressableEvent>,
+    mut subgroup_handlers: Vec<super::SubGroupHandle>,
+    mut tx_to_bridge: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop: Receiver<AddressableEvent>,
 ) {
@@ -88,7 +97,7 @@ pub async fn ws_event_loop(
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(protocol, frame, &mut to_event_loop).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut subgroup_handlers, &mut tx_to_bridge).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -122,7 +131,10 @@ pub async fn ws_event_loop(
 async fn process_incoming_frame(
     protocol: Protocol,
     ws_message: Message,
-    to_event_loop: &mut Sender<AddressableEvent>,
+    subgroup_handlers: &mut Vec<super::SubGroupHandle>,
+    tx_to_bridge: &mut Sender<AddressableEvent>,
+    // to_bridge_event_loop
+    // to_specific_module map Filter -> Sender to it's loop directly
 ) -> bool {
     // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     match ws_message {
@@ -134,16 +146,21 @@ async fn process_incoming_frame(
             let event: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
             match event {
                 Ok(event) => {
+                    let event = AddressableEvent {
+                        protocol,
+                        is_inbound: true,
+                        event,
+                    };
+                    for sg in subgroup_handlers {
+                        if sg.filter.matches(&event.event) {
+                            if sg.tx.send(event).await.is_err() {
+                                error!("mpsc to subgroup handler failed");
+                            }
+                            return false;
+                        }
+                    }
                     // trace!("{event}");
-                    if to_event_loop
-                        .send(AddressableEvent {
-                            protocol,
-                            is_inbound: true,
-                            event,
-                        })
-                        .await
-                        .is_err()
-                    {
+                    if tx_to_bridge.send(event).await.is_err() {
                         error!("mpsc fail, main event loop must have crashed?");
                         return true;
                     }

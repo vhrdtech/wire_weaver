@@ -1,22 +1,22 @@
 use std::time::{Duration, Instant};
 use xpi::client_server_owned::{Event, Nrl, ReplyKindDiscriminants, RequestId};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum EventKindFilter {
     Any,
     ReplyWithKind(ReplyKindDiscriminants),
     ReplyWithKindEither(ReplyKindDiscriminants, ReplyKindDiscriminants),
 }
 
-#[derive(Debug)]
-pub enum ResourceSetFilter {
+#[derive(Clone, Debug)]
+pub enum NrlFilter {
     Any,
-    ContainsUri(Nrl),
+    Contains(Nrl),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EventFilter {
-    resource_set: ResourceSetFilter,
+    nrl_filter: NrlFilter,
     kind: EventKindFilter,
     request_id: Option<RequestId>,
 
@@ -30,7 +30,7 @@ pub struct EventFilter {
 impl EventFilter {
     pub fn new() -> Self {
         EventFilter {
-            resource_set: ResourceSetFilter::Any,
+            nrl_filter: NrlFilter::Any,
             kind: EventKindFilter::Any,
             request_id: None,
             single_shot: true,
@@ -42,7 +42,7 @@ impl EventFilter {
 
     pub fn new_with_timeout(timeout: Duration) -> Self {
         EventFilter {
-            resource_set: ResourceSetFilter::Any,
+            nrl_filter: NrlFilter::Any,
             kind: EventKindFilter::Any,
             request_id: None,
             single_shot: true,
@@ -52,8 +52,8 @@ impl EventFilter {
         }
     }
 
-    pub fn resource_set(mut self, resource_set_filter: ResourceSetFilter) -> Self {
-        self.resource_set = resource_set_filter;
+    pub fn nrl(mut self, nrl_filter: NrlFilter) -> Self {
+        self.nrl_filter = nrl_filter;
         self
     }
 
@@ -97,9 +97,11 @@ impl EventFilter {
         //         }
         //     }
         // }
-        match &self.resource_set {
-            ResourceSetFilter::Any => {}
-            _ => unimplemented!(),
+        match &self.nrl_filter {
+            NrlFilter::Any => {}
+            NrlFilter::Contains(nrl) => {
+                if ev.
+            },
         }
         match self.request_id {
             None => {}

@@ -1,10 +1,15 @@
 use core::fmt::Display;
 use core::fmt::Formatter;
 
-use vhl_stdlib::serdes::{SerializableError};
+use vhl_stdlib::serdes::SerializableError;
 
+pub type Result<T> = core::result::Result<T, XpiError>;
+
+// TODO: split into client side error and server side error?
+// TODO: Add string description
+// TODO: Add owned string description if std
 /// Error that is transferred across the wire for example in response to requests.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum XpiError {
     /// No response was received in time
     Timeout,
@@ -55,6 +60,9 @@ pub enum XpiError {
 
     /// Out of bounds resources array access
     OutOfBounds,
+
+    ServerSideOwned(String),
+    ClientSideOwned(String),
 }
 
 impl SerializableError for XpiError {
@@ -79,6 +87,8 @@ impl SerializableError for XpiError {
             WrongFormat => 21,
 
             OutOfBounds => 40,
+
+            ServerSideOwned(_) | ClientSideOwned(_) => todo!(),
         }
     }
 

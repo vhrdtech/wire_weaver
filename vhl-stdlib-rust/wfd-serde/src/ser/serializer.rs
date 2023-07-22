@@ -89,7 +89,8 @@ where
 
     fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<()>
     where
-        T: Serialize {
+        T: Serialize,
+    {
         todo!()
     }
 
@@ -110,13 +111,10 @@ where
         todo!()
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<()>
+    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, _value: &T) -> Result<()>
     where
-        T: Serialize {
+        T: Serialize,
+    {
         todo!()
     }
 
@@ -128,7 +126,8 @@ where
         _value: &T,
     ) -> Result<()>
     where
-        T: Serialize {
+        T: Serialize,
+    {
         todo!()
     }
 
@@ -162,11 +161,7 @@ where
         todo!()
     }
 
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         todo!()
     }
 
@@ -179,7 +174,6 @@ where
     ) -> Result<Self::SerializeStructVariant> {
         todo!()
     }
-
 }
 
 impl<'a, F> ser::SerializeSeq for &'a mut Serializer<F>

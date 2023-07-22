@@ -39,7 +39,7 @@ impl Event {
         match &self.kind {
             EventKind::Request { actions, .. } => {
                 let kind = EventKind::Reply {
-                    results: actions.iter().map(|a| a.flip_with_error(err)).collect(),
+                    results: actions.iter().map(|a| a.flip_with_error(err.clone())).collect(),
                 };
                 Some(Event {
                     // source: self.destination.clone(),

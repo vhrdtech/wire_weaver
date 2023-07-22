@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::ser::flavors::{Flavor};
+use crate::ser::flavors::Flavor;
 use serde::Serialize;
 
 #[cfg(feature = "heapless")]

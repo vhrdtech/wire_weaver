@@ -1,10 +1,7 @@
 extern crate wfd_serde;
 
-
-
-
-use wfd_serde::serialize_with_flavor;
 use wfd_serde::ser_flavors::Slice;
+use wfd_serde::serialize_with_flavor;
 
 // #[test]
 // fn pass_null() {
@@ -52,10 +49,7 @@ fn pass_usize() {
 
     let val = 255usize;
     // val.serialize(&mut Serializer::new(&mut &mut buf[..])).ok().unwrap();
-    let res = serialize_with_flavor::<usize, Slice, &mut [u8]>(
-             &val,
-             Slice::new(&mut buf)
-         ).unwrap();
+    let res = serialize_with_flavor::<usize, Slice, &mut [u8]>(&val, Slice::new(&mut buf)).unwrap();
 
     assert_eq!(&[0xcc, 0xff], &res[0..2]);
 }
@@ -161,7 +155,6 @@ fn pass_usize() {
 //     assert_eq!([0xcc, 0x80], buf);
 // }
 
-
 // #[test]
 // fn pass_f32() {
 //     let mut buf = [0x00, 0x00, 0x00, 0x00, 0x00];
@@ -191,7 +184,6 @@ fn pass_usize() {
 
 //     assert_eq!([0xa1, 0x21], buf);
 // }
-
 
 // #[test]
 // fn pass_string() {

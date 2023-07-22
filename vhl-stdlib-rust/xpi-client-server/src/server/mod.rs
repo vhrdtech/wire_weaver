@@ -31,6 +31,12 @@ pub struct Server {
     tx_internal: Sender<InternalEvent>,
 }
 
+#[derive(Clone)]
+pub struct SubGroupHandle {
+    pub filter: EventFilter,
+    pub tx: Sender<AddressableEvent>,
+}
+
 impl Server {
     // Create a node with a sole purpose of sending requests to another nodes.
     //
@@ -340,8 +346,12 @@ impl Server {
     //     Ok(())
     // }
 
-    #[instrument(skip(self))]
-    pub async fn listen(&mut self, protocol: Protocol) -> Result<(), NodeError> {
+    #[instrument(skip(self, subgroup_handlers))]
+    pub async fn listen(
+        &mut self,
+        protocol: Protocol,
+        subgroup_handlers: Vec<SubGroupHandle>,
+    ) -> Result<(), NodeError> {
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();
         match protocol {
@@ -361,7 +371,13 @@ impl Server {
                 info!("ws: Listening on: {ip_addr}:{port}");
 
                 tokio::spawn(async move {
-                    ws::ws_server_acceptor(listener, tx_to_event_loop, tx_internal).await
+                    ws::ws_server_acceptor(
+                        listener,
+                        subgroup_handlers,
+                        tx_to_event_loop,
+                        tx_internal,
+                    )
+                    .await
                 });
 
                 Ok(())

@@ -238,7 +238,7 @@ impl<'i> BufMut<'i> {
     }
 
     /// Put any type that implements SerializeVlu4 into this buffer.
-    pub fn put<E, T: SerializeBytes<Error=E>>(&mut self, t: &T) -> Result<(), E> {
+    pub fn put<E, T: SerializeBytes<Error = E>>(&mut self, t: &T) -> Result<(), E> {
         t.ser_bytes(self)
     }
 }

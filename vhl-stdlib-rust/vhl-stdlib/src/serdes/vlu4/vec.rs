@@ -216,9 +216,9 @@ where
 //     }
 // }
 
-impl<'i, T: DeserializeVlu4<'i, Error=E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i, T>
-    where
-        E: From<NibbleBufError>,
+impl<'i, T: DeserializeVlu4<'i, Error = E>, E> DeserializeVlu4<'i> for Vlu4Vec<'i, T>
+where
+    E: From<NibbleBufError>,
 {
     type Error = E;
 
@@ -283,9 +283,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     }
 
     pub fn put<E>(&mut self, element: &T) -> Result<(), E>
-        where
-            T: SerializeVlu4<Error=E>,
-            E: From<NibbleBufError>,
+    where
+        T: SerializeVlu4<Error = E>,
+        E: From<NibbleBufError>,
     {
         self.start_putting_element()?;
         let _pos_before = self.nwr.nibbles_pos();
@@ -339,9 +339,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     /// * UnsizedBound(max_len_nibbles) - similar to Unsized, but more efficient, since `max_len_nibbles`
     /// estimate is known (so less space will be wasted for recording length).
     pub fn put_with<F, SE>(&mut self, size_hint: SerDesSize, f: F) -> Result<(), SE>
-        where
-            F: Fn(&mut NibbleBufMut) -> Result<(), SE>,
-            SE: From<NibbleBufError>,
+    where
+        F: Fn(&mut NibbleBufMut) -> Result<(), SE>,
+        SE: From<NibbleBufError>,
     {
         self.start_putting_element()?;
         self.put_with_internal(size_hint, f)?;
@@ -350,9 +350,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     }
 
     fn put_with_internal<F, SE>(&mut self, size_hint: SerDesSize, mut f: F) -> Result<(), SE>
-        where
-            F: FnMut(&mut NibbleBufMut) -> Result<(), SE>,
-            SE: From<NibbleBufError>,
+    where
+        F: FnMut(&mut NibbleBufMut) -> Result<(), SE>,
+        SE: From<NibbleBufError>,
     {
         let buf_len = match size_hint {
             SerDesSize::Sized(len_nibbles) => len_nibbles,
@@ -438,9 +438,9 @@ impl<'i, T> Vlu4VecBuilder<'i, T> {
     ///  };
     /// ```
     pub fn put_byte_aligned_with<SE, F>(&mut self, len_bytes: usize, f: F) -> Result<(), SE>
-        where
-            F: Fn(&mut [u8]) -> Result<(), SE>,
-            SE: From<NibbleBufError>,
+    where
+        F: Fn(&mut [u8]) -> Result<(), SE>,
+        SE: From<NibbleBufError>,
     {
         self.start_putting_element()?;
         self.put_len_bytes_and_align(len_bytes)?;
@@ -543,8 +543,8 @@ impl<'i> Vlu4VecBuilder<'i, &'i [u8]> {
 }
 
 impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
-    where
-        E: SerializableError,
+where
+    E: SerializableError,
 {
     // pub fn put_result_with_slice(&mut self, result: Result<&'i [u8], E>) -> Result<(), NibbleBufError> {
     //     self.start_putting_element()?;
@@ -571,8 +571,8 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
     ///
     /// Slice is created in exactly the right spot, while adhering to the layout of Vlu4Vec.
     pub fn put_result_slice_with<F>(&mut self, len_bytes: usize, f: F) -> Result<(), NibbleBufError>
-        where
-            F: Fn(&mut [u8]) -> Result<(), E>,
+    where
+        F: Fn(&mut [u8]) -> Result<(), E>,
     {
         self.start_putting_element()?;
         let state = self.nwr.save_state();
@@ -598,16 +598,16 @@ impl<'i, E> Vlu4VecBuilder<'i, Result<&'i [u8], E>>
 }
 
 impl<'i, E> Vlu4VecBuilder<'i, Result<NibbleBuf<'_>, E>>
-    where
-        E: SerializableError + From<NibbleBufError>,
+where
+    E: SerializableError + From<NibbleBufError>,
 {
     pub fn put_result_nib_slice_with<F>(
         &mut self,
         size_hint: SerDesSize,
         mut f: F,
     ) -> Result<(), NibbleBufError>
-        where
-            F: FnMut(&mut NibbleBufMut) -> Result<(), E>,
+    where
+        F: FnMut(&mut NibbleBufMut) -> Result<(), E>,
     {
         self.start_putting_element()?;
         let state = self.nwr.save_state();
@@ -670,9 +670,9 @@ impl SerializeVlu4 for &[u8] {
 }
 
 impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
-    where
-        T: DeserializeVlu4<'i, Error=NibbleBufError>,
-        E: SerializableError,
+where
+    T: DeserializeVlu4<'i, Error = NibbleBufError>,
+    E: SerializableError,
 {
     type Error = NibbleBufError;
 
@@ -688,10 +688,10 @@ impl<'i, T, E> DeserializeVlu4<'i> for Result<T, E>
 }
 
 impl<T, E, SE> SerializeVlu4 for Result<T, E>
-    where
-        T: SerializeVlu4<Error=SE>,
-        E: SerializableError,
-        SE: From<NibbleBufError>,
+where
+    T: SerializeVlu4<Error = SE>,
+    E: SerializableError,
+    SE: From<NibbleBufError>,
 {
     type Error = SE;
 
@@ -1194,7 +1194,7 @@ mod test {
                 wgr.put_u16_le(0x5678)?;
                 Ok(())
             })
-                .unwrap();
+            .unwrap();
             assert_eq!(&wgr.nwr.buf[0..5], hex!("04 34 12 78 56"));
             wgr.finish_as_vec().unwrap()
         };
@@ -1250,14 +1250,14 @@ mod test {
             nwr.put_nibble(0xc)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::Sized(8), |nwr| {
             assert_eq!(nwr.nibbles_left(), 8);
             nwr.put_u16_be(0xaa55)?;
             nwr.put_u16_be(0xccdd)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 15);
@@ -1275,13 +1275,13 @@ mod test {
             nwr.put(&&[0xab, 0xcd][..])?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::SizedAligned(5, 1), |nwr| {
             assert_eq!(nwr.nibbles_left(), 6);
             nwr.put(&&[0xef, 0x01][..])?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 14);
@@ -1300,14 +1300,14 @@ mod test {
             nwr.put_u16_be(0xccdd)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::Unsized, |nwr| {
             assert_eq!(nwr.nibbles_left(), 1024 - 5 - 8 - 4);
             nwr.put_u16_be(0xee01)?;
             nwr.put_u16_be(0x2345)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 25);
@@ -1329,14 +1329,14 @@ mod test {
             nwr.put_u16_be(0xccdd)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
         vb.put_with::<_, NibbleBufError>(SerDesSize::UnsizedBound(63), |nwr| {
             assert_eq!(nwr.nibbles_left(), 63);
             nwr.put_u16_be(0xee01)?;
             nwr.put_u16_be(0x2345)?;
             Ok(())
         })
-            .unwrap();
+        .unwrap();
 
         let nwr = vb.finish().unwrap();
         assert_eq!(nwr.nibbles_pos(), 21);

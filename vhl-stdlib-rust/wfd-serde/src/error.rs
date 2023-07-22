@@ -11,10 +11,10 @@ pub enum Error {
     NotYetImplemented,
     SerializeBufferFull,
 
- /// Serde Serialization Error
- SerdeSerCustom,
- /// Serde Deserialization Error
- SerdeDeCustom,
+    /// Serde Serialization Error
+    SerdeSerCustom,
+    /// Serde Deserialization Error
+    SerdeDeCustom,
 }
 
 impl Display for Error {

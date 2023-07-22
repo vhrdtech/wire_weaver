@@ -24,16 +24,11 @@ pub enum RequestKind {
     Ping,
 }
 
-// impl Request {
-    // pub fn call(nrl: Nrl, args: Vec<u8>) -> Self {
-    //     Request {
-    //         tr: None,
-    //         nrl,
-    //         reply_ack: ReplyAck::Ack,
-    //         kind: RequestKind::Call { args },
-    //     }
-    // }
-// }
+impl RequestKind {
+    pub fn call(args: Vec<u8>) -> Self {
+        RequestKind::Call { args }
+    }
+}
 
 impl Display for RequestKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

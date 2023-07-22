@@ -73,7 +73,7 @@ impl Expr {
             Expr::ConsU(_, _) => "Unary",
             Expr::ConsB(_, _) => "Binary",
         }
-            .to_owned()
+        .to_owned()
     }
 
     pub fn span(&self) -> Span {
@@ -148,7 +148,7 @@ impl Display for VecExpr {
             self.0.iter().map(|expr| format!("{}", expr)),
             ", ".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

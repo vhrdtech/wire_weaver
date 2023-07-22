@@ -112,7 +112,12 @@ fn generate_rust(
         dest.push(&core.target_crate);
         dest.push("src");
         std::fs::create_dir_all(dest.clone())?;
-        let mut dest = std::fs::canonicalize(dest.clone()).with_context(|| format!("construct destination file path for rust::core codegen, path = {:?}", dest))?;
+        let mut dest = std::fs::canonicalize(dest.clone()).with_context(|| {
+            format!(
+                "construct destination file path for rust::core codegen, path = {:?}",
+                dest
+            )
+        })?;
         dest.push("core.rs");
         debug!("Writing to {:?}", dest);
         std::fs::write(dest, formatted_file)?;

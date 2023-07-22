@@ -166,7 +166,7 @@ impl Display for Attrs {
             self.attrs.iter().map(|attr| format!("{}", attr)),
             " ".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

@@ -31,7 +31,7 @@ impl Display for FnArguments {
                 .map(|arg| format!("{}: {}", arg.name, arg.ty)),
             ", ".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

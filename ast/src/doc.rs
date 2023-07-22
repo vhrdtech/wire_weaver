@@ -16,7 +16,7 @@ impl Display for Doc {
                 .map(|line| format!("{}{}{}", color::GREEN, line.0, color::DEFAULT)),
             "↩".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         if !self.lines.is_empty() {
             write!(f, " ")?;
         }

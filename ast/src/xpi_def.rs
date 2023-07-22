@@ -111,7 +111,7 @@ impl XpiDef {
             XpiKind::Cell { .. } => "Cell<_>",
             XpiKind::Method { .. } => "method",
         }
-            .to_owned()
+        .to_owned()
     }
 }
 
@@ -184,7 +184,7 @@ impl Display for XpiDef {
         } else {
             ", "
         }
-            .to_owned();
+        .to_owned();
         itertools::intersperse(
             self.children.iter().map(|child| {
                 if is_alterante {
@@ -195,7 +195,7 @@ impl Display for XpiDef {
             }),
             separator,
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         write!(
             f,
             " ]{b}{y}>{d}",

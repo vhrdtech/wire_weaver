@@ -58,9 +58,9 @@ impl TokenStream {
                         &mut streams_in_this_group,
                         None,
                     )
-                        .expect(
-                            "Empty repetition group, consider removing ⸨ ⸩* or adding ∀iter inside",
-                        );
+                    .expect(
+                        "Empty repetition group, consider removing ⸨ ⸩* or adding ∀iter inside",
+                    );
 
                     // iterate over them all in parallel appending to tts_reassemble
                     for i in 0..streams_len {

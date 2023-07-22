@@ -22,7 +22,7 @@ impl Display for Generics {
             }),
             ", ".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         write!(f, ">")
     }
 }

@@ -93,8 +93,6 @@ impl TyTraits {
     }
 }
 
-
-
 impl core::ops::BitAnd for TyTraits {
     type Output = TyTraits;
 
@@ -137,7 +135,9 @@ impl Ty {
             },
             Ref(_) => todo!("process AST and pre resolve ty traits for refs"),
             Fn { .. } => unimplemented!(),
-            AutoNumber(_) | IndexTyOf(_) | Generic { .. } | Derive => panic!("Ty::ty_traits() called on unprocessed AST")
+            AutoNumber(_) | IndexTyOf(_) | Generic { .. } | Derive => {
+                panic!("Ty::ty_traits() called on unprocessed AST")
+            }
         }
     }
 }

@@ -110,7 +110,7 @@ impl Display for Path {
             self.segments.iter().map(|s| format!("{}", s)),
             "::".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

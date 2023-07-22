@@ -47,7 +47,7 @@ impl Display for StructDef {
             self.fields.iter().map(|field| format!("{}", field)),
             ", ".to_owned(),
         )
-            .try_for_each(|s| write!(f, "{}", s))?;
+        .try_for_each(|s| write!(f, "{}", s))?;
         Ok(())
     }
 }

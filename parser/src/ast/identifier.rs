@@ -99,7 +99,7 @@ impl<'i, K: sealed::IdentifierContextParse> Parse<'i> for IdentifierParse<K> {
 
 // use sealed::IdentifierKind;
 impl<'i, K: sealed::IdentifierContextParse> From<Pair<'i, crate::lexer::Rule>>
-for IdentifierParse<K>
+    for IdentifierParse<K>
 {
     fn from(p: Pair<'i, crate::lexer::Rule>) -> Self {
         IdentifierParse(

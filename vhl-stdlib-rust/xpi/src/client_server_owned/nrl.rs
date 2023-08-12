@@ -1,4 +1,5 @@
 use core::{fmt::Display, ops::Deref};
+use core::slice::Iter;
 
 use smallvec::SmallVec;
 
@@ -39,6 +40,12 @@ impl_partial_eq!(1);
 impl_partial_eq!(2);
 impl_partial_eq!(3);
 impl_partial_eq!(4);
+
+impl From<Iter<'_, u32>> for Nrl {
+    fn from(value: Iter<u32>) -> Self {
+        Nrl(value.copied().collect())
+    }
+}
 
 impl Display for Nrl {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

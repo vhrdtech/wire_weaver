@@ -14,6 +14,7 @@ pub enum ReplyKind {
     ReadValue { data: Vec<u8> },
     Written,
     StreamOpened,
+    // TODO: Add Option<SizeHint>
     StreamUpdate { data: Vec<u8> },
     StreamClosed,
     Subscribed,

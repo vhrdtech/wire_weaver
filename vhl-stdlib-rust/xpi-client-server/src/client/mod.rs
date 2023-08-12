@@ -62,7 +62,7 @@ impl ClientManager {
         )
     }
 
-    pub fn blocking_split<S: AsRef<str>>(&mut self, name: S) -> Result<Client, Error> {
+    pub fn blocking_split<S: AsRef<str>>(&mut self, debug_name: S) -> Result<Client, Error> {
         let (tx_router, rx_node) = unbounded_channel();
 
         let seq_subset = self.seq_subset;
@@ -71,7 +71,7 @@ impl ClientManager {
             .send(InternalReq::AddInstance {
                 seq_subset,
                 tx: tx_router,
-                name: name.as_ref().to_owned(),
+                name: debug_name.as_ref().to_owned(),
             })
             .map_err(|_| Error::SplitFailed)?;
         let Some(InternalResp::InstanceCreated) = self.rx_internal.blocking_recv() else {

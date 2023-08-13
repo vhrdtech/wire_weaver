@@ -1,15 +1,19 @@
-use crate::client::Client;
-use serde::Deserialize;
 use std::fmt::Debug;
 use std::io::Cursor;
+
+use serde::Deserialize;
 use tracing::trace;
+
 use xpi::client_server_owned::{EventKind, ReplyKind, RequestId};
 use xpi::error::XpiError;
 
+use crate::client::Client;
+
 // TODO: add timeout check
 // TODO: handle local error instead of unwraps
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Default, Debug)]
 pub enum Promise<T> {
+    #[default]
     None,
     Waiting(RequestId),
     Done(T),
@@ -17,6 +21,8 @@ pub enum Promise<T> {
 }
 
 impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
+    /// Polls the client for new data for this Promise.
+    /// Returns true if changes were made (reply or error received).
     pub fn poll(&mut self, client: &mut Client) -> bool {
         if let Promise::Waiting(rid) = self {
             if let Some(ev) = client.poll_one(*rid) {

@@ -1,4 +1,5 @@
 use core::{fmt::Display, ops::Deref};
+use core::ops::Add;
 use core::slice::Iter;
 
 use smallvec::SmallVec;
@@ -16,7 +17,11 @@ impl Nrl {
         Nrl(parts.into())
     }
 
-    pub fn iter(&self) -> core::slice::Iter<u32> {
+    pub fn push(&mut self, segment: u32) {
+        self.0.push(segment);
+    }
+
+    pub fn iter(&self) -> Iter<u32> {
         self.0.iter()
     }
 }
@@ -27,23 +32,45 @@ impl PartialEq<[u32]> for Nrl {
     }
 }
 
-macro_rules! impl_partial_eq {
+macro_rules! impl_for_array_of {
     ($len:literal) => {
         impl PartialEq<[u32; $len]> for Nrl {
             fn eq(&self, other: &[u32; $len]) -> bool {
                 self.0.deref() == other
             }
         }
+
+        impl From<[u32; $len]> for Nrl {
+            fn from(value: [u32; $len]) -> Self {
+                Nrl(value.into_iter().collect())
+            }
+        }
     };
 }
-impl_partial_eq!(1);
-impl_partial_eq!(2);
-impl_partial_eq!(3);
-impl_partial_eq!(4);
+impl_for_array_of!(1);
+impl_for_array_of!(2);
+impl_for_array_of!(3);
+impl_for_array_of!(4);
 
 impl From<Iter<'_, u32>> for Nrl {
     fn from(value: Iter<u32>) -> Self {
         Nrl(value.copied().collect())
+    }
+}
+
+impl<'i> From<&'i Nrl> for Nrl {
+    fn from(value: &'i Nrl) -> Self {
+        Nrl(value.0.clone())
+    }
+}
+
+impl<'i> Add<u32> for &'i Nrl {
+    type Output = Nrl;
+
+    fn add(self, rhs: u32) -> Self::Output {
+        let mut nrl = self.clone();
+        nrl.push(rhs);
+        nrl
     }
 }
 

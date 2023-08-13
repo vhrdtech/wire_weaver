@@ -123,10 +123,10 @@ impl Display for Event {
             EventKind::Request {
                 kind
             } => {
-                write!(f, "{kind}")
+                write!(f, "{}:{kind} @{:?}", self.nrl, self.seq)
             }
             EventKind::Reply { result } => {
-                write!(f, "{result:?}")
+                write!(f, "{}: {result:?} @{:?}", self.nrl, self.seq)
             }
         }
     }

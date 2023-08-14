@@ -50,4 +50,15 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
         }
         false
     }
+
+    pub fn take_if_done(&mut self) -> Option<T> {
+        if !matches!(self, Promise::Done(_)) {
+            return None;
+        }
+        let value = core::mem::take(self);
+        match value {
+            Promise::Done(value) => Some(value),
+            _ => None
+        }
+    }
 }

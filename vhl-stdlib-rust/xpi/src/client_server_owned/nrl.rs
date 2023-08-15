@@ -1,6 +1,6 @@
-use core::{fmt::Display, ops::Deref};
 use core::ops::Add;
 use core::slice::Iter;
+use core::{fmt::Display, ops::Deref};
 
 use smallvec::SmallVec;
 

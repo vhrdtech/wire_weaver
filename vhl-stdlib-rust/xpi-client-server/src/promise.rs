@@ -28,22 +28,22 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
             if let Some(ev) = client.poll_one(*rid) {
                 // trace!("got promised answer {ev:?}");
                 if let EventKind::Reply { result } = ev.kind {
-                        match result {
-                            Ok(r) => {
-                                if let ReplyKind::ReturnValue { data } = r {
-                                    let cur = Cursor::new(data);
-                                    let mut de = rmp_serde::Deserializer::new(cur);
-                                    let val: T = Deserialize::deserialize(&mut de).unwrap();
-                                    trace!("got promised answer {val:?}");
-                                    *self = Promise::Done(val)
-                                } else {
-                                    *self = Promise::Err(XpiError::Internal);
-                                }
-                            }
-                            Err(e) => {
-                                *self = Promise::Err(e.clone());
+                    match result {
+                        Ok(r) => {
+                            if let ReplyKind::ReturnValue { data } = r {
+                                let cur = Cursor::new(data);
+                                let mut de = rmp_serde::Deserializer::new(cur);
+                                let val: T = Deserialize::deserialize(&mut de).unwrap();
+                                trace!("got promised answer {val:?}");
+                                *self = Promise::Done(val)
+                            } else {
+                                *self = Promise::Err(XpiError::Internal);
                             }
                         }
+                        Err(e) => {
+                            *self = Promise::Err(e.clone());
+                        }
+                    }
                     return true;
                 }
             }
@@ -58,7 +58,15 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
         let value = core::mem::take(self);
         match value {
             Promise::Done(value) => Some(value),
-            _ => None
+            _ => None,
+        }
+    }
+
+    /// Returns true if this Promise can be overwritten (None or Err state)
+    pub fn is_passive(&self) -> bool {
+        match self {
+            Promise::None | Promise::Err(_) => true,
+            Promise::Done(_) | Promise::Waiting(_) => false,
         }
     }
 }

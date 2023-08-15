@@ -32,24 +32,18 @@ pub enum EventKind {
     // Reply {
     //     results: SmallVec<[Reply; 1]>,
     // },
-    Request {
-        kind: RequestKind,
-    },
-    Reply {
-        result: Result<ReplyKind, XpiError>
-    },
+    Request { kind: RequestKind },
+    Reply { result: Result<ReplyKind, XpiError> },
 }
 
 impl Event {
     pub fn flip_with_error(&self, err: XpiError) -> Option<Event> {
         match &self.kind {
-            EventKind::Request { .. } => {
-                Some(Event {
-                    nrl: self.nrl.clone(),
-                    kind: EventKind::Reply { result: Err(err) },
-                    seq: self.seq,
-                })
-            }
+            EventKind::Request { .. } => Some(Event {
+                nrl: self.nrl.clone(),
+                kind: EventKind::Reply { result: Err(err) },
+                seq: self.seq,
+            }),
             EventKind::Reply { .. } => None,
         }
     }
@@ -58,7 +52,7 @@ impl Event {
         Event {
             nrl,
             kind: EventKind::Request {
-                kind: RequestKind::Call { args }
+                kind: RequestKind::Call { args },
             },
             seq,
         }
@@ -68,7 +62,7 @@ impl Event {
         Event {
             nrl,
             kind: EventKind::Reply {
-                result: Ok(ReplyKind::StreamUpdate { data })
+                result: Ok(ReplyKind::StreamUpdate { data }),
             },
             seq,
         }
@@ -78,7 +72,7 @@ impl Event {
         Event {
             nrl,
             kind: EventKind::Reply {
-                result: Ok(ReplyKind::StreamClosed)
+                result: Ok(ReplyKind::StreamClosed),
             },
             seq,
         }
@@ -88,7 +82,7 @@ impl Event {
         Event {
             nrl: Nrl::default(),
             kind: EventKind::Request {
-                kind: RequestKind::Ping
+                kind: RequestKind::Ping,
             },
             seq,
         }
@@ -120,9 +114,7 @@ impl Event {
 impl Display for Event {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.kind {
-            EventKind::Request {
-                kind
-            } => {
+            EventKind::Request { kind } => {
                 write!(f, "{}:{kind} @{:?}", self.nrl, self.seq)
             }
             EventKind::Reply { result } => {

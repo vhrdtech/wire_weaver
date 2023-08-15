@@ -16,10 +16,13 @@ async fn main() -> Result<()> {
     // let addr = "tcp://127.0.0.1:7777";
     // let addr = RemoteNodeAddr::parse(addr)
     //     .context(format!("unable to parse socket address: '{}'", addr))?;
-    node.listen(xpi::client_server_owned::Protocol::Ws {
-        ip_addr: "127.0.0.1".parse().unwrap(),
-        port: 7777,
-    }, Vec::new())
+    node.listen(
+        xpi::client_server_owned::Protocol::Ws {
+            ip_addr: "127.0.0.1".parse().unwrap(),
+            port: 7777,
+        },
+        Vec::new(),
+    )
     .await?;
 
     tokio::time::sleep(Duration::from_secs(60)).await;

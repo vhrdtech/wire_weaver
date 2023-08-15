@@ -7,7 +7,9 @@ use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use tracing::{error, trace, warn};
-use xpi::client_server_owned::{Event, EventKind, Nrl, Protocol, ReplyKind, RequestId, RequestKind};
+use xpi::client_server_owned::{
+    Event, EventKind, Nrl, Protocol, ReplyKind, RequestId, RequestKind,
+};
 use xpi::error::XpiError;
 
 pub mod prelude {
@@ -121,36 +123,36 @@ impl Client {
         // TODO: remove old request ids
         if let EventKind::Reply { result } = &ev.kind {
             // for reply in results {
-                match &result {
-                    Ok(kind) => match kind {
-                        ReplyKind::StreamOpened
-                        | ReplyKind::StreamUpdate { .. }
-                        | ReplyKind::Subscribed => match self.seq_status.get_mut(&ev.seq) {
-                            Some(status) => {
-                                *status = SeqStatus::Streaming {
-                                    last_update: Instant::now(),
-                                }
+            match &result {
+                Ok(kind) => match kind {
+                    ReplyKind::StreamOpened
+                    | ReplyKind::StreamUpdate { .. }
+                    | ReplyKind::Subscribed => match self.seq_status.get_mut(&ev.seq) {
+                        Some(status) => {
+                            *status = SeqStatus::Streaming {
+                                last_update: Instant::now(),
                             }
-                            None => {
-                                warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", ev.nrl, ev.seq);
-                            }
-                        },
-                        _ => match self.seq_status.get_mut(&ev.seq) {
-                            Some(status) => {
-                                if let SeqStatus::Done { .. } = *status {
-                                    warn!("Got a second reply for {:?}?", ev.seq);
-                                }
-                                *status = SeqStatus::Done {
-                                    since: Instant::now(),
-                                };
-                            }
-                            None => {
-                                warn!("Got reply for an unknown request: {:?}", ev.seq);
-                            }
-                        },
+                        }
+                        None => {
+                            warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", ev.nrl, ev.seq);
+                        }
                     },
-                    Err(_) => {}
-                }
+                    _ => match self.seq_status.get_mut(&ev.seq) {
+                        Some(status) => {
+                            if let SeqStatus::Done { .. } = *status {
+                                warn!("Got a second reply for {:?}?", ev.seq);
+                            }
+                            *status = SeqStatus::Done {
+                                since: Instant::now(),
+                            };
+                        }
+                        None => {
+                            warn!("Got reply for an unknown request: {:?}", ev.seq);
+                        }
+                    },
+                },
+                Err(_) => {}
+            }
             // }
         }
     }
@@ -230,9 +232,7 @@ impl Client {
         let seq = self.next_request_id();
         let ev = Event {
             nrl,
-            kind: EventKind::Request {
-                kind,
-            },
+            kind: EventKind::Request { kind },
             seq,
         };
         if self.tx.send(ev).is_err() {
@@ -244,9 +244,7 @@ impl Client {
     pub fn send_reply(&mut self, nrl: Nrl, result: Result<ReplyKind, XpiError>, seq: RequestId) {
         let ev = Event {
             nrl,
-            kind: EventKind::Reply {
-                result,
-            },
+            kind: EventKind::Reply { result },
             seq,
         };
         if self.tx.send(ev).is_err() {

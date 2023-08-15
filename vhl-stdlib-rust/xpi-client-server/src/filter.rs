@@ -106,7 +106,7 @@ impl EventFilter {
                 if nrl.0[..] != ev.nrl.0[..nrl.0.len()] {
                     return false;
                 }
-            },
+            }
         }
         match self.request_id {
             None => {}

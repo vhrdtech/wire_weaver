@@ -10,7 +10,7 @@ pub use address::Protocol;
 pub use event::{AddressableEvent, Event, EventKind};
 pub use nrl::Nrl;
 pub use reply::{ReplyKind, ReplyKindDiscriminants};
-pub use request::{RequestKind};
+pub use request::RequestKind;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RequestId(pub u32);
@@ -40,8 +40,8 @@ pub enum ReplyAck {
 
 pub mod prelude {
     pub use super::event::{Event, EventKind};
-    pub use super::reply::{ReplyKind};
-    pub use super::request::{RequestKind};
+    pub use super::reply::ReplyKind;
+    pub use super::request::RequestKind;
     pub use super::Nrl;
     pub use super::Protocol;
     pub use super::RequestId;

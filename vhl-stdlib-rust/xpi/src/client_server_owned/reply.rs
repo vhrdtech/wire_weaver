@@ -29,8 +29,8 @@ pub enum ReplyKind {
 impl Display for ReplyKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            ReplyKind::ReturnValue { data } => write!(f, "ReturnValue({data:x?})"),
-            ReplyKind::ReadValue { data } => write!(f, "ReadValue({data:x?})"),
+            ReplyKind::ReturnValue { data } => write!(f, "ReturnValue([{}B])", data.len()),
+            ReplyKind::ReadValue { data } => write!(f, "ReadValue([{}B])", data.len()),
             ReplyKind::Written => {
                 write!(f, "Written")
             }
@@ -38,7 +38,7 @@ impl Display for ReplyKind {
                 write!(f, "StreamOpened")
             }
             ReplyKind::StreamUpdate { data } => {
-                write!(f, "StreamUpdate({data:x?})")
+                write!(f, "StreamUpdate([{}B])", data.len())
             }
             ReplyKind::StreamClosed => {
                 write!(f, "StreamClosed")

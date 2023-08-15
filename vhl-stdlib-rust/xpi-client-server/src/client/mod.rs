@@ -214,7 +214,8 @@ impl Client {
     pub fn poll_one(&mut self, request_id: RequestId) -> Option<Event> {
         match self.rx_flatten.remove(&request_id) {
             Some(mut events) => {
-                trace!("poll_one {events:?}");
+                // trace!("poll_one {events}");
+                trace!("poll_one: got {} events", events.len());
                 if events.is_empty() {
                     None
                 } else {

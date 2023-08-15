@@ -115,10 +115,13 @@ impl Display for Event {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.kind {
             EventKind::Request { kind } => {
-                write!(f, "{}:{kind} @{:?}", self.nrl, self.seq)
+                write!(f, "{}:{kind} {:?}", self.nrl, self.seq)
             }
             EventKind::Reply { result } => {
-                write!(f, "{}: {result:?} @{:?}", self.nrl, self.seq)
+                match result {
+                    Ok(result) => write!(f, "{}: {result} {:?}", self.nrl, self.seq),
+                    Err(e) => write!(f, "{}: {e:?} {:?}", self.nrl, self.seq)
+                }
             }
         }
     }

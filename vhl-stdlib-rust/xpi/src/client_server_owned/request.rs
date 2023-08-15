@@ -33,9 +33,9 @@ impl RequestKind {
 impl Display for RequestKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            RequestKind::Call { args } => write!(f, "Call({args:x?})"),
+            RequestKind::Call { args } => write!(f, "Call([{}B])", args.len()),
             RequestKind::Read => write!(f, "Read"),
-            RequestKind::Write { value } => write!(f, "Write({value:x?})"),
+            RequestKind::Write { value } => write!(f, "Write([{}B])", value.len()),
             RequestKind::OpenStream => write!(f, "OpenStream"),
             RequestKind::CloseStream => write!(f, "CloseStream"),
             RequestKind::Subscribe => write!(f, "Subscribe"),

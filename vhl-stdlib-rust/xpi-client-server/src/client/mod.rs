@@ -2,6 +2,7 @@ pub mod error;
 pub mod ws;
 
 use error::Error;
+use std::time::Duration;
 use std::{collections::HashMap, fmt::Display, time::Instant};
 use tokio::sync::mpsc::{
     error::TryRecvError, unbounded_channel, UnboundedReceiver, UnboundedSender,
@@ -120,7 +121,7 @@ impl Client {
     }
 
     fn recycle_request_id(&mut self, ev: &Event) {
-        // TODO: remove old request ids
+        self.remove_old_ids();
         if let EventKind::Reply { result } = &ev.kind {
             // for reply in results {
             match &result {
@@ -138,14 +139,19 @@ impl Client {
                         }
                     },
                     _ => match self.seq_status.get_mut(&ev.seq) {
-                        Some(status) => {
-                            if let SeqStatus::Done { .. } = *status {
+                        Some(status) => match status {
+                            SeqStatus::AwaitingReply { created } => {
+                                let now = Instant::now();
+                                *status = SeqStatus::Done {
+                                    took: now.duration_since(*created),
+                                    since: now,
+                                };
+                            }
+                            SeqStatus::Done { .. } => {
                                 warn!("Got a second reply for {:?}?", ev.seq);
                             }
-                            *status = SeqStatus::Done {
-                                since: Instant::now(),
-                            };
-                        }
+                            SeqStatus::Streaming { .. } => {}
+                        },
                         None => {
                             warn!("Got reply for an unknown request: {:?}", ev.seq);
                         }
@@ -154,6 +160,20 @@ impl Client {
                 Err(_) => {}
             }
             // }
+        }
+    }
+
+    fn remove_old_ids(&mut self) {
+        let mut to_remove = Vec::new();
+        for (rid, status) in self.seq_status.iter() {
+            if let SeqStatus::Done { since, .. } = status {
+                if Instant::now().duration_since(*since).as_secs() > 10 {
+                    to_remove.push(*rid);
+                }
+            }
+        }
+        for rid in to_remove {
+            self.seq_status.remove(&rid);
         }
     }
 
@@ -277,7 +297,7 @@ pub enum ClientStatus {
 #[derive(Debug)]
 pub enum SeqStatus {
     AwaitingReply { created: Instant },
-    Done { since: Instant },
+    Done { took: Duration, since: Instant },
     Streaming { last_update: Instant },
 }
 
@@ -289,14 +309,15 @@ impl Display for SeqStatus {
                 "AwaitingReply for: {}s",
                 Instant::now().duration_since(*created).as_secs()
             ),
-            SeqStatus::Done { since } => write!(
+            SeqStatus::Done { took, since } => write!(
                 f,
-                "Done since: {}s",
+                "Took: {}ms, done for: {}s",
+                took.as_millis(),
                 Instant::now().duration_since(*since).as_secs()
             ),
             SeqStatus::Streaming { last_update } => write!(
                 f,
-                "Streaming, last update: {}s",
+                "Streaming, last update: {}s ago",
                 Instant::now().duration_since(*last_update).as_secs()
             ),
         }

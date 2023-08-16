@@ -117,12 +117,10 @@ impl Display for Event {
             EventKind::Request { kind } => {
                 write!(f, "{}:{kind} {:?}", self.nrl, self.seq)
             }
-            EventKind::Reply { result } => {
-                match result {
-                    Ok(result) => write!(f, "{}: {result} {:?}", self.nrl, self.seq),
-                    Err(e) => write!(f, "{}: {e:?} {:?}", self.nrl, self.seq)
-                }
-            }
+            EventKind::Reply { result } => match result {
+                Ok(result) => write!(f, "{}: {result} {:?}", self.nrl, self.seq),
+                Err(e) => write!(f, "{}: {e:?} {:?}", self.nrl, self.seq),
+            },
         }
     }
 }

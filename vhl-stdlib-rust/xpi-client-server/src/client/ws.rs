@@ -53,7 +53,7 @@ pub async fn ws_event_loop(
                                 close_connection = serialize_and_send(event, ws_tx).await;
                             }
                             None => {
-                                trace!("break C");
+                                trace!("Main process seems to be crashed");
                                 break;
                             }
                         }

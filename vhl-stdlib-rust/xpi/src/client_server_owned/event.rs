@@ -21,6 +21,20 @@ pub struct AddressableEvent {
     pub event: Event,
 }
 
+impl AddressableEvent {
+    pub fn from_req_and_kind(ev: &AddressableEvent, kind: EventKind) -> Self {
+        AddressableEvent {
+            protocol: ev.protocol,
+            is_inbound: false,
+            event: Event {
+                nrl: ev.event.nrl.clone(),
+                kind,
+                seq: ev.event.seq,
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum EventKind {
     // Request {

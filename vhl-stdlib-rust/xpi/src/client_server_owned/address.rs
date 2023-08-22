@@ -8,7 +8,7 @@ use std::net::IpAddr;
 //     // pub wire_format: WireFormat,
 // }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Protocol {
     Tcp { ip_addr: IpAddr, port: u16 },
     Ws { ip_addr: IpAddr, port: u16 },

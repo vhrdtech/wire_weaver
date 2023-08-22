@@ -4,7 +4,7 @@ use core::{fmt::Display, ops::Deref};
 
 use smallvec::SmallVec;
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Nrl(pub SmallVec<[u32; 3]>);
 impl Default for Nrl {
     fn default() -> Self {

@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::io::Cursor;
 
-use crate::server::internal_event::InternalEvent;
+use crate::server::internal_event::{InternalEvent, InternalEventToEventLoop};
 use crate::server::remote_descriptor::RemoteDescriptor;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
-use tracing::{error, info, instrument, warn};
-use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
+use tracing::{error, info, instrument, trace, warn};
+use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol};
 
 #[instrument(skip(listener, tx_to_bridge, subgroup_handlers, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
@@ -32,6 +33,7 @@ pub(crate) async fn ws_server_acceptor(
                 let (ws_sink, ws_source) = StreamExt::split(ws_stream);
 
                 let (tx, rx) = mpsc::channel(64);
+                let (st_tx, st_rx) = mpsc::channel(16);
                 let tx_to_bridge = tx_to_bridge.clone();
                 let subgroup_handlers = subgroup_handlers.clone();
                 let to_event_loop_internal = tx_internal.clone();
@@ -48,6 +50,7 @@ pub(crate) async fn ws_server_acceptor(
                         subgroup_handlers,
                         tx_to_bridge.clone(),
                         to_event_loop_internal,
+                        st_rx,
                         rx,
                     )
                     .await
@@ -55,6 +58,7 @@ pub(crate) async fn ws_server_acceptor(
                 let remote_descriptor = RemoteDescriptor {
                     protocol,
                     to_event_loop: tx,
+                    to_event_loop_internal: st_tx,
                 };
                 match tx_internal
                     .send(InternalEvent::ConnectRemote(remote_descriptor))
@@ -86,18 +90,19 @@ pub async fn ws_event_loop(
     mut subgroup_handlers: Vec<super::SubGroupHandle>,
     mut tx_to_bridge: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
+    mut from_event_loop_internal: Receiver<InternalEventToEventLoop>,
     mut from_event_loop: Receiver<AddressableEvent>,
 ) {
     info!("Event loop started");
-    // let mut ws_source = ws_source.fuse();
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
+    let mut tx_to_stateful = HashMap::new();
     loop {
         tokio::select! {
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(protocol, frame, &mut subgroup_handlers, &mut tx_to_bridge).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut subgroup_handlers, &mut tx_to_bridge, &mut tx_to_stateful).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -119,11 +124,22 @@ pub async fn ws_event_loop(
                     break;
                 }
             },
-            // complete => {
-            //     error!("Unexpected select! completion, exiting");
-            //     let _ = to_event_loop_internal.send(InternalEvent::DropRemoteTcp(addr)).await;
-            //     break;
-            // }
+            ev = from_event_loop_internal.select_next_some() => {
+                match ev {
+                    InternalEventToEventLoop::RegisterDispatcher(handle)=> {
+                        if tx_to_stateful.contains_key(&(protocol, handle.nrl.clone())) {
+                            warn!("Registered the same stateful dispatcher twice {} {}", protocol, handle.nrl);
+                        } else {
+                            info!("Registered stateful dispatcher: {} {}", protocol, handle.nrl);
+                        }
+                        tx_to_stateful.insert((protocol, handle.nrl), handle.tx);
+                    }
+                    InternalEventToEventLoop::DropAllRelatedTo(protocol) => {
+                        info!("Dropping all stateful dispatcher related to {} due to request", protocol);
+                        tx_to_stateful.retain(|(p, _), _| *p != protocol);
+                    }
+                }
+            }
         }
     }
 }
@@ -133,14 +149,10 @@ async fn process_incoming_frame(
     ws_message: Message,
     subgroup_handlers: &mut Vec<super::SubGroupHandle>,
     tx_to_bridge: &mut Sender<AddressableEvent>,
-    // to_bridge_event_loop
-    // to_specific_module map Filter -> Sender to it's loop directly
+    tx_to_stateful: &mut HashMap<(Protocol, Nrl), Sender<AddressableEvent>>,
 ) -> bool {
-    // trace!("rx: {} bytes: {:2x?}", bytes.len(), &bytes);
     match ws_message {
         Message::Binary(bytes) => {
-            // let mut nrd = NibbleBuf::new_all(&bytes);
-            // let ev: Result<xwfd::Event, _> = nrd.des_vlu4();
             let cur = Cursor::new(bytes);
             let mut de = rmp_serde::Deserializer::new(cur);
             let event: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
@@ -151,6 +163,30 @@ async fn process_incoming_frame(
                         is_inbound: true,
                         event,
                     };
+
+                    let mut possible_entry = event.event.nrl.clone();
+                    let mut sent_to_stateful = false;
+                    let mut should_drop = false;
+                    while possible_entry.0.len() > 2 {
+                        if let Some(tx) = tx_to_stateful.get_mut(&(protocol, possible_entry.clone())) {
+                            if tx.send(event.clone()).await.is_ok() {
+                                trace!("sent to stateful {} {}", protocol, possible_entry);
+                                sent_to_stateful = true;
+                            } else {
+                                warn!("mpsc to stateful handler failed, dropping it");
+                                should_drop = true;
+                            }
+                            break;
+                        }
+                        possible_entry.0.remove(possible_entry.0.len() - 1);
+                    }
+                    if should_drop {
+                        tx_to_stateful.remove(&(protocol, possible_entry));
+                    }
+                    if sent_to_stateful {
+                        return false;
+                    }
+
                     for sg in subgroup_handlers {
                         if sg.filter.matches(&event.event) {
                             if sg.tx.send(event).await.is_err() {

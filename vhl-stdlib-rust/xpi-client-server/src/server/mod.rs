@@ -1,5 +1,7 @@
 pub mod error;
 mod internal_event;
+
+pub use internal_event::DispatcherHandle;
 mod remote_descriptor;
 pub mod ws;
 
@@ -12,6 +14,7 @@ use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
 use tracing::{error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
+use internal_event::InternalEventToEventLoop;
 
 use error::NodeError;
 use internal_event::InternalEvent;
@@ -29,6 +32,7 @@ pub mod prelude {
 pub struct Server {
     tx_to_event_loop: Sender<AddressableEvent>,
     tx_internal: Sender<InternalEvent>,
+    tx_control: Sender<ServerControlRequest>,
 }
 
 #[derive(Clone)]
@@ -37,36 +41,23 @@ pub struct SubGroupHandle {
     pub tx: Sender<AddressableEvent>,
 }
 
-impl Server {
-    // Create a node with a sole purpose of sending requests to another nodes.
-    //
-    // Created node will contain xPI implementations of: semver, client and will answer to respective
-    // requests. Heartbeats will also be broadcasted.
-    // pub async fn new_client(
-    //     id: NodeId, /* xPI client, generated or dynamically loaded */
-    // ) -> Server {
-    //     let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
-    //     let (tx_internal, rx_internal) = mpsc::channel(16);
-    //     tokio::spawn(async move {
-    //         Self::process_events(id, rx_router, rx_internal).await;
-    //     });
-    //     Server {
-    //         id,
-    //         tx_to_event_loop,
-    //         tx_internal,
-    //         // nodes,
-    //     }
-    // }
+#[derive(Debug)]
+pub enum ServerControlRequest {
+    RegisterDispatcher(DispatcherHandle)
+}
 
+impl Server {
     pub async fn new() -> Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
+        let (tx_control, rx_control) = mpsc::channel(16);
         tokio::spawn(async move {
-            Self::event_loop(rx_router, rx_internal).await;
+            Self::event_loop(rx_router, rx_internal, rx_control).await;
         });
         Server {
             tx_to_event_loop,
             tx_internal,
+            tx_control
         }
     }
 
@@ -82,15 +73,11 @@ impl Server {
     async fn event_loop(
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,
+        mut rx_control: Receiver<ServerControlRequest>,
     ) {
         info!("Entering event loop");
-        // send out heartbeats
-        // answer introspects
-        // process read/write/subscribe
-        // process method calls
-        // process timeouts
 
-        // tx handles to another nodes running on remote machines or in another processes
+        // tx handles to each client connection's event loop
         let mut clients: Vec<RemoteDescriptor> = Vec::new();
         // tx handles to Self for filter_one and filter_many
         let mut filters: Vec<(EventFilter, Sender<AddressableEvent>)> = Vec::new();
@@ -117,6 +104,9 @@ impl Server {
                         &mut filters,
                         &mut clients
                     ).await;
+                }
+                ev_control = rx_control.select_next_some() => {
+                    Self::process_control_request(ev_control, &mut clients).await;
                 }
                 _ = heartbeat.next() => {
                     // trace!("{}: local heartbeat", id.0);
@@ -213,32 +203,36 @@ impl Server {
             }
             InternalEvent::DropRemote(remote_addr) => {
                 info!("remote attachment {remote_addr} is being dropped");
-                // let was_reachable = remote_nodes
-                //     .iter()
-                //     .filter(|rd| rd.addr == remote_addr)
-                //     .map(|rd| rd.reachable.clone())
-                //     .next()
-                //     .unwrap_or(vec![]);
-                remote_nodes.retain(|rd| rd.protocol != remote_addr);
+                let mut idx_to_drop = None;
+                for (idx, rd) in remote_nodes.iter_mut().enumerate() {
+                    if rd.protocol == remote_addr {
+                        idx_to_drop = Some(idx);
+                        let _ = rd.to_event_loop_internal.send(InternalEventToEventLoop::DropAllRelatedTo(remote_addr)).await;
+                    }
+                }
+                if let Some(idx) = idx_to_drop {
+                    remote_nodes.remove(idx);
+                }
+            }
+        }
+    }
 
-                // TODO: Drop filters that relied on remote node being online
-                // let mut dropped_count = 0;
-                // filters.retain(|(filter, _)| {
-                //     for remote_id in &was_reachable {
-                //         if filter.is_waiting_for_node(*remote_id)
-                //             && filter.is_drop_on_remote_disconnect()
-                //         {
-                //             dropped_count += 1;
-                //             return false;
-                //         }
-                //     }
-                //     true
-                // });
-                // if dropped_count != 0 {
-                //     debug!(
-                //         "{dropped_count} filter(s) was dropped due to remote node going offline"
-                //     );
-                // }
+    pub fn control_tx_handle(&self) -> Sender<ServerControlRequest> {
+        self.tx_control.clone()
+    }
+
+    async fn process_control_request(ev: ServerControlRequest, clients: &mut Vec<RemoteDescriptor>) {
+        match ev {
+            ServerControlRequest::RegisterDispatcher(handle) => {
+                let remote = clients.iter_mut().find(|d| d.protocol == handle.protocol);
+                let Some(remote) = remote else {
+                    warn!("Control request to {}: client event loop not found", handle.protocol);
+                    return;
+                };
+                let r = remote.to_event_loop_internal.send(InternalEventToEventLoop::RegisterDispatcher(handle)).await;
+                if r.is_err() {
+                    warn!("Control request to {}: send error", remote.protocol);
+                }
             }
         }
     }
@@ -255,96 +249,6 @@ impl Server {
     pub fn new_tx_handle(&self) -> Sender<AddressableEvent> {
         self.tx_to_event_loop.clone()
     }
-
-    // async fn connect_instance(&mut self, other: &mut Server) -> Result<(), NodeError> {
-    //     self.tx_internal
-    //         .send(InternalEvent::ConnectInstance(
-    //             other.id,
-    //             other.tx_to_event_loop.clone(),
-    //         ))
-    //         .await?;
-
-    //     Ok(())
-    // }
-
-    // async fn disconnect_instance(&mut self, other_node_id: NodeId) -> Result<(), NodeError> {
-    //     self.tx_internal
-    //         .send(InternalEvent::DisconnectInstance(other_node_id))
-    //         .await?;
-    //     Ok(())
-    // }
-
-    // pub async fn connect_instances(node_a: &mut Self, node_b: &mut Self) -> Result<(), NodeError> {
-    //     node_a.connect_instance(node_b).await?;
-    //     match node_b.connect_instance(node_a).await {
-    //         Ok(_) => Ok(()),
-    //         Err(_) => {
-    //             node_a.disconnect_instance(node_b.id).await?;
-    //             Ok(())
-    //         }
-    //     }
-    // }
-
-    // #[instrument(skip(self), fields(node_id = self.id.0))]
-    // pub async fn connect_remote(&mut self, addr: Address) -> Result<(), NodeError> {
-    //     let id = self.id;
-    //     let to_event_loop = self.tx_to_event_loop.clone();
-    //     let to_event_loop_internal = self.tx_internal.clone();
-
-    //     let to_event_loop = match addr.protocol {
-    //         Protocol::Tcp { .. } => {
-    //             todo!()
-    //             // info!("tcp: Connecting to remote {ip_addr}");
-    //             // let tcp_stream = TcpStream::connect(ip_addr).await?;
-    //             // let codec = RmvlbCodec::new_with_max_length(512); // TODO: do not hardcode
-    //             // let (frames_sink, frames_source) = Framed::new(tcp_stream, codec).split();
-    //             // info!("Connected");
-    //             // let (tx, rx) = mpsc::channel(64);
-    //             // tokio::spawn(async move {
-    //             //     tcp_event_loop(
-    //             //         id,
-    //             //         ip_addr,
-    //             //         frames_sink,
-    //             //         frames_source,
-    //             //         to_event_loop.clone(),
-    //             //         to_event_loop_internal,
-    //             //         rx,
-    //             //     )
-    //             //     .await
-    //             // });
-    //             // tx
-    //         }
-    //         Protocol::Ws { ip_addr, port } => {
-    //             let url = format!("ws://{ip_addr}:{port}");
-    //             info!("ws: Connecting to remote {url}");
-    //             let (ws_stream, _) = tokio_tungstenite::connect_async(url).await.unwrap();
-    //             let (frames_sink, frames_source) = ws_stream.split();
-    //             info!("connected");
-    //             let (tx, rx) = mpsc::channel(64);
-    //             tokio::spawn(async move {
-    //                 crate::remote::ws::ws_event_loop(
-    //                     id,
-    //                     addr.protocol,
-    //                     frames_sink,
-    //                     frames_source,
-    //                     to_event_loop.clone(),
-    //                     to_event_loop_internal,
-    //                     rx,
-    //                 )
-    //                 .await
-    //             });
-    //             tx
-    //         }
-    //     };
-    //     let remote_descriptor = RemoteDescriptor {
-    //         protocol: addr.protocol,
-    //         to_event_loop,
-    //     };
-    //     self.tx_internal
-    //         .send(InternalEvent::ConnectRemote(remote_descriptor))
-    //         .await?;
-    //     Ok(())
-    // }
 
     #[instrument(skip(self, subgroup_handlers))]
     pub async fn listen(

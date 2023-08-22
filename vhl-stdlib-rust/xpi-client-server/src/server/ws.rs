@@ -8,7 +8,7 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
-use tracing::{error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol};
 
 #[instrument(skip(listener, tx_to_bridge, subgroup_handlers, tx_internal))]
@@ -81,7 +81,8 @@ pub(crate) async fn ws_server_acceptor(
     ws_sink,
     ws_source,
     to_event_loop_internal,
-    from_event_loop
+from_event_loop,
+from_event_loop_internal
 ))]
 pub async fn ws_event_loop(
     protocol: Protocol,
@@ -134,10 +135,10 @@ pub async fn ws_event_loop(
                         }
                         tx_to_stateful.insert((protocol, handle.nrl), handle.tx);
                     }
-                    InternalEventToEventLoop::DropAllRelatedTo(protocol) => {
-                        info!("Dropping all stateful dispatcher related to {} due to request", protocol);
-                        tx_to_stateful.retain(|(p, _), _| *p != protocol);
-                    }
+                    // InternalEventToEventLoop::DropAllRelatedTo(protocol) => {
+                    //     info!("Dropping all stateful dispatcher related to {} due to request", protocol);
+                    //     tx_to_stateful.retain(|(p, _), _| *p != protocol);
+                    // }
                 }
             }
         }
@@ -168,12 +169,15 @@ async fn process_incoming_frame(
                     let mut sent_to_stateful = false;
                     let mut should_drop = false;
                     while possible_entry.0.len() > 2 {
-                        if let Some(tx) = tx_to_stateful.get_mut(&(protocol, possible_entry.clone())) {
+                        // debug!("trying {}", possible_entry);
+                        if let Some(tx) =
+                            tx_to_stateful.get_mut(&(protocol, possible_entry.clone()))
+                        {
                             if tx.send(event.clone()).await.is_ok() {
                                 trace!("sent to stateful {} {}", protocol, possible_entry);
                                 sent_to_stateful = true;
                             } else {
-                                warn!("mpsc to stateful handler failed, dropping it");
+                                debug!("direct channel to stateful handler is closed, dropping it and routing through other channel(s)");
                                 should_drop = true;
                             }
                             break;
@@ -235,25 +239,5 @@ pub(crate) async fn serialize_and_send(ev: AddressableEvent, ws_sink: impl Sink<
             error!("rmp serialize error {e:?}");
         }
     }
-    // let mut buf = Vec::new();
-    // buf.resize(10_000, 0);
-    // let mut nwr = NibbleBufMut::new_all(&mut buf);
-    // match ev.ser_xwfd(&mut nwr) {
-    //     Ok(()) => {
-    //         let (_, len, _) = nwr.finish();
-    //         // trace!("serialize_and_send: ser_xwfd ok, len: {:?}", len);
-    //         buf.resize(len, 0);
-
-    //         match ws_sink.send(Message::Binary(buf)).await {
-    //             Ok(_) => {}
-    //             Err(_) => {
-    //                 error!("ws send error");
-    //             }
-    //         }
-    //     }
-    //     Err(e) => {
-    //         error!("convert of event: {ev} to xwfd failed: {e:?}");
-    //     }
-    // }
     false
 }

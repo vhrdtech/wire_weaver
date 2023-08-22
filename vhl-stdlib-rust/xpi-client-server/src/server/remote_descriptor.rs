@@ -1,7 +1,7 @@
+use crate::server::internal_event::InternalEventToEventLoop;
 use futures::channel::mpsc::Sender;
 use std::fmt::{Debug, Display, Formatter};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
-use crate::server::internal_event::InternalEventToEventLoop;
 
 pub struct RemoteDescriptor {
     // pub reachable: Vec<NodeId>,

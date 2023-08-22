@@ -9,12 +9,12 @@ use crate::filter::EventFilter;
 use core::time::Duration;
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{SinkExt, StreamExt};
+use internal_event::InternalEventToEventLoop;
 use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
 use tracing::{error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
-use internal_event::InternalEventToEventLoop;
 
 use error::NodeError;
 use internal_event::InternalEvent;
@@ -43,7 +43,7 @@ pub struct SubGroupHandle {
 
 #[derive(Debug)]
 pub enum ServerControlRequest {
-    RegisterDispatcher(DispatcherHandle)
+    RegisterDispatcher(DispatcherHandle),
 }
 
 impl Server {
@@ -57,7 +57,7 @@ impl Server {
         Server {
             tx_to_event_loop,
             tx_internal,
-            tx_control
+            tx_control,
         }
     }
 
@@ -69,7 +69,7 @@ impl Server {
     /// rx_from_nodes: any other software node can send an event here.
     /// rx_internal: when new node is added, message is sent to this channel and it's handle is
     ///     Option::take()'n into local nodes hashmap.
-    #[instrument(skip(rx_from_instances, rx_internal))]
+    #[instrument(skip(rx_from_instances, rx_internal, rx_control))]
     async fn event_loop(
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,
@@ -82,7 +82,7 @@ impl Server {
         // tx handles to Self for filter_one and filter_many
         let mut filters: Vec<(EventFilter, Sender<AddressableEvent>)> = Vec::new();
 
-        let heartbeat = tick_stream(Duration::from_secs(1)).fuse();
+        let heartbeat = crate::util::tick_stream(Duration::from_secs(1)).fuse();
         // let mut heartbeat = tokio::time::interval(Duration::from_millis(1000));
         let _uptime: u32 = 0;
         let _heartbeat_request_id: u32 = 0;
@@ -204,10 +204,15 @@ impl Server {
             InternalEvent::DropRemote(remote_addr) => {
                 info!("remote attachment {remote_addr} is being dropped");
                 let mut idx_to_drop = None;
-                for (idx, rd) in remote_nodes.iter_mut().enumerate() {
+                for (idx, rd) in remote_nodes.iter().enumerate() {
                     if rd.protocol == remote_addr {
                         idx_to_drop = Some(idx);
-                        let _ = rd.to_event_loop_internal.send(InternalEventToEventLoop::DropAllRelatedTo(remote_addr)).await;
+                        // let r = rd
+                        //     .to_event_loop_internal
+                        //     .send(InternalEventToEventLoop::DropAllRelatedTo(remote_addr))
+                        //     .await;
+                        // trace!("sending drop related to {}: {r:?}", rd.protocol);
+                        break;
                     }
                 }
                 if let Some(idx) = idx_to_drop {
@@ -221,7 +226,10 @@ impl Server {
         self.tx_control.clone()
     }
 
-    async fn process_control_request(ev: ServerControlRequest, clients: &mut Vec<RemoteDescriptor>) {
+    async fn process_control_request(
+        ev: ServerControlRequest,
+        clients: &mut Vec<RemoteDescriptor>,
+    ) {
         match ev {
             ServerControlRequest::RegisterDispatcher(handle) => {
                 let remote = clients.iter_mut().find(|d| d.protocol == handle.protocol);
@@ -229,7 +237,10 @@ impl Server {
                     warn!("Control request to {}: client event loop not found", handle.protocol);
                     return;
                 };
-                let r = remote.to_event_loop_internal.send(InternalEventToEventLoop::RegisterDispatcher(handle)).await;
+                let r = remote
+                    .to_event_loop_internal
+                    .send(InternalEventToEventLoop::RegisterDispatcher(handle))
+                    .await;
                 if r.is_err() {
                     warn!("Control request to {}: send error", remote.protocol);
                 }
@@ -337,11 +348,4 @@ impl Server {
             .await?;
         Ok(rx)
     }
-}
-
-fn tick_stream(period: Duration) -> impl Stream<Item = ()> {
-    futures::stream::unfold(period, move |p| async move {
-        tokio::time::sleep(period).await;
-        Some(((), p))
-    })
 }

@@ -249,6 +249,16 @@ impl Client {
         }
     }
 
+    pub fn poll_all(&mut self, request_id: RequestId) -> Vec<Event> {
+        match self.rx_flatten.remove(&request_id) {
+            Some(events) => {
+                trace!("poll_all: got {} events", events.len());
+                events
+            }
+            None => Vec::new(),
+        }
+    }
+
     pub fn send_request(&mut self, nrl: Nrl, kind: RequestKind) -> RequestId {
         let seq = self.next_request_id();
         let ev = Event {

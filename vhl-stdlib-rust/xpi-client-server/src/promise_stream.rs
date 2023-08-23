@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::io::Cursor;
 
 use serde::Deserialize;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use xpi::client_server_owned::{EventKind, Nrl, ReplyKind, RequestId, RequestKind};
 use xpi::error::XpiError;
@@ -41,6 +41,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                 return false;
             }
         };
+        let mut changed = false;
         for ev in client.poll_all(rid) {
             let EventKind::Reply { result } = ev.kind else { continue; };
             let reply_kind = match result {
@@ -58,6 +59,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                             nrl,
                             items: Vec::new(),
                         };
+                        changed = true;
                     }
                     PromiseStream::Streaming { rid, nrl, items } => {
                         warn!("PromiseStream: got StreamOpened when already streaming");
@@ -91,6 +93,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                         } => {
                             items.extend(new_items);
                             *self = PromiseStream::Streaming { rid, nrl, items };
+                            changed = true;
                         }
                         PromiseStream::Waiting { nrl, .. } => {
                             *self = PromiseStream::Streaming {
@@ -98,6 +101,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                                 nrl,
                                 items: new_items,
                             };
+                            changed = true;
                         }
                         PromiseStream::Done { remaining_items } => {
                             *self = PromiseStream::Done { remaining_items };
@@ -127,16 +131,21 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                     PromiseStream::Err(e) => {
                         warn!("PromiseStream: got error: {e:?} after stream was already closed");
                         *self = PromiseStream::Err(e);
+                        changed = true;
                     }
                 },
                 e => warn!("PromiseStream: unexpected event: {e}"),
             }
         }
-        false
+        changed
     }
 
     pub fn drain(&mut self) -> Vec<T> {
         match core::mem::take(self) {
+            PromiseStream::Waiting { rid, nrl } => {
+                *self = PromiseStream::Waiting { rid, nrl };
+                Vec::new()
+            }
             PromiseStream::Streaming { rid, nrl, items } => {
                 *self = PromiseStream::Streaming {
                     rid,
@@ -149,7 +158,11 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                 *self = PromiseStream::None;
                 remaining_items
             }
-            _ => Vec::new(),
+            PromiseStream::Err(e) => {
+                *self = PromiseStream::Err(e);
+                Vec::new()
+            }
+            PromiseStream::None => Vec::new(),
         }
     }
 

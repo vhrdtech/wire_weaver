@@ -1,9 +1,10 @@
 pub mod error;
 mod internal_event;
-
-pub use internal_event::DispatcherHandle;
 mod remote_descriptor;
 pub mod ws;
+pub mod control_event;
+
+pub use control_event::{NrlSpecificDispatcherHandle, ClientSpecificDispatcherHandle, ServerControlRequest};
 
 use crate::filter::EventFilter;
 use core::time::Duration;
@@ -15,7 +16,7 @@ use internal_event::InternalEventToEventLoop;
 use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
 use tracing::{error, info, instrument, trace, warn};
-use xpi::client_server_owned::{AddressableEvent, Nrl, Protocol};
+use xpi::client_server_owned::{AddressableEvent, Protocol};
 
 use error::NodeError;
 use internal_event::InternalEvent;
@@ -36,37 +37,8 @@ pub struct Server {
     tx_control: Sender<ServerControlRequest>,
 }
 
-#[derive(Clone, Debug)]
-pub struct NrlSpecificHandler {
-    pub nrl: Nrl,
-    pub tx: Sender<AddressableEvent>,
-}
-
-impl NrlSpecificHandler {
-    pub fn matches(&self, nrl: &Nrl) -> bool {
-        if nrl.0.len() < self.nrl.0.len() {
-            return false;
-        }
-        if self.nrl.0[..] != nrl.0[..self.nrl.0.len()] {
-            return false;
-        }
-        true
-    }
-}
-
-#[derive(Debug)]
-pub enum ServerControlRequest {
-    /// Handle incoming requests for specific Nrl and specific Client via separate dispatcher instance
-    RegisterClientSpecificDispatcher(DispatcherHandle),
-    /// Handle incoming requests for specific Nrl and all Client's via specified dispatcher
-    RegisterNrlBasedDispatcher {
-        nrl: Nrl,
-        tx: Sender<AddressableEvent>,
-    }
-}
-
 impl Server {
-    pub async fn new(routes: Arc<RwLock<Vec<NrlSpecificHandler>>>) -> Server {
+    pub async fn new(routes: Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>) -> Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
         let (tx_control, rx_control) = mpsc::channel(16);
@@ -93,7 +65,7 @@ impl Server {
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,
         mut rx_control: Receiver<ServerControlRequest>,
-        routes: Arc<RwLock<Vec<NrlSpecificHandler>>>
+        routes: Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>
     ) {
         info!("Entering event loop");
 
@@ -251,7 +223,7 @@ impl Server {
     async fn process_control_request(
         ev: ServerControlRequest,
         clients: &mut Vec<RemoteDescriptor>,
-        routes: &Arc<RwLock<Vec<NrlSpecificHandler>>>
+        routes: &Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>
     ) {
         match ev {
             ServerControlRequest::RegisterClientSpecificDispatcher(handle) => {
@@ -262,18 +234,18 @@ impl Server {
                 };
                 let r = client
                     .to_event_loop_internal
-                    .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificHandler { nrl: handle.nrl, tx: handle.tx }))
+                    .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificDispatcherHandle { nrl: handle.nrl, tx: handle.tx }))
                     .await;
                 if r.is_err() {
                     warn!("Control request to {}: send error", client.protocol);
                 }
             }
-            ServerControlRequest::RegisterNrlBasedDispatcher { nrl, tx } => {
+            ServerControlRequest::RegisterNrlBasedDispatcher(handle) => {
                 // send to all the current clients
                 for client in clients {
                     let r = client
                         .to_event_loop_internal
-                        .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificHandler { nrl: nrl.clone(), tx: tx.clone() })).await;
+                        .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificDispatcherHandle { nrl: handle.nrl.clone(), tx: handle.tx.clone() })).await;
                     if r.is_err() {
                         warn!("mpsc fail");
                     }
@@ -281,7 +253,7 @@ impl Server {
                 // save for future ones
                 match routes.write() {
                     Ok(mut wr) => {
-                        wr.push(NrlSpecificHandler { nrl, tx });
+                        wr.push(NrlSpecificDispatcherHandle { nrl: handle.nrl, tx: handle.tx });
                         wr.sort_by(|a, b| b.nrl.0.len().cmp(&a.nrl.0.len()));
                     }
                     Err(_) => {
@@ -301,7 +273,7 @@ impl Server {
         }
     }
 
-    fn drop_bad_routes(routes: &Arc<RwLock<Vec<NrlSpecificHandler>>>) {
+    fn drop_bad_routes(routes: &Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>) {
         match routes.write() {
             Ok(mut routes) => {
                 routes.retain(|route| !route.tx.is_closed());
@@ -320,7 +292,7 @@ impl Server {
     pub async fn listen(
         &mut self,
         protocol: Protocol,
-        subgroup_handlers: Arc<RwLock<Vec<NrlSpecificHandler>>>,
+        subgroup_handlers: Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>,
     ) -> Result<(), NodeError> {
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();

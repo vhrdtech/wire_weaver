@@ -1,7 +1,7 @@
 use crate::filter::EventFilter;
-use futures::channel::mpsc::{channel, Receiver, Sender};
-use xpi::client_server_owned::{AddressableEvent, Nrl, Protocol};
-use crate::server::NrlSpecificHandler;
+use futures::channel::mpsc::Sender;
+use xpi::client_server_owned::{AddressableEvent, Protocol};
+use crate::server::control_event::NrlSpecificDispatcherHandle;
 
 use super::remote_descriptor::RemoteDescriptor;
 
@@ -14,29 +14,9 @@ pub enum InternalEvent {
     Filter(EventFilter, Sender<AddressableEvent>), // TODO: add timeout to remove if filter_one no longer waits for it
 }
 
-#[derive(Clone, Debug)]
-pub struct DispatcherHandle {
-    pub protocol: Protocol,
-    pub nrl: Nrl,
-    pub tx: Sender<AddressableEvent>,
-}
-
-impl PartialEq<DispatcherHandle> for DispatcherHandle {
-    fn eq(&self, other: &DispatcherHandle) -> bool {
-        self.protocol == other.protocol && self.nrl == other.nrl
-    }
-}
-
-impl DispatcherHandle {
-    pub fn new(protocol: Protocol, nrl: Nrl) -> (Self, Receiver<AddressableEvent>) {
-        let (tx, rx) = channel(64);
-        (Self { protocol, nrl, tx }, rx)
-    }
-}
-
 /// Goes directly to event loop of a particular client
 #[derive(Debug)]
 pub enum InternalEventToEventLoop {
-    RegisterDispatcherForNrl(NrlSpecificHandler)
+    RegisterDispatcherForNrl(NrlSpecificDispatcherHandle)
     // DropAllRelatedTo(Protocol),
 }

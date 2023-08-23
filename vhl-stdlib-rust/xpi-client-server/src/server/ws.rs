@@ -14,7 +14,7 @@ use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
 #[instrument(skip(listener, tx_to_bridge, routes, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
     listener: TcpListener,
-    routes: Arc<RwLock<Vec<super::NrlSpecificHandler>>>,
+    routes: Arc<RwLock<Vec<super::NrlSpecificDispatcherHandle>>>,
     tx_to_bridge: Sender<AddressableEvent>,
     mut tx_internal: Sender<InternalEvent>,
 ) {
@@ -88,7 +88,7 @@ pub async fn ws_event_loop(
     protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    mut routes: Vec<super::NrlSpecificHandler>,
+    mut routes: Vec<super::NrlSpecificDispatcherHandle>,
     mut tx_to_bridge: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop_internal: Receiver<InternalEventToEventLoop>,
@@ -150,7 +150,7 @@ pub async fn ws_event_loop(
 async fn process_incoming_frame(
     protocol: Protocol,
     ws_message: Message,
-    nrl_specific_handlers: &mut Vec<super::NrlSpecificHandler>,
+    nrl_specific_handlers: &mut Vec<super::NrlSpecificDispatcherHandle>,
     tx_to_bridge: &mut Sender<AddressableEvent>,
 ) -> bool {
     match ws_message {

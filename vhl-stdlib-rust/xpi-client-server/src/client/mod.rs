@@ -151,33 +151,37 @@ impl Client {
                             warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", ev.nrl, ev.seq);
                         }
                     },
-                    ReplyKind::StreamClosed => {
-                        match self.seq_status.get_mut(&ev.seq) {
-                            Some(status) => {
-                                let now = Instant::now();
-                                match status {
-                                    SeqStatus::AwaitingReply { created } => {
-                                        *status = SeqStatus::Done {
-                                            since: now,
-                                            took: now.duration_since(*created),
-                                        };
-                                    }
-                                    SeqStatus::Done { .. } => {
-                                        warn!("StreamClosed received when in Done state {} {:?}", ev.nrl, ev.seq);
-                                    }
-                                    SeqStatus::Streaming { created, .. } => {
-                                        *status = SeqStatus::Done {
-                                            since: now,
-                                            took: now.duration_since(*created),
-                                        };
-                                    }
+                    ReplyKind::StreamClosed => match self.seq_status.get_mut(&ev.seq) {
+                        Some(status) => {
+                            let now = Instant::now();
+                            match status {
+                                SeqStatus::AwaitingReply { created } => {
+                                    *status = SeqStatus::Done {
+                                        since: now,
+                                        took: now.duration_since(*created),
+                                    };
+                                }
+                                SeqStatus::Done { .. } => {
+                                    warn!(
+                                        "StreamClosed received when in Done state {} {:?}",
+                                        ev.nrl, ev.seq
+                                    );
+                                }
+                                SeqStatus::Streaming { created, .. } => {
+                                    *status = SeqStatus::Done {
+                                        since: now,
+                                        took: now.duration_since(*created),
+                                    };
                                 }
                             }
-                            None => {
-                                warn!("StreamClosed for {} with seq: {:?} without prior events, bug?", ev.nrl, ev.seq);
-                            }
                         }
-                    }
+                        None => {
+                            warn!(
+                                "StreamClosed for {} with seq: {:?} without prior events, bug?",
+                                ev.nrl, ev.seq
+                            );
+                        }
+                    },
                     _ => match self.seq_status.get_mut(&ev.seq) {
                         Some(status) => match status {
                             SeqStatus::AwaitingReply { created } => {
@@ -346,9 +350,17 @@ pub enum ClientStatus {
 
 #[derive(Debug)]
 pub enum SeqStatus {
-    AwaitingReply { created: Instant },
-    Done { took: Duration, since: Instant },
-    Streaming { created: Instant, last_update: Instant },
+    AwaitingReply {
+        created: Instant,
+    },
+    Done {
+        took: Duration,
+        since: Instant,
+    },
+    Streaming {
+        created: Instant,
+        last_update: Instant,
+    },
 }
 
 impl Display for SeqStatus {
@@ -365,7 +377,10 @@ impl Display for SeqStatus {
                 took.as_millis(),
                 Instant::now().duration_since(*since).as_secs()
             ),
-            SeqStatus::Streaming { created, last_update } => write!(
+            SeqStatus::Streaming {
+                created,
+                last_update,
+            } => write!(
                 f,
                 "Streaming, last update: {}s ago, created: {}s ago",
                 Instant::now().duration_since(*last_update).as_secs(),

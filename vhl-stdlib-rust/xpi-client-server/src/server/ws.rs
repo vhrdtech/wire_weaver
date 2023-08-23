@@ -80,9 +80,9 @@ pub(crate) async fn ws_server_acceptor(
     ws_sink,
     ws_source,
     to_event_loop_internal,
-from_event_loop,
-from_event_loop_internal,
-routes
+    from_event_loop,
+    from_event_loop_internal,
+    routes
 ))]
 pub async fn ws_event_loop(
     protocol: Protocol,

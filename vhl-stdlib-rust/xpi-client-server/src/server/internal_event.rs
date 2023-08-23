@@ -1,7 +1,7 @@
 use crate::filter::EventFilter;
+use crate::server::control_event::NrlSpecificDispatcherHandle;
 use futures::channel::mpsc::Sender;
 use xpi::client_server_owned::{AddressableEvent, Protocol};
-use crate::server::control_event::NrlSpecificDispatcherHandle;
 
 use super::remote_descriptor::RemoteDescriptor;
 
@@ -17,6 +17,5 @@ pub enum InternalEvent {
 /// Goes directly to event loop of a particular client
 #[derive(Debug)]
 pub enum InternalEventToEventLoop {
-    RegisterDispatcherForNrl(NrlSpecificDispatcherHandle)
-    // DropAllRelatedTo(Protocol),
+    RegisterDispatcherForNrl(NrlSpecificDispatcherHandle), // DropAllRelatedTo(Protocol),
 }

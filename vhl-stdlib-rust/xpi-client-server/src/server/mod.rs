@@ -14,7 +14,7 @@ use internal_event::InternalEventToEventLoop;
 use remote_descriptor::RemoteDescriptor;
 use tokio::net::TcpListener;
 use tracing::{error, info, instrument, trace, warn};
-use xpi::client_server_owned::{AddressableEvent, Protocol};
+use xpi::client_server_owned::{AddressableEvent, Nrl, Protocol};
 
 use error::NodeError;
 use internal_event::InternalEvent;
@@ -35,15 +35,33 @@ pub struct Server {
     tx_control: Sender<ServerControlRequest>,
 }
 
-#[derive(Clone)]
-pub struct SubGroupHandle {
-    pub filter: EventFilter,
+#[derive(Clone, Debug)]
+pub struct NrlSpecificHandler {
+    pub nrl: Nrl,
     pub tx: Sender<AddressableEvent>,
+}
+
+impl NrlSpecificHandler {
+    pub fn matches(&self, nrl: &Nrl) -> bool {
+        if nrl.0.len() < self.nrl.0.len() {
+            return false;
+        }
+        if self.nrl.0[..] != nrl.0[..self.nrl.0.len()] {
+            return false;
+        }
+        true
+    }
 }
 
 #[derive(Debug)]
 pub enum ServerControlRequest {
-    RegisterDispatcher(DispatcherHandle),
+    /// Handle incoming requests for specific Nrl and specific Client via separate dispatcher instance
+    RegisterClientSpecificDispatcher(DispatcherHandle),
+    /// Handle incoming requests for specific Nrl and all Client's via specified dispatcher
+    RegisterNrlBasedDispatcher {
+        nrl: Nrl,
+        tx: Sender<AddressableEvent>,
+    }
 }
 
 impl Server {
@@ -226,23 +244,34 @@ impl Server {
         self.tx_control.clone()
     }
 
+    #[instrument(skip(clients))]
     async fn process_control_request(
         ev: ServerControlRequest,
         clients: &mut Vec<RemoteDescriptor>,
     ) {
         match ev {
-            ServerControlRequest::RegisterDispatcher(handle) => {
-                let remote = clients.iter_mut().find(|d| d.protocol == handle.protocol);
-                let Some(remote) = remote else {
+            ServerControlRequest::RegisterClientSpecificDispatcher(handle) => {
+                let client = clients.iter_mut().find(|d| d.protocol == handle.protocol);
+                let Some(client) = client else {
                     warn!("Control request to {}: client event loop not found", handle.protocol);
                     return;
                 };
-                let r = remote
+                let r = client
                     .to_event_loop_internal
-                    .send(InternalEventToEventLoop::RegisterDispatcher(handle))
+                    .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificHandler { nrl: handle.nrl, tx: handle.tx }))
                     .await;
                 if r.is_err() {
-                    warn!("Control request to {}: send error", remote.protocol);
+                    warn!("Control request to {}: send error", client.protocol);
+                }
+            }
+            ServerControlRequest::RegisterNrlBasedDispatcher { nrl, tx } => {
+                for client in clients {
+                    let r = client
+                        .to_event_loop_internal
+                        .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificHandler { nrl: nrl.clone(), tx: tx.clone() })).await;
+                    if r.is_err() {
+                        warn!("mpsc fail");
+                    }
                 }
             }
         }
@@ -265,7 +294,7 @@ impl Server {
     pub async fn listen(
         &mut self,
         protocol: Protocol,
-        subgroup_handlers: Vec<SubGroupHandle>,
+        subgroup_handlers: Vec<NrlSpecificHandler>,
     ) -> Result<(), NodeError> {
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();

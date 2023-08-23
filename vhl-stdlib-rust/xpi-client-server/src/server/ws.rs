@@ -14,7 +14,7 @@ use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol};
 #[instrument(skip(listener, tx_to_bridge, subgroup_handlers, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
     listener: TcpListener,
-    subgroup_handlers: Vec<super::SubGroupHandle>,
+    subgroup_handlers: Vec<super::NrlSpecificHandler>,
     tx_to_bridge: Sender<AddressableEvent>,
     mut tx_internal: Sender<InternalEvent>,
 ) {
@@ -77,33 +77,33 @@ pub(crate) async fn ws_server_acceptor(
 
 #[instrument(skip(
     tx_to_bridge,
-    subgroup_handlers,
     ws_sink,
     ws_source,
     to_event_loop_internal,
 from_event_loop,
-from_event_loop_internal
+from_event_loop_internal,
+nrl_specific_handlers
 ))]
 pub async fn ws_event_loop(
     protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    mut subgroup_handlers: Vec<super::SubGroupHandle>,
+    mut nrl_specific_handlers: Vec<super::NrlSpecificHandler>,
     mut tx_to_bridge: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop_internal: Receiver<InternalEventToEventLoop>,
     mut from_event_loop: Receiver<AddressableEvent>,
 ) {
     info!("Event loop started");
+    debug!("{:?}", nrl_specific_handlers);
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
-    let mut tx_to_stateful = HashMap::new();
     loop {
         tokio::select! {
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(protocol, frame, &mut subgroup_handlers, &mut tx_to_bridge, &mut tx_to_stateful).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut nrl_specific_handlers, &mut tx_to_bridge).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -127,13 +127,15 @@ pub async fn ws_event_loop(
             },
             ev = from_event_loop_internal.select_next_some() => {
                 match ev {
-                    InternalEventToEventLoop::RegisterDispatcher(handle)=> {
-                        if tx_to_stateful.contains_key(&(protocol, handle.nrl.clone())) {
-                            warn!("Registered the same stateful dispatcher twice {} {}", protocol, handle.nrl);
+                    InternalEventToEventLoop::RegisterDispatcherForNrl(handler) => {
+                        if nrl_specific_handlers.iter().any(|h| h.nrl == handler.nrl) {
+                            warn!("Tried registering the same Nrl dispatcher twice {}", handler.nrl);
                         } else {
-                            info!("Registered stateful dispatcher: {} {}", protocol, handle.nrl);
+                            info!("Registered Nrl specific dispatcher: {}", handler.nrl);
+                            nrl_specific_handlers.push(handler);
+                            nrl_specific_handlers.sort_by(|a, b| a.nrl.0.len().cmp(&b.nrl.0.len()));
+                            debug!("{nrl_specific_handlers:?}");
                         }
-                        tx_to_stateful.insert((protocol, handle.nrl), handle.tx);
                     }
                     // InternalEventToEventLoop::DropAllRelatedTo(protocol) => {
                     //     info!("Dropping all stateful dispatcher related to {} due to request", protocol);
@@ -148,9 +150,8 @@ pub async fn ws_event_loop(
 async fn process_incoming_frame(
     protocol: Protocol,
     ws_message: Message,
-    subgroup_handlers: &mut Vec<super::SubGroupHandle>,
+    nrl_specific_handlers: &mut Vec<super::NrlSpecificHandler>,
     tx_to_bridge: &mut Sender<AddressableEvent>,
-    tx_to_stateful: &mut HashMap<(Protocol, Nrl), Sender<AddressableEvent>>,
 ) -> bool {
     match ws_message {
         Message::Binary(bytes) => {
@@ -165,40 +166,51 @@ async fn process_incoming_frame(
                         event,
                     };
 
-                    let mut possible_entry = event.event.nrl.clone();
-                    let mut sent_to_stateful = false;
-                    let mut should_drop = false;
-                    while possible_entry.0.len() > 2 {
-                        // debug!("trying {}", possible_entry);
-                        if let Some(tx) =
-                            tx_to_stateful.get_mut(&(protocol, possible_entry.clone()))
-                        {
-                            if tx.send(event.clone()).await.is_ok() {
-                                trace!("sent to stateful {} {}", protocol, possible_entry);
-                                sent_to_stateful = true;
-                            } else {
-                                debug!("direct channel to stateful handler is closed, dropping it and routing through other channel(s)");
-                                should_drop = true;
-                            }
-                            break;
-                        }
-                        possible_entry.0.remove(possible_entry.0.len() - 1);
-                    }
-                    if should_drop {
-                        tx_to_stateful.remove(&(protocol, possible_entry));
-                    }
-                    if sent_to_stateful {
-                        return false;
-                    }
+                    // let mut possible_entry = event.event.nrl.clone();
+                    // let mut sent_to_stateful = false;
+                    // let mut should_drop = false;
+                    // while possible_entry.0.len() > 2 {
+                    //     // debug!("trying {}", possible_entry);
+                    //     if let Some(tx) =
+                    //         tx_to_stateful.get_mut(&(protocol, possible_entry.clone()))
+                    //     {
+                    //         if tx.send(event.clone()).await.is_ok() {
+                    //             trace!("sent to stateful {} {}", protocol, possible_entry);
+                    //             sent_to_stateful = true;
+                    //         } else {
+                    //             debug!("direct channel to stateful handler is closed, dropping it and routing through other channel(s)");
+                    //             should_drop = true;
+                    //         }
+                    //         break;
+                    //     }
+                    //     possible_entry.0.remove(possible_entry.0.len() - 1);
+                    // }
+                    // if should_drop {
+                    //     tx_to_stateful.remove(&(protocol, possible_entry));
+                    // }
+                    // if sent_to_stateful {
+                    //     return false;
+                    // }
 
-                    for sg in subgroup_handlers {
-                        if sg.filter.matches(&event.event) {
-                            if sg.tx.send(event).await.is_err() {
-                                error!("mpsc to subgroup handler failed");
+                    let mut drop_idx = None;
+                    for (idx, h) in nrl_specific_handlers.iter_mut().enumerate() {
+                        if h.matches(&event.event.nrl) {
+                            if h.tx.is_closed() {
+                                warn!("mpsc to subgroup handler failed");
+                                drop_idx = Some(idx);
+                                break;
                             }
+                            if h.tx.send(event).await.is_err() {
+                                warn!("mpsc failed even though it wasn't closed?");
+                            }
+                            trace!("-> nrl_specific");
                             return false;
                         }
                     }
+                    if let Some(idx) = drop_idx {
+                        nrl_specific_handlers.remove(idx);
+                    }
+
                     // trace!("{event}");
                     if tx_to_bridge.send(event).await.is_err() {
                         error!("mpsc fail, main event loop must have crashed?");

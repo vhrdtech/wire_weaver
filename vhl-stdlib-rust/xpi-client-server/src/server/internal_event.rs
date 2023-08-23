@@ -1,6 +1,7 @@
 use crate::filter::EventFilter;
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use xpi::client_server_owned::{AddressableEvent, Nrl, Protocol};
+use crate::server::NrlSpecificHandler;
 
 use super::remote_descriptor::RemoteDescriptor;
 
@@ -30,6 +31,6 @@ impl DispatcherHandle {
 /// Goes directly to event loop of a particular client
 #[derive(Debug)]
 pub enum InternalEventToEventLoop {
-    RegisterDispatcher(DispatcherHandle),
+    RegisterDispatcherForNrl(NrlSpecificHandler)
     // DropAllRelatedTo(Protocol),
 }

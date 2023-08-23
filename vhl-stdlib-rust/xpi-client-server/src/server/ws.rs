@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::io::Cursor;
+use std::sync::{Arc, RwLock};
 
 use crate::server::internal_event::{InternalEvent, InternalEventToEventLoop};
 use crate::server::remote_descriptor::RemoteDescriptor;
@@ -9,12 +9,12 @@ use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
-use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol};
+use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
 
-#[instrument(skip(listener, tx_to_bridge, subgroup_handlers, tx_internal))]
+#[instrument(skip(listener, tx_to_bridge, routes, tx_internal))]
 pub(crate) async fn ws_server_acceptor(
     listener: TcpListener,
-    subgroup_handlers: Vec<super::NrlSpecificHandler>,
+    routes: Arc<RwLock<Vec<super::NrlSpecificHandler>>>,
     tx_to_bridge: Sender<AddressableEvent>,
     mut tx_internal: Sender<InternalEvent>,
 ) {
@@ -35,7 +35,7 @@ pub(crate) async fn ws_server_acceptor(
                 let (tx, rx) = mpsc::channel(64);
                 let (st_tx, st_rx) = mpsc::channel(16);
                 let tx_to_bridge = tx_to_bridge.clone();
-                let subgroup_handlers = subgroup_handlers.clone();
+                let routes = routes.read().map(|h| h.clone()).unwrap_or_default();
                 let to_event_loop_internal = tx_internal.clone();
                 let protocol = Protocol::Ws {
                     ip_addr: remote_addr.ip(),
@@ -47,7 +47,7 @@ pub(crate) async fn ws_server_acceptor(
                         protocol,
                         ws_sink,
                         ws_source,
-                        subgroup_handlers,
+                        routes,
                         tx_to_bridge.clone(),
                         to_event_loop_internal,
                         st_rx,
@@ -82,20 +82,20 @@ pub(crate) async fn ws_server_acceptor(
     to_event_loop_internal,
 from_event_loop,
 from_event_loop_internal,
-nrl_specific_handlers
+routes
 ))]
 pub async fn ws_event_loop(
     protocol: Protocol,
     ws_sink: impl Sink<Message>,
     ws_source: impl Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    mut nrl_specific_handlers: Vec<super::NrlSpecificHandler>,
+    mut routes: Vec<super::NrlSpecificHandler>,
     mut tx_to_bridge: Sender<AddressableEvent>,
     mut to_event_loop_internal: Sender<InternalEvent>,
     mut from_event_loop_internal: Receiver<InternalEventToEventLoop>,
     mut from_event_loop: Receiver<AddressableEvent>,
 ) {
     info!("Event loop started");
-    debug!("{:?}", nrl_specific_handlers);
+    debug!("{:?}", routes);
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
     loop {
@@ -103,7 +103,7 @@ pub async fn ws_event_loop(
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(protocol, frame, &mut nrl_specific_handlers, &mut tx_to_bridge).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut routes, &mut tx_to_bridge).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -128,13 +128,13 @@ pub async fn ws_event_loop(
             ev = from_event_loop_internal.select_next_some() => {
                 match ev {
                     InternalEventToEventLoop::RegisterDispatcherForNrl(handler) => {
-                        if nrl_specific_handlers.iter().any(|h| h.nrl == handler.nrl) {
+                        if routes.iter().any(|h| h.nrl == handler.nrl) {
                             warn!("Tried registering the same Nrl dispatcher twice {}", handler.nrl);
                         } else {
                             info!("Registered Nrl specific dispatcher: {}", handler.nrl);
-                            nrl_specific_handlers.push(handler);
-                            nrl_specific_handlers.sort_by(|a, b| a.nrl.0.len().cmp(&b.nrl.0.len()));
-                            debug!("{nrl_specific_handlers:?}");
+                            routes.push(handler);
+                            routes.sort_by(|a, b| b.nrl.0.len().cmp(&a.nrl.0.len()));
+                            debug!("{routes:?}");
                         }
                     }
                     // InternalEventToEventLoop::DropAllRelatedTo(protocol) => {

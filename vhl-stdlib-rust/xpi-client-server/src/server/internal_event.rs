@@ -21,6 +21,12 @@ pub struct DispatcherHandle {
     pub tx: Sender<AddressableEvent>,
 }
 
+impl PartialEq<DispatcherHandle> for DispatcherHandle {
+    fn eq(&self, other: &DispatcherHandle) -> bool {
+        self.protocol == other.protocol && self.nrl == other.nrl
+    }
+}
+
 impl DispatcherHandle {
     pub fn new(protocol: Protocol, nrl: Nrl) -> (Self, Receiver<AddressableEvent>) {
         let (tx, rx) = channel(64);

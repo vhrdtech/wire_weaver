@@ -7,6 +7,7 @@ pub mod ws;
 
 use crate::filter::EventFilter;
 use core::time::Duration;
+use std::sync::{Arc, RwLock};
 use futures::channel::mpsc;
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::{SinkExt, StreamExt};
@@ -65,12 +66,12 @@ pub enum ServerControlRequest {
 }
 
 impl Server {
-    pub async fn new() -> Server {
+    pub async fn new(routes: Arc<RwLock<Vec<NrlSpecificHandler>>>) -> Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
         let (tx_control, rx_control) = mpsc::channel(16);
         tokio::spawn(async move {
-            Self::event_loop(rx_router, rx_internal, rx_control).await;
+            Self::event_loop(rx_router, rx_internal, rx_control, routes).await;
         });
         Server {
             tx_to_event_loop,
@@ -92,6 +93,7 @@ impl Server {
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,
         mut rx_control: Receiver<ServerControlRequest>,
+        routes: Arc<RwLock<Vec<NrlSpecificHandler>>>
     ) {
         info!("Entering event loop");
 
@@ -124,7 +126,7 @@ impl Server {
                     ).await;
                 }
                 ev_control = rx_control.select_next_some() => {
-                    Self::process_control_request(ev_control, &mut clients).await;
+                    Self::process_control_request(ev_control, &mut clients, &routes).await;
                 }
                 _ = heartbeat.next() => {
                     // trace!("{}: local heartbeat", id.0);
@@ -147,6 +149,7 @@ impl Server {
                     // });
 
                     Self::drop_timed_out_filters(&mut filters);
+                    Self::drop_bad_routes(&routes);
                 }
                 complete => {
                     warn!("unexpected complete");
@@ -248,6 +251,7 @@ impl Server {
     async fn process_control_request(
         ev: ServerControlRequest,
         clients: &mut Vec<RemoteDescriptor>,
+        routes: &Arc<RwLock<Vec<NrlSpecificHandler>>>
     ) {
         match ev {
             ServerControlRequest::RegisterClientSpecificDispatcher(handle) => {
@@ -265,12 +269,23 @@ impl Server {
                 }
             }
             ServerControlRequest::RegisterNrlBasedDispatcher { nrl, tx } => {
+                // send to all the current clients
                 for client in clients {
                     let r = client
                         .to_event_loop_internal
                         .send(InternalEventToEventLoop::RegisterDispatcherForNrl(NrlSpecificHandler { nrl: nrl.clone(), tx: tx.clone() })).await;
                     if r.is_err() {
                         warn!("mpsc fail");
+                    }
+                }
+                // save for future ones
+                match routes.write() {
+                    Ok(mut wr) => {
+                        wr.push(NrlSpecificHandler { nrl, tx });
+                        wr.sort_by(|a, b| b.nrl.0.len().cmp(&a.nrl.0.len()));
+                    }
+                    Err(_) => {
+                        error!("RwLock failed for write");
                     }
                 }
             }
@@ -286,6 +301,17 @@ impl Server {
         }
     }
 
+    fn drop_bad_routes(routes: &Arc<RwLock<Vec<NrlSpecificHandler>>>) {
+        match routes.write() {
+            Ok(mut routes) => {
+                routes.retain(|route| !route.tx.is_closed());
+            }
+            Err(_) => {
+                error!("RwLock fail to write");
+            }
+        }
+    }
+
     pub fn new_tx_handle(&self) -> Sender<AddressableEvent> {
         self.tx_to_event_loop.clone()
     }
@@ -294,7 +320,7 @@ impl Server {
     pub async fn listen(
         &mut self,
         protocol: Protocol,
-        subgroup_handlers: Vec<NrlSpecificHandler>,
+        subgroup_handlers: Arc<RwLock<Vec<NrlSpecificHandler>>>,
     ) -> Result<(), NodeError> {
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();

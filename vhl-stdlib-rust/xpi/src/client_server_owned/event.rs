@@ -1,4 +1,5 @@
 use core::fmt::Display;
+use futures::channel::mpsc::Sender;
 
 use crate::error::XpiError;
 
@@ -19,6 +20,7 @@ pub struct AddressableEvent {
     pub protocol: Protocol,
     pub is_inbound: bool,
     pub event: Event,
+    pub response_tx: Sender<AddressableEvent>,
 }
 
 impl AddressableEvent {
@@ -31,6 +33,7 @@ impl AddressableEvent {
                 kind,
                 seq: ev.event.seq,
             },
+            response_tx: ev.response_tx.clone()
         }
     }
 }

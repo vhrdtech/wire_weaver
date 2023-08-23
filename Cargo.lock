@@ -1772,6 +1772,7 @@ dependencies = [
 name = "xpi"
 version = "0.1.0"
 dependencies = [
+    "futures",
  "hex-literal",
  "serde",
  "smallvec",

@@ -98,12 +98,13 @@ pub async fn ws_event_loop(
     debug!("{:?}", routes);
     tokio::pin!(ws_sink);
     tokio::pin!(ws_source);
+    let (tx_local, mut rx_direct) = futures::channel::mpsc::channel(64); // TODO: config
     loop {
         tokio::select! {
             frame = ws_source.try_next() => {
                 match frame {
                     Ok(Some(frame)) => {
-                        let should_terminate = process_incoming_frame(protocol, frame, &mut routes, &mut tx_to_bridge).await;
+                        let should_terminate = process_incoming_frame(protocol, frame, &mut routes, &mut tx_to_bridge, &tx_local).await;
                         if should_terminate {
                             let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
@@ -119,6 +120,13 @@ pub async fn ws_event_loop(
                 }
             }
             ev = from_event_loop.select_next_some() => {
+                let should_terminate = serialize_and_send(ev, &mut ws_sink).await;
+                if should_terminate {
+                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
+                    break;
+                }
+            },
+            ev = rx_direct.select_next_some() => {
                 let should_terminate = serialize_and_send(ev, &mut ws_sink).await;
                 if should_terminate {
                     let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
@@ -152,6 +160,7 @@ async fn process_incoming_frame(
     ws_message: Message,
     nrl_specific_handlers: &mut Vec<super::NrlSpecificDispatcherHandle>,
     tx_to_bridge: &mut Sender<AddressableEvent>,
+    tx_local: &Sender<AddressableEvent>,
 ) -> bool {
     match ws_message {
         Message::Binary(bytes) => {
@@ -164,6 +173,7 @@ async fn process_incoming_frame(
                         protocol,
                         is_inbound: true,
                         event,
+                        response_tx: tx_local.clone()
                     };
 
                     // let mut possible_entry = event.event.nrl.clone();

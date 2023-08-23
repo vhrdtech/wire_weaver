@@ -106,7 +106,6 @@ pub async fn ws_event_loop(
                     Ok(Some(frame)) => {
                         let should_terminate = process_incoming_frame(protocol, frame, &mut routes, &mut tx_to_bridge, &tx_local).await;
                         if should_terminate {
-                            let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                             break;
                         }
                     }
@@ -122,7 +121,6 @@ pub async fn ws_event_loop(
             ev = from_event_loop.select_next_some() => {
                 let should_terminate = serialize_and_send(ev, &mut ws_sink).await;
                 if should_terminate {
-                    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
                     break;
                 }
             },
@@ -153,6 +151,9 @@ pub async fn ws_event_loop(
             }
         }
     }
+
+    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
+    info!("Event loop: exiting");
 }
 
 async fn process_incoming_frame(

@@ -213,7 +213,6 @@ async fn process_incoming_frame(
                             if h.tx.send(event).await.is_err() {
                                 warn!("mpsc failed even though it wasn't closed?");
                             }
-                            trace!("-> nrl_specific");
                             return false;
                         }
                     }

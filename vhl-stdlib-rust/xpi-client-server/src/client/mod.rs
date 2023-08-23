@@ -130,14 +130,54 @@ impl Client {
                     | ReplyKind::StreamUpdate { .. }
                     | ReplyKind::Subscribed => match self.seq_status.get_mut(&ev.seq) {
                         Some(status) => {
-                            *status = SeqStatus::Streaming {
-                                last_update: Instant::now(),
+                            let now = Instant::now();
+                            match status {
+                                SeqStatus::AwaitingReply { .. } => {
+                                    *status = SeqStatus::Streaming {
+                                        last_update: now,
+                                        created: now,
+                                    }
+                                }
+                                SeqStatus::Done { .. } => {}
+                                SeqStatus::Streaming { created, .. } => {
+                                    *status = SeqStatus::Streaming {
+                                        last_update: now,
+                                        created: *created,
+                                    }
+                                }
                             }
                         }
                         None => {
                             warn!("Stream update for {} with seq: {:?} received without prior request, probably a bug", ev.nrl, ev.seq);
                         }
                     },
+                    ReplyKind::StreamClosed => {
+                        match self.seq_status.get_mut(&ev.seq) {
+                            Some(status) => {
+                                let now = Instant::now();
+                                match status {
+                                    SeqStatus::AwaitingReply { created } => {
+                                        *status = SeqStatus::Done {
+                                            since: now,
+                                            took: now.duration_since(*created),
+                                        };
+                                    }
+                                    SeqStatus::Done { .. } => {
+                                        warn!("StreamClosed received when in Done state {} {:?}", ev.nrl, ev.seq);
+                                    }
+                                    SeqStatus::Streaming { created, .. } => {
+                                        *status = SeqStatus::Done {
+                                            since: now,
+                                            took: now.duration_since(*created),
+                                        };
+                                    }
+                                }
+                            }
+                            None => {
+                                warn!("StreamClosed for {} with seq: {:?} without prior events, bug?", ev.nrl, ev.seq);
+                            }
+                        }
+                    }
                     _ => match self.seq_status.get_mut(&ev.seq) {
                         Some(status) => match status {
                             SeqStatus::AwaitingReply { created } => {
@@ -308,7 +348,7 @@ pub enum ClientStatus {
 pub enum SeqStatus {
     AwaitingReply { created: Instant },
     Done { took: Duration, since: Instant },
-    Streaming { last_update: Instant },
+    Streaming { created: Instant, last_update: Instant },
 }
 
 impl Display for SeqStatus {
@@ -325,10 +365,11 @@ impl Display for SeqStatus {
                 took.as_millis(),
                 Instant::now().duration_since(*since).as_secs()
             ),
-            SeqStatus::Streaming { last_update } => write!(
+            SeqStatus::Streaming { created, last_update } => write!(
                 f,
-                "Streaming, last update: {}s ago",
-                Instant::now().duration_since(*last_update).as_secs()
+                "Streaming, last update: {}s ago, created: {}s ago",
+                Instant::now().duration_since(*last_update).as_secs(),
+                Instant::now().duration_since(*created).as_secs()
             ),
         }
     }

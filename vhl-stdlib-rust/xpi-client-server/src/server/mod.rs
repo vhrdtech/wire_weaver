@@ -88,7 +88,7 @@ impl Server {
     /// rx_from_nodes: any other software node can send an event here.
     /// rx_internal: when new node is added, message is sent to this channel and it's handle is
     ///     Option::take()'n into local nodes hashmap.
-    #[instrument(skip(rx_from_instances, rx_internal, rx_control))]
+    #[instrument(skip(rx_from_instances, rx_internal, rx_control, routes))]
     async fn event_loop(
         mut rx_from_instances: Receiver<AddressableEvent>,
         mut rx_internal: Receiver<InternalEvent>,

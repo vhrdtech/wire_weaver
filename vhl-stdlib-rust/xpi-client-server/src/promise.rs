@@ -70,4 +70,11 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
             Promise::Done(_) | Promise::Waiting(_) => false,
         }
     }
+
+    pub fn as_option(&self) -> Option<&T> {
+        match self {
+            Promise::Done(v) => Some(v),
+            _ => None
+        }
+    }
 }

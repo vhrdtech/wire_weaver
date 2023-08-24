@@ -8,7 +8,7 @@ use futures::channel::mpsc::{Receiver, Sender};
 use futures_util::{Sink, SinkExt, Stream, StreamExt, TryStreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
 use xpi::client_server_owned::{AddressableEvent, Event, Protocol};
 
 #[instrument(skip(listener, tx_to_bridge, routes, tx_internal))]

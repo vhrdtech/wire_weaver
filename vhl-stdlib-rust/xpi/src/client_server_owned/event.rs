@@ -33,7 +33,7 @@ impl AddressableEvent {
                 kind,
                 seq: ev.event.seq,
             },
-            response_tx: ev.response_tx.clone()
+            response_tx: ev.response_tx.clone(),
         }
     }
 }

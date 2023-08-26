@@ -143,6 +143,10 @@ pub async fn ws_event_loop(
                             debug!("{routes:?}");
                         }
                     }
+                    InternalEventToEventLoop::DropDispatcherForNrl(nrl) => {
+                        routes.retain(|r| r.nrl != nrl);
+                        info!("Dropped handler for {nrl}");
+                    }
                     // InternalEventToEventLoop::DropAllRelatedTo(protocol) => {
                     //     info!("Dropping all stateful dispatcher related to {} due to request", protocol);
                     //     tx_to_stateful.retain(|(p, _), _| *p != protocol);
@@ -152,7 +156,9 @@ pub async fn ws_event_loop(
         }
     }
 
-    let _ = to_event_loop_internal.send(InternalEvent::DropRemote(protocol)).await;
+    let _ = to_event_loop_internal
+        .send(InternalEvent::DropRemote(protocol))
+        .await;
     info!("Event loop: exiting");
 }
 
@@ -174,7 +180,7 @@ async fn process_incoming_frame(
                         protocol,
                         is_inbound: true,
                         event,
-                        response_tx: tx_local.clone()
+                        response_tx: tx_local.clone(),
                     };
 
                     // let mut possible_entry = event.event.nrl.clone();
@@ -209,7 +215,7 @@ async fn process_incoming_frame(
                             if h.tx.is_closed() {
                                 warn!("mpsc to subgroup handler failed");
                                 drop_idx = Some(idx);
-                                break;
+                                continue;
                             }
                             if h.tx.send(event).await.is_err() {
                                 warn!("mpsc failed even though it wasn't closed?");
@@ -219,6 +225,7 @@ async fn process_incoming_frame(
                     }
                     if let Some(idx) = drop_idx {
                         nrl_specific_handlers.remove(idx);
+                        debug!("{nrl_specific_handlers:?}");
                     }
 
                     // trace!("{event}");

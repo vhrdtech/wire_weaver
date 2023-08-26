@@ -50,4 +50,5 @@ pub enum ServerControlRequest {
     RegisterClientSpecificDispatcher(ClientSpecificDispatcherHandle),
     /// Handle incoming requests for specific Nrl and all Client's via specified dispatcher
     RegisterNrlBasedDispatcher(NrlSpecificDispatcherHandle),
+    DropNrlBasedDispatcher(Nrl),
 }

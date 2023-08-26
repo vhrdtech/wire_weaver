@@ -74,7 +74,7 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
     pub fn as_option(&self) -> Option<&T> {
         match self {
             Promise::Done(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 }

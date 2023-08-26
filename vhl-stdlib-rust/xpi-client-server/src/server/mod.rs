@@ -22,6 +22,7 @@ use xpi::client_server_owned::{AddressableEvent, Protocol};
 
 use error::NodeError;
 use internal_event::InternalEvent;
+use tokio::task::JoinHandle;
 
 pub mod prelude {
     pub use super::error::NodeError;
@@ -277,6 +278,25 @@ impl Server {
                     }
                 }
             }
+            ServerControlRequest::DropNrlBasedDispatcher(nrl) => {
+                for client in clients {
+                    let r = client
+                        .to_event_loop_internal
+                        .send(InternalEventToEventLoop::DropDispatcherForNrl(nrl.clone()))
+                        .await;
+                    if r.is_err() {
+                        warn!("mpsc fail");
+                    }
+                }
+                match routes.write() {
+                    Ok(mut wr) => {
+                        wr.retain(|h| h.nrl != nrl);
+                    }
+                    Err(_) => {
+                        error!("RwLock failed for write");
+                    }
+                }
+            }
         }
     }
 
@@ -309,7 +329,7 @@ impl Server {
         &mut self,
         protocol: Protocol,
         subgroup_handlers: Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>,
-    ) -> Result<(), NodeError> {
+    ) -> Result<JoinHandle<()>, NodeError> {
         let tx_to_event_loop = self.tx_to_event_loop.clone();
         let tx_internal = self.tx_internal.clone();
         match protocol {
@@ -328,7 +348,7 @@ impl Server {
                 let listener = TcpListener::bind((ip_addr, port)).await?;
                 info!("ws: Listening on: {ip_addr}:{port}");
 
-                tokio::spawn(async move {
+                let listener_handle = tokio::spawn(async move {
                     ws::ws_server_acceptor(
                         listener,
                         subgroup_handlers,
@@ -338,7 +358,7 @@ impl Server {
                     .await
                 });
 
-                Ok(())
+                Ok(listener_handle)
             }
         }
     }

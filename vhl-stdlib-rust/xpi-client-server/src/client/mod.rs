@@ -159,6 +159,7 @@ impl Client {
                                     *status = SeqStatus::Done {
                                         since: now,
                                         took: now.duration_since(*created),
+                                        result: Ok(())
                                     };
                                 }
                                 SeqStatus::Done { .. } => {
@@ -171,6 +172,7 @@ impl Client {
                                     *status = SeqStatus::Done {
                                         since: now,
                                         took: now.duration_since(*created),
+                                        result: Ok(())
                                     };
                                 }
                             }
@@ -189,6 +191,7 @@ impl Client {
                                 *status = SeqStatus::Done {
                                     took: now.duration_since(*created),
                                     since: now,
+                                    result: Ok(())
                                 };
                             }
                             SeqStatus::Done { .. } => {
@@ -201,7 +204,32 @@ impl Client {
                         }
                     },
                 },
-                Err(_) => {}
+                Err(e) => match self.seq_status.get_mut(&ev.seq) {
+                    Some(status) => match status {
+                        SeqStatus::AwaitingReply { created } => {
+                            let now = Instant::now();
+                            *status = SeqStatus::Done {
+                                took: now.duration_since(*created),
+                                since: now,
+                                result: Err(e.clone()),
+                            };
+                        }
+                        SeqStatus::Done { .. } => {
+                            warn!("Got a second reply for {:?}?", ev.seq);
+                        }
+                        SeqStatus::Streaming { created, .. } => {
+                            let now = Instant::now();
+                            *status = SeqStatus::Done {
+                                took: now.duration_since(*created),
+                                since: now,
+                                result: Err(e.clone()),
+                            };
+                        }
+                    },
+                    None => {
+                        warn!("Got error for an unknown request: {:?}", ev.seq);
+                    }
+                }
             }
             // }
         }
@@ -356,6 +384,7 @@ pub enum SeqStatus {
     Done {
         took: Duration,
         since: Instant,
+        result: Result<(), XpiError>,
     },
     Streaming {
         created: Instant,
@@ -371,9 +400,9 @@ impl Display for SeqStatus {
                 "AwaitingReply for: {}s",
                 Instant::now().duration_since(*created).as_secs()
             ),
-            SeqStatus::Done { took, since } => write!(
+            SeqStatus::Done { took, since, result } => write!(
                 f,
-                "Took: {}ms, done for: {}s",
+                "Took: {}ms, done for: {}s, result: {result:?}",
                 took.as_millis(),
                 Instant::now().duration_since(*since).as_secs()
             ),

@@ -159,7 +159,7 @@ impl Client {
                                     *status = SeqStatus::Done {
                                         since: now,
                                         took: now.duration_since(*created),
-                                        result: Ok(())
+                                        result: Ok(()),
                                     };
                                 }
                                 SeqStatus::Done { .. } => {
@@ -172,7 +172,7 @@ impl Client {
                                     *status = SeqStatus::Done {
                                         since: now,
                                         took: now.duration_since(*created),
-                                        result: Ok(())
+                                        result: Ok(()),
                                     };
                                 }
                             }
@@ -191,7 +191,7 @@ impl Client {
                                 *status = SeqStatus::Done {
                                     took: now.duration_since(*created),
                                     since: now,
-                                    result: Ok(())
+                                    result: Ok(()),
                                 };
                             }
                             SeqStatus::Done { .. } => {
@@ -229,7 +229,7 @@ impl Client {
                     None => {
                         warn!("Got error for an unknown request: {:?}", ev.seq);
                     }
-                }
+                },
             }
             // }
         }
@@ -400,7 +400,11 @@ impl Display for SeqStatus {
                 "AwaitingReply for: {}s",
                 Instant::now().duration_since(*created).as_secs()
             ),
-            SeqStatus::Done { took, since, result } => write!(
+            SeqStatus::Done {
+                took,
+                since,
+                result,
+            } => write!(
                 f,
                 "Took: {}ms, done for: {}s, result: {result:?}",
                 took.as_millis(),

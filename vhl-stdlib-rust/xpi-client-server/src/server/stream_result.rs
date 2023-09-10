@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
-use serde::Serialize;
-use tracing::{error, warn};
-use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol, RequestId};
 use futures::channel::mpsc::Sender;
 use futures_util::SinkExt;
+use serde::Serialize;
+use std::marker::PhantomData;
 use thiserror::Error;
+use tracing::{error, warn};
+use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol, RequestId};
 
 pub struct StreamResultContext<T> {
     pub source: Protocol,
@@ -24,7 +24,12 @@ pub enum PublishError {
 }
 
 impl<T: Serialize> StreamResultContext<T> {
-    pub fn new(source: Protocol, nrl: Nrl, seq: RequestId, events_tx: Sender<AddressableEvent>) -> Self {
+    pub fn new(
+        source: Protocol,
+        nrl: Nrl,
+        seq: RequestId,
+        events_tx: Sender<AddressableEvent>,
+    ) -> Self {
         StreamResultContext {
             source,
             nrl,
@@ -38,10 +43,7 @@ impl<T: Serialize> StreamResultContext<T> {
         self.publish_many(&[item]).await
     }
 
-    pub async fn publish_many(
-        &mut self,
-        items: &[T],
-    ) -> Result<(), PublishError> {
+    pub async fn publish_many(&mut self, items: &[T]) -> Result<(), PublishError> {
         if items.is_empty() {
             return Ok(());
         }
@@ -56,9 +58,7 @@ impl<T: Serialize> StreamResultContext<T> {
                 response_tx: self.events_tx.clone(), // TODO: weird
             })
             .await
-            .map_err(|_| {
-                PublishError::MpscError
-            })?;
+            .map_err(|_| PublishError::MpscError)?;
         Ok(())
     }
 
@@ -72,9 +72,7 @@ impl<T: Serialize> StreamResultContext<T> {
                 response_tx: self.events_tx.clone(),
             })
             .await
-            .map_err(|_| {
-                PublishError::MpscError
-            })?;
+            .map_err(|_| PublishError::MpscError)?;
         Ok(())
     }
 }

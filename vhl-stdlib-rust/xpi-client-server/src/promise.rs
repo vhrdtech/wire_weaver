@@ -34,9 +34,17 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
                                 let len = data.len();
                                 let cur = Cursor::new(data);
                                 let mut de = rmp_serde::Deserializer::new(cur);
-                                let val: T = Deserialize::deserialize(&mut de).unwrap();
-                                trace!("got promised answer for {:?} ({}B)", ev.seq, len);
-                                *self = Promise::Done(val)
+                                match Deserialize::deserialize(&mut de) {
+                                    Ok(value) => {
+                                        trace!("got promised answer for {:?} ({}B)", ev.seq, len);
+                                        *self = Promise::Done(value)
+                                    }
+                                    Err(e) => {
+                                        *self = Promise::Err(XpiError::ClientSideOwned(format!(
+                                            "De: {e:?}"
+                                        )));
+                                    }
+                                }
                             } else {
                                 *self = Promise::Err(XpiError::Internal);
                             }

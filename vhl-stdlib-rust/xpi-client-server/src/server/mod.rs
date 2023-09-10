@@ -2,8 +2,8 @@ pub mod control_event;
 pub mod error;
 mod internal_event;
 mod remote_descriptor;
-pub mod ws;
 pub mod stream_result;
+pub mod ws;
 
 pub use control_event::{
     ClientSpecificDispatcherHandle, NrlSpecificDispatcherHandle, ServerControlRequest,

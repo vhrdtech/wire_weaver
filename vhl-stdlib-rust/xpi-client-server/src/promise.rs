@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::io::Cursor;
 
 use serde::Deserialize;
-use tracing::trace;
+use tracing::{trace, warn};
 
 use xpi::client_server_owned::{EventKind, ReplyKind, RequestId};
 use xpi::error::XpiError;
@@ -16,7 +16,7 @@ pub enum Promise<T> {
     #[default]
     None,
     Waiting(RequestId),
-    Done(T),
+    Done(Option<T>),
     Err(XpiError),
 }
 
@@ -37,7 +37,7 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
                                 match Deserialize::deserialize(&mut de) {
                                     Ok(value) => {
                                         trace!("got promised answer for {:?} ({}B)", ev.seq, len);
-                                        *self = Promise::Done(value)
+                                        *self = Promise::Done(Some(value))
                                     }
                                     Err(e) => {
                                         *self = Promise::Err(XpiError::ClientSideOwned(format!(
@@ -64,9 +64,9 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
         if !matches!(self, Promise::Done(_)) {
             return None;
         }
-        let value = core::mem::take(self);
+        let mut value = core::mem::take(self);
         match value {
-            Promise::Done(value) => Some(value),
+            Promise::Done(ref mut value) => value.take(),
             _ => None,
         }
     }
@@ -81,8 +81,16 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
 
     pub fn as_option(&self) -> Option<&T> {
         match self {
-            Promise::Done(v) => Some(v),
+            Promise::Done(Some(v)) => Some(v),
             _ => None,
+        }
+    }
+}
+
+impl<T> Drop for Promise<T> {
+    fn drop(&mut self) {
+        if let Promise::Waiting(rid) = self {
+            warn!("Promise {:?} is being dropped", rid);
         }
     }
 }

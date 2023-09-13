@@ -4,6 +4,7 @@ mod internal_event;
 mod remote_descriptor;
 pub mod stream_result;
 pub mod ws;
+pub mod bus_event;
 
 pub use control_event::{
     ClientSpecificDispatcherHandle, NrlSpecificDispatcherHandle, ServerControlRequest,
@@ -24,6 +25,7 @@ use xpi::client_server_owned::{AddressableEvent, Protocol};
 use error::NodeError;
 use internal_event::InternalEvent;
 use tokio::task::JoinHandle;
+use crate::server::bus_event::{send_server_info, ServerBusRx, ServerBusTx, ServerInfoEvent};
 
 pub mod prelude {
     pub use super::error::NodeError;
@@ -39,6 +41,7 @@ pub struct Server {
     tx_to_event_loop: Sender<AddressableEvent>,
     tx_internal: Sender<InternalEvent>,
     tx_control: Sender<ServerControlRequest>,
+    rx_bus: Option<ServerBusRx>,
 }
 
 impl Server {
@@ -46,13 +49,15 @@ impl Server {
         let (tx_to_event_loop, rx_router) = mpsc::channel(64); // TODO: config
         let (tx_internal, rx_internal) = mpsc::channel(16);
         let (tx_control, rx_control) = mpsc::channel(16);
+        let (tx_bus, rx_bus) = postage::broadcast::channel(64);
         tokio::spawn(async move {
-            Self::event_loop(rx_router, rx_internal, rx_control, routes).await;
+            Self::event_loop(rx_router, rx_internal, rx_control, routes, tx_bus).await;
         });
         Server {
             tx_to_event_loop,
             tx_internal,
             tx_control,
+            rx_bus: Some(rx_bus)
         }
     }
 
@@ -70,6 +75,7 @@ impl Server {
         mut rx_internal: Receiver<InternalEvent>,
         mut rx_control: Receiver<ServerControlRequest>,
         routes: Arc<RwLock<Vec<NrlSpecificDispatcherHandle>>>,
+        mut tx_bus: ServerBusTx,
     ) {
         info!("Entering event loop");
 
@@ -98,7 +104,8 @@ impl Server {
                         ev_int,
                         // &mut nodes,
                         &mut filters,
-                        &mut clients
+                        &mut clients,
+                        &mut tx_bus,
                     ).await;
                 }
                 ev_control = rx_control.select_next_some() => {
@@ -187,6 +194,7 @@ impl Server {
         // nodes: &mut HashMap<NodeId, Sender<AddressableEvent>>,
         filters: &mut Vec<(EventFilter, Sender<AddressableEvent>)>,
         remote_nodes: &mut Vec<RemoteDescriptor>,
+        tx_bus: &mut ServerBusTx,
     ) {
         match ev {
             InternalEvent::Filter(filter, tx_handle) => {
@@ -196,10 +204,12 @@ impl Server {
             }
             InternalEvent::ConnectRemote(remote_descriptor) => {
                 info!("remote attachment {:?} registered", remote_descriptor);
+                send_server_info(ServerInfoEvent::ClientConnected(remote_descriptor.protocol), tx_bus).await;
                 remote_nodes.push(remote_descriptor);
             }
             InternalEvent::DropRemote(remote_addr) => {
                 info!("remote attachment {remote_addr} is being dropped");
+                send_server_info(ServerInfoEvent::ClientDisconnected(remote_addr), tx_bus).await;
                 let mut idx_to_drop = None;
                 for (idx, rd) in remote_nodes.iter().enumerate() {
                     if rd.protocol == remote_addr {
@@ -411,5 +421,9 @@ impl Server {
             .send(InternalEvent::Filter(filter.single_shot(false), tx))
             .await?;
         Ok(rx)
+    }
+
+    pub fn take_info_bus_rx(&mut self) -> Option<ServerBusRx> {
+        self.rx_bus.take()
     }
 }

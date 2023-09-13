@@ -47,6 +47,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
             let reply_kind = match result {
                 Ok(k) => k,
                 Err(e) => {
+                    warn!("PromiseStream {rid:?}: got error: {e:?}");
                     *self = PromiseStream::Err(e);
                     return true;
                 }
@@ -62,14 +63,15 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                         changed = true;
                     }
                     PromiseStream::Streaming { rid, nrl, items } => {
-                        warn!("PromiseStream: got StreamOpened when already streaming");
+                        warn!("PromiseStream {rid:?}: got StreamOpened when already streaming");
                         *self = PromiseStream::Streaming { rid, nrl, items };
                     }
                     PromiseStream::Done { remaining_items } => {
-                        warn!("PromiseStream: got StreamOpened in Done state");
+                        warn!("PromiseStream {rid:?}: got StreamOpened in Done state");
                         *self = PromiseStream::Done { remaining_items };
                     }
                     PromiseStream::Err(e) => {
+                        warn!("PromiseStream {rid:?}: got error: {e:?}");
                         *self = PromiseStream::Err(e.clone());
                     }
                     PromiseStream::None => {}
@@ -80,7 +82,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                     let mut de = rmp_serde::Deserializer::new(cur);
                     let new_items: Vec<T> = Deserialize::deserialize(&mut de).unwrap();
                     trace!(
-                        "got promised stream items for {:?} ({}B {} items)",
+                        "{rid:?} got promised stream items for {:?} ({}B {} items)",
                         ev.seq,
                         len,
                         new_items.len()
@@ -107,7 +109,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                             *self = PromiseStream::Done { remaining_items };
                         }
                         PromiseStream::Err(e) => {
-                            warn!("PromiseStream: got more items after StreamClosed or Error");
+                            warn!("PromiseStream {rid:?}: got more items after StreamClosed or Error");
                             *self = PromiseStream::Err(e);
                         }
                         PromiseStream::None => {}
@@ -134,7 +136,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                         changed = true;
                     }
                 },
-                e => warn!("PromiseStream: unexpected event: {e}"),
+                e => warn!("PromiseStream {rid:?}: unexpected event: {e}"),
             }
         }
         changed

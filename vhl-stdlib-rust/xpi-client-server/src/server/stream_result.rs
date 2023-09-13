@@ -47,6 +47,17 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
         let mut data = Vec::new();
         let iterator_adapter = IteratorAdapter::new(items);
         serde::Serialize::serialize(&iterator_adapter, &mut rmp_serde::Serializer::new(&mut data))?;
+        self.send_stream_update(data).await
+    }
+
+    pub async fn publish_many_owned(&mut self, items: impl Iterator<Item = T>) -> Result<(), PublishError> {
+        let mut data = Vec::new();
+        let iterator_adapter = IteratorAdapter::new(items);
+        serde::Serialize::serialize(&iterator_adapter, &mut rmp_serde::Serializer::new(&mut data))?;
+        self.send_stream_update(data).await
+    }
+
+    async fn send_stream_update(&mut self, data: Vec<u8>) -> Result<(), PublishError> {
         let ev = Event::stream_update(self.nrl.clone(), data, self.seq);
         self.events_tx
             .send(AddressableEvent {
@@ -56,8 +67,7 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
                 response_tx: self.events_tx.clone(), // TODO: weird
             })
             .await
-            .map_err(|_| PublishError::MpscError)?;
-        Ok(())
+            .map_err(|_| PublishError::MpscError)
     }
 
     pub async fn finish_stream(&mut self) -> Result<(), PublishError> {

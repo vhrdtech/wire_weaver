@@ -168,6 +168,16 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
         }
     }
 
+    pub fn peek(&self) -> Option<&[T]> {
+        match self {
+            PromiseStream::None => None,
+            PromiseStream::Waiting { .. } => None,
+            PromiseStream::Streaming { items, .. } => Some(&items),
+            PromiseStream::Done { remaining_items, .. } => Some(&remaining_items),
+            PromiseStream::Err(_) => None
+        }
+    }
+
     pub fn unsubscribe(&mut self, client: &mut Client) {
         match self {
             PromiseStream::Streaming { nrl, .. } | PromiseStream::Waiting { nrl, .. } => {
@@ -184,5 +194,32 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
             PromiseStream::Waiting { .. } | PromiseStream::Streaming { .. } => false,
             PromiseStream::Done { remaining_items } => remaining_items.is_empty(),
         }
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, PromiseStream::None)
+    }
+
+    pub fn is_waiting(&self) -> bool {
+        matches!(self, PromiseStream::Waiting { .. })
+    }
+
+    pub fn is_streaming(&self) -> bool {
+        matches!(self, PromiseStream::Streaming { .. })
+    }
+
+    pub fn is_done(&self) -> bool {
+        matches!(self, PromiseStream::Done { .. })
+    }
+
+    pub fn is_err(&self) -> bool {
+        matches!(self, PromiseStream::Err { .. })
+    }
+
+    pub fn clear(&mut self) {
+        if !self.is_passive() {
+            warn!("Clearing non-passive PromiseStream, please unsubscribe first");
+        }
+        *self = PromiseStream::None;
     }
 }

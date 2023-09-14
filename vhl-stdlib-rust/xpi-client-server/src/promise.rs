@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::io::Cursor;
 
 use serde::Deserialize;
-use tracing::{trace, warn};
+use tracing::trace;
 
 use xpi::client_server_owned::{EventKind, ReplyKind, RequestId};
 use xpi::error::XpiError;

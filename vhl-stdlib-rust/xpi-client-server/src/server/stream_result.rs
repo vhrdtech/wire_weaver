@@ -9,7 +9,7 @@ use crate::util::IteratorAdapter;
 
 
 pub struct StreamResultContext<T> {
-    pub source: Protocol,
+    source: Protocol,
     nrl: Nrl,
     seq: RequestId,
     events_tx: Sender<AddressableEvent>,
@@ -82,5 +82,17 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
             .await
             .map_err(|_| PublishError::MpscError)?;
         Ok(())
+    }
+
+    pub fn client_address(&self) -> Protocol {
+        self.source
+    }
+
+    pub fn nrl(&self) -> Nrl {
+        self.nrl.clone()
+    }
+
+    pub fn seq(&self) -> RequestId {
+        self.seq
     }
 }

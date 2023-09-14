@@ -33,7 +33,6 @@ pub mod prelude {
     pub use crate::filter::EventFilter;
     pub use xpi::client_server_owned::prelude::*;
     pub use xpi::client_server_owned::AddressableEvent;
-    pub use xpi::error::XpiError;
 }
 
 #[derive(Debug)]

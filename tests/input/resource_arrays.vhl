@@ -57,4 +57,10 @@ rs main {
 
 	rs array_of_cells<[Cell<u8>; 4], #24> {} // assuming resource inside the Cell is rw
 	// rs array_of_wo_cells<rw [Cell<wo u8>; 4], #14> // won't work with wo though
+
+	/// Custom indices, MyIndex must support conversion to Nrl and back, can be one or more segments
+	rs array_with_custom_index<[u8; ?; MyIndex]>;
+
+    /// Array of traits
+	rs array_of_trait_impls<[impl MyTrait; ?; MyIndex]>;
 }

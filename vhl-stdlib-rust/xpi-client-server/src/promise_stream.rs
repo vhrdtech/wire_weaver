@@ -109,7 +109,9 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                             *self = PromiseStream::Done { remaining_items };
                         }
                         PromiseStream::Err(e) => {
-                            warn!("PromiseStream {rid:?}: got more items after StreamClosed or Error");
+                            warn!(
+                                "PromiseStream {rid:?}: got more items after StreamClosed or Error"
+                            );
                             *self = PromiseStream::Err(e);
                         }
                         PromiseStream::None => {}
@@ -173,8 +175,10 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
             PromiseStream::None => None,
             PromiseStream::Waiting { .. } => None,
             PromiseStream::Streaming { items, .. } => Some(&items),
-            PromiseStream::Done { remaining_items, .. } => Some(&remaining_items),
-            PromiseStream::Err(_) => None
+            PromiseStream::Done {
+                remaining_items, ..
+            } => Some(&remaining_items),
+            PromiseStream::Err(_) => None,
         }
     }
 

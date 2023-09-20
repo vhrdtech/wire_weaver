@@ -1,3 +1,4 @@
+use crate::util::IteratorAdapter;
 use futures::channel::mpsc::Sender;
 use futures_util::SinkExt;
 use serde::Serialize;
@@ -5,8 +6,6 @@ use std::marker::PhantomData;
 use thiserror::Error;
 use tracing::error;
 use xpi::client_server_owned::{AddressableEvent, Event, Nrl, Protocol, RequestId};
-use crate::util::IteratorAdapter;
-
 
 pub struct StreamResultContext<T> {
     source: Protocol,
@@ -40,20 +39,32 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
         self.publish_many([item].into_iter()).await
     }
 
-    pub async fn publish_many(&mut self, items: impl Iterator<Item = &'a T>) -> Result<(), PublishError> {
+    pub async fn publish_many(
+        &mut self,
+        items: impl Iterator<Item = &'a T>,
+    ) -> Result<(), PublishError> {
         // if items.is_empty() {
         //     return Ok(());
         // }
         let mut data = Vec::new();
         let iterator_adapter = IteratorAdapter::new(items);
-        serde::Serialize::serialize(&iterator_adapter, &mut rmp_serde::Serializer::new(&mut data))?;
+        serde::Serialize::serialize(
+            &iterator_adapter,
+            &mut rmp_serde::Serializer::new(&mut data),
+        )?;
         self.send_stream_update(data).await
     }
 
-    pub async fn publish_many_owned(&mut self, items: impl Iterator<Item = T>) -> Result<(), PublishError> {
+    pub async fn publish_many_owned(
+        &mut self,
+        items: impl Iterator<Item = T>,
+    ) -> Result<(), PublishError> {
         let mut data = Vec::new();
         let iterator_adapter = IteratorAdapter::new(items);
-        serde::Serialize::serialize(&iterator_adapter, &mut rmp_serde::Serializer::new(&mut data))?;
+        serde::Serialize::serialize(
+            &iterator_adapter,
+            &mut rmp_serde::Serializer::new(&mut data),
+        )?;
         self.send_stream_update(data).await
     }
 

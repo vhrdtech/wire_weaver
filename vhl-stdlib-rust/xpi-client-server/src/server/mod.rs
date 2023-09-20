@@ -1,10 +1,10 @@
+pub mod bus_event;
 pub mod control_event;
 pub mod error;
 mod internal_event;
 mod remote_descriptor;
 pub mod stream_result;
 pub mod ws;
-pub mod bus_event;
 
 pub use control_event::{
     ClientSpecificDispatcherHandle, NrlSpecificDispatcherHandle, ServerControlRequest,
@@ -22,10 +22,10 @@ use tokio::net::TcpListener;
 use tracing::{error, info, instrument, trace, warn};
 use xpi::client_server_owned::{AddressableEvent, Protocol};
 
+use crate::server::bus_event::{send_server_info, ServerBusRx, ServerBusTx, ServerInfoEvent};
 use error::NodeError;
 use internal_event::InternalEvent;
 use tokio::task::JoinHandle;
-use crate::server::bus_event::{send_server_info, ServerBusRx, ServerBusTx, ServerInfoEvent};
 
 pub mod prelude {
     pub use super::error::NodeError;
@@ -56,7 +56,7 @@ impl Server {
             tx_to_event_loop,
             tx_internal,
             tx_control,
-            rx_bus: Some(rx_bus)
+            rx_bus: Some(rx_bus),
         }
     }
 
@@ -203,7 +203,11 @@ impl Server {
             }
             InternalEvent::ConnectRemote(remote_descriptor) => {
                 info!("remote attachment {:?} registered", remote_descriptor);
-                send_server_info(ServerInfoEvent::ClientConnected(remote_descriptor.protocol), tx_bus).await;
+                send_server_info(
+                    ServerInfoEvent::ClientConnected(remote_descriptor.protocol),
+                    tx_bus,
+                )
+                .await;
                 remote_nodes.push(remote_descriptor);
             }
             InternalEvent::DropRemote(remote_addr) => {

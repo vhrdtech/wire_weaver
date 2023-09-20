@@ -1,6 +1,6 @@
 use futures::Stream;
-use std::time::Duration;
 use std::cell::RefCell;
+use std::time::Duration;
 
 pub fn tick_stream(period: Duration) -> impl Stream<Item = ()> {
     futures::stream::unfold(period, move |p| async move {
@@ -18,13 +18,13 @@ impl<I> IteratorAdapter<I> {
 }
 
 impl<I> serde::Serialize for IteratorAdapter<I>
-    where
-        I: Iterator,
-        I::Item: serde::Serialize,
+where
+    I: Iterator,
+    I::Item: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
+    where
+        S: serde::Serializer,
     {
         serializer.collect_seq(self.0.borrow_mut().by_ref())
     }

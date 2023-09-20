@@ -1,4 +1,4 @@
-use postage::broadcast::{Sender, Receiver};
+use postage::broadcast::{Receiver, Sender};
 use postage::sink::Sink;
 use tracing::error;
 use xpi::client_server_owned::Protocol;

@@ -1,8 +1,9 @@
 use core::ops::Add;
 use core::slice::Iter;
 use core::{fmt::Display, ops::Deref};
+use std::borrow::Borrow;
 
-use smallvec::SmallVec;
+use smallvec::{IntoIter, SmallVec};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Nrl(pub SmallVec<[u32; 3]>);
@@ -23,6 +24,10 @@ impl Nrl {
 
     pub fn iter(&self) -> Iter<u32> {
         self.0.iter()
+    }
+
+    pub fn into_iter(self) -> IntoIter<[u32; 3]> {
+        self.0.into_iter()
     }
 }
 
@@ -74,6 +79,15 @@ impl<'i> Add<u32> for &'i Nrl {
     }
 }
 
+impl Add<Nrl> for Nrl {
+    type Output = Nrl;
+
+    fn add(mut self, rhs: Nrl) -> Self::Output {
+        self.0.extend(rhs.0);
+        self
+    }
+}
+
 impl Display for Nrl {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "/")?;
@@ -86,4 +100,9 @@ impl Display for Nrl {
         }
         Ok(())
     }
+}
+
+pub trait NrlIndexable {
+    fn try_from_nrl(nrl_iter: &mut impl Iterator<Item = impl Borrow<u32>>) -> Option<Self> where Self: Sized;
+    fn into_nrl(&self) -> Nrl;
 }

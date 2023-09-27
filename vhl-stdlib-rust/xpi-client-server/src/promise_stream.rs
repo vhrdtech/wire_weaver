@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 
 use serde::Deserialize;
@@ -10,8 +10,7 @@ use xpi::error::XpiError;
 use crate::client::Client;
 
 // TODO: add timeout check
-// TODO: handle local error instead of unwraps
-#[derive(PartialEq, Default, Debug)]
+#[derive(PartialEq, Default)]
 pub enum PromiseStream<T> {
     #[default]
     None,
@@ -30,7 +29,7 @@ pub enum PromiseStream<T> {
     Err(XpiError),
 }
 
-impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
+impl<'de, T: Deserialize<'de>> PromiseStream<T> {
     /// Polls the client for new data for this Promise.
     /// Returns true if changes were made (reply or error received).
     pub fn poll(&mut self, client: &mut Client) -> bool {
@@ -106,12 +105,12 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                             changed = true;
                         }
                         PromiseStream::Done { remaining_items } => {
-                            *self = PromiseStream::Done { remaining_items };
-                        }
-                        PromiseStream::Err(e) => {
                             warn!(
                                 "PromiseStream {rid:?}: got more items after StreamClosed or Error"
                             );
+                            *self = PromiseStream::Done { remaining_items };
+                        }
+                        PromiseStream::Err(e) => {
                             *self = PromiseStream::Err(e);
                         }
                         PromiseStream::None => {}
@@ -159,7 +158,7 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                 items
             }
             PromiseStream::Done { remaining_items } => {
-                *self = PromiseStream::None;
+                *self = PromiseStream::Done { remaining_items: Vec::new() };
                 remaining_items
             }
             PromiseStream::Err(e) => {
@@ -167,6 +166,22 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
                 Vec::new()
             }
             PromiseStream::None => Vec::new(),
+        }
+    }
+
+    /// Drop all received items except the last one and return a reference to it.
+    /// Useful when receiving long operation updates and displaying spinner + progress info.
+    pub fn drain_last(&mut self) -> Option<&T> {
+        match self {
+            PromiseStream::Waiting { .. } => None,
+            PromiseStream::Streaming { items, .. } | PromiseStream::Done {  remaining_items: items, ..} => {
+                if items.len() >= 2 {
+                    items.drain(0..items.len() - 2);
+                }
+                items.last()
+            }
+            PromiseStream::Err(_) => None,
+            PromiseStream::None => None
         }
     }
 
@@ -208,6 +223,10 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
         matches!(self, PromiseStream::Waiting { .. })
     }
 
+    pub fn is_waiting_or_streaming(&self) -> bool {
+        matches!(self, PromiseStream::Waiting { .. } | PromiseStream::Streaming { .. })
+    }
+
     pub fn is_streaming(&self) -> bool {
         matches!(self, PromiseStream::Streaming { .. })
     }
@@ -225,5 +244,17 @@ impl<'de, T: Deserialize<'de> + Debug> PromiseStream<T> {
             warn!("Clearing non-passive PromiseStream, please unsubscribe first");
         }
         *self = PromiseStream::None;
+    }
+}
+
+impl<T> Debug for PromiseStream<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PromiseStream::None => write!(f, "PromiseStream: None"),
+            PromiseStream::Waiting { rid, .. } =>write!(f, "PromiseStream: {rid:?}: Waiting"),
+            PromiseStream::Streaming { rid, .. } => write!(f, "PromiseStream: {rid:?}: Streaming"),
+            PromiseStream::Done { .. } => write!(f, "PromiseStream: Done"),
+            PromiseStream::Err(e) => write!(f, "PromiseStream: {e:?}"),
+        }
     }
 }

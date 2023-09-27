@@ -78,6 +78,14 @@ impl<'i> Add<u32> for &'i Nrl {
         nrl
     }
 }
+impl<'i> Add<u32> for Nrl {
+    type Output = Nrl;
+
+    fn add(mut self, rhs: u32) -> Self::Output {
+        self.0.push(rhs);
+        self
+    }
+}
 
 impl Add<Nrl> for Nrl {
     type Output = Nrl;

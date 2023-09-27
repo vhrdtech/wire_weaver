@@ -176,7 +176,7 @@ async fn process_incoming_frame(
             let event: Result<Event, _> = serde::Deserialize::deserialize(&mut de);
             match event {
                 Ok(event) => {
-                    let event = AddressableEvent {
+                    let mut event = AddressableEvent {
                         protocol,
                         is_inbound: true,
                         event,
@@ -217,6 +217,7 @@ async fn process_incoming_frame(
                                 drop_idx = Some(idx);
                                 continue;
                             }
+                            event.event.nrl.0.drain(0..h.nrl.0.len());
                             if h.tx.send(event).await.is_err() {
                                 warn!("mpsc failed even though it wasn't closed?");
                             }

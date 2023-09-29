@@ -1,4 +1,6 @@
 use core::fmt::Display;
+use core::iter::Skip;
+use core::slice::Iter;
 use futures::channel::mpsc::Sender;
 
 use crate::error::XpiError;
@@ -20,6 +22,7 @@ pub struct AddressableEvent {
     pub protocol: Protocol,
     pub is_inbound: bool,
     pub event: Event,
+    pub nrl_segments_processed: usize,
     pub response_tx: Sender<AddressableEvent>,
 }
 
@@ -33,8 +36,13 @@ impl AddressableEvent {
                 kind,
                 seq: ev.event.seq,
             },
+            nrl_segments_processed: 0,
             response_tx: ev.response_tx.clone(),
         }
+    }
+
+    pub fn remaining_nrl(&self) -> Skip<Iter<u32>> {
+        self.event.nrl.iter().skip(self.nrl_segments_processed)
     }
 }
 

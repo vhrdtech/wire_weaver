@@ -75,6 +75,7 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
                 protocol: self.source,
                 is_inbound: false,
                 event: ev,
+                nrl_segments_processed: 0,
                 response_tx: self.events_tx.clone(), // TODO: weird
             })
             .await
@@ -88,6 +89,7 @@ impl<'a, T: Serialize + 'a> StreamResultContext<T> {
                 protocol: self.source,
                 is_inbound: false,
                 event: ev,
+                nrl_segments_processed: 0,
                 response_tx: self.events_tx.clone(),
             })
             .await

@@ -180,6 +180,7 @@ async fn process_incoming_frame(
                         protocol,
                         is_inbound: true,
                         event,
+                        nrl_segments_processed: 0,
                         response_tx: tx_local.clone(),
                     };
 
@@ -217,7 +218,7 @@ async fn process_incoming_frame(
                                 drop_idx = Some(idx);
                                 continue;
                             }
-                            event.event.nrl.0.drain(0..h.nrl.0.len());
+                            event.nrl_segments_processed = h.nrl.0.len();
                             if h.tx.send(event).await.is_err() {
                                 warn!("mpsc failed even though it wasn't closed?");
                             }

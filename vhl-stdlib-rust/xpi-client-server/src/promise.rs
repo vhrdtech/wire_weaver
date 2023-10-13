@@ -80,31 +80,19 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
     }
 
     pub fn is_none(&self) -> bool {
-        match self {
-            Promise::None => true,
-            _ => false
-        }
+        matches!(self, Promise::None)
     }
 
     pub fn is_waiting(&self) -> bool {
-        match self {
-            Promise::Waiting(_) => true,
-            _ => false
-        }
+        matches!(self, Promise::Waiting(_))
     }
 
     pub fn is_done(&self) -> bool {
-        match self {
-            Promise::Done(_) => true,
-            _ => false
-        }
+        matches!(self, Promise::Done(_))
     }
 
     pub fn is_err(&self) -> bool {
-        match self {
-            Promise::Err(_) => true,
-            _ => false
-        }
+        matches!(self, Promise::Err(_))
     }
 
     pub fn as_option(&self) -> Option<&T> {

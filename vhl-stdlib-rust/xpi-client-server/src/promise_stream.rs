@@ -158,7 +158,9 @@ impl<'de, T: Deserialize<'de>> PromiseStream<T> {
                 items
             }
             PromiseStream::Done { remaining_items } => {
-                *self = PromiseStream::Done { remaining_items: Vec::new() };
+                *self = PromiseStream::Done {
+                    remaining_items: Vec::new(),
+                };
                 remaining_items
             }
             PromiseStream::Err(e) => {
@@ -174,14 +176,18 @@ impl<'de, T: Deserialize<'de>> PromiseStream<T> {
     pub fn drain_last(&mut self) -> Option<&T> {
         match self {
             PromiseStream::Waiting { .. } => None,
-            PromiseStream::Streaming { items, .. } | PromiseStream::Done {  remaining_items: items, ..} => {
+            PromiseStream::Streaming { items, .. }
+            | PromiseStream::Done {
+                remaining_items: items,
+                ..
+            } => {
                 if items.len() >= 2 {
                     items.drain(0..items.len() - 2);
                 }
                 items.last()
             }
             PromiseStream::Err(_) => None,
-            PromiseStream::None => None
+            PromiseStream::None => None,
         }
     }
 
@@ -224,7 +230,10 @@ impl<'de, T: Deserialize<'de>> PromiseStream<T> {
     }
 
     pub fn is_waiting_or_streaming(&self) -> bool {
-        matches!(self, PromiseStream::Waiting { .. } | PromiseStream::Streaming { .. })
+        matches!(
+            self,
+            PromiseStream::Waiting { .. } | PromiseStream::Streaming { .. }
+        )
     }
 
     pub fn is_streaming(&self) -> bool {
@@ -251,7 +260,7 @@ impl<T> Debug for PromiseStream<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             PromiseStream::None => write!(f, "PromiseStream: None"),
-            PromiseStream::Waiting { rid, .. } =>write!(f, "PromiseStream: {rid:?}: Waiting"),
+            PromiseStream::Waiting { rid, .. } => write!(f, "PromiseStream: {rid:?}: Waiting"),
             PromiseStream::Streaming { rid, .. } => write!(f, "PromiseStream: {rid:?}: Streaming"),
             PromiseStream::Done { .. } => write!(f, "PromiseStream: Done"),
             PromiseStream::Err(e) => write!(f, "PromiseStream: {e:?}"),

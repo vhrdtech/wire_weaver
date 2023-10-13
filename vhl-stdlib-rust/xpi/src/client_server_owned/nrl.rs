@@ -111,6 +111,8 @@ impl Display for Nrl {
 }
 
 pub trait NrlIndexable {
-    fn try_from_nrl(nrl_iter: &mut impl Iterator<Item = impl Borrow<u32>>) -> Option<Self> where Self: Sized;
+    fn try_from_nrl(nrl_iter: &mut impl Iterator<Item = impl Borrow<u32>>) -> Option<Self>
+    where
+        Self: Sized;
     fn into_nrl(&self) -> Nrl;
 }

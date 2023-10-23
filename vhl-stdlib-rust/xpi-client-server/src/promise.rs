@@ -71,6 +71,17 @@ impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
         }
     }
 
+    pub fn take_err(&mut self) -> Option<XpiError> {
+        if !matches!(self, Promise::Err(_)) {
+            return None;
+        }
+        let value = core::mem::take(self);
+        match value {
+            Promise::Err(value) => Some(value),
+            _ => None,
+        }
+    }
+
     /// Returns true if this Promise can be overwritten (None or Err state)
     pub fn is_passive(&self) -> bool {
         match self {

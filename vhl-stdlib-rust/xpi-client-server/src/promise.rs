@@ -20,7 +20,7 @@ pub enum Promise<T> {
     Err(XpiError),
 }
 
-impl<'de, T: Deserialize<'de> + Debug> Promise<T> {
+impl<'de, T: Deserialize<'de>> Promise<T> {
     /// Polls the client for new data for this Promise.
     /// Returns true if changes were made (reply or error received).
     pub fn poll(&mut self, client: &mut Client) -> bool {

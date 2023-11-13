@@ -191,6 +191,26 @@ impl<'de, T: Deserialize<'de>> PromiseStream<T> {
         }
     }
 
+    /// Drop all received items except the last one and return a reference to it.
+    /// Useful when receiving long operation updates and displaying spinner + progress info.
+    pub fn drain_and_take_last(&mut self) -> Option<T> {
+        match self {
+            PromiseStream::Waiting { .. } => None,
+            PromiseStream::Streaming { items, .. }
+            | PromiseStream::Done {
+                remaining_items: items,
+                ..
+            } => {
+                if items.len() >= 2 {
+                    items.drain(0..items.len() - 2);
+                }
+                items.pop()
+            }
+            PromiseStream::Err(_) => None,
+            PromiseStream::None => None,
+        }
+    }
+
     pub fn peek(&self) -> Option<&[T]> {
         match self {
             PromiseStream::None => None,

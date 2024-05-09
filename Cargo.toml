@@ -1,34 +1,12 @@
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
-description = ""
-documentation = ""
+description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 
 [workspace.dependencies]
-anyhow = "1.0"
-pest = "2.6"
-pest_derive = "2.6"
-itertools = "0.10"
-codespan-reporting = "0.11"
 
 [workspace]
 members = [
-    "vhl-core",
-    "ast",
-    "parser",
-    "cli",
-    "codegen",
-    "mtoken",
-    "mquote",
-    "vhl-stdlib-rust/vhl-stdlib",
-    "vhl-stdlib-rust/xpi-node",
-    "vhl-stdlib-rust/xpi-client-server",
-    "vhl-stdlib-rust/xpi",
-    "vhl-stdlib-rust/wfd",
-    "vhl-stdlib-rust/wfd-serde",
-    "vhl-stdlib-rust/wfs",
-    "vhl-stdlib-rust/wfs-serde",
-    "vhl-stdlib-rust/rmvlb-codec",
-    "eval",
-    "examples/xpi_server"
+    "crates/*",
+    "examples/*",
 ]

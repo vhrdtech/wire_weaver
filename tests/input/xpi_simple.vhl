@@ -1,6 +1,0 @@
-rs main {
-    rs version<const str, #0> {}
-    rs symbol<rw char, #1> {}
-    #[dispatch(sync_call(crate::fun))]
-    rs action< fn(a: u8, b: u8) -> u8, #2> {}
-}

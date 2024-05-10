@@ -1,13 +1,9 @@
 [package]
-name = "wire_weaver"
+name = "ww_ast"
 edition = "2021"
 version.workspace = true
 authors.workspace = true
 description.workspace = true
 
-[lib]
-proc-macro = true
-
 [dependencies]
 syn = { workspace = true }
-ww_ast = { path = "../ww_ast" }

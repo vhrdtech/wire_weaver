@@ -4,6 +4,7 @@ authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 
 [workspace.dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] }
 
 [workspace]
 resolver = "2"

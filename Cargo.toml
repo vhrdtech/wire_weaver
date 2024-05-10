@@ -6,6 +6,7 @@ description = "WireWeaver is a wire format and API code generator for resource c
 [workspace.dependencies]
 
 [workspace]
+resolver = "2"
 members = [
     "crates/*",
     "examples/*",

@@ -11,3 +11,4 @@ proc-macro = true
 [dependencies]
 syn = { workspace = true }
 ww_ast = { path = "../ww_ast" }
+ww_codegen = { path = "../ww_codegen" }

@@ -50,11 +50,23 @@ version = "0.4.0"
 dependencies = [
  "syn",
  "ww_ast",
+ "ww_codegen",
 ]
 
 [[package]]
 name = "ww_ast"
 version = "0.4.0"
 dependencies = [
+ "proc-macro2",
+ "quote",
  "syn",
+]
+
+[[package]]
+name = "ww_codegen"
+version = "0.4.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "ww_ast",
 ]

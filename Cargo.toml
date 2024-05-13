@@ -5,6 +5,8 @@ description = "WireWeaver is a wire format and API code generator for resource c
 
 [workspace.dependencies]
 syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
 
 [workspace]
 resolver = "2"

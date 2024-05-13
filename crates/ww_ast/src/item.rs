@@ -2,6 +2,7 @@ use crate::data::Variant;
 use crate::file::{SynConversionError, SynConversionWarning};
 use crate::ty::Type;
 use crate::version::Version;
+use crate::Ident;
 
 #[derive(Debug)]
 pub enum Item {
@@ -13,6 +14,7 @@ pub enum Item {
 pub struct ItemStruct {
     // attrs
     // generics
+    pub ident: Ident,
     pub fields: Vec<StructField>,
 }
 
@@ -20,7 +22,7 @@ pub struct ItemStruct {
 pub struct StructField {
     // attrs
     pub id: u32,
-    pub ident: String,
+    pub ident: Ident,
     pub ty: Type,
     pub since: Version,
 }
@@ -29,34 +31,36 @@ pub struct StructField {
 pub struct ItemEnum {
     // attrs
     // generics
-    pub variants: Vec<Variant>
+    pub variants: Vec<Variant>,
 }
 
 impl Item {
-    pub(crate) fn from_syn(item: syn::Item) -> Result<(Option<Self>, Vec<SynConversionWarning>), Vec<SynConversionError>> {
+    pub(crate) fn from_syn(
+        item: syn::Item,
+    ) -> Result<(Option<Self>, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         match item {
             syn::Item::Struct(item_struct) => match ItemStruct::from_syn(item_struct) {
                 Ok((item_struct, warnings)) => Ok((Some(Item::Struct(item_struct)), warnings)),
-                Err(e) => Err(e)
-            }
+                Err(e) => Err(e),
+            },
             syn::Item::Enum(_item_enum) => {
                 todo!()
             }
             // syn::Item::Mod(item_mod) => {
-            //     
+            //
             // }
             // syn::Item::Use(item_use) => {
-            //     
+            //
             // }
-            _ => {
-                Ok((None, vec![SynConversionWarning::UnknownFileItem]))
-            }
+            _ => Ok((None, vec![SynConversionWarning::UnknownFileItem])),
         }
     }
 }
 
 impl ItemStruct {
-    fn from_syn(item_struct: syn::ItemStruct) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
+    fn from_syn(
+        item_struct: syn::ItemStruct,
+    ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut fields = vec![];
         let mut errors = vec![];
         let mut warnings = vec![];
@@ -68,12 +72,12 @@ impl ItemStruct {
                 }
                 Err(e) => {
                     errors.extend(e);
-                    continue
+                    continue;
                 }
             };
             fields.push(StructField {
                 id: find_id_attr(&mut field.attrs).unwrap_or(idx as u32),
-                ident: field.ident.unwrap().to_string(),
+                ident: field.ident.unwrap().into(),
                 ty,
                 since: find_since_attr(&mut field.attrs).unwrap_or(Version::invalid()),
             });
@@ -82,9 +86,13 @@ impl ItemStruct {
             }
         }
         if errors.is_empty() {
-            Ok((ItemStruct {
-                fields,
-            }, warnings))
+            Ok((
+                ItemStruct {
+                    ident: item_struct.ident.into(),
+                    fields,
+                },
+                warnings,
+            ))
         } else {
             Err(errors)
         }

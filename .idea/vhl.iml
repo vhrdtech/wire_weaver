@@ -36,6 +36,7 @@
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/wfs/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/xpi-node/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ww_ast/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ww_codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/hello_world/src" isTestSource="false" />

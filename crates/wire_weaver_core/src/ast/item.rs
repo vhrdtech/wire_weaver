@@ -1,8 +1,8 @@
-use crate::data::Variant;
-use crate::file::{SynConversionError, SynConversionWarning};
-use crate::ty::Type;
-use crate::version::Version;
-use crate::Ident;
+use crate::ast::data::Variant;
+use crate::ast::file::{SynConversionError, SynConversionWarning};
+use crate::ast::ident::Ident;
+use crate::ast::ty::Type;
+use crate::ast::version::Version;
 
 #[derive(Debug)]
 pub enum Item {

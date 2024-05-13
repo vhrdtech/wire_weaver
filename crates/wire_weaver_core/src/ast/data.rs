@@ -1,5 +1,5 @@
-use crate::ty::Type;
-use crate::version::Version;
+use crate::ast::ty::Type;
+use crate::ast::version::Version;
 
 #[derive(Debug)]
 pub enum Fields {
@@ -10,12 +10,12 @@ pub enum Fields {
 
 #[derive(Debug)]
 pub struct FieldsNamed {
-    pub named: Vec<Field>
+    pub named: Vec<Field>,
 }
 
 #[derive(Debug)]
 pub struct FieldsUnnamed {
-    pub unnamed: Vec<Field>
+    pub unnamed: Vec<Field>,
 }
 
 #[derive(Debug)]

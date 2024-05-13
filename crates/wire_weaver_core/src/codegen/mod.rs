@@ -1,7 +1,7 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use crate::ast::item::{Item, ItemStruct, StructField};
+use crate::ast::File;
+use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use ww_ast::item::{Item, ItemStruct, StructField};
-use ww_ast::File;
 
 pub fn rust_no_std_file(file: &File) -> TokenStream {
     let mut ts = TokenStream::new();

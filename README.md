@@ -20,6 +20,7 @@ Current state is - highly experimental.
   * Arrays:
     * Fixed length array: `[T; N]`
     * Arbitrary length array: `vec<T>` or max bounded: `vec<T, N>`
+* `Option<T>` and `Result<T, E>`
 * User-defined:
   * Struct
   * Enum with data variants
@@ -34,22 +35,32 @@ Current state is - highly experimental.
 
 ## Bounded numbers
 Simple checked numbers where only a range of values is allowed:
-* `u16<1..=512>`
+* `u16<{1..=512}>`
 
 Set of allowed values:
-* `u8<0..=8, 12, 16, 20, 24, 32, 48, 64>`
+* `u8<{0..=8}, 12, 16, 20, 24, 32, 48, 64>`
 
 Numbers are checked before serialization and after deserialization.
 
 ## SI support
 Specify SI unit for any number:
-* current: `f32<A>`
-* velocity: `f32<m/s>`
+* current: `f32<"A">`
+* velocity: `f32<"m/s">`
 
-Units are not transmitted over the wire, used as a hint for code generation.
+Units are not transmitted over the wire, used as a hint for code generation and in UI tool.
 
-## Wire format
+## Syntax
+Rust syntax is reused with addition of several attributes.
 
+## Wire format definition
+Struct fields are laid out in order, as defined or according to provided id.
+
+Only one wire format is currently being worked on targeted at microcontroller usage: wfdb.
+Features:
+* 1 byte alignment
+* Support all types described above
+* Booleans can take 1 bit, 4 bit or 1B of space, see pre-conditions below.
+* u4 / nibble based variable length numbers used for array length
 
 
 ## API

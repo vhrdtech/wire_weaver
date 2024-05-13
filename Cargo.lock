@@ -49,24 +49,14 @@ name = "wire_weaver"
 version = "0.4.0"
 dependencies = [
  "syn",
- "ww_ast",
- "ww_codegen",
+ "wire_weaver_core",
 ]
 
 [[package]]
-name = "ww_ast"
+name = "wire_weaver_core"
 version = "0.4.0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "ww_codegen"
-version = "0.4.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "ww_ast",
 ]

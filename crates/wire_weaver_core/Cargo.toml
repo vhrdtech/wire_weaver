@@ -1,5 +1,5 @@
 [package]
-name = "ww_ast"
+name = "wire_weaver_core"
 edition = "2021"
 version.workspace = true
 authors.workspace = true
@@ -8,4 +8,4 @@ description.workspace = true
 [dependencies]
 syn = { workspace = true }
 quote = { workspace = true }
-proc-macro2 = { workspace = true } 
+proc-macro2 = { workspace = true }

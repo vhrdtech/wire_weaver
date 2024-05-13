@@ -1,7 +1,6 @@
-use crate::file::{SynConversionError, SynConversionWarning};
+use crate::ast::file::{SynConversionError, SynConversionWarning};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::process::id;
 
 #[derive(Debug)]
 pub enum Type {

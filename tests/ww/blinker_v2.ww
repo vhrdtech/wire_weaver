@@ -1,0 +1,3 @@
+struct Command {
+    leds_blink_frequencies: [f32; 8],
+}

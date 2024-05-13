@@ -1,6 +1,7 @@
 use proc_macro::{TokenStream, TokenTree};
 use std::path::PathBuf;
-use ww_ast::file::FileSource;
+use wire_weaver_core::ast::file::File;
+use wire_weaver_core::ast::file::FileSource;
 
 #[proc_macro]
 pub fn data_structures(input: TokenStream) -> TokenStream {
@@ -22,11 +23,11 @@ pub fn data_structures(input: TokenStream) -> TokenStream {
     dbg!(&syn_file);
 
     let source = FileSource::File(root_file_path);
-    let (ww_file, warnings) = ww_ast::File::from_syn(source, syn_file).unwrap();
+    let (ww_file, warnings) = File::from_syn(source, syn_file).unwrap();
     dbg!(warnings);
     dbg!(&ww_file);
 
-    let ts = ww_codegen::rust_no_std_file(&ww_file);
+    let ts = wire_weaver_core::codegen::rust_no_std_file(&ww_file);
     eprintln!("{ts}");
 
     ts.into()

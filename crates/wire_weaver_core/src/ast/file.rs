@@ -1,6 +1,6 @@
+use crate::ast::item::Item;
+use crate::ast::version::Version;
 use std::path::PathBuf;
-use crate::item::Item;
-use crate::version::Version;
 
 #[derive(Debug)]
 pub struct File {
@@ -15,7 +15,7 @@ pub struct File {
 pub enum FileSource {
     File(PathBuf),
     Registry,
-    Git
+    Git,
 }
 
 #[derive(Debug)]
@@ -26,11 +26,14 @@ pub enum SynConversionWarning {
 
 #[derive(Debug)]
 pub enum SynConversionError {
-    UnknownType 
+    UnknownType,
 }
 
 impl File {
-    pub fn from_syn(source: FileSource, file: syn::File) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
+    pub fn from_syn(
+        source: FileSource,
+        file: syn::File,
+    ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut items = vec![];
         let mut errors = vec![];
         let mut warnings = vec![];
@@ -46,15 +49,18 @@ impl File {
                 Err(e) => {
                     errors.extend(e);
                 }
-            } 
-        } 
+            }
+        }
         if errors.is_empty() {
             let version = source.file_version();
-            Ok((File {
-                source,
-                version,
-                items
-            }, warnings))
+            Ok((
+                File {
+                    source,
+                    version,
+                    items,
+                },
+                warnings,
+            ))
         } else {
             Err(errors)
         }
@@ -63,9 +69,6 @@ impl File {
 
 impl FileSource {
     pub fn file_version(&self) -> Version {
-        Version {
-            major: 0,
-            minor: 1
-        } 
+        Version { major: 0, minor: 1 }
     }
 }

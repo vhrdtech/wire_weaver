@@ -7,3 +7,4 @@ description.workspace = true
 
 [dependencies]
 wire_weaver = { path = "../../crates/wire_weaver" }
+shrink_wrap = { path = "../../crates/shrink_wrap" }

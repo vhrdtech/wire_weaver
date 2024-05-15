@@ -1,7 +1,7 @@
 struct Command {
     blink_frequency: f32,
 
-    #[since = v1.1]
+    #[since = "1.1"]
     #[default = 0.5]
     blink_duty: f32,
 }

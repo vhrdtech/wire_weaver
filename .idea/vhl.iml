@@ -41,6 +41,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/ww_codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/hello_world/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests/wire_format_compatibility/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/shrink_wrap/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

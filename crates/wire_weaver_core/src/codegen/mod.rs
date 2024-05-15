@@ -52,8 +52,8 @@ pub fn rust_no_std_struct_serde(item_struct: &ItemStruct) -> TokenStream {
         fields: &item_struct.fields,
     };
     quote! {
-        impl #ident {
-            pub fn ser_wfdb(&self, wr: &mut wfdb::WfdbBufMut) -> Result<(), wfdb::Error> {
+        impl shrink_wrap::SerializeShrinkWrap for #ident {
+            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
                 #fields_ser
             }
         }

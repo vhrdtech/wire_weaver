@@ -90,12 +90,12 @@ impl Type {
 
     pub fn to_ser_fn_name(&self) -> Ident {
         match self {
-            Type::Bool => Ident::new("ser_bool", Span::call_site()),
+            Type::Bool => Ident::new("write_bool", Span::call_site()),
             Type::Discrete(ty_discrete) => {
                 todo!()
             }
             Type::Floating(ty_floating) => {
-                let ser_fn = format!("ser_f{}", ty_floating.bits);
+                let ser_fn = format!("write_f{}", ty_floating.bits);
                 Ident::new(ser_fn.as_str(), Span::call_site())
             }
         }

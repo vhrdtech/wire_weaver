@@ -5,7 +5,7 @@ use crate::ast::version::Version;
 pub enum Fields {
     Named(FieldsNamed),
     Unnamed(FieldsUnnamed),
-    // Unit
+    Unit,
 }
 
 #[derive(Debug)]

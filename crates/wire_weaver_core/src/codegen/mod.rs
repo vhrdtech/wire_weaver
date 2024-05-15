@@ -74,3 +74,102 @@ impl<'a> ToTokens for CGFieldsSer<'a> {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::ast::ident::Ident;
+    use crate::ast::item::{ItemStruct, StructField};
+    use crate::ast::ty::Type;
+    use crate::ast::value::Value;
+    use crate::ast::version::Version;
+    use quote::quote;
+
+    fn construct_struct_one() -> ItemStruct {
+        ItemStruct {
+            ident: Ident::new("X1"),
+            fields: vec![
+                StructField {
+                    id: 0,
+                    ident: Ident::new("a"),
+                    ty: Type::Bool,
+                    since: None,
+                    default: None,
+                },
+                StructField {
+                    id: 0,
+                    ident: Ident::new("a"),
+                    ty: Type::Bool,
+                    since: Some(Version::new(1, 1)),
+                    default: Some(Value::Bool(true)),
+                },
+            ],
+        }
+    }
+
+    fn construct_struct_two() -> ItemStruct {
+        ItemStruct {
+            ident: Ident::new("X2"),
+            fields: vec![
+                StructField {
+                    id: 0,
+                    ident: Ident::new("a"),
+                    ty: Type::Bool,
+                    since: None,
+                    default: None,
+                },
+                StructField {
+                    id: 0,
+                    ident: Ident::new("a"),
+                    ty: Type::Bool,
+                    since: None,
+                    default: None,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn struct_one_serdes() {
+        let s = construct_struct_one();
+        let cg = super::rust_no_std_struct_serde(&s);
+        let correct = quote! {
+            impl X1 {
+                pub fn ser_wfdb(&self, wr: &mut wfdb::WfdbBufMut) -> Result<(), wfdb::Error> {
+                    wr.write_bool(self.a)?;
+                    wr.write_bool(self.b)?;
+                    Ok(())
+                }
+
+                pub fn des_wfdb(rd: &wfdb::WfdbBuf) -> Result<Self, wfdb::Error> {
+                    Ok(Self {
+                        a: rd.read_bool()?,
+                        b: rd.read_bool().unwrap_or(false),
+                    })
+                }
+            }
+        };
+        assert_eq!(cg.to_string(), correct.to_string());
+    }
+
+    #[test]
+    fn struct_two_serdes() {
+        let s = construct_struct_two();
+        let cg = super::rust_no_std_struct_serde(&s);
+        let correct = quote! {
+            impl X2 {
+                pub fn ser_wfdb(&self, wr: &mut wfdb::WfdbBufMut) -> Result<(), wfdb::Error> {
+                    wr.write_bool(self.a)?;
+                    wr.write_bool(self.b)?;
+                    Ok(())
+                }
+
+                pub fn des_wfdb(rd: &wfdb::WfdbBuf) -> Result<Self, wfdb::Error> {
+                    Ok(Self {
+                        a: rd.read_bool()?,
+                        b: rd.read_bool()?
+                    })
+                }
+            }
+        };
+    }
+}

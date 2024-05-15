@@ -2,6 +2,7 @@ use crate::ast::data::Variant;
 use crate::ast::file::{SynConversionError, SynConversionWarning};
 use crate::ast::ident::Ident;
 use crate::ast::ty::Type;
+use crate::ast::value::Value;
 use crate::ast::version::Version;
 
 #[derive(Debug)]
@@ -24,7 +25,8 @@ pub struct StructField {
     pub id: u32,
     pub ident: Ident,
     pub ty: Type,
-    pub since: Version,
+    pub since: Option<Version>,
+    pub default: Option<Value>,
 }
 
 #[derive(Debug)]
@@ -79,7 +81,8 @@ impl ItemStruct {
                 id: find_id_attr(&mut field.attrs).unwrap_or(idx as u32),
                 ident: field.ident.unwrap().into(),
                 ty,
-                since: find_since_attr(&mut field.attrs).unwrap_or(Version::invalid()),
+                since: find_since_attr(&mut field.attrs),
+                default: None,
             });
             for _ in field.attrs {
                 warnings.push(SynConversionWarning::UnknownAttribute);

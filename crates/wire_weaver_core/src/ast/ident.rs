@@ -9,6 +9,14 @@ pub struct Ident {
     // pub span: Span,
 }
 
+impl Ident {
+    pub(crate) fn new(sym: impl AsRef<str>) -> Self {
+        Ident {
+            sym: sym.as_ref().to_string(),
+        }
+    }
+}
+
 impl From<syn::Ident> for Ident {
     fn from(value: syn::Ident) -> Self {
         Ident {

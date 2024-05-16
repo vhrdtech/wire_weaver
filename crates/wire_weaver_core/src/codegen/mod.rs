@@ -53,7 +53,7 @@ pub fn rust_no_std_struct_serde(item_struct: &ItemStruct) -> TokenStream {
     };
     quote! {
         impl shrink_wrap::SerializeShrinkWrap for #ident {
-            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter, version: wire_weaver_core::Version) -> Result<(), shrink_wrap::Error> {
                 #fields_ser
             }
         }

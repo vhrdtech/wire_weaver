@@ -77,13 +77,62 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    pub fn write_vlu16n(&mut self, val: u16) -> Result<(), Error> {
-        Vlu16N(val).write_forward(self)
+    pub fn write_u16(&mut self, val: u16) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_u64(&mut self, val: u64) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_u128(&mut self, val: u128) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i8(&mut self, val: i8) -> Result<(), Error> {
+        self.write_u8(val as u8)
+    }
+
+    pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i64(&mut self, val: i64) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i128(&mut self, val: i128) -> Result<(), Error> {
+        self.write_slice(&val.to_be_bytes())?;
+        Ok(())
     }
 
     pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
         self.write_slice(&val.to_bits().to_be_bytes())?;
         Ok(())
+    }
+
+    pub fn write_f64(&mut self, val: f64) -> Result<(), Error> {
+        self.write_slice(&val.to_bits().to_be_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_vlu16n(&mut self, val: u16) -> Result<(), Error> {
+        Vlu16N(val).write_forward(self)
     }
 
     pub fn write_u16_rev(&mut self, val: u16) -> Result<(), Error> {
@@ -105,6 +154,12 @@ impl<'i> BufWriter<'i> {
         self.buf[self.byte_idx..self.byte_idx + val.len()].copy_from_slice(val);
         self.byte_idx += val.len();
         Ok(())
+    }
+
+    pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
+        let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
+        self.write_u16_rev(len)?;
+        self.write_slice(val.as_bytes())
     }
 
     pub fn write<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {

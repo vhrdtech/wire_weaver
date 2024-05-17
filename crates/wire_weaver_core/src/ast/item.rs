@@ -100,6 +100,15 @@ impl ItemStruct {
             Err(errors)
         }
     }
+
+    pub fn contains_unsized_types(&self) -> bool {
+        for f in &self.fields {
+            if !f.ty.is_sized() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 /// Take `#[id = integer]` attribute and return the number

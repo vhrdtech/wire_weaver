@@ -60,7 +60,7 @@ impl<'i> BufReader<'i> {
         Ok(f32::from_be_bytes(f32_bytes))
     }
 
-    pub fn read_slice(&mut self, len: usize) -> Result<&[u8], Error> {
+    pub fn read_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();
         if self.byte_idx + len > self.len_bytes {
             return Err(Error::OutOfBounds);
@@ -68,6 +68,12 @@ impl<'i> BufReader<'i> {
         let val = &self.buf[self.byte_idx..self.byte_idx + len];
         self.byte_idx += len;
         Ok(val)
+    }
+
+    pub fn read_str(&mut self) -> Result<&'i str, Error> {
+        let len_bytes = self.read_vlu16n_rev()? as usize;
+        let str_bytes = self.read_slice(len_bytes)?;
+        core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
 
     pub(crate) fn read_u4_rev(&mut self) -> Result<u8, Error> {
@@ -114,10 +120,11 @@ impl<'i> BufReader<'i> {
 
     pub fn bytes_left(&mut self) -> usize {
         if self.byte_idx <= self.len_bytes {
+            let rev_read = if self.is_at_bit7_rev { 1 } else { 0 };
             if self.bit_idx == 7 {
-                self.len_bytes - self.byte_idx
+                self.len_bytes - self.byte_idx - rev_read
             } else if self.byte_idx < self.len_bytes {
-                self.len_bytes - self.byte_idx - 1
+                self.len_bytes - self.byte_idx - 1 - rev_read
             } else {
                 0
             }
@@ -148,6 +155,17 @@ mod tests {
         let buf = [0x3E, 0x80, 0, 0];
         let mut rd = BufReader::new(&buf);
         assert_eq!(rd.read_f32(), Ok(0.25));
+        assert_eq!(rd.bytes_left(), 0);
+    }
+
+    #[test]
+    fn rev_read_bytes_left() {
+        let buf = [0x35];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.bytes_left(), 1);
+        let _ = rd.read_vlu16n_rev().unwrap();
+        assert_eq!(rd.bytes_left(), 0);
+        let _ = rd.read_vlu16n_rev().unwrap();
         assert_eq!(rd.bytes_left(), 0);
     }
 }

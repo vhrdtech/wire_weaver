@@ -16,4 +16,6 @@ pub enum Error {
     OutOfBoundsRevCompact,
     MalformedVlu16N,
     MalformedLeb,
+    MalformedUtf8,
+    StrTooLong,
 }

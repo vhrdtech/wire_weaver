@@ -1,4 +1,4 @@
-use shrink_wrap::SerializeShrinkWrap;
+use shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver::data_structures;
 
 data_structures!("./ww/blinker_v1.ww");
@@ -12,6 +12,11 @@ fn main() {
     let mut buf = [0u8; 256];
     let mut wr = shrink_wrap::BufWriter::new(&mut buf);
     cmd.ser_shrink_wrap(&mut wr).unwrap();
-    let buf = wr.finish();
-    println!("{:02x?}", buf);
+    let buf = wr.finish().unwrap();
+    println!("{:02x?} {}", buf, buf.len());
+
+    let mut rd = shrink_wrap::BufReader::new(buf);
+    let cmd_des = Command::des_shrink_wrap(&mut rd).unwrap();
+    dbg!(rd.bytes_left());
+    println!("{:?}", cmd_des);
 }

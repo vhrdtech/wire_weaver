@@ -82,9 +82,7 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
-        for b in val.to_bits().to_be_bytes() {
-            self.write_u8(b)?;
-        }
+        self.write_slice(&val.to_bits().to_be_bytes())?;
         Ok(())
     }
 
@@ -96,6 +94,16 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
+        Ok(())
+    }
+
+    pub fn write_slice(&mut self, val: &[u8]) -> Result<(), Error> {
+        self.align_byte();
+        if self.bytes_left() < val.len() {
+            return Err(Error::OutOfBoundsRev);
+        }
+        self.buf[self.byte_idx..self.byte_idx + val.len()].copy_from_slice(val);
+        self.byte_idx += val.len();
         Ok(())
     }
 
@@ -126,6 +134,7 @@ impl<'i> BufWriter<'i> {
             let mut idx = self.len_bytes;
             for _ in 0..reverse_u16_written {
                 let val = u16::from_be_bytes([self.buf[idx], self.buf[idx + 1]]);
+                self.len_bytes += 2;
                 Vlu16N(val).write_reversed(&mut self)?;
                 idx += 2;
             }
@@ -220,28 +229,28 @@ mod tests {
 
     #[test]
     fn rev_u16_aligned() {
-        let mut buf = [0; 8];
+        let mut buf = [0; 6];
         let mut wr = BufWriter::new(&mut buf);
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
         wr.write_u16_rev(3).unwrap();
         wr.write_u16_rev(5).unwrap();
-        assert_eq!(wr.bytes_left(), 2);
-        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 0, 0, 5, 0, 3]);
+        assert_eq!(wr.bytes_left(), 0);
+        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 5, 0, 3]);
         assert_eq!(wr.finish().unwrap(), &[0xAA, 0xCC, 0b0101_0011]);
     }
 
     #[test]
     fn rev_u16_unaligned() {
-        let mut buf = [0; 10];
+        let mut buf = [0; 9];
         let mut wr = BufWriter::new(&mut buf);
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
         wr.write_u16_rev(3).unwrap();
         wr.write_u16_rev(5).unwrap();
         wr.write_u16_rev(7).unwrap();
-        assert_eq!(wr.bytes_left(), 2);
-        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 0, 0, 7, 0, 5, 0, 3]);
+        assert_eq!(wr.bytes_left(), 1);
+        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 0, 7, 0, 5, 0, 3]);
         assert_eq!(
             wr.finish().unwrap(),
             &[0xAA, 0xCC, 0b0000_0111, 0b0101_0011]

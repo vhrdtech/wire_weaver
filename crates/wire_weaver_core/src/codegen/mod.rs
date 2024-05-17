@@ -38,7 +38,10 @@ pub fn rust_no_std_struct_def(item_struct: &ItemStruct) -> TokenStream {
     let fields = CGFieldsDef {
         fields: &item_struct.fields,
     };
-    let ts = quote! { pub struct #ident { #fields } };
+    let ts = quote! {
+        #[derive(Debug)]
+        pub struct #ident { #fields }
+    };
     ts
 }
 
@@ -53,8 +56,19 @@ pub fn rust_no_std_struct_serde(item_struct: &ItemStruct) -> TokenStream {
     };
     quote! {
         impl shrink_wrap::SerializeShrinkWrap for #ident {
-            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter, version: wire_weaver_core::Version) -> Result<(), shrink_wrap::Error> {
+            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
                 #fields_ser
+            }
+        }
+
+        impl<'i> shrink_wrap::DeserializeShrinkWrap<'i> for #ident {
+            fn des_shrink_wrap<'di>(rd: &'di mut shrink_wrap::BufReader<'i>) -> Result<Self, shrink_wrap::Error> {
+                let blink_frequency = rd.read_f32()?;
+                let blink_duty = rd.read_f32().unwrap_or(0.5);
+                Ok(#ident {
+                    blink_frequency,
+                    blink_duty,
+                })
             }
         }
     }

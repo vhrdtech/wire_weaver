@@ -7,7 +7,7 @@ pub(crate) mod vlu16n;
 
 pub use buf_reader::BufReader;
 pub use buf_writer::BufWriter;
-pub use traits::SerializeShrinkWrap;
+pub use traits::{DeserializeShrinkWrap, SerializeShrinkWrap};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {

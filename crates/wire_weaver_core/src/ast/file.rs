@@ -20,13 +20,14 @@ pub enum FileSource {
 
 #[derive(Debug)]
 pub enum SynConversionWarning {
-    UnknownAttribute,
+    UnknownAttribute(String),
     UnknownFileItem,
 }
 
 #[derive(Debug)]
 pub enum SynConversionError {
     UnknownType,
+    WrongDefaultAttr(String),
 }
 
 impl File {

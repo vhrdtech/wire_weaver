@@ -4,14 +4,14 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 struct CGStructFieldsDef<'a> {
     fields: &'a [StructField],
-    no_std: bool,
+    no_alloc: bool,
 }
 
 impl<'a> ToTokens for CGStructFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in self.fields {
             let ident: Ident = (&struct_field.ident).into();
-            let ty = struct_field.ty.ty_def(self.no_std);
+            let ty = struct_field.ty.ty_def(self.no_alloc);
             tokens.append_all(quote! {
                 pub #ident: #ty,
             });
@@ -19,13 +19,13 @@ impl<'a> ToTokens for CGStructFieldsDef<'a> {
     }
 }
 
-pub fn struct_def(item_struct: &ItemStruct, no_std: bool) -> TokenStream {
+pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     let ident: Ident = (&item_struct.ident).into();
     let fields = CGStructFieldsDef {
         fields: &item_struct.fields,
-        no_std,
+        no_alloc,
     };
-    let lifetime = if no_std && item_struct.contains_unsized_types() {
+    let lifetime = if no_alloc && item_struct.contains_unsized_types() {
         quote!(<'i>)
     } else {
         quote!()
@@ -39,25 +39,25 @@ pub fn struct_def(item_struct: &ItemStruct, no_std: bool) -> TokenStream {
 
 struct CGStructSer<'a> {
     item_struct: &'a ItemStruct,
-    no_std: bool,
+    no_alloc: bool,
 }
 
 struct CGStructDes<'a> {
     item_struct: &'a ItemStruct,
-    no_std: bool,
+    no_alloc: bool,
 }
 
-pub fn struct_serdes(item_struct: &ItemStruct, no_std: bool) -> TokenStream {
+pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     let struct_name: Ident = (&item_struct.ident).into();
     let fields_ser = CGStructSer {
         item_struct,
-        no_std,
+        no_alloc,
     };
     let struct_des = CGStructDes {
         item_struct,
-        no_std,
+        no_alloc,
     };
-    let lifetime = if no_std && item_struct.contains_unsized_types() {
+    let lifetime = if no_alloc && item_struct.contains_unsized_types() {
         quote!(<'i>)
     } else {
         quote!()
@@ -82,7 +82,7 @@ impl<'a> ToTokens for CGStructSer<'a> {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
             let field_path = quote!(self.#field_name);
-            tokens.append_all(struct_field.ty.buf_write(field_path, self.no_std));
+            tokens.append_all(struct_field.ty.buf_write(field_path, self.no_alloc));
         }
         tokens.append_all(quote! {
             Ok(())
@@ -96,8 +96,13 @@ impl<'a> ToTokens for CGStructDes<'a> {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
             field_names.push(field_name.clone());
-            // let x = rd.read_()?;
-            tokens.append_all(struct_field.ty.buf_read(field_name, self.no_std));
+            let handle_eob = struct_field.handle_eob();
+            // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+            tokens.append_all(
+                struct_field
+                    .ty
+                    .buf_read(field_name, handle_eob, self.no_alloc),
+            );
         }
         let struct_name: Ident = (&self.item_struct.ident).into();
         tokens.append_all(quote! {
@@ -105,6 +110,18 @@ impl<'a> ToTokens for CGStructDes<'a> {
                 #(#field_names),*
             })
         });
+    }
+}
+
+impl StructField {
+    fn handle_eob(&self) -> TokenStream {
+        match &self.default {
+            None => quote!(?),
+            Some(value) => {
+                let value = value.to_lit();
+                quote!(.unwrap_or(#value))
+            }
+        }
     }
 }
 

@@ -4,6 +4,7 @@ use crate::ast::ident::Ident;
 use crate::ast::ty::Type;
 use crate::ast::value::Value;
 use crate::ast::version::Version;
+use syn::{Expr, Lit, Meta};
 
 #[derive(Debug)]
 pub enum Item {
@@ -78,14 +79,17 @@ impl ItemStruct {
                 }
             };
             fields.push(StructField {
-                id: find_id_attr(&mut field.attrs).unwrap_or(idx as u32),
+                id: take_id_attr(&mut field.attrs).unwrap_or(idx as u32),
                 ident: field.ident.unwrap().into(),
                 ty,
-                since: find_since_attr(&mut field.attrs),
-                default: None,
+                since: take_since_attr(&mut field.attrs),
+                default: take_default_attr(&mut field.attrs, &mut errors),
             });
-            for _ in field.attrs {
-                warnings.push(SynConversionWarning::UnknownAttribute);
+            for a in field.attrs {
+                warnings.push(SynConversionWarning::UnknownAttribute(format!(
+                    "{:?}",
+                    a.meta.path()
+                )));
             }
         }
         if errors.is_empty() {
@@ -112,11 +116,54 @@ impl ItemStruct {
 }
 
 /// Take `#[id = integer]` attribute and return the number
-fn find_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
+fn take_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     None
 }
 
 /// Take `#[since = vX.Y]` attribute and return the Version
-fn find_since_attr(attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
+fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
     None
+}
+
+/// Take `#[default = lit]` attribute and return Value containing provided literal
+fn take_default_attr(
+    attrs: &mut Vec<syn::Attribute>,
+    errors: &mut Vec<SynConversionError>,
+) -> Option<Value> {
+    let (attr_idx, _) = attrs
+        .iter()
+        .enumerate()
+        .find(|(_, a)| a.path().is_ident("default"))?;
+    let attr = attrs.remove(attr_idx);
+    let Meta::NameValue(name_value) = attr.meta else {
+        errors.push(SynConversionError::WrongDefaultAttr(
+            "Expected default = lit".into(),
+        ));
+        return None;
+    };
+    let Expr::Lit(expr_lit) = name_value.value else {
+        errors.push(SynConversionError::WrongDefaultAttr(
+            "Expected default = lit".into(),
+        ));
+        return None;
+    };
+    match expr_lit.lit {
+        Lit::Float(lit_float) => {
+            // TODO: Handle f32 and f64 properly
+            Some(Value::F32(lit_float.base10_parse().unwrap()))
+        }
+        u => {
+            errors.push(SynConversionError::WrongDefaultAttr(format!(
+                "Not supported lit: {u:?}"
+            )));
+            None
+        } // Lit::Str(_) => {}
+          // Lit::ByteStr(_) => {}
+          // Lit::CStr(_) => {}
+          // Lit::Byte(_) => {}
+          // Lit::Char(_) => {}
+          // Lit::Int(_) => {}
+          // Lit::Bool(_) => {}
+          // Lit::Verbatim(_) => {}
+    }
 }

@@ -13,11 +13,11 @@ impl TypeDiscrete {
 }
 
 impl Type {
-    pub fn ty_def(&self, no_std: bool) -> TokenStream {
+    pub fn ty_def(&self, no_alloc: bool) -> TokenStream {
         match self {
             Type::Bool => quote!(bool),
             Type::Discrete(ty_discrete) => {
-                let is_nib = ty_discrete.bits == 4 && ty_discrete.is_signed == false;
+                let is_nib = ty_discrete.bits == 4 && !ty_discrete.is_signed;
                 if [8, 16, 32, 64, 128].contains(&ty_discrete.bits) {
                     let sign = ty_discrete.sign();
                     let ty = format!("{sign}{}", ty_discrete.bits);
@@ -39,7 +39,7 @@ impl Type {
                 }
             }
             Type::String => {
-                if no_std {
+                if no_alloc {
                     quote!(&'i str)
                 } else {
                     quote!(String)
@@ -57,7 +57,7 @@ impl Type {
         }
     }
 
-    pub fn buf_write(&self, field_path: TokenStream, no_std: bool) -> TokenStream {
+    pub fn buf_write(&self, field_path: TokenStream, no_alloc: bool) -> TokenStream {
         match self {
             Type::Bool | Type::Discrete(_) | Type::Floating(_) => {
                 let fn_name = match self {
@@ -76,7 +76,7 @@ impl Type {
                 quote!(wr.#fn_name(#field_path)?;)
             }
             Type::String => {
-                if no_std {
+                if no_alloc {
                     quote!(wr.write_str(#field_path)?;)
                 } else {
                     quote!(wr.write_str(#field_path.as_str())?;)
@@ -85,7 +85,12 @@ impl Type {
         }
     }
 
-    pub fn buf_read(&self, variable_name: Ident, no_std: bool) -> TokenStream {
+    pub fn buf_read(
+        &self,
+        variable_name: Ident,
+        handle_eob: TokenStream,
+        no_alloc: bool,
+    ) -> TokenStream {
         match self {
             Type::Bool | Type::Discrete(_) | Type::Floating(_) => {
                 let fn_name = match self {
@@ -101,13 +106,13 @@ impl Type {
                     }
                     _ => unreachable!(),
                 };
-                quote!(let #variable_name = rd.#fn_name()?;)
+                quote!(let #variable_name = rd.#fn_name() #handle_eob;)
             }
             Type::String => {
-                if no_std {
-                    quote!(let #variable_name = rd.read_str()?;)
+                if no_alloc {
+                    quote!(let #variable_name = rd.read_str() #handle_eob;)
                 } else {
-                    quote!(let #variable_name = rd.read_str()?.to_string();)
+                    quote!(let #variable_name = rd.read_str() #handle_eob .to_string();)
                 }
             }
         }

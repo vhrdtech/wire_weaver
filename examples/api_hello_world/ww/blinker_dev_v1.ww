@@ -1,0 +1,17 @@
+// #[repr(vlu16n)]
+// enum RequestKind {
+//     Version = 0,
+//     // Version { protocol_id: u32, version: Version } = 0,
+//     // Call { args: Vec<u8> } = 1,
+//     Read = 2,
+// }
+
+struct X {
+    a: Y,
+    c: f32,
+    z: u8,
+}
+
+struct Y {
+    b: f32,
+}

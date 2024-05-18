@@ -45,6 +45,10 @@ impl Type {
                     quote!(String)
                 }
             }
+            Type::Path(path) => {
+                let segments = &path.segments;
+                quote!(#(#segments)::*)
+            }
         }
     }
 
@@ -54,6 +58,18 @@ impl Type {
             Type::Discrete(_) => true,
             Type::Floating(_) => true,
             Type::String => false,
+            // TODO: need to resolve path's before codegen
+            Type::Path(_) => todo!(),
+        }
+    }
+
+    pub fn is_ref(&self) -> bool {
+        match self {
+            Type::Bool => false,
+            Type::Discrete(_) => false,
+            Type::Floating(_) => false,
+            Type::String => false,
+            Type::Path(_) => false,
         }
     }
 
@@ -80,6 +96,16 @@ impl Type {
                     quote!(wr.write_str(#field_path)?;)
                 } else {
                     quote!(wr.write_str(#field_path.as_str())?;)
+                }
+            }
+            Type::Path(_) => {
+                quote! {
+                    let handle = wr.write_u16_rev(0)?;
+                    let unsized_start = wr.pos().0;
+                    wr.write(& #field_path)?;
+                    wr.align_byte();
+                    let size = wr.pos().0 - unsized_start;
+                    wr.update_u16_rev(handle, size as u16)?;
                 }
             }
         }
@@ -113,6 +139,13 @@ impl Type {
                     quote!(let #variable_name = rd.read_str() #handle_eob;)
                 } else {
                     quote!(let #variable_name = rd.read_str() #handle_eob .to_string();)
+                }
+            }
+            Type::Path(_) => {
+                quote! {
+                    let size = rd.read_vlu16n_rev()? as usize;
+                    let mut rd_split = rd.split(size)?;
+                    let #variable_name = rd_split.read()?;
                 }
             }
         }

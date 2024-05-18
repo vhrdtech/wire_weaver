@@ -105,9 +105,9 @@ impl ItemStruct {
         }
     }
 
-    pub fn contains_unsized_types(&self) -> bool {
+    pub fn contains_ref_types(&self) -> bool {
         for f in &self.fields {
-            if !f.ty.is_sized() {
+            if f.ty.is_ref() {
                 return true;
             }
         }

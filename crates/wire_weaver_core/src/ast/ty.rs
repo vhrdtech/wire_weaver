@@ -1,4 +1,6 @@
 use crate::ast::file::{SynConversionError, SynConversionWarning};
+use crate::ast::ident::Ident;
+use crate::ast::path::Path;
 
 #[derive(Debug)]
 pub enum Type {
@@ -8,7 +10,7 @@ pub enum Type {
     // VariableLength,
     Floating(TypeFloating),
     String,
-    // Path,
+    Path(Path),
 }
 
 #[derive(Debug)]
@@ -60,7 +62,7 @@ impl Type {
                     } else if ident == "String" {
                         Ok((Type::String, vec![]))
                     } else {
-                        Err(vec![SynConversionError::UnknownType])
+                        Ok((Type::Path(Path::new_ident(Ident::new(ident))), vec![]))
                     }
                 } else {
                     Err(vec![SynConversionError::UnknownType])

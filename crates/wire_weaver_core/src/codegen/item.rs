@@ -25,7 +25,7 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         fields: &item_struct.fields,
         no_alloc,
     };
-    let lifetime = if no_alloc && item_struct.contains_unsized_types() {
+    let lifetime = if no_alloc && item_struct.contains_ref_types() {
         quote!(<'i>)
     } else {
         quote!()
@@ -57,7 +57,7 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         item_struct,
         no_alloc,
     };
-    let lifetime = if no_alloc && item_struct.contains_unsized_types() {
+    let lifetime = if no_alloc && item_struct.contains_ref_types() {
         quote!(<'i>)
     } else {
         quote!()

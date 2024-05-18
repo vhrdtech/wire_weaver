@@ -1,6 +1,6 @@
 use crate::vlu16n::Vlu16N;
-use crate::Error;
 use crate::Error::OutOfBoundsRev;
+use crate::{DeserializeShrinkWrap, Error};
 
 /// Buffer reader that treats input as a stream of nibbles.
 pub struct BufReader<'i> {
@@ -70,6 +70,22 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
+    pub fn split(&mut self, len: usize) -> Result<Self, Error> {
+        self.align_byte();
+        if self.byte_idx + len > self.len_bytes {
+            return Err(Error::OutOfBounds);
+        }
+        let prev_byte_idx = self.byte_idx;
+        self.byte_idx += len;
+        Ok(BufReader {
+            buf: &self.buf[prev_byte_idx..prev_byte_idx + len],
+            len_bytes: len,
+            is_at_bit7_rev: false,
+            byte_idx: 0,
+            bit_idx: 7,
+        })
+    }
+
     pub fn read_str(&mut self) -> Result<&'i str, Error> {
         let len_bytes = self.read_vlu16n_rev()? as usize;
         let str_bytes = self.read_slice(len_bytes)?;
@@ -88,6 +104,10 @@ impl<'i> BufReader<'i> {
             self.is_at_bit7_rev = true;
             Ok(self.buf[self.len_bytes - 1] & 0b1111)
         }
+    }
+
+    pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
+        T::des_shrink_wrap(self)
     }
 
     pub fn read_vlu16n(&mut self) -> Result<u16, Error> {

@@ -135,7 +135,7 @@ impl<'i> BufWriter<'i> {
         Vlu16N(val).write_forward(self)
     }
 
-    pub fn write_u16_rev(&mut self, val: u16) -> Result<(), Error> {
+    pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
         }
@@ -143,6 +143,16 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
+        Ok(U16RevPos(self.len_bytes))
+    }
+
+    pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
+        if pos.0 + 1 >= self.buf.len() {
+            return Err(Error::OutOfBoundsRev);
+        }
+        let val_be = val.to_be_bytes();
+        self.buf[pos.0] = val_be[0];
+        self.buf[pos.0 + 1] = val_be[1];
         Ok(())
     }
 
@@ -214,7 +224,7 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    fn align_byte(&mut self) {
+    pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
         }
@@ -236,7 +246,13 @@ impl<'i> BufWriter<'i> {
             0
         }
     }
+
+    pub fn pos(&self) -> (usize, u8) {
+        (self.byte_idx, self.bit_idx)
+    }
 }
+
+pub struct U16RevPos(usize);
 
 #[cfg(test)]
 mod tests {

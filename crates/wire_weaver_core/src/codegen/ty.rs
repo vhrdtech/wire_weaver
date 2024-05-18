@@ -104,6 +104,7 @@ impl Type {
                     let unsized_start = wr.pos().0;
                     wr.write(& #field_path)?;
                     wr.align_byte();
+                    wr.encode_vlu16n_rev(handle)?;
                     let size = wr.pos().0 - unsized_start;
                     wr.update_u16_rev(handle, size as u16)?;
                 }

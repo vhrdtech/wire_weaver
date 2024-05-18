@@ -14,4 +14,9 @@ struct X {
 
 struct Y {
     b: f32,
+    z: Z,
+}
+
+struct Z {
+    z: u8,
 }

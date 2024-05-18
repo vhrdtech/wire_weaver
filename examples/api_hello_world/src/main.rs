@@ -5,7 +5,10 @@ data_structures!("./ww/blinker_dev_v1.ww");
 
 fn main() {
     let x = X {
-        a: Y { b: 0.3 },
+        a: Y {
+            b: 0.5,
+            z: Z { z: 0xFA },
+        },
         c: 0.25,
         z: 126,
     };

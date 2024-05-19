@@ -26,6 +26,20 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    pub fn read_bool(&mut self) -> Result<bool, Error> {
+        if self.byte_idx >= self.len_bytes {
+            return Err(Error::OutOfBounds);
+        }
+        let val = (self.buf[self.byte_idx] & (1 << self.bit_idx)) != 0;
+        if self.bit_idx == 0 {
+            self.bit_idx = 7;
+            self.byte_idx += 1;
+        } else {
+            self.bit_idx -= 1;
+        }
+        Ok(val)
+    }
+
     pub fn read_u4(&mut self) -> Result<u8, Error> {
         self.align_nibble();
         if self.byte_idx >= self.len_bytes {
@@ -52,12 +66,96 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
+    pub fn read_u16(&mut self) -> Result<u16, Error> {
+        let u16_bytes: [u8; 2] = self
+            .read_slice(2)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(u16::from_le_bytes(u16_bytes))
+    }
+
+    pub fn read_vlu16n(&mut self) -> Result<u16, Error> {
+        Ok(Vlu16N::read_forward(self)?.0)
+    }
+
+    pub fn read_vlu16n_rev(&mut self) -> Result<u16, Error> {
+        Ok(Vlu16N::read_reversed(self)?.0)
+    }
+
+    pub fn read_u32(&mut self) -> Result<u32, Error> {
+        let u32_bytes: [u8; 4] = self
+            .read_slice(4)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(u32::from_le_bytes(u32_bytes))
+    }
+
+    pub fn read_u64(&mut self) -> Result<u64, Error> {
+        let u64_bytes: [u8; 8] = self
+            .read_slice(8)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(u64::from_le_bytes(u64_bytes))
+    }
+
+    pub fn read_u128(&mut self) -> Result<u128, Error> {
+        let u128_bytes: [u8; 16] = self
+            .read_slice(16)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(u128::from_le_bytes(u128_bytes))
+    }
+
+    pub fn read_i8(&mut self) -> Result<i8, Error> {
+        Ok(self.read_u8()? as i8)
+    }
+
+    pub fn read_i16(&mut self) -> Result<i16, Error> {
+        let i16_bytes: [u8; 2] = self
+            .read_slice(2)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(i16::from_le_bytes(i16_bytes))
+    }
+
+    pub fn read_i32(&mut self) -> Result<i32, Error> {
+        let i32_bytes: [u8; 4] = self
+            .read_slice(4)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(i32::from_le_bytes(i32_bytes))
+    }
+
+    pub fn read_i64(&mut self) -> Result<i64, Error> {
+        let i64_bytes: [u8; 8] = self
+            .read_slice(8)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(i64::from_le_bytes(i64_bytes))
+    }
+
+    pub fn read_i128(&mut self) -> Result<i128, Error> {
+        let i128_bytes: [u8; 16] = self
+            .read_slice(16)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(i128::from_le_bytes(i128_bytes))
+    }
+
     pub fn read_f32(&mut self) -> Result<f32, Error> {
         let f32_bytes: [u8; 4] = self
             .read_slice(4)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
-        Ok(f32::from_be_bytes(f32_bytes))
+        Ok(f32::from_le_bytes(f32_bytes))
+    }
+
+    pub fn read_f64(&mut self) -> Result<f64, Error> {
+        let f64_bytes: [u8; 8] = self
+            .read_slice(8)?
+            .try_into()
+            .map_err(|_| Error::OutOfBounds)?;
+        Ok(f64::from_le_bytes(f64_bytes))
     }
 
     pub fn read_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
@@ -68,6 +166,16 @@ impl<'i> BufReader<'i> {
         let val = &self.buf[self.byte_idx..self.byte_idx + len];
         self.byte_idx += len;
         Ok(val)
+    }
+
+    pub fn read_str(&mut self) -> Result<&'i str, Error> {
+        let len_bytes = self.read_vlu16n_rev()? as usize;
+        let str_bytes = self.read_slice(len_bytes)?;
+        core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
+    }
+
+    pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
+        T::des_shrink_wrap(self)
     }
 
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
@@ -86,12 +194,6 @@ impl<'i> BufReader<'i> {
         })
     }
 
-    pub fn read_str(&mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.read_vlu16n_rev()? as usize;
-        let str_bytes = self.read_slice(len_bytes)?;
-        core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
-    }
-
     pub(crate) fn read_u4_rev(&mut self) -> Result<u8, Error> {
         if self.byte_idx >= self.len_bytes {
             return Err(OutOfBoundsRev);
@@ -104,18 +206,6 @@ impl<'i> BufReader<'i> {
             self.is_at_bit7_rev = true;
             Ok(self.buf[self.len_bytes - 1] & 0b1111)
         }
-    }
-
-    pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
-        T::des_shrink_wrap(self)
-    }
-
-    pub fn read_vlu16n(&mut self) -> Result<u16, Error> {
-        Ok(Vlu16N::read_forward(self)?.0)
-    }
-
-    pub fn read_vlu16n_rev(&mut self) -> Result<u16, Error> {
-        Ok(Vlu16N::read_reversed(self)?.0)
     }
 
     fn align_nibble(&mut self) {

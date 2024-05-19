@@ -78,68 +78,15 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn write_u16(&mut self, val: u16) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
+        self.write_slice(&val.to_le_bytes())?;
         Ok(())
-    }
-
-    pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_u64(&mut self, val: u64) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_u128(&mut self, val: u128) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_i8(&mut self, val: i8) -> Result<(), Error> {
-        self.write_u8(val as u8)
-    }
-
-    pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_i64(&mut self, val: i64) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_i128(&mut self, val: i128) -> Result<(), Error> {
-        self.write_slice(&val.to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
-        self.write_slice(&val.to_bits().to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_f64(&mut self, val: f64) -> Result<(), Error> {
-        self.write_slice(&val.to_bits().to_be_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_vlu16n(&mut self, val: u16) -> Result<(), Error> {
-        Vlu16N(val).write_forward(self)
     }
 
     pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
         }
-        let val_be = val.to_be_bytes();
+        let val_be = val.to_le_bytes();
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
@@ -150,10 +97,63 @@ impl<'i> BufWriter<'i> {
         if pos.0 + 1 >= self.buf.len() {
             return Err(Error::OutOfBoundsRev);
         }
-        let val_be = val.to_be_bytes();
+        let val_be = val.to_le_bytes();
         self.buf[pos.0] = val_be[0];
         self.buf[pos.0 + 1] = val_be[1];
         Ok(())
+    }
+
+    pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_u64(&mut self, val: u64) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_u128(&mut self, val: u128) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i8(&mut self, val: i8) -> Result<(), Error> {
+        self.write_u8(val as u8)
+    }
+
+    pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i64(&mut self, val: i64) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_i128(&mut self, val: i128) -> Result<(), Error> {
+        self.write_slice(&val.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
+        self.write_slice(&val.to_bits().to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_f64(&mut self, val: f64) -> Result<(), Error> {
+        self.write_slice(&val.to_bits().to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn write_vlu16n(&mut self, val: u16) -> Result<(), Error> {
+        Vlu16N(val).write_forward(self)
     }
 
     pub fn write_slice(&mut self, val: &[u8]) -> Result<(), Error> {

@@ -28,6 +28,7 @@ pub enum SynConversionWarning {
 pub enum SynConversionError {
     UnknownType,
     WrongDefaultAttr(String),
+    WrongDiscriminant,
 }
 
 impl File {

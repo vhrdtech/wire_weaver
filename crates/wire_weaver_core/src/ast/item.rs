@@ -1,4 +1,4 @@
-use crate::ast::data::Variant;
+use crate::ast::data::{Fields, Variant};
 use crate::ast::file::{SynConversionError, SynConversionWarning};
 use crate::ast::ident::Ident;
 use crate::ast::ty::Type;
@@ -34,6 +34,7 @@ pub struct StructField {
 pub struct ItemEnum {
     // attrs
     // generics
+    pub ident: Ident,
     pub variants: Vec<Variant>,
 }
 
@@ -46,15 +47,18 @@ impl Item {
                 Ok((item_struct, warnings)) => Ok((Some(Item::Struct(item_struct)), warnings)),
                 Err(e) => Err(e),
             },
-            syn::Item::Enum(_item_enum) => {
-                todo!()
-            }
+            syn::Item::Enum(item_enum) => match ItemEnum::from_syn(item_enum) {
+                Ok((item_enum, warnings)) => Ok((Some(Item::Enum(item_enum)), warnings)),
+                Err(e) => Err(e),
+            },
             // syn::Item::Mod(item_mod) => {
             //
             // }
             // syn::Item::Use(item_use) => {
             //
             // }
+            // syn::Item::Type(item_type) => {}
+            // syn::Item::Const(item_const) => {}
             _ => Ok((None, vec![SynConversionWarning::UnknownFileItem])),
         }
     }
@@ -112,6 +116,73 @@ impl ItemStruct {
             }
         }
         false
+    }
+}
+
+impl ItemEnum {
+    fn from_syn(
+        item_enum: syn::ItemEnum,
+    ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
+        let mut variants = vec![];
+        let mut errors = vec![];
+        let mut warnings = vec![];
+        let mut latest_discriminant = 0;
+        for mut variant in item_enum.variants {
+            let discriminant =
+                Self::get_discriminant(&mut errors, &mut latest_discriminant, &variant);
+            variants.push(Variant {
+                ident: variant.ident.into(),
+                fields: Fields::Unit,
+                discriminant,
+                since: take_since_attr(&mut variant.attrs),
+            });
+            for a in variant.attrs {
+                warnings.push(SynConversionWarning::UnknownAttribute(format!(
+                    "{:?}",
+                    a.meta.path()
+                )));
+            }
+        }
+        if errors.is_empty() {
+            Ok((
+                ItemEnum {
+                    ident: item_enum.ident.into(),
+                    variants,
+                },
+                warnings,
+            ))
+        } else {
+            Err(errors)
+        }
+    }
+
+    fn get_discriminant(
+        errors: &mut Vec<SynConversionError>,
+        latest_discriminant: &mut u32,
+        variant: &syn::Variant,
+    ) -> u32 {
+        variant
+            .discriminant
+            .as_ref()
+            .map(|(_, expr)| {
+                if let Expr::Lit(lit) = expr {
+                    if let Lit::Int(lit_int) = &lit.lit {
+                        let d = lit_int.base10_parse().unwrap();
+                        *latest_discriminant = d;
+                        d
+                    } else {
+                        errors.push(SynConversionError::WrongDiscriminant);
+                        u32::MAX
+                    }
+                } else {
+                    errors.push(SynConversionError::WrongDiscriminant);
+                    u32::MAX
+                }
+            })
+            .unwrap_or_else(|| {
+                *latest_discriminant += 1;
+                *latest_discriminant
+            })
     }
 }
 

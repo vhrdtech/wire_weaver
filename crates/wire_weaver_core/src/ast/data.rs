@@ -1,5 +1,8 @@
+use crate::ast::ident::Ident;
 use crate::ast::ty::Type;
 use crate::ast::version::Version;
+use proc_macro2::Span;
+use syn::{Lit, LitInt};
 
 #[derive(Debug)]
 pub enum Fields {
@@ -20,15 +23,24 @@ pub struct FieldsUnnamed {
 
 #[derive(Debug)]
 pub struct Field {
-    pub ident: String,
+    pub ident: Ident,
     pub ty: Type,
 }
 
 #[derive(Debug)]
 pub struct Variant {
     // attrs
-    pub ident: String,
+    pub ident: Ident,
     pub fields: Fields,
     pub discriminant: u32,
-    pub since: Version,
+    pub since: Option<Version>,
+}
+
+impl Variant {
+    pub(crate) fn discriminant_lit(&self) -> syn::Lit {
+        Lit::Int(LitInt::new(
+            format!("{}", self.discriminant).as_str(),
+            Span::call_site(),
+        ))
+    }
 }

@@ -11,6 +11,8 @@ pub enum Type {
     Floating(TypeFloating),
     String,
     Path(Path),
+    // Option(Path),
+    // Result(Path, Path),
 }
 
 #[derive(Debug)]

@@ -1,4 +1,5 @@
 use crate::ast::item::Item;
+use crate::ast::syn_convert::{SynConversionError, SynConversionWarning};
 use crate::ast::version::Version;
 use std::path::PathBuf;
 
@@ -16,19 +17,6 @@ pub enum FileSource {
     File(PathBuf),
     Registry,
     Git,
-}
-
-#[derive(Debug)]
-pub enum SynConversionWarning {
-    UnknownAttribute(String),
-    UnknownFileItem,
-}
-
-#[derive(Debug)]
-pub enum SynConversionError {
-    UnknownType,
-    WrongDefaultAttr(String),
-    WrongDiscriminant,
 }
 
 impl File {

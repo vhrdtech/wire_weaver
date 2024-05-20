@@ -6,7 +6,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ident {
     pub sym: String,
     // pub span: Span,

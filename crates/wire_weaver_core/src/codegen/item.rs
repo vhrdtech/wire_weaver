@@ -1,11 +1,11 @@
-use crate::ast::data::Variant;
-use crate::ast::item::{ItemEnum, ItemStruct, StructField};
+use crate::ast::data::{Field, Fields, Variant};
+use crate::ast::item::{ItemEnum, ItemStruct};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{Lit, LitInt};
 
 struct CGStructFieldsDef<'a> {
-    fields: &'a [StructField],
+    fields: &'a [Field],
     no_alloc: bool,
 }
 
@@ -89,7 +89,7 @@ impl<'a> ToTokens for CGStructSer<'a> {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
             let field_path = quote!(self.#field_name);
-            tokens.append_all(struct_field.ty.buf_write(field_path, self.no_alloc));
+            tokens.append_all(struct_field.ty.buf_write(field_path, false, self.no_alloc));
         }
         tokens.append_all(quote! {
             Ok(())
@@ -117,18 +117,6 @@ impl<'a> ToTokens for CGStructDes<'a> {
                 #(#field_names),*
             })
         });
-    }
-}
-
-impl StructField {
-    fn handle_eob(&self) -> TokenStream {
-        match &self.default {
-            None => quote!(?),
-            Some(value) => {
-                let value = value.to_lit();
-                quote!(.unwrap_or(#value))
-            }
-        }
     }
 }
 
@@ -163,11 +151,32 @@ impl<'a> ToTokens for CGEnumFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in self.variants {
             let ident: Ident = (&variant.ident).into();
-            // let ty = struct_field.ty.ty_def(self.no_alloc);
             let discriminant = variant.discriminant_lit();
-            tokens.append_all(quote! {
-                #ident = #discriminant,
-            });
+            let variant = match &variant.fields {
+                Fields::Named(fields_named) => {
+                    let field_names: Vec<Ident> = fields_named
+                        .named
+                        .iter()
+                        .map(|f| (&f.ident).into())
+                        .collect();
+                    let field_types: Vec<TokenStream> = fields_named
+                        .named
+                        .iter()
+                        .map(|f| f.ty.ty_def(true))
+                        .collect();
+                    quote!(#ident { #(#field_names: #field_types),* } = #discriminant,)
+                }
+                Fields::Unnamed(fields_unnamed) => {
+                    let field_types: Vec<TokenStream> = fields_unnamed
+                        .unnamed
+                        .iter()
+                        .map(|f| f.ty.ty_def(true))
+                        .collect();
+                    quote!(#ident ( #(#field_types),* ) = #discriminant,)
+                }
+                Fields::Unit => quote!(#ident = #discriminant,),
+            };
+            tokens.append_all(variant);
         }
     }
 }
@@ -202,10 +211,74 @@ struct CGEnumDes<'a> {
 
 impl<'a> ToTokens for CGEnumSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append_all(quote! {
-            wr.write_vlu16n(self.discriminant())?;
-            Ok(())
-        });
+        if self.item_enum.is_discriminant_only() {
+            tokens.append_all(quote! {
+                wr.write_vlu16n(self.discriminant())?;
+                Ok(())
+            });
+        } else {
+            let enum_name: Ident = (&self.item_enum.ident).into();
+            let unit_variants: Vec<_> = self
+                .item_enum
+                .variants
+                .iter()
+                .filter_map(|v| {
+                    if v.is_unit() {
+                        Some(v.ident.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let mut ser_data_variants = quote! {};
+            for variant in &self.item_enum.variants {
+                match &variant.fields {
+                    Fields::Named(fields_named) => {
+                        let mut fields_names = vec![];
+                        let mut ser = quote!();
+                        for field in &fields_named.named {
+                            let field_name: Ident = (&field.ident).into();
+                            fields_names.push(field_name.clone());
+                            let field_path = quote!(#field_name);
+                            ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
+                        }
+                        let variant_name: Ident = (&variant.ident).into();
+                        ser_data_variants.append_all(
+                            quote!(#enum_name::#variant_name { #(#fields_names),* } => { #ser }),
+                        );
+                    }
+                    Fields::Unnamed(fields_unnamed) => {
+                        let mut fields_numbers = vec![];
+                        let mut ser = quote!();
+                        for field in &fields_unnamed.unnamed {
+                            let field_name: Ident = (&field.ident).into();
+                            fields_numbers.push(field_name.clone());
+                            let field_path = quote!(#field_name);
+                            ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
+                        }
+                        let variant_name: Ident = (&variant.ident).into();
+                        ser_data_variants.append_all(
+                            quote!(#enum_name::#variant_name ( #(#fields_numbers),* ) => { #ser }),
+                        );
+                    }
+                    Fields::Unit => continue,
+                }
+            }
+            tokens.append_all(quote! {
+                wr.write_vlu16n(self.discriminant())?;
+                let handle = wr.write_u16_rev(0)?;
+                let unsized_start = wr.pos().0;
+                match &self {
+                    #(#enum_name::#unit_variants)|* => {},
+                    #ser_data_variants
+                    _ => {}
+                }
+                let size = wr.pos().0 - unsized_start;
+                wr.update_u16_rev(handle, size as u16)?;
+                wr.encode_vlu16n_rev(handle)?;
+                Ok(())
+            });
+        }
     }
 }
 
@@ -215,15 +288,27 @@ impl<'a> ToTokens for CGEnumDes<'a> {
             item_enum: self.item_enum,
             no_alloc: self.no_alloc,
         };
-        let handle_unknown = quote! {
-            _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
-        };
-        tokens.append_all(quote! {
-            Ok(match rd.read_vlu16n()? {
+        let des = quote! {
+            Ok(match discriminant {
                 #known_variants
-                #handle_unknown
+                _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
             })
-        });
+        };
+        if self.item_enum.is_discriminant_only() {
+            tokens.append_all(quote! {
+                let discriminant = rd.read_vlu16n()?;
+                #des
+            });
+        } else {
+            tokens.append_all(quote! {
+                {
+                    let discriminant = rd.read_vlu16n()?;
+                    let size = rd.read_vlu16n_rev()? as usize;
+                    let mut rd = rd.split(size)?;
+                    #des
+                }
+            });
+        }
     }
 }
 
@@ -237,18 +322,53 @@ impl<'a> ToTokens for CGEnumVariantsDes<'a> {
         for variant in &self.item_enum.variants {
             let discriminant = variant.discriminant_lit();
             let enum_name: Ident = (&self.item_enum.ident).into();
-            let variant: Ident = (&variant.ident).into();
-            tokens.append_all(quote! {
-                #discriminant => #enum_name::#variant,
-            });
+            let variant_name: Ident = (&variant.ident).into();
+            match &variant.fields {
+                Fields::Named(fields_named) => {
+                    let mut field_names = vec![];
+                    let mut des_fields = TokenStream::new();
+                    for field in &fields_named.named {
+                        let field_name: Ident = (&field.ident).into();
+                        field_names.push(field_name.clone());
+                        let handle_eob = field.handle_eob();
+                        // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+                        des_fields.append_all(field.ty.buf_read(
+                            field_name,
+                            handle_eob,
+                            self.no_alloc,
+                        ));
+                    }
+                    tokens.append_all(quote!(#discriminant => { #des_fields #enum_name::#variant_name{ #(#field_names),* } }))
+                }
+                Fields::Unnamed(fields_unnamed) => {
+                    let mut field_names = vec![];
+                    let mut des_fields = TokenStream::new();
+                    for field in &fields_unnamed.unnamed {
+                        let field_name: Ident = (&field.ident).into();
+                        field_names.push(field_name.clone());
+                        let handle_eob = field.handle_eob();
+                        // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+                        des_fields.append_all(field.ty.buf_read(
+                            field_name,
+                            handle_eob,
+                            self.no_alloc,
+                        ));
+                    }
+                    tokens.append_all(quote!(#discriminant => { #des_fields #enum_name::#variant_name( #(#field_names),* ) }))
+                }
+                Fields::Unit => {
+                    tokens.append_all(quote!(#discriminant => #enum_name::#variant_name,));
+                }
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::data::Field;
     use crate::ast::ident::Ident;
-    use crate::ast::item::{ItemStruct, StructField};
+    use crate::ast::item::ItemStruct;
     use crate::ast::ty::Type;
     use crate::ast::value::Value;
     use crate::ast::version::Version;
@@ -257,16 +377,17 @@ mod tests {
 
     fn construct_struct_one() -> ItemStruct {
         ItemStruct {
+            is_final: false,
             ident: Ident::new("X1"),
             fields: vec![
-                StructField {
+                Field {
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
                     since: None,
                     default: None,
                 },
-                StructField {
+                Field {
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -279,16 +400,17 @@ mod tests {
 
     fn construct_struct_two() -> ItemStruct {
         ItemStruct {
+            is_final: false,
             ident: Ident::new("X2"),
             fields: vec![
-                StructField {
+                Field {
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
                     since: None,
                     default: None,
                 },
-                StructField {
+                Field {
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,

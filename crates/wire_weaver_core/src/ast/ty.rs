@@ -1,6 +1,6 @@
-use crate::ast::file::{SynConversionError, SynConversionWarning};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
+use crate::ast::syn_convert::{SynConversionError, SynConversionWarning};
 
 #[derive(Debug)]
 pub enum Type {

@@ -1,10 +1,11 @@
-use crate::ast::data::{Fields, Variant};
-use crate::ast::file::{SynConversionError, SynConversionWarning};
+use crate::ast::data::{Field, Fields, FieldsNamed, FieldsUnnamed, Variant};
 use crate::ast::ident::Ident;
+use crate::ast::syn_convert::{
+    collect_unknown_attributes, take_final_attr, take_since_attr, SynConversionError,
+    SynConversionWarning,
+};
 use crate::ast::ty::Type;
-use crate::ast::value::Value;
-use crate::ast::version::Version;
-use syn::{Expr, Lit, Meta};
+use syn::{Expr, Lit};
 
 #[derive(Debug)]
 pub enum Item {
@@ -16,24 +17,16 @@ pub enum Item {
 pub struct ItemStruct {
     // attrs
     // generics
+    pub is_final: bool,
     pub ident: Ident,
-    pub fields: Vec<StructField>,
-}
-
-#[derive(Debug)]
-pub struct StructField {
-    // attrs
-    pub id: u32,
-    pub ident: Ident,
-    pub ty: Type,
-    pub since: Option<Version>,
-    pub default: Option<Value>,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Debug)]
 pub struct ItemEnum {
     // attrs
     // generics
+    pub is_final: bool,
     pub ident: Ident,
     pub variants: Vec<Variant>,
 }
@@ -66,40 +59,29 @@ impl Item {
 
 impl ItemStruct {
     fn from_syn(
-        item_struct: syn::ItemStruct,
+        mut item_struct: syn::ItemStruct,
     ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut fields = vec![];
         let mut errors = vec![];
         let mut warnings = vec![];
-        for (idx, mut field) in item_struct.fields.into_iter().enumerate() {
-            let ty = match Type::from_syn(field.ty) {
-                Ok((ty, w)) => {
+        for (def_order_idx, field) in item_struct.fields.into_iter().enumerate() {
+            match Field::from_syn(def_order_idx as u32, field) {
+                Ok((field, w)) => {
+                    fields.push(field);
                     warnings.extend(w);
-                    ty
                 }
                 Err(e) => {
                     errors.extend(e);
                     continue;
                 }
             };
-            fields.push(StructField {
-                id: take_id_attr(&mut field.attrs).unwrap_or(idx as u32),
-                ident: field.ident.unwrap().into(),
-                ty,
-                since: take_since_attr(&mut field.attrs),
-                default: take_default_attr(&mut field.attrs, &mut errors),
-            });
-            for a in field.attrs {
-                warnings.push(SynConversionWarning::UnknownAttribute(format!(
-                    "{:?}",
-                    a.meta.path()
-                )));
-            }
         }
         if errors.is_empty() {
+            collect_unknown_attributes(&mut item_struct.attrs, &mut warnings);
             Ok((
                 ItemStruct {
                     ident: item_struct.ident.into(),
+                    is_final: take_final_attr(&mut item_struct.attrs).is_some(),
                     fields,
                 },
                 warnings,
@@ -120,8 +102,27 @@ impl ItemStruct {
 }
 
 impl ItemEnum {
+    pub fn contains_data_fields(&self) -> bool {
+        for variant in &self.variants {
+            match variant.fields {
+                Fields::Named(_) => {
+                    return true;
+                }
+                Fields::Unnamed(_) => {
+                    return true;
+                }
+                Fields::Unit => {}
+            }
+        }
+        false
+    }
+
+    pub fn is_discriminant_only(&self) -> bool {
+        self.is_final && !self.contains_data_fields()
+    }
+
     fn from_syn(
-        item_enum: syn::ItemEnum,
+        mut item_enum: syn::ItemEnum,
     ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut variants = vec![];
         let mut errors = vec![];
@@ -130,24 +131,23 @@ impl ItemEnum {
         for mut variant in item_enum.variants {
             let discriminant =
                 Self::get_discriminant(&mut errors, &mut latest_discriminant, &variant);
+            let fields = Self::fields(variant.fields, &mut warnings, &mut errors);
             variants.push(Variant {
                 ident: variant.ident.into(),
-                fields: Fields::Unit,
+                fields,
                 discriminant,
                 since: take_since_attr(&mut variant.attrs),
             });
-            for a in variant.attrs {
-                warnings.push(SynConversionWarning::UnknownAttribute(format!(
-                    "{:?}",
-                    a.meta.path()
-                )));
-            }
+            collect_unknown_attributes(&mut variant.attrs, &mut warnings);
         }
         if errors.is_empty() {
+            let is_final = take_final_attr(&mut item_enum.attrs).is_some();
+            collect_unknown_attributes(&mut item_enum.attrs, &mut warnings);
             Ok((
                 ItemEnum {
                     ident: item_enum.ident.into(),
                     variants,
+                    is_final,
                 },
                 warnings,
             ))
@@ -184,57 +184,46 @@ impl ItemEnum {
                 *latest_discriminant
             })
     }
-}
 
-/// Take `#[id = integer]` attribute and return the number
-fn take_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
-    None
-}
-
-/// Take `#[since = vX.Y]` attribute and return the Version
-fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
-    None
-}
-
-/// Take `#[default = lit]` attribute and return Value containing provided literal
-fn take_default_attr(
-    attrs: &mut Vec<syn::Attribute>,
-    errors: &mut Vec<SynConversionError>,
-) -> Option<Value> {
-    let (attr_idx, _) = attrs
-        .iter()
-        .enumerate()
-        .find(|(_, a)| a.path().is_ident("default"))?;
-    let attr = attrs.remove(attr_idx);
-    let Meta::NameValue(name_value) = attr.meta else {
-        errors.push(SynConversionError::WrongDefaultAttr(
-            "Expected default = lit".into(),
-        ));
-        return None;
-    };
-    let Expr::Lit(expr_lit) = name_value.value else {
-        errors.push(SynConversionError::WrongDefaultAttr(
-            "Expected default = lit".into(),
-        ));
-        return None;
-    };
-    match expr_lit.lit {
-        Lit::Float(lit_float) => {
-            // TODO: Handle f32 and f64 properly
-            Some(Value::F32(lit_float.base10_parse().unwrap()))
+    fn fields(
+        fields: syn::Fields,
+        warnings: &mut Vec<SynConversionWarning>,
+        errors: &mut Vec<SynConversionError>,
+    ) -> Fields {
+        match fields {
+            syn::Fields::Named(fields_named) => {
+                let mut named = vec![];
+                for (def_order_idx, field) in fields_named.named.into_iter().enumerate() {
+                    match Field::from_syn(def_order_idx as u32, field) {
+                        Ok((field, w)) => {
+                            named.push(field);
+                            warnings.extend(w);
+                        }
+                        Err(e) => {
+                            errors.extend(e);
+                            continue;
+                        }
+                    }
+                }
+                Fields::Named(FieldsNamed { named })
+            }
+            syn::Fields::Unnamed(fields_unnamed) => {
+                let mut unnamed = vec![];
+                for (def_order_idx, field) in fields_unnamed.unnamed.into_iter().enumerate() {
+                    match Field::from_syn(def_order_idx as u32, field) {
+                        Ok((field, w)) => {
+                            unnamed.push(field);
+                            warnings.extend(w);
+                        }
+                        Err(e) => {
+                            errors.extend(e);
+                            continue;
+                        }
+                    }
+                }
+                Fields::Unnamed(FieldsUnnamed { unnamed })
+            }
+            syn::Fields::Unit => Fields::Unit,
         }
-        u => {
-            errors.push(SynConversionError::WrongDefaultAttr(format!(
-                "Not supported lit: {u:?}"
-            )));
-            None
-        } // Lit::Str(_) => {}
-          // Lit::ByteStr(_) => {}
-          // Lit::CStr(_) => {}
-          // Lit::Byte(_) => {}
-          // Lit::Char(_) => {}
-          // Lit::Int(_) => {}
-          // Lit::Bool(_) => {}
-          // Lit::Verbatim(_) => {}
     }
 }

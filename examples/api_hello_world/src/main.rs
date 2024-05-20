@@ -1,5 +1,4 @@
 use shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
-use std::mem;
 use wire_weaver::data_structures;
 
 data_structures!("./ww/blinker_dev_v1.ww");

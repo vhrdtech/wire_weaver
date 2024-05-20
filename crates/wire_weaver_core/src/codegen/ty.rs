@@ -73,7 +73,12 @@ impl Type {
         }
     }
 
-    pub fn buf_write(&self, field_path: TokenStream, no_alloc: bool) -> TokenStream {
+    pub fn buf_write(&self, field_path: TokenStream, is_ref: bool, no_alloc: bool) -> TokenStream {
+        let (field_path_by_value, field_path_by_ref) = if is_ref {
+            (quote!(* #field_path), field_path.clone())
+        } else {
+            (field_path.clone(), quote!(& #field_path))
+        };
         match self {
             Type::Bool | Type::Discrete(_) | Type::Floating(_) => {
                 let fn_name = match self {
@@ -89,7 +94,7 @@ impl Type {
                     }
                     _ => unreachable!(),
                 };
-                quote!(wr.#fn_name(#field_path)?;)
+                quote!(wr.#fn_name(#field_path_by_value)?;)
             }
             Type::String => {
                 if no_alloc {
@@ -102,11 +107,10 @@ impl Type {
                 quote! {
                     let handle = wr.write_u16_rev(0)?;
                     let unsized_start = wr.pos().0;
-                    wr.write(& #field_path)?;
-                    wr.align_byte();
-                    wr.encode_vlu16n_rev(handle)?;
+                    wr.write(#field_path_by_ref)?;
                     let size = wr.pos().0 - unsized_start;
                     wr.update_u16_rev(handle, size as u16)?;
+                    wr.encode_vlu16n_rev(handle)?;
                 }
             }
         }

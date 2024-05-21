@@ -229,17 +229,21 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn bytes_left(&mut self) -> usize {
-        if self.byte_idx <= self.len_bytes {
-            let rev_read = if self.is_at_bit7_rev { 1 } else { 0 };
-            if self.bit_idx == 7 {
-                self.len_bytes - self.byte_idx - rev_read
-            } else if self.byte_idx < self.len_bytes {
-                self.len_bytes - self.byte_idx - 1 - rev_read
-            } else {
-                0
-            }
+        if self.byte_idx >= self.len_bytes {
+            return 0;
+        }
+        let left = if self.bit_idx == 7 {
+            self.len_bytes - self.byte_idx
         } else {
-            0
+            self.len_bytes - self.byte_idx - 1
+        };
+        if left == 0 {
+            return 0;
+        }
+        if self.is_at_bit7_rev {
+            left - 1
+        } else {
+            left
         }
     }
 }
@@ -262,7 +266,7 @@ mod tests {
 
     #[test]
     fn float() {
-        let buf = [0x3E, 0x80, 0, 0];
+        let buf = [0, 0, 0x80, 0x3E];
         let mut rd = BufReader::new(&buf);
         assert_eq!(rd.read_f32(), Ok(0.25));
         assert_eq!(rd.bytes_left(), 0);

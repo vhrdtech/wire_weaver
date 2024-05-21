@@ -177,11 +177,14 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn encode_vlu16n_rev(&mut self, till: U16RevPos) -> Result<(), Error> {
-        let reverse_u16_written = (till.0 - self.len_bytes) / 2;
+        let reverse_u16_written = (self.buf.len() - till.0) / 2;
+        if reverse_u16_written == 0 {
+            return Ok(());
+        }
         let mut total_nibbles = 0;
         let mut idx = self.len_bytes;
         for _ in 0..reverse_u16_written {
-            let val = u16::from_be_bytes([self.buf[idx], self.buf[idx + 1]]);
+            let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             total_nibbles += Vlu16N(val).len_nibbles();
             idx += 2;
         }
@@ -197,7 +200,7 @@ impl<'i> BufWriter<'i> {
 
         let mut idx = self.len_bytes;
         for _ in 0..reverse_u16_written {
-            let val = u16::from_be_bytes([self.buf[idx], self.buf[idx + 1]]);
+            let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             self.len_bytes += 2;
             Vlu16N(val).write_reversed(self)?;
             idx += 2;
@@ -208,8 +211,8 @@ impl<'i> BufWriter<'i> {
 
     pub fn finish(mut self) -> Result<&'i [u8], Error> {
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
+        self.encode_vlu16n_rev(U16RevPos(self.len_bytes))?;
         if reverse_u16_written != 0 {
-            self.encode_vlu16n_rev(U16RevPos(self.buf.len()))?;
             Ok(&self.buf[0..self.byte_idx])
         } else {
             self.align_byte();
@@ -240,16 +243,13 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn bytes_left(&mut self) -> usize {
-        if self.byte_idx <= self.len_bytes {
-            if self.bit_idx == 7 {
-                self.len_bytes - self.byte_idx
-            } else if self.byte_idx < self.len_bytes {
-                self.len_bytes - self.byte_idx - 1
-            } else {
-                0
-            }
+        if self.byte_idx >= self.len_bytes {
+            return 0;
+        }
+        if self.bit_idx == 7 {
+            self.len_bytes - self.byte_idx
         } else {
-            0
+            self.len_bytes - self.byte_idx - 1
         }
     }
 
@@ -314,7 +314,7 @@ mod tests {
         wr.write_u16_rev(3).unwrap();
         wr.write_u16_rev(5).unwrap();
         assert_eq!(wr.bytes_left(), 0);
-        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 5, 0, 3]);
+        assert_eq!(&wr.buf, &[0xAA, 0xCC, 5, 0, 3, 0]);
         assert_eq!(wr.finish().unwrap(), &[0xAA, 0xCC, 0b0101_0011]);
     }
 
@@ -328,10 +328,22 @@ mod tests {
         wr.write_u16_rev(5).unwrap();
         wr.write_u16_rev(7).unwrap();
         assert_eq!(wr.bytes_left(), 1);
-        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 0, 7, 0, 5, 0, 3]);
+        assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 7, 0, 5, 0, 3, 0]);
         assert_eq!(
             wr.finish().unwrap(),
             &[0xAA, 0xCC, 0b0000_0111, 0b0101_0011]
         );
+    }
+
+    #[test]
+    fn rev_u16_smallest() {
+        let mut buf = [0; 9];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_vlu16n(2).unwrap();
+        let handle = wr.write_u16_rev(5).unwrap();
+        println!("handle = {}", handle.0);
+        wr.encode_vlu16n_rev(handle).unwrap();
+
+        assert_eq!(wr.finish().unwrap(), &[0x25]);
     }
 }

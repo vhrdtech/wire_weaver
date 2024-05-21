@@ -27,7 +27,7 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_bool(&mut self) -> Result<bool, Error> {
-        if self.byte_idx >= self.len_bytes {
+        if (self.bytes_left() == 0) && self.bit_idx == 7 {
             return Err(Error::OutOfBounds);
         }
         let val = (self.buf[self.byte_idx] & (1 << self.bit_idx)) != 0;
@@ -42,7 +42,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u4(&mut self) -> Result<u8, Error> {
         self.align_nibble();
-        if self.byte_idx >= self.len_bytes {
+        if (self.bytes_left() == 0) && self.bit_idx == 7 {
             return Err(Error::OutOfBounds);
         }
         if self.bit_idx == 7 {
@@ -58,7 +58,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u8(&mut self) -> Result<u8, Error> {
         self.align_byte();
-        if self.byte_idx >= self.len_bytes {
+        if self.bytes_left() == 0 {
             return Err(Error::OutOfBounds);
         }
         let val = self.buf[self.byte_idx];
@@ -160,7 +160,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();
-        if self.byte_idx + len > self.len_bytes {
+        if self.bytes_left() < len {
             return Err(Error::OutOfBounds);
         }
         let val = &self.buf[self.byte_idx..self.byte_idx + len];
@@ -179,8 +179,10 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
-        self.align_byte();
-        if self.byte_idx + len > self.len_bytes {
+        if len > 0 {
+            self.align_byte();
+        }
+        if self.bytes_left() < len {
             return Err(Error::OutOfBounds);
         }
         let prev_byte_idx = self.byte_idx;
@@ -220,7 +222,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
-    fn align_byte(&mut self) {
+    pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
         }

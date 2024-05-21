@@ -267,14 +267,19 @@ impl<'a> ToTokens for CGEnumSer<'a> {
             tokens.append_all(quote! {
                 wr.write_vlu16n(self.discriminant())?;
                 let handle = wr.write_u16_rev(0)?;
-                let unsized_start = wr.pos().0;
                 match &self {
                     #(#enum_name::#unit_variants)|* => {},
-                    #ser_data_variants
-                    _ => {}
+                    _ => {
+                        wr.align_byte();
+                        let unsized_start = wr.pos().0;
+                        match &self {
+                            #ser_data_variants
+                            _ => {}
+                        }
+                        let size = wr.pos().0 - unsized_start;
+                        wr.update_u16_rev(handle, size as u16)?;
+                    }
                 }
-                let size = wr.pos().0 - unsized_start;
-                wr.update_u16_rev(handle, size as u16)?;
                 wr.encode_vlu16n_rev(handle)?;
                 Ok(())
             });

@@ -35,7 +35,7 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn write_bool(&mut self, val: bool) -> Result<(), Error> {
-        if self.byte_idx >= self.len_bytes {
+        if (self.bytes_left() == 0) && self.bit_idx == 7 {
             return Err(Error::OutOfBounds);
         }
         self.buf[self.byte_idx] &= !(1 << self.bit_idx);
@@ -51,7 +51,7 @@ impl<'i> BufWriter<'i> {
 
     pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
         self.align_nibble();
-        if self.byte_idx >= self.len_bytes {
+        if (self.bytes_left() == 0) && self.bit_idx == 7 {
             return Err(Error::OutOfBounds);
         }
         if self.bit_idx == 7 {
@@ -69,7 +69,7 @@ impl<'i> BufWriter<'i> {
 
     pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
         self.align_byte();
-        if self.byte_idx >= self.len_bytes {
+        if self.bytes_left() == 0 {
             return Err(Error::OutOfBounds);
         }
         self.buf[self.byte_idx] = val;
@@ -258,7 +258,7 @@ impl<'i> BufWriter<'i> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct U16RevPos(usize);
 
 #[cfg(test)]

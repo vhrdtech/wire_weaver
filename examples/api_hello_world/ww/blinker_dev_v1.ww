@@ -1,7 +1,11 @@
 // #[finalx]
 enum RequestKind {
     // Version { protocol_id: u32, version: Version } = 0,
-    // Version { #[id = 1] protocol_id: u8, version: u8 } = 0,
+    Version {
+        #[id = 1]
+        protocol_id: u8,
+        version: u8,
+    } = 0,
     // Call { args: Vec<u8> },
     // Call { args: u8 },
     Unnamed(u8, u16) = 33,

@@ -4,7 +4,9 @@ use wire_weaver::data_structures;
 data_structures!("./ww/blinker_dev_v1.ww");
 
 fn main() {
-    let x = RequestKind::Read;
+    // let x = RequestKind::Read;
+    let x = RequestKind::Unnamed(1, 2);
+    // let x = RequestKind::Version { protocol_id: 1, version: 2 };
 
     let mut buf = [0u8; 256];
     let mut wr = shrink_wrap::BufWriter::new(&mut buf);

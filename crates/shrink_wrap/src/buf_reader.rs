@@ -1,8 +1,10 @@
+use crate::traits::ElementSize;
 use crate::vlu16n::Vlu16N;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
 
 /// Buffer reader that treats input as a stream of nibbles.
+#[derive(Copy, Clone)]
 pub struct BufReader<'i> {
     buf: &'i [u8],
     // Buffer length from the front, shrinks when read_vlu16n_rev() is used.
@@ -174,8 +176,11 @@ impl<'i> BufReader<'i> {
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
 
-    pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
-        T::des_shrink_wrap(self)
+    pub fn read<T: DeserializeShrinkWrap<'i>>(
+        &mut self,
+        element_size: ElementSize,
+    ) -> Result<T, Error> {
+        T::des_shrink_wrap(self, element_size)
     }
 
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {

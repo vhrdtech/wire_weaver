@@ -8,7 +8,7 @@ pub(crate) mod vlu16n;
 
 pub use buf_reader::BufReader;
 pub use buf_writer::BufWriter;
-pub use traits::{DeserializeShrinkWrap, SerializeShrinkWrap};
+pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
@@ -19,6 +19,8 @@ pub enum Error {
     MalformedLeb,
     MalformedUtf8,
     StrTooLong,
+    VecTooLong,
+    ItemTooLong,
     EnumFutureVersionOrMalformedData,
     ImpliedSizeInVec,
 }

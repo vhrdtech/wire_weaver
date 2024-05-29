@@ -1,7 +1,7 @@
-use shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
-use wire_weaver::data_structures;
+use shrink_wrap::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
+use wire_weaver::wire_weaver;
 
-data_structures!("./ww/blinker_v1.ww");
+wire_weaver!("./ww/blinker_v1.ww");
 
 fn main() {
     let cmd = Command {
@@ -16,12 +16,12 @@ fn main() {
     println!("{:02x?} {}", buf, buf.len());
 
     let mut rd = shrink_wrap::BufReader::new(buf);
-    let cmd_des = Command::des_shrink_wrap(&mut rd).unwrap();
+    let cmd_des = Command::des_shrink_wrap(&mut rd, ElementSize::Implied).unwrap();
     dbg!(rd.bytes_left());
     println!("{:?}", cmd_des);
 
     // Deserialize v1.0 message
     let mut rd = shrink_wrap::BufReader::new(&buf[0..4]);
-    let cmd_des = Command::des_shrink_wrap(&mut rd).unwrap();
+    let cmd_des = Command::des_shrink_wrap(&mut rd, ElementSize::Implied).unwrap();
     println!("{:?}", cmd_des);
 }

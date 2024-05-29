@@ -105,12 +105,18 @@ impl Type {
             }
             Type::Path(_) => {
                 quote! {
-                    let handle = wr.write_u16_rev(0)?;
+                    let u16_rev_from = wr.u16_rev_pos();
+                    // let handle = wr.write_u16_rev(0)?;
                     let unsized_start = wr.pos().0;
                     wr.write(#field_path_by_ref)?;
                     let size = wr.pos().0 - unsized_start;
-                    wr.update_u16_rev(handle, size as u16)?;
-                    wr.encode_vlu16n_rev(handle)?;
+                    wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
+                    let Ok(size) = u16::try_from(size) else {
+                        return Err(shrink_wrap::Error::ItemTooLong);
+                    };
+                    wr.write_u16_rev(size)?;
+                    // wr.update_u16_rev(handle, size as u16)?;
+                    // wr.encode_vlu16n_rev(handle)?;
                 }
             }
         }
@@ -150,7 +156,7 @@ impl Type {
                 quote! {
                     let size = rd.read_vlu16n_rev()? as usize;
                     let mut rd_split = rd.split(size)?;
-                    let #variable_name = rd_split.read()?;
+                    let #variable_name = rd_split.read(shrink_wrap::ElementSize::Implied)?;
                 }
             }
         }

@@ -82,7 +82,7 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
+    pub fn write_u16_rev(&mut self, val: u16) -> Result<(), Error> {
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
         }
@@ -90,18 +90,23 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
-        Ok(U16RevPos(self.len_bytes))
-    }
-
-    pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
-        if pos.0 + 1 >= self.buf.len() {
-            return Err(Error::OutOfBoundsRev);
-        }
-        let val_be = val.to_le_bytes();
-        self.buf[pos.0] = val_be[0];
-        self.buf[pos.0 + 1] = val_be[1];
+        // Ok(U16RevPos(self.len_bytes))
         Ok(())
     }
+
+    pub fn u16_rev_pos(&self) -> U16RevPos {
+        U16RevPos(self.len_bytes)
+    }
+
+    // pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
+    //     if pos.0 + 1 >= self.buf.len() {
+    //         return Err(Error::OutOfBoundsRev);
+    //     }
+    //     let val_be = val.to_le_bytes();
+    //     self.buf[pos.0] = val_be[0];
+    //     self.buf[pos.0 + 1] = val_be[1];
+    //     Ok(())
+    // }
 
     pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
         self.write_slice(&val.to_le_bytes())?;
@@ -176,13 +181,17 @@ impl<'i> BufWriter<'i> {
         val.ser_shrink_wrap(self)
     }
 
-    pub fn encode_vlu16n_rev(&mut self, till: U16RevPos) -> Result<(), Error> {
-        let reverse_u16_written = (self.buf.len() - till.0) / 2;
+    pub fn encode_vlu16n_rev(&mut self, from: U16RevPos, to: U16RevPos) -> Result<(), Error> {
+        if to.0 < from.0 {
+            return Ok(());
+        }
+        let reverse_u16_written = (to.0 - from.0) / 2;
+        dbg!(reverse_u16_written);
         if reverse_u16_written == 0 {
             return Ok(());
         }
         let mut total_nibbles = 0;
-        let mut idx = self.len_bytes;
+        let mut idx = from.0;
         for _ in 0..reverse_u16_written {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             total_nibbles += Vlu16N(val).len_nibbles();
@@ -211,7 +220,7 @@ impl<'i> BufWriter<'i> {
 
     pub fn finish(mut self) -> Result<&'i [u8], Error> {
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
-        self.encode_vlu16n_rev(U16RevPos(self.len_bytes))?;
+        self.encode_vlu16n_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
         if reverse_u16_written != 0 {
             Ok(&self.buf[0..self.byte_idx])
         } else {
@@ -340,10 +349,7 @@ mod tests {
         let mut buf = [0; 9];
         let mut wr = BufWriter::new(&mut buf);
         wr.write_vlu16n(2).unwrap();
-        let handle = wr.write_u16_rev(5).unwrap();
-        println!("handle = {}", handle.0);
-        wr.encode_vlu16n_rev(handle).unwrap();
-
+        wr.write_u16_rev(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
     }
 }

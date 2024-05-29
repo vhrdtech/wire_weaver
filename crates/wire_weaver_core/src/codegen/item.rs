@@ -77,7 +77,7 @@ fn serdes(ty_name: Ident, ser: impl ToTokens, des: impl ToTokens) -> TokenStream
         }
 
         impl<'i> shrink_wrap::DeserializeShrinkWrap<'i> for #ty_name #lifetime {
-            fn des_shrink_wrap<'di>(rd: &'di mut shrink_wrap::BufReader<'i>) -> Result<Self, shrink_wrap::Error> {
+            fn des_shrink_wrap<'di>(rd: &'di mut shrink_wrap::BufReader<'i>, _element_size: shrink_wrap::ElementSize) -> Result<Self, shrink_wrap::Error> {
                 #des
             }
         }
@@ -266,21 +266,26 @@ impl<'a> ToTokens for CGEnumSer<'a> {
             }
             tokens.append_all(quote! {
                 wr.write_vlu16n(self.discriminant())?;
-                let handle = wr.write_u16_rev(0)?;
+                // let handle = wr.write_u16_rev(0)?;
                 match &self {
                     #(#enum_name::#unit_variants)|* => {},
                     _ => {
                         wr.align_byte();
+                        let u16_rev_from = wr.u16_rev_pos();
                         let unsized_start = wr.pos().0;
                         match &self {
                             #ser_data_variants
                             _ => {}
                         }
+                        wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
                         let size = wr.pos().0 - unsized_start;
-                        wr.update_u16_rev(handle, size as u16)?;
+                        let Ok(size) = u16::try_from(size) else {
+                            return Err(shrink_wrap::Error::ItemTooLong);
+                        };
+                        wr.write_u16_rev(size)?;
                     }
                 }
-                wr.encode_vlu16n_rev(handle)?;
+                // wr.encode_vlu16n_rev(wr.u16_rev_pos(), handle)?;
                 Ok(())
             });
         }

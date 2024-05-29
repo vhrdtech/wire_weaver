@@ -13,4 +13,5 @@ resolver = "2"
 members = [
     "crates/*",
     "examples/*",
+    "tests"
 ]

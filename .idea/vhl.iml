@@ -43,6 +43,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tests/wire_format_compatibility/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/shrink_wrap/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/api_hello_world/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

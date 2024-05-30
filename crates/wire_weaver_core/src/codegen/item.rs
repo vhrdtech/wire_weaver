@@ -211,81 +211,74 @@ struct CGEnumDes<'a> {
 
 impl<'a> ToTokens for CGEnumSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        if self.item_enum.is_discriminant_only() {
-            tokens.append_all(quote! {
-                wr.write_vlu16n(self.discriminant())?;
-                Ok(())
-            });
-        } else {
-            let enum_name: Ident = (&self.item_enum.ident).into();
-            let unit_variants: Vec<_> = self
-                .item_enum
-                .variants
-                .iter()
-                .filter_map(|v| {
-                    if v.is_unit() {
-                        Some(v.ident.clone())
-                    } else {
-                        None
+        // TODO: forbid empty enums or not?
+        // if self.item_enum.variants.is_empty() {
+        //     tokens.append_all(quote!( wr.write_vlu16n(0)?; ));
+        // } else {
+        tokens.append_all(quote!( wr.write_vlu16n(self.discriminant())?; ));
+        // }
+
+        // if self.item_enum.is_final && !self.item_enum.contains_data_fields() {
+        //     tokens.append_all(quote!( Ok(()) ));
+        //     return;
+        // }
+
+        let enum_name: Ident = (&self.item_enum.ident).into();
+        // let unit_variants: Vec<_> = self
+        //     .item_enum
+        //     .variants
+        //     .iter()
+        //     .filter_map(|v| {
+        //         if v.is_unit() {
+        //             Some(v.ident.clone())
+        //         } else {
+        //             None
+        //         }
+        //     })
+        //     .collect();
+        let mut ser_data_variants = quote! {};
+        for variant in &self.item_enum.variants {
+            match &variant.fields {
+                Fields::Named(fields_named) => {
+                    let mut fields_names = vec![];
+                    let mut ser = quote!();
+                    for field in &fields_named.named {
+                        let field_name: Ident = (&field.ident).into();
+                        fields_names.push(field_name.clone());
+                        let field_path = quote!(#field_name);
+                        ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
                     }
-                })
-                .collect();
-            let mut ser_data_variants = quote! {};
-            for variant in &self.item_enum.variants {
-                match &variant.fields {
-                    Fields::Named(fields_named) => {
-                        let mut fields_names = vec![];
-                        let mut ser = quote!();
-                        for field in &fields_named.named {
-                            let field_name: Ident = (&field.ident).into();
-                            fields_names.push(field_name.clone());
-                            let field_path = quote!(#field_name);
-                            ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
-                        }
-                        let variant_name: Ident = (&variant.ident).into();
-                        ser_data_variants.append_all(
-                            quote!(#enum_name::#variant_name { #(#fields_names),* } => { #ser }),
-                        );
-                    }
-                    Fields::Unnamed(fields_unnamed) => {
-                        let mut fields_numbers = vec![];
-                        let mut ser = quote!();
-                        for field in &fields_unnamed.unnamed {
-                            let field_name: Ident = (&field.ident).into();
-                            fields_numbers.push(field_name.clone());
-                            let field_path = quote!(#field_name);
-                            ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
-                        }
-                        let variant_name: Ident = (&variant.ident).into();
-                        ser_data_variants.append_all(
-                            quote!(#enum_name::#variant_name ( #(#fields_numbers),* ) => { #ser }),
-                        );
-                    }
-                    Fields::Unit => continue,
+                    let variant_name: Ident = (&variant.ident).into();
+                    ser_data_variants.append_all(
+                        quote!(#enum_name::#variant_name { #(#fields_names),* } => { #ser }),
+                    );
                 }
+                Fields::Unnamed(fields_unnamed) => {
+                    let mut fields_numbers = vec![];
+                    let mut ser = quote!();
+                    for field in &fields_unnamed.unnamed {
+                        let field_name: Ident = (&field.ident).into();
+                        fields_numbers.push(field_name.clone());
+                        let field_path = quote!(#field_name);
+                        ser.append_all(field.ty.buf_write(field_path, true, self.no_alloc));
+                    }
+                    let variant_name: Ident = (&variant.ident).into();
+                    ser_data_variants.append_all(
+                        quote!(#enum_name::#variant_name ( #(#fields_numbers),* ) => { #ser }),
+                    );
+                }
+                Fields::Unit => continue,
             }
+        }
+
+        if ser_data_variants.is_empty() {
+            tokens.append_all(quote!(Ok(())));
+        } else {
             tokens.append_all(quote! {
-                wr.write_vlu16n(self.discriminant())?;
-                // let handle = wr.write_u16_rev(0)?;
                 match &self {
-                    #(#enum_name::#unit_variants)|* => {},
-                    _ => {
-                        wr.align_byte();
-                        let u16_rev_from = wr.u16_rev_pos();
-                        let unsized_start = wr.pos().0;
-                        match &self {
-                            #ser_data_variants
-                            _ => {}
-                        }
-                        wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
-                        let size = wr.pos().0 - unsized_start;
-                        let Ok(size) = u16::try_from(size) else {
-                            return Err(shrink_wrap::Error::ItemTooLong);
-                        };
-                        wr.write_u16_rev(size)?;
-                    }
+                    #ser_data_variants,
+                    _ => {}
                 }
-                // wr.encode_vlu16n_rev(wr.u16_rev_pos(), handle)?;
                 Ok(())
             });
         }
@@ -298,27 +291,40 @@ impl<'a> ToTokens for CGEnumDes<'a> {
             item_enum: self.item_enum,
             no_alloc: self.no_alloc,
         };
-        let des = quote! {
+        // let des = quote! {
+        //     Ok(match discriminant {
+        //         #known_variants
+        //         _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
+        //     })
+        // };
+        tokens.append_all(quote! {
+            let discriminant = rd.read_vlu16n()?;
             Ok(match discriminant {
                 #known_variants
                 _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
             })
-        };
-        if self.item_enum.is_discriminant_only() {
-            tokens.append_all(quote! {
-                let discriminant = rd.read_vlu16n()?;
-                #des
-            });
-        } else {
-            tokens.append_all(quote! {
-                {
-                    let discriminant = rd.read_vlu16n()?;
-                    let size = rd.read_vlu16n_rev()? as usize;
-                    let mut rd = rd.split(size)?;
-                    #des
-                }
-            });
-        }
+        });
+        // if self.item_enum.is_final {
+        //     tokens.append_all(quote! {
+        //         let discriminant = rd.read_vlu16n()?;
+        //         #des
+        //     });
+        // } else if !self.item_enum.contains_data_fields() {
+        //     tokens.append_all(quote! {
+        //         let discriminant = rd.read_vlu16n()?;
+        //         // let _future_size = rd.read_vlu16n_rev()?;
+        //         #des
+        //     });
+        // } else {
+        //     tokens.append_all(quote! {
+        //         {
+        //             let discriminant = rd.read_vlu16n()?;
+        //             let size = rd.read_vlu16n_rev()? as usize;
+        //             let mut rd = rd.split(size)?;
+        //             #des
+        //         }
+        //     });
+        // }
     }
 }
 

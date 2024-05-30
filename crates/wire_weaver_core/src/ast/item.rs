@@ -117,10 +117,6 @@ impl ItemEnum {
         false
     }
 
-    pub fn is_discriminant_only(&self) -> bool {
-        self.is_final && !self.contains_data_fields()
-    }
-
     fn from_syn(
         mut item_enum: syn::ItemEnum,
     ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {

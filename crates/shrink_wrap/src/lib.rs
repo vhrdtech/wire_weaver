@@ -1,4 +1,4 @@
-// #![no_std]
+#![no_std]
 
 pub mod buf_reader;
 pub mod buf_writer;

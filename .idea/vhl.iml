@@ -44,6 +44,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/shrink_wrap/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/api_hello_world/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb_embassy/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

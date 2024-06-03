@@ -17,4 +17,3 @@ members = [
 ]
 
 [patch.crates-io]
-embassy-usb = { git = "https://github.com/embassy-rs/embassy" }

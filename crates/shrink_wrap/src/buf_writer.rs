@@ -186,7 +186,7 @@ impl<'i> BufWriter<'i> {
             return Ok(());
         }
         let reverse_u16_written = (to.0 - from.0) / 2;
-        dbg!(reverse_u16_written);
+        // dbg!(reverse_u16_written);
         if reverse_u16_written == 0 {
             return Ok(());
         }

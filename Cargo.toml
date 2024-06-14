@@ -1,0 +1,12 @@
+[package]
+name = "wire_weaver_usb"
+edition = "2021"
+authors = ["Roman Isaikin <roman@vhrd.tech>"]
+description = ""
+
+[dependencies]
+rusb = { git = "https://github.com/splhack/rusb.git", branch = "async-hotplug" }
+rusb-async = { git = "https://github.com/splhack/rusb.git", branch = "async-hotplug" }
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+tracing = "0.1"
+log = "0.4.21"

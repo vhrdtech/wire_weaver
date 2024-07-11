@@ -1,0 +1,18 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          //"allTargets": false
+          //"extraArgs": ["--target", "thumbv7em-none-eabihf"]
+        },
+        // Use `-p` instead of `--workspace` for cargo check
+        "check": {
+          //"workspace": false,
+          //"allTargets": false
+          //"extraArgs": ["--target", "thumbv7em-none-eabihf"]
+        }
+      }
+    }
+  }
+}

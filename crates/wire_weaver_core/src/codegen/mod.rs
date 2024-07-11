@@ -1,4 +1,4 @@
-mod item;
+pub mod item;
 mod ty;
 
 use crate::ast::item::Item;

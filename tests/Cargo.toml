@@ -6,8 +6,11 @@ publish = false
 
 [dev-dependencies]
 wire_weaver = { path = "../crates/wire_weaver" }
-shrink_wrap = { path = "../crates/shrink_wrap" }
 
 [[test]]
 name = "serdes"
 path = "serdes.rs"
+
+[[test]]
+name = "shrink_wrap_derive"
+path = "shrink_wrap_derive.rs"

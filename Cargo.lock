@@ -55,7 +55,6 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
- "shrink_wrap",
  "wire_weaver",
 ]
 
@@ -69,8 +68,8 @@ checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
 name = "wire_weaver"
 version = "0.4.0"
 dependencies = [
- "syn",
- "wire_weaver_core",
+ "shrink_wrap",
+ "wire_weaver_derive",
 ]
 
 [[package]]
@@ -80,4 +79,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "wire_weaver_derive"
+version = "0.4.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "wire_weaver_core",
 ]

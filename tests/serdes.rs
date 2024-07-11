@@ -1,4 +1,5 @@
 use shrink_wrap::SerializeShrinkWrap;
+use wire_weaver::shrink_wrap;
 use wire_weaver::wire_weaver;
 
 macro_rules! ser_and_cmp {

@@ -5,9 +5,6 @@ version.workspace = true
 authors.workspace = true
 description.workspace = true
 
-[lib]
-proc-macro = true
-
 [dependencies]
-syn = { workspace = true }
-wire_weaver_core = { path = "../wire_weaver_core" }
+shrink_wrap = { path = "../shrink_wrap" }
+wire_weaver_derive = { path = "../wire_weaver_derive" }

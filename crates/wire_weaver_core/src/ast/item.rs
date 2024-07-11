@@ -32,7 +32,7 @@ pub struct ItemEnum {
 }
 
 impl Item {
-    pub(crate) fn from_syn(
+    pub fn from_syn(
         item: syn::Item,
     ) -> Result<(Option<Self>, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         match item {
@@ -58,7 +58,7 @@ impl Item {
 }
 
 impl ItemStruct {
-    fn from_syn(
+    pub fn from_syn(
         mut item_struct: syn::ItemStruct,
     ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut fields = vec![];

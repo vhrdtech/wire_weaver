@@ -117,7 +117,7 @@ impl<'i, T> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
     ) -> Result<Self, Error> {
         let elements_count = rd.read_vlu16n_rev()?;
         // let bytes_left = rd.bytes_left();
-        dbg!(elements_count);
+        // dbg!(elements_count);
         Ok(RefVec::Buf {
             // buf: rd.split(bytes_left)?,
             buf: *rd,
@@ -175,7 +175,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
                                 return Some(Err(e));
                             }
                         };
-                        dbg!(len);
+                        // dbg!(len);
                         let mut buf = match buf.split(len as usize) {
                             Ok(buf) => buf,
                             Err(e) => {

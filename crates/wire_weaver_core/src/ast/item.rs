@@ -123,10 +123,10 @@ impl ItemEnum {
         let mut variants = vec![];
         let mut errors = vec![];
         let mut warnings = vec![];
-        let mut latest_discriminant = 0;
+        let mut next_discriminant = 0;
         for mut variant in item_enum.variants {
             let discriminant =
-                Self::get_discriminant(&mut errors, &mut latest_discriminant, &variant);
+                Self::get_discriminant(&mut errors, &mut next_discriminant, &variant);
             let fields = Self::fields(variant.fields, &mut warnings, &mut errors);
             variants.push(Variant {
                 ident: variant.ident.into(),
@@ -154,7 +154,7 @@ impl ItemEnum {
 
     fn get_discriminant(
         errors: &mut Vec<SynConversionError>,
-        latest_discriminant: &mut u32,
+        next_discriminant: &mut u32,
         variant: &syn::Variant,
     ) -> u32 {
         variant
@@ -164,7 +164,7 @@ impl ItemEnum {
                 if let Expr::Lit(lit) = expr {
                     if let Lit::Int(lit_int) = &lit.lit {
                         let d = lit_int.base10_parse().unwrap();
-                        *latest_discriminant = d;
+                        *next_discriminant = d + 1;
                         d
                     } else {
                         errors.push(SynConversionError::WrongDiscriminant);
@@ -176,8 +176,9 @@ impl ItemEnum {
                 }
             })
             .unwrap_or_else(|| {
-                *latest_discriminant += 1;
-                *latest_discriminant
+                let d = *next_discriminant;
+                *next_discriminant += 1;
+                d
             })
     }
 

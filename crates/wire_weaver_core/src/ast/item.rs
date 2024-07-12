@@ -117,7 +117,7 @@ impl ItemEnum {
         false
     }
 
-    fn from_syn(
+    pub fn from_syn(
         mut item_enum: syn::ItemEnum,
     ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
         let mut variants = vec![];

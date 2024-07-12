@@ -132,14 +132,19 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         #[derive(Debug)]
         #[repr(u16)]
         pub enum #enum_name #lifetime { #variants }
+    };
+    ts
+}
 
+pub fn enum_discriminant(item_enum: &ItemEnum) -> TokenStream {
+    let enum_name: Ident = (&item_enum.ident).into();
+    quote! {
         impl #enum_name {
             pub fn discriminant(&self) -> u16 {
                 unsafe { *<*const _>::from(self).cast::<u16>() }
             }
         }
-    };
-    ts
+    }
 }
 
 struct CGEnumFieldsDef<'a> {

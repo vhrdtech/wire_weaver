@@ -60,6 +60,9 @@ pub fn wire_weaver(input: TokenStream) -> TokenStream {
     ts.into()
 }
 
+/// Use Rust definition of an enum or struct to derive shrink wrap wire format.
+/// Created for internal use in API code generation and introspection (wire format of WireWeaver itself).
+/// Probably should not be used directly in user code.
 #[proc_macro_derive(ShrinkWrap)]
 pub fn shrink_wrap_serdes(item: TokenStream) -> TokenStream {
     let ts = shrink_wrap::shrink_wrap(item);

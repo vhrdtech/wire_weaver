@@ -23,3 +23,15 @@ fn simple_struct() {
     let abc = Abc { a: 1, b: 2, c: 3 };
     ser_and_cmp!(abc, &[1, 2, 0, 3, 0, 0, 0]);
 }
+
+#[test]
+fn plain_enum() {
+    #[derive(ShrinkWrap)]
+    #[repr(u16)]
+    enum E {
+        A,
+        B,
+    }
+    let e = E::A;
+    ser_and_cmp!(e, &[0]);
+}

@@ -12,6 +12,7 @@ pub fn rust_no_std_file(file: &File) -> TokenStream {
         match item {
             Item::Enum(item_enum) => {
                 ts.append_all(item::enum_def(item_enum, true));
+                ts.append_all(item::enum_discriminant(item_enum));
                 ts.append_all(item::enum_serdes(item_enum, true));
             }
             Item::Struct(item_struct) => {

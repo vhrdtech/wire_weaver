@@ -109,6 +109,7 @@ impl Type {
                     // let handle = wr.write_u16_rev(0)?;
                     let unsized_start = wr.pos().0;
                     wr.write(#field_path_by_ref)?;
+                    wr.align_byte(); // e.g. plain enum, only one nib discriminant is written => need to align
                     let size = wr.pos().0 - unsized_start;
                     wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
                     let Ok(size) = u16::try_from(size) else {

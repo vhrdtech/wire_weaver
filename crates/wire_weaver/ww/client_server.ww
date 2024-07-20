@@ -1,0 +1,48 @@
+// reserve first N seq numbers for stream and property update slots?
+
+struct Request {
+    seq: u16,
+    // path: Vec<vlu16n>,
+    kind: RequestKind,
+}
+
+enum RequestKind {
+    // Version { protocol_id: u32, version: Version },
+    // Call { args: Vec<u8> },
+    Call,
+    // Read,
+    // Write { value: Vec<u8> },
+    // OpenStream,
+    // CloseStream,
+    // Subscribe,
+    // Unsubscribe,
+    // Borrow,
+    // Release,
+    // Introspect,
+    Heartbeat,
+}
+
+struct Event {
+    seq: u16,
+    result: Result<EventKind, Error>,
+}
+
+enum EventKind {
+    // Version { protocol_id: u32, version: Version },
+    // ReturnValue { data: Vec<u8> },
+    ReturnValue,
+    // ReadValue { data: Vec<u8> },
+    // Written,
+    // StreamOpened,
+    // TODO: Add Option<SizeHint>
+    // StreamUpdate { data: Vec<u8> },
+    // StreamClosed,
+    // Subscribed,
+    // RateChanged,
+    // Unsubscribed,
+    // Borrowed,
+    // Released,
+    // Introspect { ww_bytes: Vec<u8> },
+    // Heartbeat { payload: () },
+    Heartbeat,
+}

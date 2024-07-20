@@ -1,8 +1,7 @@
 use crate::ast::data::{Field, Fields, Variant};
 use crate::ast::item::{ItemEnum, ItemStruct};
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{Lit, LitInt};
 
 struct CGStructFieldsDef<'a> {
     fields: &'a [Field],
@@ -124,7 +123,7 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let enum_name: Ident = (&item_enum.ident).into();
     let variants = CGEnumFieldsDef {
         variants: &item_enum.variants,
-        no_alloc,
+        _no_alloc: no_alloc,
     };
     let lifetime = if false { quote!(<'i>) } else { quote!() };
     // TODO: respect specified repr
@@ -149,7 +148,7 @@ pub fn enum_discriminant(item_enum: &ItemEnum) -> TokenStream {
 
 struct CGEnumFieldsDef<'a> {
     variants: &'a [Variant],
-    no_alloc: bool,
+    _no_alloc: bool,
 }
 
 impl<'a> ToTokens for CGEnumFieldsDef<'a> {

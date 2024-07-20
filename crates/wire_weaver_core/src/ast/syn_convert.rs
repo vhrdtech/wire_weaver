@@ -3,12 +3,12 @@ use crate::Version;
 use syn::{Expr, Lit, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
-pub(crate) fn take_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
+pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     None
 }
 
 /// Take `#[since = "X.Y.Z"]` attribute and return the Version
-pub(crate) fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
+pub(crate) fn take_since_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
     None
 }
 

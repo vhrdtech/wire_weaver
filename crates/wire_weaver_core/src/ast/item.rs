@@ -4,7 +4,6 @@ use crate::ast::syn_convert::{
     collect_unknown_attributes, take_final_attr, take_since_attr, SynConversionError,
     SynConversionWarning,
 };
-use crate::ast::ty::Type;
 use syn::{Expr, Lit};
 
 #[derive(Debug)]

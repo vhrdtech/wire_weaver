@@ -1,6 +1,6 @@
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{File, Item, ItemEnum, ItemStruct, Meta};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::TokenStreamExt;
+use syn::{File, Item, Meta};
 
 pub fn shrink_wrap(item: proc_macro::TokenStream) -> TokenStream {
     let item: TokenStream = item.into();

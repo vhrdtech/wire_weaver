@@ -11,7 +11,8 @@ use crate::{Error, SerializeShrinkWrap};
 /// let mut wr = shrink_wrap::BufWriter::new(&mut buf);
 /// wr.write_bool(true).unwrap();
 /// wr.write_u8(0xaa).unwrap();
-/// assert_eq!(wr.finish(), &[0x80, 0xaa]);
+/// let bytes = wr.finish().unwrap();
+/// assert_eq!(bytes, &[0x80, 0xaa]);
 /// ```
 pub struct BufWriter<'i> {
     buf: &'i mut [u8],

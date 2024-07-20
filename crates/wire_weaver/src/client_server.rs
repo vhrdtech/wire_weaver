@@ -1,76 +1,130 @@
-use wire_weaver_derive::ShrinkWrap;
-use crate as wire_weaver;
-
-#[derive(ShrinkWrap)]
+#[derive(Debug)]
 pub struct Request {
     pub seq: u16,
-    // path: Vec<vlu16n>,
     pub kind: RequestKind,
 }
-
-#[derive(ShrinkWrap)]
+impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Request {
+    fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+        wr.write_u16(self.seq)?;
+        let u16_rev_from = wr.u16_rev_pos();
+        let unsized_start = wr.pos().0;
+        wr.write(&self.kind)?;
+        wr.align_byte();
+        let size = wr.pos().0 - unsized_start;
+        wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
+        let Ok(size) = u16::try_from(size) else {
+            return Err(shrink_wrap::Error::ItemTooLong);
+        };
+        wr.write_u16_rev(size)?;
+        Ok(())
+    }
+}
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Request {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut shrink_wrap::BufReader<'i>,
+        _element_size: shrink_wrap::ElementSize,
+    ) -> Result<Self, shrink_wrap::Error> {
+        let seq = rd.read_u16()?;
+        let size = rd.read_vlu16n_rev()? as usize;
+        let mut rd_split = rd.split(size)?;
+        let kind = rd_split.read(shrink_wrap::ElementSize::Implied)?;
+        Ok(Request { seq, kind })
+    }
+}
+#[derive(Debug)]
 #[repr(u16)]
 pub enum RequestKind {
-    // Version { protocol_id: u32, version: Version },
-    // Call { args: Vec<u8> },
-    Call,
-    // Read,
-    // Write { value: Vec<u8> },
-    // OpenStream,
-    // CloseStream,
-    // Subscribe,
-    // Unsubscribe,
-    // Borrow,
-    // Release,
-    // Introspect,
-    Heartbeat,
+    Call = 0,
+    Heartbeat = 1,
 }
-
-#[derive(ShrinkWrap)]
+impl RequestKind {
+    pub fn discriminant(&self) -> u16 {
+        unsafe { *<*const _>::from(self).cast::<u16>() }
+    }
+}
+impl wire_weaver::shrink_wrap::SerializeShrinkWrap for RequestKind {
+    fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+        wr.write_vlu16n(self.discriminant())?;
+        Ok(())
+    }
+}
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for RequestKind {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut shrink_wrap::BufReader<'i>,
+        _element_size: shrink_wrap::ElementSize,
+    ) -> Result<Self, shrink_wrap::Error> {
+        let discriminant = rd.read_vlu16n()?;
+        Ok(match discriminant {
+            0 => RequestKind::Call,
+            1 => RequestKind::Heartbeat,
+            _ => {
+                return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData);
+            }
+        })
+    }
+}
+#[derive(Debug)]
 pub struct Event {
     pub seq: u16,
-    pub result: Result<EventKind, u8>,
+    pub result: Result,
 }
-
-#[derive(ShrinkWrap)]
+impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Event {
+    fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+        wr.write_u16(self.seq)?;
+        let u16_rev_from = wr.u16_rev_pos();
+        let unsized_start = wr.pos().0;
+        wr.write(&self.result)?;
+        wr.align_byte();
+        let size = wr.pos().0 - unsized_start;
+        wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
+        let Ok(size) = u16::try_from(size) else {
+            return Err(shrink_wrap::Error::ItemTooLong);
+        };
+        wr.write_u16_rev(size)?;
+        Ok(())
+    }
+}
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Event {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut shrink_wrap::BufReader<'i>,
+        _element_size: shrink_wrap::ElementSize,
+    ) -> Result<Self, shrink_wrap::Error> {
+        let seq = rd.read_u16()?;
+        let size = rd.read_vlu16n_rev()? as usize;
+        let mut rd_split = rd.split(size)?;
+        let result = rd_split.read(shrink_wrap::ElementSize::Implied)?;
+        Ok(Event { seq, result })
+    }
+}
+#[derive(Debug)]
 #[repr(u16)]
 pub enum EventKind {
-    // Version { protocol_id: u32, version: Version },
-    // ReturnValue { data: Vec<u8> },
-    ReturnValue,
-    // ReadValue { data: Vec<u8> },
-    // Written,
-    // StreamOpened,
-    // TODO: Add Option<SizeHint>
-    // StreamUpdate { data: Vec<u8> },
-    // StreamClosed,
-    // Subscribed,
-    // RateChanged,
-    // Unsubscribed,
-    // Borrowed,
-    // Released,
-    // Introspect { ww_bytes: Vec<u8> },
-    // Heartbeat { payload: () },
-    Heartbeat,
+    ReturnValue = 0,
+    Heartbeat = 1,
 }
-
-#[cfg(test)]
-mod tests {
-    use shrink_wrap::{BufReader, BufWriter, ElementSize};
-    use crate::client_server::{Request, RequestKind};
-
-    #[test]
-    fn sanity_check() {
-        let req = Request {
-            seq: 0,
-            kind: RequestKind::Call,
-        };
-        let mut buf = [0u8; 8];
-        let mut wr = BufWriter::new(&mut buf);
-        wr.write(&req).unwrap();
-        let bytes = wr.finish().unwrap();
-        assert_eq!(bytes, &[0, 0, 0, 1]);
-        let mut rd = BufReader::new(bytes);
-        let req: Request = rd.read(ElementSize::Implied).unwrap();
+impl EventKind {
+    pub fn discriminant(&self) -> u16 {
+        unsafe { *<*const _>::from(self).cast::<u16>() }
+    }
+}
+impl wire_weaver::shrink_wrap::SerializeShrinkWrap for EventKind {
+    fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+        wr.write_vlu16n(self.discriminant())?;
+        Ok(())
+    }
+}
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for EventKind {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut shrink_wrap::BufReader<'i>,
+        _element_size: shrink_wrap::ElementSize,
+    ) -> Result<Self, shrink_wrap::Error> {
+        let discriminant = rd.read_vlu16n()?;
+        Ok(match discriminant {
+            0 => EventKind::ReturnValue,
+            1 => EventKind::Heartbeat,
+            _ => {
+                return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData);
+            }
+        })
     }
 }

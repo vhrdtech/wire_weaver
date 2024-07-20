@@ -4,7 +4,7 @@ use crate::ast::version::Version;
 use std::path::PathBuf;
 
 #[derive(Debug)]
-pub struct File {
+pub struct WWFile {
     pub source: FileSource,
     // shebang
     // attrs
@@ -19,7 +19,15 @@ pub enum FileSource {
     Git,
 }
 
-impl File {
+impl WWFile {
+    pub fn from_str<S: AsRef<str>>(
+        file_source: FileSource,
+        source: S,
+    ) -> Result<(Self, Vec<SynConversionWarning>), Vec<SynConversionError>> {
+        let syn_file = syn::parse_file(source.as_ref()).unwrap();
+        Self::from_syn(file_source, syn_file)
+    }
+
     pub fn from_syn(
         source: FileSource,
         file: syn::File,
@@ -44,7 +52,7 @@ impl File {
         if errors.is_empty() {
             let version = source.file_version();
             Ok((
-                File {
+                WWFile {
                     source,
                     version,
                     items,

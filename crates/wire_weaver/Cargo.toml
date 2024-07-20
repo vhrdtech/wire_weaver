@@ -8,3 +8,8 @@ description.workspace = true
 [dependencies]
 shrink_wrap = { path = "../shrink_wrap" }
 wire_weaver_derive = { path = "../wire_weaver_derive" }
+
+[build-dependencies]
+wire_weaver_core = { path = "../wire_weaver_core" }
+pathsearch = "0.2.0"
+subprocess = "0.2.9"

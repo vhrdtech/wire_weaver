@@ -46,6 +46,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb_embassy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_derive/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

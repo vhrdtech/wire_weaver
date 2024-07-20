@@ -2,11 +2,11 @@ pub mod item;
 mod ty;
 
 use crate::ast::item::Item;
-use crate::ast::File;
+use crate::ast::WWFile;
 use proc_macro2::TokenStream;
-use quote::{ToTokens, TokenStreamExt};
+use quote::TokenStreamExt;
 
-pub fn rust_no_std_file(file: &File) -> TokenStream {
+pub fn rust_no_std_file(file: &WWFile) -> TokenStream {
     let mut ts = TokenStream::new();
     for item in &file.items {
         match item {

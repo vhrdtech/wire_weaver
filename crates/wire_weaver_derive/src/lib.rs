@@ -1,7 +1,7 @@
 use proc_macro::{TokenStream, TokenTree};
 use std::path::PathBuf;
-use wire_weaver_core::ast::file::File;
 use wire_weaver_core::ast::file::FileSource;
+use wire_weaver_core::ast::file::WWFile;
 
 mod shrink_wrap;
 
@@ -46,7 +46,7 @@ pub fn wire_weaver(input: TokenStream) -> TokenStream {
     }
 
     let source = FileSource::File(root_file_path);
-    let (ww_file, warnings) = File::from_syn(source, syn_file).unwrap();
+    let (ww_file, warnings) = WWFile::from_syn(source, syn_file).unwrap();
     dbg!(warnings);
     if flags.iter().any(|f| f.as_str() == "dbg_ds") {
         dbg!(&ww_file);

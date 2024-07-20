@@ -3,7 +3,7 @@
 pub mod buf_reader;
 pub mod buf_writer;
 pub mod traits;
-mod vec;
+pub mod vec;
 pub(crate) mod vlu16n;
 
 pub use buf_reader::BufReader;

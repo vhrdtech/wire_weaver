@@ -4,8 +4,26 @@ enum TestEnumU4 {
     B,
 }
 
-#[repr(u4)]
+#[repr(u8)]
 enum TestEnumU8 {
     A = 255,
+    B,
+}
+
+#[repr(u16)]
+enum TestEnumU16 {
+    A = 65_535,
+    B,
+}
+
+#[repr(nib16)]
+enum TestEnumNib16 {
+    A = 65_535,
+    B,
+}
+
+#[repr(u32)]
+enum TestEnumU32 {
+    A = 4_294_967_295,
     B,
 }

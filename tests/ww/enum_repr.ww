@@ -1,4 +1,4 @@
-#[repr(unib16)]
+#[repr(nib16)]
 enum TestEnumNib16 {
     A,
     B,

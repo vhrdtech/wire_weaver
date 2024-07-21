@@ -5,7 +5,7 @@ enum TestEnumNoRepr {
 }
 
 #[repr(u64)]
-enum TestEnumUnsopportedRepr {
+enum TestEnumUnsupportedRepr {
     A,
     B,
     C,

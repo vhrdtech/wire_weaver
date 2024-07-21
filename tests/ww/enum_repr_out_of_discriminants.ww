@@ -1,0 +1,11 @@
+#[repr(u4)]
+enum TestEnumU4 {
+    A = 15,
+    B,
+}
+
+#[repr(u4)]
+enum TestEnumU8 {
+    A = 255,
+    B,
+}

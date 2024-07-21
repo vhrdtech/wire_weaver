@@ -1,0 +1,12 @@
+enum TestEnumNoRepr {
+    A,
+    B,
+    C,
+}
+
+#[repr(u64)]
+enum TestEnumUnsopportedRepr {
+    A,
+    B,
+    C,
+}

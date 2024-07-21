@@ -26,6 +26,14 @@ impl From<syn::Ident> for Ident {
     }
 }
 
+impl From<&syn::Ident> for Ident {
+    fn from(value: &syn::Ident) -> Self {
+        Ident {
+            sym: value.to_string(),
+        }
+    }
+}
+
 impl From<&Ident> for syn::Ident {
     fn from(value: &Ident) -> Self {
         let ident = value.sym.as_str();

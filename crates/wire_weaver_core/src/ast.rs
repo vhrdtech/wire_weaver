@@ -21,14 +21,14 @@ pub struct Module {
     pub items: Vec<Item>,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Version {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Source {
     File {
         /// Path relative to project root.
@@ -96,8 +96,8 @@ pub struct Field {
     pub id: u32,
     pub ident: Ident,
     pub ty: Type,
-    pub since: Version,
-    pub default: Value,
+    pub since: Option<Version>,
+    pub default: Option<Value>,
 }
 
 #[derive(Debug)]

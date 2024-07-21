@@ -75,9 +75,9 @@ pub enum Repr {
     U8,
     #[strum(serialize = "u16")]
     U16,
-    #[strum(serialize = "vlu16n")]
+    #[strum(serialize = "nib16")]
     #[default]
-    Vlu16N,
+    Nib16,
     #[strum(serialize = "u32")]
     U32,
 }

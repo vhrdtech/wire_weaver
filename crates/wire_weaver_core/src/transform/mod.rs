@@ -9,13 +9,13 @@ mod syn_util;
 // TODO: check that no fields and no variants have the same name
 // TODO: check that variants fit within chosen repr
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SynConversionWarning {
     UnknownAttribute(String),
     UnknownFileItem,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SynConversionError {
     UnknownType,
     WrongDefaultAttr(String),
@@ -28,12 +28,27 @@ pub struct Messages {
     messages: Vec<Message>,
 }
 
+#[derive(Debug, Clone)]
 pub enum Message {
     SynConversionWarning(SynConversionWarning),
     SynConversionError(SynConversionError),
 }
 
 impl Messages {
+    pub fn messages(&self) -> &[Message] {
+        &self.messages
+    }
+
+    pub fn error_count(&self) -> usize {
+        let mut error_count = 0;
+        for msg in &self.messages {
+            if matches!(msg, Message::SynConversionError(_)) {
+                error_count += 1;
+            }
+        }
+        error_count
+    }
+
     fn push_conversion_warning(&mut self, warning: SynConversionWarning) {
         self.messages.push(Message::SynConversionWarning(warning))
     }
@@ -63,14 +78,14 @@ impl Transform {
         Transform::default()
     }
 
-    pub fn add_file(&mut self, source: Source, syn_ast: syn::File) {
+    pub fn push_file(&mut self, source: Source, syn_ast: syn::File) {
         self.files.push(SynFile {
             source,
             ast: syn_ast,
         });
     }
 
-    pub fn transform(&mut self) -> Context {
+    pub fn transform(&mut self) -> Option<Context> {
         let mut modules = vec![];
         for syn_file in &self.files {
             let mut items = vec![];
@@ -95,6 +110,18 @@ impl Transform {
                 items,
             });
         }
-        Context { modules }
+        let error_count = self
+            .messages
+            .iter()
+            .fold(0, |error_count, (_, messages)| messages.error_count());
+        if error_count == 0 {
+            Some(Context { modules })
+        } else {
+            None
+        }
+    }
+
+    pub fn messages(&self) -> impl Iterator<Item = (&Source, &Messages)> {
+        self.messages.iter()
     }
 }

@@ -245,7 +245,7 @@ mod tests {
         impl<'i> SerializeShrinkWrap for Evolved<'i> {
             fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                 wr.write_u8(self.byte)?;
-                wr.write_slice(self.additional_data)
+                wr.write_raw_slice(self.additional_data)
             }
         }
         impl<'i> DeserializeShrinkWrap<'i> for Evolved<'i> {

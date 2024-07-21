@@ -79,7 +79,7 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn write_u16(&mut self, val: u16) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
@@ -110,17 +110,17 @@ impl<'i> BufWriter<'i> {
     // }
 
     pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_u64(&mut self, val: u64) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_u128(&mut self, val: u128) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
@@ -129,32 +129,32 @@ impl<'i> BufWriter<'i> {
     }
 
     pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_i64(&mut self, val: i64) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_i128(&mut self, val: i128) -> Result<(), Error> {
-        self.write_slice(&val.to_le_bytes())?;
+        self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
-        self.write_slice(&val.to_bits().to_le_bytes())?;
+        self.write_raw_slice(&val.to_bits().to_le_bytes())?;
         Ok(())
     }
 
     pub fn write_f64(&mut self, val: f64) -> Result<(), Error> {
-        self.write_slice(&val.to_bits().to_le_bytes())?;
+        self.write_raw_slice(&val.to_bits().to_le_bytes())?;
         Ok(())
     }
 
@@ -162,7 +162,7 @@ impl<'i> BufWriter<'i> {
         Vlu16N(val).write_forward(self)
     }
 
-    pub fn write_slice(&mut self, val: &[u8]) -> Result<(), Error> {
+    pub fn write_raw_slice(&mut self, val: &[u8]) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() < val.len() {
             return Err(Error::OutOfBoundsRev);
@@ -172,10 +172,16 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
+    pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
         let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
         self.write_u16_rev(len)?;
-        self.write_slice(val.as_bytes())
+        self.write_raw_slice(val)
+    }
+
+    pub fn write_string(&mut self, val: &str) -> Result<(), Error> {
+        let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
+        self.write_u16_rev(len)?;
+        self.write_raw_slice(val.as_bytes())
     }
 
     pub fn write<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {

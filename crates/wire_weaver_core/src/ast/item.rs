@@ -1,10 +1,11 @@
+use syn::{Expr, Lit};
+
 use crate::ast::data::{Field, Fields, FieldsNamed, FieldsUnnamed, Variant};
 use crate::ast::ident::Ident;
 use crate::ast::syn_convert::{
-    collect_unknown_attributes, take_final_attr, take_since_attr, SynConversionError,
-    SynConversionWarning,
+    collect_unknown_attributes, take_final_attr, take_repr_attr, take_since_attr,
+    SynConversionError, SynConversionWarning,
 };
-use syn::{Expr, Lit};
 
 #[derive(Debug)]
 pub enum Item {
@@ -26,6 +27,7 @@ pub struct ItemEnum {
     // attrs
     // generics
     pub is_final: bool,
+    pub repr: Repr,
     pub ident: Ident,
     pub variants: Vec<Variant>,
 }
@@ -135,12 +137,14 @@ impl ItemEnum {
             });
             collect_unknown_attributes(&mut variant.attrs, &mut warnings);
         }
+        let repr = take_repr_attr(&mut item_enum.attrs, &mut errors).unwrap_or_default();
         if errors.is_empty() {
             let is_final = take_final_attr(&mut item_enum.attrs).is_some();
             collect_unknown_attributes(&mut item_enum.attrs, &mut warnings);
             Ok((
                 ItemEnum {
                     ident: item_enum.ident.into(),
+                    repr,
                     variants,
                     is_final,
                 },

@@ -1,6 +1,10 @@
+use std::str::FromStr;
+
+use syn::{Expr, Lit, Meta};
+
+use crate::ast::item::Repr;
 use crate::ast::value::Value;
 use crate::Version;
-use syn::{Expr, Lit, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
 pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
@@ -64,6 +68,31 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     Some(())
 }
 
+pub(crate) fn take_repr_attr(
+    attrs: &mut Vec<syn::Attribute>,
+    errors: &mut Vec<SynConversionError>,
+) -> Option<Repr> {
+    let (attr_idx, _) = attrs
+        .iter()
+        .enumerate()
+        .find(|(_, a)| a.path().is_ident("repr"))?;
+    let attr = attrs.remove(attr_idx);
+    let Meta::List(meta_list) = attr.meta else {
+        errors.push(SynConversionError::WrongReprAttr(
+            "expected #[repr(u4/u8/u16/u32/vlu16n)]".into(),
+        ));
+        return None;
+    };
+    let repr = meta_list.tokens.to_string();
+    let Ok(repr) = Repr::from_str(repr.as_str()) else {
+        errors.push(SynConversionError::WrongReprAttr(
+            "expected #[repr(u4/u8/u16/u32/vlu16n)]".into(),
+        ));
+        return None;
+    };
+    Some(repr)
+}
+
 pub(crate) fn collect_unknown_attributes(
     attrs: &mut Vec<syn::Attribute>,
     warnings: &mut Vec<SynConversionWarning>,
@@ -87,4 +116,5 @@ pub enum SynConversionError {
     UnknownType,
     WrongDefaultAttr(String),
     WrongDiscriminant,
+    WrongReprAttr(String),
 }

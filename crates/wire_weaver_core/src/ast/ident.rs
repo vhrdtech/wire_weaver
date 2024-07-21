@@ -1,8 +1,3 @@
-// #[derive(Debug)]
-// pub struct Span {
-//     pub byte_range: Range<usize>
-// }
-
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt};
 
@@ -13,7 +8,7 @@ pub struct Ident {
 }
 
 impl Ident {
-    pub(crate) fn new(sym: impl AsRef<str>) -> Self {
+    pub fn new(sym: impl AsRef<str>) -> Self {
         Ident {
             sym: sym.as_ref().to_string(),
         }
@@ -34,7 +29,14 @@ impl From<syn::Ident> for Ident {
 impl From<&Ident> for syn::Ident {
     fn from(value: &Ident) -> Self {
         let ident = value.sym.as_str();
-        syn::Ident::new(ident, proc_macro2::Span::call_site())
+        syn::Ident::new(ident, Span::call_site())
+    }
+}
+
+impl From<Ident> for syn::Ident {
+    fn from(value: Ident) -> Self {
+        let ident = value.sym.as_str();
+        syn::Ident::new(ident, Span::call_site())
     }
 }
 

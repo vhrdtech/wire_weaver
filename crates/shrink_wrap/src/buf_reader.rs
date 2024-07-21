@@ -70,7 +70,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u16(&mut self) -> Result<u16, Error> {
         let u16_bytes: [u8; 2] = self
-            .read_slice(2)?
+            .read_raw_slice(2)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(u16::from_le_bytes(u16_bytes))
@@ -86,7 +86,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u32(&mut self) -> Result<u32, Error> {
         let u32_bytes: [u8; 4] = self
-            .read_slice(4)?
+            .read_raw_slice(4)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(u32::from_le_bytes(u32_bytes))
@@ -94,7 +94,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u64(&mut self) -> Result<u64, Error> {
         let u64_bytes: [u8; 8] = self
-            .read_slice(8)?
+            .read_raw_slice(8)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(u64::from_le_bytes(u64_bytes))
@@ -102,7 +102,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_u128(&mut self) -> Result<u128, Error> {
         let u128_bytes: [u8; 16] = self
-            .read_slice(16)?
+            .read_raw_slice(16)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(u128::from_le_bytes(u128_bytes))
@@ -114,7 +114,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_i16(&mut self) -> Result<i16, Error> {
         let i16_bytes: [u8; 2] = self
-            .read_slice(2)?
+            .read_raw_slice(2)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(i16::from_le_bytes(i16_bytes))
@@ -122,7 +122,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_i32(&mut self) -> Result<i32, Error> {
         let i32_bytes: [u8; 4] = self
-            .read_slice(4)?
+            .read_raw_slice(4)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(i32::from_le_bytes(i32_bytes))
@@ -130,7 +130,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_i64(&mut self) -> Result<i64, Error> {
         let i64_bytes: [u8; 8] = self
-            .read_slice(8)?
+            .read_raw_slice(8)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(i64::from_le_bytes(i64_bytes))
@@ -138,7 +138,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_i128(&mut self) -> Result<i128, Error> {
         let i128_bytes: [u8; 16] = self
-            .read_slice(16)?
+            .read_raw_slice(16)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(i128::from_le_bytes(i128_bytes))
@@ -146,7 +146,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_f32(&mut self) -> Result<f32, Error> {
         let f32_bytes: [u8; 4] = self
-            .read_slice(4)?
+            .read_raw_slice(4)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(f32::from_le_bytes(f32_bytes))
@@ -154,13 +154,13 @@ impl<'i> BufReader<'i> {
 
     pub fn read_f64(&mut self) -> Result<f64, Error> {
         let f64_bytes: [u8; 8] = self
-            .read_slice(8)?
+            .read_raw_slice(8)?
             .try_into()
             .map_err(|_| Error::OutOfBounds)?;
         Ok(f64::from_le_bytes(f64_bytes))
     }
 
-    pub fn read_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
+    pub fn read_raw_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();
         if self.bytes_left() < len {
             return Err(Error::OutOfBounds);
@@ -170,9 +170,14 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
-    pub fn read_str(&mut self) -> Result<&'i str, Error> {
+    pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
         let len_bytes = self.read_vlu16n_rev()? as usize;
-        let str_bytes = self.read_slice(len_bytes)?;
+        self.read_raw_slice(len_bytes)
+    }
+
+    pub fn read_string(&mut self) -> Result<&'i str, Error> {
+        let len_bytes = self.read_vlu16n_rev()? as usize;
+        let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
 

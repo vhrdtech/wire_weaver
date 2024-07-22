@@ -1,165 +1,174 @@
-use crate::ast::ty::{Type, TypeDiscrete};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{quote, TokenStreamExt};
+use syn::{Lit, LitInt};
 
-impl TypeDiscrete {
-    fn sign(&self) -> char {
-        if self.is_signed {
-            'i'
-        } else {
-            'u'
-        }
-    }
-}
+use crate::ast::{Layout, Type};
 
 impl Type {
-    pub fn ty_def(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn def(&self, no_alloc: bool) -> TokenStream {
         match self {
-            Type::Bool => quote!(bool),
-            Type::Discrete(ty_discrete) => {
-                let is_nib = ty_discrete.bits == 4 && !ty_discrete.is_signed;
-                if [8, 16, 32, 64, 128].contains(&ty_discrete.bits) {
-                    let sign = ty_discrete.sign();
-                    let ty = format!("{sign}{}", ty_discrete.bits);
-                    let ty = Ident::new(ty.as_str(), Span::call_site());
-                    quote!(#ty)
-                } else if is_nib {
-                    quote!(u8)
+            Type::Bool => quote! { bool },
+            Type::U4 | Type::U8 => quote! { u8 },
+            Type::U16 | Type::Nib16 => quote! { u16 },
+            Type::U32 | Type::ULeb32 => quote! { u32 },
+            Type::U64 | Type::ULeb64 => quote! { u64 },
+            Type::U128 | Type::ULeb128 => quote! { u128 },
+            Type::I4 | Type::I8 => quote! { i8 },
+            Type::I16 => quote! { i16 },
+            Type::I32 | Type::ILeb32 => quote! { i32 },
+            Type::I64 | Type::ILeb64 => quote! { i64 },
+            Type::I128 | Type::ILeb128 => quote! { i128 },
+            Type::F32 => quote! { f32 },
+            Type::F64 => quote! { f64 },
+            Type::Bytes => {
+                if no_alloc {
+                    quote! { RefVec<'i, u8> }
                 } else {
-                    unimplemented!()
-                }
-            }
-            Type::Floating(ty_floating) => {
-                if ty_floating.bits == 32 || ty_floating.bits == 64 {
-                    let ty = format!("f{}", ty_floating.bits);
-                    let ty = Ident::new(ty.as_str(), Span::call_site());
-                    quote!(#ty)
-                } else {
-                    unimplemented!()
+                    quote! { Vec<u8> }
                 }
             }
             Type::String => {
                 if no_alloc {
-                    quote!(&'i str)
+                    quote! { &'i str }
                 } else {
-                    quote!(String)
+                    quote! { String }
                 }
             }
-            Type::Path(path) => {
-                let segments = &path.segments;
-                quote!(#(#segments)::*)
-            }
-        }
-    }
-
-    pub fn is_sized(&self) -> bool {
-        match self {
-            Type::Bool => true,
-            Type::Discrete(_) => true,
-            Type::Floating(_) => true,
-            Type::String => false,
-            // TODO: need to resolve path's before codegen
-            Type::Path(_) => todo!(),
-        }
-    }
-
-    pub fn is_ref(&self) -> bool {
-        match self {
-            Type::Bool => false,
-            Type::Discrete(_) => false,
-            Type::Floating(_) => false,
-            Type::String => false,
-            Type::Path(_) => false,
-        }
-    }
-
-    pub fn buf_write(&self, field_path: TokenStream, is_ref: bool, no_alloc: bool) -> TokenStream {
-        let (field_path_by_value, field_path_by_ref) = if is_ref {
-            (quote!(* #field_path), field_path.clone())
-        } else {
-            (field_path.clone(), quote!(& #field_path))
-        };
-        match self {
-            Type::Bool | Type::Discrete(_) | Type::Floating(_) => {
-                let fn_name = match self {
-                    Type::Bool => Ident::new("write_bool", Span::call_site()),
-                    Type::Discrete(ty_discrete) => {
-                        let sign = ty_discrete.sign();
-                        let fn_name = format!("write_{sign}{}", ty_discrete.bits);
-                        Ident::new(fn_name.as_str(), Span::call_site())
-                    }
-                    Type::Floating(ty_floating) => {
-                        let fn_name = format!("write_f{}", ty_floating.bits);
-                        Ident::new(fn_name.as_str(), Span::call_site())
-                    }
-                    _ => unreachable!(),
+            Type::Array(len, layout) => {
+                let item_ty = match layout {
+                    Layout::Builtin(ty) => ty.def(no_alloc),
+                    Layout::Option(ty) => ty.def(no_alloc),
+                    Layout::Result(_ok_err_ty) => unimplemented!(),
+                    Layout::Unsized(_) => unimplemented!(),
+                    Layout::Sized(_, _) => unimplemented!(),
                 };
-                quote!(wr.#fn_name(#field_path_by_value)?;)
+                let len = Lit::Int(LitInt::new(format!("{}", len).as_str(), Span::call_site()));
+                quote! { [#item_ty; #len] }
             }
-            Type::String => {
-                if no_alloc {
-                    quote!(wr.write_str(#field_path)?;)
-                } else {
-                    quote!(wr.write_str(#field_path.as_str())?;)
-                }
+            Type::Tuple(types) => {
+                let types = types.iter().map(|ty| ty.def(no_alloc));
+                quote! { ( #(#types),* ) }
             }
-            Type::Path(_) => {
-                quote! {
-                    let u16_rev_from = wr.u16_rev_pos();
-                    // let handle = wr.write_u16_rev(0)?;
-                    let unsized_start = wr.pos().0;
-                    wr.write(#field_path_by_ref)?;
-                    wr.align_byte(); // e.g. plain enum, only one nib discriminant is written => need to align
-                    let size = wr.pos().0 - unsized_start;
-                    wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
-                    let Ok(size) = u16::try_from(size) else {
-                        return Err(shrink_wrap::Error::ItemTooLong);
-                    };
-                    wr.write_u16_rev(size)?;
-                    // wr.update_u16_rev(handle, size as u16)?;
-                    // wr.encode_vlu16n_rev(handle)?;
-                }
+            Type::Vec(_) => unimplemented!(),
+            Type::User(user_layout) => {
+                let path = user_layout.path();
+                quote! { #path }
             }
+            Type::IsSome | Type::IsOk => quote! { bool },
         }
     }
 
-    pub fn buf_read(
+    pub(crate) fn buf_write(
+        &self,
+        field_path: TokenStream,
+        no_alloc: bool,
+        tokens: &mut TokenStream,
+    ) {
+        let write_fn = match self {
+            Type::Bool => "write_bool",
+            Type::U4 => "write_u4",
+            Type::U8 => "write_u8",
+            Type::U16 => "write_u16",
+            Type::Nib16 => "write_vlu16n",
+            Type::U32 => "write_u32",
+            Type::U64 => "write_u64",
+            Type::U128 => "write_u128",
+            Type::I4 => "write_i4",
+            Type::I8 => "write_i8",
+            Type::I16 => "write_i16",
+            Type::I32 => "write_i32",
+            Type::I64 => "write_i64",
+            Type::I128 => "write_i128",
+            Type::F32 => "write_f32",
+            Type::F64 => "write_f64",
+            Type::Bytes => {
+                if no_alloc {
+                    "write_bytes"
+                } else {
+                    tokens.append_all(quote! { wr.write_raw_slice(&#field_path)?; });
+                    return;
+                }
+            }
+            Type::String => {
+                if no_alloc {
+                    "write_string"
+                } else {
+                    tokens.append_all(quote! { wr.write_string(#field_path.as_str())?; });
+                    return;
+                }
+            }
+            Type::IsSome => {
+                tokens.append_all(quote! { wr.write_bool(#field_path.is_some())?; });
+                return;
+            }
+            Type::IsOk => {
+                tokens.append_all(quote! { wr.write_bool(#field_path.is_ok())?; });
+                return;
+            }
+            Type::ULeb32 => unimplemented!(),
+            Type::ULeb64 => unimplemented!(),
+            Type::ULeb128 => unimplemented!(),
+            Type::ILeb32 => unimplemented!(),
+            Type::ILeb64 => unimplemented!(),
+            Type::ILeb128 => unimplemented!(),
+            Type::Array(_, _) => unimplemented!(),
+            Type::Tuple(_) => unimplemented!(),
+            Type::Vec(_) => unimplemented!(),
+            Type::User(_) => unimplemented!(),
+        };
+        let write_fn = Ident::new(write_fn, Span::call_site());
+        tokens.append_all(quote! { wr.#write_fn(#field_path)?; });
+    }
+
+    pub(crate) fn buf_read(
         &self,
         variable_name: Ident,
-        handle_eob: TokenStream,
         no_alloc: bool,
-    ) -> TokenStream {
-        match self {
-            Type::Bool | Type::Discrete(_) | Type::Floating(_) => {
-                let fn_name = match self {
-                    Type::Bool => Ident::new("read_bool", Span::call_site()),
-                    Type::Discrete(ty_discrete) => {
-                        let sign = ty_discrete.sign();
-                        let fn_name = format!("read_{sign}{}", ty_discrete.bits);
-                        Ident::new(fn_name.as_str(), Span::call_site())
-                    }
-                    Type::Floating(ty_floating) => {
-                        let fn_name = format!("read_f{}", ty_floating.bits);
-                        Ident::new(fn_name.as_str(), Span::call_site())
-                    }
-                    _ => unreachable!(),
-                };
-                quote!(let #variable_name = rd.#fn_name() #handle_eob;)
-            }
+        handle_eob: TokenStream,
+        tokens: &mut TokenStream,
+    ) {
+        let read_fn = match self {
+            Type::Bool => "read_bool",
+            Type::U4 => "read_u4",
+            Type::U8 => "read_u8",
+            Type::U16 => "read_u16",
+            Type::U32 => "read_u32",
+            Type::U64 => "read_u64",
+            Type::U128 => "read_u128",
+            Type::Nib16 => "read_nib16",
+            Type::ULeb32 => unimplemented!(),
+            Type::ULeb64 => unimplemented!(),
+            Type::ULeb128 => unimplemented!(),
+            Type::I4 => unimplemented!(),
+            Type::I8 => "read_i8",
+            Type::I16 => "read_i16",
+            Type::I32 => "read_i32",
+            Type::I64 => "read_i64",
+            Type::I128 => "read_i128",
+            Type::ILeb32 => unimplemented!(),
+            Type::ILeb64 => unimplemented!(),
+            Type::ILeb128 => unimplemented!(),
+            Type::F32 => "read_f32",
+            Type::F64 => "read_f64",
+            Type::Bytes => "read_bytes",
             Type::String => {
                 if no_alloc {
-                    quote!(let #variable_name = rd.read_str() #handle_eob;)
+                    "read_string"
                 } else {
-                    quote!(let #variable_name = rd.read_str() #handle_eob .to_string();)
+                    tokens.append_all(
+                        quote! { let #variable_name = rd.read_string() #handle_eob .to_string(); },
+                    );
+                    return;
                 }
             }
-            Type::Path(_) => {
-                quote! {
-                    let size = rd.read_vlu16n_rev()? as usize;
-                    let mut rd_split = rd.split(size)?;
-                    let #variable_name = rd_split.read(shrink_wrap::ElementSize::Implied)?;
-                }
-            }
-        }
+            Type::Array(_, _) => unimplemented!(),
+            Type::Tuple(_) => unimplemented!(),
+            Type::Vec(_) => unimplemented!(),
+            Type::User(_) => unimplemented!(),
+            Type::IsSome => unimplemented!(),
+            Type::IsOk => unimplemented!(),
+        };
+        let read_fn = Ident::new(read_fn, Span::call_site());
+        tokens.append_all(quote! { let #variable_name = rd.#read_fn() #handle_eob; })
     }
 }

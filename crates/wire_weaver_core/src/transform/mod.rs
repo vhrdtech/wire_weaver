@@ -110,10 +110,9 @@ impl Transform {
                 items,
             });
         }
-        let error_count = self
-            .messages
-            .iter()
-            .fold(0, |error_count, (_, messages)| messages.error_count());
+        let error_count = self.messages.iter().fold(0, |error_count, (_, messages)| {
+            error_count + messages.error_count()
+        });
         if error_count == 0 {
             Some(Context { modules })
         } else {

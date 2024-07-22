@@ -111,7 +111,7 @@ pub enum Type {
     U64,
     U128,
 
-    UNib16,
+    Nib16,
     ULeb32,
     ULeb64,
     ULeb128,
@@ -174,4 +174,13 @@ pub enum Layout {
 pub enum UserLayout {
     Unsized(Path),
     Sized(Path, u32),
+}
+
+impl UserLayout {
+    pub fn path(&self) -> &Path {
+        match self {
+            UserLayout::Unsized(path) => path,
+            UserLayout::Sized(path, _) => path,
+        }
+    }
 }

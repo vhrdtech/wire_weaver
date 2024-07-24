@@ -5,13 +5,19 @@ pub(crate) fn serdes(ty_name: Ident, ser: impl ToTokens, des: impl ToTokens) -> 
     let lifetime = quote!();
     quote! {
         impl #lifetime wire_weaver::shrink_wrap::SerializeShrinkWrap for #ty_name #lifetime {
-            fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
+            fn ser_shrink_wrap(
+                &self,
+                wr: &mut wire_weaver::shrink_wrap::BufWriter
+            ) -> Result<(), wire_weaver::shrink_wrap::Error> {
                 #ser
             }
         }
 
         impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for #ty_name #lifetime {
-            fn des_shrink_wrap<'di>(rd: &'di mut shrink_wrap::BufReader<'i>, _element_size: shrink_wrap::ElementSize) -> Result<Self, shrink_wrap::Error> {
+            fn des_shrink_wrap<'di>(
+                rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
+                _element_size: wire_weaver::shrink_wrap::ElementSize
+            ) -> Result<Self, wire_weaver::shrink_wrap::Error> {
                 #des
             }
         }

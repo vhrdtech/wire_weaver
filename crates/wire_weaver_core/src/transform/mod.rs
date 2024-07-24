@@ -85,6 +85,19 @@ impl Transform {
         });
     }
 
+    pub fn load_and_push(&mut self, source: Source) -> Result<(), String> {
+        let contents = match &source {
+            Source::File { path } => {
+                std::fs::read_to_string(path.as_str()).map_err(|e| format!("{e:?}"))?
+            }
+            Source::Registry { .. } => unimplemented!(),
+            Source::Git { .. } => unimplemented!(),
+        };
+        let ast = syn::parse_file(contents.as_str()).map_err(|e| format!("{e:?}"))?;
+        self.push_file(source, ast);
+        Ok(())
+    }
+
     pub fn transform(&mut self) -> Option<Context> {
         let mut modules = vec![];
         for syn_file in &self.files {

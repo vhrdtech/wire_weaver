@@ -18,6 +18,7 @@ pub enum SynConversionWarning {
 #[derive(Debug, Clone)]
 pub enum SynConversionError {
     UnknownType,
+    UnsupportedType(String),
     WrongDefaultAttr(String),
     WrongDiscriminant,
     WrongReprAttr(String),
@@ -70,7 +71,14 @@ pub struct Transform {
 
 pub(crate) struct SynFile {
     source: Source,
-    ast: syn::File,
+    _shebang: Option<String>,
+    _attrs: Vec<syn::Attribute>,
+    items: Vec<SynItemWithContext>,
+}
+
+enum SynItemWithContext {
+    Enum { item_enum: syn::ItemEnum },
+    Struct { item_struct: syn::ItemStruct },
 }
 
 impl Transform {
@@ -78,10 +86,24 @@ impl Transform {
         Transform::default()
     }
 
-    pub fn push_file(&mut self, source: Source, syn_ast: syn::File) {
+    pub fn push_file(&mut self, source: Source, syn_file: syn::File) {
+        let mut items = vec![];
+        for item in syn_file.items {
+            match item {
+                syn::Item::Struct(item_struct) => {
+                    items.push(SynItemWithContext::Struct { item_struct });
+                }
+                syn::Item::Enum(item_enum) => {
+                    items.push(SynItemWithContext::Enum { item_enum });
+                }
+                _ => {}
+            }
+        }
         self.files.push(SynFile {
             source,
-            ast: syn_ast,
+            _shebang: syn_file.shebang,
+            _attrs: syn_file.attrs,
+            items,
         });
     }
 
@@ -102,11 +124,11 @@ impl Transform {
         let mut modules = vec![];
         for syn_file in &self.files {
             let mut items = vec![];
-            for syn_item in &syn_file.ast.items {
+            for syn_item in &syn_file.items {
                 let mut finalize = CollectAndConvertPass {
-                    files: &self.files,
+                    _files: &self.files,
                     messages: self.messages.entry(syn_file.source.clone()).or_default(),
-                    source: syn_file.source.clone(),
+                    _source: syn_file.source.clone(),
                     item: syn_item,
                 };
                 if let Some(item) = finalize.transform() {

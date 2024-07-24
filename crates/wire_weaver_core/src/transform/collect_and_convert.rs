@@ -1,40 +1,40 @@
-use syn::{Expr, Lit};
+use syn::{Expr, GenericArgument, Lit, PathArguments};
 
 use crate::ast::ident::Ident;
-use crate::ast::{Field, Fields, Item, ItemEnum, ItemStruct, Source, Type, Variant};
+use crate::ast::{Field, Fields, Item, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
     collect_unknown_attributes, take_default_attr, take_final_attr, take_id_attr, take_repr_attr,
     take_since_attr,
 };
-use crate::transform::{Messages, SynConversionError, SynFile};
+use crate::transform::{Messages, SynConversionError, SynFile, SynItemWithContext};
 
 /// Go through items in syn AST form and transform into own AST.
 /// Everything should be resolved and computed before this pass.
 pub(crate) struct CollectAndConvertPass<'i> {
-    pub(crate) files: &'i [SynFile],
+    pub(crate) _files: &'i [SynFile],
     pub(crate) messages: &'i mut Messages,
-    pub(crate) source: Source,
-    pub(crate) item: &'i syn::Item,
+    pub(crate) _source: Source,
+    pub(crate) item: &'i SynItemWithContext,
 }
 
 impl<'i> CollectAndConvertPass<'i> {
     pub(crate) fn transform(&mut self) -> Option<Item> {
         match self.item {
             // Item::Const(_) => {}
-            syn::Item::Enum(item_enum) => {
+            SynItemWithContext::Enum { item_enum } => {
                 self.transform_item_enum(item_enum).map(|e| Item::Enum(e))
             }
             // Item::Fn(_) => {}
             // Item::Mod(_) => {}
             // Item::Static(_) => {}
-            syn::Item::Struct(item_struct) => self
+            SynItemWithContext::Struct { item_struct } => self
                 .transform_item_struct(item_struct)
                 .map(|s| Item::Struct(s)),
             // Item::Trait(_) => {}
             // Item::Type(_) => {}
             // Item::Use(_) => {}
             // Item::Verbatim(_) => {}
-            _ => None,
+            // _ => None,
         }
     }
 
@@ -173,7 +173,55 @@ impl<'i> CollectAndConvertPass<'i> {
                     let path_segment = type_path.path.segments.first().unwrap();
                     let ident = path_segment.ident.to_string();
                     let ty = match ident.as_str() {
+                        "bool" => Type::Bool,
                         "u8" => Type::U8,
+                        "u16" => Type::U16,
+                        "u32" => Type::U32,
+                        "u64" => Type::U64,
+                        "u128" => Type::U128,
+                        "nib16" => Type::Nib16,
+                        "uleb32" => Type::ULeb32,
+                        "uleb64" => Type::ULeb64,
+                        "uleb128" => Type::ULeb128,
+                        "i8" => Type::I8,
+                        "i16" => Type::I16,
+                        "i32" => Type::I32,
+                        "i64" => Type::I64,
+                        "i128" => Type::I128,
+                        "ileb32" => Type::ILeb32,
+                        "ileb64" => Type::ILeb64,
+                        "ileb128" => Type::ILeb128,
+                        "f32" => Type::F32,
+                        "f64" => Type::F64,
+                        "String" => Type::String,
+                        "Vec" => {
+                            let PathArguments::AngleBracketed(arg) = &path_segment.arguments else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(
+                                        "expected Vec<T>, got Vec or Vec()".into(),
+                                    ),
+                                );
+                                return None;
+                            };
+                            let Some(arg) = arg.args.first() else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(
+                                        "expected Vec<T>, got Vec<T, ?>".into(),
+                                    ),
+                                );
+                                return None;
+                            };
+                            let GenericArgument::Type(inner_ty) = arg else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(format!(
+                                        "expected Vec<T>, got {arg:?}"
+                                    )),
+                                );
+                                return None;
+                            };
+                            let inner_ty = self.transform_type(inner_ty.clone())?;
+                            Type::Vec(Layout::Builtin(Box::new(inner_ty)))
+                        }
                         _ => {
                             // go through current file and find it else emit error
                             self.messages

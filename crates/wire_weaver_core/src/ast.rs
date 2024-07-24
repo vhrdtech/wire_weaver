@@ -130,15 +130,24 @@ pub enum Type {
     F32,
     F64,
 
-    Bytes,
+    // Bytes,
     String,
 
     Array(usize, Layout),
     Tuple(Vec<Type>),
     Vec(Layout),
 
-    /// All types going through generic read<T: DeserializeShrinkWrap>(&T) and write<T: SerializeShrinkWrap>(&T)
-    User(UserLayout),
+    // All types going through generic read<T: DeserializeShrinkWrap>(&T) and write<T: SerializeShrinkWrap>(&T)
+    // User(UserLayout),
+
+    // User defined, size unknown.
+    // On read: BufReader size will be limited to the one read from the back, unread bytes will be skipped.
+    // On write: size will be written to the back of the buffer.
+    // Type name is used only for dynamic ser/des operations.
+    Unsized(Path),
+    // User defined, size known and will not be read/written.
+    // BufReader size will be limited to the provided number of bytes, unread bytes will be skipped.
+    Sized(Path, u32),
 
     // Only relevant for fields with type Option<T>. Vec<Option<T>> handles flags differently.
     IsSome,
@@ -160,27 +169,62 @@ pub enum Layout {
     Option(Box<Type>),
     // Read T or E depending on previously read flag.
     Result(Box<(Type, Type)>),
-    // User defined, size unknown.
-    // On read: BufReader size will be limited to the one read from the back, unread bytes will be skipped.
-    // On write: size will be written to the back of the buffer.
-    // Type name is used only for dynamic ser/des operations.
-    Unsized(Path),
-    // User defined, size known and will not be read/written.
-    // BufReader size will be limited to the provided number of bytes, unread bytes will be skipped.
-    Sized(Path, u32),
 }
 
-#[derive(Debug)]
-pub enum UserLayout {
-    Unsized(Path),
-    Sized(Path, u32),
+// #[derive(Debug)]
+// pub enum UserLayout {
+//     Unsized(Path),
+//     Sized(Path, u32),
+// }
+//
+// impl UserLayout {
+//     pub fn path(&self) -> &Path {
+//         match self {
+//             UserLayout::Unsized(path) => path,
+//             UserLayout::Sized(path, _) => path,
+//         }
+//     }
+// }
+
+impl ItemEnum {
+    pub fn potential_lifetimes(&self) -> bool {
+        for variant in &self.variants {
+            if variant.potential_lifetimes() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
-impl UserLayout {
-    pub fn path(&self) -> &Path {
+impl Variant {
+    pub fn potential_lifetimes(&self) -> bool {
+        match &self.fields {
+            Fields::Named(fields) => {
+                for field in fields {
+                    if field.ty.potential_lifetimes() {
+                        return true;
+                    }
+                }
+            }
+            Fields::Unnamed(types) => {
+                for ty in types {
+                    if ty.potential_lifetimes() {
+                        return true;
+                    }
+                }
+            }
+            Fields::Unit => {}
+        }
+        false
+    }
+}
+
+impl Type {
+    pub fn potential_lifetimes(&self) -> bool {
         match self {
-            UserLayout::Unsized(path) => path,
-            UserLayout::Sized(path, _) => path,
+            Type::String | Type::Vec(_) => true,
+            _ => false,
         }
     }
 }

@@ -3,6 +3,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{Lit, LitInt};
 
 use crate::ast::{Field, Fields, ItemEnum, Repr, Variant};
+use crate::codegen::ty::FieldPath;
 use crate::codegen::util::serdes;
 
 pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
@@ -11,15 +12,23 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         variants: &item_enum.variants,
         no_alloc,
     };
-    let lifetime = if false { quote!(<'i>) } else { quote!() };
+    let lifetime = lifetime(item_enum, no_alloc);
     let repr_ty = enum_discriminant_type(item_enum);
     let mut ts = quote! {
         #[derive(Debug)]
         #[repr(#repr_ty)]
         pub enum #enum_name #lifetime { #variants }
     };
-    ts.append_all(enum_discriminant(item_enum));
+    ts.append_all(enum_discriminant(item_enum, lifetime));
     ts
+}
+
+fn lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
+    if no_alloc && item_enum.potential_lifetimes() {
+        quote!(<'i>)
+    } else {
+        quote!()
+    }
 }
 
 pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
@@ -32,12 +41,8 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         item_enum,
         no_alloc,
     };
-    // let lifetime = if no_alloc && item_struct.contains_ref_types() {
-    //     quote!(<'i>)
-    // } else {
-    //     quote!()
-    // };
-    serdes(enum_name, enum_ser, enum_des)
+    let lifetime = lifetime(item_enum, no_alloc);
+    serdes(enum_name, enum_ser, enum_des, lifetime)
 }
 
 fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
@@ -51,11 +56,11 @@ fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
     Ident::new(ty, Span::call_site())
 }
 
-fn enum_discriminant(item_enum: &ItemEnum) -> TokenStream {
+fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
     let enum_name: Ident = (&item_enum.ident).into();
     let ty = enum_discriminant_type(item_enum);
     quote! {
-        impl #enum_name {
+        impl #lifetime #enum_name #lifetime {
             pub fn discriminant(&self) -> #ty {
                 unsafe { *<*const _>::from(self).cast::<#ty>() }
             }
@@ -155,7 +160,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                     for field in fields_named {
                         let field_name: Ident = (&field.ident).into();
                         fields_names.push(field_name.clone());
-                        let field_path = quote!(#field_name);
+                        let field_path = FieldPath::Ref(quote!(#field_name));
                         field.ty.buf_write(field_path, self.no_alloc, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();
@@ -169,7 +174,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                     for (idx, ty) in fields_unnamed.iter().enumerate() {
                         let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
                         fields_numbers.push(field_name.clone());
-                        let field_path = quote!(#field_name);
+                        let field_path = FieldPath::Ref(quote!(#field_name));
                         ty.buf_write(field_path, self.no_alloc, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();

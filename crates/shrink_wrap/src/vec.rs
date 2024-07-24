@@ -1,3 +1,5 @@
+use core::fmt::{Debug, Formatter, Write};
+
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
@@ -23,9 +25,25 @@ pub enum RefVec<'i, T> {
     // },
 }
 
-impl<'i, 'di, T> RefVec<'i, T>
+impl<'i, T> RefVec<'i, T> {
+    pub fn element_size(&self) -> ElementSize {
+        match self {
+            RefVec::Slice { element_size, .. } => *element_size,
+            RefVec::Buf { element_size, .. } => *element_size,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            RefVec::Slice { slice, .. } => slice.len(),
+            RefVec::Buf { elements_count, .. } => *elements_count as usize,
+        }
+    }
+}
+
+impl<'i, T> RefVec<'i, T>
 where
-    T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>,
+    T: DeserializeShrinkWrap<'i>,
     // F: Fn(usize) -> Option<T>
     // I: Iterator<Item=T>,
 {
@@ -44,13 +62,6 @@ where
                 element_size: *element_size,
                 pos: 0,
             },
-        }
-    }
-
-    pub fn element_size(&self) -> ElementSize {
-        match self {
-            RefVec::Slice { element_size, .. } => *element_size,
-            RefVec::Buf { element_size, .. } => *element_size,
         }
     }
 }
@@ -190,6 +201,24 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
                 Some(item)
             }
         }
+    }
+}
+
+impl<'i, T: DeserializeShrinkWrap<'i> + Debug> Debug for RefVec<'i, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("[")?;
+        let it = self.iter();
+        let len = self.len();
+        for (i, elem) in it.enumerate() {
+            match elem {
+                Ok(elem) => write!(f, "{elem:02x?}")?,
+                Err(e) => write!(f, "{e:?}")?,
+            }
+            if i < len - 1 {
+                f.write_str(", ")?;
+            }
+        }
+        f.write_str("]")
     }
 }
 

@@ -2,7 +2,30 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, TokenStreamExt};
 use syn::{Lit, LitInt};
 
+use shrink_wrap::ElementSize;
+
 use crate::ast::{Layout, Type};
+
+pub(crate) enum FieldPath {
+    Ref(TokenStream),
+    Value(TokenStream),
+}
+
+impl FieldPath {
+    fn by_ref(self) -> TokenStream {
+        match self {
+            FieldPath::Ref(path) => path,
+            FieldPath::Value(path) => quote! { &#path },
+        }
+    }
+
+    fn by_value(self) -> TokenStream {
+        match self {
+            FieldPath::Ref(path) => quote! { *#path },
+            FieldPath::Value(path) => path,
+        }
+    }
+}
 
 impl Type {
     pub(crate) fn def(&self, no_alloc: bool) -> TokenStream {
@@ -20,13 +43,13 @@ impl Type {
             Type::I128 | Type::ILeb128 => quote! { i128 },
             Type::F32 => quote! { f32 },
             Type::F64 => quote! { f64 },
-            Type::Bytes => {
-                if no_alloc {
-                    quote! { RefVec<'i, u8> }
-                } else {
-                    quote! { Vec<u8> }
-                }
-            }
+            // Type::Bytes => {
+            //     if no_alloc {
+            //         quote! { RefVec<'i, u8> }
+            //     } else {
+            //         quote! { Vec<u8> }
+            //     }
+            // }
             Type::String => {
                 if no_alloc {
                     quote! { &'i str }
@@ -39,8 +62,8 @@ impl Type {
                     Layout::Builtin(ty) => ty.def(no_alloc),
                     Layout::Option(ty) => ty.def(no_alloc),
                     Layout::Result(_ok_err_ty) => unimplemented!(),
-                    Layout::Unsized(_) => unimplemented!(),
-                    Layout::Sized(_, _) => unimplemented!(),
+                    // Layout::Unsized(_) => unimplemented!(),
+                    // Layout::Sized(_, _) => unimplemented!(),
                 };
                 let len = Lit::Int(LitInt::new(format!("{}", len).as_str(), Span::call_site()));
                 quote! { [#item_ty; #len] }
@@ -49,18 +72,31 @@ impl Type {
                 let types = types.iter().map(|ty| ty.def(no_alloc));
                 quote! { ( #(#types),* ) }
             }
-            Type::Vec(_) => unimplemented!(),
-            Type::User(user_layout) => {
-                let path = user_layout.path();
-                quote! { #path }
-            }
+            Type::Vec(layout) => match layout {
+                Layout::Builtin(inner_ty) => {
+                    let inner_ty = inner_ty.def(no_alloc);
+                    if no_alloc {
+                        quote! { wire_weaver::shrink_wrap::vec::RefVec<'i, #inner_ty> }
+                    } else {
+                        quote! { Vec<#inner_ty> }
+                    }
+                }
+                Layout::Option(_) => unimplemented!(),
+                Layout::Result(_) => unimplemented!(),
+            },
+            // Type::User(user_layout) => {
+            //     let path = user_layout.path();
+            //     quote! { #path }
+            // }
+            Type::Unsized(_) => unimplemented!(),
+            Type::Sized(_, _) => unimplemented!(),
             Type::IsSome | Type::IsOk => quote! { bool },
         }
     }
 
     pub(crate) fn buf_write(
         &self,
-        field_path: TokenStream,
+        field_path: FieldPath,
         no_alloc: bool,
         tokens: &mut TokenStream,
     ) {
@@ -81,27 +117,30 @@ impl Type {
             Type::I128 => "write_i128",
             Type::F32 => "write_f32",
             Type::F64 => "write_f64",
-            Type::Bytes => {
-                if no_alloc {
-                    "write_bytes"
-                } else {
-                    tokens.append_all(quote! { wr.write_raw_slice(&#field_path)?; });
-                    return;
-                }
-            }
+            // Type::Bytes => {
+            //     if no_alloc {
+            //         "write_bytes"
+            //     } else {
+            //         tokens.append_all(quote! { wr.write_raw_slice(&#field_path)?; });
+            //         return;
+            //     }
+            // }
             Type::String => {
                 if no_alloc {
                     "write_string"
                 } else {
+                    let field_path = field_path.by_ref();
                     tokens.append_all(quote! { wr.write_string(#field_path.as_str())?; });
                     return;
                 }
             }
             Type::IsSome => {
+                let field_path = field_path.by_value();
                 tokens.append_all(quote! { wr.write_bool(#field_path.is_some())?; });
                 return;
             }
             Type::IsOk => {
+                let field_path = field_path.by_value();
                 tokens.append_all(quote! { wr.write_bool(#field_path.is_ok())?; });
                 return;
             }
@@ -113,10 +152,23 @@ impl Type {
             Type::ILeb128 => unimplemented!(),
             Type::Array(_, _) => unimplemented!(),
             Type::Tuple(_) => unimplemented!(),
-            Type::Vec(_) => unimplemented!(),
-            Type::User(_) => unimplemented!(),
+            Type::Vec(layout) => {
+                match layout {
+                    Layout::Builtin(_) => {
+                        let field_path = field_path.by_ref();
+                        tokens.append_all(quote! { wr.write(#field_path)?; });
+                    }
+                    Layout::Option(_) => unimplemented!(),
+                    Layout::Result(_) => unimplemented!(),
+                }
+                return;
+            }
+            // Type::User(_) => unimplemented!(),
+            Type::Sized(_, _) => unimplemented!(),
+            Type::Unsized(_) => unimplemented!(),
         };
         let write_fn = Ident::new(write_fn, Span::call_site());
+        let field_path = field_path.by_value();
         tokens.append_all(quote! { wr.#write_fn(#field_path)?; });
     }
 
@@ -150,7 +202,7 @@ impl Type {
             Type::ILeb128 => unimplemented!(),
             Type::F32 => "read_f32",
             Type::F64 => "read_f64",
-            Type::Bytes => "read_bytes",
+            // Type::Bytes => "read_bytes",
             Type::String => {
                 if no_alloc {
                     "read_string"
@@ -163,12 +215,89 @@ impl Type {
             }
             Type::Array(_, _) => unimplemented!(),
             Type::Tuple(_) => unimplemented!(),
-            Type::Vec(_) => unimplemented!(),
-            Type::User(_) => unimplemented!(),
+            Type::Vec(layout) => match layout {
+                Layout::Builtin(inner_ty) => {
+                    // TODO: how to handle eob to be zero length?
+                    let element_size = inner_ty.element_size_ts();
+                    tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
+                    return;
+                }
+                Layout::Option(_) => unimplemented!(),
+                Layout::Result(_) => unimplemented!(),
+            },
+            // Type::User(_) => unimplemented!(),
+            Type::Unsized(_) => unimplemented!(),
+            Type::Sized(_, _) => unimplemented!(),
             Type::IsSome => unimplemented!(),
             Type::IsOk => unimplemented!(),
         };
         let read_fn = Ident::new(read_fn, Span::call_site());
         tokens.append_all(quote! { let #variable_name = rd.#read_fn() #handle_eob; })
+    }
+
+    pub fn element_size(&self) -> ElementSize {
+        let size_bits = match self {
+            Type::Bool => 1,
+            Type::U4 => 4,
+            Type::U8 => 8,
+            Type::U16 => 16,
+            Type::U32 => 32,
+            Type::U64 => 64,
+            Type::U128 => 128,
+            Type::Nib16 => return ElementSize::UnsizedSelfDescribing,
+            Type::ULeb32 => return ElementSize::UnsizedSelfDescribing,
+            Type::ULeb64 => return ElementSize::UnsizedSelfDescribing,
+            Type::ULeb128 => return ElementSize::UnsizedSelfDescribing,
+            Type::I4 => 4,
+            Type::I8 => 8,
+            Type::I16 => 16,
+            Type::I32 => 32,
+            Type::I64 => 64,
+            Type::I128 => 128,
+            Type::ILeb32 => return ElementSize::UnsizedSelfDescribing,
+            Type::ILeb64 => return ElementSize::UnsizedSelfDescribing,
+            Type::ILeb128 => return ElementSize::UnsizedSelfDescribing,
+            Type::F32 => 32,
+            Type::F64 => 64,
+            Type::String => return ElementSize::Unsized,
+            Type::Array(len, layout) => match layout {
+                Layout::Builtin(ty) => {
+                    return match ty.element_size() {
+                        ElementSize::Implied => ElementSize::Implied,
+                        ElementSize::Unsized => ElementSize::Unsized,
+                        ElementSize::Sized { size_bits } => ElementSize::Sized {
+                            size_bits: len * size_bits,
+                        },
+                        ElementSize::UnsizedSelfDescribing => ElementSize::UnsizedSelfDescribing,
+                    }
+                }
+                Layout::Option(_inner_ty) => unimplemented!(),
+                Layout::Result(_inner_ty) => unimplemented!(),
+            },
+            Type::Tuple(_) => unimplemented!(),
+            Type::Vec(_) => return ElementSize::Unsized,
+            Type::Unsized(_) => return ElementSize::Unsized,
+            Type::Sized(_, size_bytes) => {
+                return ElementSize::Sized {
+                    size_bits: *size_bytes as usize * 8,
+                }
+            }
+            Type::IsSome => unimplemented!(),
+            Type::IsOk => unimplemented!(),
+        };
+        ElementSize::Sized { size_bits }
+    }
+
+    pub fn element_size_ts(&self) -> TokenStream {
+        let path = quote! { wire_weaver::shrink_wrap::traits::ElementSize };
+        match self.element_size() {
+            ElementSize::Implied => quote! { #path::Implied },
+            ElementSize::Unsized => quote! { #path::Unsized },
+            ElementSize::Sized { size_bits } => {
+                let size_bits = LitInt::new(format!("{size_bits}").as_str(), Span::call_site());
+                quote! { #path::Sized { size_bits: #size_bits } }
+            }
+            ElementSize::UnsizedSelfDescribing => quote! { #path::UnsizedSelfDescribing },
+        }
     }
 }

@@ -1,0 +1,4 @@
+enum E {
+    A { a: u8, b: u16 },
+    B { buf: Vec<u8> },
+}

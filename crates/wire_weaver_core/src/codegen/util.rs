@@ -1,8 +1,12 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
 
-pub(crate) fn serdes(ty_name: Ident, ser: impl ToTokens, des: impl ToTokens) -> TokenStream {
-    let lifetime = quote!();
+pub(crate) fn serdes(
+    ty_name: Ident,
+    ser: impl ToTokens,
+    des: impl ToTokens,
+    lifetime: TokenStream,
+) -> TokenStream {
     quote! {
         impl #lifetime wire_weaver::shrink_wrap::SerializeShrinkWrap for #ty_name #lifetime {
             fn ser_shrink_wrap(

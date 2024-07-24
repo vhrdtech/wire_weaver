@@ -11,3 +11,4 @@ quote = { workspace = true }
 proc-macro2 = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
+shrink_wrap = { path = "../shrink_wrap" }

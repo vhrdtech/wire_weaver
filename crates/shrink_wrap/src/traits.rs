@@ -11,9 +11,9 @@ pub enum ElementSize {
     Unsized,
     /// Element size is known and not stored in a buffer.
     Sized {
-        size_bytes: usize,
+        size_bits: usize,
     },
-    /// Elements size is unknown, but deserializer is able to differ them apart (e.g. LEB or VLU16N).
+    /// Elements size is unknown, but deserializer is able to differ them apart (e.g. LEB or NIB16).
     /// Element size is not stored as with Sized.
     UnsizedSelfDescribing,
 }
@@ -25,17 +25,54 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
     ) -> Result<Self, Error>;
 }
 
-impl SerializeShrinkWrap for bool {
-    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_bool(*self)
-    }
+macro_rules! impl_serialize {
+    ($ty:ty, $write_fn:ident) => {
+        impl SerializeShrinkWrap for $ty {
+            fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                wr.$write_fn(*self)
+            }
+        }
+    };
 }
+impl_serialize!(bool, write_bool);
+impl_serialize!(u8, write_u8);
+impl_serialize!(u16, write_u16);
+impl_serialize!(u32, write_u32);
+impl_serialize!(u64, write_u64);
+impl_serialize!(u128, write_u128);
+impl_serialize!(i8, write_i8);
+impl_serialize!(i16, write_i16);
+impl_serialize!(i32, write_i32);
+impl_serialize!(i64, write_i64);
+impl_serialize!(i128, write_i128);
+impl_serialize!(f32, write_f32);
+impl_serialize!(f64, write_f64);
 
-impl SerializeShrinkWrap for u8 {
-    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_u8(*self)
-    }
+macro_rules! impl_deserialize {
+    ($ty:ty, $read_fn:ident) => {
+        impl<'i> DeserializeShrinkWrap<'i> for $ty {
+            fn des_shrink_wrap<'di>(
+                rd: &'di mut BufReader<'i>,
+                _element_size: ElementSize,
+            ) -> Result<Self, Error> {
+                rd.$read_fn()
+            }
+        }
+    };
 }
+impl_deserialize!(bool, read_bool);
+impl_deserialize!(u8, read_u8);
+impl_deserialize!(u16, read_u16);
+impl_deserialize!(u32, read_u32);
+impl_deserialize!(u64, read_u64);
+impl_deserialize!(u128, read_u128);
+impl_deserialize!(i8, read_i8);
+impl_deserialize!(i16, read_i16);
+impl_deserialize!(i32, read_i32);
+impl_deserialize!(i64, read_i64);
+impl_deserialize!(i128, read_i128);
+impl_deserialize!(f32, read_f32);
+impl_deserialize!(f64, read_f64);
 
 // Won't work with reordered bool's and u4's
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {
@@ -62,15 +99,6 @@ impl<T: SerializeShrinkWrap, E: SerializeShrinkWrap> SerializeShrinkWrap for Res
                 wr.write(err_code)
             }
         }
-    }
-}
-
-impl<'i> DeserializeShrinkWrap<'i> for u8 {
-    fn des_shrink_wrap<'di>(
-        rd: &'di mut BufReader<'i>,
-        _element_size: ElementSize,
-    ) -> Result<Self, Error> {
-        rd.read_u8()
     }
 }
 

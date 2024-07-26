@@ -4,7 +4,7 @@ pub trait SerializeShrinkWrap {
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error>;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ElementSize {
     Implied,
     /// Element size is unknown and stored at the back of the buffer.
@@ -17,6 +17,15 @@ pub enum ElementSize {
     /// Element size is not stored as with Sized.
     UnsizedSelfDescribing,
 }
+//
+// impl ElementSize {
+//     pub fn most_constraining(&self, other: ElementSize) -> ElementSize {
+//         if self == ElementSize::Unsized || other == ElementSize::Unsized {
+//             return ElementSize::Unsized
+//         }
+//
+//     }
+// }
 
 pub trait DeserializeShrinkWrap<'i>: Sized {
     fn des_shrink_wrap<'di>(

@@ -1,0 +1,3 @@
+struct TestStruct {
+    result: Result<u8, u32>,
+}

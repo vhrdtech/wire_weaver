@@ -149,10 +149,15 @@ pub enum Type {
     // BufReader size will be limited to the provided number of bytes, unread bytes will be skipped.
     Sized(Path, u32),
 
+    // Option(Ident, Box<Type>),
     // Only relevant for fields with type Option<T>. Vec<Option<T>> handles flags differently.
     IsSome,
+
+    // is_ok_flag, (ok_ty, err_ty)
+    Result(Ident, Box<(Type, Type)>),
     // Only relevant for fields with type Result<T, E>. Vec<Result<T, E>> handles flags differently.
-    IsOk,
+    // result_field
+    IsOk(Ident),
 }
 
 #[derive(Debug)]
@@ -235,6 +240,24 @@ impl Type {
     pub fn potential_lifetimes(&self) -> bool {
         match self {
             Type::String | Type::Vec(_) => true,
+            Type::Result(_, ok_err_ty) => {
+                ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
+            }
+            Type::Tuple(types) => {
+                for ty in types {
+                    if ty.potential_lifetimes() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Type::Array(_, layout) => match layout {
+                Layout::Builtin(ty) => ty.potential_lifetimes(),
+                Layout::Option(ty) => ty.potential_lifetimes(),
+                Layout::Result(ok_err_ty) => {
+                    ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
+                }
+            },
             _ => false,
         }
     }

@@ -90,7 +90,12 @@ impl Type {
             // }
             Type::Unsized(_) => unimplemented!(),
             Type::Sized(_, _) => unimplemented!(),
-            Type::IsSome | Type::IsOk => quote! { bool },
+            Type::Result(_, ok_err_ty) => {
+                let ok_ty = ok_err_ty.0.def(no_alloc);
+                let err_ty = ok_err_ty.1.def(no_alloc);
+                quote! { Result<#ok_ty, #err_ty> }
+            }
+            Type::IsSome | Type::IsOk(_) => quote! { bool },
         }
     }
 
@@ -139,9 +144,23 @@ impl Type {
                 tokens.append_all(quote! { wr.write_bool(#field_path.is_some())?; });
                 return;
             }
-            Type::IsOk => {
-                let field_path = field_path.by_value();
-                tokens.append_all(quote! { wr.write_bool(#field_path.is_ok())?; });
+            Type::Result(_flag_ident, _ok_err_ty) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! {
+                    match #field_path {
+                        Ok(v) => {
+                            wr.write(v)?;
+                        }
+                        Err(e) => {
+                            wr.write(e)?;
+                        }
+                    }
+                });
+                return;
+            }
+            Type::IsOk(result_field) => {
+                let object_path = field_path.by_value();
+                tokens.append_all(quote! { wr.write_bool(#object_path.#result_field.is_ok())?; });
                 return;
             }
             Type::ULeb32 => unimplemented!(),
@@ -180,7 +199,7 @@ impl Type {
         tokens: &mut TokenStream,
     ) {
         let read_fn = match self {
-            Type::Bool => "read_bool",
+            Type::Bool | Type::IsOk(_) | Type::IsSome => "read_bool",
             Type::U4 => "read_u4",
             Type::U8 => "read_u8",
             Type::U16 => "read_u16",
@@ -228,8 +247,19 @@ impl Type {
             // Type::User(_) => unimplemented!(),
             Type::Unsized(_) => unimplemented!(),
             Type::Sized(_, _) => unimplemented!(),
-            Type::IsSome => unimplemented!(),
-            Type::IsOk => unimplemented!(),
+            Type::Result(flag_ident, ok_err_ty) => {
+                let is_ok: Ident = flag_ident.into();
+                let ok_element_size = ok_err_ty.0.element_size_ts();
+                let err_element_size = ok_err_ty.1.element_size_ts();
+                tokens.append_all(quote! {
+                    let #variable_name = if #is_ok {
+                        Ok(rd.read(#ok_element_size)?)
+                    } else {
+                        Err(rd.read(#err_element_size)?)
+                    };
+                });
+                return;
+            }
         };
         let read_fn = Ident::new(read_fn, Span::call_site());
         tokens.append_all(quote! { let #variable_name = rd.#read_fn() #handle_eob; })
@@ -282,8 +312,12 @@ impl Type {
                     size_bits: *size_bytes as usize * 8,
                 }
             }
-            Type::IsSome => unimplemented!(),
-            Type::IsOk => unimplemented!(),
+            Type::IsSome | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
+            Type::Result(_, ok_err_ty) => {
+                // runtime value dependent size
+                eprintln!("!! Result size is not fully implemented");
+                return ElementSize::Unsized;
+            }
         };
         ElementSize::Sized { size_bits }
     }

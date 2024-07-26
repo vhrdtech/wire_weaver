@@ -1,0 +1,9 @@
+// a and result's flag will each occupy 1 bit and will be stored in the first byte
+struct TestStruct {
+    a: bool,
+    #[flag]
+    result: bool,
+
+    b: u8,
+    result: Result<u8, u32>,
+}

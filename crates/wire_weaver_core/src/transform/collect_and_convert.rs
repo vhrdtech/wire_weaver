@@ -3,8 +3,8 @@ use syn::{Expr, GenericArgument, Lit, PathArguments};
 use crate::ast::ident::Ident;
 use crate::ast::{Field, Fields, Item, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
-    collect_unknown_attributes, take_default_attr, take_final_attr, take_id_attr, take_repr_attr,
-    take_since_attr,
+    collect_unknown_attributes, take_default_attr, take_final_attr, take_flag_attr, take_id_attr,
+    take_repr_attr, take_since_attr,
 };
 use crate::transform::{Messages, SynConversionError, SynFile, SynItemWithContext};
 
@@ -152,18 +152,44 @@ impl<'i> CollectAndConvertPass<'i> {
     fn transform_field(&mut self, def_order_idx: u32, field: &syn::Field) -> Option<Field> {
         let mut field = field.clone();
         let ty = self.transform_type(field.ty)?;
-        let default = take_default_attr(&mut field.attrs, &mut self.messages);
-        collect_unknown_attributes(&mut field.attrs, &mut self.messages);
-        Some(Field {
-            id: take_id_attr(&mut field.attrs).unwrap_or(def_order_idx),
-            ident: field
-                .ident
-                .map(|i| i.into())
-                .unwrap_or(Ident::new(format!("_{def_order_idx}"))),
-            ty,
-            since: take_since_attr(&mut field.attrs),
-            default,
-        })
+        let default = take_default_attr(&mut field.attrs, self.messages);
+        let flag = take_flag_attr(&mut field.attrs);
+        collect_unknown_attributes(&mut field.attrs, self.messages);
+        let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
+
+        let ident = field
+            .ident
+            .map(|i| i.into())
+            .unwrap_or(Ident::new(format!("_{def_order_idx}")));
+        let ident = if flag.is_some() {
+            Ident::new(format!("_{}_flag", ident.sym))
+        } else {
+            ident
+        };
+
+        if flag.is_some() {
+            if !matches!(ty, Type::Bool) {
+                self.messages
+                    .push_conversion_error(SynConversionError::FlagTypeIsNotBool);
+                return None;
+            }
+            Some(Field {
+                id,
+                ident,
+                // TODO: find ident in context
+                ty: Type::IsOk(Ident::new("result")),
+                since: None,
+                default,
+            })
+        } else {
+            Some(Field {
+                id,
+                ident,
+                ty,
+                since: take_since_attr(&mut field.attrs),
+                default,
+            })
+        }
     }
 
     fn transform_type(&mut self, ty: syn::Type) -> Option<Type> {
@@ -221,6 +247,39 @@ impl<'i> CollectAndConvertPass<'i> {
                             };
                             let inner_ty = self.transform_type(inner_ty.clone())?;
                             Type::Vec(Layout::Builtin(Box::new(inner_ty)))
+                        }
+                        "Result" => {
+                            let PathArguments::AngleBracketed(arg) = &path_segment.arguments else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(
+                                        "expected Result<T, E>, got Result or Result()".into(),
+                                    ),
+                                );
+                                return None;
+                            };
+                            let mut args = arg.args.iter();
+                            let (Some(ok_arg), Some(err_arg)) = (args.next(), args.next()) else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(
+                                        "expected Result<T, E>".into(),
+                                    ),
+                                );
+                                return None;
+                            };
+                            let (GenericArgument::Type(ok_ty), GenericArgument::Type(err_ty)) =
+                                (ok_arg, err_arg)
+                            else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnsupportedType(format!(
+                                        "expected Vec<T>, got {arg:?}"
+                                    )),
+                                );
+                                return None;
+                            };
+                            let ok_ty = self.transform_type(ok_ty.clone())?;
+                            let err_ty = self.transform_type(err_ty.clone())?;
+                            // TODO: find ok_flag in context
+                            Type::Result(Ident::new("_result_flag"), Box::new((ok_ty, err_ty)))
                         }
                         _ => {
                             // go through current file and find it else emit error

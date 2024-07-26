@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
 
-use crate::ast::{Field, ItemStruct};
+use crate::ast::{Field, ItemStruct, Type};
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::serdes;
 
@@ -31,6 +31,9 @@ struct CGStructFieldsDef<'a> {
 impl<'a> ToTokens for CGStructFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in self.fields {
+            if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+                continue;
+            }
             let ident: Ident = (&struct_field.ident).into();
             let ty = struct_field.ty.def(self.no_alloc);
             tokens.append_all(quote! {
@@ -72,7 +75,11 @@ impl<'a> ToTokens for CGStructSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
-            let field_path = FieldPath::Value(quote!(self.#field_name));
+            let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+                FieldPath::Value(quote! {self})
+            } else {
+                FieldPath::Value(quote! {self.#field_name})
+            };
             struct_field.ty.buf_write(field_path, self.no_alloc, tokens);
         }
         tokens.append_all(quote! {
@@ -86,7 +93,9 @@ impl<'a> ToTokens for CGStructDes<'a> {
         let mut field_names = vec![];
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
-            field_names.push(field_name.clone());
+            if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+                field_names.push(field_name.clone());
+            }
             let handle_eob = struct_field.handle_eob();
             // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
             struct_field

@@ -22,6 +22,7 @@ pub enum SynConversionError {
     WrongDefaultAttr(String),
     WrongDiscriminant,
     WrongReprAttr(String),
+    FlagTypeIsNotBool,
 }
 
 #[derive(Default)]

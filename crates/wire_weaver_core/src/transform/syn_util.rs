@@ -59,6 +59,15 @@ pub(crate) fn take_default_attr(
     }
 }
 
+pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
+    let (attr_idx, _) = attrs
+        .iter()
+        .enumerate()
+        .find(|(_, a)| a.path().is_ident("flag"))?;
+    let _attr = attrs.remove(attr_idx);
+    Some(())
+}
+
 pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     let (attr_idx, _) = attrs
         .iter()

@@ -1,8 +1,27 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
 
-use crate::ast::data::{Field, Fields, Variant};
-use crate::ast::item::{ItemEnum, ItemStruct};
+use crate::ast::{Field, ItemStruct};
+use crate::codegen::ty::FieldPath;
+use crate::codegen::util::serdes;
+
+pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
+    let ident: Ident = (&item_struct.ident).into();
+    let fields = CGStructFieldsDef {
+        fields: &item_struct.fields,
+        no_alloc,
+    };
+    let lifetime = if no_alloc && item_struct.potential_lifetimes() {
+        quote!(<'i>)
+    } else {
+        quote!()
+    };
+    let ts = quote! {
+        #[derive(Debug)]
+        pub struct #ident #lifetime { #fields }
+    };
+    ts
+}
 
 struct CGStructFieldsDef<'a> {
     fields: &'a [Field],
@@ -13,30 +32,12 @@ impl<'a> ToTokens for CGStructFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in self.fields {
             let ident: Ident = (&struct_field.ident).into();
-            let ty = struct_field.ty.ty_def(self.no_alloc);
+            let ty = struct_field.ty.def(self.no_alloc);
             tokens.append_all(quote! {
                 pub #ident: #ty,
             });
         }
     }
-}
-
-pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
-    let ident: Ident = (&item_struct.ident).into();
-    let fields = CGStructFieldsDef {
-        fields: &item_struct.fields,
-        no_alloc,
-    };
-    let lifetime = if no_alloc && item_struct.contains_ref_types() {
-        quote!(<'i>)
-    } else {
-        quote!()
-    };
-    let ts = quote! {
-        #[derive(Debug)]
-        pub struct #ident #lifetime { #fields }
-    };
-    ts
 }
 
 struct CGStructSer<'a> {
@@ -59,20 +60,20 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         item_struct,
         no_alloc,
     };
-    // let lifetime = if no_alloc && item_struct.contains_ref_types() {
-    //     quote!(<'i>)
-    // } else {
-    //     quote!()
-    // };
-    serdes(struct_name, struct_ser, struct_des)
+    let lifetime = if no_alloc && item_struct.potential_lifetimes() {
+        quote!(<'i>)
+    } else {
+        quote!()
+    };
+    serdes(struct_name, struct_ser, struct_des, lifetime)
 }
 
 impl<'a> ToTokens for CGStructSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
-            let field_path = quote!(self.#field_name);
-            tokens.append_all(struct_field.ty.buf_write(field_path, false, self.no_alloc));
+            let field_path = FieldPath::Value(quote!(self.#field_name));
+            struct_field.ty.buf_write(field_path, self.no_alloc, tokens);
         }
         tokens.append_all(quote! {
             Ok(())
@@ -88,11 +89,9 @@ impl<'a> ToTokens for CGStructDes<'a> {
             field_names.push(field_name.clone());
             let handle_eob = struct_field.handle_eob();
             // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
-            tokens.append_all(
-                struct_field
-                    .ty
-                    .buf_read(field_name, handle_eob, self.no_alloc),
-            );
+            struct_field
+                .ty
+                .buf_read(field_name, self.no_alloc, handle_eob, tokens);
         }
         let struct_name: Ident = (&self.item_struct.ident).into();
         tokens.append_all(quote! {

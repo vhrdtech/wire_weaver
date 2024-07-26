@@ -1,4 +1,4 @@
-use core::fmt::{Debug, Formatter, Write};
+use core::fmt::{Debug, Formatter};
 
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};

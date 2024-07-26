@@ -186,6 +186,17 @@ pub enum Layout {
 //     }
 // }
 
+impl ItemStruct {
+    pub fn potential_lifetimes(&self) -> bool {
+        for field in &self.fields {
+            if field.ty.potential_lifetimes() {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 impl ItemEnum {
     pub fn potential_lifetimes(&self) -> bool {
         for variant in &self.variants {

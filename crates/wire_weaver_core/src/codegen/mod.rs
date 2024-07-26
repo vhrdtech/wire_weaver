@@ -6,6 +6,7 @@ use crate::ast::{Context, Item};
 // pub mod item;
 pub mod item_enum;
 // mod op;
+pub mod item_struct;
 mod ty;
 mod util;
 
@@ -14,7 +15,10 @@ pub fn generate(cx: &Context, no_alloc: bool) -> TokenStream {
     for module in &cx.modules {
         for item in &module.items {
             match item {
-                Item::Struct(_) => {}
+                Item::Struct(item_struct) => {
+                    ts.append_all(item_struct::struct_def(item_struct, no_alloc));
+                    ts.append_all(item_struct::struct_serdes(item_struct, no_alloc));
+                }
                 Item::Enum(item_enum) => {
                     ts.append_all(item_enum::enum_def(item_enum, no_alloc));
                     ts.append_all(item_enum::enum_serdes(item_enum, no_alloc));

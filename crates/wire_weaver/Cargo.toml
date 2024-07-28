@@ -6,8 +6,12 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
-shrink_wrap = { path = "../shrink_wrap" }
+shrink_wrap = { path = "../shrink_wrap", default-features = false }
 wire_weaver_derive = { path = "../wire_weaver_derive" }
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std"]
 
 [build-dependencies]
 wire_weaver_core = { path = "../wire_weaver_core" }

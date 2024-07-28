@@ -240,7 +240,7 @@ impl<'i> BufReader<'i> {
         self.byte_idx += 1;
     }
 
-    pub fn bytes_left(&mut self) -> usize {
+    pub fn bytes_left(&self) -> usize {
         if self.byte_idx >= self.len_bytes {
             return 0;
         }

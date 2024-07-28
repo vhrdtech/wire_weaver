@@ -9,7 +9,7 @@ struct Request {
 enum RequestKind {
     Version { protocol_id: u32, version: Version },
     Call { args: Vec<u8> },
-    // Read,
+    Read,
     // Write { value: Vec<u8> },
     // OpenStream,
     // CloseStream,
@@ -23,13 +23,15 @@ enum RequestKind {
 
 struct Event {
     seq: u16,
+    #[flag]
+    result: bool,
     result: Result<EventKind, Error>,
 }
 
 enum EventKind {
     Version { protocol_id: u32, version: Version },
     ReturnValue { data: Vec<u8> },
-    // ReadValue { data: Vec<u8> },
+    ReadValue { data: Vec<u8> },
     // Written,
     // StreamOpened,
     // TODO: Add Option<SizeHint>

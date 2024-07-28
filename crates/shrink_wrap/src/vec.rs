@@ -39,6 +39,10 @@ impl<'i, T> RefVec<'i, T> {
             RefVec::Buf { elements_count, .. } => *elements_count as usize,
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<'i, T> RefVec<'i, T>
@@ -63,6 +67,29 @@ where
                 pos: 0,
             },
         }
+    }
+}
+
+// implementing separately because partial specialisation is not yet supported
+impl<'i> RefVec<'i, u8> {
+    pub fn ser_shrink_wrap_vec_u8(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        let len = self.len();
+        let Ok(len_u16) = u16::try_from(len) else {
+            return Err(Error::VecTooLong);
+        };
+        wr.write_u16_rev(len_u16)?;
+        let len = self.len();
+        match self {
+            RefVec::Slice { slice, .. } => {
+                wr.write_raw_slice(slice)?;
+            }
+            RefVec::Buf { buf, .. } => {
+                let mut buf = *buf;
+                let slice = buf.read_raw_slice(len)?;
+                wr.write_raw_slice(slice)?;
+            }
+        }
+        Ok(())
     }
 }
 

@@ -1,4 +1,5 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+//#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
 pub use buf_reader::BufReader;
 pub use buf_writer::BufWriter;
@@ -9,6 +10,9 @@ pub mod buf_writer;
 pub(crate) mod nib16;
 pub mod traits;
 pub mod vec;
+
+#[cfg(feature = "std")]
+pub mod alloc;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {

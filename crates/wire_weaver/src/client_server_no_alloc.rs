@@ -1,10 +1,10 @@
 use crate as wire_weaver;
 #[derive(Debug)]
-pub struct Request {
+pub struct Request<'i> {
     pub seq: u16,
-    pub kind: RequestKind,
+    pub kind: RequestKind<'i>,
 }
-impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Request {
+impl<'i> wire_weaver::shrink_wrap::SerializeShrinkWrap for Request<'i> {
     fn ser_shrink_wrap(
         &self,
         wr: &mut wire_weaver::shrink_wrap::BufWriter,
@@ -23,7 +23,7 @@ impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Request {
         Ok(())
     }
 }
-impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Request {
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Request<'i> {
     fn des_shrink_wrap<'di>(
         rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
         _element_size: wire_weaver::shrink_wrap::ElementSize,
@@ -37,18 +37,23 @@ impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Request {
 }
 #[derive(Debug)]
 #[repr(u16)]
-pub enum RequestKind {
-    Version { protocol_id: u32, version: Version } = 0,
-    Call { args: Vec<u8> } = 1,
+pub enum RequestKind<'i> {
+    Version {
+        protocol_id: u32,
+        version: Version,
+    } = 0,
+    Call {
+        args: wire_weaver::shrink_wrap::vec::RefVec<'i, u8>,
+    } = 1,
     Read = 2,
     Heartbeat = 3,
 }
-impl RequestKind {
+impl<'i> RequestKind<'i> {
     pub fn discriminant(&self) -> u16 {
         unsafe { *<*const _>::from(self).cast::<u16>() }
     }
 }
-impl wire_weaver::shrink_wrap::SerializeShrinkWrap for RequestKind {
+impl<'i> wire_weaver::shrink_wrap::SerializeShrinkWrap for RequestKind<'i> {
     fn ser_shrink_wrap(
         &self,
         wr: &mut wire_weaver::shrink_wrap::BufWriter,
@@ -72,14 +77,14 @@ impl wire_weaver::shrink_wrap::SerializeShrinkWrap for RequestKind {
                 wr.update_u16_rev(size_slot_pos, size_bytes)?;
             }
             RequestKind::Call { args } => {
-                wr.write(args)?;
+                args.ser_shrink_wrap_vec_u8(wr)?;
             }
             _ => {}
         }
         Ok(())
     }
 }
-impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for RequestKind {
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for RequestKind<'i> {
     fn des_shrink_wrap<'di>(
         rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
         _element_size: wire_weaver::shrink_wrap::ElementSize,
@@ -110,11 +115,11 @@ impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for RequestKind {
     }
 }
 #[derive(Debug)]
-pub struct Event {
+pub struct Event<'i> {
     pub seq: u16,
-    pub result: Result<EventKind, Error>,
+    pub result: Result<EventKind<'i>, Error>,
 }
-impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Event {
+impl<'i> wire_weaver::shrink_wrap::SerializeShrinkWrap for Event<'i> {
     fn ser_shrink_wrap(
         &self,
         wr: &mut wire_weaver::shrink_wrap::BufWriter,
@@ -132,7 +137,7 @@ impl wire_weaver::shrink_wrap::SerializeShrinkWrap for Event {
         Ok(())
     }
 }
-impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Event {
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Event<'i> {
     fn des_shrink_wrap<'di>(
         rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
         _element_size: wire_weaver::shrink_wrap::ElementSize,
@@ -149,18 +154,25 @@ impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for Event {
 }
 #[derive(Debug)]
 #[repr(u16)]
-pub enum EventKind {
-    Version { protocol_id: u32, version: Version } = 0,
-    ReturnValue { data: Vec<u8> } = 1,
-    ReadValue { data: Vec<u8> } = 2,
+pub enum EventKind<'i> {
+    Version {
+        protocol_id: u32,
+        version: Version,
+    } = 0,
+    ReturnValue {
+        data: wire_weaver::shrink_wrap::vec::RefVec<'i, u8>,
+    } = 1,
+    ReadValue {
+        data: wire_weaver::shrink_wrap::vec::RefVec<'i, u8>,
+    } = 2,
     Heartbeat = 3,
 }
-impl EventKind {
+impl<'i> EventKind<'i> {
     pub fn discriminant(&self) -> u16 {
         unsafe { *<*const _>::from(self).cast::<u16>() }
     }
 }
-impl wire_weaver::shrink_wrap::SerializeShrinkWrap for EventKind {
+impl<'i> wire_weaver::shrink_wrap::SerializeShrinkWrap for EventKind<'i> {
     fn ser_shrink_wrap(
         &self,
         wr: &mut wire_weaver::shrink_wrap::BufWriter,
@@ -184,17 +196,17 @@ impl wire_weaver::shrink_wrap::SerializeShrinkWrap for EventKind {
                 wr.update_u16_rev(size_slot_pos, size_bytes)?;
             }
             EventKind::ReturnValue { data } => {
-                wr.write(data)?;
+                data.ser_shrink_wrap_vec_u8(wr)?;
             }
             EventKind::ReadValue { data } => {
-                wr.write(data)?;
+                data.ser_shrink_wrap_vec_u8(wr)?;
             }
             _ => {}
         }
         Ok(())
     }
 }
-impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for EventKind {
+impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for EventKind<'i> {
     fn des_shrink_wrap<'di>(
         rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
         _element_size: wire_weaver::shrink_wrap::ElementSize,

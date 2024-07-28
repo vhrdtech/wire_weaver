@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, TokenStreamExt};
 use syn::{Lit, LitInt};
@@ -22,6 +24,13 @@ impl FieldPath {
     fn by_value(self) -> TokenStream {
         match self {
             FieldPath::Ref(path) => quote! { *#path },
+            FieldPath::Value(path) => path,
+        }
+    }
+
+    fn as_provided(self) -> TokenStream {
+        match self {
+            FieldPath::Ref(path) => path,
             FieldPath::Value(path) => path,
         }
     }
@@ -179,9 +188,15 @@ impl Type {
             Type::Tuple(_) => unimplemented!(),
             Type::Vec(layout) => {
                 match layout {
-                    Layout::Builtin(_) => {
-                        let field_path = field_path.by_ref();
-                        tokens.append_all(quote! { wr.write(#field_path)?; });
+                    Layout::Builtin(inner_ty) => {
+                        let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
+                        if is_vec_u8 && no_alloc {
+                            let field_path = field_path.as_provided();
+                            tokens.append_all(quote! { #field_path.ser_shrink_wrap_vec_u8(wr)?; });
+                        } else {
+                            let field_path = field_path.by_ref();
+                            tokens.append_all(quote! { wr.write(#field_path)?; });
+                        }
                     }
                     Layout::Option(_) => unimplemented!(),
                     Layout::Result(_) => unimplemented!(),

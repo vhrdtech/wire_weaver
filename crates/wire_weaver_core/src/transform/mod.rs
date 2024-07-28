@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
-use crate::ast::{Context, Module, Source, Version};
+use crate::ast::{Context, ItemEnum, ItemStruct, Module, Source, Version};
 use crate::transform::collect_and_convert::CollectAndConvertPass;
 
 mod collect_and_convert;
 mod syn_util;
-
+// mod visit_user_types;
 // TODO: check that no fields and no variants have the same name
 // TODO: check that variants fit within chosen repr
 
@@ -17,12 +17,13 @@ pub enum SynConversionWarning {
 
 #[derive(Debug, Clone)]
 pub enum SynConversionError {
-    UnknownType,
+    UnknownType(String),
     UnsupportedType(String),
     WrongDefaultAttr(String),
     WrongDiscriminant,
     WrongReprAttr(String),
     FlagTypeIsNotBool,
+    RecursionLimitReached,
 }
 
 #[derive(Default)]
@@ -74,12 +75,29 @@ pub(crate) struct SynFile {
     source: Source,
     _shebang: Option<String>,
     _attrs: Vec<syn::Attribute>,
-    items: Vec<SynItemWithContext>,
+    items: VecDeque<SynItemWithContext>,
 }
 
 enum SynItemWithContext {
-    Enum { item_enum: syn::ItemEnum },
-    Struct { item_struct: syn::ItemStruct },
+    Enum {
+        item_enum: syn::ItemEnum,
+        transformed: Option<ItemEnum>,
+        is_lifetime: Option<bool>,
+    },
+    Struct {
+        item_struct: syn::ItemStruct,
+        transformed: Option<ItemStruct>,
+        is_lifetime: Option<bool>,
+    },
+}
+
+impl SynItemWithContext {
+    pub fn ident(&self) -> syn::Ident {
+        match self {
+            SynItemWithContext::Enum { item_enum, .. } => item_enum.ident.clone(),
+            SynItemWithContext::Struct { item_struct, .. } => item_struct.ident.clone(),
+        }
+    }
 }
 
 impl Transform {
@@ -88,14 +106,22 @@ impl Transform {
     }
 
     pub fn push_file(&mut self, source: Source, syn_file: syn::File) {
-        let mut items = vec![];
+        let mut items = VecDeque::new();
         for item in syn_file.items {
             match item {
                 syn::Item::Struct(item_struct) => {
-                    items.push(SynItemWithContext::Struct { item_struct });
+                    items.push_back(SynItemWithContext::Struct {
+                        item_struct,
+                        transformed: None,
+                        is_lifetime: None,
+                    });
                 }
                 syn::Item::Enum(item_enum) => {
-                    items.push(SynItemWithContext::Enum { item_enum });
+                    items.push_back(SynItemWithContext::Enum {
+                        item_enum,
+                        transformed: None,
+                        is_lifetime: None,
+                    });
                 }
                 _ => {}
             }
@@ -123,17 +149,59 @@ impl Transform {
 
     pub fn transform(&mut self) -> Option<Context> {
         let mut modules = vec![];
+        // let mut visit_user_types = VisitUserTypes {
+        //     files: &mut self.files
+        // };
+        let mut item_counts = vec![];
         for syn_file in &self.files {
+            item_counts.push(syn_file.items.len());
+        }
+        for k in 0..8 {
+            // Take each item and run collect and convert pass, then put it back. (To not disturb borrow checker).
+            for i in 0..self.files.len() {
+                for _ in 0..item_counts[i] {
+                    let mut item = self.files[i].items.pop_front().expect("");
+                    let current_file = self.files.get(i).expect("");
+                    let mut finalize = CollectAndConvertPass {
+                        _files: &self.files,
+                        current_file,
+                        messages: self
+                            .messages
+                            .entry(current_file.source.clone())
+                            .or_default(),
+                        _source: current_file.source.clone(),
+                    };
+                    finalize.transform(&mut item);
+                    self.files[i].items.push_back(item);
+                }
+            }
+            // Check if more passes are needed (each time a type references another type, one more pass is required)
+            println!("After pass {}", k + 1);
+            if !self.need_more_passes() {
+                break;
+            }
+        }
+        if self.need_more_passes() {
+            if let Some((_, messages)) = self.messages.iter_mut().next() {
+                messages.push_conversion_error(SynConversionError::RecursionLimitReached);
+            }
+            return None;
+        }
+        println!("Done");
+        for syn_file in self.files.drain(..) {
             let mut items = vec![];
-            for syn_item in &syn_file.items {
-                let mut finalize = CollectAndConvertPass {
-                    _files: &self.files,
-                    messages: self.messages.entry(syn_file.source.clone()).or_default(),
-                    _source: syn_file.source.clone(),
-                    item: syn_item,
-                };
-                if let Some(item) = finalize.transform() {
-                    items.push(item);
+            for item in syn_file.items {
+                match item {
+                    SynItemWithContext::Enum { transformed, .. } => {
+                        if let Some(item_enum) = transformed {
+                            items.push(crate::ast::Item::Enum(item_enum));
+                        }
+                    }
+                    SynItemWithContext::Struct { transformed, .. } => {
+                        if let Some(item_struct) = transformed {
+                            items.push(crate::ast::Item::Struct(item_struct));
+                        }
+                    }
                 }
             }
             modules.push(Module {
@@ -154,6 +222,21 @@ impl Transform {
         } else {
             None
         }
+    }
+
+    fn need_more_passes(&self) -> bool {
+        for file in &self.files {
+            for item in &file.items {
+                let item_not_transformed = match item {
+                    SynItemWithContext::Enum { transformed, .. } => transformed.is_none(),
+                    SynItemWithContext::Struct { transformed, .. } => transformed.is_none(),
+                };
+                if item_not_transformed {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub fn messages(&self) -> impl Iterator<Item = (&Source, &Messages)> {

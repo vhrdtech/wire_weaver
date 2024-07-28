@@ -111,7 +111,7 @@ fn ser_item<T: SerializeShrinkWrap>(
     };
     wr.write(item)?;
     if let Some(u16_rev_from) = u16_rev_from {
-        wr.encode_vlu16n_rev(u16_rev_from, wr.u16_rev_pos())?;
+        wr.encode_nib16_rev(u16_rev_from, wr.u16_rev_pos())?;
         let size = wr.pos().0 - unsized_start;
         let Ok(size) = u16::try_from(size) else {
             return Err(Error::ItemTooLong);
@@ -126,7 +126,7 @@ impl<'i, T> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
         rd: &'di mut BufReader<'i>,
         element_size: ElementSize,
     ) -> Result<Self, Error> {
-        let elements_count = rd.read_vlu16n_rev()?;
+        let elements_count = rd.read_nib16_rev()?;
         // let bytes_left = rd.bytes_left();
         // dbg!(elements_count);
         Ok(RefVec::Buf {
@@ -180,7 +180,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
                         return Some(Err(Error::ImpliedSizeInVec));
                     }
                     ElementSize::Unsized => {
-                        let len = match buf.read_vlu16n_rev() {
+                        let len = match buf.read_nib16_rev() {
                             Ok(len) => len,
                             Err(e) => {
                                 return Some(Err(e));
@@ -232,7 +232,7 @@ mod tests {
     fn read_vec_sized() {
         let buf = [0xAB, 0xCD, 0x02];
         let mut rd = BufReader::new(&buf);
-        let arr: RefVec<'_, u8> = rd.read(ElementSize::Sized { size_bytes: 1 }).unwrap();
+        let arr: RefVec<'_, u8> = rd.read(ElementSize::Sized { size_bits: 8 }).unwrap();
         let mut iter = arr.iter();
         assert_eq!(iter.next(), Some(Ok(0xAB)));
         assert_eq!(iter.next(), Some(Ok(0xCD)));
@@ -245,7 +245,7 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         let arr = RefVec::Slice {
             slice: &[0xAB, 0xCD],
-            element_size: ElementSize::Sized { size_bytes: 1 },
+            element_size: ElementSize::Sized { size_bits: 8 },
         };
         wr.write(&arr).unwrap();
         assert_eq!(wr.finish(), Ok(&[0xAB, 0xCD, 0x02][..]));

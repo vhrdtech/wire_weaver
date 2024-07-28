@@ -2,7 +2,8 @@ use proc_macro2::Span;
 use syn::{Expr, GenericArgument, Lit, PathArguments, PathSegment};
 
 use crate::ast::ident::Ident;
-use crate::ast::{Field, Fields, Item, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
+use crate::ast::path::Path;
+use crate::ast::{Field, Fields, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
     collect_unknown_attributes, take_default_attr, take_final_attr, take_flag_attr, take_id_attr,
     take_repr_attr, take_since_attr,
@@ -13,9 +14,9 @@ use crate::transform::{Messages, SynConversionError, SynFile, SynItemWithContext
 /// Everything should be resolved and computed before this pass.
 pub(crate) struct CollectAndConvertPass<'i> {
     pub(crate) _files: &'i [SynFile],
+    pub(crate) current_file: &'i SynFile,
     pub(crate) messages: &'i mut Messages,
     pub(crate) _source: Source,
-    pub(crate) item: &'i SynItemWithContext,
 }
 
 #[derive(Clone)]
@@ -70,17 +71,37 @@ impl FieldPath {
 }
 
 impl<'i> CollectAndConvertPass<'i> {
-    pub(crate) fn transform(&mut self) -> Option<Item> {
-        match self.item {
+    pub(crate) fn transform(&mut self, item: &mut SynItemWithContext) {
+        match item {
             // Item::Const(_) => {}
-            SynItemWithContext::Enum { item_enum } => {
-                self.transform_item_enum(item_enum).map(Item::Enum)
+            SynItemWithContext::Enum {
+                item_enum,
+                transformed,
+                is_lifetime,
+            } => {
+                if transformed.is_some() {
+                    return;
+                }
+                if let Some(item_enum) = self.transform_item_enum(item_enum) {
+                    *is_lifetime = Some(item_enum.potential_lifetimes());
+                    *transformed = Some(item_enum);
+                }
             }
             // Item::Fn(_) => {}
             // Item::Mod(_) => {}
             // Item::Static(_) => {}
-            SynItemWithContext::Struct { item_struct } => {
-                self.transform_item_struct(item_struct).map(Item::Struct)
+            SynItemWithContext::Struct {
+                item_struct,
+                transformed,
+                is_lifetime,
+            } => {
+                if transformed.is_some() {
+                    return;
+                }
+                if let Some(item_struct) = self.transform_item_struct(item_struct) {
+                    *is_lifetime = Some(item_struct.potential_lifetimes());
+                    *transformed = Some(item_struct);
+                }
             } // Item::Trait(_) => {}
               // Item::Type(_) => {}
               // Item::Use(_) => {}
@@ -290,10 +311,28 @@ impl<'i> CollectAndConvertPass<'i> {
                         "String" => Type::String,
                         "Vec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
-                        _ => {
-                            // go through current file and find it else emit error
+                        user => {
+                            for item in &self.current_file.items {
+                                if item.ident() == user {
+                                    let is_lifetime = match item {
+                                        SynItemWithContext::Enum { is_lifetime, .. } => is_lifetime,
+                                        SynItemWithContext::Struct { is_lifetime, .. } => {
+                                            is_lifetime
+                                        }
+                                    };
+                                    // if is_lifetime is None, one more pass is needed
+                                    return is_lifetime.map(|is_lifetime| {
+                                        Type::Unsized(
+                                            Path::new_ident(Ident::new(user)),
+                                            is_lifetime,
+                                        )
+                                    });
+                                }
+                            }
                             self.messages
-                                .push_conversion_error(SynConversionError::UnknownType);
+                                .push_conversion_error(SynConversionError::UnknownType(
+                                    user.into(),
+                                ));
                             return None;
                         }
                     };
@@ -301,16 +340,18 @@ impl<'i> CollectAndConvertPass<'i> {
                 } else {
                     // go through files and find it
                     self.messages
-                        .push_conversion_error(SynConversionError::UnknownType);
+                        .push_conversion_error(SynConversionError::UnknownType(format!(
+                            "{type_path:?}"
+                        )));
                     None
                 }
             }
             syn::Type::Array(_type_array) => {
                 unimplemented!()
             }
-            _ => {
+            u => {
                 self.messages
-                    .push_conversion_error(SynConversionError::UnknownType);
+                    .push_conversion_error(SynConversionError::UnknownType(format!("{u:?}")));
                 None
             }
         }

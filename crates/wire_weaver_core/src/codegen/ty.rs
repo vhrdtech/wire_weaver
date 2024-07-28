@@ -88,8 +88,14 @@ impl Type {
             //     let path = user_layout.path();
             //     quote! { #path }
             // }
-            Type::Unsized(_) => unimplemented!(),
-            Type::Sized(_, _) => unimplemented!(),
+            Type::Unsized(path, is_lifetime) => {
+                if *is_lifetime && no_alloc {
+                    quote! { #path<'i> }
+                } else {
+                    quote! { #path }
+                }
+            }
+            Type::Sized(_, _, _) => unimplemented!(),
             Type::Result(_, ok_err_ty) => {
                 let ok_ty = ok_err_ty.0.def(no_alloc);
                 let err_ty = ok_err_ty.1.def(no_alloc);
@@ -110,7 +116,7 @@ impl Type {
             Type::U4 => "write_u4",
             Type::U8 => "write_u8",
             Type::U16 => "write_u16",
-            Type::Nib16 => "write_vlu16n",
+            Type::Nib16 => "write_nib16",
             Type::U32 => "write_u32",
             Type::U64 => "write_u64",
             Type::U128 => "write_u128",
@@ -183,8 +189,27 @@ impl Type {
                 return;
             }
             // Type::User(_) => unimplemented!(),
-            Type::Sized(_, _) => unimplemented!(),
-            Type::Unsized(_) => unimplemented!(),
+            Type::Sized(_, _, _) => unimplemented!(),
+            Type::Unsized(_path, _) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! {
+                    // reserve one size slot
+                    let size_slot_pos = wr.write_u16_rev(0)?;
+                    let unsized_start_bytes = wr.pos().0;
+                    wr.write(#field_path)?;
+                    // encode Type's internal sizes if any
+                    wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos)?;
+                    // e.g. plain enum, only one nib discriminant is written => need to align
+                    wr.align_byte();
+                    let size_bytes = wr.pos().0 - unsized_start_bytes;
+                    let Ok(size_bytes) = u16::try_from(size_bytes) else {
+                        return Err(wire_weaver::shrink_wrap::Error::ItemTooLong);
+                    };
+                    // write Unsized size
+                    wr.update_u16_rev(size_slot_pos, size_bytes)?;
+                });
+                return;
+            }
         };
         let write_fn = Ident::new(write_fn, Span::call_site());
         let field_path = field_path.by_value();
@@ -245,8 +270,15 @@ impl Type {
                 Layout::Result(_) => unimplemented!(),
             },
             // Type::User(_) => unimplemented!(),
-            Type::Unsized(_) => unimplemented!(),
-            Type::Sized(_, _) => unimplemented!(),
+            Type::Unsized(_, _) => {
+                tokens.append_all(quote! {
+                    let size = rd.read_nib16_rev()? as usize;
+                    let mut rd_split = rd.split(size)?;
+                    let #variable_name = rd_split.read(wire_weaver::shrink_wrap::ElementSize::Unsized)?;
+                });
+                return;
+            }
+            Type::Sized(_, _, _) => unimplemented!(),
             Type::Result(flag_ident, ok_err_ty) => {
                 let is_ok: Ident = flag_ident.into();
                 let ok_element_size = ok_err_ty.0.element_size_ts();
@@ -306,15 +338,15 @@ impl Type {
             },
             Type::Tuple(_) => unimplemented!(),
             Type::Vec(_) => return ElementSize::Unsized,
-            Type::Unsized(_) => return ElementSize::Unsized,
-            Type::Sized(_, size_bytes) => {
+            Type::Unsized(_, _) => return ElementSize::Unsized,
+            Type::Sized(_, size_bytes, _) => {
                 return ElementSize::Sized {
                     size_bits: *size_bytes as usize * 8,
                 }
             }
             Type::IsSome | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
-            Type::Result(_, ok_err_ty) => {
-                // runtime value dependent size
+            Type::Result(_, _ok_err_ty) => {
+                // TODO: Result runtime value dependent size
                 eprintln!("!! Result size is not fully implemented");
                 return ElementSize::Unsized;
             }

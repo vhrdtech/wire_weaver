@@ -3,9 +3,9 @@ use crate::{BufReader, BufWriter, Error};
 /// Variable length encoded u16 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) struct Vlu16N(pub u16);
+pub(crate) struct Nib16(pub u16);
 
-impl Vlu16N {
+impl Nib16 {
     pub(crate) fn len_nibbles(&self) -> usize {
         match self.0 {
             0..=7 => 1,
@@ -63,7 +63,7 @@ impl Vlu16N {
             }
             num <<= 3;
         }
-        Ok(Vlu16N(num))
+        Ok(Nib16(num))
     }
 
     pub(crate) fn read_reversed(rd: &mut BufReader) -> Result<Self, Error> {
@@ -82,7 +82,7 @@ impl Vlu16N {
             }
             num <<= 3;
         }
-        Ok(Vlu16N(num))
+        Ok(Nib16(num))
     }
 }
 
@@ -90,7 +90,7 @@ impl Vlu16N {
 mod test {
     // extern crate std;
 
-    use crate::vlu16n::Vlu16N;
+    use crate::nib16::Nib16;
     use crate::{BufReader, BufWriter};
 
     // #[test]
@@ -148,9 +148,9 @@ mod test {
     fn write_vlu16n_forward() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        Vlu16N(0b1000).write_forward(&mut wr).unwrap();
-        Vlu16N(0b101010).write_forward(&mut wr).unwrap();
-        Vlu16N(5).write_forward(&mut wr).unwrap();
+        Nib16(0b1000).write_forward(&mut wr).unwrap();
+        Nib16(0b101010).write_forward(&mut wr).unwrap();
+        Nib16(5).write_forward(&mut wr).unwrap();
         assert_eq!(
             wr.finish().unwrap(),
             &[0b1001_0000, 0b1101_0010, 0b0101_0000]
@@ -161,9 +161,9 @@ mod test {
     fn write_vlu16n_reversed() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        Vlu16N(0b1000).write_reversed(&mut wr).unwrap();
-        Vlu16N(0b101010).write_reversed(&mut wr).unwrap();
-        Vlu16N(5).write_reversed(&mut wr).unwrap();
+        Nib16(0b1000).write_reversed(&mut wr).unwrap();
+        Nib16(0b101010).write_reversed(&mut wr).unwrap();
+        Nib16(5).write_reversed(&mut wr).unwrap();
         assert_eq!(
             wr.finish().unwrap(),
             &[0b0000_1001, 0b0010_1101, 0b0101_0000]
@@ -176,10 +176,23 @@ mod test {
         // This edge case is handled by writing one 0 nibble before writing reversed Vlu16N in BufWriter::finish().
         let buf = [0b0000_1001, 0b0010_1101, 0b0101_0000];
         let mut rd = BufReader::new(&buf);
-        assert_eq!(Vlu16N::read_reversed(&mut rd).unwrap().0, 0);
-        assert_eq!(Vlu16N::read_reversed(&mut rd).unwrap().0, 5);
-        assert_eq!(Vlu16N::read_reversed(&mut rd).unwrap().0, 42);
-        assert_eq!(Vlu16N::read_reversed(&mut rd).unwrap().0, 8);
+        assert_eq!(Nib16::read_reversed(&mut rd).unwrap().0, 0);
+        assert_eq!(Nib16::read_reversed(&mut rd).unwrap().0, 5);
+        assert_eq!(Nib16::read_reversed(&mut rd).unwrap().0, 42);
+        assert_eq!(Nib16::read_reversed(&mut rd).unwrap().0, 8);
+    }
+
+    #[test]
+    fn round_trip_nib16_rev() {
+        let mut buf = [0; 5];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u16_rev(5).unwrap();
+        wr.write_u16_rev(42).unwrap();
+        let buf = wr.finish().unwrap();
+
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_nib16_rev().unwrap(), 5);
+        assert_eq!(rd.read_nib16_rev().unwrap(), 42);
     }
 
     #[test]
@@ -187,9 +200,9 @@ mod test {
         let mut buf = [0u8; 3];
         for i in 0..=u16::MAX {
             let mut wr = BufWriter::new(&mut buf);
-            Vlu16N(i).write_forward(&mut wr).unwrap();
+            Nib16(i).write_forward(&mut wr).unwrap();
             let mut rd = BufReader::new(&buf);
-            assert_eq!(Vlu16N::read_forward(&mut rd), Ok(Vlu16N(i)));
+            assert_eq!(Nib16::read_forward(&mut rd), Ok(Nib16(i)));
         }
     }
 }

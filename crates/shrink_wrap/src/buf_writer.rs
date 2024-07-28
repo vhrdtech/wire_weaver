@@ -1,4 +1,4 @@
-use crate::vlu16n::Vlu16N;
+use crate::nib16::Nib16;
 use crate::{Error, SerializeShrinkWrap};
 
 /// no_std buffer writer that supports 1 bit, 4 bit, variable length integer and other operations.
@@ -83,7 +83,11 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    pub fn write_u16_rev(&mut self, val: u16) -> Result<(), Error> {
+    pub fn write_nib16(&mut self, val: u16) -> Result<(), Error> {
+        Nib16(val).write_forward(self)
+    }
+
+    pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
         }
@@ -91,23 +95,22 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
-        // Ok(U16RevPos(self.len_bytes))
-        Ok(())
+        Ok(U16RevPos(self.len_bytes))
     }
 
     pub fn u16_rev_pos(&self) -> U16RevPos {
         U16RevPos(self.len_bytes)
     }
 
-    // pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
-    //     if pos.0 + 1 >= self.buf.len() {
-    //         return Err(Error::OutOfBoundsRev);
-    //     }
-    //     let val_be = val.to_le_bytes();
-    //     self.buf[pos.0] = val_be[0];
-    //     self.buf[pos.0 + 1] = val_be[1];
-    //     Ok(())
-    // }
+    pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
+        if pos.0 + 1 >= self.buf.len() {
+            return Err(Error::OutOfBoundsRev);
+        }
+        let val_be = val.to_le_bytes();
+        self.buf[pos.0] = val_be[0];
+        self.buf[pos.0 + 1] = val_be[1];
+        Ok(())
+    }
 
     pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
@@ -158,10 +161,6 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    pub fn write_vlu16n(&mut self, val: u16) -> Result<(), Error> {
-        Vlu16N(val).write_forward(self)
-    }
-
     pub fn write_raw_slice(&mut self, val: &[u8]) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() < val.len() {
@@ -188,7 +187,7 @@ impl<'i> BufWriter<'i> {
         val.ser_shrink_wrap(self)
     }
 
-    pub fn encode_vlu16n_rev(&mut self, from: U16RevPos, to: U16RevPos) -> Result<(), Error> {
+    pub fn encode_nib16_rev(&mut self, from: U16RevPos, to: U16RevPos) -> Result<(), Error> {
         if to.0 < from.0 {
             return Ok(());
         }
@@ -201,7 +200,7 @@ impl<'i> BufWriter<'i> {
         let mut idx = from.0;
         for _ in 0..reverse_u16_written {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
-            total_nibbles += Vlu16N(val).len_nibbles();
+            total_nibbles += Nib16(val).len_nibbles();
             idx += 2;
         }
         self.align_nibble();
@@ -218,7 +217,7 @@ impl<'i> BufWriter<'i> {
         for _ in 0..reverse_u16_written {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             self.len_bytes += 2;
-            Vlu16N(val).write_reversed(self)?;
+            Nib16(val).write_reversed(self)?;
             idx += 2;
         }
         debug_assert!(self.bit_idx == 7);
@@ -227,7 +226,7 @@ impl<'i> BufWriter<'i> {
 
     pub fn finish(mut self) -> Result<&'i [u8], Error> {
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
-        self.encode_vlu16n_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
+        self.encode_nib16_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
         if reverse_u16_written != 0 {
             Ok(&self.buf[0..self.byte_idx])
         } else {
@@ -355,7 +354,7 @@ mod tests {
     fn rev_u16_smallest() {
         let mut buf = [0; 9];
         let mut wr = BufWriter::new(&mut buf);
-        wr.write_vlu16n(2).unwrap();
+        wr.write_nib16(2).unwrap();
         wr.write_u16_rev(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
     }

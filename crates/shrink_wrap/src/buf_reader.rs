@@ -1,5 +1,5 @@
+use crate::nib16::Nib16;
 use crate::traits::ElementSize;
-use crate::vlu16n::Vlu16N;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
 
@@ -76,12 +76,12 @@ impl<'i> BufReader<'i> {
         Ok(u16::from_le_bytes(u16_bytes))
     }
 
-    pub fn read_vlu16n(&mut self) -> Result<u16, Error> {
-        Ok(Vlu16N::read_forward(self)?.0)
+    pub fn read_nib16(&mut self) -> Result<u16, Error> {
+        Ok(Nib16::read_forward(self)?.0)
     }
 
-    pub fn read_vlu16n_rev(&mut self) -> Result<u16, Error> {
-        Ok(Vlu16N::read_reversed(self)?.0)
+    pub fn read_nib16_rev(&mut self) -> Result<u16, Error> {
+        Ok(Nib16::read_reversed(self)?.0)
     }
 
     pub fn read_u32(&mut self) -> Result<u32, Error> {
@@ -171,12 +171,12 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
-        let len_bytes = self.read_vlu16n_rev()? as usize;
+        let len_bytes = self.read_nib16_rev()? as usize;
         self.read_raw_slice(len_bytes)
     }
 
     pub fn read_string(&mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.read_vlu16n_rev()? as usize;
+        let len_bytes = self.read_nib16_rev()? as usize;
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
@@ -285,13 +285,55 @@ mod tests {
     }
 
     #[test]
-    fn rev_read_bytes_left() {
-        let buf = [0x35];
+    fn read_u4_rev() {
+        let buf = [0x43, 0x21];
         let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.bytes_left(), 2);
+
+        assert!(!rd.is_at_bit7_rev);
+        let value = rd.read_u4_rev().unwrap();
+        assert_eq!(value, 1);
+        assert_eq!(rd.len_bytes, 2);
+        assert!(rd.is_at_bit7_rev);
         assert_eq!(rd.bytes_left(), 1);
-        let _ = rd.read_vlu16n_rev().unwrap();
+
+        let value = rd.read_u4_rev().unwrap();
+        assert_eq!(value, 2);
+        assert_eq!(rd.len_bytes, 1);
+        assert!(!rd.is_at_bit7_rev);
+        assert_eq!(rd.bytes_left(), 1);
+
+        let value = rd.read_u4_rev().unwrap();
+        assert_eq!(value, 3);
+        assert_eq!(rd.len_bytes, 1);
+        assert!(rd.is_at_bit7_rev);
         assert_eq!(rd.bytes_left(), 0);
-        let _ = rd.read_vlu16n_rev().unwrap();
+
+        let value = rd.read_u4_rev().unwrap();
+        assert_eq!(value, 4);
+        assert_eq!(rd.len_bytes, 0);
+        assert!(!rd.is_at_bit7_rev);
+        assert_eq!(rd.bytes_left(), 0);
+    }
+
+    #[test]
+    fn nib16_rev() {
+        let buf = [0xaa, 0x12, 0x09, 0x35];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.bytes_left(), 4);
+
+        let value = rd.read_nib16_rev().unwrap();
+        assert_eq!(value, 5);
+
+        assert_eq!(rd.read_u8().unwrap(), 0xaa);
+
+        let value = rd.read_nib16_rev().unwrap();
+        assert_eq!(value, 3);
+
+        assert_eq!(rd.read_u8().unwrap(), 0x12);
+
+        let value = rd.read_nib16_rev().unwrap();
+        assert_eq!(value, 8);
         assert_eq!(rd.bytes_left(), 0);
     }
 }

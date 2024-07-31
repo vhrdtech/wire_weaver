@@ -5,8 +5,8 @@ use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
-    collect_unknown_attributes, take_default_attr, take_final_attr, take_flag_attr, take_id_attr,
-    take_repr_attr, take_since_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_final_attr,
+    take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
 };
 use crate::transform::{Messages, SynConversionError, SynFile, SynItemWithContext};
 
@@ -19,12 +19,14 @@ pub(crate) struct CollectAndConvertPass<'i> {
     pub(crate) _source: Source,
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub enum FieldPathRoot {
     NamedField(syn::Ident),
     EnumVariant(syn::Ident),
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub enum FieldSelector {
     NamedField(syn::Ident),
@@ -48,6 +50,7 @@ impl FieldPath {
         }
     }
 
+    #[allow(dead_code)]
     pub fn push(&mut self, selector: FieldSelector) {
         self.selectors.push(selector);
     }
@@ -121,8 +124,10 @@ impl<'i> CollectAndConvertPass<'i> {
                 Some(fields) => {
                     let mut attrs = variant.attrs.clone();
                     let since = take_since_attr(&mut attrs);
+                    let docs = collect_docs_attrs(&mut attrs);
                     collect_unknown_attributes(&mut attrs, self.messages);
                     variants.push(Variant {
+                        docs,
                         ident: (&variant.ident).into(),
                         fields,
                         discriminant,
@@ -138,8 +143,10 @@ impl<'i> CollectAndConvertPass<'i> {
             None
         } else {
             let is_final = take_final_attr(&mut attrs).is_some();
+            let docs = collect_docs_attrs(&mut attrs);
             collect_unknown_attributes(&mut attrs, self.messages);
             Some(ItemEnum {
+                docs,
                 ident: (&item_enum.ident).into(),
                 repr,
                 variants,
@@ -216,8 +223,10 @@ impl<'i> CollectAndConvertPass<'i> {
         } else {
             let mut attrs = item_struct.attrs.clone();
             let is_final = take_final_attr(&mut attrs).is_some();
+            let docs = collect_docs_attrs(&mut attrs);
             collect_unknown_attributes(&mut attrs, self.messages);
             Some(ItemStruct {
+                docs,
                 ident: (&item_struct.ident).into(),
                 is_final,
                 fields,
@@ -247,8 +256,9 @@ impl<'i> CollectAndConvertPass<'i> {
         let ty = self.transform_type(field.ty, &path)?;
         let default = take_default_attr(&mut field.attrs, self.messages);
         let flag = take_flag_attr(&mut field.attrs);
-        collect_unknown_attributes(&mut field.attrs, self.messages);
         let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
+        let docs = collect_docs_attrs(&mut field.attrs);
+        collect_unknown_attributes(&mut field.attrs, self.messages);
 
         if flag.is_some() {
             if !matches!(ty, Type::Bool) {
@@ -264,6 +274,7 @@ impl<'i> CollectAndConvertPass<'i> {
             };
 
             Some(Field {
+                docs,
                 id,
                 ident,
                 ty: Type::IsOk(result_ident),
@@ -272,6 +283,7 @@ impl<'i> CollectAndConvertPass<'i> {
             })
         } else {
             Some(Field {
+                docs,
                 id,
                 ident,
                 ty,

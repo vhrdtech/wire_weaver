@@ -15,7 +15,7 @@ pub struct Context {
 
 #[derive(Debug)]
 pub struct Module {
-    // docs
+    pub docs: Vec<String>,
     pub source: Source,
     pub version: Version,
     pub items: Vec<Item>,
@@ -54,6 +54,7 @@ pub enum Item {
 
 #[derive(Debug)]
 pub struct ItemStruct {
+    pub docs: Vec<String>,
     pub is_final: bool,
     pub ident: Ident,
     pub fields: Vec<Field>,
@@ -61,6 +62,7 @@ pub struct ItemStruct {
 
 #[derive(Debug)]
 pub struct ItemEnum {
+    pub docs: Vec<String>,
     pub is_final: bool,
     pub repr: Repr,
     pub ident: Ident,
@@ -84,7 +86,7 @@ pub enum Repr {
 
 #[derive(Debug)]
 pub struct Variant {
-    // attrs
+    pub docs: Vec<String>,
     pub ident: Ident,
     pub fields: Fields,
     pub discriminant: u32,
@@ -93,6 +95,7 @@ pub struct Variant {
 
 #[derive(Debug)]
 pub struct Field {
+    pub docs: Vec<String>,
     pub id: u32,
     pub ident: Ident,
     pub ty: Type,

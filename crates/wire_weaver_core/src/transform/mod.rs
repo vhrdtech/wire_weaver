@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::ast::{Context, ItemEnum, ItemStruct, Module, Source, Version};
 use crate::transform::collect_and_convert::CollectAndConvertPass;
+use crate::transform::syn_util::collect_docs_attrs;
 
 mod collect_and_convert;
 mod syn_util;
@@ -204,7 +205,10 @@ impl Transform {
                     }
                 }
             }
+            let mut attrs = syn_file._attrs;
+            let docs = collect_docs_attrs(&mut attrs);
             modules.push(Module {
+                docs,
                 source: syn_file.source.clone(),
                 version: Version {
                     major: 0,

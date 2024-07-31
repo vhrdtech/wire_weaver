@@ -77,6 +77,26 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     Some(())
 }
 
+pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String> {
+    let mut docs = vec![];
+    for attr in attrs.iter() {
+        if !attr.path().is_ident("doc") {
+            continue;
+        }
+        let Meta::NameValue(name_value) = attr.meta.clone() else {
+            continue;
+        };
+        let Expr::Lit(expr_lit) = name_value.value else {
+            continue;
+        };
+        if let Lit::Str(lit_str) = expr_lit.lit {
+            docs.push(lit_str.value());
+        }
+    }
+    attrs.retain(|a| !a.path().is_ident("doc"));
+    docs
+}
+
 pub(crate) fn take_repr_attr(
     attrs: &mut Vec<syn::Attribute>,
     messages: &mut Messages,

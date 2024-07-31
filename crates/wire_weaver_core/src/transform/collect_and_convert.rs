@@ -1,6 +1,9 @@
-use proc_macro2::Span;
-use syn::{Expr, GenericArgument, Lit, PathArguments, PathSegment};
+use std::ops::Deref;
 
+use proc_macro2::Span;
+use syn::{Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, TraitItem};
+
+use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
@@ -24,6 +27,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
 pub enum FieldPathRoot {
     NamedField(syn::Ident),
     EnumVariant(syn::Ident),
+    Argument,
 }
 
 #[allow(dead_code)]
@@ -69,6 +73,7 @@ impl FieldPath {
                 syn::Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
             FieldPathRoot::EnumVariant(_) => unimplemented!(),
+            FieldPathRoot::Argument => unimplemented!(),
         }
     }
 }
@@ -105,11 +110,18 @@ impl<'i> CollectAndConvertPass<'i> {
                     *is_lifetime = Some(item_struct.potential_lifetimes());
                     *transformed = Some(item_struct);
                 }
-            } // Item::Trait(_) => {}
-              // Item::Type(_) => {}
-              // Item::Use(_) => {}
-              // Item::Verbatim(_) => {}
-              // _ => None,
+            }
+            SynItemWithContext::ApiLevel {
+                item_trait,
+                transformed,
+            } => {
+                if transformed.is_some() {
+                    return;
+                }
+                if let Some(api_level) = self.transform_api_level(item_trait) {
+                    *transformed = Some(api_level);
+                }
+            }
         }
     }
 
@@ -325,12 +337,13 @@ impl<'i> CollectAndConvertPass<'i> {
                         "Result" => return self.transform_type_result(path_segment, path),
                         user => {
                             for item in &self.current_file.items {
-                                if item.ident() == user {
+                                if item.ident().map(|ident| ident == user).unwrap_or(false) {
                                     let is_lifetime = match item {
                                         SynItemWithContext::Enum { is_lifetime, .. } => is_lifetime,
                                         SynItemWithContext::Struct { is_lifetime, .. } => {
                                             is_lifetime
                                         }
+                                        SynItemWithContext::ApiLevel { .. } => unreachable!(),
                                     };
                                     // if is_lifetime is None, one more pass is needed
                                     return is_lifetime.map(|is_lifetime| {
@@ -429,5 +442,62 @@ impl<'i> CollectAndConvertPass<'i> {
         };
         let inner_ty = self.transform_type(inner_ty.clone(), path)?;
         Some(Type::Vec(Layout::Builtin(Box::new(inner_ty))))
+    }
+
+    fn transform_api_level(&mut self, item_trait: &syn::ItemTrait) -> Option<ApiLevel> {
+        let mut items = vec![];
+        let mut next_id = 0;
+        for trait_item in item_trait.items.iter() {
+            match trait_item {
+                TraitItem::Const(_) => {}
+                TraitItem::Fn(trait_item_fn) => {
+                    let mut args = vec![];
+                    for input in trait_item_fn.sig.inputs.iter() {
+                        let FnArg::Typed(pat_type) = input else {
+                            continue;
+                        };
+                        let ty = self.transform_type(
+                            pat_type.ty.deref().clone(),
+                            &FieldPath::new(FieldPathRoot::Argument),
+                        )?;
+                        let Pat::Ident(arg_ident) = pat_type.pat.deref() else {
+                            continue;
+                        };
+                        args.push(Argument {
+                            ident: (&arg_ident.ident).into(),
+                            ty,
+                        })
+                    }
+                    let mut attrs = trait_item_fn.attrs.clone();
+                    let id = match take_id_attr(&mut attrs) {
+                        Some(id) => {
+                            next_id = id + 1;
+                            id
+                        }
+                        None => {
+                            let id = next_id;
+                            next_id += 1;
+                            id
+                        }
+                    };
+                    collect_unknown_attributes(&mut attrs, self.messages);
+                    items.push(ApiItem {
+                        id,
+                        multiplicity: Multiplicity::Flat,
+                        kind: ApiItemKind::Method {
+                            ident: (&trait_item_fn.sig.ident).into(),
+                            args,
+                        },
+                    });
+                }
+                TraitItem::Type(_) => {}
+                TraitItem::Macro(_) => {}
+                TraitItem::Verbatim(_) => {}
+                _ => {}
+            }
+        }
+        let mut attrs = item_trait.attrs.clone();
+        let docs = collect_docs_attrs(&mut attrs);
+        Some(ApiLevel { docs, items })
     }
 }

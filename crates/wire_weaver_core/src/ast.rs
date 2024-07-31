@@ -4,6 +4,9 @@ use ident::Ident;
 use path::Path;
 use value::Value;
 
+use crate::ast::api::ApiLevel;
+
+pub mod api;
 pub mod ident;
 pub mod path;
 pub mod value;
@@ -19,6 +22,7 @@ pub struct Module {
     pub source: Source,
     pub version: Version,
     pub items: Vec<Item>,
+    pub api_levels: Vec<ApiLevel>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -49,7 +53,6 @@ pub enum Source {
 pub enum Item {
     Struct(ItemStruct),
     Enum(ItemEnum),
-    // api
 }
 
 #[derive(Debug)]

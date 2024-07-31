@@ -1,8 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
+use crate::ast::api::ApiLevel;
 use crate::ast::{Context, ItemEnum, ItemStruct, Module, Source, Version};
 use crate::transform::collect_and_convert::CollectAndConvertPass;
-use crate::transform::syn_util::collect_docs_attrs;
+use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 
 mod collect_and_convert;
 mod syn_util;
@@ -75,7 +76,7 @@ pub struct Transform {
 pub(crate) struct SynFile {
     source: Source,
     _shebang: Option<String>,
-    _attrs: Vec<syn::Attribute>,
+    attrs: Vec<syn::Attribute>,
     items: VecDeque<SynItemWithContext>,
 }
 
@@ -90,13 +91,18 @@ enum SynItemWithContext {
         transformed: Option<ItemStruct>,
         is_lifetime: Option<bool>,
     },
+    ApiLevel {
+        item_trait: syn::ItemTrait,
+        transformed: Option<ApiLevel>,
+    },
 }
 
 impl SynItemWithContext {
-    pub fn ident(&self) -> syn::Ident {
+    pub fn ident(&self) -> Option<syn::Ident> {
         match self {
-            SynItemWithContext::Enum { item_enum, .. } => item_enum.ident.clone(),
-            SynItemWithContext::Struct { item_struct, .. } => item_struct.ident.clone(),
+            SynItemWithContext::Enum { item_enum, .. } => Some(item_enum.ident.clone()),
+            SynItemWithContext::Struct { item_struct, .. } => Some(item_struct.ident.clone()),
+            SynItemWithContext::ApiLevel { .. } => None,
         }
     }
 }
@@ -124,13 +130,17 @@ impl Transform {
                         is_lifetime: None,
                     });
                 }
+                syn::Item::Trait(item_trait) => items.push_back(SynItemWithContext::ApiLevel {
+                    item_trait,
+                    transformed: None,
+                }),
                 _ => {}
             }
         }
         self.files.push(SynFile {
             source,
             _shebang: syn_file.shebang,
-            _attrs: syn_file.attrs,
+            attrs: syn_file.attrs,
             items,
         });
     }
@@ -189,8 +199,10 @@ impl Transform {
             return None;
         }
         println!("Done");
+
         for syn_file in self.files.drain(..) {
             let mut items = vec![];
+            let mut api_levels = vec![];
             for item in syn_file.items {
                 match item {
                     SynItemWithContext::Enum { transformed, .. } => {
@@ -203,10 +215,17 @@ impl Transform {
                             items.push(crate::ast::Item::Struct(item_struct));
                         }
                     }
+                    SynItemWithContext::ApiLevel { transformed, .. } => {
+                        if let Some(api_level) = transformed {
+                            api_levels.push(api_level);
+                        }
+                    }
                 }
             }
-            let mut attrs = syn_file._attrs;
+            let mut attrs = syn_file.attrs;
             let docs = collect_docs_attrs(&mut attrs);
+            let messages = self.messages.entry(syn_file.source.clone()).or_default();
+            collect_unknown_attributes(&mut attrs, messages);
             modules.push(Module {
                 docs,
                 source: syn_file.source.clone(),
@@ -216,6 +235,7 @@ impl Transform {
                     patch: 0,
                 },
                 items,
+                api_levels,
             });
         }
         let error_count = self.messages.iter().fold(0, |error_count, (_, messages)| {
@@ -234,6 +254,7 @@ impl Transform {
                 let item_not_transformed = match item {
                     SynItemWithContext::Enum { transformed, .. } => transformed.is_none(),
                     SynItemWithContext::Struct { transformed, .. } => transformed.is_none(),
+                    SynItemWithContext::ApiLevel { transformed, .. } => transformed.is_none(),
                 };
                 if item_not_transformed {
                     return true;

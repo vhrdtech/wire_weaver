@@ -7,7 +7,7 @@ pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 
 pub mod buf_reader;
 pub mod buf_writer;
-pub(crate) mod nib16;
+pub mod nib16;
 pub mod traits;
 pub mod vec;
 

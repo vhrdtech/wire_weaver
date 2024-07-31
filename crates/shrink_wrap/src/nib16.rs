@@ -1,9 +1,9 @@
-use crate::{BufReader, BufWriter, Error};
+use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
 
 /// Variable length encoded u16 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) struct Nib16(pub u16);
+pub struct Nib16(pub u16);
 
 impl Nib16 {
     pub(crate) fn len_nibbles(&self) -> usize {
@@ -83,6 +83,21 @@ impl Nib16 {
             num <<= 3;
         }
         Ok(Nib16(num))
+    }
+}
+
+impl SerializeShrinkWrap for Nib16 {
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        self.write_forward(wr)
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for Nib16 {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut BufReader<'i>,
+        _element_size: ElementSize,
+    ) -> Result<Self, Error> {
+        Nib16::read_forward(rd)
     }
 }
 

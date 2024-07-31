@@ -41,7 +41,8 @@ impl Type {
         match self {
             Type::Bool => quote! { bool },
             Type::U4 | Type::U8 => quote! { u8 },
-            Type::U16 | Type::Nib16 => quote! { u16 },
+            Type::U16 => quote! { u16 },
+            Type::Nib16 => quote! { wire_weaver::shrink_wrap::nib16::Nib16 },
             Type::U32 | Type::ULeb32 => quote! { u32 },
             Type::U64 | Type::ULeb64 => quote! { u64 },
             Type::U128 | Type::ULeb128 => quote! { u128 },
@@ -125,7 +126,11 @@ impl Type {
             Type::U4 => "write_u4",
             Type::U8 => "write_u8",
             Type::U16 => "write_u16",
-            Type::Nib16 => "write_nib16",
+            Type::Nib16 => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! { wr.write(#field_path)?; });
+                return;
+            }
             Type::U32 => "write_u32",
             Type::U64 => "write_u64",
             Type::U128 => "write_u128",
@@ -246,7 +251,11 @@ impl Type {
             Type::U32 => "read_u32",
             Type::U64 => "read_u64",
             Type::U128 => "read_u128",
-            Type::Nib16 => "read_nib16",
+            Type::Nib16 => {
+                let element_size = Type::Nib16.element_size_ts();
+                tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
+                return;
+            }
             Type::ULeb32 => unimplemented!(),
             Type::ULeb64 => unimplemented!(),
             Type::ULeb128 => unimplemented!(),

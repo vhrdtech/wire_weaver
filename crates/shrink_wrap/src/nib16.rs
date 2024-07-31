@@ -1,8 +1,10 @@
+use core::fmt::{Debug, Formatter};
+
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
 
 /// Variable length encoded u16 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Nib16(pub u16);
 
 impl Nib16 {
@@ -98,6 +100,12 @@ impl<'i> DeserializeShrinkWrap<'i> for Nib16 {
         _element_size: ElementSize,
     ) -> Result<Self, Error> {
         Nib16::read_forward(rd)
+    }
+}
+
+impl Debug for Nib16 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

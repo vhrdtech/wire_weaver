@@ -213,6 +213,7 @@ impl Type {
             Type::Unsized(_path, _) => {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! {
+                    wr.align_byte();
                     // reserve one size slot
                     let size_slot_pos = wr.write_u16_rev(0)?;
                     let unsized_start_bytes = wr.pos().0;

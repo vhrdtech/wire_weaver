@@ -189,9 +189,7 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
-        if len > 0 {
-            self.align_byte();
-        }
+        self.align_byte();
         if self.bytes_left() < len {
             return Err(Error::OutOfBounds);
         }

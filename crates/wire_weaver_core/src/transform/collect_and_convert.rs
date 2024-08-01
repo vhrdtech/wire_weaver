@@ -482,7 +482,7 @@ impl<'i> CollectAndConvertPass<'i> {
                     };
                     collect_unknown_attributes(&mut attrs, self.messages);
                     items.push(ApiItem {
-                        id,
+                        id: id as u16,
                         multiplicity: Multiplicity::Flat,
                         kind: ApiItemKind::Method {
                             ident: (&trait_item_fn.sig.ident).into(),

@@ -9,7 +9,7 @@ pub struct ApiLevel {
 
 #[derive(Debug)]
 pub struct ApiItem {
-    pub id: u32,
+    pub id: u16,
     pub multiplicity: Multiplicity,
     pub kind: ApiItemKind,
 }

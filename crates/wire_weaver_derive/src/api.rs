@@ -17,6 +17,10 @@ use wire_weaver_core::transform::Transform;
 struct Args {
     ww: String,
     api_model: String,
+    #[darling(default)]
+    client: bool,
+    #[darling(default)]
+    server: bool,
     no_alloc: bool,
     #[darling(default)]
     skip_api_model_codegen: bool,
@@ -46,9 +50,18 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         panic!("mod cannot be empty, please provide Context struct");
     };
 
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let ww_path = if let Some(path) = args.ww.strip_prefix("..") {
+        format!("{manifest_dir}/../{path}")
+    } else if let Some(path) = args.ww.strip_prefix('.') {
+        format!("{manifest_dir}/{path}")
+    } else {
+        args.ww.clone()
+    };
+
     let mut transform = Transform::new();
     transform
-        .load_and_push(Source::File { path: args.ww })
+        .load_and_push(Source::File { path: ww_path })
         .unwrap();
 
     let cx = transform.transform().unwrap();
@@ -58,17 +71,30 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    let api_model_location = syn::Path::from_string(args.api_model.as_str()).unwrap();
     for module in &cx.modules {
         for api_level in &module.api_levels {
             // TODO: key on a provided API entry point
-            let location = syn::Path::from_string(args.api_model.as_str()).unwrap();
-            let ts = wire_weaver_core::codegen::api::server_dispatcher(
-                api_level,
-                location,
-                args.no_alloc,
-            );
-            let dispatcher: ItemImpl = syn::parse2(ts).unwrap();
-            api_mod_items.push(syn::Item::Impl(dispatcher));
+            // TODO: Modify Context and/or Client structs accordingly
+            if args.server {
+                let ts = wire_weaver_core::codegen::api_server::server_dispatcher(
+                    api_level,
+                    &api_model_location,
+                    args.no_alloc,
+                );
+                let dispatcher: ItemImpl = syn::parse2(ts).unwrap();
+                api_mod_items.push(syn::Item::Impl(dispatcher));
+            }
+
+            if args.client {
+                let ts = wire_weaver_core::codegen::api_client::client(
+                    api_level,
+                    &api_model_location,
+                    args.no_alloc,
+                );
+                let client: ItemImpl = syn::parse2(ts).unwrap();
+                api_mod_items.push(syn::Item::Impl(client));
+            }
         }
     }
 
@@ -83,7 +109,6 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     let ts: TokenStream = quote! { #api_mod };
 
     if !args.debug_to_file.is_empty() {
-        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         let ts_formatted = format_rust(format!("{ts}").as_str());
         let manifest_dir_path = &PathBuf::from(manifest_dir);
         File::create(manifest_dir_path.join(args.debug_to_file))

@@ -148,17 +148,26 @@ fn ser_item<T: SerializeShrinkWrap>(
     Ok(())
 }
 
-impl<'i, T> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
+impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
     fn des_shrink_wrap<'di>(
         rd: &'di mut BufReader<'i>,
         element_size: ElementSize,
     ) -> Result<Self, Error> {
         let elements_count = rd.read_nib16_rev()?;
-        // let bytes_left = rd.bytes_left();
-        // dbg!(elements_count);
+
+        #[cfg(feature = "defmt-extended")]
+        defmt::trace!("Vec element count: {}", elements_count);
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("Vec element count: {}", elements_count);
+
+        // save BufReader state and read out elements to advance beyond Vec
+        let buf = *rd;
+        for _ in 0..elements_count {
+            let _item: T = rd.read(element_size)?;
+        }
+
         Ok(RefVec::Buf {
-            // buf: rd.split(bytes_left)?,
-            buf: *rd,
+            buf,
             elements_count,
             element_size,
         })

@@ -6,7 +6,14 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
+defmt = { version = "0.3", optional = true }
+tracing = { version = "0.1", optional = true }
 
 [features]
 default = ["std"]
 std = []
+
+defmt = ["dep:defmt"]
+defmt-extended = []
+
+tracing-extended = ["dep:tracing", "std"]

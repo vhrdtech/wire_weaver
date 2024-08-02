@@ -12,6 +12,9 @@ wire_weaver_derive = { path = "../wire_weaver_derive" }
 [features]
 default = ["std"]
 std = ["shrink_wrap/std"]
+defmt = ["shrink_wrap/defmt"]
+defmt-extended = ["shrink_wrap/defmt-extended"]
+tracing-extended = ["shrink_wrap/tracing-extended"]
 
 [build-dependencies]
 wire_weaver_core = { path = "../wire_weaver_core" }

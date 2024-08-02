@@ -77,11 +77,25 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_nib16(&mut self) -> Result<u16, Error> {
-        Ok(Nib16::read_forward(self)?.0)
+        let value = Nib16::read_forward(self)?.0;
+
+        #[cfg(feature = "defmt-extended")]
+        defmt::trace!("read_nib16() = {}", value);
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("read_nib16() = {}", value);
+
+        Ok(value)
     }
 
     pub fn read_nib16_rev(&mut self) -> Result<u16, Error> {
-        Ok(Nib16::read_reversed(self)?.0)
+        let value = Nib16::read_reversed(self)?.0;
+
+        #[cfg(feature = "defmt-extended")]
+        defmt::trace!("read_nib16_rev() = {}", value);
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("read_nib16_rev() = {}", value);
+
+        Ok(value)
     }
 
     pub fn read_u32(&mut self) -> Result<u32, Error> {
@@ -195,8 +209,15 @@ impl<'i> BufReader<'i> {
         }
         let prev_byte_idx = self.byte_idx;
         self.byte_idx += len;
+        let buf = &self.buf[prev_byte_idx..prev_byte_idx + len];
+
+        #[cfg(feature = "defmt-extended")]
+        defmt::trace!("split({}): {} {=[u8]:x}", len, prev_byte_idx, buf);
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("split({len}): {prev_byte_idx} {:02x?}", buf);
+
         Ok(BufReader {
-            buf: &self.buf[prev_byte_idx..prev_byte_idx + len],
+            buf,
             len_bytes: len,
             is_at_bit7_rev: false,
             byte_idx: 0,

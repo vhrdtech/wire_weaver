@@ -147,7 +147,7 @@ async fn worker(
             irq_rx_result = irq_rx_result_rx.recv() => {
                 let buf = match irq_rx_result {
                     Some(Ok((buf, bytes_read))) => {
-                        trace!("irq rx transfer success: {:?}", &buf[..bytes_read]);
+                        trace!("irq rx transfer success: {:02x?}", &buf[..bytes_read]);
                         tx_events.send(Event::Received(Vec::from(&buf[..bytes_read]))).await.unwrap();
                         buf
                     }
@@ -160,6 +160,8 @@ async fn worker(
                         break;
                     }
                 };
+
+                // TODO: Try using more than 1 read transfer in parallel?
                 let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
                 irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
             }
@@ -170,7 +172,7 @@ async fn worker(
                         tokio::spawn(async move {
                             match tx_transfer.await {
                                 Ok((buf, written)) => {
-                                    trace!("tx ok: {written}B");
+                                    trace!("tx ok: {written}B {:02x?}", buf);
                                 }
                                 Err((buf, e)) => {
                                     error!("tx err: {e:?}");
@@ -189,7 +191,10 @@ async fn worker(
                     }
                     None => {
                         info!("Device worker exiting (cmd channel closed)");
-                        tx_events.send(Event::Disconnected).await.unwrap();
+                        let r = tx_events.send(Event::Disconnected).await;
+                        if r.is_err() {
+                            warn!("Channel closed");
+                        }
                         break;
                     }
                 }
@@ -215,9 +220,9 @@ async fn rx_worker(
             trace!("rx_worker exiting (channel closed)");
             return;
         };
-        trace!("got rx transfer, awaiting");
+        // trace!("got rx transfer, awaiting");
         let result = transfer.await;
-        trace!("rx transfer awaited");
+        // trace!("rx transfer awaited");
         if let Err(_) = result_tx.send(result).await {
             error!("rx_worker send result failed");
         }

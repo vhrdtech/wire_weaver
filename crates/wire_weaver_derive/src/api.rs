@@ -115,10 +115,17 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     if !args.debug_to_file.is_empty() {
         let ts_formatted = format_rust(format!("{ts}").as_str());
         let manifest_dir_path = &PathBuf::from(manifest_dir);
-        File::create(manifest_dir_path.join(args.debug_to_file))
-            .unwrap()
-            .write_all(ts_formatted.as_bytes())
-            .unwrap();
+        let path = manifest_dir_path.join(&args.debug_to_file);
+        match File::create(&path) {
+            Ok(mut f) => {
+                if let Err(e) = f.write_all(ts_formatted.as_bytes()) {
+                    println!("cargo:warning=Debug file write failed: {e:?}");
+                }
+            }
+            Err(e) => {
+                println!("cargo:warning=Debug file create failed: {path:?} {:?}", e);
+            }
+        }
     }
 
     ts

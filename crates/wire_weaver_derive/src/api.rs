@@ -165,6 +165,7 @@ pub fn format_rust(code: &str) -> String {
         return code.to_string();
     };
     let Ok(rustfmt_run) = Exec::cmd(rustfmt_path)
+        .args(&["--edition", "2021"])
         .stdin(code)
         .stdout(Redirection::Pipe)
         .capture()

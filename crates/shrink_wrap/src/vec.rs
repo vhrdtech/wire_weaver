@@ -91,6 +91,21 @@ impl<'i> RefVec<'i, u8> {
         }
         Ok(())
     }
+
+    pub fn byte_slice(&self) -> Result<&[u8], Error> {
+        match self {
+            RefVec::Slice { slice, .. } => Ok(slice),
+            RefVec::Buf {
+                buf,
+                elements_count,
+                ..
+            } => {
+                let mut buf = *buf;
+                let slice = buf.read_raw_slice(*elements_count as usize)?;
+                Ok(slice)
+            }
+        }
+    }
 }
 
 impl<'i, T> SerializeShrinkWrap for RefVec<'i, T>

@@ -7,6 +7,7 @@ use crate::ast::{Context, Item};
 pub mod item_enum;
 // mod op;
 pub mod api_client;
+mod api_common;
 pub mod api_server;
 pub mod item_struct;
 mod ty;

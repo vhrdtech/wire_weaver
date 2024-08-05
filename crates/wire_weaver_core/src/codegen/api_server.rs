@@ -1,20 +1,26 @@
+use convert_case::Casing;
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt};
 
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
+use crate::ast::ident::Ident;
+use crate::codegen::api_common;
 
 pub fn server_dispatcher(
     api_level: &ApiLevel,
     api_model_location: &syn::Path,
     no_alloc: bool,
 ) -> TokenStream {
+    let args_structs = api_common::args_structs(api_level, no_alloc);
     let level_matchers = level_matchers(api_level, no_alloc);
-    let ser_event = ser_event(&api_model_location);
-    let ser_heartbeat = ser_heartbeat(&api_model_location);
+    let ser_event = ser_event(api_model_location);
+    let ser_heartbeat = ser_heartbeat(api_model_location);
     quote! {
+        #args_structs
+
         impl Context {
-            pub fn process_request<'a>(
+            pub async fn process_request<'a>(
                     &'a mut self,
                     bytes: &[u8],
                     scratch: &'a mut [u8],
@@ -58,14 +64,17 @@ pub fn server_dispatcher(
     }
 }
 
-fn level_matchers(api_level: &ApiLevel, _no_alloc: bool) -> TokenStream {
+fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
             format!("{}u16", item.id).as_str(),
             Span::call_site(),
         ))
     });
-    let handlers = api_level.items.iter().map(|item| level_matcher(&item.kind));
+    let handlers = api_level
+        .items
+        .iter()
+        .map(|item| level_matcher(&item.kind, no_alloc));
     quote! {
         #(Some(Ok(Nib16(#ids))) => { #handlers } ),*
         Some(Ok(_)) => {
@@ -77,10 +86,10 @@ fn level_matchers(api_level: &ApiLevel, _no_alloc: bool) -> TokenStream {
     }
 }
 
-fn level_matcher(kind: &ApiItemKind) -> TokenStream {
+fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
     match kind {
         ApiItemKind::Method { ident, args } => {
-            let des_args = des_args(args);
+            let (args_des, args_list) = des_args(ident, args, no_alloc);
             let is_args = if args.is_empty() {
                 quote! { .. }
             } else {
@@ -89,8 +98,8 @@ fn level_matcher(kind: &ApiItemKind) -> TokenStream {
             quote! {
                 match &request.kind {
                     RequestKind::Call { #is_args } => {
-                        #des_args
-                        #ident(self);
+                        #args_des
+                        #ident(self, #args_list).await;
                     }
                     RequestKind::Introspect => {
 
@@ -109,14 +118,28 @@ fn level_matcher(kind: &ApiItemKind) -> TokenStream {
     }
 }
 
-fn des_args(args: &[Argument]) -> TokenStream {
+fn des_args(
+    method_ident: &Ident,
+    args: &[Argument],
+    _no_alloc: bool,
+) -> (TokenStream, TokenStream) {
+    let args_struct_ident =
+        format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
+    let args_struct_ident = Ident::new(args_struct_ident);
     if args.is_empty() {
-        quote! {}
+        (quote! {}, quote! {})
     } else {
-        quote! {
-            let rd = BufReader::new(args);
-            let args: XArgs = rd.read()?;
-        }
+        let args_des = quote! {
+            // TODO: send error back instead
+            let mut rd = BufReader::new(args.byte_slice().unwrap());
+            let args: #args_struct_ident = rd.read(ElementSize::Implied).unwrap();
+        };
+        let idents = args.iter().map(|arg| {
+            let ident: proc_macro2::Ident = (&arg.ident).into();
+            ident
+        });
+        let args_list = quote! { #(args.#idents),* };
+        (args_des, args_list)
     }
 }
 fn ser_event(api_model_location: &syn::Path) -> TokenStream {

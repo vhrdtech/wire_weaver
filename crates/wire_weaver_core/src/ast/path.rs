@@ -3,7 +3,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 use crate::ast::ident::Ident;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Path {
     pub segments: Vec<Ident>,
     // arguments

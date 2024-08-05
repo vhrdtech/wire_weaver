@@ -12,6 +12,7 @@ proc-macro2 = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
+convert_case = "0.6"
 
 [features]
 default = ["std"]

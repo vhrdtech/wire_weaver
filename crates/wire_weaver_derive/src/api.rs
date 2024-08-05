@@ -8,7 +8,7 @@ use pathsearch::find_executable_in_path;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use subprocess::{Exec, Redirection};
-use syn::{ItemImpl, ItemMod};
+use syn::ItemMod;
 
 use wire_weaver_core::ast::Source;
 use wire_weaver_core::transform::Transform;
@@ -82,8 +82,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                     &api_model_location,
                     args.no_alloc,
                 );
-                let dispatcher: ItemImpl = syn::parse2(ts).unwrap();
-                api_mod_items.push(syn::Item::Impl(dispatcher));
+                let items: syn::File = syn::parse2(ts).unwrap();
+                for item in items.items {
+                    api_mod_items.push(item);
+                }
             }
 
             if args.client {
@@ -92,8 +94,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                     &api_model_location,
                     args.no_alloc,
                 );
-                let client: ItemImpl = syn::parse2(ts).unwrap();
-                api_mod_items.push(syn::Item::Impl(client));
+                let items: syn::File = syn::parse2(ts).unwrap();
+                for item in items.items {
+                    api_mod_items.push(item);
+                }
             }
         }
     }

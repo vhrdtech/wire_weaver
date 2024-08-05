@@ -106,7 +106,7 @@ pub struct Field {
     pub default: Option<Value>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Type {
     Bool,
 
@@ -173,7 +173,7 @@ pub enum Fields {
     Unit,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Layout {
     Builtin(Box<Type>),
     // Skip reading data if previously read flag is false.

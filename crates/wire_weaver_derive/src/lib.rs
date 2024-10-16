@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 
 mod api;
+mod ww_repr;
 
 // mod shrink_wrap;
 
@@ -73,4 +74,9 @@ pub fn shrink_wrap_serdes(_item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn wire_weaver_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     api::api(attr.into(), item.into()).into()
+}
+
+#[proc_macro_attribute]
+pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
+    ww_repr::ww_repr(attr.into(), item.into()).into()
 }

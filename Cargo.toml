@@ -1,0 +1,11 @@
+[package]
+name = "wire_weaver_usb_common"
+version = "0.1.0"
+edition = "2021"
+authors = ["Roman Isaikin <roman@vhrd.tech>"]
+description = "Common data types for WireWeaver over USB implementation"
+
+[dependencies]
+strum_macros = "0.26"
+wire_weaver_derive = { path = "../wire_weaver/crates/wire_weaver_derive" }
+shrink_wrap = { path = "../wire_weaver/crates/shrink_wrap", default-features = false }

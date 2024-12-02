@@ -3,9 +3,10 @@ name = "wire_weaver_usb_embassy"
 edition = "2021"
 version = "0.1.0"
 authors = ["Roman Isaikin <roman@vhrd.tech>"]
-description = ""
+description = "WireWeaver USB class"
 
 [dependencies]
-embassy-usb = "0.2.0"
-embassy-sync = "0.6.0"
+embassy-usb = "0.3.0"
+embassy-sync = "0.6"
 defmt = "0.3"
+wire_weaver_usb_common = { version = "0.1.0", path = "../wire_weaver_usb_common" }

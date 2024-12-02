@@ -10,7 +10,7 @@ use embassy_sync::waitqueue::WakerRegistration;
 use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestType};
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{control, Builder, Handler};
+use embassy_usb::{control, msos, Builder, Handler};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -158,6 +158,14 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             USB_PROTOCOL_WIRE_WEAVER,
         );
 
+        const USB_DEVICE_CLASS_GUID: &str = "{4987DAA6-F852-4B79-A4C8-8C0E0648C845}";
+        const DEVICE_INTERFACE_GUIDS: &[&str] = &[USB_DEVICE_CLASS_GUID];
+        func.msos_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
+        func.msos_feature(msos::RegistryPropertyFeatureDescriptor::new(
+            "DeviceInterfaceGUIDs",
+            msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
+        ));
+
         // Control interface
         let mut iface = func.interface();
         let comm_if = iface.interface_number();
@@ -189,6 +197,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             USB_PROTOCOL_WIRE_WEAVER,
             None,
         );
+        // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
         let read_ep = alt.endpoint_interrupt_out(max_packet_size, 1);
         let write_ep = alt.endpoint_interrupt_in(max_packet_size, 1);
 

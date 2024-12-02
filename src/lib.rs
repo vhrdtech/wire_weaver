@@ -1,16 +1,15 @@
 #![no_std]
 
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::future::poll_fn;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::task::Poll;
-use defmt::debug;
 use embassy_sync::waitqueue::WakerRegistration;
 use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestType};
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{control, msos, Builder, Handler};
+use embassy_usb::{msos, Builder, Handler};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -40,7 +39,7 @@ impl<'a> State<'a> {
 
 /// Packet level implementation of a CDC-ACM serial port.
 ///
-/// This class can be used directly and it has the least overhead due to directly reading and
+/// This class can be used directly, and it has the least overhead due to directly reading and
 /// writing USB packets with no intermediate buffers, but it will not act like a stream-like serial
 /// port. The following constraints must be followed if you use this class directly:
 ///
@@ -169,7 +168,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         // Control interface
         let mut iface = func.interface();
         let comm_if = iface.interface_number();
-        let data_if = u8::from(comm_if) + 1;
+        let _data_if = u8::from(comm_if) + 1;
         let mut alt = iface.alt_setting(
             USB_CLASS_VENDOR_SPECIFIC,
             USB_SUBCLASS_NONE,
@@ -248,11 +247,11 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         (
             Sender {
                 write_ep: self.write_ep,
-                control: self.control,
+                _control: self.control,
             },
             Receiver {
                 read_ep: self.read_ep,
-                control: self.control,
+                _control: self.control,
             },
         )
     }
@@ -265,11 +264,11 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         (
             Sender {
                 write_ep: self.write_ep,
-                control: self.control,
+                _control: self.control,
             },
             Receiver {
                 read_ep: self.read_ep,
-                control: self.control,
+                _control: self.control,
             },
             ControlChanged {
                 control: self.control,
@@ -297,7 +296,7 @@ impl<'d> ControlChanged<'d> {
 /// You can obtain a `Sender` with [`WireWeaverClass::split`]
 pub struct Sender<'d, D: Driver<'d>> {
     write_ep: D::EndpointIn,
-    control: &'d ControlShared,
+    _control: &'d ControlShared,
 }
 
 impl<'d, D: Driver<'d>> Sender<'d, D> {
@@ -323,7 +322,7 @@ impl<'d, D: Driver<'d>> Sender<'d, D> {
 /// You can obtain a `Receiver` with [`WireWeaverClass::split`]
 pub struct Receiver<'d, D: Driver<'d>> {
     read_ep: D::EndpointOut,
-    control: &'d ControlShared,
+    _control: &'d ControlShared,
 }
 
 impl<'d, D: Driver<'d>> Receiver<'d, D> {

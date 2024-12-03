@@ -1,7 +1,7 @@
+use crate::{DeserializeShrinkWrap, Error};
+use crate::Error::OutOfBoundsRev;
 use crate::nib16::Nib16;
 use crate::traits::ElementSize;
-use crate::Error::OutOfBoundsRev;
-use crate::{DeserializeShrinkWrap, Error};
 
 /// Buffer reader that treats input as a stream of nibbles.
 #[derive(Copy, Clone)]
@@ -276,6 +276,10 @@ impl<'i> BufReader<'i> {
         } else {
             left
         }
+    }
+
+    pub fn pos(&self) -> (usize, u8) {
+        (self.byte_idx, self.bit_idx)
     }
 }
 

@@ -29,7 +29,7 @@ pub enum Kind {
 pub struct FrameBuilder<'i, S, C> {
     wr: BufWriter<'i>,
     sink: S,
-    crc: C
+    crc: C,
 }
 
 pub trait FrameSink {
@@ -37,7 +37,7 @@ pub trait FrameSink {
 }
 
 pub trait FrameSource {
-    fn read_frame(&mut self) -> impl core::future::Future<Output = &[u8]>;
+    fn read_frame(&mut self, data: &mut [u8]) -> impl core::future::Future<Output = Option<usize>>;
 }
 
 pub trait CrcProvider {
@@ -53,7 +53,7 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
         Self {
             wr: BufWriter::new(buf),
             sink,
-            crc
+            crc,
         }
     }
 
@@ -76,7 +76,10 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
                 if self.wr.bytes_left() < 3 {
                     self.force_send().await;
                 }
-                let len_chunk = remaining_bytes.len().min(self.wr.bytes_left() - 2).min(4095);
+                let len_chunk = remaining_bytes
+                    .len()
+                    .min(self.wr.bytes_left() - 2)
+                    .min(4095);
                 let kind = if is_first_chunk {
                     is_first_chunk = false;
                     Kind::MessageStart
@@ -94,7 +97,9 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
                 };
                 self.wr.write_u4(kind as u8).unwrap();
                 self.write_len(len_chunk as u16);
-                self.wr.write_raw_slice(&remaining_bytes[..len_chunk]).unwrap();
+                self.wr
+                    .write_raw_slice(&remaining_bytes[..len_chunk])
+                    .unwrap();
                 remaining_bytes = &remaining_bytes[len_chunk..];
                 if kind == Kind::MessageEnd {
                     // TODO: CRC
@@ -147,66 +152,109 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
 
 pub struct FrameReader<'a, S> {
     source: S,
-    staging: &'a [u8],
-    stats: Stats
+    staging: &'a mut [u8],
+    receive: &'a mut [u8],
+    stats: Stats,
 }
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Stats {
     pub packets_received: u32,
     pub packets_lost: u32,
+    pub malformed_bytes: u32,
 }
 
 impl<'a, S: FrameSource> FrameReader<'a, S> {
-    pub fn new(frame_source: S, staging: &'a [u8]) -> Self {
+    pub fn new(frame_source: S, staging: &'a mut [u8], receive: &'a mut [u8]) -> Self {
         Self {
             source: frame_source,
             staging,
-            stats: Stats::default()
+            receive,
+            stats: Stats::default(),
         }
     }
 
-    pub async fn read_packet<F: FnMut(&[u8])>(&mut self, f: F) {
+    pub async fn read_packet<F: FnMut(&[u8])>(&mut self, mut f: F) {
         loop {
-            let frame = self.source.read_frame().await;
-            let rd = BufReader::new(frame);
-            // let
+            let Some(len) = self.source.read_frame(&mut self.receive).await else {
+                break;
+            };
+            let frame = &self.receive[..len];
+            let mut rd = BufReader::new(frame);
+            while rd.bytes_left() >= 2 {
+                let kind = rd.read_u4().unwrap();
+                let Some(kind) = Kind::from_repr(kind) else {
+                    self.stats.malformed_bytes += 1;
+                    continue;
+                };
+                let len11_8 = rd.read_u4().unwrap();
+                let len7_0 = rd.read_u8().unwrap();
+                let len = (len11_8 as usize) << 8 | len7_0 as usize;
+                match kind {
+                    Kind::NoOp => {}
+                    Kind::MessageStart => {}
+                    Kind::MessageContinue => {}
+                    Kind::MessageEnd => {}
+                    Kind::MessageStartEnd => {
+                        if let Ok(packet) = rd.read_raw_slice(len) {
+                            f(packet);
+                        } else {
+                            self.stats.packets_lost += 1;
+                        }
+                    }
+                    Kind::GetMaxMessageLength => {}
+                    Kind::MaxMessageLength => {}
+                    Kind::TestModeSetup => {}
+                    Kind::TestMessage => {}
+                }
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use alloc::collections::VecDeque;
     use alloc::vec;
     use alloc::vec::Vec;
-    use super::*;
+    use core::future::{ready, Future};
     use worst_executor::block_on;
 
     struct VecSink {
-        frames: Vec<Vec<u8>>,
+        frames: VecDeque<Vec<u8>>,
     }
 
     impl VecSink {
         fn new() -> Self {
             Self {
-                frames: Vec::new(),
+                frames: VecDeque::new(),
             }
         }
     }
 
     impl FrameSink for VecSink {
         async fn write_frame(&mut self, data: &[u8]) {
-            self.frames.push(data.to_vec());
+            self.frames.push_back(data.to_vec());
         }
     }
 
-    struct SoftCrc {
+    impl FrameSource for VecSink {
+        fn read_frame(&mut self, data: &mut [u8]) -> impl Future<Output = Option<usize>> {
+            if let Some(frame) = self.frames.pop_front() {
+                data[..frame.len()].copy_from_slice(frame.as_slice());
+                ready(Some(frame.len()))
+            } else {
+                ready(None)
+            }
+        }
     }
+
+    struct SoftCrc {}
 
     impl SoftCrc {
         fn new() -> Self {
-            Self {
-            }
+            Self {}
         }
     }
 
@@ -234,7 +282,17 @@ mod tests {
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6]));
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 1);
-        assert_eq!(sink.frames[0], vec![(Kind::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            sink.frames[0],
+            vec![(Kind::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+        );
+
+        let mut staging = [0u8; 8];
+        let mut receive = [0u8; 8];
+        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
+        block_on(reader.read_packet(|data| {
+            assert_eq!(data, &[1, 2, 3, 4, 5, 6]);
+        }));
     }
 
     #[test]
@@ -244,9 +302,22 @@ mod tests {
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8]));
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
-        assert_eq!(sink.frames[0], vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            sink.frames[0],
+            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+        );
         let crc = 0xaacc_u16;
-        assert_eq!(sink.frames[1], vec![(Kind::MessageEnd as u8) << 4, 0x02, 7, 8, (crc & 0xFF) as u8, (crc >> 8) as u8]);
+        assert_eq!(
+            sink.frames[1],
+            vec![
+                (Kind::MessageEnd as u8) << 4,
+                0x02,
+                7,
+                8,
+                (crc & 0xFF) as u8,
+                (crc >> 8) as u8
+            ]
+        );
     }
 
     #[test]
@@ -256,10 +327,35 @@ mod tests {
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]));
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
-        assert_eq!(sink.frames[0], vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]);
-        assert_eq!(sink.frames[1], vec![(Kind::MessageContinue as u8) << 4, 0x06, 7, 8, 9, 10, 11, 12]);
+        assert_eq!(
+            sink.frames[0],
+            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+        );
+        assert_eq!(
+            sink.frames[1],
+            vec![
+                (Kind::MessageContinue as u8) << 4,
+                0x06,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+            ]
+        );
         let crc = 0xaacc_u16;
-        assert_eq!(sink.frames[2], vec![(Kind::MessageEnd as u8) << 4, 0x02, 13, 14, (crc & 0xFF) as u8, (crc >> 8) as u8]);
+        assert_eq!(
+            sink.frames[2],
+            vec![
+                (Kind::MessageEnd as u8) << 4,
+                0x02,
+                13,
+                14,
+                (crc & 0xFF) as u8,
+                (crc >> 8) as u8
+            ]
+        );
     }
 
     #[test]
@@ -272,9 +368,32 @@ mod tests {
         block_on(builder.force_send());
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
-        assert_eq!(sink.frames[0], vec![(Kind::MessageStartEnd as u8) << 4, 0x03, 1, 2, 3, (Kind::MessageStart as u8) << 4, 1, 4]);
+        assert_eq!(
+            sink.frames[0],
+            vec![
+                (Kind::MessageStartEnd as u8) << 4,
+                0x03,
+                1,
+                2,
+                3,
+                (Kind::MessageStart as u8) << 4,
+                1,
+                4
+            ]
+        );
         let crc = 0xaacc_u16;
-        assert_eq!(sink.frames[1], vec![(Kind::MessageEnd as u8) << 4, 0x03, 5, 6, 7, (crc & 0xFF) as u8, (crc >> 8) as u8]);
+        assert_eq!(
+            sink.frames[1],
+            vec![
+                (Kind::MessageEnd as u8) << 4,
+                0x03,
+                5,
+                6,
+                7,
+                (crc & 0xFF) as u8,
+                (crc >> 8) as u8
+            ]
+        );
     }
 
     #[test]
@@ -287,11 +406,34 @@ mod tests {
         block_on(builder.force_send());
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
-        assert_eq!(sink.frames[0], vec![(Kind::MessageStartEnd as u8) << 4, 0x03, 1, 2, 3, (Kind::MessageStart as u8) << 4, 1, 4]);
+        assert_eq!(
+            sink.frames[0],
+            vec![
+                (Kind::MessageStartEnd as u8) << 4,
+                0x03,
+                1,
+                2,
+                3,
+                (Kind::MessageStart as u8) << 4,
+                1,
+                4
+            ]
+        );
         let crc = 0xaadd_u16;
         assert_eq!(sink.frames[1].len(), 7);
-        assert_eq!(sink.frames[1], vec![(Kind::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]);
+        assert_eq!(
+            sink.frames[1],
+            vec![(Kind::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
+        );
         assert_eq!(sink.frames[2].len(), 4);
-        assert_eq!(sink.frames[2], vec![(Kind::MessageEnd as u8) << 4, 0x00, (crc & 0xFF) as u8, (crc >> 8) as u8]);
+        assert_eq!(
+            sink.frames[2],
+            vec![
+                (Kind::MessageEnd as u8) << 4,
+                0x00,
+                (crc & 0xFF) as u8,
+                (crc >> 8) as u8
+            ]
+        );
     }
 }

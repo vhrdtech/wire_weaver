@@ -1,5 +1,10 @@
 #![no_std]
-extern crate alloc;
+
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+// #[cfg(test)]
+// extern crate alloc;
 
 use shrink_wrap::{BufReader, BufWriter};
 use strum_macros::FromRepr;
@@ -175,7 +180,9 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
     }
 
     pub async fn read_packet<F: FnMut(&[u8])>(&mut self, mut f: F) {
-        loop {
+        let mut staging_idx = 0;
+        let mut in_fragmented_packet = false;
+        'next_frame: loop {
             let Some(len) = self.source.read_frame(&mut self.receive).await else {
                 break;
             };
@@ -185,21 +192,70 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                 let kind = rd.read_u4().unwrap();
                 let Some(kind) = Kind::from_repr(kind) else {
                     self.stats.malformed_bytes += 1;
-                    continue;
+                    continue 'next_frame;
                 };
                 let len11_8 = rd.read_u4().unwrap();
                 let len7_0 = rd.read_u8().unwrap();
                 let len = (len11_8 as usize) << 8 | len7_0 as usize;
                 match kind {
                     Kind::NoOp => {}
-                    Kind::MessageStart => {}
-                    Kind::MessageContinue => {}
-                    Kind::MessageEnd => {}
+                    Kind::MessageStart | Kind::MessageContinue | Kind::MessageEnd => {
+                        let Ok(packet_piece) = rd.read_raw_slice(len) else {
+                            self.stats.packets_lost += 1;
+                            staging_idx = 0;
+                            in_fragmented_packet = false;
+                            continue 'next_frame;
+                        };
+                        if kind == Kind::MessageStart {
+                            in_fragmented_packet = true;
+                            staging_idx = 0;
+                        } else if !in_fragmented_packet {
+                            self.stats.packets_lost += 1;
+                            if kind == Kind::MessageEnd {
+                                if let Ok(_crc) = rd.read_u16() {
+                                    continue;
+                                } else {
+                                    continue 'next_frame;
+                                }
+                            } else {
+                                continue;
+                            }
+                        }
+                        let staging_bytes_left = self.staging.len() - staging_idx;
+                        if packet_piece.len() <= staging_bytes_left {
+                            self.staging[staging_idx..(staging_idx + packet_piece.len())]
+                                .copy_from_slice(packet_piece);
+                            staging_idx += packet_piece.len();
+                            if kind == Kind::MessageEnd {
+                                let Ok(_crc) = rd.read_u16() else {
+                                    self.stats.packets_lost += 1;
+                                    staging_idx = 0;
+                                    continue 'next_frame;
+                                };
+                                if _crc == 0xAACC || _crc == 0xAADD {
+                                    f(&self.staging[..staging_idx]);
+                                    in_fragmented_packet = false;
+                                } else {
+                                    self.stats.packets_lost += 1;
+                                    staging_idx = 0;
+                                    continue; // try to receive other packets if any, previous frames might be lost leading to crc error
+                                }
+                            }
+                        } else {
+                            staging_idx = 0;
+                            self.stats.packets_lost += 1;
+                            in_fragmented_packet = false;
+                            continue 'next_frame;
+                        }
+                    }
                     Kind::MessageStartEnd => {
                         if let Ok(packet) = rd.read_raw_slice(len) {
                             f(packet);
                         } else {
                             self.stats.packets_lost += 1;
+                            staging_idx = 0;
+                            in_fragmented_packet = false;
+                            continue 'next_frame;
                         }
                     }
                     Kind::GetMaxMessageLength => {}
@@ -215,10 +271,9 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::collections::VecDeque;
-    use alloc::vec;
-    use alloc::vec::Vec;
     use core::future::{ready, Future};
+    use std::collections::VecDeque;
+    use std::vec::Vec;
     use worst_executor::block_on;
 
     struct VecSink {
@@ -318,6 +373,13 @@ mod tests {
                 (crc >> 8) as u8
             ]
         );
+
+        let mut staging = [0u8; 8];
+        let mut receive = [0u8; 8];
+        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
+        block_on(reader.read_packet(|data| {
+            assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8]);
+        }));
     }
 
     #[test]
@@ -356,6 +418,13 @@ mod tests {
                 (crc >> 8) as u8
             ]
         );
+
+        let mut staging = [0u8; 16];
+        let mut receive = [0u8; 8];
+        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
+        block_on(reader.read_packet(|data| {
+            assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+        }));
     }
 
     #[test]

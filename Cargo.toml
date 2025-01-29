@@ -6,7 +6,7 @@ authors = ["Roman Isaikin <roman@vhrd.tech>"]
 description = "WireWeaver USB class"
 
 [dependencies]
-embassy-usb = "0.3.0"
+embassy-usb = { version = "0.3.0", features = ["defmt"] }
 embassy-sync = "0.6"
 defmt = "0.3"
 wire_weaver_usb_common = { version = "0.1.0", path = "../wire_weaver_usb_common" }

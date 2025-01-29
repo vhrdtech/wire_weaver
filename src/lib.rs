@@ -10,6 +10,7 @@ use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestT
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;
 use embassy_usb::{msos, Builder, Handler};
+use wire_weaver_usb_common::{FrameSink, FrameSource};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -165,7 +166,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
         ));
 
-        // Control interface
+        // Control interface: TODO: remove it
         let mut iface = func.interface();
         let comm_if = iface.interface_number();
         let _data_if = u8::from(comm_if) + 1;
@@ -341,5 +342,36 @@ impl<'d, D: Driver<'d>> Receiver<'d, D> {
     /// Waits for the USB host to enable this interface
     pub async fn wait_connection(&mut self) {
         self.read_ep.wait_enabled().await;
+    }
+}
+
+pub struct WireWeaverUSBSink<'d, D: Driver<'d>> {
+    sender: Sender<'d, D>
+}
+
+impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
+    async fn write_frame(&mut self, data: &[u8]) {
+        match self.sender.write_packet(data).await {
+            Ok(_) => {},
+            Err(e) => {
+                defmt::error!("Write packet error: {}", e);
+            }
+        }
+    }
+}
+
+pub struct WireWeaverUSBSource<'d, D: Driver<'d>> {
+    receiver: Receiver<'d, D>,
+}
+
+impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
+    async fn read_frame(&mut self, data: &mut [u8]) -> Option<usize> {
+        match self.receiver.read_packet(data).await {
+            Ok(len) => Some(len),
+            Err(e) => {
+                defmt::error!("Read packet error: {}", e);
+                Some(0) // TODO: Is it correct to return Some(0)?
+            }
+        }
     }
 }

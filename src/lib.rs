@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(async_fn_in_trait)]
 
 #[cfg(test)]
 #[macro_use]
@@ -38,11 +39,11 @@ pub struct FrameBuilder<'i, S, C> {
 }
 
 pub trait FrameSink {
-    fn write_frame(&mut self, data: &[u8]) -> impl core::future::Future<Output = ()>;
+    async fn write_frame(&mut self, data: &[u8]);
 }
 
 pub trait FrameSource {
-    fn read_frame(&mut self, data: &mut [u8]) -> impl core::future::Future<Output = Option<usize>>;
+    async fn read_frame(&mut self, data: &mut [u8]) -> Option<usize>;
 }
 
 pub trait CrcProvider {
@@ -306,12 +307,6 @@ mod tests {
     }
 
     struct SoftCrc {}
-
-    impl SoftCrc {
-        fn new() -> Self {
-            Self {}
-        }
-    }
 
     impl CrcProvider for SoftCrc {
         fn checksum(&mut self, data: &[u8]) -> u16 {

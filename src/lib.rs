@@ -158,6 +158,10 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
     pub fn deinit(self) -> (&'i mut [u8], S) {
         (self.wr.deinit(), self.sink)
     }
+
+    pub fn sink_mut<F: FnMut(&mut S)>(&mut self, f: F) {
+        f(&mut self.sink);
+    }
 }
 
 pub struct FrameReader<'a, S> {
@@ -271,6 +275,10 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                 }
             }
         }
+    }
+
+    pub fn source_mut<F: FnMut(&mut S)>(&mut self, f: F) {
+        f(&mut self.source);
     }
 }
 

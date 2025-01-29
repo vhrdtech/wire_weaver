@@ -152,7 +152,7 @@ fn ser_event(api_model_location: &syn::Path) -> TokenStream {
                 defmt::error!("send_event serialize: {}", e);
                 return &[];
             }
-            match wr.finish() {
+            match wr.finish_and_take() {
                 Ok(event_bytes) => {
                     event_bytes
                 },

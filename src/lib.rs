@@ -39,11 +39,13 @@ pub struct FrameBuilder<'i, S, C> {
 }
 
 pub trait FrameSink {
-    async fn write_frame(&mut self, data: &[u8]);
+    type Error;
+    async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error>;
 }
 
 pub trait FrameSource {
-    async fn read_frame(&mut self, data: &mut [u8]) -> Option<usize>;
+    type Error;
+    async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
 }
 
 pub trait CrcProvider {
@@ -66,13 +68,13 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
     /// Try to write provided message bytes into the current packet and return None if it fits.
     /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
     /// must be sent in next packets.
-    pub async fn write_packet(&mut self, bytes: &[u8]) {
+    pub async fn write_packet(&mut self, bytes: &[u8]) -> Result<(), S::Error> {
         if (bytes.len() + 2 <= self.wr.bytes_left()) && bytes.len() <= 4095 {
             // message fits fully
             self.write_message_start_end(bytes);
             // need at least 3 bytes for next message
             if self.wr.bytes_left() < 3 {
-                self.force_send().await;
+                self.force_send().await?;
             }
         } else {
             let mut remaining_bytes = bytes;
@@ -80,7 +82,7 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
             let mut is_first_chunk = true;
             while remaining_bytes.len() > 0 {
                 if self.wr.bytes_left() < 3 {
-                    self.force_send().await;
+                    self.force_send().await?;
                 }
                 let len_chunk = remaining_bytes
                     .len()
@@ -114,7 +116,7 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
             }
             if crc_in_next_packet {
                 if self.wr.bytes_left() < 2 {
-                    self.force_send().await;
+                    self.force_send().await?;
                 }
                 // TODO: CRC
                 self.wr.write_u4(Kind::MessageEnd as u8).unwrap();
@@ -122,9 +124,10 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
                 self.wr.write_u16(0xAADD).unwrap();
             }
             if self.wr.bytes_left() < 3 {
-                self.force_send().await;
+                self.force_send().await?;
             }
         }
+        Ok(())
     }
 
     fn write_message_start_end(&mut self, bytes: &[u8]) {
@@ -144,11 +147,12 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
         self.wr.write_u4(Kind::TestMessage as u8).unwrap();
     }
 
-    pub async fn force_send(&mut self) {
+    pub async fn force_send(&mut self) -> Result<(), S::Error> {
         let data = self.wr.finish().unwrap();
         if data.len() > 0 {
-            self.sink.write_frame(data).await;
+            self.sink.write_frame(data).await?;
         }
+        Ok(())
     }
 
     pub fn deinit(self) -> (&'i mut [u8], S) {
@@ -180,13 +184,14 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
         }
     }
 
-    pub async fn read_packet<F: FnMut(&[u8])>(&mut self, mut f: F) {
+    pub async fn read_packet<F: FnMut(&[u8])>(&mut self, mut f: F) -> Result<(), S::Error> {
         let mut staging_idx = 0;
         let mut in_fragmented_packet = false;
         'next_frame: loop {
-            let Some(len) = self.source.read_frame(&mut self.receive).await else {
-                break;
-            };
+            let len = self.source.read_frame(&mut self.receive).await?;
+            if len == 0 {
+                break Ok(());
+            }
             let frame = &self.receive[..len];
             let mut rd = BufReader::new(frame);
             while rd.bytes_left() >= 2 {
@@ -290,18 +295,23 @@ mod tests {
     }
 
     impl FrameSink for VecSink {
-        async fn write_frame(&mut self, data: &[u8]) {
+        type Error = ();
+
+        async fn write_frame(&mut self, data: &[u8]) -> Result<(), ()> {
             self.frames.push_back(data.to_vec());
+            Ok(())
         }
     }
 
     impl FrameSource for VecSink {
-        fn read_frame(&mut self, data: &mut [u8]) -> impl Future<Output = Option<usize>> {
+        type Error = ();
+
+        fn read_frame(&mut self, data: &mut [u8]) -> impl Future<Output = Result<usize, ()>> {
             if let Some(frame) = self.frames.pop_front() {
                 data[..frame.len()].copy_from_slice(frame.as_slice());
-                ready(Some(frame.len()))
+                ready(Ok(frame.len()))
             } else {
-                ready(None)
+                ready(Ok(0))
             }
         }
     }
@@ -319,7 +329,7 @@ mod tests {
     fn packet_not_sent_automatically() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3]));
+        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         let (_, sink) = builder.deinit();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
         assert_eq!(sink.frames.len(), 0);
@@ -329,7 +339,7 @@ mod tests {
     fn message_fits_fully() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6]));
+        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 1);
         assert_eq!(
@@ -342,14 +352,15 @@ mod tests {
         let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
         block_on(reader.read_packet(|data| {
             assert_eq!(data, &[1, 2, 3, 4, 5, 6]);
-        }));
+        }))
+        .unwrap();
     }
 
     #[test]
     fn split_into_two() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8]));
+        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
         assert_eq!(
@@ -374,14 +385,15 @@ mod tests {
         let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
         block_on(reader.read_packet(|data| {
             assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8]);
-        }));
+        }))
+        .unwrap();
     }
 
     #[test]
     fn split_into_three() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]));
+        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(
@@ -419,17 +431,18 @@ mod tests {
         let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
         block_on(reader.read_packet(|data| {
             assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-        }));
+        }))
+        .unwrap();
     }
 
     #[test]
     fn left_3_write_4() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3]));
+        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.write_packet(&[4, 5, 6, 7]));
-        block_on(builder.force_send());
+        block_on(builder.write_packet(&[4, 5, 6, 7])).unwrap();
+        block_on(builder.force_send()).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
         assert_eq!(
@@ -464,10 +477,10 @@ mod tests {
     fn left_3_write_6() {
         let mut buf = [0u8; 8];
         let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3]));
+        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.write_packet(&[4, 5, 6, 7, 8, 9]));
-        block_on(builder.force_send());
+        block_on(builder.write_packet(&[4, 5, 6, 7, 8, 9])).unwrap();
+        block_on(builder.force_send()).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(

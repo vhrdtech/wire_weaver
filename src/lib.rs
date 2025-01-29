@@ -335,13 +335,14 @@ pub struct WireWeaverUSBSink<'d, D: Driver<'d>> {
 }
 
 impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
-    async fn write_frame(&mut self, data: &[u8]) {
-        match self.sender.write_packet(data).await {
-            Ok(_) => {},
-            Err(e) => {
-                defmt::error!("Write packet error: {}", e);
-            }
-        }
+    type Error = EndpointError;
+
+    async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        self.sender.write_packet(data).await
+    }
+
+    async fn wait_connection(&mut self) {
+        self.sender.wait_connection().await;
     }
 }
 
@@ -350,13 +351,13 @@ pub struct WireWeaverUSBSource<'d, D: Driver<'d>> {
 }
 
 impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
-    async fn read_frame(&mut self, data: &mut [u8]) -> Option<usize> {
-        match self.receiver.read_packet(data).await {
-            Ok(len) => Some(len),
-            Err(e) => {
-                defmt::error!("Read packet error: {}", e);
-                Some(0) // TODO: Is it correct to return Some(0)?
-            }
-        }
+    type Error = EndpointError;
+
+    async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+        self.receiver.read_packet(data).await
+    }
+
+    async fn wait_connection(&mut self) {
+        self.receiver.wait_connection().await;
     }
 }

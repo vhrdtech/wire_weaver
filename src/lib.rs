@@ -41,11 +41,13 @@ pub struct FrameBuilder<'i, S, C> {
 pub trait FrameSink {
     type Error;
     async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error>;
+    async fn wait_connection(&mut self);
 }
 
 pub trait FrameSource {
     type Error;
     async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
+    async fn wait_connection(&mut self);
 }
 
 pub trait CrcProvider {
@@ -159,8 +161,8 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
         (self.wr.deinit(), self.sink)
     }
 
-    pub fn sink_mut<F: FnMut(&mut S)>(&mut self, f: F) {
-        f(&mut self.sink);
+    pub async fn wait_connection(&mut self) {
+        self.sink.wait_connection().await;
     }
 }
 
@@ -277,8 +279,8 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
         }
     }
 
-    pub fn source_mut<F: FnMut(&mut S)>(&mut self, f: F) {
-        f(&mut self.source);
+    pub async fn wait_connection(&mut self) {
+        self.source.wait_connection().await;
     }
 }
 
@@ -309,6 +311,10 @@ mod tests {
             self.frames.push_back(data.to_vec());
             Ok(())
         }
+
+        async fn wait_connection(&mut self) {
+            todo!()
+        }
     }
 
     impl FrameSource for VecSink {
@@ -321,6 +327,10 @@ mod tests {
             } else {
                 ready(Ok(0))
             }
+        }
+
+        async fn wait_connection(&mut self) {
+            todo!()
         }
     }
 

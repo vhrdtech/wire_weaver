@@ -244,7 +244,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
     /// Split the class into a sender and receiver.
     ///
     /// This allows concurrently sending and receiving packets from separate tasks.
-    pub fn split(self) -> (Sender<'d, D>, Receiver<'d, D>) {
+    pub fn split_raw(self) -> (Sender<'d, D>, Receiver<'d, D>) {
         (
             Sender {
                 write_ep: self.write_ep,
@@ -257,24 +257,9 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         )
     }
 
-    /// Split the class into sender, receiver and control
-    ///
-    /// Allows concurrently sending and receiving packets whilst monitoring for
-    /// control changes (dtr, rts)
-    pub fn split_with_control(self) -> (Sender<'d, D>, Receiver<'d, D>, ControlChanged<'d>) {
-        (
-            Sender {
-                write_ep: self.write_ep,
-                _control: self.control,
-            },
-            Receiver {
-                read_ep: self.read_ep,
-                _control: self.control,
-            },
-            ControlChanged {
-                control: self.control,
-            },
-        )
+    pub fn split(self) -> (WireWeaverUSBSink<'d, D>, WireWeaverUSBSource<'d, D>) {
+        let (sender, receiver) = self.split_raw();
+        (WireWeaverUSBSink { sender }, WireWeaverUSBSource { receiver } )
     }
 }
 

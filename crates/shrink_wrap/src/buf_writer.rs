@@ -292,9 +292,10 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Encode all the remaining numbers written to the back of the buffer, align to byte and
+    /// Align to byte, encode all the remaining numbers written to the back of the buffer, align to byte and
     /// return the slice containing written data.
     pub fn finish(&mut self) -> Result<&[u8], Error> {
+        self.align_byte();
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
         self.encode_nib16_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
         let byte_idx = self.byte_idx;
@@ -445,5 +446,14 @@ mod tests {
         wr.write_nib16(2).unwrap();
         wr.write_u16_rev(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
+    }
+
+    #[test]
+    fn align_on_finish() {
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_bool(true).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[0b1000_0000]);
     }
 }

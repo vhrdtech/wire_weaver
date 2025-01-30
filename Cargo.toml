@@ -6,10 +6,10 @@ authors = ["Roman Isaikin <roman@vhrd.tech>"]
 description = "Common data types for WireWeaver over USB implementation"
 
 [dependencies]
+crc = "3"
 strum_macros = "0.26"
 wire_weaver_derive = { path = "../wire_weaver/crates/wire_weaver_derive" }
 shrink_wrap = { path = "../wire_weaver/crates/shrink_wrap", default-features = false }
 
 [dev-dependencies]
 worst-executor = "0.1.1"
-crc = "3.2"

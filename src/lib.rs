@@ -11,6 +11,8 @@ use shrink_wrap::{BufReader, BufWriter};
 use strum_macros::FromRepr;
 use wire_weaver_derive::ww_repr;
 
+const CRC_KIND: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
+
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 pub enum Kind {
@@ -32,10 +34,9 @@ pub enum Kind {
     TestMessage = 8,
 }
 
-pub struct FrameBuilder<'i, S, C> {
+pub struct FrameBuilder<'i, S> {
     wr: BufWriter<'i>,
     sink: S,
-    crc: C,
 }
 
 pub trait FrameSink {
@@ -50,20 +51,14 @@ pub trait FrameSource {
     async fn wait_connection(&mut self);
 }
 
-pub trait CrcProvider {
-    // fn reset(&mut self);
-    // fn update(&mut self, data: &[u8]);
-    // fn finalize(&mut self) -> u16;
-    fn checksum(&mut self, data: &[u8]) -> u16;
-}
-
-impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
-    pub fn new(buf: &'i mut [u8], sink: S, crc: C) -> Self {
+impl<'i, S: FrameSink> FrameBuilder<'i, S> {
+    /// Create new FrameBuilder, buf needs to be of maximum size that sink can accept.
+    /// Frames will be created to be as big as possible to minimize overhead.
+    pub fn new(buf: &'i mut [u8], sink: S) -> Self {
         debug_assert!(buf.len() >= 8);
         Self {
             wr: BufWriter::new(buf),
             sink,
-            crc,
         }
     }
 
@@ -80,7 +75,7 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
             }
         } else {
             let mut remaining_bytes = bytes;
-            let mut crc_in_next_packet = false;
+            let mut crc_in_next_packet = None;
             let mut is_first_chunk = true;
             while remaining_bytes.len() > 0 {
                 if self.wr.bytes_left() < 3 {
@@ -101,7 +96,8 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
                         Kind::MessageEnd
                     } else {
                         // CRC in the next packet with 0 remaining bytes of the message
-                        crc_in_next_packet = true;
+                        let crc = CRC_KIND.checksum(bytes);
+                        crc_in_next_packet = Some(crc);
                         Kind::MessageContinue
                     }
                 };
@@ -112,18 +108,18 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
                     .unwrap();
                 remaining_bytes = &remaining_bytes[len_chunk..];
                 if kind == Kind::MessageEnd {
-                    // TODO: CRC
-                    self.wr.write_u16(0xAACC).unwrap();
+                    let crc = CRC_KIND.checksum(bytes);
+                    self.wr.write_u16(crc).unwrap();
                 }
             }
-            if crc_in_next_packet {
+            if let Some(crc) = crc_in_next_packet {
                 if self.wr.bytes_left() < 2 {
                     self.force_send().await?;
                 }
                 // TODO: CRC
                 self.wr.write_u4(Kind::MessageEnd as u8).unwrap();
                 self.write_len(0);
-                self.wr.write_u16(0xAADD).unwrap();
+                self.wr.write_u16(crc).unwrap();
             }
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
@@ -168,9 +164,9 @@ impl<'i, S: FrameSink, C: CrcProvider> FrameBuilder<'i, S, C> {
 
 pub struct FrameReader<'a, S> {
     source: S,
-    staging: &'a mut [u8],
     receive: &'a mut [u8],
     stats: Stats,
+    in_fragmented_packet: bool,
 }
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -181,22 +177,21 @@ pub struct Stats {
 }
 
 impl<'a, S: FrameSource> FrameReader<'a, S> {
-    pub fn new(frame_source: S, staging: &'a mut [u8], receive: &'a mut [u8]) -> Self {
+    pub fn new(frame_source: S, receive: &'a mut [u8]) -> Self {
         Self {
             source: frame_source,
-            staging,
             receive,
             stats: Stats::default(),
+            in_fragmented_packet: false,
         }
     }
 
-    pub async fn read_packet<F: FnMut(&[u8])>(&mut self, mut f: F) -> Result<(), S::Error> {
+    pub async fn read_packet(&mut self, packet: &mut [u8]) -> Result<usize, S::Error> {
         let mut staging_idx = 0;
-        let mut in_fragmented_packet = false;
         'next_frame: loop {
             let len = self.source.read_frame(&mut self.receive).await?;
             if len == 0 {
-                break Ok(());
+                break Ok(0); // TODO: is it correct to return Ok(0)?
             }
             let frame = &self.receive[..len];
             let mut rd = BufReader::new(frame);
@@ -215,13 +210,13 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                         let Ok(packet_piece) = rd.read_raw_slice(len) else {
                             self.stats.packets_lost += 1;
                             staging_idx = 0;
-                            in_fragmented_packet = false;
+                            self.in_fragmented_packet = false;
                             continue 'next_frame;
                         };
                         if kind == Kind::MessageStart {
-                            in_fragmented_packet = true;
+                            self.in_fragmented_packet = true;
                             staging_idx = 0;
-                        } else if !in_fragmented_packet {
+                        } else if !self.in_fragmented_packet {
                             self.stats.packets_lost += 1;
                             if kind == Kind::MessageEnd {
                                 if let Ok(_crc) = rd.read_u16() {
@@ -233,20 +228,21 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                                 continue;
                             }
                         }
-                        let staging_bytes_left = self.staging.len() - staging_idx;
+                        let staging_bytes_left = packet.len() - staging_idx;
                         if packet_piece.len() <= staging_bytes_left {
-                            self.staging[staging_idx..(staging_idx + packet_piece.len())]
+                            packet[staging_idx..(staging_idx + packet_piece.len())]
                                 .copy_from_slice(packet_piece);
                             staging_idx += packet_piece.len();
                             if kind == Kind::MessageEnd {
-                                let Ok(_crc) = rd.read_u16() else {
+                                let Ok(crc_received) = rd.read_u16() else {
                                     self.stats.packets_lost += 1;
                                     staging_idx = 0;
                                     continue 'next_frame;
                                 };
-                                if _crc == 0xAACC || _crc == 0xAADD {
-                                    f(&self.staging[..staging_idx]);
-                                    in_fragmented_packet = false;
+                                let crc_calculated = CRC_KIND.checksum(&packet[..staging_idx]);
+                                if crc_received == crc_calculated {
+                                    self.in_fragmented_packet = false;
+                                    return Ok(staging_idx);
                                 } else {
                                     self.stats.packets_lost += 1;
                                     staging_idx = 0;
@@ -256,17 +252,18 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                         } else {
                             staging_idx = 0;
                             self.stats.packets_lost += 1;
-                            in_fragmented_packet = false;
+                            self.in_fragmented_packet = false;
                             continue 'next_frame;
                         }
                     }
                     Kind::MessageStartEnd => {
-                        if let Ok(packet) = rd.read_raw_slice(len) {
-                            f(packet);
+                        if let Ok(packet_read) = rd.read_raw_slice(len) {
+                            packet[..packet_read.len()].copy_from_slice(packet_read);
+                            return Ok(packet_read.len());
                         } else {
                             self.stats.packets_lost += 1;
                             staging_idx = 0;
-                            in_fragmented_packet = false;
+                            self.in_fragmented_packet = false;
                             continue 'next_frame;
                         }
                     }
@@ -334,19 +331,10 @@ mod tests {
         }
     }
 
-    struct SoftCrc {}
-
-    impl CrcProvider for SoftCrc {
-        fn checksum(&mut self, data: &[u8]) -> u16 {
-            const X25: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
-            X25.checksum(data)
-        }
-    }
-
     #[test]
     fn packet_not_sent_automatically() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         let (_, sink) = builder.deinit();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
@@ -356,7 +344,7 @@ mod tests {
     #[test]
     fn message_fits_fully() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 1);
@@ -367,17 +355,15 @@ mod tests {
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
-        block_on(reader.read_packet(|data| {
-            assert_eq!(data, &[1, 2, 3, 4, 5, 6]);
-        }))
-        .unwrap();
+        let mut reader = FrameReader::new(sink, &mut staging);
+        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
     fn split_into_two() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
@@ -385,7 +371,7 @@ mod tests {
             sink.frames[0],
             vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
-        let crc = 0xaacc_u16;
+        let crc = CRC_KIND.checksum(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
             sink.frames[1],
             vec![
@@ -400,18 +386,17 @@ mod tests {
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
-        block_on(reader.read_packet(|data| {
-            assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8]);
-        }))
-        .unwrap();
+        let mut reader = FrameReader::new(sink, &mut staging);
+        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
     #[test]
     fn split_into_three() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).unwrap();
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        const PACKET: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        block_on(builder.write_packet(PACKET)).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(
@@ -431,7 +416,7 @@ mod tests {
                 12
             ]
         );
-        let crc = 0xaacc_u16;
+        let crc = CRC_KIND.checksum(PACKET);
         assert_eq!(
             sink.frames[2],
             vec![
@@ -445,18 +430,19 @@ mod tests {
         );
 
         let mut staging = [0u8; 16];
-        let mut receive = [0u8; 8];
-        let mut reader = FrameReader::new(sink, &mut staging, &mut receive);
-        block_on(reader.read_packet(|data| {
-            assert_eq!(data, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-        }))
-        .unwrap();
+        let mut receive = [0u8; 16];
+        let mut reader = FrameReader::new(sink, &mut staging);
+        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        assert_eq!(
+            &receive[..len],
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        );
     }
 
     #[test]
     fn left_3_write_4() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
         block_on(builder.write_packet(&[4, 5, 6, 7])).unwrap();
@@ -476,7 +462,7 @@ mod tests {
                 4
             ]
         );
-        let crc = 0xaacc_u16;
+        let crc = CRC_KIND.checksum(&[4, 5, 6, 7]);
         assert_eq!(
             sink.frames[1],
             vec![
@@ -494,7 +480,7 @@ mod tests {
     #[test]
     fn left_3_write_6() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new(), SoftCrc {});
+        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
         block_on(builder.write_packet(&[4, 5, 6, 7, 8, 9])).unwrap();
@@ -514,7 +500,7 @@ mod tests {
                 4
             ]
         );
-        let crc = 0xaadd_u16;
+        let crc = CRC_KIND.checksum(&[4, 5, 6, 7, 8, 9]);
         assert_eq!(sink.frames[1].len(), 7);
         assert_eq!(
             sink.frames[1],

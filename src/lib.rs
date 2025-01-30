@@ -1,10 +1,11 @@
-use rusb::constants::{LIBUSB_ENDPOINT_DIR_MASK, LIBUSB_ENDPOINT_IN, LIBUSB_ENDPOINT_OUT};
-use rusb::{DeviceHandle, UsbContext as _};
-use rusb_async::{Context, DeviceHandleExt as _, Transfer};
+use std::future::Future;
 use std::time::Duration;
+use nusb::{Device, Interface};
+use nusb::transfer::{Completion, Queue, RequestBuffer, ResponseBuffer, TransferError};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{error, info, trace, warn};
+use wire_weaver_usb_common::{FrameBuilder, FrameReader, FrameSink, FrameSource};
 
 pub enum DeviceManagerCommand {
     Open {
@@ -44,6 +45,7 @@ pub enum Command {
     Close,
     Send(Vec<u8>),
     RecycleBuffer(Vec<u8>),
+    TestLink,
 }
 
 pub enum Event {
@@ -64,9 +66,9 @@ impl UsbDeviceManager {
     pub fn new() -> Self {
         let (dm_commands_tx, dm_commands_rx) = channel(4);
         let (dm_events_tx, dm_events_rx) = channel(4);
-        let ctx = Context::new().unwrap();
+        // let ctx = Context::new().unwrap();
         tokio::spawn(async move {
-            dm_worker(ctx, dm_commands_rx, dm_events_tx).await;
+            dm_worker(dm_commands_rx, dm_events_tx).await;
         });
         Self {
             dm_commands_tx,
@@ -94,7 +96,7 @@ impl UsbDeviceManager {
     }
 }
 
-async fn dm_worker(ctx: Context, mut dm_commands_rx: Receiver<DeviceManagerCommand>, dm_events_tx: Sender<DeviceManagerEvent>) {
+async fn dm_worker(mut dm_commands_rx: Receiver<DeviceManagerCommand>, dm_events_tx: Sender<DeviceManagerEvent>) {
     loop {
         let Some(cmd) = dm_commands_rx.recv().await else {
             info!("dm_worker exiting");
@@ -103,15 +105,17 @@ async fn dm_worker(ctx: Context, mut dm_commands_rx: Receiver<DeviceManagerComma
         match cmd {
             DeviceManagerCommand::Open { .. } => {
                 trace!("Opening device");
-                let mut dev = ctx.open_device_with_vid_pid(0xc0de, 0xcafe).unwrap();
-                dev.claim_interface(1).unwrap();
-                dev.set_alternate_setting(1, 0).unwrap();
-                // dev.read_interrupt_async(0, a, b);
+                let mut di = nusb::list_devices().unwrap().find(|d| d.vendor_id() == 0xc0de && d.product_id() == 0xcafe).expect("device should be connected");
+                info!("Found device: {:?}", di);
+                let dev = di.open().unwrap();
+                let interface = dev.claim_interface(1).unwrap();
+                interface.set_alt_setting(0).unwrap();
+                trace!("opened device");
 
                 let (commands_tx, commands_rx) = channel(16);
                 let (events_tx, events_rx) = channel(16);
                 tokio::spawn(async move {
-                    worker(dev, commands_rx, events_tx).await;
+                    worker(interface, commands_rx, events_tx).await;
                 });
                 dm_events_tx.send(DeviceManagerEvent::Opened(AsyncDeviceHandle {
                     device_path: (),
@@ -124,62 +128,141 @@ async fn dm_worker(ctx: Context, mut dm_commands_rx: Receiver<DeviceManagerComma
     }
 }
 
+struct Sink {
+    interface: Interface,
+    // vec to reuse
+}
+
+impl FrameSink for Sink {
+    type Error = TransferError;
+
+    async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        // Try Queue out
+        let completion = self.interface.interrupt_out(0x01, data.to_vec()).await;
+        match completion.status {
+            Ok(_) => {
+                trace!("Out ok");
+                Ok(())
+            }
+            Err(e) => {
+                error!("Out error: {:?}", e);
+                Err(e)
+            }
+        }
+        // let reuse_vec = completion.data.reuse();
+    }
+
+    async fn wait_connection(&mut self) {
+
+    }
+}
+
+struct Source {
+    interface: Interface,
+    // vec to reuse
+}
+
+impl FrameSource for Source {
+    type Error = TransferError;
+
+    async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+        // reuse vec
+        // try Queue in
+        let completion = self.interface.interrupt_in(0x82, RequestBuffer::new(512)).await;
+        match completion.status {
+            Ok(_) => {
+                info!("read frame {:02x?}", completion.data);
+                data[..completion.data.len()].copy_from_slice(&completion.data);
+                Ok(completion.data.len())
+            }
+            Err(e) => {
+                error!("In error: {:?}", e);
+                Err(e)
+            }
+        }
+    }
+
+    async fn wait_connection(&mut self) {
+
+    }
+}
+
 async fn worker(
-    device: DeviceHandle<Context>,
+    interface: Interface,
     mut rx_commands: Receiver<Command>,
     tx_events: Sender<Event>,
 ) {
-    let (irq_rx_transfer_tx, irq_rx_transfer_rx) = channel(1);
-    let (irq_rx_result_tx, mut irq_rx_result_rx) = channel(1);
+    // let (irq_rx_transfer_tx, irq_rx_transfer_rx) = channel(1);
+    // let (irq_rx_result_tx, mut irq_rx_result_rx) = channel(1);
 
     // let (rx_worker_shutdown_tx, rx_worker_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    let rx_join = tokio::spawn(async move {
-        rx_worker(irq_rx_transfer_rx, irq_rx_result_tx).await;
-    });
+    // let rx_join = tokio::spawn(async move {
+    //     rx_worker(irq_rx_transfer_rx, irq_rx_result_tx).await;
+    // });
 
-    let buf = vec![0u8; 512].into_boxed_slice();
-    let timeout = Duration::from_secs(1);
-    let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
-    irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
+    // let buf = vec![0u8; 512].into_boxed_slice();
+    // let timeout = Duration::from_secs(1);
+    // let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
+    // irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
+
+    // tx_assembly_buf, last_sent_instant, max_jitter
+    // let mut tx_assembly_buf = [0u8; 512];
+    // let mut packet_builder: Option<FrameBuilder> = None;
+    let mut builder_buf = [0u8; 1024];
+    let mut frame_builder = FrameBuilder::new(&mut builder_buf, Sink { interface: interface.clone() });
+
+
+    tokio::spawn(async move {
+        let mut reader_staging = [0u8; 1024];
+        let mut reader_rx = [0u8; 1024];
+        let mut frame_reader = FrameReader::new(Source { interface }, &mut reader_staging);
+        loop {
+            match frame_reader.read_packet(&mut reader_rx).await {
+                Ok(len) => {
+                    let packet = &reader_rx[..len];
+                    info!("Packet: {packet:02x?}");
+                }
+                Err(e) => {
+                    error!("Error {e:?}");
+                }
+            }
+
+        }
+    });
 
     loop {
         tokio::select! {
-            irq_rx_result = irq_rx_result_rx.recv() => {
-                let buf = match irq_rx_result {
-                    Some(Ok((buf, bytes_read))) => {
-                        trace!("irq rx transfer success: {:02x?}", &buf[..bytes_read]);
-                        tx_events.send(Event::Received(Vec::from(&buf[..bytes_read]))).await.unwrap();
-                        buf
-                    }
-                    Some(Err((buf, e))) => {
-                        trace!("irq rx transfer error: {e:?}");
-                        buf
-                    }
-                    None => {
-                        info!("Device worker exiting");
-                        break;
-                    }
-                };
-
-                // TODO: Try using more than 1 read transfer in parallel?
-                let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
-                irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
-            }
+            // irq_rx_result = irq_rx_result_rx.recv() => {
+            //     let buf = match irq_rx_result {
+            //         Some(Ok((buf, bytes_read))) => {
+            //             trace!("irq rx transfer success: {:02x?}", &buf[..bytes_read]);
+            //             tx_events.send(Event::Received(Vec::from(&buf[..bytes_read]))).await.unwrap();
+            //             buf
+            //         }
+            //         Some(Err((buf, e))) => {
+            //             trace!("irq rx transfer error: {e:?}");
+            //             buf
+            //         }
+            //         None => {
+            //             info!("Device worker exiting");
+            //             break;
+            //         }
+            //     };
+            //
+            //     // TODO: Try using more than 1 read transfer in parallel?
+            //     let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
+            //     irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
+            // }
+            // rx = frame_reader.read_packet()
             cmd = rx_commands.recv() => {
                 match cmd {
                     Some(Command::Send(buf)) => {
-                        let tx_transfer = write_interrupt_async(&device, 1, buf.into(), timeout).unwrap();
-                        tokio::spawn(async move {
-                            match tx_transfer.await {
-                                Ok((buf, written)) => {
-                                    trace!("tx ok: {written}B {:02x?}", buf);
-                                }
-                                Err((buf, e)) => {
-                                    error!("tx err: {e:?}");
-                                }
-                            }
-                            // TODO: Recycle buf
-                        });
+                        info!("Sending data {buf:?}");
+                        frame_builder.write_packet(&buf).await;
+                        frame_builder.force_send().await; // TODO: force send on timer
+                    }
+                    Some(Command::TestLink) => {
+                        // let mut packet_builder = FrameBuilder::new(&mut tx_assembly_buf);
                     }
                     Some(Command::RecycleBuffer(buf)) => {
 
@@ -204,56 +287,7 @@ async fn worker(
 
     // Seems to be a bug in rusb async, when device is dropped, outstanding transfers are not seeing that and continue to be awaited
     // rx_worker_shutdown_tx.send(()).unwrap();
-    drop(irq_rx_transfer_tx);
-    _ = rx_join.await;
+    // drop(irq_rx_transfer_tx);
+    // _ = rx_join.await;
     info!("Device worker actually returning");
-}
-
-type TransferResult = Result<(Box<[u8]>, usize), (Box<[u8]>, rusb::Error)>;
-
-async fn rx_worker(
-    mut transfer_rx: Receiver<Transfer<Context>>,
-    result_tx: Sender<TransferResult>,
-) {
-    loop {
-        let Some(transfer) = transfer_rx.recv().await else {
-            trace!("rx_worker exiting (channel closed)");
-            return;
-        };
-        // trace!("got rx transfer, awaiting");
-        let result = transfer.await;
-        // trace!("rx transfer awaited");
-        if let Err(_) = result_tx.send(result).await {
-            error!("rx_worker send result failed");
-        }
-    }
-}
-
-fn read_interrupt_async(
-    device: &DeviceHandle<Context>,
-    endpoint: u8,
-    data: Box<[u8]>,
-    timeout: Duration,
-) -> Result<Transfer<Context>, (Box<[u8]>, rusb::Error)> {
-    if endpoint & LIBUSB_ENDPOINT_DIR_MASK != LIBUSB_ENDPOINT_IN {
-        return Err((data, rusb::Error::InvalidParam));
-    }
-
-    let transfer = Transfer::new_interrupt_transfer(device, endpoint, data, timeout)?;
-    Ok(transfer)
-}
-
-fn write_interrupt_async(
-    device: &DeviceHandle<Context>,
-    endpoint: u8,
-    data: Box<[u8]>,
-    timeout: Duration,
-) -> Result<Transfer<Context>, (Box<[u8]>, rusb::Error)> {
-    if endpoint & LIBUSB_ENDPOINT_DIR_MASK != LIBUSB_ENDPOINT_OUT {
-        return Err((data, rusb::Error::InvalidParam));
-    }
-
-    let transfer = Transfer::new_interrupt_transfer(device, endpoint, data, timeout)?;
-
-    Ok(transfer)
 }

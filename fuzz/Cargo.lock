@@ -281,6 +281,7 @@ dependencies = [
 name = "wire_weaver_usb_common"
 version = "0.1.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
  "strum_macros",
  "wire_weaver_derive",

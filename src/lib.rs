@@ -165,6 +165,8 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
 pub struct FrameReader<'a, S> {
     source: S,
     receive: &'a mut [u8],
+    receive_start_pos: usize,
+    receive_left_bytes: usize,
     stats: Stats,
     in_fragmented_packet: bool,
 }
@@ -181,6 +183,8 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
         Self {
             source: frame_source,
             receive,
+            receive_start_pos: 0,
+            receive_left_bytes: 0,
             stats: Stats::default(),
             in_fragmented_packet: false,
         }
@@ -189,11 +193,20 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
     pub async fn read_packet(&mut self, packet: &mut [u8]) -> Result<usize, S::Error> {
         let mut staging_idx = 0;
         'next_frame: loop {
-            let len = self.source.read_frame(&mut self.receive).await?;
-            if len == 0 {
-                break Ok(0); // TODO: is it correct to return Ok(0)?
-            }
-            let frame = &self.receive[..len];
+            let (frame, is_new_frame) = if self.receive_left_bytes > 0 {
+                (
+                    &self.receive
+                        [self.receive_start_pos..self.receive_start_pos + self.receive_left_bytes],
+                    false,
+                )
+            } else {
+                let len = self.source.read_frame(&mut self.receive).await?;
+                if len == 0 {
+                    break Ok(0); // TODO: is it correct to return Ok(0)?
+                }
+                (&self.receive[..len], true)
+            };
+            // println!("rx frame: {:?}", frame);
             let mut rd = BufReader::new(frame);
             while rd.bytes_left() >= 2 {
                 let kind = rd.read_u4().unwrap();
@@ -242,6 +255,23 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                                 let crc_calculated = CRC_KIND.checksum(&packet[..staging_idx]);
                                 if crc_received == crc_calculated {
                                     self.in_fragmented_packet = false;
+
+                                    let min_bytes_left = rd.bytes_left() >= 2;
+                                    let read_bytes = frame.len() - rd.bytes_left();
+                                    match (is_new_frame, min_bytes_left) {
+                                        (true, true) => {
+                                            self.receive_start_pos = read_bytes;
+                                            self.receive_left_bytes = rd.bytes_left();
+                                        }
+                                        (false, true) => {
+                                            self.receive_start_pos += read_bytes;
+                                            self.receive_left_bytes -= read_bytes;
+                                        }
+                                        _ => {
+                                            self.receive_start_pos = 0;
+                                            self.receive_left_bytes = 0;
+                                        }
+                                    }
                                     return Ok(staging_idx);
                                 } else {
                                     self.stats.packets_lost += 1;
@@ -259,6 +289,23 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                     Kind::MessageStartEnd => {
                         if let Ok(packet_read) = rd.read_raw_slice(len) {
                             packet[..packet_read.len()].copy_from_slice(packet_read);
+
+                            let min_bytes_left = rd.bytes_left() >= 2;
+                            let read_bytes = frame.len() - rd.bytes_left();
+                            match (is_new_frame, min_bytes_left) {
+                                (true, true) => {
+                                    self.receive_start_pos = read_bytes;
+                                    self.receive_left_bytes = rd.bytes_left();
+                                }
+                                (false, true) => {
+                                    self.receive_start_pos += read_bytes;
+                                    self.receive_left_bytes -= read_bytes;
+                                }
+                                _ => {
+                                    self.receive_start_pos = 0;
+                                    self.receive_left_bytes = 0;
+                                }
+                            }
                             return Ok(packet_read.len());
                         } else {
                             self.stats.packets_lost += 1;
@@ -273,6 +320,7 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                     Kind::TestMessage => {}
                 }
             }
+            self.receive_left_bytes = 0;
         }
     }
 
@@ -517,4 +565,20 @@ mod tests {
             ]
         );
     }
+
+    // #[test]
+    // fn adhoc() {
+    //     let mut buf = [0u8; 64];
+    //     let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+    //     block_on(builder.write_packet(&[0, 0, 0, 0, 0, 0, 0, 0])).unwrap();
+    //     block_on(builder.force_send()).unwrap();
+    //     let (_, sink) = builder.deinit();
+    //     println!("{}", sink.frames.len());
+    //
+    //     let mut staging = [0u8; 64];
+    //     let mut receive = [0u8; 2048];
+    //     let mut reader = FrameReader::new(sink, &mut staging);
+    //     let len = block_on(reader.read_packet(&mut receive)).unwrap();
+    //     assert_eq!(&receive[..len], &[0, 0, 0, 0, 0, 0, 0, 0]);
+    // }
 }

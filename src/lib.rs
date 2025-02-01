@@ -1,153 +1,28 @@
 #![no_std]
 
-use core::cell::RefCell;
-use core::future::poll_fn;
-use core::mem::MaybeUninit;
-use core::sync::atomic::{AtomicBool, Ordering};
-use core::task::Poll;
-use embassy_sync::waitqueue::WakerRegistration;
-use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestType};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{msos, Builder, Handler};
-use wire_weaver_usb_common::{FrameSink, FrameSource};
+use embassy_usb::{msos, Builder};
+use static_cell::StaticCell;
+use wire_weaver_usb_common::{FrameSink, FrameSource, LinkMgmtCmd};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
 pub const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
 
-/// Internal state for CDC-ACM
-pub struct State<'a> {
-    control: MaybeUninit<Control<'a>>,
-    shared: ControlShared,
-}
+static MGMT_CHANNEL: StaticCell<embassy_sync::channel::Channel<NoopRawMutex, LinkMgmtCmd, 1>> = StaticCell::new();
 
-impl<'a> Default for State<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> State<'a> {
-    /// Create a new `State`.
-    pub fn new() -> Self {
-        Self {
-            control: MaybeUninit::uninit(),
-            shared: ControlShared::default(),
-        }
-    }
-}
-
-/// Packet level implementation of a CDC-ACM serial port.
-///
-/// This class can be used directly, and it has the least overhead due to directly reading and
-/// writing USB packets with no intermediate buffers, but it will not act like a stream-like serial
-/// port. The following constraints must be followed if you use this class directly:
-///
-/// - `read_packet` must be called with a buffer large enough to hold `max_packet_size` bytes.
-/// - `write_packet` must not be called with a buffer larger than `max_packet_size` bytes.
-/// - If you write a packet that is exactly `max_packet_size` bytes long, it won't be processed by the
-///   host operating system until a subsequent shorter packet is sent. A zero-length packet (ZLP)
-///   can be sent if there is no other data to send. This is because USB bulk transactions must be
-///   terminated with a short packet, even if the bulk endpoint is used for stream-like data.
+/// WireWeaver USB class
 pub struct WireWeaverClass<'d, D: Driver<'d>> {
-    _comm_ep: D::EndpointIn,
     _data_if: InterfaceNumber,
     read_ep: D::EndpointOut,
     write_ep: D::EndpointIn,
-    control: &'d ControlShared,
-}
-
-struct Control<'a> {
-    comm_if: InterfaceNumber,
-    shared: &'a ControlShared,
-}
-
-/// Shared data between Control and CdcAcmClass
-struct ControlShared {
-    // line_coding: CriticalSectionMutex<Cell<LineCoding>>,
-    // dtr: AtomicBool,
-    waker: RefCell<WakerRegistration>,
-    changed: AtomicBool,
-}
-
-impl Default for ControlShared {
-    fn default() -> Self {
-        ControlShared {
-            waker: RefCell::new(WakerRegistration::new()),
-            changed: AtomicBool::new(false),
-        }
-    }
-}
-
-impl ControlShared {
-    async fn changed(&self) {
-        poll_fn(|cx| {
-            if self.changed.load(Ordering::Relaxed) {
-                self.changed.store(false, Ordering::Relaxed);
-                Poll::Ready(())
-            } else {
-                self.waker.borrow_mut().register(cx.waker());
-                Poll::Pending
-            }
-        })
-        .await;
-    }
-}
-
-impl<'a> Control<'a> {
-    fn shared(&mut self) -> &'a ControlShared {
-        self.shared
-    }
-}
-
-impl<'d> Handler for Control<'d> {
-    fn reset(&mut self) {
-        let shared = self.shared();
-
-        shared.changed.store(true, Ordering::Relaxed);
-        shared.waker.borrow_mut().wake();
-    }
-
-    fn control_out(&mut self, req: Request, _data: &[u8]) -> Option<OutResponse> {
-        if (req.request_type, req.recipient, req.index)
-            != (
-                RequestType::Class,
-                Recipient::Interface,
-                self.comm_if.0 as u16,
-            )
-        {
-            return None;
-        }
-
-        match req.request {
-            _ => Some(OutResponse::Rejected),
-        }
-    }
-
-    fn control_in<'a>(&'a mut self, req: Request, _buf: &'a mut [u8]) -> Option<InResponse<'a>> {
-        if (req.request_type, req.recipient, req.index)
-            != (
-                RequestType::Class,
-                Recipient::Interface,
-                self.comm_if.0 as u16,
-            )
-        {
-            return None;
-        }
-
-        match req.request {
-            _ => Some(InResponse::Rejected),
-        }
-    }
 }
 
 impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
-    /// Creates a new CdcAcmClass with the provided UsbBus and `max_packet_size` in bytes. For
-    /// full-speed devices, `max_packet_size` has to be one of 8, 16, 32 or 64.
     pub fn new(
         builder: &mut Builder<'d, D>,
-        state: &'d mut State<'d>,
         max_packet_size: u16,
     ) -> Self {
         assert!(builder.control_buf_len() >= 7);
@@ -166,34 +41,12 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
         ));
 
-        // Control interface: TODO: remove it
-        let mut iface = func.interface();
-        let comm_if = iface.interface_number();
-        let _data_if = u8::from(comm_if) + 1;
-        let mut alt = iface.alt_setting(
-            USB_CLASS_VENDOR_SPECIFIC,
-            USB_SUBCLASS_NONE,
-            USB_PROTOCOL_WIRE_WEAVER,
-            None,
-        );
-
-        alt.descriptor(
-            // CS_INTERFACE,
-            0x24,
-            &[
-                // CDC_TYPE_HEADER, // bDescriptorSubtype
-                0x00, 0x10, 0x01, // bcdCDC (1.10)
-            ],
-        );
-
-        let comm_ep = alt.endpoint_interrupt_in(8, 255);
-
         // Data interface
         let mut iface = func.interface();
         let data_if = iface.interface_number();
         let mut alt = iface.alt_setting(
             USB_CLASS_VENDOR_SPECIFIC,
-            0x00,
+            USB_SUBCLASS_NONE,
             USB_PROTOCOL_WIRE_WEAVER,
             None,
         );
@@ -203,20 +56,10 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 
         drop(func);
 
-        let control = state.control.write(Control {
-            shared: &state.shared,
-            comm_if,
-        });
-        builder.handler(control);
-
-        let control_shared = &state.shared;
-
         WireWeaverClass {
-            _comm_ep: comm_ep,
             _data_if: data_if,
             read_ep,
             write_ep,
-            control: control_shared,
         }
     }
 
@@ -248,41 +91,26 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         (
             Sender {
                 write_ep: self.write_ep,
-                _control: self.control,
             },
             Receiver {
                 read_ep: self.read_ep,
-                _control: self.control,
             },
         )
     }
 
     pub fn split(self) -> (WireWeaverUSBSink<'d, D>, WireWeaverUSBSource<'d, D>) {
         let (sender, receiver) = self.split_raw();
-        (WireWeaverUSBSink { sender }, WireWeaverUSBSource { receiver } )
+        let mgmt_channel = MGMT_CHANNEL.init(embassy_sync::channel::Channel::new());
+        let (mgmt_tx, mgmt_rx) = (mgmt_channel.sender(), mgmt_channel.receiver());
+        (WireWeaverUSBSink { sender, mgmt_rx }, WireWeaverUSBSource { receiver, mgmt_tx } )
     }
 }
 
-/// CDC ACM Control status change monitor
-///
-/// You can obtain a `ControlChanged` with [`WireWeaverClass::split_with_control`]
-pub struct ControlChanged<'d> {
-    control: &'d ControlShared,
-}
-
-impl<'d> ControlChanged<'d> {
-    /// Return a future for when the control settings change
-    pub async fn control_changed(&self) {
-        self.control.changed().await;
-    }
-}
-
-/// CDC ACM class packet sender.
+/// WireWeaver raw packet sender.
 ///
 /// You can obtain a `Sender` with [`WireWeaverClass::split`]
 pub struct Sender<'d, D: Driver<'d>> {
     write_ep: D::EndpointIn,
-    _control: &'d ControlShared,
 }
 
 impl<'d, D: Driver<'d>> Sender<'d, D> {
@@ -303,12 +131,11 @@ impl<'d, D: Driver<'d>> Sender<'d, D> {
     }
 }
 
-/// CDC ACM class packet receiver.
+/// WireWeaver raw packet receiver.
 ///
 /// You can obtain a `Receiver` with [`WireWeaverClass::split`]
 pub struct Receiver<'d, D: Driver<'d>> {
     read_ep: D::EndpointOut,
-    _control: &'d ControlShared,
 }
 
 impl<'d, D: Driver<'d>> Receiver<'d, D> {
@@ -331,7 +158,8 @@ impl<'d, D: Driver<'d>> Receiver<'d, D> {
 }
 
 pub struct WireWeaverUSBSink<'d, D: Driver<'d>> {
-    sender: Sender<'d, D>
+    sender: Sender<'d, D>,
+    mgmt_rx: embassy_sync::channel::Receiver<'static, NoopRawMutex, LinkMgmtCmd, 1>,
 }
 
 impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
@@ -344,10 +172,15 @@ impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
     async fn wait_connection(&mut self) {
         self.sender.wait_connection().await;
     }
+
+    fn rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
+        self.mgmt_rx.try_receive().ok()
+    }
 }
 
 pub struct WireWeaverUSBSource<'d, D: Driver<'d>> {
     receiver: Receiver<'d, D>,
+    mgmt_tx: embassy_sync::channel::Sender<'static, NoopRawMutex, LinkMgmtCmd, 1>,
 }
 
 impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
@@ -359,5 +192,9 @@ impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
 
     async fn wait_connection(&mut self) {
         self.receiver.wait_connection().await;
+    }
+
+    fn send_to_sink(&mut self, msg: LinkMgmtCmd) {
+        let _ = self.mgmt_tx.try_send(msg);
     }
 }

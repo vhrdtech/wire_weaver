@@ -13,6 +13,7 @@ use wire_weaver_derive::ww_repr;
 
 const CRC_KIND: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
 const LINK_PROTOCOL_VERSION: u8 = 1;
+const MIN_PACKET_SIZE: usize = 64;
 
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
@@ -39,7 +40,7 @@ pub struct PacketSender<'i, S> {
     wr: BufWriter<'i>,
     sink: S,
     user_protocol: ProtocolInfo,
-    remote_max_packet_size: Option<u32>,
+    remote_max_packet_size: u32,
     link_setup_done: bool,
 }
 
@@ -109,6 +110,23 @@ impl ProtocolInfo {
     }
 }
 
+#[derive(Debug)]
+pub enum SendError<T> {
+    SinkError(T),
+    InternalBufOverflow,
+    EmptyPacket,
+    PacketTooBig,
+    LinkVersionMismatch,
+    ProtocolVersionMismatch,
+    Disconnected,
+}
+
+impl<T> From<T> for SendError<T> {
+    fn from(value: T) -> Self {
+        SendError::SinkError(value)
+    }
+}
+
 impl<'i, S: FrameSink> PacketSender<'i, S> {
     /// Create new FrameBuilder, buf needs to be of maximum size that sink can accept.
     /// Frames will be created to be as big as possible to minimize overhead.
@@ -118,17 +136,17 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
             wr: BufWriter::new(buf),
             sink,
             user_protocol,
-            remote_max_packet_size: Some(1024),
+            remote_max_packet_size: MIN_PACKET_SIZE as u32,
             link_setup_done: false,
         }
     }
 
-    pub async fn wait_for_link(&mut self) -> Result<(), S::Error> {
+    pub async fn wait_for_link(&mut self) -> Result<(), SendError<S::Error>> {
         while !self.link_setup_done {
             let mgmt_cmd = self.sink.rx_from_source().await;
             match mgmt_cmd {
                 LinkMgmtCmd::Disconnect => {
-                    self.remote_max_packet_size = None;
+                    self.remote_max_packet_size = MIN_PACKET_SIZE as u32;
                     self.link_setup_done = false;
                     continue;
                 }
@@ -141,18 +159,10 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
                     if link_version_matches
                         && self.user_protocol.is_compatible(&remote_user_protocol)
                     {
-                        self.remote_max_packet_size = Some(remote_max_packet_size);
+                        self.remote_max_packet_size = remote_max_packet_size;
                         self.link_setup_done = true;
                     }
-                    if self.wr.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
-                        self.force_send().await?;
-                    }
-                    self.wr.write_u4(Kind::LinkInfo as u8).unwrap();
-                    self.write_len(10);
-                    self.wr.write_u32(local_max_packet_size).unwrap();
-                    self.wr.write_u8(LINK_PROTOCOL_VERSION).unwrap();
-                    self.user_protocol.write(&mut self.wr).unwrap();
-                    self.force_send().await?;
+                    self.send_link_setup(local_max_packet_size).await?;
                     if self.link_setup_done {
                         break;
                     } else {
@@ -164,38 +174,75 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         Ok(())
     }
 
+    pub async fn send_link_setup(
+        &mut self,
+        max_packet_size: u32,
+    ) -> Result<(), SendError<S::Error>> {
+        if self.wr.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
+            self.force_send().await?;
+        }
+        self.wr
+            .write_u4(Kind::LinkInfo as u8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.write_len(10)?;
+        self.wr
+            .write_u32(max_packet_size)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.wr
+            .write_u8(LINK_PROTOCOL_VERSION)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.user_protocol
+            .write(&mut self.wr)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
     /// Try to write provided packet bytes into the current packet and return None if it fits.
     /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
     /// must be sent in next packets.
-    pub async fn send_packet(&mut self, packet: &[u8]) -> Result<(), S::Error> {
+    pub async fn send_packet(&mut self, packet: &[u8]) -> Result<(), SendError<S::Error>> {
         if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
             match mgmt_cmd {
                 LinkMgmtCmd::Disconnect => {
-                    self.remote_max_packet_size = None;
+                    self.remote_max_packet_size = MIN_PACKET_SIZE as u32;
                     self.link_setup_done = false;
-                    return Ok(());
+                    return Err(SendError::Disconnected);
                 }
-                LinkMgmtCmd::LinkInfo { .. } => {
-                    // TODO: Count error or handle
+                LinkMgmtCmd::LinkInfo {
+                    link_version_matches,
+                    local_max_packet_size,
+                    remote_max_packet_size,
+                    remote_user_protocol,
+                } => {
+                    // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
+                    let is_protocols_compatible =
+                        self.user_protocol.is_compatible(&remote_user_protocol);
+                    if link_version_matches && is_protocols_compatible {
+                        self.remote_max_packet_size = remote_max_packet_size;
+                        self.link_setup_done = true;
+                    }
+                    self.send_link_setup(local_max_packet_size).await?;
+                    if !link_version_matches {
+                        return Err(SendError::LinkVersionMismatch);
+                    }
+                    if !is_protocols_compatible {
+                        return Err(SendError::ProtocolVersionMismatch);
+                    }
                 }
             }
         }
         if packet.is_empty() {
-            return Ok(());
+            return Err(SendError::EmptyPacket);
         }
-        let Some(max_remote_packet_size) = self.remote_max_packet_size else {
-            // TODO: Count error
-            return Ok(());
-        };
-        if packet.len() > max_remote_packet_size as usize {
-            // defmt::error!("Tried to send a packet larger than the other end can receive");
-            return Ok(()); // TODO: Count error
+        if packet.len() > self.remote_max_packet_size as usize {
+            return Err(SendError::PacketTooBig);
         }
         if packet.len() + 2 <= self.wr.bytes_left()
         /* && bytes.len() <= max_remote_packet_size*/
         {
             // packet fits fully
-            self.write_packet_start_end(packet);
+            self.write_packet_start_end(packet)?;
             // need at least 3 bytes for next packet
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
@@ -226,25 +273,32 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
                         Kind::PacketContinue
                     }
                 };
-                self.wr.write_u4(kind as u8).unwrap();
-                self.write_len(len_chunk as u16);
+                self.wr
+                    .write_u4(kind as u8)
+                    .map_err(|_| SendError::InternalBufOverflow)?;
+                self.write_len(len_chunk as u16)?;
                 self.wr
                     .write_raw_slice(&remaining_bytes[..len_chunk])
-                    .unwrap();
+                    .map_err(|_| SendError::InternalBufOverflow)?;
                 remaining_bytes = &remaining_bytes[len_chunk..];
                 if kind == Kind::PacketEnd {
                     let crc = CRC_KIND.checksum(packet);
-                    self.wr.write_u16(crc).unwrap();
+                    self.wr
+                        .write_u16(crc)
+                        .map_err(|_| SendError::InternalBufOverflow)?;
                 }
             }
             if let Some(crc) = crc_in_next_packet {
                 if self.wr.bytes_left() < 2 {
                     self.force_send().await?;
                 }
-                // TODO: CRC
-                self.wr.write_u4(Kind::PacketEnd as u8).unwrap();
-                self.write_len(0);
-                self.wr.write_u16(crc).unwrap();
+                self.wr
+                    .write_u4(Kind::PacketEnd as u8)
+                    .map_err(|_| SendError::InternalBufOverflow)?;
+                self.write_len(0)?;
+                self.wr
+                    .write_u16(crc)
+                    .map_err(|_| SendError::InternalBufOverflow)?;
             }
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
@@ -253,31 +307,58 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         Ok(())
     }
 
-    pub async fn send_ping(&mut self) -> Result<(), S::Error> {
+    pub async fn send_ping(&mut self) -> Result<(), SendError<S::Error>> {
         if self.wr.bytes_left() < 2 {
             self.force_send().await?;
         }
-        self.wr.write_u4(Kind::Ping as u8).unwrap();
-        self.write_len(0);
+        self.wr
+            .write_u4(Kind::Ping as u8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.write_len(0)?;
         self.force_send().await?;
         Ok(())
     }
 
-    fn write_packet_start_end(&mut self, bytes: &[u8]) {
-        self.wr.write_u4(Kind::PacketStartEnd as u8).unwrap();
-        self.write_len(bytes.len() as u16);
-        self.wr.write_raw_slice(bytes).unwrap();
+    pub async fn send_disconnect(&mut self) -> Result<(), SendError<S::Error>> {
+        if self.wr.bytes_left() < 2 {
+            self.force_send().await?;
+        }
+        self.wr
+            .write_u4(Kind::Disconnect as u8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.write_len(0)?;
+        self.force_send().await?;
+        Ok(())
     }
 
-    fn write_len(&mut self, len: u16) {
+    fn write_packet_start_end(&mut self, bytes: &[u8]) -> Result<(), SendError<S::Error>> {
+        self.wr
+            .write_u4(Kind::PacketStartEnd as u8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.write_len(bytes.len() as u16)?;
+        self.wr
+            .write_raw_slice(bytes)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        Ok(())
+    }
+
+    fn write_len(&mut self, len: u16) -> Result<(), SendError<S::Error>> {
         let len11_8 = (len >> 8) as u8;
         let len7_0 = (len & 0xFF) as u8;
-        self.wr.write_u4(len11_8).unwrap();
-        self.wr.write_u8(len7_0).unwrap();
+        self.wr
+            .write_u4(len11_8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.wr
+            .write_u8(len7_0)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        Ok(())
     }
 
-    pub async fn force_send(&mut self) -> Result<(), S::Error> {
-        let data = self.wr.finish().unwrap();
+    pub async fn force_send(&mut self) -> Result<(), SendError<S::Error>> {
+        let data = self
+            .wr
+            .finish()
+            .map_err(|_| SendError::InternalBufOverflow)?;
         if data.len() > 0 {
             self.sink.write_frame(data).await?;
         }
@@ -300,7 +381,8 @@ pub struct PacketReceiver<'a, S> {
     receive_left_bytes: usize,
     stats: Stats,
     in_fragmented_packet: bool,
-    link_version_matches: bool,
+    user_protocol: ProtocolInfo,
+    protocols_versions_matches: bool,
 }
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -310,8 +392,32 @@ pub struct Stats {
     pub malformed_bytes: u32,
 }
 
+#[derive(Debug)]
+pub enum PacketKind {
+    Data(usize),
+    Ping,
+    LinkInfo {
+        remote_max_packet_size: usize,
+        remote_user_protocol: ProtocolInfo,
+    },
+    Disconnect,
+}
+
+#[derive(Debug)]
+pub enum ReceiveError<T> {
+    SourceError(T),
+    EmptyFrame,
+    InternalBufOverflow,
+}
+
+impl<T> From<T> for ReceiveError<T> {
+    fn from(value: T) -> Self {
+        ReceiveError::SourceError(value)
+    }
+}
+
 impl<'a, S: FrameSource> PacketReceiver<'a, S> {
-    pub fn new(frame_source: S, receive: &'a mut [u8]) -> Self {
+    pub fn new(frame_source: S, receive: &'a mut [u8], user_protocol: ProtocolInfo) -> Self {
         Self {
             source: frame_source,
             receive,
@@ -319,14 +425,18 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
             receive_left_bytes: 0,
             stats: Stats::default(),
             in_fragmented_packet: false,
+            user_protocol,
             #[cfg(not(test))]
-            link_version_matches: false,
+            protocols_versions_matches: false,
             #[cfg(test)]
-            link_version_matches: true,
+            protocols_versions_matches: true,
         }
     }
 
-    pub async fn receive_packet(&mut self, packet: &mut [u8]) -> Result<usize, S::Error> {
+    pub async fn receive_packet(
+        &mut self,
+        packet: &mut [u8],
+    ) -> Result<PacketKind, ReceiveError<S::Error>> {
         let mut staging_idx = 0;
         'next_frame: loop {
             let (frame, is_new_frame) = if self.receive_left_bytes > 0 {
@@ -338,24 +448,30 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
             } else {
                 let len = self.source.read_frame(&mut self.receive).await?;
                 if len == 0 {
-                    break Ok(0); // TODO: is it correct to return Ok(0)?
+                    break Err(ReceiveError::EmptyFrame);
                 }
                 (&self.receive[..len], true)
             };
             // println!("rx frame: {:?}", frame);
             let mut rd = BufReader::new(frame);
             while rd.bytes_left() >= 2 {
-                let kind = rd.read_u4().unwrap();
+                let kind = rd
+                    .read_u4()
+                    .map_err(|_| ReceiveError::InternalBufOverflow)?;
                 let Some(kind) = Kind::from_repr(kind) else {
                     self.stats.malformed_bytes += 1;
                     continue 'next_frame;
                 };
-                if !self.link_version_matches && kind != Kind::LinkInfo {
+                if !self.protocols_versions_matches && kind != Kind::LinkInfo {
                     self.receive_left_bytes = 0;
                     continue 'next_frame;
                 }
-                let len11_8 = rd.read_u4().unwrap();
-                let len7_0 = rd.read_u8().unwrap();
+                let len11_8 = rd
+                    .read_u4()
+                    .map_err(|_| ReceiveError::InternalBufOverflow)?;
+                let len7_0 = rd
+                    .read_u8()
+                    .map_err(|_| ReceiveError::InternalBufOverflow)?;
                 let len = (len11_8 as usize) << 8 | len7_0 as usize;
                 match kind {
                     Kind::NoOp => {}
@@ -412,7 +528,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                                             self.receive_left_bytes = 0;
                                         }
                                     }
-                                    return Ok(staging_idx);
+                                    return Ok(PacketKind::Data(staging_idx));
                                 } else {
                                     self.stats.packets_lost += 1;
                                     staging_idx = 0;
@@ -446,7 +562,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                                     self.receive_left_bytes = 0;
                                 }
                             }
-                            return Ok(packet_read.len());
+                            return Ok(PacketKind::Data(packet_read.len()));
                         } else {
                             self.stats.packets_lost += 1;
                             staging_idx = 0;
@@ -455,28 +571,43 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                         }
                     }
                     Kind::LinkInfo => {
-                        if rd.bytes_left() >= 4 + 3 + 3 {
-                            let remote_max_packet_size = rd.read_u32().unwrap();
-                            let link_protocol_version = rd.read_u8().unwrap();
-                            let remote_user_protocol = ProtocolInfo::read(&mut rd).unwrap();
-                            if link_protocol_version == LINK_PROTOCOL_VERSION {
-                                self.link_version_matches = true;
+                        if rd.bytes_left() >= 4 + 1 + ProtocolInfo::size_bytes() {
+                            let remote_max_packet_size = rd
+                                .read_u32()
+                                .map_err(|_| ReceiveError::InternalBufOverflow)?;
+                            let link_protocol_version = rd
+                                .read_u8()
+                                .map_err(|_| ReceiveError::InternalBufOverflow)?;
+                            let remote_user_protocol = ProtocolInfo::read(&mut rd)
+                                .map_err(|_| ReceiveError::InternalBufOverflow)?;
+                            if link_protocol_version == LINK_PROTOCOL_VERSION
+                                && remote_user_protocol.is_compatible(&self.user_protocol)
+                            {
+                                self.protocols_versions_matches = true;
                             } else {
-                                self.link_version_matches = false;
+                                self.protocols_versions_matches = false;
                             }
                             self.source.send_to_sink(LinkMgmtCmd::LinkInfo {
-                                link_version_matches: self.link_version_matches,
+                                link_version_matches: self.protocols_versions_matches,
                                 local_max_packet_size: packet.len() as u32,
                                 remote_max_packet_size,
+                                remote_user_protocol,
+                            });
+                            return Ok(PacketKind::LinkInfo {
+                                remote_max_packet_size: remote_max_packet_size as usize,
                                 remote_user_protocol,
                             });
                         }
                     }
                     Kind::Disconnect => {
-                        self.link_version_matches = false;
+                        self.protocols_versions_matches = false;
+                        self.receive_left_bytes = 0;
                         self.source.send_to_sink(LinkMgmtCmd::Disconnect);
+                        return Ok(PacketKind::Disconnect);
                     }
-                    Kind::Ping => {}
+                    Kind::Ping => {
+                        return Ok(PacketKind::Ping);
+                    }
                 }
             }
             self.receive_left_bytes = 0;
@@ -580,8 +711,19 @@ mod tests {
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let mut reader = PacketReceiver::new(
+            sink,
+            &mut staging,
+            ProtocolInfo {
+                protocol_id: 0,
+                major_version: 0,
+                minor_version: 0,
+            },
+        );
         let len = block_on(reader.receive_packet(&mut receive)).unwrap();
+        let PacketKind::Data(len) = len else {
+            panic!("Expected data packet");
+        };
         assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6]);
     }
 
@@ -611,8 +753,19 @@ mod tests {
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let mut reader = PacketReceiver::new(
+            sink,
+            &mut staging,
+            ProtocolInfo {
+                protocol_id: 0,
+                major_version: 0,
+                minor_version: 0,
+            },
+        );
         let len = block_on(reader.receive_packet(&mut receive)).unwrap();
+        let PacketKind::Data(len) = len else {
+            panic!("Expected data packet");
+        };
         assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
@@ -647,8 +800,19 @@ mod tests {
 
         let mut staging = [0u8; 16];
         let mut receive = [0u8; 16];
-        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let mut reader = PacketReceiver::new(
+            sink,
+            &mut staging,
+            ProtocolInfo {
+                protocol_id: 0,
+                major_version: 0,
+                minor_version: 0,
+            },
+        );
         let len = block_on(reader.receive_packet(&mut receive)).unwrap();
+        let PacketKind::Data(len) = len else {
+            panic!("Expected data packet");
+        };
         assert_eq!(
             &receive[..len],
             &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]

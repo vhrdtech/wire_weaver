@@ -111,6 +111,7 @@ impl ProtocolInfo {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum SendError<T> {
     SinkError(T),
     InternalBufOverflow,
@@ -404,6 +405,7 @@ pub enum PacketKind {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ReceiveError<T> {
     SourceError(T),
     EmptyFrame,

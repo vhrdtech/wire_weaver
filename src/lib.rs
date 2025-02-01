@@ -12,6 +12,7 @@ use strum_macros::FromRepr;
 use wire_weaver_derive::ww_repr;
 
 const CRC_KIND: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
+const LINK_PROTOCOL_VERSION: u8 = 1;
 
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
@@ -37,9 +38,9 @@ enum Kind {
 pub struct PacketSender<'i, S> {
     wr: BufWriter<'i>,
     sink: S,
-    link_protocol: ProtocolInfo,
     user_protocol: ProtocolInfo,
-    remote_protocols_matches: Option<u32>,
+    remote_max_packet_size: Option<u32>,
+    link_setup_done: bool,
 }
 
 pub trait FrameSink {
@@ -60,23 +61,27 @@ pub trait FrameSource {
 pub enum LinkMgmtCmd {
     Disconnect,
     LinkInfo {
+        link_version_matches: bool,
         local_max_packet_size: u32,
         remote_max_packet_size: u32,
-        remote_link_protocol: ProtocolInfo,
         remote_user_protocol: ProtocolInfo,
     },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInfo {
-    pub protocol_id: u8,
+    pub protocol_id: u32,
     pub major_version: u8,
     pub minor_version: u8,
 }
 
 impl ProtocolInfo {
+    const fn size_bytes() -> usize {
+        6
+    }
+
     fn write(&self, wr: &mut BufWriter) -> Result<(), shrink_wrap::Error> {
-        wr.write_u8(self.protocol_id)?;
+        wr.write_u32(self.protocol_id)?;
         wr.write_u8(self.major_version)?;
         wr.write_u8(self.minor_version)?;
         Ok(())
@@ -84,7 +89,7 @@ impl ProtocolInfo {
 
     fn read(rd: &mut BufReader) -> Result<ProtocolInfo, shrink_wrap::Error> {
         Ok(ProtocolInfo {
-            protocol_id: rd.read_u8()?,
+            protocol_id: rd.read_u32()?,
             major_version: rd.read_u8()?,
             minor_version: rd.read_u8()?,
         })
@@ -107,54 +112,52 @@ impl ProtocolInfo {
 impl<'i, S: FrameSink> PacketSender<'i, S> {
     /// Create new FrameBuilder, buf needs to be of maximum size that sink can accept.
     /// Frames will be created to be as big as possible to minimize overhead.
-    pub fn new(
-        buf: &'i mut [u8],
-        sink: S,
-        link_protocol: ProtocolInfo,
-        user_protocol: ProtocolInfo,
-    ) -> Self {
+    pub fn new(buf: &'i mut [u8], sink: S, user_protocol: ProtocolInfo) -> Self {
         debug_assert!(buf.len() >= 8);
         Self {
             wr: BufWriter::new(buf),
             sink,
-            link_protocol,
             user_protocol,
-            #[cfg(not(test))]
-            remote_protocols_matches: None,
-            #[cfg(test)]
-            remote_protocols_matches: Some(4095),
+            remote_max_packet_size: Some(1024),
+            link_setup_done: false,
         }
     }
 
     pub async fn wait_for_link(&mut self) -> Result<(), S::Error> {
-        while self.remote_protocols_matches.is_none() {
+        while !self.link_setup_done {
             let mgmt_cmd = self.sink.rx_from_source().await;
             match mgmt_cmd {
                 LinkMgmtCmd::Disconnect => {
-                    self.remote_protocols_matches = None;
+                    self.remote_max_packet_size = None;
+                    self.link_setup_done = false;
                     continue;
                 }
                 LinkMgmtCmd::LinkInfo {
+                    link_version_matches,
                     local_max_packet_size,
                     remote_max_packet_size,
-                    remote_link_protocol,
                     remote_user_protocol,
                 } => {
-                    if self.link_protocol.is_compatible(&remote_link_protocol)
+                    if link_version_matches
                         && self.user_protocol.is_compatible(&remote_user_protocol)
                     {
-                        self.remote_protocols_matches = Some(remote_max_packet_size);
+                        self.remote_max_packet_size = Some(remote_max_packet_size);
+                        self.link_setup_done = true;
                     }
-                    if self.wr.bytes_left() < 2 + 4 + 3 + 3 {
+                    if self.wr.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
                         self.force_send().await?;
                     }
                     self.wr.write_u4(Kind::LinkInfo as u8).unwrap();
                     self.write_len(10);
                     self.wr.write_u32(local_max_packet_size).unwrap();
-                    self.link_protocol.write(&mut self.wr).unwrap();
+                    self.wr.write_u8(LINK_PROTOCOL_VERSION).unwrap();
                     self.user_protocol.write(&mut self.wr).unwrap();
                     self.force_send().await?;
-                    break;
+                    if self.link_setup_done {
+                        break;
+                    } else {
+                        continue;
+                    }
                 }
             }
         }
@@ -168,7 +171,8 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
             match mgmt_cmd {
                 LinkMgmtCmd::Disconnect => {
-                    self.remote_protocols_matches = None;
+                    self.remote_max_packet_size = None;
+                    self.link_setup_done = false;
                     return Ok(());
                 }
                 LinkMgmtCmd::LinkInfo { .. } => {
@@ -179,7 +183,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         if packet.is_empty() {
             return Ok(());
         }
-        let Some(max_remote_packet_size) = self.remote_protocols_matches else {
+        let Some(max_remote_packet_size) = self.remote_max_packet_size else {
             // TODO: Count error
             return Ok(());
         };
@@ -296,6 +300,7 @@ pub struct PacketReceiver<'a, S> {
     receive_left_bytes: usize,
     stats: Stats,
     in_fragmented_packet: bool,
+    link_version_matches: bool,
 }
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -314,6 +319,10 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
             receive_left_bytes: 0,
             stats: Stats::default(),
             in_fragmented_packet: false,
+            #[cfg(not(test))]
+            link_version_matches: false,
+            #[cfg(test)]
+            link_version_matches: true,
         }
     }
 
@@ -341,6 +350,10 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                     self.stats.malformed_bytes += 1;
                     continue 'next_frame;
                 };
+                if !self.link_version_matches && kind != Kind::LinkInfo {
+                    self.receive_left_bytes = 0;
+                    continue 'next_frame;
+                }
                 let len11_8 = rd.read_u4().unwrap();
                 let len7_0 = rd.read_u8().unwrap();
                 let len = (len11_8 as usize) << 8 | len7_0 as usize;
@@ -444,17 +457,23 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                     Kind::LinkInfo => {
                         if rd.bytes_left() >= 4 + 3 + 3 {
                             let remote_max_packet_size = rd.read_u32().unwrap();
-                            let remote_link_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            let link_protocol_version = rd.read_u8().unwrap();
                             let remote_user_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            if link_protocol_version == LINK_PROTOCOL_VERSION {
+                                self.link_version_matches = true;
+                            } else {
+                                self.link_version_matches = false;
+                            }
                             self.source.send_to_sink(LinkMgmtCmd::LinkInfo {
+                                link_version_matches: self.link_version_matches,
                                 local_max_packet_size: packet.len() as u32,
                                 remote_max_packet_size,
-                                remote_link_protocol,
                                 remote_user_protocol,
                             });
                         }
                     }
                     Kind::Disconnect => {
+                        self.link_version_matches = false;
                         self.source.send_to_sink(LinkMgmtCmd::Disconnect);
                     }
                     Kind::Ping => {}
@@ -499,7 +518,11 @@ mod tests {
 
         async fn wait_connection(&mut self) {}
 
-        fn rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
+        async fn rx_from_source(&mut self) -> LinkMgmtCmd {
+            unimplemented!()
+        }
+
+        fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
             None
         }
     }
@@ -525,11 +548,6 @@ mod tests {
         PacketSender::new(
             buf,
             VecSink::new(),
-            ProtocolInfo {
-                protocol_id: 0,
-                major_version: 0,
-                minor_version: 0,
-            },
             ProtocolInfo {
                 protocol_id: 0,
                 major_version: 0,

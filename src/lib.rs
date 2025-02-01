@@ -15,26 +15,26 @@ const CRC_KIND: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
 
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
-pub enum Kind {
+enum Kind {
     NoOp = 0,
 
     /// 0x1l, 0xll, `data[0..len]` in first packet
-    MessageStart = 1,
+    PacketStart = 1,
     /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
-    MessageContinue = 2,
+    PacketContinue = 2,
     /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
-    MessageEnd = 3,
+    PacketEnd = 3,
     /// 0x4l, 0xll, `data[0..len]` in one packet.
-    MessageStartEnd = 4,
+    PacketStartEnd = 4,
 
-    GetLinkInfo = 5,
-    LinkInfo = 6,
+    LinkInfo = 5,
 
-    TestModeSetup = 7,
-    TestMessage = 8,
+    Ping = 6,
+
+    Disconnect = 7,
 }
 
-pub struct FrameBuilder<'i, S> {
+pub struct PacketSender<'i, S> {
     wr: BufWriter<'i>,
     sink: S,
     link_protocol: ProtocolInfo,
@@ -46,7 +46,8 @@ pub trait FrameSink {
     type Error;
     async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error>;
     async fn wait_connection(&mut self);
-    fn rx_from_source(&mut self) -> Option<LinkMgmtCmd>;
+    async fn rx_from_source(&mut self) -> LinkMgmtCmd;
+    fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd>;
 }
 
 pub trait FrameSource {
@@ -57,21 +58,20 @@ pub trait FrameSource {
 }
 
 pub enum LinkMgmtCmd {
-    SendLocalInfo {
-        max_packet_size: u32,
-    },
-    RemoteInfoReceived {
-        max_packet_size: u32,
-        link_protocol: ProtocolInfo,
-        user_protocol: ProtocolInfo,
+    Disconnect,
+    LinkInfo {
+        local_max_packet_size: u32,
+        remote_max_packet_size: u32,
+        remote_link_protocol: ProtocolInfo,
+        remote_user_protocol: ProtocolInfo,
     },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInfo {
-    protocol_id: u8,
-    major_version: u8,
-    minor_version: u8,
+    pub protocol_id: u8,
+    pub major_version: u8,
+    pub minor_version: u8,
 }
 
 impl ProtocolInfo {
@@ -104,7 +104,7 @@ impl ProtocolInfo {
     }
 }
 
-impl<'i, S: FrameSink> FrameBuilder<'i, S> {
+impl<'i, S: FrameSink> PacketSender<'i, S> {
     /// Create new FrameBuilder, buf needs to be of maximum size that sink can accept.
     /// Frames will be created to be as big as possible to minimize overhead.
     pub fn new(
@@ -126,54 +126,78 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
         }
     }
 
-    /// Try to write provided message bytes into the current packet and return None if it fits.
-    /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
-    /// must be sent in next packets.
-    pub async fn write_packet(&mut self, bytes: &[u8]) -> Result<(), S::Error> {
-        if let Some(link_info) = self.sink.rx_from_source() {
-            match link_info {
-                LinkMgmtCmd::SendLocalInfo { max_packet_size } => {
+    pub async fn wait_for_link(&mut self) -> Result<(), S::Error> {
+        while self.remote_protocols_matches.is_none() {
+            let mgmt_cmd = self.sink.rx_from_source().await;
+            match mgmt_cmd {
+                LinkMgmtCmd::Disconnect => {
+                    self.remote_protocols_matches = None;
+                    continue;
+                }
+                LinkMgmtCmd::LinkInfo {
+                    local_max_packet_size,
+                    remote_max_packet_size,
+                    remote_link_protocol,
+                    remote_user_protocol,
+                } => {
+                    if self.link_protocol.is_compatible(&remote_link_protocol)
+                        && self.user_protocol.is_compatible(&remote_user_protocol)
+                    {
+                        self.remote_protocols_matches = Some(remote_max_packet_size);
+                    }
                     if self.wr.bytes_left() < 2 + 4 + 3 + 3 {
                         self.force_send().await?;
                     }
                     self.wr.write_u4(Kind::LinkInfo as u8).unwrap();
                     self.write_len(10);
-                    self.wr.write_u32(max_packet_size).unwrap();
+                    self.wr.write_u32(local_max_packet_size).unwrap();
                     self.link_protocol.write(&mut self.wr).unwrap();
                     self.user_protocol.write(&mut self.wr).unwrap();
                     self.force_send().await?;
-                }
-                LinkMgmtCmd::RemoteInfoReceived {
-                    max_packet_size,
-                    link_protocol,
-                    user_protocol,
-                } => {
-                    if self.link_protocol.is_compatible(&link_protocol)
-                        && self.user_protocol.is_compatible(&user_protocol)
-                    {
-                        self.remote_protocols_matches = Some(max_packet_size);
-                    }
+                    break;
                 }
             }
         }
-        let Some(max_remote_packet_size) = self.remote_protocols_matches else {
-            // remote end did not send its link info yet
-            return Ok(()); // TODO: Count errors
-        };
-        if bytes.len() > max_remote_packet_size as usize {
-            return Ok(()); // TODO: Count errors
+        Ok(())
+    }
+
+    /// Try to write provided packet bytes into the current packet and return None if it fits.
+    /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
+    /// must be sent in next packets.
+    pub async fn send_packet(&mut self, packet: &[u8]) -> Result<(), S::Error> {
+        if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
+            match mgmt_cmd {
+                LinkMgmtCmd::Disconnect => {
+                    self.remote_protocols_matches = None;
+                    return Ok(());
+                }
+                LinkMgmtCmd::LinkInfo { .. } => {
+                    // TODO: Count error or handle
+                }
+            }
         }
-        if bytes.len() + 2 <= self.wr.bytes_left()
+        if packet.is_empty() {
+            return Ok(());
+        }
+        let Some(max_remote_packet_size) = self.remote_protocols_matches else {
+            // TODO: Count error
+            return Ok(());
+        };
+        if packet.len() > max_remote_packet_size as usize {
+            // defmt::error!("Tried to send a packet larger than the other end can receive");
+            return Ok(()); // TODO: Count error
+        }
+        if packet.len() + 2 <= self.wr.bytes_left()
         /* && bytes.len() <= max_remote_packet_size*/
         {
-            // message fits fully
-            self.write_message_start_end(bytes);
-            // need at least 3 bytes for next message
+            // packet fits fully
+            self.write_packet_start_end(packet);
+            // need at least 3 bytes for next packet
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
             }
         } else {
-            let mut remaining_bytes = bytes;
+            let mut remaining_bytes = packet;
             let mut crc_in_next_packet = None;
             let mut is_first_chunk = true;
             while remaining_bytes.len() > 0 {
@@ -184,18 +208,18 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
                 // .min(max_remote_packet_size);
                 let kind = if is_first_chunk {
                     is_first_chunk = false;
-                    Kind::MessageStart
+                    Kind::PacketStart
                 } else if remaining_bytes.len() - len_chunk > 0 {
-                    Kind::MessageContinue
+                    Kind::PacketContinue
                 } else {
                     if self.wr.bytes_left() - len_chunk - 2 >= 2 {
                         // CRC will fit
-                        Kind::MessageEnd
+                        Kind::PacketEnd
                     } else {
-                        // CRC in the next packet with 0 remaining bytes of the message
-                        let crc = CRC_KIND.checksum(bytes);
+                        // CRC in the next frame with 0 remaining bytes of the packet
+                        let crc = CRC_KIND.checksum(packet);
                         crc_in_next_packet = Some(crc);
-                        Kind::MessageContinue
+                        Kind::PacketContinue
                     }
                 };
                 self.wr.write_u4(kind as u8).unwrap();
@@ -204,8 +228,8 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
                     .write_raw_slice(&remaining_bytes[..len_chunk])
                     .unwrap();
                 remaining_bytes = &remaining_bytes[len_chunk..];
-                if kind == Kind::MessageEnd {
-                    let crc = CRC_KIND.checksum(bytes);
+                if kind == Kind::PacketEnd {
+                    let crc = CRC_KIND.checksum(packet);
                     self.wr.write_u16(crc).unwrap();
                 }
             }
@@ -214,7 +238,7 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
                     self.force_send().await?;
                 }
                 // TODO: CRC
-                self.wr.write_u4(Kind::MessageEnd as u8).unwrap();
+                self.wr.write_u4(Kind::PacketEnd as u8).unwrap();
                 self.write_len(0);
                 self.wr.write_u16(crc).unwrap();
             }
@@ -225,8 +249,18 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
         Ok(())
     }
 
-    fn write_message_start_end(&mut self, bytes: &[u8]) {
-        self.wr.write_u4(Kind::MessageStartEnd as u8).unwrap();
+    pub async fn send_ping(&mut self) -> Result<(), S::Error> {
+        if self.wr.bytes_left() < 2 {
+            self.force_send().await?;
+        }
+        self.wr.write_u4(Kind::Ping as u8).unwrap();
+        self.write_len(0);
+        self.force_send().await?;
+        Ok(())
+    }
+
+    fn write_packet_start_end(&mut self, bytes: &[u8]) {
+        self.wr.write_u4(Kind::PacketStartEnd as u8).unwrap();
         self.write_len(bytes.len() as u16);
         self.wr.write_raw_slice(bytes).unwrap();
     }
@@ -236,10 +270,6 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
         let len7_0 = (len & 0xFF) as u8;
         self.wr.write_u4(len11_8).unwrap();
         self.wr.write_u8(len7_0).unwrap();
-    }
-
-    pub fn test_link(&mut self) {
-        self.wr.write_u4(Kind::TestMessage as u8).unwrap();
     }
 
     pub async fn force_send(&mut self) -> Result<(), S::Error> {
@@ -259,7 +289,7 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
     }
 }
 
-pub struct FrameReader<'a, S> {
+pub struct PacketReceiver<'a, S> {
     source: S,
     receive: &'a mut [u8],
     receive_start_pos: usize,
@@ -275,7 +305,7 @@ pub struct Stats {
     pub malformed_bytes: u32,
 }
 
-impl<'a, S: FrameSource> FrameReader<'a, S> {
+impl<'a, S: FrameSource> PacketReceiver<'a, S> {
     pub fn new(frame_source: S, receive: &'a mut [u8]) -> Self {
         Self {
             source: frame_source,
@@ -287,7 +317,7 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
         }
     }
 
-    pub async fn read_packet(&mut self, packet: &mut [u8]) -> Result<usize, S::Error> {
+    pub async fn receive_packet(&mut self, packet: &mut [u8]) -> Result<usize, S::Error> {
         let mut staging_idx = 0;
         'next_frame: loop {
             let (frame, is_new_frame) = if self.receive_left_bytes > 0 {
@@ -316,19 +346,19 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                 let len = (len11_8 as usize) << 8 | len7_0 as usize;
                 match kind {
                     Kind::NoOp => {}
-                    Kind::MessageStart | Kind::MessageContinue | Kind::MessageEnd => {
+                    Kind::PacketStart | Kind::PacketContinue | Kind::PacketEnd => {
                         let Ok(packet_piece) = rd.read_raw_slice(len) else {
                             self.stats.packets_lost += 1;
                             staging_idx = 0;
                             self.in_fragmented_packet = false;
                             continue 'next_frame;
                         };
-                        if kind == Kind::MessageStart {
+                        if kind == Kind::PacketStart {
                             self.in_fragmented_packet = true;
                             staging_idx = 0;
                         } else if !self.in_fragmented_packet {
                             self.stats.packets_lost += 1;
-                            if kind == Kind::MessageEnd {
+                            if kind == Kind::PacketEnd {
                                 if let Ok(_crc) = rd.read_u16() {
                                     continue;
                                 } else {
@@ -343,7 +373,7 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                             packet[staging_idx..(staging_idx + packet_piece.len())]
                                 .copy_from_slice(packet_piece);
                             staging_idx += packet_piece.len();
-                            if kind == Kind::MessageEnd {
+                            if kind == Kind::PacketEnd {
                                 let Ok(crc_received) = rd.read_u16() else {
                                     self.stats.packets_lost += 1;
                                     staging_idx = 0;
@@ -383,7 +413,7 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                             continue 'next_frame;
                         }
                     }
-                    Kind::MessageStartEnd => {
+                    Kind::PacketStartEnd => {
                         if let Ok(packet_read) = rd.read_raw_slice(len) {
                             packet[..packet_read.len()].copy_from_slice(packet_read);
 
@@ -411,25 +441,23 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                             continue 'next_frame;
                         }
                     }
-                    Kind::GetLinkInfo => {
-                        self.source.send_to_sink(LinkMgmtCmd::SendLocalInfo {
-                            max_packet_size: packet.len() as u32,
-                        });
-                    }
                     Kind::LinkInfo => {
                         if rd.bytes_left() >= 4 + 3 + 3 {
-                            let max_packet_size = rd.read_u32().unwrap();
-                            let link_protocol = ProtocolInfo::read(&mut rd).unwrap();
-                            let user_protocol = ProtocolInfo::read(&mut rd).unwrap();
-                            self.source.send_to_sink(LinkMgmtCmd::RemoteInfoReceived {
-                                max_packet_size,
-                                link_protocol,
-                                user_protocol,
+                            let remote_max_packet_size = rd.read_u32().unwrap();
+                            let remote_link_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            let remote_user_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            self.source.send_to_sink(LinkMgmtCmd::LinkInfo {
+                                local_max_packet_size: packet.len() as u32,
+                                remote_max_packet_size,
+                                remote_link_protocol,
+                                remote_user_protocol,
                             });
                         }
                     }
-                    Kind::TestModeSetup => {}
-                    Kind::TestMessage => {}
+                    Kind::Disconnect => {
+                        self.source.send_to_sink(LinkMgmtCmd::Disconnect);
+                    }
+                    Kind::Ping => {}
                 }
             }
             self.receive_left_bytes = 0;
@@ -493,8 +521,8 @@ mod tests {
         fn send_to_sink(&mut self, _msg: LinkMgmtCmd) {}
     }
 
-    fn create_frame_builder(buf: &mut [u8]) -> FrameBuilder<VecSink> {
-        FrameBuilder::new(
+    fn create_frame_builder(buf: &mut [u8]) -> PacketSender<VecSink> {
+        PacketSender::new(
             buf,
             VecSink::new(),
             ProtocolInfo {
@@ -514,7 +542,7 @@ mod tests {
     fn packet_not_sent_automatically() {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
+        block_on(builder.send_packet(&[1, 2, 3])).unwrap();
         let (_, sink) = builder.deinit();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
         assert_eq!(sink.frames.len(), 0);
@@ -524,18 +552,18 @@ mod tests {
     fn message_fits_fully() {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6])).unwrap();
+        block_on(builder.send_packet(&[1, 2, 3, 4, 5, 6])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 1);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Kind::PacketStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = FrameReader::new(sink, &mut staging);
-        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let len = block_on(reader.receive_packet(&mut receive)).unwrap();
         assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6]);
     }
 
@@ -543,18 +571,18 @@ mod tests {
     fn split_into_two() {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
+        block_on(builder.send_packet(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Kind::PacketStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         let crc = CRC_KIND.checksum(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
             sink.frames[1],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Kind::PacketEnd as u8) << 4,
                 0x02,
                 7,
                 8,
@@ -565,8 +593,8 @@ mod tests {
 
         let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = FrameReader::new(sink, &mut staging);
-        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let len = block_on(reader.receive_packet(&mut receive)).unwrap();
         assert_eq!(&receive[..len], &[1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
@@ -575,31 +603,22 @@ mod tests {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
         const PACKET: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-        block_on(builder.write_packet(PACKET)).unwrap();
+        block_on(builder.send_packet(PACKET)).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Kind::PacketStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         assert_eq!(
             sink.frames[1],
-            vec![
-                (Kind::MessageContinue as u8) << 4,
-                0x06,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12
-            ]
+            vec![(Kind::PacketContinue as u8) << 4, 0x06, 7, 8, 9, 10, 11, 12]
         );
         let crc = CRC_KIND.checksum(PACKET);
         assert_eq!(
             sink.frames[2],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Kind::PacketEnd as u8) << 4,
                 0x02,
                 13,
                 14,
@@ -610,8 +629,8 @@ mod tests {
 
         let mut staging = [0u8; 16];
         let mut receive = [0u8; 16];
-        let mut reader = FrameReader::new(sink, &mut staging);
-        let len = block_on(reader.read_packet(&mut receive)).unwrap();
+        let mut reader = PacketReceiver::new(sink, &mut staging);
+        let len = block_on(reader.receive_packet(&mut receive)).unwrap();
         assert_eq!(
             &receive[..len],
             &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -622,21 +641,21 @@ mod tests {
     fn left_3_write_4() {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
+        block_on(builder.send_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.write_packet(&[4, 5, 6, 7])).unwrap();
+        block_on(builder.send_packet(&[4, 5, 6, 7])).unwrap();
         block_on(builder.force_send()).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
         assert_eq!(
             sink.frames[0],
             vec![
-                (Kind::MessageStartEnd as u8) << 4,
+                (Kind::PacketStartEnd as u8) << 4,
                 0x03,
                 1,
                 2,
                 3,
-                (Kind::MessageStart as u8) << 4,
+                (Kind::PacketStart as u8) << 4,
                 1,
                 4
             ]
@@ -645,7 +664,7 @@ mod tests {
         assert_eq!(
             sink.frames[1],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Kind::PacketEnd as u8) << 4,
                 0x03,
                 5,
                 6,
@@ -660,21 +679,21 @@ mod tests {
     fn left_3_write_6() {
         let mut buf = [0u8; 8];
         let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.write_packet(&[1, 2, 3])).unwrap();
+        block_on(builder.send_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.write_packet(&[4, 5, 6, 7, 8, 9])).unwrap();
+        block_on(builder.send_packet(&[4, 5, 6, 7, 8, 9])).unwrap();
         block_on(builder.force_send()).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(
             sink.frames[0],
             vec![
-                (Kind::MessageStartEnd as u8) << 4,
+                (Kind::PacketStartEnd as u8) << 4,
                 0x03,
                 1,
                 2,
                 3,
-                (Kind::MessageStart as u8) << 4,
+                (Kind::PacketStart as u8) << 4,
                 1,
                 4
             ]
@@ -683,13 +702,13 @@ mod tests {
         assert_eq!(sink.frames[1].len(), 7);
         assert_eq!(
             sink.frames[1],
-            vec![(Kind::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
+            vec![(Kind::PacketContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
         );
         assert_eq!(sink.frames[2].len(), 4);
         assert_eq!(
             sink.frames[2],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Kind::PacketEnd as u8) << 4,
                 0x00,
                 (crc & 0xFF) as u8,
                 (crc >> 8) as u8

@@ -42,6 +42,14 @@ pub struct PacketSender<'i, S> {
     user_protocol: ProtocolInfo,
     remote_max_packet_size: u32,
     link_setup_done: bool,
+    stats: SenderStats,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct SenderStats {
+    pub packets_sent: u32,
+    pub bytes_sent: u64,
 }
 
 pub trait FrameSink {
@@ -70,6 +78,7 @@ pub enum LinkMgmtCmd {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ProtocolInfo {
     pub protocol_id: u32,
     pub major_version: u8,
@@ -139,6 +148,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
             user_protocol,
             remote_max_packet_size: MIN_PACKET_SIZE as u32,
             link_setup_done: false,
+            stats: Default::default(),
         }
     }
 
@@ -244,6 +254,8 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         {
             // packet fits fully
             self.write_packet_start_end(packet)?;
+            self.stats.packets_sent = self.stats.packets_sent.wrapping_add(1);
+            self.stats.bytes_sent = self.stats.bytes_sent.wrapping_add(packet.len() as u64);
             // need at least 3 bytes for next packet
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
@@ -287,6 +299,8 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
                     self.wr
                         .write_u16(crc)
                         .map_err(|_| SendError::InternalBufOverflow)?;
+                    self.stats.packets_sent = self.stats.packets_sent.wrapping_add(1);
+                    self.stats.bytes_sent = self.stats.bytes_sent.wrapping_add(packet.len() as u64);
                 }
             }
             if let Some(crc) = crc_in_next_packet {
@@ -373,6 +387,10 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
     pub async fn wait_connection(&mut self) {
         self.sink.wait_connection().await;
     }
+
+    pub fn stats(&self) -> &SenderStats {
+        &self.stats
+    }
 }
 
 pub struct PacketReceiver<'a, S> {
@@ -380,17 +398,19 @@ pub struct PacketReceiver<'a, S> {
     receive: &'a mut [u8],
     receive_start_pos: usize,
     receive_left_bytes: usize,
-    stats: Stats,
+    stats: ReceiverStats,
     in_fragmented_packet: bool,
     user_protocol: ProtocolInfo,
     protocols_versions_matches: bool,
 }
 
 #[derive(Default, Debug, Copy, Clone)]
-pub struct Stats {
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct ReceiverStats {
     pub packets_received: u32,
+    pub bytes_received: u64,
     pub packets_lost: u32,
-    pub malformed_bytes: u32,
+    pub bytes_lost: u32,
 }
 
 #[derive(Debug)]
@@ -425,7 +445,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
             receive,
             receive_start_pos: 0,
             receive_left_bytes: 0,
-            stats: Stats::default(),
+            stats: ReceiverStats::default(),
             in_fragmented_packet: false,
             user_protocol,
             #[cfg(not(test))]
@@ -461,7 +481,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                     .read_u4()
                     .map_err(|_| ReceiveError::InternalBufOverflow)?;
                 let Some(kind) = Kind::from_repr(kind) else {
-                    self.stats.malformed_bytes += 1;
+                    self.stats.bytes_lost = self.stats.bytes_lost.wrapping_add(1);
                     continue 'next_frame;
                 };
                 if !self.protocols_versions_matches && kind != Kind::LinkInfo {
@@ -479,7 +499,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                     Kind::NoOp => {}
                     Kind::PacketStart | Kind::PacketContinue | Kind::PacketEnd => {
                         let Ok(packet_piece) = rd.read_raw_slice(len) else {
-                            self.stats.packets_lost += 1;
+                            self.stats.packets_lost = self.stats.packets_lost.wrapping_add(1);
                             staging_idx = 0;
                             self.in_fragmented_packet = false;
                             continue 'next_frame;
@@ -488,7 +508,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                             self.in_fragmented_packet = true;
                             staging_idx = 0;
                         } else if !self.in_fragmented_packet {
-                            self.stats.packets_lost += 1;
+                            self.stats.packets_lost = self.stats.packets_lost.wrapping_add(1);
                             if kind == Kind::PacketEnd {
                                 if let Ok(_crc) = rd.read_u16() {
                                     continue;
@@ -506,7 +526,8 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                             staging_idx += packet_piece.len();
                             if kind == Kind::PacketEnd {
                                 let Ok(crc_received) = rd.read_u16() else {
-                                    self.stats.packets_lost += 1;
+                                    self.stats.packets_lost =
+                                        self.stats.packets_lost.wrapping_add(1);
                                     staging_idx = 0;
                                     continue 'next_frame;
                                 };
@@ -530,16 +551,21 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                                             self.receive_left_bytes = 0;
                                         }
                                     }
+                                    self.stats.bytes_received =
+                                        self.stats.bytes_received.wrapping_add(staging_idx as u64);
+                                    self.stats.packets_received =
+                                        self.stats.packets_received.wrapping_add(1);
                                     return Ok(PacketKind::Data(staging_idx));
                                 } else {
-                                    self.stats.packets_lost += 1;
+                                    self.stats.packets_lost =
+                                        self.stats.packets_lost.wrapping_add(1);
                                     staging_idx = 0;
                                     continue; // try to receive other packets if any, previous frames might be lost leading to crc error
                                 }
                             }
                         } else {
                             staging_idx = 0;
-                            self.stats.packets_lost += 1;
+                            self.stats.packets_lost = self.stats.packets_lost.wrapping_add(1);
                             self.in_fragmented_packet = false;
                             continue 'next_frame;
                         }
@@ -564,9 +590,15 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                                     self.receive_left_bytes = 0;
                                 }
                             }
+                            self.stats.bytes_received = self
+                                .stats
+                                .bytes_received
+                                .wrapping_add(packet_read.len() as u64);
+                            self.stats.packets_received =
+                                self.stats.packets_received.wrapping_add(1);
                             return Ok(PacketKind::Data(packet_read.len()));
                         } else {
-                            self.stats.packets_lost += 1;
+                            self.stats.packets_lost = self.stats.packets_lost.wrapping_add(1);
                             staging_idx = 0;
                             self.in_fragmented_packet = false;
                             continue 'next_frame;
@@ -618,6 +650,10 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
 
     pub async fn wait_connection(&mut self) {
         self.source.wait_connection().await;
+    }
+
+    pub fn stats(&self) -> &ReceiverStats {
+        &self.stats
     }
 }
 

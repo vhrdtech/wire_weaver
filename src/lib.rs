@@ -189,6 +189,9 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         &mut self,
         max_packet_size: u32,
     ) -> Result<(), SendError<S::Error>> {
+        #[cfg(feature = "defmt")]
+        defmt::trace!("Sending link setup");
+
         if self.wr.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
             self.force_send().await?;
         }
@@ -343,7 +346,12 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
             .map_err(|_| SendError::InternalBufOverflow)?;
         self.write_len(0)?;
         self.force_send().await?;
+        self.link_setup_done = false;
         Ok(())
+    }
+
+    pub fn silent_disconnect(&mut self) {
+        self.link_setup_done = false;
     }
 
     fn write_packet_start_end(&mut self, bytes: &[u8]) -> Result<(), SendError<S::Error>> {
@@ -430,6 +438,7 @@ pub enum ReceiveError<T> {
     SourceError(T),
     EmptyFrame,
     InternalBufOverflow,
+    ProtocolsVersionsMismatch,
 }
 
 impl<T> From<T> for ReceiveError<T> {
@@ -486,7 +495,7 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                 };
                 if !self.protocols_versions_matches && kind != Kind::LinkInfo {
                     self.receive_left_bytes = 0;
-                    continue 'next_frame;
+                    return Err(ReceiveError::ProtocolsVersionsMismatch);
                 }
                 let len11_8 = rd
                     .read_u4()

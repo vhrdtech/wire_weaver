@@ -27,8 +27,8 @@ pub enum Kind {
     /// 0x4l, 0xll, `data[0..len]` in one packet.
     MessageStartEnd = 4,
 
-    GetMaxMessageLength = 5,
-    MaxMessageLength = 6,
+    GetLinkInfo = 5,
+    LinkInfo = 6,
 
     TestModeSetup = 7,
     TestMessage = 8,
@@ -37,28 +37,92 @@ pub enum Kind {
 pub struct FrameBuilder<'i, S> {
     wr: BufWriter<'i>,
     sink: S,
+    link_protocol: ProtocolInfo,
+    user_protocol: ProtocolInfo,
+    remote_protocols_matches: Option<u32>,
 }
 
 pub trait FrameSink {
     type Error;
     async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error>;
     async fn wait_connection(&mut self);
+    fn rx_from_source(&mut self) -> Option<LinkMgmtCmd>;
 }
 
 pub trait FrameSource {
     type Error;
     async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
     async fn wait_connection(&mut self);
+    fn send_to_sink(&mut self, msg: LinkMgmtCmd);
+}
+
+pub enum LinkMgmtCmd {
+    SendLocalInfo {
+        max_packet_size: u32,
+    },
+    RemoteInfoReceived {
+        max_packet_size: u32,
+        link_protocol: ProtocolInfo,
+        user_protocol: ProtocolInfo,
+    },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct ProtocolInfo {
+    protocol_id: u8,
+    major_version: u8,
+    minor_version: u8,
+}
+
+impl ProtocolInfo {
+    fn write(&self, wr: &mut BufWriter) -> Result<(), shrink_wrap::Error> {
+        wr.write_u8(self.protocol_id)?;
+        wr.write_u8(self.major_version)?;
+        wr.write_u8(self.minor_version)?;
+        Ok(())
+    }
+
+    fn read(rd: &mut BufReader) -> Result<ProtocolInfo, shrink_wrap::Error> {
+        Ok(ProtocolInfo {
+            protocol_id: rd.read_u8()?,
+            major_version: rd.read_u8()?,
+            minor_version: rd.read_u8()?,
+        })
+    }
+
+    fn is_compatible(&self, other: &ProtocolInfo) -> bool {
+        if self.protocol_id != other.protocol_id {
+            false
+        } else {
+            if self.major_version == 0 && other.major_version == 0 {
+                self.minor_version == other.minor_version
+            } else {
+                // not comparing minor versions, protocols are supposed to be backwards and forwards compatible after 1.0
+                self.major_version == other.major_version
+            }
+        }
+    }
 }
 
 impl<'i, S: FrameSink> FrameBuilder<'i, S> {
     /// Create new FrameBuilder, buf needs to be of maximum size that sink can accept.
     /// Frames will be created to be as big as possible to minimize overhead.
-    pub fn new(buf: &'i mut [u8], sink: S) -> Self {
+    pub fn new(
+        buf: &'i mut [u8],
+        sink: S,
+        link_protocol: ProtocolInfo,
+        user_protocol: ProtocolInfo,
+    ) -> Self {
         debug_assert!(buf.len() >= 8);
         Self {
             wr: BufWriter::new(buf),
             sink,
+            link_protocol,
+            user_protocol,
+            #[cfg(not(test))]
+            remote_protocols_matches: None,
+            #[cfg(test)]
+            remote_protocols_matches: Some(4095),
         }
     }
 
@@ -66,7 +130,42 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
     /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
     /// must be sent in next packets.
     pub async fn write_packet(&mut self, bytes: &[u8]) -> Result<(), S::Error> {
-        if (bytes.len() + 2 <= self.wr.bytes_left()) && bytes.len() <= 4095 {
+        if let Some(link_info) = self.sink.rx_from_source() {
+            match link_info {
+                LinkMgmtCmd::SendLocalInfo { max_packet_size } => {
+                    if self.wr.bytes_left() < 2 + 4 + 3 + 3 {
+                        self.force_send().await?;
+                    }
+                    self.wr.write_u4(Kind::LinkInfo as u8).unwrap();
+                    self.write_len(10);
+                    self.wr.write_u32(max_packet_size).unwrap();
+                    self.link_protocol.write(&mut self.wr).unwrap();
+                    self.user_protocol.write(&mut self.wr).unwrap();
+                    self.force_send().await?;
+                }
+                LinkMgmtCmd::RemoteInfoReceived {
+                    max_packet_size,
+                    link_protocol,
+                    user_protocol,
+                } => {
+                    if self.link_protocol.is_compatible(&link_protocol)
+                        && self.user_protocol.is_compatible(&user_protocol)
+                    {
+                        self.remote_protocols_matches = Some(max_packet_size);
+                    }
+                }
+            }
+        }
+        let Some(max_remote_packet_size) = self.remote_protocols_matches else {
+            // remote end did not send its link info yet
+            return Ok(()); // TODO: Count errors
+        };
+        if bytes.len() > max_remote_packet_size as usize {
+            return Ok(()); // TODO: Count errors
+        }
+        if bytes.len() + 2 <= self.wr.bytes_left()
+        /* && bytes.len() <= max_remote_packet_size*/
+        {
             // message fits fully
             self.write_message_start_end(bytes);
             // need at least 3 bytes for next message
@@ -81,10 +180,8 @@ impl<'i, S: FrameSink> FrameBuilder<'i, S> {
                 if self.wr.bytes_left() < 3 {
                     self.force_send().await?;
                 }
-                let len_chunk = remaining_bytes
-                    .len()
-                    .min(self.wr.bytes_left() - 2)
-                    .min(4095);
+                let len_chunk = remaining_bytes.len().min(self.wr.bytes_left() - 2);
+                // .min(max_remote_packet_size);
                 let kind = if is_first_chunk {
                     is_first_chunk = false;
                     Kind::MessageStart
@@ -314,8 +411,23 @@ impl<'a, S: FrameSource> FrameReader<'a, S> {
                             continue 'next_frame;
                         }
                     }
-                    Kind::GetMaxMessageLength => {}
-                    Kind::MaxMessageLength => {}
+                    Kind::GetLinkInfo => {
+                        self.source.send_to_sink(LinkMgmtCmd::SendLocalInfo {
+                            max_packet_size: packet.len() as u32,
+                        });
+                    }
+                    Kind::LinkInfo => {
+                        if rd.bytes_left() >= 4 + 3 + 3 {
+                            let max_packet_size = rd.read_u32().unwrap();
+                            let link_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            let user_protocol = ProtocolInfo::read(&mut rd).unwrap();
+                            self.source.send_to_sink(LinkMgmtCmd::RemoteInfoReceived {
+                                max_packet_size,
+                                link_protocol,
+                                user_protocol,
+                            });
+                        }
+                    }
                     Kind::TestModeSetup => {}
                     Kind::TestMessage => {}
                 }
@@ -357,8 +469,10 @@ mod tests {
             Ok(())
         }
 
-        async fn wait_connection(&mut self) {
-            todo!()
+        async fn wait_connection(&mut self) {}
+
+        fn rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
+            None
         }
     }
 
@@ -374,15 +488,32 @@ mod tests {
             }
         }
 
-        async fn wait_connection(&mut self) {
-            todo!()
-        }
+        async fn wait_connection(&mut self) {}
+
+        fn send_to_sink(&mut self, _msg: LinkMgmtCmd) {}
+    }
+
+    fn create_frame_builder(buf: &mut [u8]) -> FrameBuilder<VecSink> {
+        FrameBuilder::new(
+            buf,
+            VecSink::new(),
+            ProtocolInfo {
+                protocol_id: 0,
+                major_version: 0,
+                minor_version: 0,
+            },
+            ProtocolInfo {
+                protocol_id: 0,
+                major_version: 0,
+                minor_version: 0,
+            },
+        )
     }
 
     #[test]
     fn packet_not_sent_automatically() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         let (_, sink) = builder.deinit();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
@@ -392,7 +523,7 @@ mod tests {
     #[test]
     fn message_fits_fully() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 1);
@@ -411,7 +542,7 @@ mod tests {
     #[test]
     fn split_into_two() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         block_on(builder.write_packet(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
         let (_, sink) = builder.deinit();
         assert_eq!(sink.frames.len(), 2);
@@ -442,7 +573,7 @@ mod tests {
     #[test]
     fn split_into_three() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         const PACKET: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
         block_on(builder.write_packet(PACKET)).unwrap();
         let (_, sink) = builder.deinit();
@@ -490,7 +621,7 @@ mod tests {
     #[test]
     fn left_3_write_4() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
         block_on(builder.write_packet(&[4, 5, 6, 7])).unwrap();
@@ -528,7 +659,7 @@ mod tests {
     #[test]
     fn left_3_write_6() {
         let mut buf = [0u8; 8];
-        let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
+        let mut builder = create_frame_builder(&mut buf);
         block_on(builder.write_packet(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
         block_on(builder.write_packet(&[4, 5, 6, 7, 8, 9])).unwrap();

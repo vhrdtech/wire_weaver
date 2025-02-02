@@ -5,7 +5,7 @@ use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointO
 use embassy_usb::types::InterfaceNumber;
 use embassy_usb::{msos, Builder};
 use static_cell::StaticCell;
-use wire_weaver_usb_common::{FrameSink, FrameSource, LinkMgmtCmd};
+use wire_weaver_usb_link::{FrameSink, FrameSource, LinkMgmtCmd};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;

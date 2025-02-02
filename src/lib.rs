@@ -185,6 +185,18 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         Ok(())
     }
 
+    pub async fn send_nop(&mut self) -> Result<(), SendError<S::Error>> {
+        if self.wr.bytes_left() < 2 {
+            self.force_send().await?;
+        }
+        self.wr
+            .write_u4(Kind::NoOp as u8)
+            .map_err(|_| SendError::InternalBufOverflow)?;
+        self.write_len(0)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
     pub async fn send_link_setup(
         &mut self,
         max_packet_size: u32,
@@ -216,36 +228,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
     /// Otherwise, fill up current packet till the end and return Some(remaining bytes), which
     /// must be sent in next packets.
     pub async fn send_packet(&mut self, packet: &[u8]) -> Result<(), SendError<S::Error>> {
-        if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
-            match mgmt_cmd {
-                LinkMgmtCmd::Disconnect => {
-                    self.remote_max_packet_size = MIN_PACKET_SIZE as u32;
-                    self.link_setup_done = false;
-                    return Err(SendError::Disconnected);
-                }
-                LinkMgmtCmd::LinkInfo {
-                    link_version_matches,
-                    local_max_packet_size,
-                    remote_max_packet_size,
-                    remote_user_protocol,
-                } => {
-                    // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
-                    let is_protocols_compatible =
-                        self.user_protocol.is_compatible(&remote_user_protocol);
-                    if link_version_matches && is_protocols_compatible {
-                        self.remote_max_packet_size = remote_max_packet_size;
-                        self.link_setup_done = true;
-                    }
-                    self.send_link_setup(local_max_packet_size).await?;
-                    if !link_version_matches {
-                        return Err(SendError::LinkVersionMismatch);
-                    }
-                    if !is_protocols_compatible {
-                        return Err(SendError::ProtocolVersionMismatch);
-                    }
-                }
-            }
-        }
+        self.handle_mgmt_cmd_if_some().await?;
         if packet.is_empty() {
             return Err(SendError::EmptyPacket);
         }
@@ -326,6 +309,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
     }
 
     pub async fn send_ping(&mut self) -> Result<(), SendError<S::Error>> {
+        self.handle_mgmt_cmd_if_some().await?;
         if self.wr.bytes_left() < 2 {
             self.force_send().await?;
         }
@@ -334,6 +318,40 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
             .map_err(|_| SendError::InternalBufOverflow)?;
         self.write_len(0)?;
         self.force_send().await?;
+        Ok(())
+    }
+
+    async fn handle_mgmt_cmd_if_some(&mut self) -> Result<(), SendError<S::Error>> {
+        if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
+            match mgmt_cmd {
+                LinkMgmtCmd::Disconnect => {
+                    self.remote_max_packet_size = MIN_PACKET_SIZE as u32;
+                    self.link_setup_done = false;
+                    return Err(SendError::Disconnected);
+                }
+                LinkMgmtCmd::LinkInfo {
+                    link_version_matches,
+                    local_max_packet_size,
+                    remote_max_packet_size,
+                    remote_user_protocol,
+                } => {
+                    // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
+                    let is_protocols_compatible =
+                        self.user_protocol.is_compatible(&remote_user_protocol);
+                    if link_version_matches && is_protocols_compatible {
+                        self.remote_max_packet_size = remote_max_packet_size;
+                        self.link_setup_done = true;
+                    }
+                    self.send_link_setup(local_max_packet_size).await?;
+                    if !link_version_matches {
+                        return Err(SendError::LinkVersionMismatch);
+                    }
+                    if !is_protocols_compatible {
+                        return Err(SendError::ProtocolVersionMismatch);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 

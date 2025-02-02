@@ -1,9 +1,9 @@
 [package]
-name = "wire_weaver_usb_common"
+name = "wire_weaver_usb_link"
 version = "0.1.0"
 edition = "2021"
 authors = ["Roman Isaikin <roman@vhrd.tech>"]
-description = "Common data types for WireWeaver over USB implementation"
+description = "WireWeaver over USB implementation"
 
 [dependencies]
 crc = "3"

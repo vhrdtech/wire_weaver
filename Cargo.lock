@@ -316,7 +316,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wire_weaver_usb_common"
+name = "wire_weaver_usb_link"
 version = "0.1.0"
 dependencies = [
  "crc",

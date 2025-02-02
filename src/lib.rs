@@ -1,11 +1,11 @@
-use std::future::Future;
+use std::thread::sleep;
 use std::time::Duration;
-use nusb::{Device, Interface};
-use nusb::transfer::{Completion, Queue, RequestBuffer, ResponseBuffer, TransferError};
+use nusb::{Interface};
+use nusb::transfer::{RequestBuffer, TransferError};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{error, info, trace, warn};
-use wire_weaver_usb_common::{FrameBuilder, FrameReader, FrameSink, FrameSource};
+use wire_weaver_usb_link::{PacketSender, PacketReceiver, FrameSink, FrameSource, LinkMgmtCmd, ProtocolInfo, PacketKind, ReceiveError};
 
 pub enum DeviceManagerCommand {
     Open {
@@ -105,10 +105,10 @@ async fn dm_worker(mut dm_commands_rx: Receiver<DeviceManagerCommand>, dm_events
         match cmd {
             DeviceManagerCommand::Open { .. } => {
                 trace!("Opening device");
-                let mut di = nusb::list_devices().unwrap().find(|d| d.vendor_id() == 0xc0de && d.product_id() == 0xcafe).expect("device should be connected");
+                let di = nusb::list_devices().unwrap().find(|d| d.vendor_id() == 0xc0de && d.product_id() == 0xcafe).expect("device should be connected");
                 info!("Found device: {:?}", di);
                 let dev = di.open().unwrap();
-                let interface = dev.claim_interface(1).unwrap();
+                let interface = dev.claim_interface(0).unwrap();
                 interface.set_alt_setting(0).unwrap();
                 trace!("opened device");
 
@@ -141,7 +141,7 @@ impl FrameSink for Sink {
         let completion = self.interface.interrupt_out(0x01, data.to_vec()).await;
         match completion.status {
             Ok(_) => {
-                trace!("Out ok");
+                trace!("wrote: {:02x?}", data);
                 Ok(())
             }
             Err(e) => {
@@ -154,6 +154,14 @@ impl FrameSink for Sink {
 
     async fn wait_connection(&mut self) {
 
+    }
+
+    async fn rx_from_source(&mut self) -> LinkMgmtCmd {
+        unreachable!()
+    }
+
+    fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
+        None
     }
 }
 
@@ -168,7 +176,7 @@ impl FrameSource for Source {
     async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
         // reuse vec
         // try Queue in
-        let completion = self.interface.interrupt_in(0x82, RequestBuffer::new(512)).await;
+        let completion = self.interface.interrupt_in(0x81, RequestBuffer::new(512)).await;
         match completion.status {
             Ok(_) => {
                 info!("read frame {:02x?}", completion.data);
@@ -185,6 +193,10 @@ impl FrameSource for Source {
     async fn wait_connection(&mut self) {
 
     }
+
+    fn send_to_sink(&mut self, _msg: LinkMgmtCmd) {
+
+    }
 }
 
 async fn worker(
@@ -192,38 +204,51 @@ async fn worker(
     mut rx_commands: Receiver<Command>,
     tx_events: Sender<Event>,
 ) {
-    // let (irq_rx_transfer_tx, irq_rx_transfer_rx) = channel(1);
-    // let (irq_rx_result_tx, mut irq_rx_result_rx) = channel(1);
-
-    // let (rx_worker_shutdown_tx, rx_worker_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    // let rx_join = tokio::spawn(async move {
-    //     rx_worker(irq_rx_transfer_rx, irq_rx_result_tx).await;
-    // });
-
-    // let buf = vec![0u8; 512].into_boxed_slice();
-    // let timeout = Duration::from_secs(1);
-    // let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
-    // irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
-
-    // tx_assembly_buf, last_sent_instant, max_jitter
-    // let mut tx_assembly_buf = [0u8; 512];
-    // let mut packet_builder: Option<FrameBuilder> = None;
+    let user_protocol = ProtocolInfo {
+        protocol_id: 7,
+        major_version: 0,
+        minor_version: 1,
+    };
     let mut builder_buf = [0u8; 1024];
-    let mut frame_builder = FrameBuilder::new(&mut builder_buf, Sink { interface: interface.clone() });
-
+    let mut packet_sender = PacketSender::new(&mut builder_buf, Sink { interface: interface.clone() }, user_protocol);
+    const MAX_PACKET_SIZE: usize = 2048;
+    // for some reason first packet seem to be lost when connecting for the second tmie, so send nop
+    packet_sender.send_nop().await.unwrap();
+    packet_sender.send_link_setup(MAX_PACKET_SIZE as u32).await.unwrap();
 
     tokio::spawn(async move {
-        let mut reader_staging = [0u8; 1024];
-        let mut reader_rx = [0u8; 1024];
-        let mut frame_reader = FrameReader::new(Source { interface }, &mut reader_staging);
+        let mut reader_staging = [0u8; 512]; // max USB transfer size, TODO: use 1024 USB transfers?
+        let mut reader_rx = [0u8; MAX_PACKET_SIZE];
+        let mut packet_receiver = PacketReceiver::new(Source { interface }, &mut reader_staging, user_protocol);
         loop {
-            match frame_reader.read_packet(&mut reader_rx).await {
-                Ok(len) => {
+            match packet_receiver.receive_packet(&mut reader_rx).await {
+                Ok(PacketKind::Data(len)) => {
                     let packet = &reader_rx[..len];
                     info!("Packet: {packet:02x?}");
                 }
-                Err(e) => {
-                    error!("Error {e:?}");
+                Ok(PacketKind::Disconnect) => {
+                    info!("Received Disconnect, exiting");
+                    break;
+                }
+                Ok(PacketKind::Ping) => {
+                    trace!("Ping");
+                }
+                Ok(PacketKind::LinkInfo { remote_max_packet_size, remote_user_protocol }) => {
+                    info!("Link info: protocol {remote_user_protocol:?} max packet size: {remote_max_packet_size}");
+                }
+                Err(ReceiveError::EmptyFrame) => {
+                    info!("Receive empty frame");
+                    // break;
+                }
+                Err(ReceiveError::ProtocolsVersionsMismatch) => {
+                    warn!("Protocols versions mismatch");
+                }
+                Err(ReceiveError::SourceError(e)) => {
+                    error!("Transfer error: {e:?}, exiting");
+                    break;
+                }
+                Err(ReceiveError::InternalBufOverflow) => {
+                    warn!("Internal buf overflow while receiving packet");
                 }
             }
 
@@ -232,34 +257,12 @@ async fn worker(
 
     loop {
         tokio::select! {
-            // irq_rx_result = irq_rx_result_rx.recv() => {
-            //     let buf = match irq_rx_result {
-            //         Some(Ok((buf, bytes_read))) => {
-            //             trace!("irq rx transfer success: {:02x?}", &buf[..bytes_read]);
-            //             tx_events.send(Event::Received(Vec::from(&buf[..bytes_read]))).await.unwrap();
-            //             buf
-            //         }
-            //         Some(Err((buf, e))) => {
-            //             trace!("irq rx transfer error: {e:?}");
-            //             buf
-            //         }
-            //         None => {
-            //             info!("Device worker exiting");
-            //             break;
-            //         }
-            //     };
-            //
-            //     // TODO: Try using more than 1 read transfer in parallel?
-            //     let irq_rx_transfer = read_interrupt_async(&device, 0x82, buf, timeout).unwrap();
-            //     irq_rx_transfer_tx.send(irq_rx_transfer).await.unwrap();
-            // }
-            // rx = frame_reader.read_packet()
             cmd = rx_commands.recv() => {
                 match cmd {
                     Some(Command::Send(buf)) => {
                         info!("Sending data {buf:?}");
-                        frame_builder.write_packet(&buf).await;
-                        frame_builder.force_send().await; // TODO: force send on timer
+                        packet_sender.send_packet(&buf).await;
+                        packet_sender.force_send().await; // TODO: force send on timer
                     }
                     Some(Command::TestLink) => {
                         // let mut packet_builder = FrameBuilder::new(&mut tx_assembly_buf);
@@ -285,9 +288,5 @@ async fn worker(
         }
     }
 
-    // Seems to be a bug in rusb async, when device is dropped, outstanding transfers are not seeing that and continue to be awaited
-    // rx_worker_shutdown_tx.send(()).unwrap();
-    // drop(irq_rx_transfer_tx);
-    // _ = rx_join.await;
     info!("Device worker actually returning");
 }

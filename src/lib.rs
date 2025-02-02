@@ -11,7 +11,8 @@ pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
 pub const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
 
-static MGMT_CHANNEL: StaticCell<embassy_sync::channel::Channel<NoopRawMutex, LinkMgmtCmd, 1>> = StaticCell::new();
+static MGMT_CHANNEL: StaticCell<embassy_sync::channel::Channel<NoopRawMutex, LinkMgmtCmd, 1>> =
+    StaticCell::new();
 
 /// WireWeaver USB class
 pub struct WireWeaverClass<'d, D: Driver<'d>> {
@@ -21,10 +22,7 @@ pub struct WireWeaverClass<'d, D: Driver<'d>> {
 }
 
 impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
-    pub fn new(
-        builder: &mut Builder<'d, D>,
-        max_packet_size: u16,
-    ) -> Self {
+    pub fn new(builder: &mut Builder<'d, D>, max_packet_size: u16) -> Self {
         assert!(builder.control_buf_len() >= 7);
 
         let mut func = builder.function(
@@ -102,7 +100,10 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         let (sender, receiver) = self.split_raw();
         let mgmt_channel = MGMT_CHANNEL.init(embassy_sync::channel::Channel::new());
         let (mgmt_tx, mgmt_rx) = (mgmt_channel.sender(), mgmt_channel.receiver());
-        (WireWeaverUSBSink { sender, mgmt_rx }, WireWeaverUSBSource { receiver, mgmt_tx } )
+        (
+            WireWeaverUSBSink { sender, mgmt_rx },
+            WireWeaverUSBSource { receiver, mgmt_tx },
+        )
     }
 }
 
@@ -173,7 +174,11 @@ impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
         self.sender.wait_connection().await;
     }
 
-    fn rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
+    async fn rx_from_source(&mut self) -> LinkMgmtCmd {
+        self.mgmt_rx.receive().await
+    }
+
+    fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
         self.mgmt_rx.try_receive().ok()
     }
 }

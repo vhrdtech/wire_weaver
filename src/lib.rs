@@ -200,6 +200,8 @@ impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
     }
 
     fn send_to_sink(&mut self, msg: LinkMgmtCmd) {
-        let _ = self.mgmt_tx.try_send(msg);
+        if self.mgmt_tx.try_send(msg).is_err() {
+            defmt::error!("send_to_sink: try_send failed");
+        }
     }
 }

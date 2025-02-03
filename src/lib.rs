@@ -73,7 +73,7 @@ pub enum LinkMgmtCmd {
         link_version_matches: bool,
         local_max_packet_size: u32,
         remote_max_packet_size: u32,
-        remote_user_protocol: ProtocolInfo,
+        remote_protocol: ProtocolInfo,
     },
 }
 
@@ -165,7 +165,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
                     link_version_matches,
                     local_max_packet_size,
                     remote_max_packet_size,
-                    remote_user_protocol,
+                    remote_protocol: remote_user_protocol,
                 } => {
                     if link_version_matches
                         && self.user_protocol.is_compatible(&remote_user_protocol)
@@ -333,7 +333,7 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
                     link_version_matches,
                     local_max_packet_size,
                     remote_max_packet_size,
-                    remote_user_protocol,
+                    remote_protocol: remote_user_protocol,
                 } => {
                     // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
                     let is_protocols_compatible =
@@ -410,8 +410,12 @@ impl<'i, S: FrameSink> PacketSender<'i, S> {
         (self.wr.deinit(), self.sink)
     }
 
-    pub async fn wait_connection(&mut self) {
+    pub async fn wait_sink_connection(&mut self) {
         self.sink.wait_connection().await;
+    }
+
+    pub fn remote_max_packet_size(&self) -> u32 {
+        self.remote_max_packet_size
     }
 
     pub fn stats(&self) -> &SenderStats {
@@ -426,7 +430,8 @@ pub struct PacketReceiver<'a, S> {
     receive_left_bytes: usize,
     stats: ReceiverStats,
     in_fragmented_packet: bool,
-    user_protocol: ProtocolInfo,
+    local_protocol: ProtocolInfo,
+    remote_protocol: Option<ProtocolInfo>,
     protocols_versions_matches: bool,
 }
 
@@ -445,7 +450,7 @@ pub enum PacketKind {
     Ping,
     LinkInfo {
         remote_max_packet_size: usize,
-        remote_user_protocol: ProtocolInfo,
+        remote_protocol: ProtocolInfo,
     },
     Disconnect,
 }
@@ -466,7 +471,7 @@ impl<T> From<T> for ReceiveError<T> {
 }
 
 impl<'a, S: FrameSource> PacketReceiver<'a, S> {
-    pub fn new(frame_source: S, receive: &'a mut [u8], user_protocol: ProtocolInfo) -> Self {
+    pub fn new(frame_source: S, receive: &'a mut [u8], local_protocol: ProtocolInfo) -> Self {
         Self {
             source: frame_source,
             receive,
@@ -474,7 +479,8 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
             receive_left_bytes: 0,
             stats: ReceiverStats::default(),
             in_fragmented_packet: false,
-            user_protocol,
+            local_protocol,
+            remote_protocol: None,
             #[cfg(not(test))]
             protocols_versions_matches: false,
             #[cfg(test)]
@@ -639,12 +645,13 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                             let link_protocol_version = rd
                                 .read_u8()
                                 .map_err(|_| ReceiveError::InternalBufOverflow)?;
-                            let remote_user_protocol = ProtocolInfo::read(&mut rd)
+                            let remote_protocol = ProtocolInfo::read(&mut rd)
                                 .map_err(|_| ReceiveError::InternalBufOverflow)?;
                             if link_protocol_version == LINK_PROTOCOL_VERSION
-                                && remote_user_protocol.is_compatible(&self.user_protocol)
+                                && remote_protocol.is_compatible(&self.local_protocol)
                             {
                                 self.protocols_versions_matches = true;
+                                self.remote_protocol = Some(remote_protocol);
                             } else {
                                 self.protocols_versions_matches = false;
                             }
@@ -652,11 +659,11 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
                                 link_version_matches: self.protocols_versions_matches,
                                 local_max_packet_size: packet.len() as u32,
                                 remote_max_packet_size,
-                                remote_user_protocol,
+                                remote_protocol,
                             });
                             return Ok(PacketKind::LinkInfo {
                                 remote_max_packet_size: remote_max_packet_size as usize,
-                                remote_user_protocol,
+                                remote_protocol,
                             });
                         }
                     }
@@ -675,8 +682,49 @@ impl<'a, S: FrameSource> PacketReceiver<'a, S> {
         }
     }
 
-    pub async fn wait_connection(&mut self) {
+    /// Wait for frame source connection, i.e. wait for USB connection on Embassy side.
+    pub async fn wait_source_connection(&mut self) {
         self.source.wait_connection().await;
+    }
+
+    /// Wait for host to send link setup with compatible link and protocol version.
+    pub async fn wait_link_connection(
+        &mut self,
+        packet: &mut [u8],
+    ) -> Result<(), ReceiveError<S::Error>> {
+        while !self.protocols_versions_matches {
+            match self.receive_packet(packet).await {
+                Ok(PacketKind::LinkInfo {
+                    remote_max_packet_size,
+                    remote_protocol,
+                }) => {
+                    #[cfg(feature = "defmt")]
+                    defmt::trace!(
+                        "Link established, remote max packet size: {}, remote protocol: {}",
+                        remote_max_packet_size,
+                        remote_protocol
+                    );
+                    break;
+                }
+                Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
+                Err(ReceiveError::ProtocolsVersionsMismatch) => {
+                    #[cfg(feature = "defmt")]
+                    defmt::warn!("Ignoring data before link setup");
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
+    pub fn disconnect(&mut self) {
+        self.protocols_versions_matches = false;
+        self.remote_protocol = None;
+    }
+
+    pub fn remote_protocol(&self) -> Option<ProtocolInfo> {
+        self.remote_protocol
     }
 
     pub fn stats(&self) -> &ReceiverStats {

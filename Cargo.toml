@@ -12,5 +12,9 @@ wire_weaver_derive = { path = "../wire_weaver/crates/wire_weaver_derive" }
 shrink_wrap = { path = "../wire_weaver/crates/shrink_wrap", default-features = false }
 defmt = { version = "0.3", optional = true }
 
+[features]
+host = []
+device = []
+
 [dev-dependencies]
 worst-executor = "0.1.1"

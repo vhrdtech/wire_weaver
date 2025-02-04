@@ -5,7 +5,7 @@ use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointO
 use embassy_usb::types::InterfaceNumber;
 use embassy_usb::{msos, Builder};
 use static_cell::StaticCell;
-use wire_weaver_usb_link::{FrameSink, FrameSource, LinkMgmtCmd};
+use wire_weaver_usb_link::{LinkMgmtCmd, PacketSink, PacketSource};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -163,10 +163,10 @@ pub struct WireWeaverUSBSink<'d, D: Driver<'d>> {
     mgmt_rx: embassy_sync::channel::Receiver<'static, NoopRawMutex, LinkMgmtCmd, 1>,
 }
 
-impl<'d, D: Driver<'d>> FrameSink for WireWeaverUSBSink<'d, D> {
+impl<'d, D: Driver<'d>> PacketSink for WireWeaverUSBSink<'d, D> {
     type Error = EndpointError;
 
-    async fn write_frame(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         self.sender.write_packet(data).await
     }
 
@@ -188,10 +188,10 @@ pub struct WireWeaverUSBSource<'d, D: Driver<'d>> {
     mgmt_tx: embassy_sync::channel::Sender<'static, NoopRawMutex, LinkMgmtCmd, 1>,
 }
 
-impl<'d, D: Driver<'d>> FrameSource for WireWeaverUSBSource<'d, D> {
+impl<'d, D: Driver<'d>> PacketSource for WireWeaverUSBSource<'d, D> {
     type Error = EndpointError;
 
-    async fn read_frame(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+    async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
         self.receiver.read_packet(data).await
     }
 

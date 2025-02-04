@@ -8,13 +8,13 @@ pub(crate) enum Kind {
     NoOp = 0,
 
     /// 0x1l, 0xll, `data[0..len]` in first packet
-    PacketStart = 1,
+    MessageStart = 1,
     /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
-    PacketContinue = 2,
+    MessageContinue = 2,
     /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
-    PacketEnd = 3,
+    MessageEnd = 3,
     /// 0x4l, 0xll, `data[0..len]` in one packet.
-    PacketStartEnd = 4,
+    MessageStartEnd = 4,
 
     LinkInfo = 5,
 
@@ -48,13 +48,13 @@ pub trait PacketSource {
     fn send_to_sink(&mut self, msg: LinkMgmtCmd);
 }
 
-/// Used to pass information from PacketReceiver to PacketSender to inform it if
+/// Used to pass information from MessageReceiver to MessageSender to inform it if
 /// remote end has disconnected and to pass information for versions checks.
 pub enum LinkMgmtCmd {
     Disconnect,
     LinkInfo {
         link_version_matches: bool,
-        local_max_packet_size: u32,
+        local_max_message_size: u32,
         remote_max_message_size: u32,
         remote_protocol: ProtocolInfo,
     },

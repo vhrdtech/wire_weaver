@@ -1,5 +1,5 @@
 use crate::common::Kind;
-use crate::{LinkMgmtCmd, PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION};
+use crate::{PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION};
 use shrink_wrap::BufReader;
 
 /// Unpacks messages from one or more USB packets.
@@ -14,7 +14,7 @@ pub struct MessageReceiver<'a, S> {
     receive_start_pos: usize,
     receive_left_bytes: usize,
     stats: ReceiverStats,
-    in_fragmented_packet: bool,
+    in_fragmented_message: bool,
     local_protocol: ProtocolInfo,
     remote_protocol: Option<ProtocolInfo>,
     protocols_versions_matches: bool,
@@ -69,7 +69,7 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
             receive_start_pos: 0,
             receive_left_bytes: 0,
             stats: ReceiverStats::default(),
-            in_fragmented_packet: false,
+            in_fragmented_message: false,
             local_protocol,
             remote_protocol: None,
             #[cfg(not(test))]
@@ -125,19 +125,19 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                 let len = (len11_8 as usize) << 8 | len7_0 as usize;
                 match kind {
                     Kind::NoOp => {}
-                    Kind::PacketStart | Kind::PacketContinue | Kind::PacketEnd => {
-                        let Ok(packet_piece) = rd.read_raw_slice(len) else {
+                    Kind::MessageStart | Kind::MessageContinue | Kind::MessageEnd => {
+                        let Ok(message_piece) = rd.read_raw_slice(len) else {
                             self.stats.receive_errors = self.stats.receive_errors.wrapping_add(1);
                             staging_idx = 0;
-                            self.in_fragmented_packet = false;
+                            self.in_fragmented_message = false;
                             continue 'next_frame;
                         };
-                        if kind == Kind::PacketStart {
-                            self.in_fragmented_packet = true;
+                        if kind == Kind::MessageStart {
+                            self.in_fragmented_message = true;
                             staging_idx = 0;
-                        } else if !self.in_fragmented_packet {
+                        } else if !self.in_fragmented_message {
                             self.stats.receive_errors = self.stats.receive_errors.wrapping_add(1);
-                            if kind == Kind::PacketEnd {
+                            if kind == Kind::MessageEnd {
                                 if let Ok(_crc) = rd.read_u16() {
                                     continue;
                                 } else {
@@ -148,11 +148,11 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                             }
                         }
                         let staging_bytes_left = message.len() - staging_idx;
-                        if packet_piece.len() <= staging_bytes_left {
-                            message[staging_idx..(staging_idx + packet_piece.len())]
-                                .copy_from_slice(packet_piece);
-                            staging_idx += packet_piece.len();
-                            if kind == Kind::PacketEnd {
+                        if message_piece.len() <= staging_bytes_left {
+                            message[staging_idx..(staging_idx + message_piece.len())]
+                                .copy_from_slice(message_piece);
+                            staging_idx += message_piece.len();
+                            if kind == Kind::MessageEnd {
                                 let Ok(crc_received) = rd.read_u16() else {
                                     self.stats.receive_errors =
                                         self.stats.receive_errors.wrapping_add(1);
@@ -161,7 +161,7 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                                 };
                                 let crc_calculated = CRC_KIND.checksum(&message[..staging_idx]);
                                 if crc_received == crc_calculated {
-                                    self.in_fragmented_packet = false;
+                                    self.in_fragmented_message = false;
 
                                     let min_bytes_left = rd.bytes_left() >= 2;
                                     let read_bytes = frame.len() - rd.bytes_left();
@@ -194,11 +194,11 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                         } else {
                             staging_idx = 0;
                             self.stats.receive_errors = self.stats.receive_errors.wrapping_add(1);
-                            self.in_fragmented_packet = false;
+                            self.in_fragmented_message = false;
                             continue 'next_frame;
                         }
                     }
-                    Kind::PacketStartEnd => {
+                    Kind::MessageStartEnd => {
                         if let Ok(packet_read) = rd.read_raw_slice(len) {
                             message[..packet_read.len()].copy_from_slice(packet_read);
 
@@ -228,13 +228,13 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                         } else {
                             self.stats.receive_errors = self.stats.receive_errors.wrapping_add(1);
                             staging_idx = 0;
-                            self.in_fragmented_packet = false;
+                            self.in_fragmented_message = false;
                             continue 'next_frame;
                         }
                     }
                     Kind::LinkInfo => {
                         if rd.bytes_left() >= 4 + 1 + ProtocolInfo::size_bytes() {
-                            let remote_max_packet_size = rd
+                            let remote_max_message_size = rd
                                 .read_u32()
                                 .map_err(|_| ReceiveError::InternalBufOverflow)?;
                             let link_protocol_version = rd
@@ -250,14 +250,15 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                             } else {
                                 self.protocols_versions_matches = false;
                             }
-                            self.source.send_to_sink(LinkMgmtCmd::LinkInfo {
+                            #[cfg(feature = "device")]
+                            self.source.send_to_sink(crate::LinkMgmtCmd::LinkInfo {
                                 link_version_matches: self.protocols_versions_matches,
-                                local_max_packet_size: message.len() as u32,
-                                remote_max_message_size: remote_max_packet_size,
+                                local_max_message_size: message.len() as u32,
+                                remote_max_message_size,
                                 remote_protocol,
                             });
                             return Ok(MessageKind::LinkInfo {
-                                remote_max_message_size: remote_max_packet_size as usize,
+                                remote_max_message_size: remote_max_message_size as usize,
                                 remote_protocol,
                             });
                         }
@@ -265,7 +266,8 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
                     Kind::Disconnect => {
                         self.protocols_versions_matches = false;
                         self.receive_left_bytes = 0;
-                        self.source.send_to_sink(LinkMgmtCmd::Disconnect);
+                        #[cfg(feature = "device")]
+                        self.source.send_to_sink(crate::LinkMgmtCmd::Disconnect);
                         return Ok(MessageKind::Disconnect);
                     }
                     Kind::Ping => {
@@ -285,20 +287,22 @@ impl<'a, S: PacketSource> MessageReceiver<'a, S> {
 
     #[cfg(feature = "device")]
     /// Waits for host to send link setup with compatible link and protocol version.
+    /// Due to internal limitations same message buffer need to be provided here, and it's size
+    /// will be communicated to the host as maximum message size.
     pub async fn wait_link_connection(
         &mut self,
-        packet: &mut [u8],
+        message: &mut [u8],
     ) -> Result<(), ReceiveError<S::Error>> {
         while !self.protocols_versions_matches {
-            match self.receive_message(packet).await {
+            match self.receive_message(message).await {
                 Ok(MessageKind::LinkInfo {
-                    remote_max_message_size: remote_max_packet_size,
+                    remote_max_message_size,
                     remote_protocol,
                 }) => {
                     #[cfg(feature = "defmt")]
                     defmt::trace!(
-                        "Link established, remote max packet size: {}, remote protocol: {}",
-                        remote_max_packet_size,
+                        "Link established, remote max message size: {}, remote protocol: {}",
+                        remote_max_message_size,
                         remote_protocol
                     );
                     break;

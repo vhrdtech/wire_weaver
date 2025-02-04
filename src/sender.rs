@@ -1,7 +1,5 @@
 use crate::common::Kind;
-use crate::{
-    LinkMgmtCmd, PacketSink, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION, MIN_PACKET_SIZE,
-};
+use crate::{PacketSink, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION, MIN_MESSAGE_SIZE};
 use shrink_wrap::BufWriter;
 
 /// Packs messages into one or more packets and sends them over the USB bus using [PacketSink] trait.
@@ -36,8 +34,8 @@ pub struct SenderStats {
 pub enum SendError<T> {
     SinkError(T),
     InternalBufOverflow,
-    EmptyPacket,
-    PacketTooBig,
+    EmptyMessage,
+    MessageTooBig,
     LinkVersionMismatch,
     ProtocolVersionMismatch,
     Disconnected,
@@ -61,7 +59,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
             wr: BufWriter::new(packet_buf),
             sink,
             user_protocol,
-            remote_max_message_size: MIN_PACKET_SIZE as u32,
+            remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             link_setup_done: false,
             stats: Default::default(),
         }
@@ -75,14 +73,14 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
         while !self.link_setup_done {
             let mgmt_cmd = self.sink.rx_from_source().await;
             match mgmt_cmd {
-                LinkMgmtCmd::Disconnect => {
-                    self.remote_max_message_size = MIN_PACKET_SIZE as u32;
+                crate::LinkMgmtCmd::Disconnect => {
+                    self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
                     self.link_setup_done = false;
                     continue;
                 }
-                LinkMgmtCmd::LinkInfo {
+                crate::LinkMgmtCmd::LinkInfo {
                     link_version_matches,
-                    local_max_packet_size,
+                    local_max_message_size,
                     remote_max_message_size,
                     remote_protocol,
                 } => {
@@ -90,7 +88,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
                         self.remote_max_message_size = remote_max_message_size;
                         self.link_setup_done = true;
                     }
-                    self.send_link_setup(local_max_packet_size).await?;
+                    self.send_link_setup(local_max_message_size).await?;
                     if self.link_setup_done {
                         break;
                     } else {
@@ -119,7 +117,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
     /// Sends link setup from the host to device. Called automatically on device side in [wait_for_link()](Self::wait_for_link)
     pub async fn send_link_setup(
         &mut self,
-        max_packet_size: u32,
+        max_message_size: u32,
     ) -> Result<(), SendError<S::Error>> {
         #[cfg(feature = "defmt")]
         defmt::trace!("Sending link setup");
@@ -132,7 +130,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
             .map_err(|_| SendError::InternalBufOverflow)?;
         self.write_len(10)?;
         self.wr
-            .write_u32(max_packet_size)
+            .write_u32(max_message_size)
             .map_err(|_| SendError::InternalBufOverflow)?;
         self.wr
             .write_u8(LINK_PROTOCOL_VERSION)
@@ -153,12 +151,13 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
     /// Intended use is to call force_send periodically, so that receiver sees messages no older,
     /// than chosen period.
     pub async fn send_message(&mut self, message: &[u8]) -> Result<(), SendError<S::Error>> {
+        #[cfg(feature = "device")]
         self.handle_mgmt_cmd_if_some().await?;
         if message.is_empty() {
-            return Err(SendError::EmptyPacket);
+            return Err(SendError::EmptyMessage);
         }
         if message.len() > self.remote_max_message_size as usize {
-            return Err(SendError::PacketTooBig);
+            return Err(SendError::MessageTooBig);
         }
         if message.len() + 2 <= self.wr.bytes_left()
         /* && bytes.len() <= max_remote_packet_size*/
@@ -167,7 +166,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
             self.write_packet_start_end(message)?;
             self.stats.messages_sent = self.stats.messages_sent.wrapping_add(1);
             self.stats.bytes_sent = self.stats.bytes_sent.wrapping_add(message.len() as u64);
-            // need at least 3 bytes for next packet
+            // need at least 3 bytes for next message
             if self.wr.bytes_left() < 3 {
                 self.force_send().await?;
             }
@@ -183,18 +182,18 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
                 // .min(max_remote_packet_size);
                 let kind = if is_first_chunk {
                     is_first_chunk = false;
-                    Kind::PacketStart
+                    Kind::MessageStart
                 } else if remaining_bytes.len() - len_chunk > 0 {
-                    Kind::PacketContinue
+                    Kind::MessageContinue
                 } else {
                     if self.wr.bytes_left() - len_chunk - 2 >= 2 {
                         // CRC will fit
-                        Kind::PacketEnd
+                        Kind::MessageEnd
                     } else {
-                        // CRC in the next frame with 0 remaining bytes of the packet
+                        // CRC in the next packet with 0 remaining bytes of the message
                         let crc = CRC_KIND.checksum(message);
                         crc_in_next_packet = Some(crc);
-                        Kind::PacketContinue
+                        Kind::MessageContinue
                     }
                 };
                 self.wr
@@ -205,7 +204,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
                     .write_raw_slice(&remaining_bytes[..len_chunk])
                     .map_err(|_| SendError::InternalBufOverflow)?;
                 remaining_bytes = &remaining_bytes[len_chunk..];
-                if kind == Kind::PacketEnd {
+                if kind == Kind::MessageEnd {
                     let crc = CRC_KIND.checksum(message);
                     self.wr
                         .write_u16(crc)
@@ -220,7 +219,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
                     self.force_send().await?;
                 }
                 self.wr
-                    .write_u4(Kind::PacketEnd as u8)
+                    .write_u4(Kind::MessageEnd as u8)
                     .map_err(|_| SendError::InternalBufOverflow)?;
                 self.write_len(0)?;
                 self.wr
@@ -237,6 +236,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
 
     /// Sends Ping message and immediately forces a packet transmission.
     pub async fn send_ping(&mut self) -> Result<(), SendError<S::Error>> {
+        #[cfg(feature = "device")]
         self.handle_mgmt_cmd_if_some().await?;
         if self.wr.bytes_left() < 2 {
             self.force_send().await?;
@@ -253,25 +253,25 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
     async fn handle_mgmt_cmd_if_some(&mut self) -> Result<(), SendError<S::Error>> {
         if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
             match mgmt_cmd {
-                LinkMgmtCmd::Disconnect => {
-                    self.remote_max_message_size = MIN_PACKET_SIZE as u32;
+                crate::LinkMgmtCmd::Disconnect => {
+                    self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
                     self.link_setup_done = false;
                     return Err(SendError::Disconnected);
                 }
-                LinkMgmtCmd::LinkInfo {
+                crate::LinkMgmtCmd::LinkInfo {
                     link_version_matches,
-                    local_max_packet_size,
-                    remote_max_message_size: remote_max_packet_size,
+                    local_max_message_size,
+                    remote_max_message_size,
                     remote_protocol: remote_user_protocol,
                 } => {
                     // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
                     let is_protocols_compatible =
                         self.user_protocol.is_compatible(&remote_user_protocol);
                     if link_version_matches && is_protocols_compatible {
-                        self.remote_max_message_size = remote_max_packet_size;
+                        self.remote_max_message_size = remote_max_message_size;
                         self.link_setup_done = true;
                     }
-                    self.send_link_setup(local_max_packet_size).await?;
+                    self.send_link_setup(local_max_message_size).await?;
                     if !link_version_matches {
                         return Err(SendError::LinkVersionMismatch);
                     }
@@ -296,7 +296,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
         self.write_len(0)?;
         self.force_send().await?;
         self.link_setup_done = false;
-        self.remote_max_message_size = MIN_PACKET_SIZE as u32;
+        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
         Ok(())
     }
 
@@ -304,12 +304,12 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
     #[cfg(feature = "device")]
     pub fn silent_disconnect(&mut self) {
         self.link_setup_done = false;
-        self.remote_max_message_size = MIN_PACKET_SIZE as u32;
+        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
 
     fn write_packet_start_end(&mut self, bytes: &[u8]) -> Result<(), SendError<S::Error>> {
         self.wr
-            .write_u4(Kind::PacketStartEnd as u8)
+            .write_u4(Kind::MessageStartEnd as u8)
             .map_err(|_| SendError::InternalBufOverflow)?;
         self.write_len(bytes.len() as u16)?;
         self.wr
@@ -355,7 +355,7 @@ impl<'i, S: PacketSink> MessageSender<'i, S> {
     }
 
     /// Returns maximum remote message size received during link setup. Or default one defined as
-    /// [MIN_PACKET_SIZE]
+    /// [MIN_MESSAGE_SIZE]
     pub fn remote_max_message_size(&self) -> u32 {
         self.remote_max_message_size
     }

@@ -124,7 +124,7 @@ pub(crate) fn take_repr_attr(
 
 pub(crate) fn take_derive_attr(
     attrs: &mut Vec<syn::Attribute>,
-    messages: &mut Messages,
+    _messages: &mut Messages,
 ) -> Vec<String> {
     let mut derive = vec![];
     for attr in attrs.iter() {
@@ -134,14 +134,13 @@ pub(crate) fn take_derive_attr(
         let Meta::List(meta_list) = attr.meta.clone() else {
             continue;
         };
-        println!("{meta_list:?}");
-        //
-        // let Expr::Lit(expr_lit) = name_value.value else {
-        //     continue;
-        // };
-        // if let Lit::Str(lit_str) = expr_lit.lit {
-        //     docs.push(lit_str.value());
-        // }
+        let derives = meta_list.tokens.to_string();
+        derive.extend(
+            derives
+                .split(&[' ', ','])
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+        );
     }
     attrs.retain(|a| !a.path().is_ident("derive"));
     derive

@@ -66,7 +66,11 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         .load_and_push(Source::File { path: ww_path })
         .unwrap();
 
-    let derive = args.derive.split(&[' ', ',']).collect::<Vec<_>>();
+    let derive = args
+        .derive
+        .split(&[' ', ','])
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
     let cx = transform.transform(&derive).unwrap();
     for (source, messages) in transform.messages() {
         for message in messages.messages() {

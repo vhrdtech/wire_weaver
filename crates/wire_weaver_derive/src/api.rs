@@ -6,11 +6,11 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use pathsearch::find_executable_in_path;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{quote, TokenStreamExt};
 use subprocess::{Exec, Redirection};
 use syn::ItemMod;
 
-use wire_weaver_core::ast::Source;
+use wire_weaver_core::ast::{Item, Source};
 use wire_weaver_core::transform::Transform;
 
 #[derive(Debug, FromMeta)]
@@ -72,7 +72,35 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let api_model_location = syn::Path::from_string(args.api_model.as_str()).unwrap();
+    let mut codegen_ts = TokenStream::new();
     for module in &cx.modules {
+        for item in &module.items {
+            match item {
+                Item::Struct(item_struct) => {
+                    let ts = wire_weaver_core::codegen::item_struct::struct_def(
+                        item_struct,
+                        args.no_alloc,
+                    );
+                    codegen_ts.append_all(ts);
+
+                    let ts = wire_weaver_core::codegen::item_struct::struct_serdes(
+                        item_struct,
+                        args.no_alloc,
+                    );
+                    codegen_ts.append_all(ts);
+                }
+                Item::Enum(item_enum) => {
+                    let ts =
+                        wire_weaver_core::codegen::item_enum::enum_def(item_enum, args.no_alloc);
+                    codegen_ts.append_all(ts);
+
+                    let ts =
+                        wire_weaver_core::codegen::item_enum::enum_serdes(item_enum, args.no_alloc);
+                    codegen_ts.append_all(ts);
+                }
+            }
+        }
+
         for api_level in &module.api_levels {
             // TODO: key on a provided API entry point
             // TODO: Modify Context and/or Client structs accordingly
@@ -82,10 +110,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                     &api_model_location,
                     args.no_alloc,
                 );
-                let items: syn::File = syn::parse2(ts).unwrap();
-                for item in items.items {
-                    api_mod_items.push(item);
-                }
+                codegen_ts.append_all(ts);
             }
 
             if args.client {
@@ -94,12 +119,13 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                     &api_model_location,
                     args.no_alloc,
                 );
-                let items: syn::File = syn::parse2(ts).unwrap();
-                for item in items.items {
-                    api_mod_items.push(item);
-                }
+                codegen_ts.append_all(ts);
             }
         }
+    }
+    let items: syn::File = syn::parse2(codegen_ts).unwrap();
+    for item in items.items {
+        api_mod_items.push(item);
     }
 
     // let mut ts = TokenStream::new();

@@ -110,7 +110,11 @@ impl Type {
                 let err_ty = ok_err_ty.1.def(no_alloc);
                 quote! { Result<#ok_ty, #err_ty> }
             }
-            Type::IsSome | Type::IsOk(_) => quote! { bool },
+            Type::Option(_, option_ty) => {
+                let option_ty = option_ty.def(no_alloc);
+                quote! { Option<#option_ty> }
+            }
+            Type::IsSome(_) | Type::IsOk(_) => quote! { bool },
         }
     }
 
@@ -158,9 +162,9 @@ impl Type {
                     return;
                 }
             }
-            Type::IsSome => {
-                let field_path = field_path.by_value();
-                tokens.append_all(quote! { wr.write_bool(#field_path.is_some())?; });
+            Type::IsSome(option_field) => {
+                let object_path = field_path.by_value();
+                tokens.append_all(quote! { wr.write_bool(#object_path.#option_field.is_some())?; });
                 return;
             }
             Type::Result(_flag_ident, _ok_err_ty) => {
@@ -173,6 +177,15 @@ impl Type {
                         Err(e) => {
                             wr.write(e)?;
                         }
+                    }
+                });
+                return;
+            }
+            Type::Option(_, _) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! {
+                    if let Some(v) = #field_path {
+                        wr.write(v)?;
                     }
                 });
                 return;
@@ -248,7 +261,7 @@ impl Type {
         tokens: &mut TokenStream,
     ) {
         let read_fn = match self {
-            Type::Bool | Type::IsOk(_) | Type::IsSome => "read_bool",
+            Type::Bool | Type::IsOk(_) | Type::IsSome(_) => "read_bool",
             Type::U4 => "read_u4",
             Type::U8 => "read_u8",
             Type::U16 => "read_u16",
@@ -326,6 +339,18 @@ impl Type {
                 });
                 return;
             }
+            Type::Option(flag_ident, option_ty) => {
+                let is_some: Ident = flag_ident.into();
+                let element_size = option_ty.element_size_ts();
+                tokens.append_all(quote! {
+                    let #variable_name = if #is_some {
+                        Some(rd.read(#element_size)?)
+                    } else {
+                        None
+                    };
+                });
+                return;
+            }
         };
         let read_fn = Ident::new(read_fn, Span::call_site());
         tokens.append_all(quote! { let #variable_name = rd.#read_fn() #handle_eob; })
@@ -380,10 +405,14 @@ impl Type {
                 //     }
                 unimplemented!();
             }
-            Type::IsSome | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
+            Type::IsSome(_) | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
             Type::Result(_, _ok_err_ty) => {
                 // TODO: Result runtime value dependent size
                 eprintln!("!! Result size is not fully implemented");
+                return ElementSize::Unsized;
+            }
+            Type::Option(_, _option_ty) => {
+                eprintln!("!! Option size is not fully implemented");
                 return ElementSize::Unsized;
             }
         };

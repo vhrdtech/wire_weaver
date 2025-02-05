@@ -350,6 +350,7 @@ impl<'i> CollectAndConvertPass<'i> {
                         "String" => Type::String,
                         "Vec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
+                        "Option" => return self.transform_type_option(path_segment, path),
                         user => {
                             for item in &self.current_file.items {
                                 if item.ident().map(|ident| ident == user).unwrap_or(false) {
@@ -434,7 +435,7 @@ impl<'i> CollectAndConvertPass<'i> {
         else {
             self.messages
                 .push_conversion_error(SynConversionError::UnsupportedType(format!(
-                    "expected Vec<T>, got {arg:?}"
+                    "expected Result<T, E>, got {arg:?}"
                 )));
             return None;
         };
@@ -470,6 +471,37 @@ impl<'i> CollectAndConvertPass<'i> {
         };
         let inner_ty = self.transform_type(inner_ty.clone(), path)?;
         Some(Type::Vec(Layout::Builtin(Box::new(inner_ty))))
+    }
+
+    fn transform_type_option(
+        &mut self,
+        path_segment: &PathSegment,
+        path: &FieldPath,
+    ) -> Option<Type> {
+        let PathArguments::AngleBracketed(arg) = &path_segment.arguments else {
+            self.messages
+                .push_conversion_error(SynConversionError::UnsupportedType(
+                    "expected Option<T>, got Option or Option()".into(),
+                ));
+            return None;
+        };
+        let Some(arg) = arg.args.first() else {
+            self.messages
+                .push_conversion_error(SynConversionError::UnsupportedType(
+                    "expected Option<T>, got Option<T, ?>".into(),
+                ));
+            return None;
+        };
+        let GenericArgument::Type(inner_ty) = arg else {
+            self.messages
+                .push_conversion_error(SynConversionError::UnsupportedType(format!(
+                    "expected Option<T>, got {arg:?}"
+                )));
+            return None;
+        };
+        let inner_ty = self.transform_type(inner_ty.clone(), path)?;
+        let flag_ident = path.flag_ident().into();
+        Some(Type::Option(flag_ident, Box::new(inner_ty)))
     }
 
     fn transform_api_level(&mut self, item_trait: &syn::ItemTrait) -> Option<ApiLevel> {

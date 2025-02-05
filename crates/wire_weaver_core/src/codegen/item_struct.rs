@@ -32,7 +32,7 @@ struct CGStructFieldsDef<'a> {
 impl<'a> ToTokens for CGStructFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in self.fields {
-            if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+            if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 continue;
             }
             let ident: Ident = (&struct_field.ident).into();
@@ -76,7 +76,7 @@ impl<'a> ToTokens for CGStructSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
-            let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+            let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 FieldPath::Value(quote! {self})
             } else {
                 FieldPath::Value(quote! {self.#field_name})
@@ -94,7 +94,7 @@ impl<'a> ToTokens for CGStructDes<'a> {
         let mut field_names = vec![];
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
-            if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome) {
+            if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 field_names.push(field_name.clone());
             }
             let handle_eob = struct_field.handle_eob();

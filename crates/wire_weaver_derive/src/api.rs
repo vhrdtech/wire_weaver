@@ -160,12 +160,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
 fn generate_api_model(api_model: &str, no_alloc: bool) -> TokenStream {
     let mut transform = Transform::new();
     // TODO: use registry to fetch it
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let registry_dir = std::env::var("WW_REGISTRY_DIR").unwrap();
     transform
         .load_and_push(Source::File {
-            path: format!(
-                "{manifest_dir}/../wire_weaver_registry/client_server_v0_1/client_server.ww"
-            ),
+            path: format!("{registry_dir}/client_server_v0_1/client_server.ww"),
         })
         .unwrap();
 

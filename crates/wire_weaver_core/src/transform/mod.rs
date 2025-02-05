@@ -170,7 +170,7 @@ impl Transform {
         Ok(())
     }
 
-    pub fn transform(&mut self) -> Option<Context> {
+    pub fn transform(&mut self, add_derives: &[&str]) -> Option<Context> {
         let mut modules = vec![];
         // let mut visit_user_types = VisitUserTypes {
         //     files: &mut self.files
@@ -218,12 +218,20 @@ impl Transform {
             for item in syn_file.items {
                 match item {
                     SynItemWithContext::Enum { transformed, .. } => {
-                        if let Some(item_enum_tf) = transformed {
+                        if let Some(mut item_enum_tf) = transformed {
+                            item_enum_tf
+                                .item_enum
+                                .derive
+                                .extend(add_derives.iter().map(|s| s.to_string()));
                             items.push(crate::ast::Item::Enum(item_enum_tf.item_enum));
                         }
                     }
                     SynItemWithContext::Struct { transformed, .. } => {
-                        if let Some(item_struct_tf) = transformed {
+                        if let Some(mut item_struct_tf) = transformed {
+                            item_struct_tf
+                                .item_struct
+                                .derive
+                                .extend(add_derives.iter().map(|s| s.to_string()));
                             items.push(crate::ast::Item::Struct(item_struct_tf.item_struct));
                         }
                     }

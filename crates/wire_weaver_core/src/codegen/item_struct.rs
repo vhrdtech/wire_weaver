@@ -3,7 +3,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 use crate::ast::{Field, ItemStruct, Type};
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::serdes;
+use crate::codegen::util::{serdes, strings_to_derive};
 
 pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     let ident: Ident = (&item_struct.ident).into();
@@ -16,8 +16,9 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     } else {
         quote!()
     };
+    let derive = strings_to_derive(&item_struct.derive);
     let ts = quote! {
-        #[derive(Debug, PartialEq, Eq)]
+        #derive
         pub struct #ident #lifetime { #fields }
     };
     ts
@@ -115,20 +116,20 @@ impl<'a> ToTokens for CGStructDes<'a> {
 mod tests {
     use quote::quote;
 
-    use crate::ast::data::Field;
     use crate::ast::ident::Ident;
-    use crate::ast::item::ItemStruct;
-    use crate::ast::ty::Type;
     use crate::ast::value::Value;
-    use crate::ast::version::Version;
-    use crate::codegen::item;
+    use crate::ast::{Field, ItemStruct, Type, Version};
+    use crate::codegen::item_struct::struct_serdes;
 
     fn construct_struct_one() -> ItemStruct {
         ItemStruct {
+            docs: vec![],
+            derive: vec![],
             is_final: false,
             ident: Ident::new("X1"),
             fields: vec![
                 Field {
+                    docs: vec![],
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -136,10 +137,15 @@ mod tests {
                     default: None,
                 },
                 Field {
+                    docs: vec![],
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
-                    since: Some(Version::new(1, 1)),
+                    since: Some(Version {
+                        major: 0,
+                        minor: 0,
+                        patch: 0,
+                    }),
                     default: Some(Value::Bool(true)),
                 },
             ],
@@ -148,10 +154,13 @@ mod tests {
 
     fn construct_struct_two() -> ItemStruct {
         ItemStruct {
+            docs: vec![],
+            derive: vec![],
             is_final: false,
             ident: Ident::new("X2"),
             fields: vec![
                 Field {
+                    docs: vec![],
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -159,6 +168,7 @@ mod tests {
                     default: None,
                 },
                 Field {
+                    docs: vec![],
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -172,7 +182,7 @@ mod tests {
     #[test]
     fn struct_one_serdes() {
         let s = construct_struct_one();
-        let cg = item::struct_serdes(&s, true);
+        let cg = struct_serdes(&s, true);
         let correct = quote! {
             impl shrink_wrap::SerializeShrinkWrap for X1 {
                 fn ser_shrink_wrap(&self, wr: &mut shrink_wrap::BufWriter) -> Result<(), shrink_wrap::Error> {
@@ -198,7 +208,7 @@ mod tests {
     #[test]
     fn struct_two_serdes() {
         let s = construct_struct_two();
-        let cg = item::struct_serdes(&s, true);
+        let cg = struct_serdes(&s, true);
         let correct = quote! {
             impl X2 {
                 pub fn ser_wfdb(&self, wr: &mut wfdb::WfdbBufMut) -> Result<(), wfdb::Error> {

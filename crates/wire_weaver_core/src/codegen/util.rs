@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 
 pub(crate) fn serdes(
@@ -24,6 +24,19 @@ pub(crate) fn serdes(
             ) -> Result<Self, wire_weaver::shrink_wrap::Error> {
                 #des
             }
+        }
+    }
+}
+
+pub(crate) fn strings_to_derive(traits: &Vec<String>) -> TokenStream {
+    if traits.is_empty() {
+        quote! {}
+    } else {
+        let traits = traits
+            .iter()
+            .map(|s| Ident::new(s.as_str(), Span::call_site()));
+        quote! {
+            #[derive(#(#traits),*)]
         }
     }
 }

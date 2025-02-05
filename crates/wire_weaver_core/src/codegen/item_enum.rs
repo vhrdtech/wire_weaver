@@ -4,7 +4,7 @@ use syn::{Lit, LitInt};
 
 use crate::ast::{Field, Fields, ItemEnum, Repr, Variant};
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::serdes;
+use crate::codegen::util::{serdes, strings_to_derive};
 
 pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let enum_name: Ident = (&item_enum.ident).into();
@@ -14,8 +14,9 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     };
     let lifetime = lifetime(item_enum, no_alloc);
     let repr_ty = enum_discriminant_type(item_enum);
+    let derive = strings_to_derive(&item_enum.derive);
     let mut ts = quote! {
-        #[derive(Debug, PartialEq, Eq)]
+        #derive
         #[repr(#repr_ty)]
         pub enum #enum_name #lifetime { #variants }
     };

@@ -26,6 +26,8 @@ struct Args {
     skip_api_model_codegen: bool,
     #[darling(default)]
     debug_to_file: String,
+    #[darling(default)]
+    derive: String,
 }
 
 pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -64,7 +66,8 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         .load_and_push(Source::File { path: ww_path })
         .unwrap();
 
-    let cx = transform.transform().unwrap();
+    let derive = args.derive.split(&[' ', ',']).collect::<Vec<_>>();
+    let cx = transform.transform(&derive).unwrap();
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             println!("cargo:warning={:?} {:?}", source, message);
@@ -167,7 +170,7 @@ fn generate_api_model(api_model: &str, no_alloc: bool) -> TokenStream {
         })
         .unwrap();
 
-    let cx = transform.transform().unwrap();
+    let cx = transform.transform(&[]).unwrap();
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             println!("cargo:warning={:?} {:?}", source, message);

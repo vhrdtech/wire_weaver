@@ -58,6 +58,7 @@ pub enum Item {
 #[derive(Debug)]
 pub struct ItemStruct {
     pub docs: Vec<String>,
+    pub derive: Vec<String>,
     pub is_final: bool,
     pub ident: Ident,
     pub fields: Vec<Field>,
@@ -66,6 +67,7 @@ pub struct ItemStruct {
 #[derive(Debug)]
 pub struct ItemEnum {
     pub docs: Vec<String>,
+    pub derive: Vec<String>,
     pub is_final: bool,
     pub repr: Repr,
     pub ident: Ident,

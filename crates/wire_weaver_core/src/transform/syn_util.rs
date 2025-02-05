@@ -122,6 +122,31 @@ pub(crate) fn take_repr_attr(
     Some(repr)
 }
 
+pub(crate) fn take_derive_attr(
+    attrs: &mut Vec<syn::Attribute>,
+    messages: &mut Messages,
+) -> Vec<String> {
+    let mut derive = vec![];
+    for attr in attrs.iter() {
+        if !attr.path().is_ident("derive") {
+            continue;
+        }
+        let Meta::List(meta_list) = attr.meta.clone() else {
+            continue;
+        };
+        println!("{meta_list:?}");
+        //
+        // let Expr::Lit(expr_lit) = name_value.value else {
+        //     continue;
+        // };
+        // if let Lit::Str(lit_str) = expr_lit.lit {
+        //     docs.push(lit_str.value());
+        // }
+    }
+    attrs.retain(|a| !a.path().is_ident("derive"));
+    derive
+}
+
 pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) {
     for a in attrs {
         messages.push_conversion_warning(SynConversionWarning::UnknownAttribute(format!(

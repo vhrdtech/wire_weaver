@@ -8,8 +8,8 @@ use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_final_attr,
-    take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
+    take_final_attr, take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
 };
 use crate::transform::{
     ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
@@ -167,9 +167,11 @@ impl<'i> CollectAndConvertPass<'i> {
         } else {
             let is_final = take_final_attr(&mut attrs).is_some();
             let docs = collect_docs_attrs(&mut attrs);
+            let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
             Some(ItemEnum {
                 docs,
+                derive,
                 ident: (&item_enum.ident).into(),
                 repr,
                 variants,
@@ -247,9 +249,11 @@ impl<'i> CollectAndConvertPass<'i> {
             let mut attrs = item_struct.attrs.clone();
             let is_final = take_final_attr(&mut attrs).is_some();
             let docs = collect_docs_attrs(&mut attrs);
+            let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
             Some(ItemStruct {
                 docs,
+                derive,
                 ident: (&item_struct.ident).into(),
                 is_final,
                 fields,

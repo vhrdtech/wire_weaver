@@ -309,7 +309,7 @@ impl Type {
             }
             Type::Sized(_, _) => {
                 tokens.append_all(quote! {
-                    let #variable_name = rd_split.read(wire_weaver::shrink_wrap::ElementSize::Sized)?;
+                    let #variable_name = rd.read(wire_weaver::shrink_wrap::ElementSize::Sized { size_bits: 0 })?;
                 });
                 return;
             }

@@ -160,7 +160,7 @@ impl Transform {
     pub fn load_and_push(&mut self, source: Source) -> Result<(), String> {
         let contents = match &source {
             Source::File { path } => {
-                std::fs::read_to_string(path.as_str()).map_err(|e| format!("{e:?}"))?
+                std::fs::read_to_string(path.as_str()).map_err(|e| format!("{path} {e:?}"))?
             }
             Source::Registry { .. } => unimplemented!(),
             Source::Git { .. } => unimplemented!(),

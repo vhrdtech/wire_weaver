@@ -212,17 +212,26 @@ impl<'i> CollectAndConvertPass<'i> {
         match fields {
             syn::Fields::Named(fields_named) => {
                 let mut named = vec![];
-                for (def_order_idx, field) in fields_named.named.iter().enumerate() {
-                    let field = self.transform_field(def_order_idx as u32, field, path)?;
+                let mut explicit_flags = vec![];
+                for (def_order_idx, field_syn) in fields_named.named.iter().enumerate() {
+                    let (field, is_explicit_flag) =
+                        self.transform_field(def_order_idx as u32, field_syn, path)?;
+                    if is_explicit_flag {
+                        explicit_flags.push(field_syn.ident.clone().unwrap().into());
+                    }
                     named.push(field)
                 }
+                create_flags(&mut named, &explicit_flags);
+                change_is_ok_to_is_some(&mut named);
                 Some(Fields::Named(named))
             }
             syn::Fields::Unnamed(fields_unnamed) => {
                 let mut unnamed = vec![];
                 for (def_order_idx, field) in fields_unnamed.unnamed.iter().enumerate() {
-                    let field = self.transform_field(def_order_idx as u32, field, path)?;
+                    let (field, _is_explicit_flag) =
+                        self.transform_field(def_order_idx as u32, field, path)?;
                     // TODO: Do unnamed fields have to have since, id, default, etc?
+                    // TODO: explicit flags in unnamed fields?
                     unnamed.push(field.ty);
                 }
                 Some(Fields::Unnamed(unnamed))
@@ -233,11 +242,15 @@ impl<'i> CollectAndConvertPass<'i> {
 
     pub fn transform_item_struct(&mut self, item_struct: &syn::ItemStruct) -> Option<ItemStruct> {
         let mut fields = vec![];
+        let mut explicit_flags = vec![];
         let mut bail = false;
-        for (def_order_idx, field) in item_struct.fields.iter().enumerate() {
-            let path = FieldPath::new(FieldPathRoot::NamedField(field.ident.clone().unwrap()));
-            match self.transform_field(def_order_idx as u32, field, &path) {
-                Some(field) => {
+        for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
+            let path = FieldPath::new(FieldPathRoot::NamedField(field_syn.ident.clone().unwrap()));
+            match self.transform_field(def_order_idx as u32, field_syn, &path) {
+                Some((field, is_explicit_flag)) => {
+                    if is_explicit_flag {
+                        explicit_flags.push(field_syn.ident.clone().unwrap().into());
+                    }
                     fields.push(field);
                 }
                 None => bail = true,
@@ -251,6 +264,8 @@ impl<'i> CollectAndConvertPass<'i> {
             let docs = collect_docs_attrs(&mut attrs);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
+            create_flags(&mut fields, &explicit_flags);
+            change_is_ok_to_is_some(&mut fields);
             Some(ItemStruct {
                 docs,
                 derive,
@@ -266,7 +281,7 @@ impl<'i> CollectAndConvertPass<'i> {
         def_order_idx: u32,
         field: &syn::Field,
         path: &FieldPath,
-    ) -> Option<Field> {
+    ) -> Option<(Field, bool)> {
         let mut field = field.clone();
         let ident = field
             .ident
@@ -300,23 +315,29 @@ impl<'i> CollectAndConvertPass<'i> {
                 result_ident.clone()
             };
 
-            Some(Field {
-                docs,
-                id,
-                ident,
-                ty: Type::IsOk(result_ident),
-                since: None,
-                default,
-            })
+            Some((
+                Field {
+                    docs,
+                    id,
+                    ident,
+                    ty: Type::IsOk(result_ident),
+                    since: None,
+                    default,
+                },
+                true,
+            ))
         } else {
-            Some(Field {
-                docs,
-                id,
-                ident,
-                ty,
-                since: take_since_attr(&mut field.attrs),
-                default,
-            })
+            Some((
+                Field {
+                    docs,
+                    id,
+                    ident,
+                    ty,
+                    since: take_since_attr(&mut field.attrs),
+                    default,
+                },
+                false,
+            ))
         }
     }
 
@@ -499,7 +520,8 @@ impl<'i> CollectAndConvertPass<'i> {
                 )));
             return None;
         };
-        let inner_ty = self.transform_type(inner_ty.clone(), path)?;
+        let path = path.clone_and_push(FieldSelector::OptionIsSome);
+        let inner_ty = self.transform_type(inner_ty.clone(), &path)?;
         let flag_ident = path.flag_ident().into();
         Some(Type::Option(flag_ident, Box::new(inner_ty)))
     }
@@ -559,5 +581,52 @@ impl<'i> CollectAndConvertPass<'i> {
         let mut attrs = item_trait.attrs.clone();
         let docs = collect_docs_attrs(&mut attrs);
         Some(ApiLevel { docs, items })
+    }
+}
+
+/// Create flags for Result or Option fields without explicitly defined ones.
+fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
+    let mut fields_without_flags = vec![];
+    for (idx, f) in fields.iter().enumerate() {
+        let is_flag_ty = matches!(f.ty, Type::Result(_, _) | Type::Option(_, _));
+        if is_flag_ty && !explicit_flags.iter().any(|i| i == &f.ident) {
+            fields_without_flags.push((idx, matches!(f.ty, Type::Result(_, _)), f.ident.clone()));
+        }
+    }
+    for (shift, (pos, is_result, ident)) in fields_without_flags.into_iter().enumerate() {
+        let flag_ident = Ident::new(format!("_{}_flag", ident.sym));
+        let flag = Field {
+            docs: vec![],
+            id: 0, // TODO: Adjust auto created flag IDs
+            ident: flag_ident,
+            ty: if is_result {
+                Type::IsOk(ident)
+            } else {
+                Type::IsSome(ident)
+            },
+            since: None,
+            default: None,
+        };
+        fields.insert(pos + shift, flag);
+    }
+}
+
+/// Change IsOk to IsSome for explicit flags, as full field list is needed to determine which one to use.
+fn change_is_ok_to_is_some(fields: &mut Vec<Field>) {
+    let mut flip = vec![];
+    for (idx, f) in fields.iter().enumerate() {
+        let Type::IsOk(ident) = &f.ty else { continue };
+        if fields
+            .iter()
+            .any(|f| (f.ident == *ident) && matches!(f.ty, Type::Option(_, _)))
+        {
+            flip.push(idx);
+        }
+    }
+    for (idx, f) in fields.iter_mut().enumerate() {
+        if flip.contains(&idx) {
+            let Type::IsOk(ident) = &f.ty else { continue };
+            f.ty = Type::IsSome(ident.clone());
+        }
     }
 }

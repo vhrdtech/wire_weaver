@@ -156,6 +156,7 @@ pub enum Type {
     // User defined, size is known and fixed, or deterministic (depends on enum discriminant) and will not be read/written.
     Sized(Path, bool),
 
+    // is_some_flag, optional_ty
     Option(Ident, Box<Type>),
     // Only relevant for fields with type Option<T>. Vec<Option<T>> handles flags differently.
     IsSome(Ident),
@@ -163,7 +164,6 @@ pub enum Type {
     // is_ok_flag, (ok_ty, err_ty)
     Result(Ident, Box<(Type, Type)>),
     // Only relevant for fields with type Result<T, E>. Vec<Result<T, E>> handles flags differently.
-    // result_field
     IsOk(Ident),
 }
 

@@ -98,14 +98,13 @@ impl Type {
             //     let path = user_layout.path();
             //     quote! { #path }
             // }
-            Type::Unsized(path, is_lifetime) => {
+            Type::Unsized(path, is_lifetime) | Type::Sized(path, is_lifetime) => {
                 if *is_lifetime && no_alloc {
                     quote! { #path<'i> }
                 } else {
                     quote! { #path }
                 }
             }
-            Type::Sized(_, _, _) => unimplemented!(),
             Type::Result(_, ok_err_ty) => {
                 let ok_ty = ok_err_ty.0.def(no_alloc);
                 let err_ty = ok_err_ty.1.def(no_alloc);
@@ -209,7 +208,11 @@ impl Type {
                 return;
             }
             // Type::User(_) => unimplemented!(),
-            Type::Sized(_, _, _) => unimplemented!(),
+            Type::Sized(_, _) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! { wr.write(#field_path)?; });
+                return;
+            }
             Type::Unsized(_path, _) => {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! {
@@ -287,8 +290,9 @@ impl Type {
             Type::Vec(layout) => match layout {
                 Layout::Builtin(inner_ty) => {
                     // TODO: how to handle eob to be zero length?
-                    let element_size = inner_ty.element_size_ts();
-                    tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
+                    let inner_element_size = inner_ty.element_size_ts();
+                    tokens
+                        .append_all(quote! { let #variable_name = rd.read(#inner_element_size)?; });
                     return;
                 }
                 Layout::Option(_) => unimplemented!(),
@@ -303,7 +307,12 @@ impl Type {
                 });
                 return;
             }
-            Type::Sized(_, _, _) => unimplemented!(),
+            Type::Sized(_, _) => {
+                tokens.append_all(quote! {
+                    let #variable_name = rd_split.read(wire_weaver::shrink_wrap::ElementSize::Sized)?;
+                });
+                return;
+            }
             Type::Result(flag_ident, ok_err_ty) => {
                 let is_ok: Ident = flag_ident.into();
                 let ok_element_size = ok_err_ty.0.element_size_ts();
@@ -364,10 +373,12 @@ impl Type {
             Type::Tuple(_) => unimplemented!(),
             Type::Vec(_) => return ElementSize::Unsized,
             Type::Unsized(_, _) => return ElementSize::Unsized,
-            Type::Sized(_, size_bytes, _) => {
-                return ElementSize::Sized {
-                    size_bits: *size_bytes as usize * 8,
-                }
+            Type::Sized(_, _) => {
+                // Type::Sized(_, size_bytes, _) => {
+                //     return ElementSize::Sized {
+                //         size_bits: *size_bytes as usize * 8,
+                //     }
+                unimplemented!();
             }
             Type::IsSome | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
             Type::Result(_, _ok_err_ty) => {

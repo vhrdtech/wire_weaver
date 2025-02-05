@@ -83,18 +83,32 @@ pub(crate) struct SynFile {
 enum SynItemWithContext {
     Enum {
         item_enum: syn::ItemEnum,
-        transformed: Option<ItemEnum>,
-        is_lifetime: Option<bool>,
+        // transformed: Option<ItemEnum>,
+        // is_lifetime: Option<bool>,
+        transformed: Option<ItemEnumTransformed>,
     },
     Struct {
         item_struct: syn::ItemStruct,
-        transformed: Option<ItemStruct>,
-        is_lifetime: Option<bool>,
+        // transformed: Option<ItemStruct>,
+        // is_lifetime: Option<bool>,
+        transformed: Option<ItemStructTransformed>,
     },
     ApiLevel {
         item_trait: syn::ItemTrait,
         transformed: Option<ApiLevel>,
     },
+}
+
+struct ItemEnumTransformed {
+    item_enum: ItemEnum,
+    is_lifetime: bool,
+    is_final_evolution: bool,
+}
+
+struct ItemStructTransformed {
+    item_struct: ItemStruct,
+    is_lifetime: bool,
+    is_final_evolution: bool,
 }
 
 impl SynItemWithContext {
@@ -120,14 +134,12 @@ impl Transform {
                     items.push_back(SynItemWithContext::Struct {
                         item_struct,
                         transformed: None,
-                        is_lifetime: None,
                     });
                 }
                 syn::Item::Enum(item_enum) => {
                     items.push_back(SynItemWithContext::Enum {
                         item_enum,
                         transformed: None,
-                        is_lifetime: None,
                     });
                 }
                 syn::Item::Trait(item_trait) => items.push_back(SynItemWithContext::ApiLevel {
@@ -206,13 +218,13 @@ impl Transform {
             for item in syn_file.items {
                 match item {
                     SynItemWithContext::Enum { transformed, .. } => {
-                        if let Some(item_enum) = transformed {
-                            items.push(crate::ast::Item::Enum(item_enum));
+                        if let Some(item_enum_tf) = transformed {
+                            items.push(crate::ast::Item::Enum(item_enum_tf.item_enum));
                         }
                     }
                     SynItemWithContext::Struct { transformed, .. } => {
-                        if let Some(item_struct) = transformed {
-                            items.push(crate::ast::Item::Struct(item_struct));
+                        if let Some(item_struct_tf) = transformed {
+                            items.push(crate::ast::Item::Struct(item_struct_tf.item_struct));
                         }
                     }
                     SynItemWithContext::ApiLevel { transformed, .. } => {

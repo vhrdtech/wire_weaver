@@ -72,7 +72,7 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     let (attr_idx, _) = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("finalx"))?;
+        .find(|(_, a)| a.path().is_ident("final_evolution"))?;
     let _attr = attrs.remove(attr_idx);
     Some(())
 }

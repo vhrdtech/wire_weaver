@@ -151,9 +151,8 @@ pub enum Type {
     // On write: size will be written to the back of the buffer.
     // Type name is used only for dynamic ser/des operations.
     Unsized(Path, bool),
-    // User defined, size known and will not be read/written.
-    // BufReader size will be limited to the provided number of bytes, unread bytes will be skipped.
-    Sized(Path, u32, bool),
+    // User defined, size is known and fixed, or deterministic (depends on enum discriminant) and will not be read/written.
+    Sized(Path, bool),
 
     // Option(Ident, Box<Type>),
     // Only relevant for fields with type Option<T>. Vec<Option<T>> handles flags differently.
@@ -265,7 +264,7 @@ impl Type {
                 }
             },
             Type::Unsized(_, potential_lifetimes) => *potential_lifetimes,
-            Type::Sized(_, _, potential_lifetimes) => *potential_lifetimes,
+            Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
             _ => false,
         }
     }

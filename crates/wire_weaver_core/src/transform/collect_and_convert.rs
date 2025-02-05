@@ -11,7 +11,10 @@ use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_final_attr,
     take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
 };
-use crate::transform::{Messages, SynConversionError, SynFile, SynItemWithContext};
+use crate::transform::{
+    ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
+    SynItemWithContext,
+};
 
 /// Go through items in syn AST form and transform into own AST.
 /// Everything should be resolved and computed before this pass.
@@ -85,14 +88,18 @@ impl<'i> CollectAndConvertPass<'i> {
             SynItemWithContext::Enum {
                 item_enum,
                 transformed,
-                is_lifetime,
             } => {
                 if transformed.is_some() {
                     return;
                 }
                 if let Some(item_enum) = self.transform_item_enum(item_enum) {
-                    *is_lifetime = Some(item_enum.potential_lifetimes());
-                    *transformed = Some(item_enum);
+                    let is_lifetime = item_enum.potential_lifetimes();
+                    let is_final_evolution = item_enum.is_final;
+                    *transformed = Some(ItemEnumTransformed {
+                        item_enum,
+                        is_lifetime,
+                        is_final_evolution,
+                    });
                 }
             }
             // Item::Fn(_) => {}
@@ -101,14 +108,18 @@ impl<'i> CollectAndConvertPass<'i> {
             SynItemWithContext::Struct {
                 item_struct,
                 transformed,
-                is_lifetime,
             } => {
                 if transformed.is_some() {
                     return;
                 }
                 if let Some(item_struct) = self.transform_item_struct(item_struct) {
-                    *is_lifetime = Some(item_struct.potential_lifetimes());
-                    *transformed = Some(item_struct);
+                    let is_lifetime = item_struct.potential_lifetimes();
+                    let is_final_evolution = item_struct.is_final;
+                    *transformed = Some(ItemStructTransformed {
+                        item_struct,
+                        is_lifetime,
+                        is_final_evolution,
+                    });
                 }
             }
             SynItemWithContext::ApiLevel {
@@ -338,20 +349,33 @@ impl<'i> CollectAndConvertPass<'i> {
                         user => {
                             for item in &self.current_file.items {
                                 if item.ident().map(|ident| ident == user).unwrap_or(false) {
-                                    let is_lifetime = match item {
-                                        SynItemWithContext::Enum { is_lifetime, .. } => is_lifetime,
-                                        SynItemWithContext::Struct { is_lifetime, .. } => {
-                                            is_lifetime
+                                    let is_lifetime_is_final_evolution = match item {
+                                        SynItemWithContext::Enum { transformed, .. } => transformed
+                                            .as_ref()
+                                            .map(|t| (t.is_lifetime, t.is_final_evolution)),
+                                        SynItemWithContext::Struct { transformed, .. } => {
+                                            transformed
+                                                .as_ref()
+                                                .map(|t| (t.is_lifetime, t.is_final_evolution))
                                         }
                                         SynItemWithContext::ApiLevel { .. } => unreachable!(),
                                     };
                                     // if is_lifetime is None, one more pass is needed
-                                    return is_lifetime.map(|is_lifetime| {
-                                        Type::Unsized(
-                                            Path::new_ident(Ident::new(user)),
-                                            is_lifetime,
-                                        )
-                                    });
+                                    return is_lifetime_is_final_evolution.map(
+                                        |(is_lifetime, is_final_evolution)| {
+                                            if is_final_evolution {
+                                                Type::Sized(
+                                                    Path::new_ident(Ident::new(user)),
+                                                    is_lifetime,
+                                                )
+                                            } else {
+                                                Type::Unsized(
+                                                    Path::new_ident(Ident::new(user)),
+                                                    is_lifetime,
+                                                )
+                                            }
+                                        },
+                                    );
                                 }
                             }
                             self.messages

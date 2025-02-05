@@ -15,7 +15,7 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let lifetime = lifetime(item_enum, no_alloc);
     let repr_ty = enum_discriminant_type(item_enum);
     let mut ts = quote! {
-        #[derive(Debug)]
+        #[derive(Debug, PartialEq, Eq)]
         #[repr(#repr_ty)]
         pub enum #enum_name #lifetime { #variants }
     };

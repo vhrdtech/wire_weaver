@@ -17,7 +17,7 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         quote!()
     };
     let ts = quote! {
-        #[derive(Debug)]
+        #[derive(Debug, PartialEq, Eq)]
         pub struct #ident #lifetime { #fields }
     };
     ts

@@ -310,9 +310,9 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    pub fn finish_and_take(mut self) -> Result<&'i mut [u8], Error> {
+    pub fn finish_and_take(mut self) -> Result<&'i [u8], Error> {
         let len = self.finish()?.len();
-        Ok(&mut self.buf[0..len])
+        Ok(&self.buf[0..len])
     }
 
     /// Simply return the buffer, note buffer is not set to zero and might contain old data.

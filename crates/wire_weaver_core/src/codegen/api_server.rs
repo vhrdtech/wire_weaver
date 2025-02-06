@@ -14,53 +14,48 @@ pub fn server_dispatcher(
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
     let level_matchers = level_matchers(api_level, no_alloc);
-    let ser_event = ser_event(api_model_location);
-    let ser_heartbeat = ser_heartbeat(api_model_location);
+    let ser_event = ser_event(no_alloc);
+    let stream_send_methods = stream_ser_methods(api_level, no_alloc);
+    // let ser_heartbeat = ser_heartbeat(api_model_location);
+    let err_not_implemented = err_to_caller("OperationNotImplemented");
+    let err_not_supported = err_to_caller("OperationNotSupported");
     quote! {
         #args_structs
 
+        use wire_weaver::shrink_wrap::{
+            DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
+            Error as ShrinkWrapError, nib16::Nib16
+        };
+        use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+
         impl Context {
             pub async fn process_request<'a>(
-                    &'a mut self,
-                    bytes: &[u8],
-                    scratch: &'a mut [u8],
-            ) -> &[u8] {
-                use wire_weaver::shrink_wrap::{
-                    DeserializeShrinkWrap, nib16::Nib16, buf_reader::BufReader, traits::ElementSize
-                };
-                use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
-
+                &'a mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+            ) -> Result<&[u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
-                let request = match Request::des_shrink_wrap(&mut rd, ElementSize::Implied) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        // TODO: only log if enabled
-                        defmt::error!("Request deserialize fail: {}", e);
-                        // TODO: count error if enabled
-                        return &[];
-                    }
-                };
+                let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
                 let mut path_iter = request.path.iter();
                 match path_iter.next() {
                     #level_matchers
                     None => {
                         match request.kind {
-                            RequestKind::Version => {
-                                // send version
-                            },
-                            RequestKind::Heartbeat => { },
-                            _ => {
-                                // send error
-                            }
+                            RequestKind::Version => { #err_not_implemented },
+                            // RequestKind::Heartbeat => {
+                            //     Err(Error::Unimplemented)
+                            // },
+                            _ => { #err_not_supported },
                         }
                     }
                 }
-                &[]
             }
 
             #ser_event
-            #ser_heartbeat
+            // #ser_heartbeat
         }
+
+        #stream_send_methods
     }
 }
 
@@ -75,18 +70,18 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         .items
         .iter()
         .map(|item| level_matcher(&item.kind, no_alloc));
+    let err_bad_path = err_to_caller("BadPath");
     quote! {
-        #(Some(Ok(Nib16(#ids))) => { #handlers } ),*
-        Some(Ok(_)) => {
-            // send BadUri
-        }
-        Some(Err(_e)) => {
-            // send error
+        Some(id) => match id.0 {
+            #(#ids => { #handlers } ),*
+            _ => { #err_bad_path }
         }
     }
 }
 
 fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
+    let err_bad_path = err_to_caller("BadPath");
+    let err_not_implemented = err_to_caller("OperationNotImplemented");
     match kind {
         ApiItemKind::Method { ident, args } => {
             let (args_des, args_list) = des_args(ident, args, no_alloc);
@@ -100,12 +95,14 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                     RequestKind::Call { #is_args } => {
                         #args_des
                         self.#ident(#args_list).await;
+                        // TODO: Implement return type & serdes
+                        Ok(Self::ser_void_args_event(request.seq, scratch)?)
                     }
                     RequestKind::Introspect => {
-
+                        #err_not_implemented
                     }
                     _ => {
-                        // return error
+                        #err_not_implemented
                     }
                 }
             }
@@ -118,18 +115,23 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
         } => {
             let specific_ops = if *is_up {
                 quote! {
-                    RequestKind::ChangeRate { _shaper_config } => {}
+                    RequestKind::ChangeRate { shaper_config: _ } => {
+                        #err_not_implemented
+                    }
                 }
             } else {
                 quote! {
-                    RequestKind::Write { data } => {}
+                    RequestKind::Write { data } => {
+                        #err_not_implemented
+                    }
                 }
             };
             quote! {
                 match &request.kind {
-                    RequestKind::OpenStream => {}
-                    RequestKind::CloseStream => {}
+                    RequestKind::OpenStream => { #err_not_implemented }
+                    RequestKind::CloseStream => { #err_not_implemented }
                     #specific_ops
+                    _ => { #err_bad_path }
                 }
             }
         }
@@ -139,21 +141,35 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
     }
 }
 
-fn des_args(
-    method_ident: &Ident,
-    args: &[Argument],
-    _no_alloc: bool,
-) -> (TokenStream, TokenStream) {
+fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenStream, TokenStream) {
     let args_struct_ident =
         format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
     let args_struct_ident = Ident::new(args_struct_ident);
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
+        let err_args_des_failed = err_to_caller("ArgsDesFailed");
+        let get_slice = if no_alloc {
+            quote! {
+                let args = match args.byte_slice() {
+                    Ok(args) => args,
+                    Err(_e) => {
+                        return #err_args_des_failed;
+                    }
+                }
+            }
+        } else {
+            quote! { args.as_slice() }
+        };
         let args_des = quote! {
-            // TODO: send error back instead
-            let mut rd = BufReader::new(args.byte_slice().unwrap());
-            let args: #args_struct_ident = rd.read(ElementSize::Implied).unwrap();
+            let args = #get_slice;
+            let mut rd = BufReader::new(args);
+            let args: #args_struct_ident = match rd.read(ElementSize::Implied) {
+                Ok(args) => args,
+                Err(_e) => {
+                    return #err_args_des_failed;
+                }
+            };
         };
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();
@@ -163,56 +179,110 @@ fn des_args(
         (args_des, args_list)
     }
 }
-fn ser_event(api_model_location: &syn::Path) -> TokenStream {
+fn ser_event(no_alloc: bool) -> TokenStream {
+    let future_compatible_void_return = if no_alloc {
+        quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
+    } else {
+        quote! { vec![0] }
+    };
     quote! {
-        pub fn ser_event<'a>(&'a mut self, event: & #api_model_location::Event, scratch: &'a mut [u8]) -> &[u8] {
-            use wire_weaver::shrink_wrap::SerializeShrinkWrap;
-
-            let mut wr = wire_weaver::shrink_wrap::buf_writer::BufWriter::new(scratch);
-            if let Err(e) = event.ser_shrink_wrap(&mut wr) {
-                defmt::error!("send_event serialize: {}", e);
-                return &[];
-            }
-            match wr.finish_and_take() {
-                Ok(event_bytes) => {
-                    event_bytes
-                },
-                Err(e) => {
-                    defmt::error!("ser_event wr.finish(): {}", e);
-                    &[]
-                }
-            }
-        }
-    }
-}
-
-fn ser_heartbeat(api_model_location: &syn::Path) -> TokenStream {
-    quote! {
-        pub fn ser_heartbeat<'a>(&'a mut self, scratch: &'a mut [u8]) -> &[u8] {
-            use wire_weaver::shrink_wrap::vec::RefVec;
-            use wire_weaver::shrink_wrap::{SerializeShrinkWrap, traits::ElementSize};
-            use #api_model_location::{Event, EventKind};
-
-            let data = RefVec::Slice {
-                slice: &[0xaa, 0xbb],
-                element_size: ElementSize::Sized { size_bits: 8 }
-            };
+        pub fn ser_ok_event(seq: u16, kind: EventKind, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(scratch);
             let event = Event {
-                seq: 123,
-                result: Ok(EventKind::Heartbeat { data })
+                seq,
+                result: Ok(kind)
             };
-            self.ser_event(&event, scratch)
+            event.ser_shrink_wrap(&mut wr)?;
+            Ok(wr.finish_and_take()?)
+        }
+
+        pub fn ser_err_event(seq: u16, error: Error, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(scratch);
+            let event = Event {
+                seq,
+                result: Err(error)
+            };
+            event.ser_shrink_wrap(&mut wr)?;
+            Ok(wr.finish_and_take()?)
+        }
+
+        pub fn ser_void_args_event(seq: u16, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(scratch);
+            let event = Event {
+                seq,
+                result: Ok(EventKind::ReturnValue { data: #future_compatible_void_return })
+            };
+            event.ser_shrink_wrap(&mut wr)?;
+            Ok(wr.finish_and_take()?)
         }
     }
 }
 
-fn stream_serializer(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
+// fn ser_heartbeat(api_model_location: &syn::Path) -> TokenStream {
+//     quote! {
+//         pub fn ser_heartbeat<'a>(&'a mut self, scratch: &'a mut [u8]) -> &[u8] {
+//             use wire_weaver::shrink_wrap::vec::RefVec;
+//             use wire_weaver::shrink_wrap::{SerializeShrinkWrap, traits::ElementSize};
+//             use #api_model_location::{Event, EventKind};
+//
+//             let data = RefVec::Slice {
+//                 slice: &[0xaa, 0xbb],
+//                 element_size: ElementSize::Sized { size_bits: 8 }
+//             };
+//             let event = Event {
+//                 seq: 123,
+//                 result: Ok(EventKind::Heartbeat { data })
+//             };
+//             self.ser_event(&event, scratch)
+//         }
+//     }
+// }
+
+fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let mut ts = TokenStream::new();
     for item in &api_level.items {
         let ApiItemKind::Stream { ident, ty, is_up } = &item.kind else {
             continue;
         };
-        ts.append_all(quote! {});
+        if !*is_up {
+            continue;
+        }
+        let stream_ser_fn = proc_macro2::Ident::new(
+            format!("{}_stream_ser", ident.sym).as_str(),
+            Span::call_site(),
+        );
+        let ty = ty.def(no_alloc);
+
+        let bytes_to_container = if no_alloc {
+            quote! { RefVec::Slice { slice: value_bytes, element_size: ElementSize::Sized { size_bits: 8 } } }
+        } else {
+            quote! { Vec::from(value_bytes) }
+        };
+        // TODO: Make this more efficient and not use 2 buffers?
+        ts.append_all(quote! {
+            #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
+            pub fn #stream_ser_fn<'a>(value: &#ty, scratch_value: &mut [u8], scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
+                let mut wr = BufWriter::new(scratch_value);
+                value.ser_shrink_wrap(&mut wr)?;
+                let value_bytes = wr.finish_and_take()?;
+
+                let mut wr = BufWriter::new(scratch);
+                let data = #bytes_to_container;
+                let event = Event {
+                    seq: 0,
+                    result: Ok(EventKind::StreamUpdate { path: vec![Nib16(1)], data })
+                };
+                event.ser_shrink_wrap(&mut wr)?;
+                Ok(wr.finish_and_take()?)
+            }
+        });
     }
     ts
+}
+
+fn err_to_caller(err: &str) -> TokenStream {
+    let err = proc_macro2::Ident::new(err, Span::call_site());
+    quote! {
+        Ok(Self::ser_err_event(request.seq, Error::#err, scratch)?)
+    }
 }

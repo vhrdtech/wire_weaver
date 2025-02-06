@@ -19,6 +19,11 @@ pub fn server_dispatcher(
     // let ser_heartbeat = ser_heartbeat(api_model_location);
     let err_not_implemented = err_to_caller("OperationNotImplemented");
     let err_not_supported = err_to_caller("OperationNotSupported");
+    let additional_use = if no_alloc {
+        quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
+    } else {
+        quote! {}
+    };
     quote! {
         #args_structs
 
@@ -27,6 +32,7 @@ pub fn server_dispatcher(
             Error as ShrinkWrapError, nib16::Nib16
         };
         use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        #additional_use
 
         impl Context {
             pub async fn process_request<'a>(
@@ -71,8 +77,13 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         .iter()
         .map(|item| level_matcher(&item.kind, no_alloc));
     let err_bad_path = err_to_caller("BadPath");
+    let check_err_on_no_alloc = if no_alloc {
+        quote! { id?.0 }
+    } else {
+        quote! { id }
+    };
     quote! {
-        Some(id) => match id.0 {
+        Some(id) => match #check_err_on_no_alloc {
             #(#ids => { #handlers } ),*
             _ => { #err_bad_path }
         }
@@ -151,7 +162,7 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
         let err_args_des_failed = err_to_caller("ArgsDesFailed");
         let get_slice = if no_alloc {
             quote! {
-                let args = match args.byte_slice() {
+                match args.byte_slice() {
                     Ok(args) => args,
                     Err(_e) => {
                         return #err_args_des_failed;
@@ -186,7 +197,7 @@ fn ser_event(no_alloc: bool) -> TokenStream {
         quote! { vec![0] }
     };
     quote! {
-        pub fn ser_ok_event(seq: u16, kind: EventKind, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
+        pub fn ser_ok_event<'a>(seq: u16, kind: EventKind, scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
             let mut wr = BufWriter::new(scratch);
             let event = Event {
                 seq,
@@ -251,6 +262,11 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             format!("{}_stream_ser", ident.sym).as_str(),
             Span::call_site(),
         );
+        let lifetimes = if ty.potential_lifetimes() {
+            quote! { 'i, 'a }
+        } else {
+            quote! { 'a }
+        };
         let ty = ty.def(no_alloc);
 
         let bytes_to_container = if no_alloc {
@@ -258,10 +274,15 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         } else {
             quote! { Vec::from(value_bytes) }
         };
+        let path = if no_alloc {
+            quote! { RefVec::Slice { slice: &[Nib16(1)], element_size: ElementSize::UnsizedSelfDescribing } }
+        } else {
+            quote! { vec![Nib16(1)] }
+        };
         // TODO: Make this more efficient and not use 2 buffers?
         ts.append_all(quote! {
             #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
-            pub fn #stream_ser_fn<'a>(value: &#ty, scratch_value: &mut [u8], scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
+            pub fn #stream_ser_fn<#lifetimes>(value: &#ty, scratch_value: &mut [u8], scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut wr = BufWriter::new(scratch_value);
                 value.ser_shrink_wrap(&mut wr)?;
                 let value_bytes = wr.finish_and_take()?;
@@ -270,7 +291,7 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 let data = #bytes_to_container;
                 let event = Event {
                     seq: 0,
-                    result: Ok(EventKind::StreamUpdate { path: vec![Nib16(1)], data })
+                    result: Ok(EventKind::StreamUpdate { path: #path, data })
                 };
                 event.ser_shrink_wrap(&mut wr)?;
                 Ok(wr.finish_and_take()?)

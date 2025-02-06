@@ -8,20 +8,20 @@ pub(crate) fn serdes(
     lifetime: TokenStream,
 ) -> TokenStream {
     quote! {
-        impl #lifetime wire_weaver::shrink_wrap::SerializeShrinkWrap for #ty_name #lifetime {
+        impl #lifetime SerializeShrinkWrap for #ty_name #lifetime {
             fn ser_shrink_wrap(
                 &self,
-                wr: &mut wire_weaver::shrink_wrap::BufWriter
-            ) -> Result<(), wire_weaver::shrink_wrap::Error> {
+                wr: &mut BufWriter
+            ) -> Result<(), ShrinkWrapError> {
                 #ser
             }
         }
 
-        impl<'i> wire_weaver::shrink_wrap::DeserializeShrinkWrap<'i> for #ty_name #lifetime {
+        impl<'i> DeserializeShrinkWrap<'i> for #ty_name #lifetime {
             fn des_shrink_wrap<'di>(
-                rd: &'di mut wire_weaver::shrink_wrap::BufReader<'i>,
-                _element_size: wire_weaver::shrink_wrap::ElementSize
-            ) -> Result<Self, wire_weaver::shrink_wrap::Error> {
+                rd: &'di mut BufReader<'i>,
+                _element_size: ElementSize
+            ) -> Result<Self, ShrinkWrapError> {
                 #des
             }
         }

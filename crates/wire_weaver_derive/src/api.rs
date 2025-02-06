@@ -185,6 +185,9 @@ fn generate_api_model(api_model: &str, no_alloc: bool) -> TokenStream {
     let api_model = Ident::new(api_model, Span::call_site());
     quote! {
         mod #api_model {
+            use wire_weaver::shrink_wrap::{
+                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError
+            };
             #ts
         }
     }

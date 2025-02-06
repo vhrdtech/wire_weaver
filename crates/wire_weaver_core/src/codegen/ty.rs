@@ -240,7 +240,7 @@ impl Type {
                     wr.align_byte();
                     let size_bytes = wr.pos().0 - unsized_start_bytes;
                     let Ok(size_bytes) = u16::try_from(size_bytes) else {
-                        return Err(wire_weaver::shrink_wrap::Error::ItemTooLong);
+                        return Err(ShrinkWrapError::ItemTooLong);
                     };
                     // write Unsized size
                     wr.update_u16_rev(size_slot_pos, size_bytes)?;
@@ -316,13 +316,13 @@ impl Type {
                 tokens.append_all(quote! {
                     let size = rd.read_nib16_rev()? as usize;
                     let mut rd_split = rd.split(size)?;
-                    let #variable_name = rd_split.read(wire_weaver::shrink_wrap::ElementSize::Unsized)?;
+                    let #variable_name = rd_split.read(ElementSize::Unsized)?;
                 });
                 return;
             }
             Type::Sized(_, _) => {
                 tokens.append_all(quote! {
-                    let #variable_name = rd.read(wire_weaver::shrink_wrap::ElementSize::Sized { size_bits: 0 })?;
+                    let #variable_name = rd.read(ElementSize::Sized { size_bits: 0 })?;
                 });
                 return;
             }
@@ -420,15 +420,14 @@ impl Type {
     }
 
     pub fn element_size_ts(&self) -> TokenStream {
-        let path = quote! { wire_weaver::shrink_wrap::traits::ElementSize };
         match self.element_size() {
-            ElementSize::Implied => quote! { #path::Implied },
-            ElementSize::Unsized => quote! { #path::Unsized },
+            ElementSize::Implied => quote! { ElementSize::Implied },
+            ElementSize::Unsized => quote! { ElementSize::Unsized },
             ElementSize::Sized { size_bits } => {
                 let size_bits = LitInt::new(format!("{size_bits}").as_str(), Span::call_site());
-                quote! { #path::Sized { size_bits: #size_bits } }
+                quote! { ElementSize::Sized { size_bits: #size_bits } }
             }
-            ElementSize::UnsizedSelfDescribing => quote! { #path::UnsizedSelfDescribing },
+            ElementSize::UnsizedSelfDescribing => quote! { ElementSize::UnsizedSelfDescribing },
         }
     }
 }

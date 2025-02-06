@@ -1,8 +1,5 @@
 use std::ops::Deref;
 
-use proc_macro2::Span;
-use syn::{Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, TraitItem};
-
 use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
@@ -15,6 +12,9 @@ use crate::transform::{
     ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
     SynItemWithContext,
 };
+use proc_macro2::Span;
+use syn::parse::{Parse, ParseStream};
+use syn::{Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, TraitItem};
 
 /// Go through items in syn AST form and transform into own AST.
 /// Everything should be resolved and computed before this pass.
@@ -573,7 +573,36 @@ impl<'i> CollectAndConvertPass<'i> {
                     });
                 }
                 TraitItem::Type(_) => {}
-                TraitItem::Macro(_) => {}
+                TraitItem::Macro(item_macro) => {
+                    let mut attrs = item_macro.attrs.clone();
+                    let id = match take_id_attr(&mut attrs) {
+                        Some(id) => {
+                            next_id = id + 1;
+                            id
+                        }
+                        None => {
+                            let id = next_id;
+                            next_id += 1;
+                            id
+                        }
+                    };
+                    let kind = item_macro.mac.path.get_ident().unwrap().to_string();
+                    let is_up = kind == "stream_up";
+                    let stream_args: StreamMacroArgs =
+                        syn::parse2(item_macro.mac.tokens.clone()).unwrap();
+                    let path = FieldPath::new(FieldPathRoot::NamedField(stream_args.ident.clone())); // TODO: Clarify FieldPath purpose
+                    items.push(ApiItem {
+                        id: id as u16,
+                        multiplicity: Multiplicity::Flat,
+                        kind: ApiItemKind::Stream {
+                            ident: stream_args.ident.into(),
+                            // ty: Type::Unsized(Path::new_ident(stream_args.ty_name.into()), false),
+                            ty: self.transform_type(stream_args.ty, &path)?,
+                            is_up,
+                        },
+                    });
+                    collect_unknown_attributes(&mut attrs, self.messages);
+                }
                 TraitItem::Verbatim(_) => {}
                 _ => {}
             }
@@ -581,6 +610,22 @@ impl<'i> CollectAndConvertPass<'i> {
         let mut attrs = item_trait.attrs.clone();
         let docs = collect_docs_attrs(&mut attrs);
         Some(ApiLevel { docs, items })
+    }
+}
+
+struct StreamMacroArgs {
+    ident: syn::Ident,
+    _punct: syn::Token![,],
+    ty: syn::Type,
+}
+
+impl Parse for StreamMacroArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(StreamMacroArgs {
+            ident: input.parse()?,
+            _punct: input.parse()?,
+            ty: input.parse()?,
+        })
     }
 }
 

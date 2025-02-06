@@ -24,7 +24,7 @@ pub enum Multiplicity {
 pub enum ApiItemKind {
     Method { ident: Ident, args: Vec<Argument> },
     Property,
-    Stream,
+    Stream { ident: Ident, ty: Type, is_up: bool },
     ImplTrait,
     Level(Box<ApiLevel>),
 }

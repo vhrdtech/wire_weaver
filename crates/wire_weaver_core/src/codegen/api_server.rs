@@ -1,6 +1,6 @@
 use convert_case::Casing;
 use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use quote::{quote, TokenStreamExt};
 use syn::{Lit, LitInt};
 
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
@@ -45,7 +45,7 @@ pub fn server_dispatcher(
                     #level_matchers
                     None => {
                         match request.kind {
-                            RequestKind::Version { protocol_id: u32, version: Version } => {
+                            RequestKind::Version => {
                                 // send version
                             },
                             RequestKind::Heartbeat => { },
@@ -99,7 +99,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                 match &request.kind {
                     RequestKind::Call { #is_args } => {
                         #args_des
-                        #ident(self, #args_list).await;
+                        self.#ident(#args_list).await;
                     }
                     RequestKind::Introspect => {
 
@@ -111,7 +111,28 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
             }
         }
         // ApiItemKind::Property => {}
-        // ApiItemKind::Stream => {}
+        ApiItemKind::Stream {
+            ident: _,
+            ty: _,
+            is_up,
+        } => {
+            let specific_ops = if *is_up {
+                quote! {
+                    RequestKind::ChangeRate { _shaper_config } => {}
+                }
+            } else {
+                quote! {
+                    RequestKind::Write { data } => {}
+                }
+            };
+            quote! {
+                match &request.kind {
+                    RequestKind::OpenStream => {}
+                    RequestKind::CloseStream => {}
+                    #specific_ops
+                }
+            }
+        }
         // ApiItemKind::ImplTrait => {}
         // ApiItemKind::Level(_) => {}
         _ => unimplemented!(),
@@ -183,4 +204,15 @@ fn ser_heartbeat(api_model_location: &syn::Path) -> TokenStream {
             self.ser_event(&event, scratch)
         }
     }
+}
+
+fn stream_serializer(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
+    let mut ts = TokenStream::new();
+    for item in &api_level.items {
+        let ApiItemKind::Stream { ident, ty, is_up } = &item.kind else {
+            continue;
+        };
+        ts.append_all(quote! {});
+    }
+    ts
 }

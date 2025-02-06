@@ -71,7 +71,13 @@ fn level_method(
             }
         }
         // ApiItemKind::Property => {}
-        // ApiItemKind::Stream => {}
+        ApiItemKind::Stream {
+            ident: _,
+            ty: _,
+            is_up: _,
+        } => {
+            quote! {}
+        }
         // ApiItemKind::ImplTrait => {}
         // ApiItemKind::Level(_) => {}
         _ => unimplemented!(),

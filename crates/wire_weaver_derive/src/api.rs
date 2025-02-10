@@ -9,6 +9,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, TokenStreamExt};
 use subprocess::{Exec, Redirection};
 use syn::ItemMod;
+use relative_path::RelativePath;
 
 use wire_weaver_core::ast::{Item, Source};
 use wire_weaver_core::transform::Transform;
@@ -52,14 +53,13 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         panic!("mod cannot be empty, please provide Context struct");
     };
 
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let ww_path = if let Some(path) = args.ww.strip_prefix("..") {
-        format!("{manifest_dir}/../{path}")
-    } else if let Some(path) = args.ww.strip_prefix('.') {
-        format!("{manifest_dir}/{path}")
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let ww_path = if args.ww.starts_with("..") || args.ww.starts_with(".") {
+        RelativePath::new(args.ww.as_str()).to_path(&manifest_dir).to_str().unwrap().to_owned()
     } else {
         args.ww.clone()
     };
+    eprintln!("path: {ww_path}");
 
     let mut transform = Transform::new();
     transform
@@ -151,8 +151,8 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
 
     if !args.debug_to_file.is_empty() {
         let ts_formatted = format_rust(format!("{ts}").as_str());
-        let manifest_dir_path = &PathBuf::from(manifest_dir);
-        let path = manifest_dir_path.join(&args.debug_to_file);
+        //let manifest_dir_path = &PathBuf::from(manifest_dir);
+        let path = manifest_dir.join(&args.debug_to_file);
         match File::create(&path) {
             Ok(mut f) => {
                 if let Err(e) = f.write_all(ts_formatted.as_bytes()) {
@@ -173,9 +173,11 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
     // TODO: use registry to fetch it
     let registry_dir =
         std::env::var("WW_REGISTRY_DIR").expect("WW_REGISTRY_DIR env var must be set");
+    let mut path = PathBuf::from(registry_dir);
+    path.extend(&["client_server_v0_1", "client_server.ww"]);
     transform
         .load_and_push(Source::File {
-            path: format!("{registry_dir}/client_server_v0_1/client_server.ww"),
+            path: path.to_str().unwrap().to_owned(),
         })
         .unwrap();
 

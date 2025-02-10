@@ -24,6 +24,6 @@ const MIN_MESSAGE_SIZE: usize = 64;
 #[cfg(all(feature = "device", feature = "host"))]
 compile_error!("Exactly one of 'device' or 'host' features must be enabled");
 
-pub use common::{LinkMgmtCmd, PacketSink, PacketSource, ProtocolInfo};
-pub use receiver::{MessageKind, MessageReceiver, ReceiveError, ReceiverStats};
-pub use sender::{MessageSender, SendError, SenderStats};
+pub use common::{Error, PacketSink, PacketSource, ProtocolInfo, WireWeaverUsbLink};
+pub use receiver::{MessageKind, ReceiverStats};
+pub use sender::SenderStats;

@@ -1,26 +1,49 @@
+use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
 use shrink_wrap::{BufReader, BufWriter};
 use strum_macros::FromRepr;
 use wire_weaver_derive::ww_repr;
 
-#[ww_repr(u4)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
-pub(crate) enum Kind {
-    NoOp = 0,
+// Packs and unpacks messages to/from one or more USB packets.
+// Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
+//
+// Packets are not sent immediately to collect more messages into one packet and lower overhead.
+//
+// To ensure backward and forward format compatibility, there is a link setup phase, during which user protocol,
+// this link version and buffer sizes are exchanged.
+pub struct WireWeaverUsbLink<'i, T, R> {
+    // Link info and status
+    pub(crate) protocol: ProtocolInfo,
+    pub(crate) remote_max_message_size: u32,
+    pub(crate) remote_protocol: Option<ProtocolInfo>,
 
-    /// 0x1l, 0xll, `data[0..len]` in first packet
-    MessageStart = 1,
-    /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
-    MessageContinue = 2,
-    /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
-    MessageEnd = 3,
-    /// 0x4l, 0xll, `data[0..len]` in one packet.
-    MessageStartEnd = 4,
+    // Sender
+    pub(crate) tx: T,
+    pub(crate) tx_writer: BufWriter<'i>,
+    pub(crate) tx_stats: SenderStats,
 
-    LinkInfo = 5,
+    // Receiver
+    pub(crate) rx: R,
+    pub(crate) rx_packet_buf: &'i mut [u8],
+    pub(crate) rx_start_pos: usize,
+    pub(crate) rx_left_bytes: usize,
+    pub(crate) rx_stats: ReceiverStats,
+    pub(crate) rx_in_fragmented_message: bool,
+}
 
-    Ping = 6,
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Error<T, R> {
+    InternalBufOverflow,
+    ProtocolsVersionMismatch,
+    LinkVersionMismatch,
+    Disconnected,
 
-    Disconnect = 7,
+    SourceError(R),
+    ReceivedEmptyPacket,
+
+    SinkError(T),
+    EmptyMessage,
+    MessageTooBig,
 }
 
 /// Interface used by [MessageSender](crate::MessageSender) to send packets to USB bus.
@@ -28,13 +51,6 @@ pub(crate) enum Kind {
 pub trait PacketSink {
     type Error;
     async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error>;
-
-    #[cfg(feature = "device")]
-    async fn wait_connection(&mut self);
-    #[cfg(feature = "device")]
-    async fn rx_from_source(&mut self) -> LinkMgmtCmd;
-    #[cfg(feature = "device")]
-    fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd>;
 }
 
 /// Interface used by [MessageReceiver](crate::MessageReceiver) to receive packets from USB bus.
@@ -43,21 +59,7 @@ pub trait PacketSource {
     async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
 
     #[cfg(feature = "device")]
-    async fn wait_connection(&mut self);
-    #[cfg(feature = "device")]
-    fn send_to_sink(&mut self, msg: LinkMgmtCmd);
-}
-
-/// Used to pass information from MessageReceiver to MessageSender to inform it if
-/// remote end has disconnected and to pass information for versions checks.
-pub enum LinkMgmtCmd {
-    Disconnect,
-    LinkInfo {
-        link_version_matches: bool,
-        local_max_message_size: u32,
-        remote_max_message_size: u32,
-        remote_protocol: ProtocolInfo,
-    },
+    async fn wait_usb_connection(&mut self);
 }
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.
@@ -73,6 +75,72 @@ pub struct ProtocolInfo {
     pub protocol_id: u32,
     pub major_version: u8,
     pub minor_version: u8,
+}
+
+impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
+    pub fn new(
+        protocol: ProtocolInfo,
+        tx: T,
+        tx_packet_buf: &'i mut [u8],
+        rx: R,
+        rx_packet_buf: &'i mut [u8],
+    ) -> Self {
+        let tx_writer = BufWriter::new(tx_packet_buf);
+
+        #[cfg(test)]
+        let remote_protocol = Some(ProtocolInfo {
+            protocol_id: 0,
+            major_version: 0,
+            minor_version: 0,
+        });
+        #[cfg(not(test))]
+        let remote_protocol = None;
+
+        WireWeaverUsbLink {
+            protocol,
+            remote_max_message_size: MIN_MESSAGE_SIZE as u32,
+            remote_protocol,
+
+            tx,
+            tx_writer,
+            tx_stats: Default::default(),
+
+            rx,
+            rx_packet_buf,
+            rx_start_pos: 0,
+            rx_left_bytes: 0,
+            rx_stats: Default::default(),
+            rx_in_fragmented_message: false,
+        }
+    }
+
+    #[cfg(feature = "device")]
+    /// Device only function. Waits for physical USB cable connection and interface enable.
+    pub async fn wait_usb_connection(&mut self) {
+        self.rx.wait_usb_connection().await;
+    }
+}
+
+#[ww_repr(u4)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
+pub(crate) enum Op {
+    NoOp = 0,
+
+    /// 0x1l, 0xll, `data[0..len]` in first packet
+    MessageStart = 1,
+    /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
+    MessageContinue = 2,
+    /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
+    MessageEnd = 3,
+    /// 0x4l, 0xll, `data[0..len]` in one packet.
+    MessageStartEnd = 4,
+
+    GetVersions = 5,
+    LinkSetup = 6,
+
+    Ping = 7,
+
+    Disconnect = 8,
 }
 
 impl ProtocolInfo {

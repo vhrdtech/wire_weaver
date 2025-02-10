@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::common::Kind;
+    use crate::common::Op;
     use crate::*;
     use core::future::{ready, Future};
     use std::collections::VecDeque;
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(sink.frames.len(), 1);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Op::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
 
         let mut staging = [0u8; 8];
@@ -116,13 +116,13 @@ mod tests {
         assert_eq!(sink.frames.len(), 2);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         let crc = CRC_KIND.checksum(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
             sink.frames[1],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Op::MessageEnd as u8) << 4,
                 0x02,
                 7,
                 8,
@@ -159,26 +159,17 @@ mod tests {
         assert_eq!(sink.frames.len(), 3);
         assert_eq!(
             sink.frames[0],
-            vec![(Kind::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
+            vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         assert_eq!(
             sink.frames[1],
-            vec![
-                (Kind::MessageContinue as u8) << 4,
-                0x06,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12
-            ]
+            vec![(Op::MessageContinue as u8) << 4, 0x06, 7, 8, 9, 10, 11, 12]
         );
         let crc = CRC_KIND.checksum(PACKET);
         assert_eq!(
             sink.frames[2],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Op::MessageEnd as u8) << 4,
                 0x02,
                 13,
                 14,
@@ -221,12 +212,12 @@ mod tests {
         assert_eq!(
             sink.frames[0],
             vec![
-                (Kind::MessageStartEnd as u8) << 4,
+                (Op::MessageStartEnd as u8) << 4,
                 0x03,
                 1,
                 2,
                 3,
-                (Kind::MessageStart as u8) << 4,
+                (Op::MessageStart as u8) << 4,
                 1,
                 4
             ]
@@ -235,7 +226,7 @@ mod tests {
         assert_eq!(
             sink.frames[1],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Op::MessageEnd as u8) << 4,
                 0x03,
                 5,
                 6,
@@ -259,12 +250,12 @@ mod tests {
         assert_eq!(
             sink.frames[0],
             vec![
-                (Kind::MessageStartEnd as u8) << 4,
+                (Op::MessageStartEnd as u8) << 4,
                 0x03,
                 1,
                 2,
                 3,
-                (Kind::MessageStart as u8) << 4,
+                (Op::MessageStart as u8) << 4,
                 1,
                 4
             ]
@@ -273,13 +264,13 @@ mod tests {
         assert_eq!(sink.frames[1].len(), 7);
         assert_eq!(
             sink.frames[1],
-            vec![(Kind::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
+            vec![(Op::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
         );
         assert_eq!(sink.frames[2].len(), 4);
         assert_eq!(
             sink.frames[2],
             vec![
-                (Kind::MessageEnd as u8) << 4,
+                (Op::MessageEnd as u8) << 4,
                 0x00,
                 (crc & 0xFF) as u8,
                 (crc >> 8) as u8

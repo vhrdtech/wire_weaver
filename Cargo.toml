@@ -8,4 +8,4 @@ description = ""
 nusb = "0.1"
 tokio = { version = "1", features = ["sync", "rt", "macros"] }
 tracing = "0.1"
-wire_weaver_usb_link = { path = "../wire_weaver_usb_link" }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link",features = ["host"] }

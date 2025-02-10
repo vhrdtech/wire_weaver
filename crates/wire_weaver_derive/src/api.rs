@@ -66,12 +66,12 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         .load_and_push(Source::File { path: ww_path })
         .unwrap();
 
-    let derive = args
+    let add_derives = args
         .derive
         .split(&[' ', ','])
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>();
-    let cx = transform.transform(&derive).unwrap();
+    let cx = transform.transform(&add_derives).unwrap();
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             println!("cargo:warning={:?} {:?}", source, message);
@@ -138,8 +138,12 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     // let mut ts = TokenStream::new();
     // ts.append_all(item);
     if !args.skip_api_model_codegen {
-        let api_model: ItemMod =
-            syn::parse2(generate_api_model(args.api_model.as_str(), args.no_alloc)).unwrap();
+        let api_model: ItemMod = syn::parse2(generate_api_model(
+            args.api_model.as_str(),
+            &add_derives,
+            args.no_alloc,
+        ))
+        .unwrap();
         api_mod_items.push(syn::Item::Mod(api_model));
     }
 
@@ -164,17 +168,18 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     ts
 }
 
-fn generate_api_model(api_model: &str, no_alloc: bool) -> TokenStream {
+fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> TokenStream {
     let mut transform = Transform::new();
     // TODO: use registry to fetch it
-    let registry_dir = std::env::var("WW_REGISTRY_DIR").unwrap();
+    let registry_dir =
+        std::env::var("WW_REGISTRY_DIR").expect("WW_REGISTRY_DIR env var must be set");
     transform
         .load_and_push(Source::File {
             path: format!("{registry_dir}/client_server_v0_1/client_server.ww"),
         })
         .unwrap();
 
-    let cx = transform.transform(&[]).unwrap();
+    let cx = transform.transform(add_derives).unwrap();
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             println!("cargo:warning={:?} {:?}", source, message);
@@ -184,7 +189,7 @@ fn generate_api_model(api_model: &str, no_alloc: bool) -> TokenStream {
     let ts = wire_weaver_core::codegen::generate(&cx, no_alloc);
     let api_model = Ident::new(api_model, Span::call_site());
     quote! {
-        mod #api_model {
+        pub mod #api_model {
             use wire_weaver::shrink_wrap::{
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError
             };

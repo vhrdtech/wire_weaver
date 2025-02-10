@@ -80,7 +80,7 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let check_err_on_no_alloc = if no_alloc {
         quote! { id?.0 }
     } else {
-        quote! { id }
+        quote! { id.0 }
     };
     quote! {
         Some(id) => match #check_err_on_no_alloc {

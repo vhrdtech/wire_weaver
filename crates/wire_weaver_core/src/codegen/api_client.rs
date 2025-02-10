@@ -12,6 +12,12 @@ pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bo
     quote! {
         #args_structs
 
+        use wire_weaver::shrink_wrap::{
+            DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
+            Error as ShrinkWrapError, nib16::Nib16
+        };
+        use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+
         impl Client {
             pub fn new() -> Self {
                 Client {}

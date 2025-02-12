@@ -39,7 +39,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
         message: &mut [u8],
     ) -> Result<MessageKind, Error<T::Error, R::Error>> {
         let mut staging_idx = 0;
-        'next_frame: loop {
+        'next_message: loop {
             let (packet, is_new_frame) = if self.rx_left_bytes > 0 {
                 (
                     &self.rx_packet_buf[self.rx_start_pos..self.rx_start_pos + self.rx_left_bytes],
@@ -62,9 +62,10 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
             while rd.bytes_left() >= 2 {
                 let kind = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
                 let Some(kind) = Op::from_repr(kind) else {
-                    continue 'next_frame;
+                    self.rx_left_bytes = 0; // skip whole packet on malformed data
+                    continue 'next_message;
                 };
-                if self.remote_protocol.is_none() && kind != Op::LinkSetup {
+                if self.remote_protocol.is_none() && kind != Op::LinkSetup && kind != Op::NoOp {
                     self.rx_left_bytes = 0;
                     return Err(Error::ProtocolsVersionMismatch);
                 }
@@ -79,7 +80,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                                 self.rx_stats.receive_errors.wrapping_add(1);
                             staging_idx = 0;
                             self.rx_in_fragmented_message = false;
-                            continue 'next_frame;
+                            continue 'next_message;
                         };
                         if kind == Op::MessageStart {
                             self.rx_in_fragmented_message = true;
@@ -91,7 +92,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                                 if let Ok(_crc) = rd.read_u16() {
                                     continue;
                                 } else {
-                                    continue 'next_frame;
+                                    continue 'next_message;
                                 }
                             } else {
                                 continue;
@@ -107,28 +108,17 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                                     self.rx_stats.receive_errors =
                                         self.rx_stats.receive_errors.wrapping_add(1);
                                     staging_idx = 0;
-                                    continue 'next_frame;
+                                    continue 'next_message;
                                 };
                                 let crc_calculated = CRC_KIND.checksum(&message[..staging_idx]);
                                 if crc_received == crc_calculated {
                                     self.rx_in_fragmented_message = false;
 
-                                    let min_bytes_left = rd.bytes_left() >= 2;
-                                    let read_bytes = packet.len() - rd.bytes_left();
-                                    match (is_new_frame, min_bytes_left) {
-                                        (true, true) => {
-                                            self.rx_start_pos = read_bytes;
-                                            self.rx_left_bytes = rd.bytes_left();
-                                        }
-                                        (false, true) => {
-                                            self.rx_start_pos += read_bytes;
-                                            self.rx_left_bytes -= read_bytes;
-                                        }
-                                        _ => {
-                                            self.rx_start_pos = 0;
-                                            self.rx_left_bytes = 0;
-                                        }
-                                    }
+                                    self.adjust_read_pos(
+                                        is_new_frame,
+                                        rd.bytes_left(),
+                                        packet.len(),
+                                    );
                                     self.rx_stats.bytes_received = self
                                         .rx_stats
                                         .bytes_received
@@ -148,48 +138,35 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
                             self.rx_in_fragmented_message = false;
-                            continue 'next_frame;
+                            continue 'next_message;
                         }
                     }
                     Op::MessageStartEnd => {
-                        if let Ok(packet_read) = rd.read_raw_slice(len) {
-                            message[..packet_read.len()].copy_from_slice(packet_read);
+                        if let Ok(message_read) = rd.read_raw_slice(len) {
+                            message[..message_read.len()].copy_from_slice(message_read);
 
-                            let min_bytes_left = rd.bytes_left() >= 2;
-                            let read_bytes = packet.len() - rd.bytes_left();
-                            match (is_new_frame, min_bytes_left) {
-                                (true, true) => {
-                                    self.rx_start_pos = read_bytes;
-                                    self.rx_left_bytes = rd.bytes_left();
-                                }
-                                (false, true) => {
-                                    self.rx_start_pos += read_bytes;
-                                    self.rx_left_bytes -= read_bytes;
-                                }
-                                _ => {
-                                    self.rx_start_pos = 0;
-                                    self.rx_left_bytes = 0;
-                                }
-                            }
+                            let message_read_len = message_read.len();
                             self.rx_stats.bytes_received = self
                                 .rx_stats
                                 .bytes_received
-                                .wrapping_add(packet_read.len() as u64);
+                                .wrapping_add(message_read.len() as u64);
                             self.rx_stats.messages_received =
                                 self.rx_stats.messages_received.wrapping_add(1);
-                            return Ok(MessageKind::Data(packet_read.len()));
+
+                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
+                            return Ok(MessageKind::Data(message_read_len));
                         } else {
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
                             staging_idx = 0;
                             self.rx_in_fragmented_message = false;
-                            continue 'next_frame;
+                            continue 'next_message;
                         }
                     }
                     Op::GetVersions => {
                         #[cfg(feature = "device")]
                         self.send_link_setup(message.len() as u32).await?;
-                        return Ok(MessageKind::Ping); // TODO: FIx!
+                        continue 'next_message;
                     }
                     Op::LinkSetup => {
                         if rd.bytes_left() >= 4 + 1 + ProtocolInfo::size_bytes() {
@@ -232,11 +209,26 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
         }
     }
 
-    // #[cfg(feature = "device")]
-    // Device only function. Waits for frame source connection, i.e. waits for physical USB cable connection.
-    // pub async fn wait_source_connection(&mut self) {
-    //     self.source.wait_connection().await;
-    // }
+    /// If packet contains more than one message, adjust indices accordingly
+    fn adjust_read_pos(&mut self, is_new_frame: bool, rd_bytes_left: usize, packet_len: usize) {
+        let min_bytes_left = rd_bytes_left >= 2;
+        let read_bytes = packet_len - rd_bytes_left;
+        match (is_new_frame, min_bytes_left) {
+            (true, true) => {
+                self.rx_start_pos = read_bytes;
+                self.rx_left_bytes = rd_bytes_left;
+            }
+            (false, true) => {
+                self.rx_start_pos += read_bytes;
+                self.rx_left_bytes -= read_bytes;
+            }
+            _ => {
+                // new packet will be awaited in next receive_message() call
+                self.rx_start_pos = 0;
+                self.rx_left_bytes = 0;
+            }
+        }
+    }
 
     #[cfg(feature = "device")]
     /// Waits for host to send link setup with compatible link and protocol version.

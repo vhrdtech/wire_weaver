@@ -180,6 +180,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "relative-path"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
+
+[[package]]
 name = "rustversion"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -310,6 +316,7 @@ dependencies = [
  "pathsearch",
  "proc-macro2",
  "quote",
+ "relative-path",
  "subprocess",
  "syn",
  "wire_weaver_core",

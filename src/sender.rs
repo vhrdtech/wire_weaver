@@ -88,6 +88,10 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         #[cfg(feature = "defmt")]
         defmt::trace!("Sending link setup");
 
+        // If data toggle bits are messed up, this will ensure that no useful data packets are lost.
+        // Windows seem to ignore this, while Linux and Mac do not.
+        self.send_nop().await?;
+
         if self.tx_writer.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
             self.force_send().await?;
         }

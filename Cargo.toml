@@ -8,6 +8,5 @@ description = "WireWeaver USB class"
 [dependencies]
 embassy-usb = { version = "0.4", features = ["defmt"] }
 embassy-sync = "0.6"
-static_cell = "2"
 defmt = "0.3"
 wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["device"] }

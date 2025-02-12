@@ -107,7 +107,6 @@ async fn dm_worker(mut dm_commands_rx: Receiver<DeviceManagerCommand>, dm_events
                 info!("Found device: {:?}", di);
                 let dev = di.open().unwrap();
                 let interface = dev.claim_interface(0).unwrap();
-                interface.set_alt_setting(0).unwrap();
                 trace!("opened device");
 
                 let (commands_tx, commands_rx) = channel(16);
@@ -194,8 +193,6 @@ async fn worker(
     const MAX_MESSAGE_SIZE: usize = 2048;
     let mut message_rx = [0u8; MAX_MESSAGE_SIZE];
 
-    // for some reason first packet seem to be lost when connecting for the second time, so send nop
-    link.send_nop().await.unwrap();
     link.send_link_setup(MAX_MESSAGE_SIZE as u32).await.unwrap();
 
     loop {

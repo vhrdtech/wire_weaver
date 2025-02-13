@@ -9,6 +9,11 @@ use crate::codegen::api_common::args_structs;
 pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bool) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
     let root_level = level_methods(api_level, api_model_location, no_alloc);
+    let additional_use = if no_alloc {
+        quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
+    } else {
+        quote! {}
+    };
     quote! {
         #args_structs
 
@@ -17,12 +22,9 @@ pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bo
             Error as ShrinkWrapError, nib16::Nib16
         };
         use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        #additional_use
 
         impl Client {
-            pub fn new() -> Self {
-                Client {}
-            }
-
             #root_level
         }
     }
@@ -48,31 +50,39 @@ fn level_method(
     api_model_location: &syn::Path,
     no_alloc: bool,
 ) -> TokenStream {
+    // TODO: Handle sub-levels
+    let path = if no_alloc {
+        quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+    } else {
+        quote! { vec![Nib16(#id)] }
+    };
+    let return_ty = if no_alloc {
+        quote! { &[u8] }
+    } else {
+        quote! { Vec<u8> }
+    };
+    let finish_wr = if no_alloc {
+        quote! { wr.finish_and_take()? }
+    } else {
+        quote! { wr.finish()?.to_vec() }
+    };
     match kind {
         ApiItemKind::Method { ident, args } => {
             let (args_ser, args_list, args_bytes) = ser_args(ident, args, no_alloc);
             quote! {
-                pub fn #ident(&mut self, #args_list) -> Vec<u8> {
-                    use wire_weaver::shrink_wrap::{
-                        traits::SerializeShrinkWrap,
-                        buf_writer::BufWriter,
-                        nib16::Nib16,
-                    };
+                pub fn #ident(&mut self, #args_list) -> Result<#return_ty, ShrinkWrapError> {
                     use #api_model_location::{Request, RequestKind};
                     #args_ser
                     let request = Request {
                         // TODO: Handle sequence numbers properly
                         seq: 123,
-                        // TODO: Handle sub-levels
-                        path: vec![Nib16(#id)],
+                        path: #path,
                         kind: RequestKind::Call { args: #args_bytes }
                     };
-                    // TODO: get Vec from pool
-                    let mut buf = [0u8; 128];
-                    let mut wr = BufWriter::new(&mut buf);
-                    request.ser_shrink_wrap(&mut wr).unwrap();
-                    let request_bytes = wr.finish().unwrap().to_vec();
-                    request_bytes
+                    let mut wr = BufWriter::new(&mut self.event_scratch);
+                    request.ser_shrink_wrap(&mut wr)?;
+                    let request_bytes = #finish_wr;
+                    Ok(request_bytes)
                 }
             }
         }
@@ -106,13 +116,17 @@ fn ser_args(
             ident
         });
 
+        let finish_wr = if no_alloc {
+            quote! { RefVec::Slice { slice: wr.finish()?, element_size: ElementSize::Sized { size_bits: 8 } } }
+        } else {
+            quote! { wr.finish()?.to_vec() }
+        };
+
         let args_ser = quote! {
             let args = #args_struct_ident { #(#idents),* };
-            // TODO: get Vec from pool
-            let mut buf = [0u8; 128];
-            let mut wr = BufWriter::new(&mut buf);
-            args.ser_shrink_wrap(&mut wr).unwrap();
-            let args_bytes = wr.finish().unwrap().to_vec();
+            let mut wr = BufWriter::new(&mut self.args_scratch);
+            args.ser_shrink_wrap(&mut wr)?;
+            let args_bytes = #finish_wr;
         };
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();

@@ -229,7 +229,7 @@ impl<'a> ToTokens for CGEnumDes<'a> {
             let discriminant = rd.#read_discriminant()?;
             Ok(match discriminant {
                 #known_variants
-                _ => { return Err(wire_weaver::shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
+                _ => { return Err(ShrinkWrapError::EnumFutureVersionOrMalformedData); }
             })
         });
         // if self.item_enum.is_final {

@@ -42,7 +42,7 @@ impl Type {
             Type::Bool => quote! { bool },
             Type::U4 | Type::U8 => quote! { u8 },
             Type::U16 => quote! { u16 },
-            Type::Nib16 => quote! { wire_weaver::shrink_wrap::nib16::Nib16 },
+            Type::Nib16 => quote! { Nib16 },
             Type::U32 | Type::ULeb32 => quote! { u32 },
             Type::U64 | Type::ULeb64 => quote! { u64 },
             Type::U128 | Type::ULeb128 => quote! { u128 },
@@ -86,7 +86,7 @@ impl Type {
                 Layout::Builtin(inner_ty) => {
                     let inner_ty = inner_ty.def(no_alloc);
                     if no_alloc {
-                        quote! { wire_weaver::shrink_wrap::vec::RefVec<'i, #inner_ty> }
+                        quote! { RefVec<'i, #inner_ty> }
                     } else {
                         quote! { Vec<#inner_ty> }
                     }

@@ -7,9 +7,9 @@ use darling::{Error, FromMeta};
 use pathsearch::find_executable_in_path;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, TokenStreamExt};
+use relative_path::RelativePath;
 use subprocess::{Exec, Redirection};
 use syn::ItemMod;
-use relative_path::RelativePath;
 
 use wire_weaver_core::ast::{Item, Source};
 use wire_weaver_core::transform::Transform;
@@ -55,7 +55,11 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let ww_path = if args.ww.starts_with("..") || args.ww.starts_with(".") {
-        RelativePath::new(args.ww.as_str()).to_path(&manifest_dir).to_str().unwrap().to_owned()
+        RelativePath::new(args.ww.as_str())
+            .to_path(&manifest_dir)
+            .to_str()
+            .unwrap()
+            .to_owned()
     } else {
         args.ww.clone()
     };
@@ -193,7 +197,8 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
     quote! {
         pub mod #api_model {
             use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError
+                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError,
+                vec::RefVec, nib16::Nib16
             };
             #ts
         }

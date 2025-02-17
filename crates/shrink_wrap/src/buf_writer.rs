@@ -239,21 +239,28 @@ impl<'i> BufWriter<'i> {
     /// This function is primarily intended to be used in wire_weaver auto generated code.
     /// Example of how this function is used in wire_weaver when serializing variable length object:
     /// ```
-    /// let size_slot_pos = wr.write_u16_rev(0)?; // reserve u16_rev slot in the back of the buffer
+    /// use shrink_wrap::BufWriter;
+    /// let mut buf = [0u8; 128];
+    /// let mut wr = BufWriter::new(&mut buf);
+    ///
+    /// let size_slot_pos = wr.write_u16_rev(0).unwrap(); // reserve u16_rev slot in the back of the buffer
     /// let unsized_start_bytes = wr.pos().0; // remember current position in bytes
-    /// // Write object of unknown size, potentialyy containing more objects with variable length,
+    /// // Write object of unknown size, potentially containing more objects with variable length,
     /// // which in turn will write more u16_rev numbers to the back of the buffer.
-    /// wr.write(&unsized_object)?;
+    /// let unsized_object = vec![1u8, 2, 3];
+    /// wr.write(&unsized_object).unwrap();
     /// // Encode u16_rev numbers written by the object itself to Nib16 reverse encoding, if any
-    /// wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos)?;
+    /// wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos).unwrap();
     /// wr.align_byte(); // Variable sized objects must be byte aligned, because length is in bytes and to not shift the whole buffer by less than one byte
     /// // Calculate the size of the variable length object + all of the u16_rev numbers it might have used in Nib16 reverse encoding.
     /// let size_bytes = wr.pos().0 - unsized_start_bytes;
-    /// let Ok(size_bytes) = u16::try_from(size_bytes) else {
-    ///     return Err(wire_weaver::shrink_wrap::Error::ItemTooLong);
-    /// };
+    /// let size_bytes = u16::try_from(size_bytes).unwrap();
+    /// assert_eq!(size_bytes, 4);
     /// // Update the original slot with an actual size.
-    /// wr.update_u16_rev(size_slot_pos, size_bytes)?;
+    /// wr.update_u16_rev(size_slot_pos, size_bytes).unwrap();
+    /// let buf = wr.finish().unwrap();
+    /// assert_eq!(buf, &[1, 2, 3, 3, 4]);
+    /// println!("{buf:02x?}");
     ///```
     pub fn encode_nib16_rev(&mut self, from: U16RevPos, to: U16RevPos) -> Result<(), Error> {
         if to.0 < from.0 {

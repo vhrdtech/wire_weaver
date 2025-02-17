@@ -119,6 +119,13 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub async fn wait_usb_connection(&mut self) {
         self.rx.wait_usb_connection().await;
     }
+
+    /// Marks link as not connected, but does not send anything to the host.
+    pub fn silent_disconnect(&mut self) {
+        self.remote_protocol = None;
+        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
+    }
+
 }
 
 #[ww_repr(u4)]

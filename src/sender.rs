@@ -1,7 +1,5 @@
 use crate::common::{Error, Op, WireWeaverUsbLink};
-use crate::{
-    PacketSink, PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION, MIN_MESSAGE_SIZE,
-};
+use crate::{PacketSink, PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION};
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -14,59 +12,6 @@ pub struct SenderStats {
 }
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
-    // Creates new MessageSender.
-    //
-    // packet_buf needs to be of maximum size that sink can accept.
-    // Basically packet_buf needs to be equal to the maximum USB packet size to be used.
-    // Packets will be created to be as big as possible to minimize overhead.
-    // pub fn new(packet_buf: &'i mut [u8], sink: S, user_protocol: ProtocolInfo) -> Self {
-    //     debug_assert!(packet_buf.len() >= 8);
-    //     Self {
-    //         wr: BufWriter::new(packet_buf),
-    //         sink,
-    //         user_protocol,
-    //         remote_max_message_size: MIN_MESSAGE_SIZE as u32,
-    //         link_setup_done: false,
-    //         stats: Default::default(),
-    //     }
-    // }
-
-    // Device only function intended to be called before any transmission can happen.
-    // Waits for link setup to be sent by host, after which versions checks are performed, and if
-    // compatible - Ok is returned. Otherwise, another link setup message is awaited.
-    // #[cfg(feature = "device")]
-    // pub async fn wait_for_link(&mut self) -> Result<(), SendError<S::Error>> {
-    //     while !self.link_setup_done {
-    //         let mgmt_cmd = self.sink.rx_from_source().await;
-    //         match mgmt_cmd {
-    //             crate::LinkMgmtCmd::Disconnect => {
-    //                 self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
-    //                 self.link_setup_done = false;
-    //                 continue;
-    //             }
-    //             crate::LinkMgmtCmd::LinkInfo {
-    //                 link_version_matches,
-    //                 local_max_message_size,
-    //                 remote_max_message_size,
-    //                 remote_protocol,
-    //             } => {
-    //                 if link_version_matches && self.user_protocol.is_compatible(&remote_protocol) {
-    //                     self.remote_max_message_size = remote_max_message_size;
-    //                     self.link_setup_done = true;
-    //                 }
-    //                 self.send_link_setup(local_max_message_size).await?;
-    //                 if self.link_setup_done {
-    //                     break;
-    //                 } else {
-    //                     continue;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     self.stats = Default::default();
-    //     Ok(())
-    // }
-
     /// Sends NOP and immediately forces a transmission, without waiting for other packets to accumulate.
     pub async fn send_nop(&mut self) -> Result<(), Error<T::Error, R::Error>> {
         if self.tx_writer.bytes_left() < 2 {
@@ -218,41 +163,6 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         Ok(())
     }
 
-    // #[cfg(feature = "device")]
-    // async fn handle_mgmt_cmd_if_some(&mut self) -> Result<(), SendError<S::Error>> {
-    //     if let Some(mgmt_cmd) = self.sink.try_rx_from_source() {
-    //         match mgmt_cmd {
-    //             crate::LinkMgmtCmd::Disconnect => {
-    //                 self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
-    //                 self.link_setup_done = false;
-    //                 return Err(SendError::Disconnected);
-    //             }
-    //             crate::LinkMgmtCmd::LinkInfo {
-    //                 link_version_matches,
-    //                 local_max_message_size,
-    //                 remote_max_message_size,
-    //                 remote_protocol: remote_user_protocol,
-    //             } => {
-    //                 // Unlikely to hit this branch, as link setup is done separately, but just in case handle it here as well
-    //                 let is_protocols_compatible =
-    //                     self.user_protocol.is_compatible(&remote_user_protocol);
-    //                 if link_version_matches && is_protocols_compatible {
-    //                     self.remote_max_message_size = remote_max_message_size;
-    //                     self.link_setup_done = true;
-    //                 }
-    //                 self.send_link_setup(local_max_message_size).await?;
-    //                 if !link_version_matches {
-    //                     return Err(SendError::LinkVersionMismatch);
-    //                 }
-    //                 if !is_protocols_compatible {
-    //                     return Err(SendError::ProtocolVersionMismatch);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     Ok(())
-    // }
-
     /// Sends Disconnect message, forces immediate packet transmission and marks link as not connected,
     /// to no accidentally receive data from incompatible host application.
     pub async fn send_disconnect(&mut self) -> Result<(), Error<T::Error, R::Error>> {
@@ -264,16 +174,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             .map_err(|_| Error::InternalBufOverflow)?;
         self.write_len(0)?;
         self.force_send().await?;
-        self.remote_protocol = None;
-        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
+        self.silent_disconnect();
         Ok(())
-    }
-
-    /// Device only function. Marks link as not connected, but does not send anything to the host.
-    #[cfg(feature = "device")]
-    pub fn silent_disconnect(&mut self) {
-        self.remote_protocol = None;
-        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
 
     fn write_packet_start_end(&mut self, bytes: &[u8]) -> Result<(), Error<T::Error, R::Error>> {
@@ -315,16 +217,15 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         Ok(())
     }
 
+    /// Returns true if there are no queued messages
+    pub fn is_tx_queue_empty(&self) -> bool {
+        self.tx_writer.pos().0 == 0
+    }
+
     /// Returns original buffer and sink.
     pub fn deinit(self) -> &'i mut [u8] {
         self.tx_writer.deinit()
     }
-
-    // Device only function. Waits for USB cable to be physically connected.
-    // #[cfg(feature = "device")]
-    // pub async fn wait_sink_connection(&mut self) {
-    //     self.sink.wait_connection().await;
-    // }
 
     /// Returns maximum remote message size received during link setup. Or default one defined as
     /// [MIN_MESSAGE_SIZE]

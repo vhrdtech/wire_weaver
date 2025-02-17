@@ -266,13 +266,6 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
         Ok(())
     }
 
-    /// Device only function. Marks link as not connected, but does not send anything to the host.
-    #[cfg(feature = "device")]
-    pub fn disconnect(&mut self) {
-        self.remote_protocol = None;
-        self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
-    }
-
     /// Returns remote protocol information.
     pub fn remote_protocol(&self) -> Option<ProtocolInfo> {
         self.remote_protocol

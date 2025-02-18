@@ -13,6 +13,7 @@ pub mod vec;
 
 #[cfg(feature = "std")]
 pub mod alloc;
+mod un;
 
 #[derive(Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -28,4 +29,5 @@ pub enum Error {
     ItemTooLong,
     EnumFutureVersionOrMalformedData,
     ImpliedSizeInVec,
+    InvalidBitCount,
 }

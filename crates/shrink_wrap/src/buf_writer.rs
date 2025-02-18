@@ -1,4 +1,5 @@
 use crate::nib16::Nib16;
+use crate::un::write_unx;
 use crate::{Error, SerializeShrinkWrap};
 
 /// no_std buffer writer that supports 1 bit, 4 bit, variable length integer and other operations.
@@ -70,6 +71,11 @@ impl<'i> BufWriter<'i> {
         }
         Ok(())
     }
+
+    write_unx!(write_un8, u8, 8);
+    write_unx!(write_un16, u16, 16);
+    write_unx!(write_un32, u32, 32);
+    write_unx!(write_un64, u64, 64);
 
     /// Write u8.
     pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
@@ -462,5 +468,17 @@ mod tests {
         wr.write_bool(true).unwrap();
         let buf = wr.finish().unwrap();
         assert_eq!(buf, &[0b1000_0000]);
+    }
+
+    #[test]
+    fn write_un() {
+        let mut buf = [0; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_bool(true).unwrap();
+        wr.write_un8(7, 0b010_1010).unwrap();
+        wr.write_un8(3, 0b110).unwrap();
+        wr.write_un16(13, 0b1_1011_1001_0101).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[0b1010_1010, 0b1101_1011, 0b1001_0101]);
     }
 }

@@ -271,3 +271,16 @@ impl Type {
         }
     }
 }
+
+impl Field {
+    pub fn new(id: u32, ident: &str, ty: Type) -> Self {
+        Self {
+            docs: vec![],
+            id,
+            ident: Ident::new(ident),
+            ty,
+            since: None,
+            default: None,
+        }
+    }
+}

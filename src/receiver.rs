@@ -53,6 +53,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     .map_err(|e| Error::SourceError(e))?;
                 self.rx_stats.packets_received = self.rx_stats.packets_received.wrapping_add(1);
                 if len == 0 {
+                    self.rx_left_bytes = 0;
                     break Err(Error::ReceivedEmptyPacket);
                 }
                 (&self.rx_packet_buf[..len], true)
@@ -188,6 +189,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                             #[cfg(feature = "device")]
                             self.send_link_setup(message.len() as u32).await?;
 
+                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                             return Ok(MessageKind::LinkInfo {
                                 remote_max_message_size: remote_max_message_size as usize,
                                 remote_protocol,
@@ -201,6 +203,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                         return Ok(MessageKind::Disconnect);
                     }
                     Op::Ping => {
+                        self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                         return Ok(MessageKind::Ping);
                     }
                 }

@@ -4,11 +4,13 @@ use quote::quote;
 
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
+use crate::ast::Type;
 use crate::codegen::api_common::args_structs;
 
 pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bool) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
     let root_level = level_methods(api_level, api_model_location, no_alloc);
+    let output_des = output_des_fns(api_level, api_model_location, no_alloc);
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
     } else {
@@ -26,6 +28,7 @@ pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bo
 
         impl Client {
             #root_level
+            #output_des
         }
     }
 }
@@ -67,7 +70,11 @@ fn level_method(
         quote! { wr.finish()?.to_vec() }
     };
     match kind {
-        ApiItemKind::Method { ident, args } => {
+        ApiItemKind::Method {
+            ident,
+            args,
+            return_type: _,
+        } => {
             let (args_ser, args_list, args_bytes) = ser_args(ident, args, no_alloc);
             quote! {
                 pub fn #ident(&mut self, #args_list) -> Result<#return_ty, ShrinkWrapError> {
@@ -109,7 +116,16 @@ fn ser_args(
         format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
     let args_struct_ident = Ident::new(args_struct_ident);
     if args.is_empty() {
-        (quote! {}, quote! {}, quote! { vec![] })
+        if no_alloc {
+            (
+                quote! {},
+                quote! {},
+                // 0 when no arguments to allow adding them later, as Option
+                quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } },
+            )
+        } else {
+            (quote! {}, quote! {}, quote! { vec![] })
+        }
     } else {
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();
@@ -135,5 +151,44 @@ fn ser_args(
         let tys = args.iter().map(|arg| arg.ty.def(no_alloc));
         let args_list = quote! { #(#idents: #tys),* };
         (args_ser, args_list, quote! { args_bytes })
+    }
+}
+
+fn output_des_fns(
+    api_level: &ApiLevel,
+    _api_model_location: &syn::Path,
+    no_alloc: bool,
+) -> TokenStream {
+    let handlers = api_level.items.iter().filter_map(|item| match &item.kind {
+        ApiItemKind::Method {
+            ident,
+            args: _,
+            return_type,
+        } => return_type
+            .as_ref()
+            .map(|ty| output_des_fn(ident, ty, no_alloc)),
+        ApiItemKind::Level(_) => unimplemented!(),
+        _ => None,
+    });
+    quote! {
+        #(#handlers)*
+    }
+}
+
+fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStream {
+    let fn_name = Ident::new(format!("{}_des_output", ident.sym));
+
+    let ty_def = if matches!(return_type, Type::Unsized(_, _) | Type::Sized(_, _)) {
+        return_type.def(no_alloc)
+    } else {
+        let output_struct_name =
+            Ident::new(format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal));
+        quote! { #output_struct_name }
+    };
+    quote! {
+        fn #fn_name(bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
+            let mut rd = BufReader::new(bytes);
+            Ok(rd.read(ElementSize::Implied)?)
+        }
     }
 }

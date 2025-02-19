@@ -22,9 +22,17 @@ pub enum Multiplicity {
 
 #[derive(Debug)]
 pub enum ApiItemKind {
-    Method { ident: Ident, args: Vec<Argument> },
+    Method {
+        ident: Ident,
+        args: Vec<Argument>,
+        return_type: Option<Type>,
+    },
     Property,
-    Stream { ident: Ident, ty: Type, is_up: bool },
+    Stream {
+        ident: Ident,
+        ty: Type,
+        is_up: bool,
+    },
     ImplTrait,
     Level(Box<ApiLevel>),
 }

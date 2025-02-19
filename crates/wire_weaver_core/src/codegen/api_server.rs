@@ -5,6 +5,7 @@ use syn::{Lit, LitInt};
 
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
+use crate::ast::Type;
 use crate::codegen::api_common;
 
 pub fn server_dispatcher(
@@ -35,10 +36,9 @@ pub fn server_dispatcher(
         #additional_use
 
         impl Context {
-            pub async fn process_request<'a>(
-                &'a mut self,
+            pub async fn process_request(
+                &mut self,
                 bytes: &[u8],
-                scratch: &'a mut [u8],
             ) -> Result<&[u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
@@ -94,20 +94,70 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
     let err_bad_path = err_to_caller("BadPath");
     let err_not_implemented = err_to_caller("OperationNotImplemented");
     match kind {
-        ApiItemKind::Method { ident, args } => {
+        ApiItemKind::Method {
+            ident,
+            args,
+            return_type,
+        } => {
             let (args_des, args_list) = des_args(ident, args, no_alloc);
             let is_args = if args.is_empty() {
                 quote! { .. }
             } else {
                 quote! { args }
             };
+            let is_async = true;
+            let maybe_await = if is_async {
+                quote! { .await }
+            } else {
+                quote! {}
+            };
+
+            let maybe_let_output = if return_type.is_some() {
+                quote! { let output = }
+            } else {
+                quote! {}
+            };
+            let ser_output_or_unit = if let Some(ty) = return_type {
+                let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
+                    quote! { wr.write(&output)?; }
+                } else {
+                    let output_struct_name = Ident::new(
+                        format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal),
+                    );
+                    quote! {
+                        let output = #output_struct_name {
+                            output: output
+                        };
+                        wr.write(&output)?;
+                    }
+                };
+                quote! {
+                    let mut wr = BufWriter::new(&mut self.output_scratch);
+                    #ser_output
+                    let output_bytes = wr.finish_and_take()?;
+
+                    let mut event_wr = BufWriter::new(&mut self.event_scratch);
+                    let event = Event {
+                        seq: request.seq,
+                        result: Ok(EventKind::ReturnValue {
+                            data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                        })
+                    };
+                    event.ser_shrink_wrap(&mut event_wr)?;
+                    Ok(event_wr.finish_and_take()?)
+                }
+            } else {
+                quote! {
+                    Ok(self.ser_unit_return_event(request.seq)?)
+                }
+            };
+
             quote! {
                 match &request.kind {
                     RequestKind::Call { #is_args } => {
                         #args_des
-                        self.#ident(#args_list).await;
-                        // TODO: Implement return type & serdes
-                        Ok(Self::ser_void_args_event(request.seq, scratch)?)
+                        #maybe_let_output self.#ident(#args_list)#maybe_await;
+                        #ser_output_or_unit
                     }
                     RequestKind::Introspect => {
                         #err_not_implemented
@@ -191,14 +241,14 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
     }
 }
 fn ser_event(no_alloc: bool) -> TokenStream {
-    let future_compatible_void_return = if no_alloc {
+    let future_compatible_unit_return = if no_alloc {
         quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
     } else {
         quote! { vec![0] }
     };
     quote! {
-        pub fn ser_ok_event<'a>(seq: u16, kind: EventKind, scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
-            let mut wr = BufWriter::new(scratch);
+        pub fn ser_ok_event(&mut self, seq: u16, kind: EventKind) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(&mut self.event_scratch);
             let event = Event {
                 seq,
                 result: Ok(kind)
@@ -207,8 +257,8 @@ fn ser_event(no_alloc: bool) -> TokenStream {
             Ok(wr.finish_and_take()?)
         }
 
-        pub fn ser_err_event(seq: u16, error: Error, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
-            let mut wr = BufWriter::new(scratch);
+        pub fn ser_err_event(&mut self, seq: u16, error: Error) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(&mut self.event_scratch);
             let event = Event {
                 seq,
                 result: Err(error)
@@ -217,11 +267,11 @@ fn ser_event(no_alloc: bool) -> TokenStream {
             Ok(wr.finish_and_take()?)
         }
 
-        pub fn ser_void_args_event(seq: u16, scratch: &mut [u8]) -> Result<&[u8], ShrinkWrapError> {
-            let mut wr = BufWriter::new(scratch);
+        pub fn ser_unit_return_event(&mut self, seq: u16) -> Result<&[u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(&mut self.event_scratch);
             let event = Event {
                 seq,
-                result: Ok(EventKind::ReturnValue { data: #future_compatible_void_return })
+                result: Ok(EventKind::ReturnValue { data: #future_compatible_unit_return })
             };
             event.ser_shrink_wrap(&mut wr)?;
             Ok(wr.finish_and_take()?)
@@ -304,6 +354,6 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 fn err_to_caller(err: &str) -> TokenStream {
     let err = proc_macro2::Ident::new(err, Span::call_site());
     quote! {
-        Ok(Self::ser_err_event(request.seq, Error::#err, scratch)?)
+        Ok(self.ser_err_event(request.seq, Error::#err)?)
     }
 }

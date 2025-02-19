@@ -14,7 +14,9 @@ use crate::transform::{
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, TraitItem};
+use syn::{
+    Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, ReturnType, TraitItem,
+};
 
 /// Go through items in syn AST form and transform into own AST.
 /// Everything should be resolved and computed before this pass.
@@ -31,6 +33,7 @@ pub enum FieldPathRoot {
     NamedField(syn::Ident),
     EnumVariant(syn::Ident),
     Argument,
+    Output,
 }
 
 #[allow(dead_code)]
@@ -77,6 +80,7 @@ impl FieldPath {
             }
             FieldPathRoot::EnumVariant(_) => unimplemented!(),
             FieldPathRoot::Argument => unimplemented!(),
+            FieldPathRoot::Output => unimplemented!(),
         }
     }
 }
@@ -526,6 +530,13 @@ impl<'i> CollectAndConvertPass<'i> {
         Some(Type::Option(flag_ident, Box::new(inner_ty)))
     }
 
+    fn transform_return_type(&mut self, ty: ReturnType, path: &FieldPath) -> Option<Type> {
+        match ty {
+            ReturnType::Default => None,
+            ReturnType::Type(_, ty) => self.transform_type(*ty, path),
+        }
+    }
+
     fn transform_api_level(&mut self, item_trait: &syn::ItemTrait) -> Option<ApiLevel> {
         let mut items = vec![];
         let mut next_id = 0;
@@ -569,6 +580,10 @@ impl<'i> CollectAndConvertPass<'i> {
                         kind: ApiItemKind::Method {
                             ident: (&trait_item_fn.sig.ident).into(),
                             args,
+                            return_type: self.transform_return_type(
+                                trait_item_fn.sig.output.clone(),
+                                &FieldPath::new(FieldPathRoot::Output),
+                            ),
                         },
                     });
                 }

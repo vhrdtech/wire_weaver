@@ -295,7 +295,7 @@ mod tests {
         let mut buf = [0u8; 64];
         let mut wr = BufWriter::new(&mut buf);
         let arr = RefVec::Slice {
-            slice: &[0xAB, 0xCD],
+            slice: &[0xABu8, 0xCD],
             element_size: ElementSize::Sized { size_bits: 8 },
         };
         wr.write(&arr).unwrap();

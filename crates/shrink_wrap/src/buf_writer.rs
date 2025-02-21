@@ -308,32 +308,36 @@ impl<'i> BufWriter<'i> {
     /// Align to byte, encode all the remaining numbers written to the back of the buffer, align to byte and
     /// return the slice containing written data.
     pub fn finish(&mut self) -> Result<&[u8], Error> {
-        self.align_byte();
+        // self.align_byte();
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
-        self.encode_nib16_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
+        if reverse_u16_written > 0 {
+            self.encode_nib16_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
+        } else {
+            self.align_byte();
+        }
         let byte_idx = self.byte_idx;
         self.byte_idx = 0;
         self.bit_idx = 7;
         self.len_bytes = self.buf.len();
-        if reverse_u16_written != 0 {
-            Ok(&self.buf[0..byte_idx])
-        } else {
-            self.align_byte();
-            Ok(&self.buf[0..byte_idx])
-        }
+        Ok(&self.buf[0..byte_idx])
     }
 
+    /// Align to byte, encode all the remaining numbers written to the back of the buffer, align to byte and
+    /// return the slice containing written data.
+    ///
+    /// This method takes self by value, allowing one to return the slice from functions.
     pub fn finish_and_take(mut self) -> Result<&'i [u8], Error> {
         let len = self.finish()?.len();
         Ok(&self.buf[0..len])
     }
 
-    /// Simply return the buffer, note buffer is not set to zero and might contain old data.
+    /// Simply return the buffer, note that buffer is not set to zero and might contain old data.
     pub fn deinit(self) -> &'i mut [u8] {
         self.buf
     }
 
-    fn align_nibble(&mut self) {
+    /// Align writer to the next nibble if not already, setting remaining bits to zero.
+    pub fn align_nibble(&mut self) {
         if self.bit_idx == 7 || self.bit_idx == 3 {
             return;
         }
@@ -346,7 +350,7 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    /// Align writer to the next byte if not already. Setting remaining bits or nibble to zero.
+    /// Align writer to the next byte if not already, setting remaining bits to zero.
     pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
@@ -476,9 +480,21 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         wr.write_bool(true).unwrap();
         wr.write_un8(7, 0b010_1010).unwrap();
+        println!("-");
         wr.write_un8(3, 0b110).unwrap();
-        wr.write_un16(13, 0b1_1011_1001_0101).unwrap();
+        println!("-");
+        wr.write_un16(12, 0b1011_1001_0100).unwrap();
+        wr.write_un32(17, 0b1_10101111_01010011).unwrap();
         let buf = wr.finish().unwrap();
-        assert_eq!(buf, &[0b1010_1010, 0b1101_1011, 0b1001_0101]);
+        assert_eq!(
+            buf,
+            &[
+                0b1010_1010,
+                0b1101_0111,
+                0b0010_1001,
+                0b10101111,
+                0b01010011
+            ]
+        );
     }
 }

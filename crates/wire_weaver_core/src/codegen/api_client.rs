@@ -50,12 +50,13 @@ fn level_methods(
 fn level_method(
     kind: &ApiItemKind,
     id: u16,
-    api_model_location: &syn::Path,
+    _api_model_location: &syn::Path,
     no_alloc: bool,
 ) -> TokenStream {
     // TODO: Handle sub-levels
     let path = if no_alloc {
-        quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+        // quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+        quote! { &[Nib16(#id)] }
     } else {
         quote! { vec![Nib16(#id)] }
     };
@@ -64,11 +65,11 @@ fn level_method(
     } else {
         quote! { Vec<u8> }
     };
-    let finish_wr = if no_alloc {
-        quote! { wr.finish_and_take()? }
-    } else {
-        quote! { wr.finish()?.to_vec() }
-    };
+    // let finish_wr = if no_alloc {
+    //     quote! { wr.finish_and_take()? }
+    // } else {
+    //     quote! { wr.finish()?.to_vec() }
+    // };
     match kind {
         ApiItemKind::Method {
             ident,
@@ -76,20 +77,26 @@ fn level_method(
             return_type: _,
         } => {
             let (args_ser, args_list, args_bytes) = ser_args(ident, args, no_alloc);
+            let fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
+            let path_ty = if no_alloc {
+                quote! { &[Nib16] }
+            } else {
+                // should be u16?
+                quote! { Vec<Nib16> }
+            };
             quote! {
-                pub fn #ident(&mut self, #args_list) -> Result<#return_ty, ShrinkWrapError> {
-                    use #api_model_location::{Request, RequestKind};
+                pub fn #fn_name(&mut self, #args_list) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
                     #args_ser
-                    let request = Request {
-                        // TODO: Handle sequence numbers properly
-                        seq: 123,
-                        path: #path,
-                        kind: RequestKind::Call { args: #args_bytes }
-                    };
-                    let mut wr = BufWriter::new(&mut self.event_scratch);
-                    request.ser_shrink_wrap(&mut wr)?;
-                    let request_bytes = #finish_wr;
-                    Ok(request_bytes)
+                    // let request = Request {
+                    //     seq: 123,
+                    //     path: #path,
+                    //     kind: RequestKind::Call { args: #args_bytes }
+                    // };
+                    // let mut wr = BufWriter::new(&mut self.event_scratch);
+                    // request.ser_shrink_wrap(&mut wr)?;
+                    // let request_bytes = #finish_wr;
+                    // Ok(request_bytes)
+                    Ok((#args_bytes, #path))
                 }
             }
         }
@@ -121,7 +128,8 @@ fn ser_args(
                 quote! {},
                 quote! {},
                 // 0 when no arguments to allow adding them later, as Option
-                quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } },
+                // quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } },
+                quote! { &[0x00] },
             )
         } else {
             (quote! {}, quote! {}, quote! { vec![] })
@@ -133,7 +141,7 @@ fn ser_args(
         });
 
         let finish_wr = if no_alloc {
-            quote! { RefVec::Slice { slice: wr.finish()?, element_size: ElementSize::Sized { size_bits: 8 } } }
+            quote! { wr.finish_and_take()? }
         } else {
             quote! { wr.finish()?.to_vec() }
         };
@@ -186,7 +194,7 @@ fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStre
         quote! { #output_struct_name }
     };
     quote! {
-        fn #fn_name(bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
+        pub fn #fn_name(bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
             let mut rd = BufReader::new(bytes);
             Ok(rd.read(ElementSize::Implied)?)
         }

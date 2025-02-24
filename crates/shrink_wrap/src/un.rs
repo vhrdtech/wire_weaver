@@ -21,7 +21,6 @@ macro_rules! write_unx {
                 let bits_to_write = bits_left.min(self.bit_idx + 1);
                 let mask = ((1 as $base_ty) << bits_to_write) - 1;
                 let bits = ((value >> (bits_left - bits_to_write)) & mask) as u8;
-                println!("{}", bits_left - bits_to_write);
 
                 self.buf[self.byte_idx] &= !(mask as u8) << (self.bit_idx + 1 - bits_to_write);
                 self.buf[self.byte_idx] |= bits << (self.bit_idx + 1 - bits_to_write);

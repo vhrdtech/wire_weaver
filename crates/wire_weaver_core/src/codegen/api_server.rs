@@ -324,10 +324,13 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         } else {
             quote! { Vec::from(value_bytes) }
         };
+
+        // TODO: Handle other levels
+        let id = item.id;
         let path = if no_alloc {
-            quote! { RefVec::Slice { slice: &[Nib16(1)], element_size: ElementSize::UnsizedSelfDescribing } }
+            quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
         } else {
-            quote! { vec![Nib16(1)] }
+            quote! { vec![Nib16(#id)] }
         };
         // TODO: Make this more efficient and not use 2 buffers?
         ts.append_all(quote! {

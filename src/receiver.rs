@@ -27,6 +27,9 @@ pub enum MessageKind {
         remote_protocol: ProtocolInfo,
     },
     Disconnect,
+    /// Host received LinkSetup and is ready to receive messages
+    #[cfg(feature = "device")]
+    LinkUp,
 }
 
 impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
@@ -58,6 +61,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                 }
                 (&self.rx_packet_buf[..len], true)
             };
+            let packet_len = packet.len();
             // println!("rx frame: {:?}", frame);
             let mut rd = BufReader::new(packet);
             while rd.bytes_left() >= 2 {
@@ -186,10 +190,12 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                                 self.remote_protocol = None;
                             }
 
+                            let rd_bytes_left = rd.bytes_left();
+
                             #[cfg(feature = "device")]
                             self.send_link_setup(message.len() as u32).await?;
 
-                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
+                            self.adjust_read_pos(is_new_frame, rd_bytes_left, packet_len);
                             return Ok(MessageKind::LinkInfo {
                                 remote_max_message_size: remote_max_message_size as usize,
                                 remote_protocol,
@@ -205,6 +211,15 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     Op::Ping => {
                         self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                         return Ok(MessageKind::Ping);
+                    }
+                    Op::LinkUp => {
+                        #[cfg(feature = "device")]
+                        self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
+                        #[cfg(feature = "device")]
+                        return Ok(MessageKind::LinkUp);
+
+                        #[cfg(feature = "host")]
+                        continue 'next_message;
                     }
                 }
             }
@@ -241,7 +256,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
         &mut self,
         message: &mut [u8],
     ) -> Result<(), Error<T::Error, R::Error>> {
-        while self.remote_protocol.is_none() {
+        loop {
             match self.receive_message(message).await {
                 Ok(MessageKind::LinkInfo {
                     remote_max_message_size,
@@ -249,11 +264,19 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                 }) => {
                     #[cfg(feature = "defmt")]
                     defmt::trace!(
-                        "Link established, remote max message size: {}, remote protocol: {}",
+                        "LinkInfo received: remote max message size: {}, remote protocol: {}",
                         remote_max_message_size,
                         remote_protocol
                     );
-                    break;
+                    // wait for LinkUp to avoid sending messages before host received LinkSetup
+                    continue;
+                }
+                Ok(MessageKind::LinkUp) => {
+                    #[cfg(feature = "defmt")]
+                    defmt::trace!("LinkUp received");
+                    if self.remote_protocol.is_some() {
+                        break;
+                    }
                 }
                 Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
                 Err(Error::ProtocolsVersionMismatch) => {

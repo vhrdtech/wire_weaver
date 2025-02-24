@@ -36,7 +36,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         // If data toggle bits are messed up, this will ensure that no useful data packets are lost.
         // Windows seem to ignore this, while Linux and Mac do not.
         // -> seem to be fixed with not calling set_alt_setting from host side.
-        // self.send_nop().await?;
+        // -> encountered missing packet anyway, but much much rarer event
+        self.send_nop().await?;
 
         if self.tx_writer.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
             self.force_send().await?;
@@ -150,13 +151,25 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     /// Sends Ping message and immediately forces a packet transmission.
     pub async fn send_ping(&mut self) -> Result<(), Error<T::Error, R::Error>> {
-        // #[cfg(feature = "device")]
-        // self.handle_mgmt_cmd_if_some().await?;
         if self.tx_writer.bytes_left() < 2 {
             self.force_send().await?;
         }
         self.tx_writer
             .write_u4(Op::Ping as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(0).map_err(|_| Error::InternalBufOverflow)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
+    /// Sends Ping message and immediately forces a packet transmission.
+    #[cfg(feature = "host")]
+    pub async fn send_link_up(&mut self) -> Result<(), Error<T::Error, R::Error>> {
+        if self.tx_writer.bytes_left() < 2 {
+            self.force_send().await?;
+        }
+        self.tx_writer
+            .write_u4(Op::LinkUp as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.write_len(0).map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;

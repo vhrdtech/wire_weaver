@@ -125,7 +125,6 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         self.remote_protocol = None;
         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
-
 }
 
 #[ww_repr(u4)]
@@ -148,6 +147,10 @@ pub(crate) enum Op {
     Ping = 7,
 
     Disconnect = 8,
+
+    /// Sent from host to device to let it know that it received LinkSetup.
+    /// Guard against device starting to send before host received LinkSetup to avoid losing messages.
+    LinkUp = 9,
 }
 
 impl ProtocolInfo {

@@ -16,7 +16,7 @@ use wire_weaver_core::transform::Transform;
 
 #[derive(Debug, FromMeta)]
 struct Args {
-    ww: String,
+    ww: Option<String>,
     api_model: String,
     #[darling(default)]
     client: bool,
@@ -53,90 +53,97 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         panic!("mod cannot be empty, please provide Context struct");
     };
 
-    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let ww_path = if args.ww.starts_with("..") || args.ww.starts_with(".") {
-        RelativePath::new(args.ww.as_str())
-            .to_path(&manifest_dir)
-            .to_str()
-            .unwrap()
-            .to_owned()
-    } else {
-        args.ww.clone()
-    };
-    eprintln!("path: {ww_path}");
-
-    let mut transform = Transform::new();
-    transform
-        .load_and_push(Source::File { path: ww_path })
-        .unwrap();
-
     let add_derives = args
         .derive
         .split(&[' ', ','])
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>();
-    let cx = transform.transform(&add_derives).unwrap();
-    for (source, messages) in transform.messages() {
-        for message in messages.messages() {
-            println!("cargo:warning={:?} {:?}", source, message);
+
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    if let Some(ww) = args.ww {
+        let ww_path = if ww.starts_with("..") || ww.starts_with(".") {
+            RelativePath::new(ww.as_str())
+                .to_path(&manifest_dir)
+                .to_str()
+                .unwrap()
+                .to_owned()
+        } else {
+            ww.clone()
+        };
+        eprintln!("path: {ww_path}");
+
+        let mut transform = Transform::new();
+        transform
+            .load_and_push(Source::File { path: ww_path })
+            .unwrap();
+
+        let cx = transform.transform(&add_derives).unwrap();
+        for (source, messages) in transform.messages() {
+            for message in messages.messages() {
+                println!("cargo:warning={:?} {:?}", source, message);
+            }
         }
-    }
 
-    let api_model_location = syn::Path::from_string(args.api_model.as_str()).unwrap();
-    let mut codegen_ts = TokenStream::new();
-    for module in &cx.modules {
-        for item in &module.items {
-            match item {
-                Item::Struct(item_struct) => {
-                    let ts = wire_weaver_core::codegen::item_struct::struct_def(
-                        item_struct,
-                        args.no_alloc,
-                    );
-                    codegen_ts.append_all(ts);
+        let api_model_location = syn::Path::from_string(args.api_model.as_str()).unwrap();
+        let mut codegen_ts = TokenStream::new();
+        for module in &cx.modules {
+            for item in &module.items {
+                match item {
+                    Item::Struct(item_struct) => {
+                        let ts = wire_weaver_core::codegen::item_struct::struct_def(
+                            item_struct,
+                            args.no_alloc,
+                        );
+                        codegen_ts.append_all(ts);
 
-                    let ts = wire_weaver_core::codegen::item_struct::struct_serdes(
-                        item_struct,
+                        let ts = wire_weaver_core::codegen::item_struct::struct_serdes(
+                            item_struct,
+                            args.no_alloc,
+                        );
+                        codegen_ts.append_all(ts);
+                    }
+                    Item::Enum(item_enum) => {
+                        let ts = wire_weaver_core::codegen::item_enum::enum_def(
+                            item_enum,
+                            args.no_alloc,
+                        );
+                        codegen_ts.append_all(ts);
+
+                        let ts = wire_weaver_core::codegen::item_enum::enum_serdes(
+                            item_enum,
+                            args.no_alloc,
+                        );
+                        codegen_ts.append_all(ts);
+                    }
+                }
+            }
+
+            for api_level in &module.api_levels {
+                // TODO: key on a provided API entry point
+                // TODO: Modify Context and/or Client structs accordingly
+                if args.server {
+                    let ts = wire_weaver_core::codegen::api_server::server_dispatcher(
+                        api_level,
+                        &api_model_location,
                         args.no_alloc,
                     );
                     codegen_ts.append_all(ts);
                 }
-                Item::Enum(item_enum) => {
-                    let ts =
-                        wire_weaver_core::codegen::item_enum::enum_def(item_enum, args.no_alloc);
-                    codegen_ts.append_all(ts);
 
-                    let ts =
-                        wire_weaver_core::codegen::item_enum::enum_serdes(item_enum, args.no_alloc);
+                if args.client {
+                    let ts = wire_weaver_core::codegen::api_client::client(
+                        api_level,
+                        &api_model_location,
+                        args.no_alloc,
+                    );
                     codegen_ts.append_all(ts);
                 }
             }
         }
-
-        for api_level in &module.api_levels {
-            // TODO: key on a provided API entry point
-            // TODO: Modify Context and/or Client structs accordingly
-            if args.server {
-                let ts = wire_weaver_core::codegen::api_server::server_dispatcher(
-                    api_level,
-                    &api_model_location,
-                    args.no_alloc,
-                );
-                codegen_ts.append_all(ts);
-            }
-
-            if args.client {
-                let ts = wire_weaver_core::codegen::api_client::client(
-                    api_level,
-                    &api_model_location,
-                    args.no_alloc,
-                );
-                codegen_ts.append_all(ts);
-            }
+        let items: syn::File = syn::parse2(codegen_ts).unwrap();
+        for item in items.items {
+            api_mod_items.push(item);
         }
-    }
-    let items: syn::File = syn::parse2(codegen_ts).unwrap();
-    for item in items.items {
-        api_mod_items.push(item);
     }
 
     // let mut ts = TokenStream::new();

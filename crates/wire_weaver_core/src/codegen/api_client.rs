@@ -70,6 +70,12 @@ fn level_method(
     // } else {
     //     quote! { wr.finish()?.to_vec() }
     // };
+    let path_ty = if no_alloc {
+        quote! { &[Nib16] }
+    } else {
+        // should be u16?
+        quote! { Vec<Nib16> }
+    };
     match kind {
         ApiItemKind::Method {
             ident,
@@ -78,12 +84,6 @@ fn level_method(
         } => {
             let (args_ser, args_list, args_bytes) = ser_args(ident, args, no_alloc);
             let fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
-            let path_ty = if no_alloc {
-                quote! { &[Nib16] }
-            } else {
-                // should be u16?
-                quote! { Vec<Nib16> }
-            };
             quote! {
                 pub fn #fn_name(&mut self, #args_list) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
                     #args_ser
@@ -102,11 +102,16 @@ fn level_method(
         }
         // ApiItemKind::Property => {}
         ApiItemKind::Stream {
-            ident: _,
+            ident,
             ty: _,
             is_up: _,
         } => {
-            quote! {}
+            let fn_name = Ident::new(format!("{}_stream_path", ident.sym));
+            quote! {
+                pub fn #fn_name(&self) -> #path_ty {
+                    #path
+                }
+            }
         }
         // ApiItemKind::ImplTrait => {}
         // ApiItemKind::Level(_) => {}

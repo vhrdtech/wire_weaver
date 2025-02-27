@@ -147,6 +147,7 @@ impl<'d, D: Driver<'d>> PacketSink for Sender<'d, D> {
     type Error = EndpointError;
 
     async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        defmt::trace!("usb sending packet {:02x}", data);
         self.write_ep.write(data).await
     }
 }
@@ -155,7 +156,9 @@ impl<'d, D: Driver<'d>> PacketSource for Receiver<'d, D> {
     type Error = EndpointError;
 
     async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
-        self.read_ep.read(data).await
+        let len = self.read_ep.read(data).await?;
+        defmt::trace!("usb received packet {:02x}", &data[..len]);
+        Ok(len)
     }
 
     async fn wait_usb_connection(&mut self) {

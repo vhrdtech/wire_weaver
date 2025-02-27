@@ -1,7 +1,6 @@
-use strum_macros::EnumString;
-
 use ident::Ident;
 use path::Path;
+use strum_macros::EnumString;
 use value::Value;
 
 use crate::ast::api::ApiLevel;
@@ -53,6 +52,7 @@ pub enum Source {
 pub enum Item {
     Struct(ItemStruct),
     Enum(ItemEnum),
+    Const(ItemConst),
 }
 
 #[derive(Debug)]
@@ -72,6 +72,14 @@ pub struct ItemEnum {
     pub repr: Repr,
     pub ident: Ident,
     pub variants: Vec<Variant>,
+}
+
+#[derive(Debug)]
+pub struct ItemConst {
+    pub docs: Vec<String>,
+    pub ident: Ident,
+    pub ty: Type,
+    pub value: syn::Expr,
 }
 
 #[derive(Copy, Clone, Debug, Default, EnumString)]

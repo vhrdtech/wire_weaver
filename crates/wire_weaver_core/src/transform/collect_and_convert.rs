@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
-use crate::ast::{Field, Fields, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
+use crate::ast::{Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
     take_final_attr, take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
@@ -135,6 +135,17 @@ impl<'i> CollectAndConvertPass<'i> {
                 }
                 if let Some(api_level) = self.transform_api_level(item_trait) {
                     *transformed = Some(api_level);
+                }
+            }
+            SynItemWithContext::Const {
+                item_const,
+                transformed,
+            } => {
+                if transformed.is_some() {
+                    return;
+                }
+                if let Some(item_const) = self.transform_const(item_const) {
+                    *transformed = Some(item_const);
                 }
             }
         }
@@ -389,6 +400,7 @@ impl<'i> CollectAndConvertPass<'i> {
                                                 .map(|t| (t.is_lifetime, t.is_final_evolution))
                                         }
                                         SynItemWithContext::ApiLevel { .. } => unreachable!(),
+                                        SynItemWithContext::Const { .. } => unreachable!(),
                                     };
                                     // if is_lifetime is None, one more pass is needed
                                     return is_lifetime_is_final_evolution.map(
@@ -625,6 +637,22 @@ impl<'i> CollectAndConvertPass<'i> {
         let mut attrs = item_trait.attrs.clone();
         let docs = collect_docs_attrs(&mut attrs);
         Some(ApiLevel { docs, items })
+    }
+
+    fn transform_const(&mut self, item_const: &syn::ItemConst) -> Option<ItemConst> {
+        let ty = self.transform_type(
+            item_const.ty.deref().clone(),
+            &FieldPath::new(FieldPathRoot::Argument),
+        )?;
+        let mut attrs = item_const.attrs.clone();
+        let docs = collect_docs_attrs(&mut attrs);
+        collect_unknown_attributes(&mut attrs, self.messages);
+        Some(ItemConst {
+            docs,
+            ident: item_const.ident.clone().into(),
+            ty,
+            value: item_const.expr.deref().clone(),
+        })
     }
 }
 

@@ -53,6 +53,7 @@ pub fn ser_literal(lit: &str, item: &Item) -> Result<Vec<u8>, ()> {
             }
         }
         Item::Enum(_) => unimplemented!(),
+        Item::Const(_) => unimplemented!(),
     }
     Ok(wr.finish().unwrap().to_vec())
 }

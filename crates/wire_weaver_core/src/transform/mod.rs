@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::ast::api::ApiLevel;
-use crate::ast::{Context, ItemEnum, ItemStruct, Module, Source, Version};
+use crate::ast::{Context, ItemConst, ItemEnum, ItemStruct, Module, Source, Version};
 use crate::transform::collect_and_convert::CollectAndConvertPass;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 
@@ -97,6 +97,10 @@ enum SynItemWithContext {
         item_trait: syn::ItemTrait,
         transformed: Option<ApiLevel>,
     },
+    Const {
+        item_const: syn::ItemConst,
+        transformed: Option<ItemConst>,
+    },
 }
 
 struct ItemEnumTransformed {
@@ -117,6 +121,7 @@ impl SynItemWithContext {
             SynItemWithContext::Enum { item_enum, .. } => Some(item_enum.ident.clone()),
             SynItemWithContext::Struct { item_struct, .. } => Some(item_struct.ident.clone()),
             SynItemWithContext::ApiLevel { .. } => None,
+            SynItemWithContext::Const { .. } => None,
         }
     }
 }
@@ -144,6 +149,10 @@ impl Transform {
                 }
                 syn::Item::Trait(item_trait) => items.push_back(SynItemWithContext::ApiLevel {
                     item_trait,
+                    transformed: None,
+                }),
+                syn::Item::Const(item_const) => items.push_back(SynItemWithContext::Const {
+                    item_const,
                     transformed: None,
                 }),
                 _ => {}
@@ -240,6 +249,11 @@ impl Transform {
                             api_levels.push(api_level);
                         }
                     }
+                    SynItemWithContext::Const { transformed, .. } => {
+                        if let Some(item_const) = transformed {
+                            items.push(crate::ast::Item::Const(item_const))
+                        }
+                    }
                 }
             }
             let mut attrs = syn_file.attrs;
@@ -275,6 +289,7 @@ impl Transform {
                     SynItemWithContext::Enum { transformed, .. } => transformed.is_none(),
                     SynItemWithContext::Struct { transformed, .. } => transformed.is_none(),
                     SynItemWithContext::ApiLevel { transformed, .. } => transformed.is_none(),
+                    SynItemWithContext::Const { .. } => false,
                 };
                 if item_not_transformed {
                     return true;

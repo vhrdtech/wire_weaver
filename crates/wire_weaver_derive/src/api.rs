@@ -115,6 +115,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         );
                         codegen_ts.append_all(ts);
                     }
+                    Item::Const(item_const) => {
+                        let ts = wire_weaver_core::codegen::item_const::const_def(item_const);
+                        codegen_ts.append_all(ts);
+                    }
                 }
             }
 

@@ -39,13 +39,13 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         // -> encountered missing packet anyway, but much much rarer event
         self.send_nop().await?;
 
-        if self.tx_writer.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() {
+        if self.tx_writer.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() + 1 {
             self.force_send().await?;
         }
         self.tx_writer
             .write_u4(Op::LinkSetup as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(10)?;
+        self.write_len(12)?;
         self.tx_writer
             .write_u32(max_message_size)
             .map_err(|_| Error::InternalBufOverflow)?;
@@ -54,6 +54,10 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             .map_err(|_| Error::InternalBufOverflow)?;
         self.protocol
             .write(&mut self.tx_writer)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        let is_protocol_compatible = self.remote_protocol.is_some();
+        self.tx_writer
+            .write_bool(is_protocol_compatible)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;
         Ok(())

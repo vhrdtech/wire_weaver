@@ -25,6 +25,7 @@ pub enum MessageKind {
     LinkInfo {
         remote_max_message_size: usize,
         remote_protocol: ProtocolInfo,
+        is_protocol_compatible: bool,
     },
     Disconnect,
     /// Host received LinkSetup and is ready to receive messages
@@ -181,6 +182,11 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                                 rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
                             let remote_protocol = ProtocolInfo::read(&mut rd)
                                 .map_err(|_| Error::InternalBufOverflow)?;
+
+                            #[cfg(feature = "host")]
+                            let is_protocol_compatible =
+                                rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
+
                             if link_protocol_version == LINK_PROTOCOL_VERSION
                                 && remote_protocol.is_compatible(&self.protocol)
                             {
@@ -189,6 +195,9 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                             } else {
                                 self.remote_protocol = None;
                             }
+
+                            #[cfg(feature = "device")]
+                            let is_protocol_compatible = self.remote_protocol.is_some();
 
                             let rd_bytes_left = rd.bytes_left();
 
@@ -199,6 +208,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                             return Ok(MessageKind::LinkInfo {
                                 remote_max_message_size: remote_max_message_size as usize,
                                 remote_protocol,
+                                is_protocol_compatible,
                             });
                         }
                     }
@@ -261,13 +271,22 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                 Ok(MessageKind::LinkInfo {
                     remote_max_message_size,
                     remote_protocol,
+                    is_protocol_compatible,
                 }) => {
                     #[cfg(feature = "defmt")]
                     defmt::trace!(
-                        "LinkInfo received: remote max message size: {}, remote protocol: {}",
+                        "LinkInfo received: remote max message size: {}, remote protocol: {}, compatible: {}",
                         remote_max_message_size,
-                        remote_protocol
+                        remote_protocol,
+                        is_protocol_compatible,
                     );
+                    #[cfg(feature = "defmt")]
+                    if !is_protocol_compatible {
+                        defmt::warn!(
+                            "Ignored LinkSetup with incompatible protocol: {}",
+                            remote_protocol
+                        )
+                    }
                     // wait for LinkUp to avoid sending messages before host received LinkSetup
                     continue;
                 }

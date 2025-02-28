@@ -1,5 +1,5 @@
-use crate::common::{Error, Op, WireWeaverUsbLink};
-use crate::{PacketSink, PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION};
+use crate::common::{Error, Op, WireWeaverUsbLink, VERSIONS_PAYLOAD_LEN};
+use crate::{PacketSink, PacketSource, CRC_KIND, LINK_PROTOCOL_VERSION};
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -25,39 +25,90 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         Ok(())
     }
 
-    /// Sends link setup from the host to device. Called automatically on device side in [wait_for_link()](Self::wait_for_link)
-    pub async fn send_link_setup(
-        &mut self,
-        max_message_size: u32,
-    ) -> Result<(), Error<T::Error, R::Error>> {
-        #[cfg(feature = "defmt")]
-        defmt::trace!("Sending link setup");
-
+    #[cfg(feature = "host")]
+    pub async fn send_get_device_info(&mut self) -> Result<(), Error<T::Error, R::Error>> {
         // If data toggle bits are messed up, this will ensure that no useful data packets are lost.
         // Windows seem to ignore this, while Linux and Mac do not.
         // -> seem to be fixed with not calling set_alt_setting from host side.
         // -> encountered missing packet anyway, but much much rarer event
         self.send_nop().await?;
 
-        if self.tx_writer.bytes_left() < 2 + 4 + 1 + ProtocolInfo::size_bytes() + 1 {
+        // no need because send_nop() sends a packet
+        // if self.tx_writer.bytes_left() < 2 {
+        //     self.force_send().await?;
+        // }
+        self.tx_writer
+            .write_u4(Op::GetDeviceInfo as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(0)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "device")]
+    pub async fn send_device_info(
+        &mut self,
+        max_message_size: u32,
+    ) -> Result<(), Error<T::Error, R::Error>> {
+        // See send_get_versions comment for explanation on why this is sent.
+        self.send_nop().await?;
+        self.send_versions_inner(Op::DeviceInfo, max_message_size)
+            .await?;
+        Ok(())
+    }
+
+    /// Sends link setup from the host to device. Called automatically on device side in [wait_for_link()](Self::wait_for_link)
+    #[cfg(feature = "host")]
+    pub async fn send_link_setup(
+        &mut self,
+        max_message_size: u32,
+    ) -> Result<(), Error<T::Error, R::Error>> {
+        self.send_versions_inner(Op::LinkSetup, max_message_size)
+            .await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "device")]
+    pub async fn send_link_setup_result(&mut self) -> Result<(), Error<T::Error, R::Error>> {
+        const PAYLOAD_LEN: usize = 1;
+        if self.tx_writer.bytes_left() < 2 + PAYLOAD_LEN {
             self.force_send().await?;
         }
         self.tx_writer
-            .write_u4(Op::LinkSetup as u8)
+            .write_u4(Op::LinkSetupResult as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(12)?;
+        self.write_len(PAYLOAD_LEN as u16)?;
+        let is_protocol_compatible = self.remote_protocol.is_some();
+        self.tx_writer
+            .write_bool(is_protocol_compatible)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
+    async fn send_versions_inner(
+        &mut self,
+        op: Op,
+        max_message_size: u32,
+    ) -> Result<(), Error<T::Error, R::Error>> {
+        if self.tx_writer.bytes_left() < 2 + VERSIONS_PAYLOAD_LEN {
+            self.force_send().await?;
+        }
+        self.tx_writer
+            .write_u4(op as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(VERSIONS_PAYLOAD_LEN as u16)?;
         self.tx_writer
             .write_u32(max_message_size)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.tx_writer
             .write_u8(LINK_PROTOCOL_VERSION)
             .map_err(|_| Error::InternalBufOverflow)?;
-        self.protocol
+        self.user_protocol
             .write(&mut self.tx_writer)
             .map_err(|_| Error::InternalBufOverflow)?;
-        let is_protocol_compatible = self.remote_protocol.is_some();
-        self.tx_writer
-            .write_bool(is_protocol_compatible)
+        self.client_server_protocol
+            .write(&mut self.tx_writer)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;
         Ok(())
@@ -160,20 +211,6 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         }
         self.tx_writer
             .write_u4(Op::Ping as u8)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(0).map_err(|_| Error::InternalBufOverflow)?;
-        self.force_send().await?;
-        Ok(())
-    }
-
-    /// Sends Ping message and immediately forces a packet transmission.
-    #[cfg(feature = "host")]
-    pub async fn send_link_up(&mut self) -> Result<(), Error<T::Error, R::Error>> {
-        if self.tx_writer.bytes_left() < 2 {
-            self.force_send().await?;
-        }
-        self.tx_writer
-            .write_u4(Op::LinkUp as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.write_len(0).map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;

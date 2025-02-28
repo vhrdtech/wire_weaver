@@ -12,9 +12,10 @@ use wire_weaver_derive::ww_repr;
 // this link version and buffer sizes are exchanged.
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
-    pub(crate) protocol: ProtocolInfo,
-    pub(crate) remote_max_message_size: u32,
+    pub(crate) user_protocol: ProtocolInfo,
+    pub(crate) client_server_protocol: ProtocolInfo,
     pub(crate) remote_protocol: Option<ProtocolInfo>,
+    pub(crate) remote_max_message_size: u32,
 
     // Sender
     pub(crate) tx: T,
@@ -79,7 +80,8 @@ pub struct ProtocolInfo {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
-        protocol: ProtocolInfo,
+        client_server_protocol: ProtocolInfo,
+        user_protocol: ProtocolInfo,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -97,7 +99,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         let remote_protocol = None;
 
         WireWeaverUsbLink {
-            protocol,
+            client_server_protocol,
+            user_protocol,
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             remote_protocol,
 
@@ -127,6 +130,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     }
 }
 
+pub(crate) const VERSIONS_PAYLOAD_LEN: usize = 4 + 1 + ProtocolInfo::size_bytes() * 2;
+
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 pub(crate) enum Op {
@@ -141,16 +146,23 @@ pub(crate) enum Op {
     /// 0x4l, 0xll, `data[0..len]` in one packet.
     MessageStartEnd = 4,
 
-    GetVersions = 5,
-    LinkSetup = 6,
+    /// Sent from host to device to get link version, WireWeaver client server protocol version and
+    /// user protocol global ID and version
+    GetDeviceInfo = 5,
+    /// Sent from device to host in response to GetDeviceInfo
+    DeviceInfo = 6,
 
-    Ping = 7,
+    /// Sent from host to device with its link, client server and user versions
+    LinkSetup = 7,
+    /// Sent from device to host to let it know that it received LinkSetup.
+    /// Guard against host starting to send before device received LinkSetup to avoid losing messages.
+    LinkSetupResult = 8,
 
-    Disconnect = 8,
+    Ping = 9,
 
-    /// Sent from host to device to let it know that it received LinkSetup.
-    /// Guard against device starting to send before host received LinkSetup to avoid losing messages.
-    LinkUp = 9,
+    /// Sent from host to device to let it know that driver or application is stopping.
+    /// Sent from device to host to let it know that it is rebooting, e.g. to perform fw update.
+    Disconnect = 10,
 }
 
 impl ProtocolInfo {

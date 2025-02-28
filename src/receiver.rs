@@ -1,7 +1,5 @@
-use crate::common::{Error, Op, WireWeaverUsbLink};
-use crate::{
-    PacketSink, PacketSource, ProtocolInfo, CRC_KIND, LINK_PROTOCOL_VERSION, MIN_MESSAGE_SIZE,
-};
+use crate::common::{Error, Op, WireWeaverUsbLink, VERSIONS_PAYLOAD_LEN};
+use crate::{PacketSink, PacketSource, ProtocolInfo, CRC_KIND, MIN_MESSAGE_SIZE};
 use shrink_wrap::BufReader;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
@@ -22,15 +20,23 @@ pub enum MessageKind {
     /// Ping from the other end
     Ping,
     /// Remote end protocol and maximum message size
-    LinkInfo {
-        remote_max_message_size: usize,
-        remote_protocol: ProtocolInfo,
-        is_protocol_compatible: bool,
+    #[cfg(feature = "device")]
+    LinkSetup {
+        versions_matches: bool,
+    },
+    #[cfg(feature = "host")]
+    DeviceInfo {
+        max_message_len: u32,
+        link_version: u8,
+        client_server_protocol: ProtocolInfo,
+        user_protocol: ProtocolInfo,
     },
     Disconnect,
-    /// Host received LinkSetup and is ready to receive messages
-    #[cfg(feature = "device")]
-    LinkUp,
+    /// Device received LinkSetup, versions matched and is ready to receive messages
+    #[cfg(feature = "host")]
+    LinkSetupResult {
+        versions_matches: bool,
+    },
 }
 
 impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
@@ -71,7 +77,13 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     self.rx_left_bytes = 0; // skip whole packet on malformed data
                     continue 'next_message;
                 };
-                if self.remote_protocol.is_none() && kind != Op::LinkSetup && kind != Op::NoOp {
+                if self.remote_protocol.is_none()
+                    && kind != Op::GetDeviceInfo
+                    && kind != Op::DeviceInfo
+                    && kind != Op::LinkSetup
+                    && kind != Op::LinkSetupResult
+                    && kind != Op::NoOp
+                {
                     self.rx_left_bytes = 0;
                     return Err(Error::ProtocolsVersionMismatch);
                 }
@@ -169,47 +181,70 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                             continue 'next_message;
                         }
                     }
-                    Op::GetVersions => {
-                        #[cfg(feature = "device")]
-                        self.send_link_setup(message.len() as u32).await?;
+                    #[cfg(feature = "device")]
+                    Op::GetDeviceInfo => {
+                        self.send_device_info(message.len() as u32).await?;
                         continue 'next_message;
                     }
+                    #[cfg(feature = "host")]
+                    Op::DeviceInfo => {
+                        if rd.bytes_left() >= VERSIONS_PAYLOAD_LEN {
+                            let max_message_len =
+                                rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
+                            let link_version =
+                                rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
+                            let user_protocol = ProtocolInfo::read(&mut rd)
+                                .map_err(|_| Error::InternalBufOverflow)?;
+                            let client_server_protocol = ProtocolInfo::read(&mut rd)
+                                .map_err(|_| Error::InternalBufOverflow)?;
+                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet_len);
+                            self.remote_protocol = Some(user_protocol);
+                            self.remote_max_message_size = max_message_len;
+                            return Ok(MessageKind::DeviceInfo {
+                                max_message_len,
+                                link_version,
+                                client_server_protocol,
+                                user_protocol,
+                            });
+                        }
+                    }
+                    #[cfg(feature = "device")]
                     Op::LinkSetup => {
-                        if rd.bytes_left() >= 4 + 1 + ProtocolInfo::size_bytes() {
+                        if rd.bytes_left() >= VERSIONS_PAYLOAD_LEN {
                             let remote_max_message_size =
                                 rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
                             let link_protocol_version =
                                 rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
-                            let remote_protocol = ProtocolInfo::read(&mut rd)
+                            let remote_user_protocol = ProtocolInfo::read(&mut rd)
+                                .map_err(|_| Error::InternalBufOverflow)?;
+                            let remote_client_server_protocol = ProtocolInfo::read(&mut rd)
                                 .map_err(|_| Error::InternalBufOverflow)?;
 
-                            #[cfg(feature = "host")]
-                            let is_protocol_compatible =
-                                rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
-
-                            if link_protocol_version == LINK_PROTOCOL_VERSION
-                                && remote_protocol.is_compatible(&self.protocol)
+                            if link_protocol_version == crate::LINK_PROTOCOL_VERSION
+                                && remote_user_protocol.is_compatible(&self.user_protocol)
+                                && remote_client_server_protocol
+                                    .is_compatible(&self.client_server_protocol)
                             {
-                                self.remote_protocol = Some(remote_protocol);
+                                self.remote_protocol = Some(remote_user_protocol);
                                 self.remote_max_message_size = remote_max_message_size;
                             } else {
                                 self.remote_protocol = None;
                             }
 
-                            #[cfg(feature = "device")]
-                            let is_protocol_compatible = self.remote_protocol.is_some();
-
+                            let versions_matches = self.remote_protocol.is_some();
                             let rd_bytes_left = rd.bytes_left();
-
-                            #[cfg(feature = "device")]
-                            self.send_link_setup(message.len() as u32).await?;
-
+                            self.send_link_setup_result().await?;
                             self.adjust_read_pos(is_new_frame, rd_bytes_left, packet_len);
-                            return Ok(MessageKind::LinkInfo {
-                                remote_max_message_size: remote_max_message_size as usize,
-                                remote_protocol,
-                                is_protocol_compatible,
-                            });
+                            return Ok(MessageKind::LinkSetup { versions_matches });
+                        }
+                    }
+                    #[cfg(feature = "host")]
+                    Op::LinkSetupResult => {
+                        if rd.bytes_left() >= 1 {
+                            let versions_matches =
+                                rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
+                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet_len);
+                            return Ok(MessageKind::LinkSetupResult { versions_matches });
                         }
                     }
                     Op::Disconnect => {
@@ -222,13 +257,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                         self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                         return Ok(MessageKind::Ping);
                     }
-                    Op::LinkUp => {
-                        #[cfg(feature = "device")]
-                        self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
-                        #[cfg(feature = "device")]
-                        return Ok(MessageKind::LinkUp);
-
-                        #[cfg(feature = "host")]
+                    _ => {
                         continue 'next_message;
                     }
                 }
@@ -266,36 +295,16 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
         &mut self,
         message: &mut [u8],
     ) -> Result<(), Error<T::Error, R::Error>> {
-        loop {
+        while self.remote_protocol.is_none() {
             match self.receive_message(message).await {
-                Ok(MessageKind::LinkInfo {
-                    remote_max_message_size,
-                    remote_protocol,
-                    is_protocol_compatible,
-                }) => {
+                Ok(MessageKind::LinkSetup { versions_matches }) => {
                     #[cfg(feature = "defmt")]
-                    defmt::trace!(
-                        "LinkInfo received: remote max message size: {}, remote protocol: {}, compatible: {}",
-                        remote_max_message_size,
-                        remote_protocol,
-                        is_protocol_compatible,
-                    );
-                    #[cfg(feature = "defmt")]
-                    if !is_protocol_compatible {
-                        defmt::warn!(
-                            "Ignored LinkSetup with incompatible protocol: {}",
-                            remote_protocol
-                        )
-                    }
-                    // wait for LinkUp to avoid sending messages before host received LinkSetup
-                    continue;
-                }
-                Ok(MessageKind::LinkUp) => {
-                    #[cfg(feature = "defmt")]
-                    defmt::trace!("LinkUp received");
-                    if self.remote_protocol.is_some() {
+                    defmt::trace!("LinkSetup received: versions_matches: {}", versions_matches);
+                    if versions_matches {
                         break;
                     }
+                    // wait for another LinkSetup
+                    continue;
                 }
                 Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
                 Err(Error::ProtocolsVersionMismatch) => {

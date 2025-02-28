@@ -16,6 +16,7 @@ use wire_weaver_usb_link::Error as LinkError;
 const IRQ_MAX_PACKET_SIZE: usize = 1024;
 const MAX_MESSAGE_SIZE: usize = 2048;
 type SeqTy = u16;
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub enum Command {
     /// Try to open device with the specified filter.

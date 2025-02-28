@@ -1,8 +1,8 @@
 use crate::ww::no_alloc_client::client_server_v0_1::{EventKind, RequestKind};
 use crate::ww_nusb::{Sink, Source};
 use crate::{
-    Command, ConnectionInfo, ConnectionState, Error, OnError, SeqTy, IRQ_MAX_PACKET_SIZE,
-    MAX_MESSAGE_SIZE,
+    Command, ConnectionInfo, ConnectionState, Error, OnError, SeqTy, DEFAULT_REQUEST_TIMEOUT,
+    IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE,
 };
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface};
@@ -24,7 +24,7 @@ struct State {
     connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
-    response_map: HashMap<SeqTy, (oneshot::Sender<Result<Vec<u8>, Error>>, Option<Instant>)>,
+    response_map: HashMap<SeqTy, (oneshot::Sender<Result<Vec<u8>, Error>>, Instant)>,
     stream_handlers: HashMap<Vec<u16>, mpsc::UnboundedSender<Result<Vec<u8>, Error>>>,
     link_setup_done: bool,
     packet_started_instant: Option<Instant>,
@@ -81,7 +81,6 @@ impl State {
         let mut to_prune = vec![];
         let now = Instant::now();
         for (request_id, (_, prune_at)) in &self.response_map {
-            let Some(prune_at) = prune_at else { continue };
             if &now >= prune_at {
                 to_prune.push(*request_id);
             }
@@ -432,7 +431,8 @@ async fn handle_command(
                 },
             };
             if let Some(done_tx) = done_tx {
-                let prune_at = timeout.map(|t| Instant::now() + t);
+                let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
+                let prune_at = Instant::now() + timeout;
                 state
                     .response_map
                     .insert(state.request_id, (done_tx, prune_at));

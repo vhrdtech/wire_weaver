@@ -110,8 +110,8 @@ pub async fn usb_worker(
         match &mut link {
             Some(link_ref) => {
                 match process_commands_and_endpoints(&mut cmd_rx, link_ref, &mut state).await {
-                    Ok(r) => info!("usb event loop exited with {:?}", r),
-                    Err(e) => error!("usb event loop exited with {:?}", e),
+                    Ok(r) => info!("usb event loop (inner) exited with {:?}", r),
+                    Err(e) => error!("usb event loop (inner) exited with {:?}", e),
                 }
                 if state.exit_on_error {
                     break;
@@ -164,7 +164,7 @@ pub async fn usb_worker(
     state.cancel_all_streams();
     state.cancel_all_requests();
     state.conn_state.write().await.worker_running = false;
-    debug!("usb event loop exited");
+    debug!("usb worker exited");
 }
 
 async fn wait_for_connection_and_queue_commands(
@@ -223,6 +223,7 @@ async fn wait_for_connection_and_queue_commands(
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
+                state.exit_on_error = true;
                 return Err(());
             }
             Command::SendCall { done_tx, .. } => {
@@ -376,7 +377,7 @@ async fn handle_message(
                 }
                 return Err(Error::IncompatibleDeviceProtocol);
             }
-            // info!("Link info: protocol {remote_protocol:?} max packet size: {remote_max_message_size}");
+            info!("LinkSetup complete");
             state.max_protocol_mismatched_messages = 10;
             if let Some(di) = &state.device_info {
                 state.conn_state.write().await.state = ConnectionState::Connected {
@@ -429,6 +430,7 @@ async fn handle_command(
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
+            state.exit_on_error = true;
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
         Command::SendCall {

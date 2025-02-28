@@ -1,276 +1,174 @@
-use nusb::{Interface};
-use nusb::transfer::{RequestBuffer, TransferError};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::mpsc::error::TryRecvError;
-use tracing::{error, info, trace, warn};
-use wire_weaver_usb_link::{WireWeaverUsbLink, MessageKind, PacketSink, PacketSource, ProtocolInfo, Error as LinkError};
+mod connection;
+mod event_loop;
+mod ww;
+mod ww_nusb;
 
-pub enum DeviceManagerCommand {
-    Open {
-        device_path: (),
-    },
-    CloseAll,
-}
+pub use event_loop::usb_worker;
 
-pub enum DeviceManagerEvent {
-    Opened(AsyncDeviceHandle),
-    DeviceConnected,
-    DeviceDisconnected,
-    // Closed
-}
+use nusb::{DeviceInfo, Error as NusbError};
+use std::fmt::Debug;
+use std::time::Duration;
+use tokio::sync::{mpsc, oneshot};
+use tracing::error;
+use wire_weaver::shrink_wrap::nib16::Nib16;
+use wire_weaver_usb_link::Error as LinkError;
 
-pub struct AsyncDeviceHandle {
-    pub device_path: (),
-    pub commands_tx: Sender<Command>,
-    events_rx: Receiver<Event>
-}
-
-impl AsyncDeviceHandle {
-    pub fn try_recv(&mut self) -> Option<Event> {
-        match self.events_rx.try_recv() {
-            Ok(ev) => Some(ev),
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => {
-                warn!("channel closed (dev handle try_recv)");
-                None
-            }
-        }
-    }
-}
+const IRQ_MAX_PACKET_SIZE: usize = 1024;
+const MAX_MESSAGE_SIZE: usize = 2048;
+type SeqTy = u16;
 
 pub enum Command {
-    // Open,
-    Close,
-    Send(Vec<u8>),
-    RecycleBuffer(Vec<u8>),
-    TestLink,
+    /// Try to open device with the specified filter.
+    Connect {
+        filter: UsbDeviceFilter,
+        on_error: OnError,
+        connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
+    },
+
+    /// Complete outstanding requests (but ignore new ones)? Then close device connection, but keep worker task running.
+    /// This allows all the outstanding streams to still be valid and continue upon reconnection.
+    /// Alternatively it's also possible to connect to a different device, without other parts noticing.
+    DisconnectKeepStreams {
+        disconnected_tx: Option<oneshot::Sender<()>>,
+    },
+    /// Close device connection and stop worker task. All outstanding requests will return with Error,
+    /// and streams will stop. Use when shutting down whole app.
+    DisconnectAndExit {
+        disconnected_tx: Option<oneshot::Sender<()>>,
+    },
+
+    SendCall {
+        // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
+        args_bytes: Vec<u8>,
+        path: Vec<Nib16>,
+        timeout: Option<Duration>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
+    },
+    // SendFrame {
+    //     frame: (),
+    //     done_tx: oneshot::Sender<()>,
+    // },
+    // ReceiveFrame {
+    //     id: (),
+    //     done_tx: oneshot::Sender<()>,
+    // },
+    Subscribe {
+        path: Vec<u16>,
+        stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error>>,
+        // stop_rx: oneshot::Receiver<()>,
+    },
+    // RecycleBuffer(Vec<u8>),
 }
 
-pub enum Event {
-    // Connected,
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Nusb(NusbError),
+    #[error("WireWeaverUsbLink error: {}", .0)]
+    Link(String),
+    #[error("Timeout")]
+    Timeout,
+    #[error("nusb::watch_devices() iterator returned None")]
+    WatcherReturnedNone,
+    #[error("ShrinkWrap error {:?}", .0)]
+    ShrinkWrap(wire_weaver::shrink_wrap::Error),
+    #[error("LinkSetup was not received from device after several retries")]
+    LinkSetupTimeout,
+    #[error("Tried connecting to a device with incompatible protocol")]
+    IncompatibleDeviceProtocol,
+    #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
-    // Opened,
-    // Closed,
-    Received(Vec<u8>),
-    RecycleBuffer(Vec<u8>),
+    #[error("Device returned WireWeaver client_server error: {:?}", .0)]
+    RemoteError(ww::no_alloc_client::client_server_v0_1::Error),
+    #[error("Failed to deserialize a bytes slice from device response")]
+    ByteSliceReadFailed,
 }
 
-pub struct UsbDeviceManager {
-    dm_commands_tx: Sender<DeviceManagerCommand>,
-    dm_events_rx: Receiver<DeviceManagerEvent>,
+pub enum UsbDeviceFilter {
+    VidPid { vid: u16, pid: u16 },
+    VidPidAndSerial { vid: u16, pid: u16, serial: String },
+    Serial { serial: String },
+    AnyVhrdTechCanBus,
 }
 
-impl UsbDeviceManager {
-    pub fn new() -> Self {
-        let (dm_commands_tx, dm_commands_rx) = channel(4);
-        let (dm_events_tx, dm_events_rx) = channel(4);
-        // let ctx = Context::new().unwrap();
-        tokio::spawn(async move {
-            dm_worker(dm_commands_rx, dm_events_tx).await;
-        });
-        Self {
-            dm_commands_tx,
-            dm_events_rx
-        }
-    }
+#[derive(Default)]
+pub enum ConnectionState {
+    #[default]
+    Disconnected,
+    Connected {
+        device_info: DeviceInfo,
+    },
+    Error {
+        error_string: String,
+    },
+}
 
-    pub fn connect(&mut self) {
-        self.dm_commands_tx.try_send(DeviceManagerCommand::Open {device_path: ()}).unwrap();
-    }
+/// Shared struct containing connection information along with statistics.
+#[derive(Default)]
+pub struct ConnectionInfo {
+    pub state: ConnectionState, // outstanding streams, requests, etc
+    pub worker_running: bool,
+}
 
-    pub fn poll(&mut self) -> Option<DeviceManagerEvent> {
-        match self.dm_events_rx.try_recv() {
-            Ok(ev) => {
-                Some(ev)
-            }
-            Err(TryRecvError::Empty) => {
-                None
-            }
-            Err(_) => {
-                warn!("channel closed (dev manager poll)");
-                None
-            }
-        }
+impl From<NusbError> for Error {
+    fn from(value: NusbError) -> Self {
+        Error::Nusb(value)
     }
 }
 
-async fn dm_worker(mut dm_commands_rx: Receiver<DeviceManagerCommand>, dm_events_tx: Sender<DeviceManagerEvent>) {
-    loop {
-        let Some(cmd) = dm_commands_rx.recv().await else {
-            info!("dm_worker exiting");
-            return;
-        };
-        match cmd {
-            DeviceManagerCommand::Open { .. } => {
-                trace!("Opening device");
-                let di = nusb::list_devices().unwrap().find(|d| d.vendor_id() == 0xc0de && d.product_id() == 0xcafe).expect("device should be connected");
-                info!("Found device: {:?}", di);
-                let dev = di.open().unwrap();
-                let interface = dev.claim_interface(0).unwrap();
-                trace!("opened device");
-
-                let (commands_tx, commands_rx) = channel(16);
-                let (events_tx, events_rx) = channel(16);
-                tokio::spawn(async move {
-                    worker(interface, commands_rx, events_tx).await;
-                });
-                dm_events_tx.send(DeviceManagerEvent::Opened(AsyncDeviceHandle {
-                    device_path: (),
-                    commands_tx,
-                    events_rx
-                })).await.unwrap();
-            }
-            DeviceManagerCommand::CloseAll => {}
-        }
+impl<T: Debug, R: Debug> From<LinkError<T, R>> for Error {
+    fn from(value: LinkError<T, R>) -> Self {
+        Error::Link(format!("{:?}", value))
     }
 }
 
-struct Sink {
-    interface: Interface,
-    // vec to reuse
-}
-
-impl PacketSink for Sink {
-    type Error = TransferError;
-
-    async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        // Try Queue out
-        let completion = self.interface.interrupt_out(0x01, data.to_vec()).await;
-        match completion.status {
-            Ok(_) => {
-                trace!("wrote: {:02x?}", data);
-                Ok(())
-            }
-            Err(e) => {
-                error!("Out error: {:?}", e);
-                Err(e)
-            }
-        }
-        // let reuse_vec = completion.data.reuse();
+impl From<wire_weaver::shrink_wrap::Error> for Error {
+    fn from(value: wire_weaver::shrink_wrap::Error) -> Self {
+        Error::ShrinkWrap(value)
     }
 }
 
-struct Source {
-    interface: Interface,
-    // vec to reuse
-}
-
-impl PacketSource for Source {
-    type Error = TransferError;
-
-    async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
-        // reuse vec
-        // try Queue in
-        let completion = self.interface.interrupt_in(0x81, RequestBuffer::new(512)).await;
-        match completion.status {
-            Ok(_) => {
-                info!("read frame {:02x?}", completion.data);
-                data[..completion.data.len()].copy_from_slice(&completion.data);
-                Ok(completion.data.len())
+impl From<&DeviceInfo> for UsbDeviceFilter {
+    fn from(info: &DeviceInfo) -> Self {
+        if let Some(serial) = info.serial_number() {
+            UsbDeviceFilter::VidPidAndSerial {
+                vid: info.vendor_id(),
+                pid: info.product_id(),
+                serial: serial.to_string(),
             }
-            Err(e) => {
-                error!("In error: {:?}", e);
-                Err(e)
+        } else {
+            UsbDeviceFilter::VidPid {
+                vid: info.vendor_id(),
+                pid: info.product_id(),
             }
         }
     }
 }
 
-async fn worker(
-    interface: Interface,
-    mut rx_commands: Receiver<Command>,
-    tx_events: Sender<Event>,
-) {
-    let user_protocol = ProtocolInfo {
-        protocol_id: 7,
-        major_version: 0,
-        minor_version: 1,
-    };
-    // TODO: use 1024 USB transfers?
-    let mut tx_buf = [0u8; 512];
-    let mut rx_buf = [0u8; 512];
-    let mut link = WireWeaverUsbLink::new(user_protocol, Sink { interface: interface.clone() }, &mut tx_buf, Source { interface }, &mut rx_buf);
-    const MAX_MESSAGE_SIZE: usize = 2048;
-    let mut message_rx = [0u8; MAX_MESSAGE_SIZE];
+/// Configures how to handle connection errors
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum OnError {
+    /// Exit immediately with an error if no devices found, or an error occurs.
+    ExitImmediately,
+    /// Keep waiting for a device to appear for timeout.
+    ///
+    /// Might be useful in CLI or automated testing applications, giving user some time to connect a device.
+    RetryFor {
+        timeout: Duration,
+        // subsequent_errors: bool,
+    },
+    /// Keep retrying forever for device to appear and later even if device is disconnected,
+    /// all outstanding streams and requests will be held until reconnection.
+    ///
+    /// Might be useful in dashboard-like applications, that must gracefully handle intermittent loss
+    /// of connection.
+    KeepRetrying,
+}
 
-    link.send_link_setup(MAX_MESSAGE_SIZE as u32).await.unwrap();
-
-    loop {
-        tokio::select! {
-            message = link.receive_message(&mut message_rx) => {
-                match message {
-                    Ok(MessageKind::Data(len)) => {
-                        let packet = &message_rx[..len];
-                        info!("Packet: {packet:02x?}");
-                        tx_events.send(Event::Received(packet.to_vec())).await.unwrap();
-                    }
-                    Ok(MessageKind::Disconnect) => {
-                        info!("Received Disconnect, exiting");
-                        break;
-                    }
-                    Ok(MessageKind::Ping) => {
-                        trace!("Ping");
-                    }
-                    Ok(MessageKind::LinkInfo { remote_max_message_size, remote_protocol }) => {
-                        info!("Link info: protocol {remote_protocol:?} max packet size: {remote_max_message_size}");
-                    }
-                    Err(LinkError::ReceivedEmptyPacket) => {
-                        info!("Receive empty frame");
-                        // break;
-                    }
-                    Err(LinkError::ProtocolsVersionMismatch) => {
-                        warn!("Protocols versions mismatch");
-                    }
-                    Err(LinkError::InternalBufOverflow) => {
-                        warn!("Internal buf overflow while receiving packet");
-                    }
-                    Err(LinkError::LinkVersionMismatch) => {
-                        warn!("Link versions mismatch");
-                    }
-                    Err(LinkError::SourceError(e)) => {
-                        error!("Transfer error: {e:?}, exiting");
-                        break;
-                    }
-                    Err(LinkError::SinkError(e)) => {
-                        error!("USB error: {e:?}, exiting");
-                        break;
-                    }
-                    Err(e) => {
-                        error!("Link error: {e:?}");
-                    }
-                }
-            }
-            cmd = rx_commands.recv() => {
-                match cmd {
-                    Some(Command::Send(buf)) => {
-                        info!("Sending data {buf:?}");
-                        link.send_message(&buf).await.unwrap();
-                        link.force_send().await.unwrap(); // TODO: force send on timer
-                    }
-                    Some(Command::TestLink) => {
-                        // let mut packet_builder = FrameBuilder::new(&mut tx_assembly_buf);
-                    }
-                    Some(Command::RecycleBuffer(_buf)) => {
-
-                    }
-                    Some(Command::Close) => {
-                        info!("Device worker exiting (cmd)");
-                        tx_events.send(Event::Disconnected).await.unwrap();
-                        break;
-                    }
-                    None => {
-                        info!("Device worker exiting (cmd channel closed)");
-                        let r = tx_events.send(Event::Disconnected).await;
-                        if r.is_err() {
-                            warn!("Channel closed");
-                        }
-                        link.send_disconnect().await.unwrap();
-                        break;
-                    }
-                }
-            }
+impl OnError {
+    pub fn retry_for_secs(secs: u64) -> Self {
+        Self::RetryFor {
+            timeout: Duration::from_secs(secs),
         }
     }
-
-    info!("Device worker actually returning");
 }

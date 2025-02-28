@@ -5,7 +5,7 @@ use crate::{
     IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE,
 };
 use nusb::transfer::TransferError;
-use nusb::{DeviceInfo, Interface};
+use nusb::{DeviceInfo, Interface, Speed};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -97,7 +97,7 @@ pub async fn usb_worker(
     mut cmd_rx: mpsc::UnboundedReceiver<Command>,
     conn_state: Arc<RwLock<ConnectionInfo>>,
     user_protocol: ProtocolInfo,
-    max_usb_packet_size: usize,
+    max_hs_usb_packet_size: usize,
 ) {
     let mut state = State::new(conn_state, user_protocol);
     state.conn_state.write().await.worker_running = false;
@@ -124,14 +124,31 @@ pub async fn usb_worker(
                 }
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
-                Ok(Some(interface)) => {
+                Ok(Some((interface, di))) => {
+                    let client_server_protocol = ProtocolInfo {
+                        protocol_id: crate::ww::no_alloc_client::client_server_v0_1::PROTOCOL_GID,
+                        major_version: 0,
+                        minor_version: 1,
+                    };
+                    let max_packet_size = match di.speed() {
+                        Some(speed) => match speed {
+                            Speed::Low => 8,
+                            Speed::Full => 64,
+                            Speed::High | Speed::Super | Speed::SuperPlus => max_hs_usb_packet_size,
+                            _ => 64,
+                        },
+                        None => 64,
+                    };
+                    debug!("max_packet_size: {}", max_packet_size);
                     link = Some(WireWeaverUsbLink::new(
+                        client_server_protocol,
                         state.user_protocol,
                         Sink::new(interface.clone()),
-                        &mut tx_buf[..max_usb_packet_size],
+                        &mut tx_buf[..max_packet_size],
                         Source::new(interface),
-                        &mut rx_buf[..max_usb_packet_size],
+                        &mut rx_buf[..max_packet_size],
                     ));
+                    state.device_info = Some(di);
                 }
                 Ok(None) => {
                     // OnError::KeepRetrying
@@ -153,7 +170,7 @@ pub async fn usb_worker(
 async fn wait_for_connection_and_queue_commands(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
-) -> Result<Option<Interface>, ()> {
+) -> Result<Option<(Interface, DeviceInfo)>, ()> {
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             // all senders have been dropped
@@ -187,8 +204,7 @@ async fn wait_for_connection_and_queue_commands(
                     }
                 };
                 state.connected_tx = connected_tx;
-                state.device_info = Some(di);
-                return Ok(Some(interface));
+                return Ok(Some((interface, di)));
             }
             Command::Subscribe {
                 path,
@@ -230,7 +246,7 @@ async fn process_commands_and_endpoints(
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
 ) -> Result<EventLoopResult, Error> {
-    link.send_link_setup(MAX_MESSAGE_SIZE as u32).await?;
+    link.send_get_device_info().await?;
     let mut scratch = [0u8; 512];
     let mut link_setup_retries = 5;
     loop {
@@ -265,8 +281,8 @@ async fn process_commands_and_endpoints(
             _ = timer => {
                 if !state.link_setup_done {
                     if link_setup_retries > 0 {
-                        warn!("resending LinkSetup after no answer received from device");
-                        link.send_link_setup(MAX_MESSAGE_SIZE as u32).await?;
+                        warn!("resending GetDeviceInfo after no answer received from device");
+                        link.send_get_device_info().await?;
                         link_setup_retries -= 1;
                     } else {
                         error!("usb worker exiting, because link setup failed after several retries");
@@ -342,19 +358,25 @@ async fn handle_message(
         Ok(MessageKind::Ping) => {
             trace!("Ping");
         }
-        Ok(MessageKind::LinkInfo {
-            remote_max_message_size,
-            remote_protocol,
-            is_protocol_compatible,
+        Ok(MessageKind::DeviceInfo {
+            max_message_len,
+            link_version,
+            client_server_protocol,
+            user_protocol,
         }) => {
-            if !is_protocol_compatible {
-                error!("device protocol {remote_protocol:?} is incompatible");
+            info!("Received DeviceInfo: max_message_len: {}, link_version: {}, client_server: {:?}, user_protocol: {:?}", max_message_len, link_version, client_server_protocol, user_protocol);
+            // only one version is in use right now, so no need to choose between different client server versions or link versions
+            link.send_link_setup(MAX_MESSAGE_SIZE as u32).await?;
+        }
+        Ok(MessageKind::LinkSetupResult { versions_matches }) => {
+            if !versions_matches {
+                error!("device rejected LinkSetup, exiting");
                 if let Some(tx) = state.connected_tx.take() {
                     _ = tx.send(Err(Error::IncompatibleDeviceProtocol));
                 }
                 return Err(Error::IncompatibleDeviceProtocol);
             }
-            info!("Link info: protocol {remote_protocol:?} max packet size: {remote_max_message_size}");
+            // info!("Link info: protocol {remote_protocol:?} max packet size: {remote_max_message_size}");
             state.max_protocol_mismatched_messages = 10;
             if let Some(di) = &state.device_info {
                 state.conn_state.write().await.state = ConnectionState::Connected {
@@ -365,7 +387,6 @@ async fn handle_message(
                 _ = tx.send(Ok(()));
             }
             state.link_setup_done = true;
-            link.send_link_up().await?;
         }
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
             if state.max_protocol_mismatched_messages > 0 {

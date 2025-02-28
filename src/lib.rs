@@ -1,11 +1,14 @@
 mod connection;
 mod event_loop;
+pub mod util;
 mod ww;
 mod ww_nusb;
 
 pub use event_loop::usb_worker;
+pub use nusb::DeviceInfo;
+pub use wire_weaver_usb_link::ProtocolInfo;
 
-use nusb::{DeviceInfo, Error as NusbError};
+use nusb::Error as NusbError;
 use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -67,6 +70,8 @@ pub enum Error {
     Nusb(NusbError),
     #[error("WireWeaverUsbLink error: {}", .0)]
     Link(String),
+    #[error("Called a method that required event loop to be running")]
+    EventLoopNotRunning,
     #[error("Timeout")]
     Timeout,
     #[error("nusb::watch_devices() iterator returned None")]

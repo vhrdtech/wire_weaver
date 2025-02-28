@@ -17,14 +17,12 @@ use wire_weaver_core::transform::Transform;
 #[derive(Debug, FromMeta)]
 struct Args {
     ww: Option<String>,
-    api_model: String,
+    api_model: Option<String>,
     #[darling(default)]
     client: bool,
     #[darling(default)]
     server: bool,
     no_alloc: bool,
-    #[darling(default)]
-    skip_api_model_codegen: bool,
     #[darling(default)]
     debug_to_file: String,
     #[darling(default)]
@@ -84,7 +82,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        let api_model_location = syn::Path::from_string(args.api_model.as_str()).unwrap();
+        let api_model_location = args
+            .api_model
+            .as_ref()
+            .map(|a| syn::Path::from_string(a.as_str()).unwrap());
         let mut codegen_ts = TokenStream::new();
         for module in &cx.modules {
             for item in &module.items {
@@ -152,9 +153,9 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
 
     // let mut ts = TokenStream::new();
     // ts.append_all(item);
-    if !args.skip_api_model_codegen {
+    if let Some(api_model) = &args.api_model {
         let api_model: ItemMod = syn::parse2(generate_api_model(
-            args.api_model.as_str(),
+            api_model.as_str(),
             &add_derives,
             args.no_alloc,
         ))

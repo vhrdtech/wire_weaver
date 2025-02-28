@@ -7,12 +7,23 @@ use crate::ast::ident::Ident;
 use crate::ast::Type;
 use crate::codegen::api_common::args_structs;
 
-pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bool) -> TokenStream {
+pub fn client(
+    api_level: &ApiLevel,
+    api_model_location: &Option<syn::Path>,
+    no_alloc: bool,
+) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
-    let root_level = level_methods(api_level, api_model_location, no_alloc);
-    let output_des = output_des_fns(api_level, api_model_location, no_alloc);
+    let root_level = level_methods(api_level, no_alloc);
+    let output_des = output_des_fns(api_level, no_alloc);
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
+    } else {
+        quote! {}
+    };
+    let api_model_includes = if let Some(api_model_location) = api_model_location {
+        quote! {
+            use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        }
     } else {
         quote! {}
     };
@@ -23,7 +34,7 @@ pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bo
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib16::Nib16
         };
-        use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        #api_model_includes
         #additional_use
 
         impl Client {
@@ -33,26 +44,17 @@ pub fn client(api_level: &ApiLevel, api_model_location: &syn::Path, no_alloc: bo
     }
 }
 
-fn level_methods(
-    api_level: &ApiLevel,
-    api_model_location: &syn::Path,
-    no_alloc: bool,
-) -> TokenStream {
+fn level_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_method(&item.kind, item.id, api_model_location, no_alloc));
+        .map(|item| level_method(&item.kind, item.id, no_alloc));
     quote! {
         #(#handlers)*
     }
 }
 
-fn level_method(
-    kind: &ApiItemKind,
-    id: u16,
-    _api_model_location: &syn::Path,
-    no_alloc: bool,
-) -> TokenStream {
+fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
     // TODO: Handle sub-levels
     let path = if no_alloc {
         // quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
@@ -167,11 +169,7 @@ fn ser_args(
     }
 }
 
-fn output_des_fns(
-    api_level: &ApiLevel,
-    _api_model_location: &syn::Path,
-    no_alloc: bool,
-) -> TokenStream {
+fn output_des_fns(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let handlers = api_level.items.iter().filter_map(|item| match &item.kind {
         ApiItemKind::Method {
             ident,

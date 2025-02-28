@@ -10,7 +10,7 @@ use crate::codegen::api_common;
 
 pub fn server_dispatcher(
     api_level: &ApiLevel,
-    api_model_location: &syn::Path,
+    api_model_location: &Option<syn::Path>,
     no_alloc: bool,
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
@@ -25,6 +25,13 @@ pub fn server_dispatcher(
     } else {
         quote! {}
     };
+    let api_model_includes = if let Some(api_model_location) = api_model_location {
+        quote! {
+            use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        }
+    } else {
+        quote! {}
+    };
     quote! {
         #args_structs
 
@@ -32,7 +39,7 @@ pub fn server_dispatcher(
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib16::Nib16
         };
-        use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+        #api_model_includes
         #additional_use
 
         impl Context {

@@ -78,7 +78,7 @@ async fn wait_device(filter: &UsbDeviceFilter, timeout: OnError) -> Result<Devic
                     };
                     if let HotplugEvent::Connected(di) = hotplug_event {
                         if apply_filter(&di, filter) {
-                            // as per nusb docs, must wait a bit on Windows after getting watched devive, otherwise connection fails
+                            // as per nusb docs, must wait a bit on Windows after getting watched device, otherwise connection fails
                             #[cfg(target_os = "windows")]
                             tokio::time::sleep(std::time::Duration::from_millis(10)).await; // TODO: is 10ms enough on slow Windows VM?
 

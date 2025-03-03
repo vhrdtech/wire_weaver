@@ -34,7 +34,7 @@ impl State {
     fn new(conn_state: Arc<RwLock<ConnectionInfo>>, user_protocol: ProtocolInfo) -> Self {
         State {
             exit_on_error: true,
-            request_id: 0,
+            request_id: 1,
             message_rx: [0u8; MAX_MESSAGE_SIZE],
             user_protocol,
             conn_state,
@@ -52,6 +52,9 @@ impl State {
         let mut iterations_left = SeqTy::MAX as usize;
         while self.response_map.contains_key(&self.request_id) && iterations_left > 0 {
             self.request_id = self.request_id.wrapping_add(1);
+            if self.request_id == 0 {
+                self.request_id += 1;
+            }
             iterations_left -= 1;
         }
     }
@@ -69,7 +72,7 @@ impl State {
     }
 
     fn on_disconnect(&mut self) {
-        self.request_id = 0;
+        self.request_id = 1;
         self.connected_tx = None;
         self.device_info = None;
         self.max_protocol_mismatched_messages = 10;
@@ -183,7 +186,7 @@ async fn wait_for_connection_and_queue_commands(
                 on_error: timeout,
                 connected_tx,
             } => {
-                state.exit_on_error = timeout == OnError::KeepRetrying;
+                state.exit_on_error = timeout != OnError::KeepRetrying;
                 state.request_id = 1;
                 // TODO: process commands with timeout expired before connected?
                 let (interface, di) = match crate::connection::connect(filter, timeout).await {
@@ -216,7 +219,6 @@ async fn wait_for_connection_and_queue_commands(
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
-                state.exit_on_error = true;
                 return Ok(None);
             }
             Command::DisconnectAndExit { disconnected_tx } => {
@@ -421,7 +423,6 @@ async fn handle_command(
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
-            state.exit_on_error = true;
             return Ok(EventLoopSpinResult::DisconnectKeepStreams);
         }
         Command::DisconnectAndExit { disconnected_tx } => {
@@ -440,8 +441,20 @@ async fn handle_command(
             done_tx,
         } => {
             trace!("sending call to {path:?} {args_bytes:02x?}");
+            let seq = if let Some(done_tx) = done_tx {
+                let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
+                let prune_at = Instant::now() + timeout;
+                state
+                    .response_map
+                    .insert(state.request_id, (done_tx, prune_at));
+                let seq = state.request_id;
+                state.increment_request_id();
+                seq
+            } else {
+                0
+            };
             let request = crate::ww::no_alloc_client::client_server_v0_1::Request {
-                seq: state.request_id,
+                seq,
                 path: RefVec::Slice {
                     slice: &path,
                     element_size: ElementSize::UnsizedSelfDescribing,
@@ -453,14 +466,6 @@ async fn handle_command(
                     },
                 },
             };
-            if let Some(done_tx) = done_tx {
-                let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
-                let prune_at = Instant::now() + timeout;
-                state
-                    .response_map
-                    .insert(state.request_id, (done_tx, prune_at));
-            }
-            state.increment_request_id();
 
             let mut wr = BufWriter::new(scratch);
             request.ser_shrink_wrap(&mut wr)?;

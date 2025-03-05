@@ -26,6 +26,7 @@ pub enum SynConversionError {
     WrongReprAttr(String),
     FlagTypeIsNotBool,
     RecursionLimitReached,
+    UnknownApiResource,
 }
 
 #[derive(Default)]

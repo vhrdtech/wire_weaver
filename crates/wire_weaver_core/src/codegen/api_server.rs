@@ -7,6 +7,7 @@ use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
 use crate::ast::Type;
 use crate::codegen::api_common;
+use crate::codegen::ty::FieldPath;
 
 pub fn server_dispatcher(
     api_level: &ApiLevel,
@@ -98,7 +99,7 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 }
 
 fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
-    let err_bad_path = err_to_caller("BadPath");
+    let err_op_not_supported = err_to_caller("OperationNotSupported");
     let err_not_implemented = err_to_caller("OperationNotImplemented");
     match kind {
         ApiItemKind::Method {
@@ -175,7 +176,56 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                 }
             }
         }
-        // ApiItemKind::Property => {}
+        ApiItemKind::Property { ident, ty } => {
+            let get_slice = get_slice(Ident::new("data"), no_alloc);
+            let mut des = TokenStream::new();
+            ty.buf_read(
+                proc_macro2::Ident::new("value", Span::call_site()),
+                no_alloc,
+                quote! { ? },
+                &mut des,
+            );
+            let mut ser = TokenStream::new();
+            ty.buf_write(FieldPath::Value(quote! { self.#ident }), no_alloc, &mut ser);
+            let on_property_changed = Ident::new(format!("on_{}_changed", ident.sym));
+            quote! {
+                match &request.kind {
+                    RequestKind::Write { data } => {
+                        let data = #get_slice;
+                        let mut rd = BufReader::new(data);
+                        #des
+                        if self.#ident != value {
+                            self.#ident = value;
+                            self.#on_property_changed().await;
+                        }
+                        if request.seq == 0 {
+                            return Ok(&[]);
+                        } else {
+                           let mut event_wr = BufWriter::new(&mut self.event_scratch);
+                            let event = Event { seq: request.seq, result: Ok(EventKind::Written) };
+                            event.ser_shrink_wrap(&mut event_wr)?;
+                            Ok(event_wr.finish_and_take()?)
+                        }
+                    }
+                    RequestKind::Read => {
+                        let mut wr = BufWriter::new(&mut self.output_scratch);
+                        #ser
+                        let output_bytes = wr.finish_and_take()?;
+
+                        let mut event_wr = BufWriter::new(&mut self.event_scratch);
+                        let event = Event {
+                            seq: request.seq,
+                            result: Ok(EventKind::ReadValue {
+                                data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                            })
+                        };
+                        event.ser_shrink_wrap(&mut event_wr)?;
+                        Ok(event_wr.finish_and_take()?)
+                    }
+                    _ => { #err_op_not_supported }
+                }
+            }
+        }
         ApiItemKind::Stream {
             ident: _,
             ty: _,
@@ -199,7 +249,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                     RequestKind::OpenStream => { #err_not_implemented }
                     RequestKind::CloseStream => { #err_not_implemented }
                     #specific_ops
-                    _ => { #err_bad_path }
+                    _ => { #err_op_not_supported }
                 }
             }
         }
@@ -217,18 +267,7 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
         (quote! {}, quote! {})
     } else {
         let err_args_des_failed = err_to_caller("ArgsDesFailed");
-        let get_slice = if no_alloc {
-            quote! {
-                match args.byte_slice() {
-                    Ok(args) => args,
-                    Err(_e) => {
-                        return #err_args_des_failed;
-                    }
-                }
-            }
-        } else {
-            quote! { args.as_slice() }
-        };
+        let get_slice = get_slice(Ident::new("args"), no_alloc);
         let args_des = quote! {
             let args = #get_slice;
             let mut rd = BufReader::new(args);
@@ -247,6 +286,23 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
         (args_des, args_list)
     }
 }
+
+fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
+    let err_args_des_failed = err_to_caller("ArgsDesFailed");
+    if no_alloc {
+        quote! {
+            match #ref_vec_or_vec.byte_slice() {
+                Ok(slice) => slice,
+                Err(_e) => {
+                    return #err_args_des_failed;
+                }
+            }
+        }
+    } else {
+        quote! { #ref_vec_or_vec.as_slice() }
+    }
+}
+
 fn ser_event(no_alloc: bool) -> TokenStream {
     let future_compatible_unit_return = if no_alloc {
         quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
@@ -275,6 +331,9 @@ fn ser_event(no_alloc: bool) -> TokenStream {
         }
 
         pub fn ser_unit_return_event(&mut self, seq: u16) -> Result<&[u8], ShrinkWrapError> {
+            if seq == 0 {
+                return Ok(&[]);
+            }
             let mut wr = BufWriter::new(&mut self.event_scratch);
             let event = Event {
                 seq,

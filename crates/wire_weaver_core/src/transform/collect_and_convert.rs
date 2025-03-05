@@ -614,20 +614,34 @@ impl<'i> CollectAndConvertPass<'i> {
                         }
                     };
                     let kind = item_macro.mac.path.get_ident().unwrap().to_string();
-                    let is_up = kind == "stream_up";
                     let stream_args: StreamMacroArgs =
                         syn::parse2(item_macro.mac.tokens.clone()).unwrap();
                     let path = FieldPath::new(FieldPathRoot::NamedField(stream_args.ident.clone())); // TODO: Clarify FieldPath purpose
-                    items.push(ApiItem {
-                        id: id as u16,
-                        multiplicity: Multiplicity::Flat,
-                        kind: ApiItemKind::Stream {
-                            ident: stream_args.ident.into(),
-                            // ty: Type::Unsized(Path::new_ident(stream_args.ty_name.into()), false),
-                            ty: self.transform_type(stream_args.ty, &path)?,
-                            is_up,
-                        },
-                    });
+                    if kind == "stream_up" || kind == "stream_down" {
+                        let is_up = kind == "stream_up";
+                        items.push(ApiItem {
+                            id: id as u16,
+                            multiplicity: Multiplicity::Flat,
+                            kind: ApiItemKind::Stream {
+                                ident: stream_args.ident.into(),
+                                // ty: Type::Unsized(Path::new_ident(stream_args.ty_name.into()), false),
+                                ty: self.transform_type(stream_args.ty, &path)?,
+                                is_up,
+                            },
+                        });
+                    } else if kind == "property" {
+                        items.push(ApiItem {
+                            id: id as u16,
+                            multiplicity: Multiplicity::Flat,
+                            kind: ApiItemKind::Property {
+                                ident: stream_args.ident.into(),
+                                ty: self.transform_type(stream_args.ty, &path)?,
+                            },
+                        });
+                    } else {
+                        self.messages
+                            .push_conversion_error(SynConversionError::UnknownApiResource);
+                    }
                     collect_unknown_attributes(&mut attrs, self.messages);
                 }
                 TraitItem::Verbatim(_) => {}

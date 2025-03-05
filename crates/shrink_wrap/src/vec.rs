@@ -72,6 +72,13 @@ where
 
 // implementing separately because partial specialisation is not yet supported
 impl<'i> RefVec<'i, u8> {
+    pub fn new_byte_slice(slice: &'i [u8]) -> Self {
+        RefVec::Slice {
+            slice,
+            element_size: ElementSize::Sized { size_bits: 8 },
+        }
+    }
+
     pub fn ser_shrink_wrap_vec_u8(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let len = self.len();
         let Ok(len_u16) = u16::try_from(len) else {

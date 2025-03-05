@@ -1,11 +1,12 @@
 use convert_case::Casing;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
 use crate::ast::Type;
 use crate::codegen::api_common::args_structs;
+use crate::codegen::ty::FieldPath;
 
 pub fn client(
     api_level: &ApiLevel,
@@ -102,7 +103,47 @@ fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
                 }
             }
         }
-        // ApiItemKind::Property => {}
+        ApiItemKind::Property { ident, ty } => {
+            let mut ser = TokenStream::new();
+            let ty_def = ty.arg_pos_def(no_alloc);
+            ty.buf_write(FieldPath::Value(quote! { #ident }), no_alloc, &mut ser);
+            let prop_ser_value_path = Ident::new(format!("{}_ser_value_path", ident.sym));
+            let prop_path = Ident::new(format!("{}_path", ident.sym));
+            let prop_des_value = Ident::new(format!("{}_des_value", ident.sym));
+            let finish_wr = if no_alloc {
+                quote! { wr.finish_and_take()? }
+            } else {
+                quote! { wr.finish()?.to_vec() }
+            };
+            let mut des = TokenStream::new();
+            ty.buf_read(
+                proc_macro2::Ident::new("value", Span::call_site()),
+                no_alloc,
+                quote! { ? },
+                &mut des,
+            );
+            quote! {
+                #[inline]
+                pub fn #prop_ser_value_path(&mut self, #ident: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
+                    let mut wr = BufWriter::new(&mut self.args_scratch);
+                    #ser
+                    let args_bytes = #finish_wr;
+                    Ok((args_bytes, #path))
+                }
+
+                #[inline]
+                pub fn #prop_path(&self) -> #path_ty {
+                    #path
+                }
+
+                #[inline]
+                pub fn #prop_des_value(value_bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
+                    let mut rd = BufReader::new(value_bytes);
+                    #des
+                    Ok(value)
+                }
+            }
+        }
         ApiItemKind::Stream {
             ident,
             ty: _,

@@ -27,7 +27,10 @@ pub enum ApiItemKind {
         args: Vec<Argument>,
         return_type: Option<Type>,
     },
-    Property,
+    Property {
+        ident: Ident,
+        ty: Type,
+    },
     Stream {
         ident: Ident,
         ty: Type,

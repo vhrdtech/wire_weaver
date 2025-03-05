@@ -59,6 +59,24 @@ impl State {
         }
     }
 
+    fn register_prune_next_seq(
+        &mut self,
+        timeout: Option<Duration>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
+    ) -> SeqTy {
+        if let Some(done_tx) = done_tx {
+            let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
+            let prune_at = Instant::now() + timeout;
+            self.response_map
+                .insert(self.request_id, (done_tx, prune_at));
+            let seq = self.request_id;
+            self.increment_request_id();
+            seq
+        } else {
+            0
+        }
+    }
+
     fn cancel_all_requests(&mut self) {
         for (_request_id, (tx, _)) in self.response_map.drain() {
             let _ = tx.send(Err(Error::Disconnected));
@@ -228,7 +246,9 @@ async fn wait_for_connection_and_queue_commands(
                 state.exit_on_error = true;
                 return Err(());
             }
-            Command::SendCall { done_tx, .. } => {
+            Command::SendCall { done_tx, .. }
+            | Command::SendRead { done_tx, .. }
+            | Command::SendWrite { done_tx, .. } => {
                 if let Some(tx) = done_tx {
                     let _ = tx.send(Err(Error::Disconnected));
                 }
@@ -320,13 +340,18 @@ async fn handle_message(
             trace!("event: {event:?}");
             match event.result {
                 Ok(event_kind) => match event_kind {
-                    EventKind::ReturnValue { data } => {
+                    EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
                         if let Some((done_tx, _)) = state.response_map.remove(&event.seq) {
                             let r = data
                                 .byte_slice()
                                 .map(|b| b.to_vec())
                                 .map_err(|_| Error::ByteSliceReadFailed);
                             let _ = done_tx.send(r);
+                        }
+                    }
+                    EventKind::Written => {
+                        if let Some((done_tx, _)) = state.response_map.remove(&event.seq) {
+                            let _ = done_tx.send(Ok(Vec::new()));
                         }
                     }
                     EventKind::StreamUpdate { path, data } => {
@@ -440,19 +465,8 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending call to {path:?} {args_bytes:02x?}");
-            let seq = if let Some(done_tx) = done_tx {
-                let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
-                let prune_at = Instant::now() + timeout;
-                state
-                    .response_map
-                    .insert(state.request_id, (done_tx, prune_at));
-                let seq = state.request_id;
-                state.increment_request_id();
-                seq
-            } else {
-                0
-            };
+            trace!("sending call to {path:?}");
+            let seq = state.register_prune_next_seq(timeout, done_tx);
             let request = crate::ww::no_alloc_client::client_server_v0_1::Request {
                 seq,
                 path: RefVec::Slice {
@@ -460,24 +474,47 @@ async fn handle_command(
                     element_size: ElementSize::UnsizedSelfDescribing,
                 },
                 kind: RequestKind::Call {
-                    args: RefVec::Slice {
-                        slice: &args_bytes,
-                        element_size: ElementSize::Sized { size_bits: 8 },
-                    },
+                    args: RefVec::new_byte_slice(&args_bytes),
                 },
             };
-
-            let mut wr = BufWriter::new(scratch);
-            request.ser_shrink_wrap(&mut wr)?;
-            let request_bytes = wr.finish_and_take()?.to_vec();
-
-            link.send_message(&request_bytes).await?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
-            if link.is_tx_queue_empty() {
-                state.packet_started_instant = None;
-            } else {
-                state.packet_started_instant = Some(Instant::now());
-            }
-            link.force_send().await?; // TODO: force send on timer
+            serialize_request_send(request, link, state, scratch).await?;
+        }
+        Command::SendWrite {
+            value_bytes,
+            path,
+            timeout,
+            done_tx,
+        } => {
+            trace!("sending write to {path:?}");
+            let seq = state.register_prune_next_seq(timeout, done_tx);
+            let request = crate::ww::no_alloc_client::client_server_v0_1::Request {
+                seq,
+                path: RefVec::Slice {
+                    slice: &path,
+                    element_size: ElementSize::UnsizedSelfDescribing,
+                },
+                kind: RequestKind::Write {
+                    data: RefVec::new_byte_slice(&value_bytes),
+                },
+            };
+            serialize_request_send(request, link, state, scratch).await?;
+        }
+        Command::SendRead {
+            path,
+            timeout,
+            done_tx,
+        } => {
+            trace!("sending read to {path:?}");
+            let seq = state.register_prune_next_seq(timeout, done_tx);
+            let request = crate::ww::no_alloc_client::client_server_v0_1::Request {
+                seq,
+                path: RefVec::Slice {
+                    slice: &path,
+                    element_size: ElementSize::UnsizedSelfDescribing,
+                },
+                kind: RequestKind::Read,
+            };
+            serialize_request_send(request, link, state, scratch).await?;
         }
         Command::Subscribe {
             path,
@@ -487,4 +524,24 @@ async fn handle_command(
         }
     }
     Ok(EventLoopSpinResult::Continue)
+}
+
+async fn serialize_request_send(
+    request: crate::ww::no_alloc_client::client_server_v0_1::Request<'_>,
+    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    state: &mut State,
+    scratch: &mut [u8],
+) -> Result<(), Error> {
+    let mut wr = BufWriter::new(scratch);
+    request.ser_shrink_wrap(&mut wr)?;
+    let request_bytes = wr.finish_and_take()?.to_vec();
+
+    link.send_message(&request_bytes).await?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
+    if link.is_tx_queue_empty() {
+        state.packet_started_instant = None;
+    } else {
+        state.packet_started_instant = Some(Instant::now());
+    }
+    link.force_send().await?; // TODO: force send on timer
+    Ok(())
 }

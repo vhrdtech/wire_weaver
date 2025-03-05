@@ -48,6 +48,18 @@ pub enum Command {
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     },
+    SendWrite {
+        value_bytes: Vec<u8>,
+        path: Vec<Nib16>,
+        timeout: Option<Duration>,
+        // Vec is always empty here, but allows for common code
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
+    },
+    SendRead {
+        path: Vec<Nib16>,
+        timeout: Option<Duration>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
+    },
     // SendFrame {
     //     frame: (),
     //     done_tx: oneshot::Sender<()>,

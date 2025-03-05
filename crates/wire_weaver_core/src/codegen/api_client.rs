@@ -163,7 +163,7 @@ fn ser_args(
             let ident: proc_macro2::Ident = (&arg.ident).into();
             ident
         });
-        let tys = args.iter().map(|arg| arg.ty.def(no_alloc));
+        let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
         let args_list = quote! { #(#idents: #tys),* };
         (args_ser, args_list, quote! { args_bytes })
     }

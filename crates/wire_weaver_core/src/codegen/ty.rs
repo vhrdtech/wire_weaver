@@ -118,6 +118,38 @@ impl Type {
         }
     }
 
+    pub(crate) fn arg_pos_def(&self, no_alloc: bool) -> TokenStream {
+        match self {
+            Type::String => {
+                if no_alloc {
+                    quote! { &str }
+                } else {
+                    quote! { String }
+                }
+            }
+            Type::Vec(layout) => match layout {
+                Layout::Builtin(inner_ty) => {
+                    let inner_ty = inner_ty.def(no_alloc);
+                    if no_alloc {
+                        quote! { RefVec<'_, #inner_ty> }
+                    } else {
+                        quote! { Vec<#inner_ty> }
+                    }
+                }
+                Layout::Option(_) => unimplemented!(),
+                Layout::Result(_) => unimplemented!(),
+            },
+            Type::Unsized(path, is_lifetime) | Type::Sized(path, is_lifetime) => {
+                if *is_lifetime && no_alloc {
+                    quote! { #path<'_> }
+                } else {
+                    quote! { #path }
+                }
+            }
+            _ => self.def(no_alloc),
+        }
+    }
+
     pub(crate) fn buf_write(
         &self,
         field_path: FieldPath,

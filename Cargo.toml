@@ -12,9 +12,12 @@ proc-macro2 = "1.0"
 [workspace]
 resolver = "2"
 members = [
-    "crates/*",
-    "examples/*",
-    "tests"
+    "wire_weaver",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "shrink_wrap",
+    #    "examples/*",
+    #    "tests"
 ]
 
 [patch.crates-io]

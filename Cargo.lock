@@ -9,14 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 
 [[package]]
-name = "api_hello_world"
-version = "0.4.0"
-dependencies = [
- "shrink_wrap",
- "wire_weaver",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -109,14 +101,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "hello_world"
-version = "0.4.0"
-dependencies = [
- "shrink_wrap",
- "wire_weaver",
-]
 
 [[package]]
 name = "ident_case"
@@ -268,13 +252,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tests"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
 ]
 
 [[package]]

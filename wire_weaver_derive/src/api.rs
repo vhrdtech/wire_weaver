@@ -200,7 +200,7 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
     //         path: path.to_str().unwrap().to_owned(),
     //     })
     //     .expect("client_server_v0_1.ww must exist");
-    let api_model_bytes = include_bytes!("../../../proto/client_server_v0_1.ww");
+    let api_model_bytes = include_bytes!("../../proto/client_server_v0_1.ww");
     transform
         .load_and_push(Source::String(
             std::str::from_utf8(api_model_bytes).unwrap().to_string(),

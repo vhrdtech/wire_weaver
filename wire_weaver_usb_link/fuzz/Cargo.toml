@@ -1,0 +1,25 @@
+[package]
+name = "wire_weaver_usb_common-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+#arbitrary = { version = "1", features = ["derive"] }
+worst-executor = "0.1.1"
+shrink_wrap = { path = "../../wire_weaver/crates/shrink_wrap", default-features = false }
+crc = "3.2"
+
+[dependencies.wire_weaver_usb_common]
+path = ".."
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+bench = false

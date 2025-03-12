@@ -18,9 +18,6 @@ pub fn server_dispatcher(
     let level_matchers = level_matchers(api_level, no_alloc);
     let ser_event = ser_event(no_alloc);
     let stream_send_methods = stream_ser_methods(api_level, no_alloc);
-    // let ser_heartbeat = ser_heartbeat(api_model_location);
-    let err_not_implemented = err_to_caller("OperationNotImplemented");
-    let err_not_supported = err_to_caller("OperationNotSupported");
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
     } else {
@@ -44,29 +41,50 @@ pub fn server_dispatcher(
         #additional_use
 
         impl Context {
-            pub async fn process_request(
-                &mut self,
+            /// Returns an Error only if request deserialization or error serialization failed.
+            /// If there are any other errors, they are returned to the remote caller.
+            pub async fn process_request<'a>(
+                &'a mut self,
                 bytes: &[u8],
+                error_scratch: &'a mut [u8]
             ) -> Result<&[u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
+
+                match self.process_request_inner(&request).await {
+                    Ok(response_bytes) => Ok(response_bytes),
+                    Err(e) => {
+                        let mut wr = BufWriter::new(error_scratch);
+                        let event = Event {
+                            seq: request.seq,
+                            result: Err(e)
+                        };
+                        event.ser_shrink_wrap(&mut wr)?;
+                        Ok(wr.finish_and_take()?)
+                    }
+                }
+            }
+
+            async fn process_request_inner(
+                &mut self,
+                request: &Request<'_>,
+            ) -> Result<&[u8], Error> {
                 let mut path_iter = request.path.iter();
                 match path_iter.next() {
                     #level_matchers
                     None => {
                         match request.kind {
-                            RequestKind::Version => { #err_not_implemented },
+                            RequestKind::Version => { Err(Error::OperationNotImplemented) },
                             // RequestKind::Heartbeat => {
                             //     Err(Error::Unimplemented)
                             // },
-                            _ => { #err_not_supported },
+                            _ => { Err(Error::OperationNotSupported) },
                         }
                     }
                 }
             }
 
             #ser_event
-            // #ser_heartbeat
         }
 
         #stream_send_methods
@@ -84,23 +102,20 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         .items
         .iter()
         .map(|item| level_matcher(&item.kind, no_alloc));
-    let err_bad_path = err_to_caller("BadPath");
     let check_err_on_no_alloc = if no_alloc {
-        quote! { id?.0 }
+        quote! { id.map_err(|_| Error::PathDesFailed)?.0 }
     } else {
         quote! { id.0 }
     };
     quote! {
         Some(id) => match #check_err_on_no_alloc {
             #(#ids => { #handlers } ),*
-            _ => { #err_bad_path }
+            _ => { Err(Error::BadPath) }
         }
     }
 }
 
 fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
-    let err_op_not_supported = err_to_caller("OperationNotSupported");
-    let err_not_implemented = err_to_caller("OperationNotImplemented");
     match kind {
         ApiItemKind::Method {
             ident,
@@ -142,7 +157,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                 quote! {
                     let mut wr = BufWriter::new(&mut self.output_scratch);
                     #ser_output
-                    let output_bytes = wr.finish_and_take()?;
+                    let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
 
                     let mut event_wr = BufWriter::new(&mut self.event_scratch);
                     let event = Event {
@@ -152,11 +167,11 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                         })
                     };
                     event.ser_shrink_wrap(&mut event_wr)?;
-                    Ok(event_wr.finish_and_take()?)
+                    Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
                 }
             } else {
                 quote! {
-                    Ok(self.ser_unit_return_event(request.seq)?)
+                    Ok(self.ser_unit_return_event(request.seq).map_err(|_| Error::ResponseSerFailed)?)
                 }
             };
 
@@ -168,10 +183,10 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                         #ser_output_or_unit
                     }
                     RequestKind::Introspect => {
-                        #err_not_implemented
+                        Err(Error::OperationNotImplemented)
                     }
                     _ => {
-                        #err_not_implemented
+                        Err(Error::OperationNotImplemented)
                     }
                 }
             }
@@ -182,11 +197,16 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
             ty.buf_read(
                 proc_macro2::Ident::new("value", Span::call_site()),
                 no_alloc,
-                quote! { ? },
+                quote! { .map_err(|_| Error::PropertyDesFailed)? },
                 &mut des,
             );
             let mut ser = TokenStream::new();
-            ty.buf_write(FieldPath::Value(quote! { self.#ident }), no_alloc, &mut ser);
+            ty.buf_write(
+                FieldPath::Value(quote! { self.#ident }),
+                no_alloc,
+                quote! { .map_err(|_| Error::ResponseSerFailed)? },
+                &mut ser,
+            );
             let on_property_changed = Ident::new(format!("on_{}_changed", ident.sym));
             quote! {
                 match &request.kind {
@@ -199,30 +219,31 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                             self.#on_property_changed().await;
                         }
                         if request.seq == 0 {
-                            return Ok(&[]);
+                            Ok(&[])
                         } else {
-                           let mut event_wr = BufWriter::new(&mut self.event_scratch);
-                            let event = Event { seq: request.seq, result: Ok(EventKind::Written) };
-                            event.ser_shrink_wrap(&mut event_wr)?;
-                            Ok(event_wr.finish_and_take()?)
+                            Ok(Self::ser_ok_event(&mut self.event_scratch, request.seq, EventKind::Written).map_err(|_| Error::ResponseSerFailed)?)
                         }
                     }
                     RequestKind::Read => {
                         let mut wr = BufWriter::new(&mut self.output_scratch);
                         #ser
-                        let output_bytes = wr.finish_and_take()?;
-
-                        let mut event_wr = BufWriter::new(&mut self.event_scratch);
-                        let event = Event {
-                            seq: request.seq,
-                            result: Ok(EventKind::ReadValue {
+                        let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
+                        let kind = EventKind::ReadValue {
                                 data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
-                            })
-                        };
-                        event.ser_shrink_wrap(&mut event_wr)?;
-                        Ok(event_wr.finish_and_take()?)
+                            };
+                        Ok(Self::ser_ok_event(&mut self.event_scratch, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
+
+                        // let mut event_wr = BufWriter::new(&mut self.event_scratch);
+                        // let event = Event {
+                        //     seq: request.seq,
+                        //     result: Ok(EventKind::ReadValue {
+                        //         data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                        //     })
+                        // };
+                        // event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
+                        // Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
                     }
-                    _ => { #err_op_not_supported }
+                    _ => { Err(Error::OperationNotSupported) }
                 }
             }
         }
@@ -234,22 +255,22 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
             let specific_ops = if *is_up {
                 quote! {
                     RequestKind::ChangeRate { shaper_config: _ } => {
-                        #err_not_implemented
+                        Err(Error::OperationNotImplemented)
                     }
                 }
             } else {
                 quote! {
                     RequestKind::Write { data } => {
-                        #err_not_implemented
+                        Err(Error::OperationNotImplemented)
                     }
                 }
             };
             quote! {
                 match &request.kind {
-                    RequestKind::OpenStream => { #err_not_implemented }
-                    RequestKind::CloseStream => { #err_not_implemented }
+                    RequestKind::OpenStream => { Err(Error::OperationNotImplemented) }
+                    RequestKind::CloseStream => { Err(Error::OperationNotImplemented) }
                     #specific_ops
-                    _ => { #err_op_not_supported }
+                    _ => { Err(Error::OperationNotImplemented) }
                 }
             }
         }
@@ -266,17 +287,12 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
-        let err_args_des_failed = err_to_caller("ArgsDesFailed");
         let get_slice = get_slice(Ident::new("args"), no_alloc);
         let args_des = quote! {
             let args = #get_slice;
             let mut rd = BufReader::new(args);
-            let args: #args_struct_ident = match rd.read(ElementSize::Implied) {
-                Ok(args) => args,
-                Err(_e) => {
-                    return #err_args_des_failed;
-                }
-            };
+            // TODO: Log _e ?
+            let args: #args_struct_ident = rd.read(ElementSize::Implied).map_err(|_e| Error::ArgsDesFailed)?;
         };
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();
@@ -288,13 +304,12 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
 }
 
 fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
-    let err_args_des_failed = err_to_caller("ArgsDesFailed");
     if no_alloc {
         quote! {
             match #ref_vec_or_vec.byte_slice() {
                 Ok(slice) => slice,
                 Err(_e) => {
-                    return #err_args_des_failed;
+                    return Err(Error::ArgsDesFailed);
                 }
             }
         }
@@ -303,6 +318,7 @@ fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
     }
 }
 
+/// generates ser_unit_return_event(seq)
 fn ser_event(no_alloc: bool) -> TokenStream {
     let future_compatible_unit_return = if no_alloc {
         quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
@@ -310,8 +326,8 @@ fn ser_event(no_alloc: bool) -> TokenStream {
         quote! { vec![0] }
     };
     quote! {
-        pub fn ser_ok_event(&mut self, seq: u16, kind: EventKind) -> Result<&[u8], ShrinkWrapError> {
-            let mut wr = BufWriter::new(&mut self.event_scratch);
+        fn ser_ok_event<'b>(scratch: &'b mut [u8], seq: u16, kind: EventKind) -> Result<&'b [u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(scratch);
             let event = Event {
                 seq,
                 result: Ok(kind)
@@ -320,7 +336,7 @@ fn ser_event(no_alloc: bool) -> TokenStream {
             Ok(wr.finish_and_take()?)
         }
 
-        pub fn ser_err_event(&mut self, seq: u16, error: Error) -> Result<&[u8], ShrinkWrapError> {
+        fn ser_err_event(&mut self, seq: u16, error: Error) -> Result<&[u8], ShrinkWrapError> {
             let mut wr = BufWriter::new(&mut self.event_scratch);
             let event = Event {
                 seq,
@@ -330,7 +346,7 @@ fn ser_event(no_alloc: bool) -> TokenStream {
             Ok(wr.finish_and_take()?)
         }
 
-        pub fn ser_unit_return_event(&mut self, seq: u16) -> Result<&[u8], ShrinkWrapError> {
+        fn ser_unit_return_event(&mut self, seq: u16) -> Result<&[u8], ShrinkWrapError> {
             if seq == 0 {
                 return Ok(&[]);
             }
@@ -418,11 +434,4 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         });
     }
     ts
-}
-
-fn err_to_caller(err: &str) -> TokenStream {
-    let err = proc_macro2::Ident::new(err, Span::call_site());
-    quote! {
-        Ok(self.ser_err_event(request.seq, Error::#err)?)
-    }
 }

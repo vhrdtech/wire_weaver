@@ -106,7 +106,12 @@ fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
         ApiItemKind::Property { ident, ty } => {
             let mut ser = TokenStream::new();
             let ty_def = ty.arg_pos_def(no_alloc);
-            ty.buf_write(FieldPath::Value(quote! { #ident }), no_alloc, &mut ser);
+            ty.buf_write(
+                FieldPath::Value(quote! { #ident }),
+                no_alloc,
+                quote! { ? },
+                &mut ser,
+            );
             let prop_ser_value_path = Ident::new(format!("{}_ser_value_path", ident.sym));
             let prop_path = Ident::new(format!("{}_path", ident.sym));
             let prop_des_value = Ident::new(format!("{}_des_value", ident.sym));

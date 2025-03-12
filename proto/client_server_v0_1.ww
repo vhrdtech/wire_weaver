@@ -79,6 +79,9 @@ enum Error {
     BadIndex,
     /// Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
     ArgsDesFailed,
+    PathDesFailed,
+    PropertyDesFailed,
+    ResponseSerFailed,
     /// Request is good, but requested operation is not yet implemented
     OperationNotImplemented,
 }

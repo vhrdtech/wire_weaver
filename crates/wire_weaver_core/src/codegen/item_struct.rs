@@ -81,7 +81,9 @@ impl<'a> ToTokens for CGStructSer<'a> {
             } else {
                 FieldPath::Value(quote! {self.#field_name})
             };
-            struct_field.ty.buf_write(field_path, self.no_alloc, tokens);
+            struct_field
+                .ty
+                .buf_write(field_path, self.no_alloc, quote! { ? }, tokens);
         }
         tokens.append_all(quote! {
             Ok(())

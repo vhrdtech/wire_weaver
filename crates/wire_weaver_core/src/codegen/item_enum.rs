@@ -162,7 +162,9 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                         let field_name: Ident = (&field.ident).into();
                         fields_names.push(field_name.clone());
                         let field_path = FieldPath::Ref(quote!(#field_name));
-                        field.ty.buf_write(field_path, self.no_alloc, &mut ser);
+                        field
+                            .ty
+                            .buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();
                     ser_data_variants.append_all(
@@ -176,7 +178,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                         let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
                         fields_numbers.push(field_name.clone());
                         let field_path = FieldPath::Ref(quote!(#field_name));
-                        ty.buf_write(field_path, self.no_alloc, &mut ser);
+                        ty.buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();
                     ser_data_variants.append_all(

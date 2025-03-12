@@ -154,6 +154,7 @@ impl Type {
         &self,
         field_path: FieldPath,
         no_alloc: bool,
+        handle_eob: TokenStream,
         tokens: &mut TokenStream,
     ) {
         let write_fn = match self {
@@ -163,7 +164,7 @@ impl Type {
             Type::U16 => "write_u16",
             Type::Nib16 => {
                 let field_path = field_path.by_ref();
-                tokens.append_all(quote! { wr.write(#field_path)?; });
+                tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 return;
             }
             Type::U32 => "write_u32",
@@ -190,13 +191,16 @@ impl Type {
                     "write_string"
                 } else {
                     let field_path = field_path.by_ref();
-                    tokens.append_all(quote! { wr.write_string(#field_path.as_str())?; });
+                    tokens
+                        .append_all(quote! { wr.write_string(#field_path.as_str()) #handle_eob; });
                     return;
                 }
             }
             Type::IsSome(option_field) => {
                 let object_path = field_path.by_value();
-                tokens.append_all(quote! { wr.write_bool(#object_path.#option_field.is_some())?; });
+                tokens.append_all(
+                    quote! { wr.write_bool(#object_path.#option_field.is_some()) #handle_eob; },
+                );
                 return;
             }
             Type::Result(_flag_ident, _ok_err_ty) => {
@@ -204,10 +208,10 @@ impl Type {
                 tokens.append_all(quote! {
                     match #field_path {
                         Ok(v) => {
-                            wr.write(v)?;
+                            wr.write(v) #handle_eob;
                         }
                         Err(e) => {
-                            wr.write(e)?;
+                            wr.write(e) #handle_eob;
                         }
                     }
                 });
@@ -217,14 +221,16 @@ impl Type {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! {
                     if let Some(v) = #field_path {
-                        wr.write(v)?;
+                        wr.write(v) #handle_eob;
                     }
                 });
                 return;
             }
             Type::IsOk(result_field) => {
                 let object_path = field_path.by_value();
-                tokens.append_all(quote! { wr.write_bool(#object_path.#result_field.is_ok())?; });
+                tokens.append_all(
+                    quote! { wr.write_bool(#object_path.#result_field.is_ok()) #handle_eob; },
+                );
                 return;
             }
             Type::ULeb32 => unimplemented!(),
@@ -241,10 +247,12 @@ impl Type {
                         let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
                         if is_vec_u8 && no_alloc {
                             let field_path = field_path.as_provided();
-                            tokens.append_all(quote! { #field_path.ser_shrink_wrap_vec_u8(wr)?; });
+                            tokens.append_all(
+                                quote! { #field_path.ser_shrink_wrap_vec_u8(wr) #handle_eob; },
+                            );
                         } else {
                             let field_path = field_path.by_ref();
-                            tokens.append_all(quote! { wr.write(#field_path)?; });
+                            tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                         }
                     }
                     Layout::Option(_) => unimplemented!(),
@@ -255,7 +263,7 @@ impl Type {
             // Type::User(_) => unimplemented!(),
             Type::Sized(_, _) => {
                 let field_path = field_path.by_ref();
-                tokens.append_all(quote! { wr.write(#field_path)?; });
+                tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 return;
             }
             Type::Unsized(_path, _) => {
@@ -263,11 +271,11 @@ impl Type {
                 tokens.append_all(quote! {
                     wr.align_byte();
                     // reserve one size slot
-                    let size_slot_pos = wr.write_u16_rev(0)?;
+                    let size_slot_pos = wr.write_u16_rev(0) #handle_eob;
                     let unsized_start_bytes = wr.pos().0;
-                    wr.write(#field_path)?;
+                    wr.write(#field_path) #handle_eob;
                     // encode Type's internal sizes if any
-                    wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos)?;
+                    wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos) #handle_eob;
                     // e.g. plain enum, only one nib discriminant is written => need to align
                     wr.align_byte();
                     let size_bytes = wr.pos().0 - unsized_start_bytes;
@@ -275,14 +283,14 @@ impl Type {
                         return Err(ShrinkWrapError::ItemTooLong);
                     };
                     // write Unsized size
-                    wr.update_u16_rev(size_slot_pos, size_bytes)?;
+                    wr.update_u16_rev(size_slot_pos, size_bytes) #handle_eob;
                 });
                 return;
             }
         };
         let write_fn = Ident::new(write_fn, Span::call_site());
         let field_path = field_path.by_value();
-        tokens.append_all(quote! { wr.#write_fn(#field_path)?; });
+        tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
     }
 
     pub(crate) fn buf_read(

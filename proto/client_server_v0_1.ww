@@ -1,0 +1,95 @@
+const PROTOCOL_GID: u32 = 1;
+
+struct Request {
+    /// If 0 - no answer is expected
+    seq: u16,
+    path: Vec<nib16>,
+    kind: RequestKind,
+}
+
+enum RequestKind {
+    Version,
+    Call {
+        args: Vec<u8>,
+    },
+    // CallTraitMethod { trait_gid: u32, resource: u8, args: Vec<u8> },
+    /// Read property
+    Read,
+    // ReadDefault,
+    // ReadMany,
+    /// Write property or stream down
+    Write {
+        data: Vec<u8>,
+    },
+    // WriteDefault,
+    // WriteMany,
+    OpenStream,
+    CloseStream,
+    ChangeRate {
+        shaper_config: ShaperConfig,
+    },
+    /// Subscribe to property changes
+    Subscribe,
+    /// Unsubscribe from property changes
+    Unsubscribe,
+    // Borrow,
+    // Release,
+    Introspect,
+    // Heartbeat,
+}
+
+struct Event {
+    seq: u16,
+    // path
+    result: Result<EventKind, Error>,
+}
+
+enum EventKind {
+    Version { protocol_id: u32, version: Version },
+    ReturnValue { data: Vec<u8> },
+    ReadValue { data: Vec<u8> },
+    Written,
+    StreamOpened,
+    // If stream is a sequence of bytes, can be used to delimit frames or send other data out of band
+    // StreamDelimiter { path: Vec<nib16>, user_data: u8 },
+    // TODO: Add Option<SizeHint>
+    StreamUpdate { path: Vec<nib16>, data: Vec<u8> },
+    StreamClosed,
+    Subscribed,
+    RateChanged,
+    Unsubscribed,
+    // Borrowed,
+    // Released,
+    Introspect { ww_bytes: Vec<u8> },
+    // Heartbeat { data: Vec<u8> },
+}
+
+enum Error {
+    // Tried to unsubscribe twice from a resource
+    // AlreadyUnsubscribed,
+    // Tried to open a stream twice
+    // StreamIsAlreadyOpen,
+    // Tried to close a stream twice
+    // StreamIsAlreadyClosed,
+    /// Sent a RequestKind that doesn't make sense for a particular resource
+    OperationNotSupported,
+    /// Tried to access a path that doesn't exist
+    BadPath,
+    /// Tried to access a resource array using out of bounds index
+    BadIndex,
+    /// Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
+    ArgsDesFailed,
+    /// Request is good, but requested operation is not yet implemented
+    OperationNotImplemented,
+}
+
+struct Version {
+    major: nib16,
+    minor: nib16,
+    patch: nib16,
+}
+
+enum ShaperConfig {
+    NoLimit,
+    MaxRate { byte_per_s: u32 },
+}

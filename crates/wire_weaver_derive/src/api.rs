@@ -44,7 +44,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let mut api_mod: ItemMod = syn::parse2(item).unwrap();
+    let mut api_mod: ItemMod = syn::parse2(item).expect("mod parse failed, probably syntax error");
     let api_mod_items = if let Some((_, items)) = &mut api_mod.content {
         items
     } else {
@@ -57,13 +57,15 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>();
 
-    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let manifest_dir = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
+    );
     if let Some(ww) = args.ww {
         let ww_path = if ww.starts_with("..") || ww.starts_with(".") {
             RelativePath::new(ww.as_str())
                 .to_path(&manifest_dir)
                 .to_str()
-                .unwrap()
+                .expect("path to user ww file is not valid Unicode")
                 .to_owned()
         } else {
             ww.clone()
@@ -73,9 +75,11 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         let mut transform = Transform::new();
         transform
             .load_and_push(Source::File { path: ww_path })
-            .unwrap();
+            .expect("ww load failed");
 
-        let cx = transform.transform(&add_derives).unwrap();
+        let cx = transform
+            .transform(&add_derives)
+            .expect("ww transform failed");
         for (source, messages) in transform.messages() {
             for message in messages.messages() {
                 println!("cargo:warning={:?} {:?}", source, message);
@@ -186,18 +190,25 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
 
 fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> TokenStream {
     let mut transform = Transform::new();
-    // TODO: use registry to fetch it
-    let registry_dir =
-        std::env::var("WW_REGISTRY_DIR").expect("WW_REGISTRY_DIR env var must be set");
-    let mut path = PathBuf::from(registry_dir);
-    path.extend(&["client_server_v0_1", "client_server.ww"]);
+    // let mut path = PathBuf::from(
+    //     std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
+    // );
+    // path.extend(&["proto", "client_server_v0_1.ww"]);
+    // transform
+    //     .load_and_push(Source::File {
+    //         path: path.to_str().unwrap().to_owned(),
+    //     })
+    //     .expect("client_server_v0_1.ww must exist");
+    let api_model_bytes = include_bytes!("../../../proto/client_server_v0_1.ww");
     transform
-        .load_and_push(Source::File {
-            path: path.to_str().unwrap().to_owned(),
-        })
+        .load_and_push(Source::String(
+            std::str::from_utf8(api_model_bytes).unwrap().to_string(),
+        ))
         .unwrap();
 
-    let cx = transform.transform(add_derives).unwrap();
+    let cx = transform
+        .transform(add_derives)
+        .expect("internal error: client_server_v0_1 transform failed");
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             println!("cargo:warning={:?} {:?}", source, message);

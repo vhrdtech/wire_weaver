@@ -1,5 +1,6 @@
 use ident::Ident;
 use path::Path;
+use std::fmt::{Debug, Formatter};
 use strum_macros::EnumString;
 use value::Value;
 
@@ -31,13 +32,14 @@ pub struct Version {
     pub patch: u32,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Source {
     File {
         /// Path relative to project root.
         /// Project root itself is known to executable through other mechanism.
         path: String,
     },
+    String(String),
     Registry {
         collection: String,
         version: Version,
@@ -46,6 +48,17 @@ pub enum Source {
         url: String,
         sha: String,
     },
+}
+
+impl Debug for Source {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::File { path } => write!(f, "Source::File(path={})", path),
+            Source::String(_) => write!(f, "Source::String"),
+            Source::Registry { .. } => unimplemented!(),
+            Source::Git { .. } => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug)]

@@ -172,6 +172,7 @@ impl Transform {
             Source::File { path } => {
                 std::fs::read_to_string(path.as_str()).map_err(|e| format!("{path} {e:?}"))?
             }
+            Source::String(contents) => contents.clone(),
             Source::Registry { .. } => unimplemented!(),
             Source::Git { .. } => unimplemented!(),
         };

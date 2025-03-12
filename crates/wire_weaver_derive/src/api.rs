@@ -149,7 +149,8 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        let items: syn::File = syn::parse2(codegen_ts).unwrap();
+        let items: syn::File =
+            syn::parse2(codegen_ts).expect("internal: codegen_ts contains errors");
         for item in items.items {
             api_mod_items.push(item);
         }
@@ -163,7 +164,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
             &add_derives,
             args.no_alloc,
         ))
-        .unwrap();
+        .expect("internal: api_model contains errors");
         api_mod_items.push(syn::Item::Mod(api_model));
     }
 

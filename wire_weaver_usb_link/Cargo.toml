@@ -8,8 +8,8 @@ description = "WireWeaver over USB implementation"
 [dependencies]
 crc = "3"
 strum_macros = "0.26"
-wire_weaver_derive = { path = "../wire_weaver/crates/wire_weaver_derive" }
-shrink_wrap = { path = "../wire_weaver/crates/shrink_wrap", default-features = false }
+wire_weaver_derive = { path = "../wire_weaver_derive" }
+shrink_wrap = { path = "../shrink_wrap", default-features = false }
 defmt = { version = "0.3", optional = true }
 
 [features]

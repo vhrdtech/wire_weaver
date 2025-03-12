@@ -16,6 +16,9 @@ members = [
     "wire_weaver_core",
     "wire_weaver_derive",
     "shrink_wrap",
+    "wire_weaver_usb",
+    "wire_weaver_usb_link",
+    "wire_weaver_usb_embassy",
     #    "examples/*",
     #    "tests"
 ]

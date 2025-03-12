@@ -21,6 +21,7 @@ members = [
 ]
 
 exclude = [
+    "wire_weaver_tool"
 ]
 
 [patch.crates-io]

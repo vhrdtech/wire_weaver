@@ -1,0 +1,14 @@
+[package]
+name = "wire_weaver_usb"
+edition = "2021"
+authors = ["Roman Isaikin <roman@vhrd.tech>"]
+description = ""
+
+[dependencies]
+nusb = "0.1"
+tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
+tracing = "0.1"
+wire_weaver = { path = "../wire_weaver/crates/wire_weaver" }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["host"] }
+futures-lite = "2.6"
+thiserror = "2.0"

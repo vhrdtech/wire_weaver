@@ -2,6 +2,7 @@
 version = "0.4.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
+edition = "2024"
 
 [workspace.dependencies]
 syn = { version = "2.0", features = ["full", "extra-traits"] }
@@ -18,12 +19,13 @@ members = [
     "shrink_wrap",
     "wire_weaver_usb",
     "wire_weaver_usb_link",
-    "wire_weaver_usb_embassy",
+    "wire_weaver_net",
     #    "examples/*",
     #    "tests"
 ]
 
 exclude = [
+    "wire_weaver_usb_embassy", # mutually exclusive features
     "wire_weaver_tool"
 ]
 

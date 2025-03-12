@@ -35,19 +35,24 @@
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/wfs-serde/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/wfs/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/vhl-stdlib-rust/xpi-node/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ww_ast/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ww_codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/hello_world/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests/wire_format_compatibility/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/shrink_wrap/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/api_hello_world/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_usb_embassy/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_derive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wire_weaver_tool/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_derive/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_net/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_tool/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_embassy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_link/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

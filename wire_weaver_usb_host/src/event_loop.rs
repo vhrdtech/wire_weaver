@@ -15,6 +15,9 @@ use wire_weaver::shrink_wrap::vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, ElementSize, SerializeShrinkWrap};
 use wire_weaver_usb_link::{Error as LinkError, MessageKind, ProtocolInfo, WireWeaverUsbLink};
 
+type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
+type StreamUpdateSender = mpsc::UnboundedSender<Result<Vec<u8>, Error>>;
+
 struct State {
     exit_on_error: bool,
     request_id: SeqTy,
@@ -24,8 +27,8 @@ struct State {
     connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
-    response_map: HashMap<SeqTy, (oneshot::Sender<Result<Vec<u8>, Error>>, Instant)>,
-    stream_handlers: HashMap<Vec<u16>, mpsc::UnboundedSender<Result<Vec<u8>, Error>>>,
+    response_map: HashMap<SeqTy, (ResponseSender, Instant)>,
+    stream_handlers: HashMap<Vec<u16>, StreamUpdateSender>,
     link_setup_done: bool,
     packet_started_instant: Option<Instant>,
 }
@@ -62,7 +65,7 @@ impl State {
     fn register_prune_next_seq(
         &mut self,
         timeout: Option<Duration>,
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
+        done_tx: Option<ResponseSender>,
     ) -> SeqTy {
         if let Some(done_tx) = done_tx {
             let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
@@ -195,7 +198,7 @@ async fn wait_for_connection_and_queue_commands(
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             // all senders have been dropped
-            debug!("usb worker exiting, because all CanBus instances were dropped");
+            debug!("usb worker exiting, because all command senders were dropped");
             return Err(());
         };
         match cmd {
@@ -533,6 +536,7 @@ async fn handle_command(
     Ok(EventLoopSpinResult::Continue)
 }
 
+// TODO: forward error back to caller instead of exiting from event loop
 async fn serialize_request_send(
     request: crate::ww::no_alloc_client::client_server_v0_1::Request<'_>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,

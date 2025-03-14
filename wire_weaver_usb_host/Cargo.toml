@@ -1,5 +1,5 @@
 [package]
-name = "wire_weaver_usb"
+name = "wire_weaver_usb_host"
 edition = "2024"
 authors = ["Roman Isaikin <roman@vhrd.tech>"]
 description = ""

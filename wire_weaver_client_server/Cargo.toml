@@ -1,0 +1,12 @@
+[package]
+name = "wire_weaver_client_server"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { version = "1", features = ["sync", "time"] }
+thiserror = "2.0"
+tracing = "0.1"
+wire_weaver = { path = "../wire_weaver" }

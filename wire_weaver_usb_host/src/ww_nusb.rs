@@ -1,7 +1,7 @@
 //! Handle packet sending and receiving between nusb and wire_weaver_usb_link
 use crate::IRQ_MAX_PACKET_SIZE;
-use nusb::transfer::{RequestBuffer, TransferError};
 use nusb::Interface;
+use nusb::transfer::{RequestBuffer, TransferError};
 use tracing::{error, trace};
 use wire_weaver_usb_link::{PacketSink, PacketSource};
 

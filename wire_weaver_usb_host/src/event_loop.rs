@@ -1,15 +1,15 @@
 use crate::ww::no_alloc_client::client_server_v0_1::{EventKind, RequestKind};
 use crate::ww_nusb::{Sink, Source};
 use crate::{
-    Command, ConnectionInfo, ConnectionState, Error, OnError, SeqTy, DEFAULT_REQUEST_TIMEOUT,
-    IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE,
+    Command, ConnectionInfo, ConnectionState, DEFAULT_REQUEST_TIMEOUT, Error, IRQ_MAX_PACKET_SIZE,
+    MAX_MESSAGE_SIZE, OnError, SeqTy,
 };
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, ElementSize, SerializeShrinkWrap};
@@ -365,7 +365,9 @@ async fn handle_message(
                             should_drop_handler = tx.send(r).is_err();
                         }
                         if should_drop_handler {
-                            info!("Dropping stream handler with path: {path:?}, because rx end was dropped");
+                            info!(
+                                "Dropping stream handler with path: {path:?}, because rx end was dropped"
+                            );
                             state.stream_handlers.remove(&path);
                         }
                     }
@@ -392,7 +394,10 @@ async fn handle_message(
             client_server_protocol,
             user_protocol,
         }) => {
-            info!("Received DeviceInfo: max_message_len: {}, link_version: {}, client_server: {:?}, user_protocol: {:?}", max_message_len, link_version, client_server_protocol, user_protocol);
+            info!(
+                "Received DeviceInfo: max_message_len: {}, link_version: {}, client_server: {:?}, user_protocol: {:?}",
+                max_message_len, link_version, client_server_protocol, user_protocol
+            );
             // only one version is in use right now, so no need to choose between different client server versions or link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32).await?;
         }
@@ -418,7 +423,9 @@ async fn handle_message(
         }
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
             if state.max_protocol_mismatched_messages > 0 {
-                warn!("Protocols version mismatch, probably old message from previous session or missed packet?");
+                warn!(
+                    "Protocols version mismatch, probably old message from previous session or missed packet?"
+                );
                 state.max_protocol_mismatched_messages -= 1;
             } else {
                 return Err(e.into());

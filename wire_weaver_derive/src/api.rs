@@ -6,7 +6,7 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use pathsearch::find_executable_in_path;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use relative_path::RelativePath;
 use subprocess::{Exec, Redirection};
 use syn::ItemMod;
@@ -23,6 +23,7 @@ struct Args {
     #[darling(default)]
     server: bool,
     no_alloc: bool,
+    use_async: bool,
     #[darling(default)]
     debug_to_file: String,
     #[darling(default)]
@@ -135,6 +136,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         api_level,
                         &api_model_location,
                         args.no_alloc,
+                        args.use_async,
                     );
                     codegen_ts.append_all(ts);
                 }

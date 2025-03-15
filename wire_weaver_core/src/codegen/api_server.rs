@@ -1,11 +1,11 @@
 use convert_case::Casing;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use syn::{Lit, LitInt};
 
+use crate::ast::Type;
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
-use crate::ast::Type;
 use crate::codegen::api_common;
 use crate::codegen::ty::FieldPath;
 
@@ -13,9 +13,10 @@ pub fn server_dispatcher(
     api_level: &ApiLevel,
     api_model_location: &Option<syn::Path>,
     no_alloc: bool,
+    use_async: bool,
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
-    let level_matchers = level_matchers(api_level, no_alloc);
+    let level_matchers = level_matchers(api_level, no_alloc, use_async);
     let ser_event = ser_event(no_alloc);
     let stream_send_methods = stream_ser_methods(api_level, no_alloc);
     let additional_use = if no_alloc {
@@ -30,6 +31,11 @@ pub fn server_dispatcher(
     } else {
         quote! {}
     };
+    let (maybe_async, maybe_await) = if use_async {
+        (quote! { async }, quote! { .await })
+    } else {
+        (quote! {}, quote! {})
+    };
     quote! {
         #args_structs
 
@@ -43,7 +49,7 @@ pub fn server_dispatcher(
         impl Context {
             /// Returns an Error only if request deserialization or error serialization failed.
             /// If there are any other errors, they are returned to the remote caller.
-            pub async fn process_request<'a>(
+            pub #maybe_async fn process_request<'a>(
                 &'a mut self,
                 bytes: &[u8],
                 error_scratch: &'a mut [u8]
@@ -51,7 +57,7 @@ pub fn server_dispatcher(
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
 
-                match self.process_request_inner(&request).await {
+                match self.process_request_inner(&request)#maybe_await {
                     Ok(response_bytes) => Ok(response_bytes),
                     Err(e) => {
                         let mut wr = BufWriter::new(error_scratch);
@@ -65,7 +71,7 @@ pub fn server_dispatcher(
                 }
             }
 
-            async fn process_request_inner(
+            #maybe_async fn process_request_inner(
                 &mut self,
                 request: &Request<'_>,
             ) -> Result<&[u8], Error> {
@@ -91,7 +97,7 @@ pub fn server_dispatcher(
     }
 }
 
-fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
+fn level_matchers(api_level: &ApiLevel, no_alloc: bool, use_async: bool) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
             format!("{}u16", item.id).as_str(),
@@ -101,7 +107,7 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_matcher(&item.kind, no_alloc));
+        .map(|item| level_matcher(&item.kind, no_alloc, use_async));
     let check_err_on_no_alloc = if no_alloc {
         quote! { id.map_err(|_| Error::PathDesFailed)?.0 }
     } else {
@@ -115,7 +121,12 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     }
 }
 
-fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
+fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenStream {
+    let maybe_await = if use_async {
+        quote! { .await }
+    } else {
+        quote! {}
+    };
     match kind {
         ApiItemKind::Method {
             ident,
@@ -127,12 +138,6 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                 quote! { .. }
             } else {
                 quote! { args }
-            };
-            let is_async = true;
-            let maybe_await = if is_async {
-                quote! { .await }
-            } else {
-                quote! {}
             };
 
             let maybe_let_output = if return_type.is_some() {
@@ -216,7 +221,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool) -> TokenStream {
                         #des
                         if self.#ident != value {
                             self.#ident = value;
-                            self.#on_property_changed().await;
+                            self.#on_property_changed()#maybe_await;
                         }
                         if request.seq == 0 {
                             Ok(&[])

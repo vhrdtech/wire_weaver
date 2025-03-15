@@ -1,12 +1,12 @@
 [package]
 name = "wire_weaver_usb_embassy"
+version = "0.4.0"
 edition = "2024"
-version = "0.1.0"
-authors = ["Roman Isaikin <roman@vhrd.tech>"]
-description = "WireWeaver USB class"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+description = "WireWeaver client server protocol on top of USB (device side, embassy on microcontrollers)"
 
 [dependencies]
 embassy-usb = { version = "0.4", features = ["defmt"] }
 embassy-sync = "0.6"
 defmt = "0.3"
-wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["device"] }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device"] }

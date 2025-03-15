@@ -1,8 +1,8 @@
 [package]
 name = "wire_weaver_usb_host"
-edition = "2024"
-authors = ["Roman Isaikin <roman@vhrd.tech>"]
-description = ""
+edition.workspace = true
+authors.workspace = true
+description = "WireWeaver client server protocol on top of USB (host side)"
 
 [dependencies]
 nusb = "0.1"

@@ -1,16 +1,16 @@
 [package]
 name = "wire_weaver_usb_link"
-version = "0.1.0"
-edition = "2024"
-authors = ["Roman Isaikin <roman@vhrd.tech>"]
-description = "WireWeaver over USB implementation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Transport layer on top of USB packets, allowing multiple messages per packet"
 
 [dependencies]
 crc = "3"
-strum_macros = "0.26"
-wire_weaver_derive = { path = "../wire_weaver_derive" }
+strum_macros = { workspace = true }
+defmt = { workspace = true, optional = true }
+wire_weaver = { path = "../wire_weaver" }
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
-defmt = { version = "0.3", optional = true }
 
 [features]
 host = []

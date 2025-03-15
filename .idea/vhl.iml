@@ -48,11 +48,12 @@
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_derive/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_net/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_tool/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_embassy/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_link/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_client_server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_net_host/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_host/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

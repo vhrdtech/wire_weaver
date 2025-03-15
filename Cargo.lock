@@ -485,6 +485,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "strum_macros"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "subprocess"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -810,6 +823,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 name = "wire_weaver"
 version = "0.4.0"
 dependencies = [
+ "defmt",
  "pathsearch",
  "shrink_wrap",
  "subprocess",
@@ -836,7 +850,7 @@ dependencies = [
  "quote",
  "shrink_wrap",
  "strum",
- "strum_macros",
+ "strum_macros 0.26.4",
  "syn 2.0.100",
 ]
 
@@ -880,13 +894,13 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_usb_link"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "crc",
  "defmt",
  "shrink_wrap",
- "strum_macros",
- "wire_weaver_derive",
+ "strum_macros 0.27.1",
+ "wire_weaver",
  "worst-executor",
 ]
 

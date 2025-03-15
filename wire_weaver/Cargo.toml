@@ -8,11 +8,12 @@ description.workspace = true
 [dependencies]
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
 wire_weaver_derive = { path = "../wire_weaver_derive" }
+defmt = { version = "0.3", optional = true }
 
 [features]
 default = ["std"]
 std = ["shrink_wrap/std"]
-defmt = ["shrink_wrap/defmt"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
 defmt-extended = ["shrink_wrap/defmt-extended"]
 tracing-extended = ["shrink_wrap/tracing-extended"]
 

@@ -147,7 +147,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenSt
             };
             let ser_output_or_unit = if let Some(ty) = return_type {
                 let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
-                    quote! { wr.write(&output)?; }
+                    quote! { wr.write(&output).map_err(|_| Error::ResponseSerFailed)?; }
                 } else {
                     let output_struct_name = Ident::new(
                         format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal),
@@ -156,7 +156,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenSt
                         let output = #output_struct_name {
                             output: output
                         };
-                        wr.write(&output)?;
+                        wr.write(&output).map_err(|_| Error::ResponseSerFailed)?;
                     }
                 };
                 quote! {
@@ -171,7 +171,7 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenSt
                             data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
                         })
                     };
-                    event.ser_shrink_wrap(&mut event_wr)?;
+                    event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
                     Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
                 }
             } else {

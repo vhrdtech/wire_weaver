@@ -1,0 +1,8 @@
+method_model = _{ (item ~ ","?)* }
+item = { regex ~ "=" ~ model ~ ("+" ~ model)? }
+regex = { (!("=" | WHITESPACE) ~ ANY)+ }
+model = { immediate | deferred }
+immediate = { "immediate" }
+deferred = { "deferred" }
+
+WHITESPACE = _{ " " | "\t" }

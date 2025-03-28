@@ -8,6 +8,7 @@ use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
 use crate::codegen::api_common;
 use crate::codegen::ty::FieldPath;
+use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 
 pub fn server_dispatcher(
@@ -15,10 +16,12 @@ pub fn server_dispatcher(
     api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     use_async: bool,
+    method_model: &MethodModel,
     property_model: &PropertyModel,
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
-    let level_matchers = level_matchers(api_level, no_alloc, use_async, property_model);
+    let level_matchers =
+        level_matchers(api_level, no_alloc, use_async, method_model, property_model);
     let ser_event = ser_event(no_alloc);
     let stream_send_methods = stream_ser_methods(api_level, no_alloc);
     let additional_use = if no_alloc {
@@ -77,6 +80,9 @@ pub fn server_dispatcher(
                 &mut self,
                 request: &Request<'_>,
             ) -> Result<&[u8], Error> {
+                if matches!(request.kind, RequestKind::Read) && request.seq == 0 {
+                    return Ok(Self::ser_err_event(&mut self.event_scratch, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
+                }
                 let mut path_iter = request.path.iter();
                 match path_iter.next() {
                     #level_matchers
@@ -103,6 +109,7 @@ fn level_matchers(
     api_level: &ApiLevel,
     no_alloc: bool,
     use_async: bool,
+    method_model: &MethodModel,
     property_model: &PropertyModel,
 ) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
@@ -111,10 +118,15 @@ fn level_matchers(
             Span::call_site(),
         ))
     });
-    let handlers = api_level
-        .items
-        .iter()
-        .map(|item| level_matcher(&item.kind, no_alloc, use_async, property_model));
+    let handlers = api_level.items.iter().map(|item| {
+        level_matcher(
+            &item.kind,
+            no_alloc,
+            use_async,
+            method_model,
+            property_model,
+        )
+    });
     let check_err_on_no_alloc = if no_alloc {
         quote! { id.map_err(|_| Error::PathDesFailed)?.0 }
     } else {
@@ -132,6 +144,7 @@ fn level_matcher(
     kind: &ApiItemKind,
     no_alloc: bool,
     use_async: bool,
+    method_model: &MethodModel,
     property_model: &PropertyModel,
 ) -> TokenStream {
     let maybe_await = if use_async {
@@ -156,6 +169,19 @@ fn level_matcher(
                 quote! { let output = }
             } else {
                 quote! {}
+            };
+            let call_and_handle_deferred = match method_model.pick(ident.sym.as_str()).unwrap() {
+                MethodModelKind::Immediate => quote! {
+                    #maybe_let_output self.#ident(#args_list)#maybe_await;
+                },
+                MethodModelKind::Deferred => quote! {
+                    let output = match self.#ident(request.seq, #args_list)#maybe_await {
+                        Some(o) => o,
+                        None => {
+                            return Ok(&[])
+                        }
+                    };
+                },
             };
             let ser_output_or_unit = if let Some(ty) = return_type {
                 let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
@@ -196,8 +222,12 @@ fn level_matcher(
                 match &request.kind {
                     RequestKind::Call { #is_args } => {
                         #args_des
-                        #maybe_let_output self.#ident(#args_list)#maybe_await;
-                        #ser_output_or_unit
+                        #call_and_handle_deferred
+                        if request.seq != 0 {
+                            #ser_output_or_unit
+                        } else {
+                            Ok(&[])
+                        }
                     }
                     RequestKind::Introspect => {
                         Err(Error::OperationNotImplemented)
@@ -379,8 +409,8 @@ fn ser_event(no_alloc: bool) -> TokenStream {
             Ok(wr.finish_and_take()?)
         }
 
-        fn ser_err_event(&mut self, seq: u16, error: Error) -> Result<&[u8], ShrinkWrapError> {
-            let mut wr = BufWriter::new(&mut self.event_scratch);
+        fn ser_err_event<'b>(scratch: &'b mut [u8], seq: u16, error: Error) -> Result<&'b [u8], ShrinkWrapError> {
+            let mut wr = BufWriter::new(scratch);
             let event = Event {
                 seq,
                 result: Err(error)

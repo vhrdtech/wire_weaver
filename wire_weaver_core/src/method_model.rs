@@ -6,44 +6,44 @@ mod private {
     use pest_derive::Parser;
 
     #[derive(Parser)]
-    #[grammar = "grammar/property_model.pest"]
-    pub(super) struct PropertyModelParser;
+    #[grammar = "grammar/method_model.pest"]
+    pub(super) struct MethodModelParser;
 }
+use private::Rule;
 
 #[derive(Default, Debug)]
-pub struct PropertyModel {
-    pub default: Option<PropertyModelKind>,
-    pub items: Vec<PropertyModelItem>,
+pub struct MethodModel {
+    pub default: Option<MethodModelKind>,
+    pub items: Vec<MethodModelItem>,
 }
 
 #[derive(Debug)]
-pub struct PropertyModelItem {
+pub struct MethodModelItem {
     pub regex: Regex,
-    pub model: PropertyModelKind,
+    pub model: MethodModelKind,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum PropertyModelKind {
-    GetSet,
-    ValueOnChanged,
+pub enum MethodModelKind {
+    Immediate,
+    Deferred,
 }
 
-impl PropertyModel {
-    pub fn parse(input: &str) -> Result<PropertyModel, Error> {
-        use private::Rule;
-        let pairs = match private::PropertyModelParser::parse(Rule::property_model, input) {
+impl MethodModel {
+    pub fn parse(input: &str) -> Result<MethodModel, Error> {
+        let pairs = match private::MethodModelParser::parse(Rule::method_model, input) {
             Ok(pairs) => pairs,
             Err(e) => return Err(Error::msg(format!("{e}"))),
         };
 
-        let mut property_model = PropertyModel::default();
+        let mut property_model = MethodModel::default();
         for item in pairs.into_iter() {
             let mut item = item.into_inner();
             let regex = item.next().unwrap().as_str();
             let model = item.next().unwrap().into_inner().next().unwrap();
             let model = match model.as_rule() {
-                Rule::get_set => PropertyModelKind::GetSet,
-                Rule::value_on_changed => PropertyModelKind::ValueOnChanged,
+                Rule::immediate => MethodModelKind::Immediate,
+                Rule::deferred => MethodModelKind::Deferred,
                 _ => unreachable!(),
             };
             if regex == "_" {
@@ -54,17 +54,15 @@ impl PropertyModel {
                 continue;
             }
             let regex = Regex::new(regex)?;
-            property_model
-                .items
-                .push(PropertyModelItem { regex, model });
+            property_model.items.push(MethodModelItem { regex, model });
         }
 
         Ok(property_model)
     }
 
-    pub fn pick(&self, property_path: &str) -> Option<PropertyModelKind> {
+    pub fn pick(&self, method_path: &str) -> Option<MethodModelKind> {
         for item in &self.items {
-            if item.regex.is_match(property_path) {
+            if item.regex.is_match(method_path) {
                 return Some(item.model);
             }
         }
@@ -74,11 +72,11 @@ impl PropertyModel {
 
 #[cfg(test)]
 mod tests {
-    use crate::property_model::PropertyModel;
+    use crate::method_model::MethodModel;
 
     #[test]
     fn property_model_parse() {
-        let m = PropertyModel::parse(".*en=get_set, _=value_on_changed").unwrap();
+        let m = MethodModel::parse(".*move=deferred, _=immediate").unwrap();
         println!("{:?}", m);
     }
 }

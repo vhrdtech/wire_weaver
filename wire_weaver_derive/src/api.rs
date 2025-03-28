@@ -12,6 +12,7 @@ use subprocess::{Exec, Redirection};
 use syn::ItemMod;
 
 use wire_weaver_core::ast::{Item, Source};
+use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::Transform;
 
@@ -29,6 +30,8 @@ struct Args {
     debug_to_file: String,
     #[darling(default)]
     derive: String,
+    #[darling(default)]
+    method_model: String,
     #[darling(default)]
     property_model: String,
 }
@@ -98,6 +101,14 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         } else {
             PropertyModel::parse(&args.property_model).unwrap()
         };
+        let method_model = if args.method_model.is_empty() {
+            MethodModel {
+                default: Some(MethodModelKind::Immediate),
+                items: vec![],
+            }
+        } else {
+            MethodModel::parse(&args.method_model).unwrap()
+        };
         let api_model_location = args
             .api_model
             .as_ref()
@@ -148,6 +159,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         &api_model_location,
                         args.no_alloc,
                         args.use_async,
+                        &method_model,
                         &property_model,
                     );
                     codegen_ts.append_all(ts);

@@ -84,6 +84,8 @@ enum Error {
     ResponseSerFailed,
     /// Request is good, but requested operation is not yet implemented
     OperationNotImplemented,
+    /// Tried to read a property with request seq number set to 0, meaning no response is expected
+    ReadPropertyWithSeqZero,
 }
 
 struct Version {

@@ -8,15 +8,17 @@ use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
 use crate::codegen::api_common;
 use crate::codegen::ty::FieldPath;
+use crate::property_model::{PropertyModel, PropertyModelKind};
 
 pub fn server_dispatcher(
     api_level: &ApiLevel,
     api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     use_async: bool,
+    property_model: &PropertyModel,
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
-    let level_matchers = level_matchers(api_level, no_alloc, use_async);
+    let level_matchers = level_matchers(api_level, no_alloc, use_async, property_model);
     let ser_event = ser_event(no_alloc);
     let stream_send_methods = stream_ser_methods(api_level, no_alloc);
     let additional_use = if no_alloc {
@@ -97,7 +99,12 @@ pub fn server_dispatcher(
     }
 }
 
-fn level_matchers(api_level: &ApiLevel, no_alloc: bool, use_async: bool) -> TokenStream {
+fn level_matchers(
+    api_level: &ApiLevel,
+    no_alloc: bool,
+    use_async: bool,
+    property_model: &PropertyModel,
+) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
             format!("{}u16", item.id).as_str(),
@@ -107,7 +114,7 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool, use_async: bool) -> Toke
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_matcher(&item.kind, no_alloc, use_async));
+        .map(|item| level_matcher(&item.kind, no_alloc, use_async, property_model));
     let check_err_on_no_alloc = if no_alloc {
         quote! { id.map_err(|_| Error::PathDesFailed)?.0 }
     } else {
@@ -121,7 +128,12 @@ fn level_matchers(api_level: &ApiLevel, no_alloc: bool, use_async: bool) -> Toke
     }
 }
 
-fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenStream {
+fn level_matcher(
+    kind: &ApiItemKind,
+    no_alloc: bool,
+    use_async: bool,
+    property_model: &PropertyModel,
+) -> TokenStream {
     let maybe_await = if use_async {
         quote! { .await }
     } else {
@@ -205,24 +217,61 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenSt
                 quote! { .map_err(|_| Error::PropertyDesFailed)? },
                 &mut des,
             );
-            let mut ser = TokenStream::new();
-            ty.buf_write(
-                FieldPath::Value(quote! { self.#ident }),
-                no_alloc,
-                quote! { .map_err(|_| Error::ResponseSerFailed)? },
-                &mut ser,
-            );
-            let on_property_changed = Ident::new(format!("on_{}_changed", ident.sym));
+            let property_model_pick = property_model.pick(ident.sym.as_str()).unwrap();
+            let set_property = match property_model_pick {
+                PropertyModelKind::GetSet => {
+                    let set_property = Ident::new(format!("set_{}", ident.sym));
+                    quote! {
+                        self.#set_property(value)#maybe_await;
+                    }
+                }
+                PropertyModelKind::ValueOnChanged => {
+                    let on_property_changed = Ident::new(format!("on_{}_changed", ident.sym));
+                    quote! {
+                        if self.#ident != value {
+                            self.#ident = value;
+                            self.#on_property_changed()#maybe_await;
+                        }
+                    }
+                }
+            };
+            let get_and_ser_property = match property_model_pick {
+                PropertyModelKind::GetSet => {
+                    let get_property = Ident::new(format!("get_{}", ident.sym));
+                    let mut ser = TokenStream::new();
+                    ty.buf_write(
+                        FieldPath::Value(quote! { value }),
+                        no_alloc,
+                        quote! { .map_err(|_| Error::ResponseSerFailed)? },
+                        &mut ser,
+                    );
+                    quote! {
+                        let value = self.#get_property()#maybe_await;
+                        let mut wr = BufWriter::new(&mut self.output_scratch);
+                        #ser
+                    }
+                }
+                PropertyModelKind::ValueOnChanged => {
+                    let mut ser = TokenStream::new();
+                    ty.buf_write(
+                        FieldPath::Value(quote! { self.#ident }),
+                        no_alloc,
+                        quote! { .map_err(|_| Error::ResponseSerFailed)? },
+                        &mut ser,
+                    );
+                    quote! {
+                        let mut wr = BufWriter::new(&mut self.output_scratch);
+                        #ser
+                    }
+                }
+            };
             quote! {
                 match &request.kind {
                     RequestKind::Write { data } => {
                         let data = #get_slice;
                         let mut rd = BufReader::new(data);
                         #des
-                        if self.#ident != value {
-                            self.#ident = value;
-                            self.#on_property_changed()#maybe_await;
-                        }
+                        #set_property
                         if request.seq == 0 {
                             Ok(&[])
                         } else {
@@ -230,23 +279,12 @@ fn level_matcher(kind: &ApiItemKind, no_alloc: bool, use_async: bool) -> TokenSt
                         }
                     }
                     RequestKind::Read => {
-                        let mut wr = BufWriter::new(&mut self.output_scratch);
-                        #ser
+                        #get_and_ser_property
                         let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
                         let kind = EventKind::ReadValue {
                                 data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
                             };
                         Ok(Self::ser_ok_event(&mut self.event_scratch, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
-
-                        // let mut event_wr = BufWriter::new(&mut self.event_scratch);
-                        // let event = Event {
-                        //     seq: request.seq,
-                        //     result: Ok(EventKind::ReadValue {
-                        //         data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
-                        //     })
-                        // };
-                        // event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
-                        // Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
                     }
                     _ => { Err(Error::OperationNotSupported) }
                 }

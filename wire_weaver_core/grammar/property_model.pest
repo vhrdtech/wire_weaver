@@ -1,0 +1,8 @@
+property_model = _{ (item ~ ","?)* }
+item = { regex ~ "=" ~ model }
+regex = { (!("=" | WHITESPACE) ~ ANY)+ }
+model = { get_set | value_on_changed }
+get_set = { "get_set" }
+value_on_changed = { "value_on_changed" }
+
+WHITESPACE = _{ " " | "\t" }

@@ -21,7 +21,9 @@ members = [
     "shrink_wrap",
     "wire_weaver_usb_host",
     "wire_weaver_usb_link",
-    "wire_weaver_net_host", "wire_weaver_client_server",
+    "wire_weaver_net_host",
+    "wire_weaver_client_server",
+    "wire_weaver_udp_link",
     #    "examples/*",
     #    "tests"
 ]

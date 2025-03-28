@@ -9,7 +9,7 @@ description = "Transport layer on top of USB packets, allowing multiple messages
 crc = "3"
 strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
-wire_weaver = { path = "../wire_weaver" }
+wire_weaver = { path = "../wire_weaver", default-features = false }
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
 
 [features]

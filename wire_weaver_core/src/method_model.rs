@@ -23,7 +23,7 @@ pub struct MethodModelItem {
     pub model: MethodModelKind,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum MethodModelKind {
     Immediate,
     Deferred,

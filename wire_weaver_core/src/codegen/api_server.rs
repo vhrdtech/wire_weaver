@@ -41,6 +41,8 @@ pub fn server_dispatcher(
     } else {
         (quote! {}, quote! {})
     };
+    let deferred_return_methods =
+        deferred_method_return_ser_methods(api_level, no_alloc, method_model);
     quote! {
         #args_structs
 
@@ -99,6 +101,7 @@ pub fn server_dispatcher(
             }
 
             #ser_event
+            #deferred_return_methods
         }
 
         #stream_send_methods
@@ -170,9 +173,21 @@ fn level_matcher(
             } else {
                 quote! {}
             };
+            let ser_output_or_unit = ser_method_output(
+                quote! { &mut self.output_scratch },
+                quote! { &mut self.event_scratch },
+                ident,
+                return_type,
+                quote! { request.seq },
+            );
             let call_and_handle_deferred = match method_model.pick(ident.sym.as_str()).unwrap() {
                 MethodModelKind::Immediate => quote! {
                     #maybe_let_output self.#ident(#args_list)#maybe_await;
+                    if request.seq != 0 {
+                        #ser_output_or_unit
+                    } else {
+                        Ok(&[])
+                    }
                 },
                 MethodModelKind::Deferred => quote! {
                     let output = match self.#ident(request.seq, #args_list)#maybe_await {
@@ -181,41 +196,8 @@ fn level_matcher(
                             return Ok(&[])
                         }
                     };
+                    #ser_output_or_unit
                 },
-            };
-            let ser_output_or_unit = if let Some(ty) = return_type {
-                let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
-                    quote! { wr.write(&output).map_err(|_| Error::ResponseSerFailed)?; }
-                } else {
-                    let output_struct_name = Ident::new(
-                        format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal),
-                    );
-                    quote! {
-                        let output = #output_struct_name {
-                            output: output
-                        };
-                        wr.write(&output).map_err(|_| Error::ResponseSerFailed)?;
-                    }
-                };
-                quote! {
-                    let mut wr = BufWriter::new(&mut self.output_scratch);
-                    #ser_output
-                    let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
-
-                    let mut event_wr = BufWriter::new(&mut self.event_scratch);
-                    let event = Event {
-                        seq: request.seq,
-                        result: Ok(EventKind::ReturnValue {
-                            data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
-                        })
-                    };
-                    event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
-                    Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
-                }
-            } else {
-                quote! {
-                    Ok(self.ser_unit_return_event(request.seq).map_err(|_| Error::ResponseSerFailed)?)
-                }
             };
 
             quote! {
@@ -223,11 +205,6 @@ fn level_matcher(
                     RequestKind::Call { #is_args } => {
                         #args_des
                         #call_and_handle_deferred
-                        if request.seq != 0 {
-                            #ser_output_or_unit
-                        } else {
-                            Ok(&[])
-                        }
                     }
                     RequestKind::Introspect => {
                         Err(Error::OperationNotImplemented)
@@ -353,6 +330,48 @@ fn level_matcher(
     }
 }
 
+fn ser_method_output(
+    output_scratch: TokenStream,
+    event_scratch: TokenStream,
+    ident: &Ident,
+    return_type: &Option<Type>,
+    seq_path: TokenStream,
+) -> TokenStream {
+    if let Some(ty) = return_type {
+        let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
+            quote! { wr.write(&output).map_err(|_| Error::ResponseSerFailed)?; }
+        } else {
+            let output_struct_name =
+                Ident::new(format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal));
+            quote! {
+                let output = #output_struct_name {
+                    output: output
+                };
+                wr.write(&output).map_err(|_| Error::ResponseSerFailed)?;
+            }
+        };
+        quote! {
+            let mut wr = BufWriter::new(#output_scratch);
+            #ser_output
+            let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
+
+            let mut event_wr = BufWriter::new(#event_scratch);
+            let event = Event {
+                seq: #seq_path,
+                result: Ok(EventKind::ReturnValue {
+                    data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                })
+            };
+            event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
+            Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
+        }
+    } else {
+        quote! {
+            Ok(self.ser_unit_return_event(request.seq).map_err(|_| Error::ResponseSerFailed)?)
+        }
+    }
+}
+
 fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenStream, TokenStream) {
     let args_struct_ident =
         format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
@@ -391,7 +410,10 @@ fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
     }
 }
 
-/// generates ser_unit_return_event(seq)
+/// generates:
+/// ser_ok_event(scratch, seq, kind: EventKind),
+/// ser_err_event(scratch, seq, error),
+/// and ser_unit_return_event(seq)
 fn ser_event(no_alloc: bool) -> TokenStream {
     let future_compatible_unit_return = if no_alloc {
         quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
@@ -503,6 +525,51 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 };
                 event.ser_shrink_wrap(&mut wr)?;
                 Ok(wr.finish_and_take()?)
+            }
+        });
+    }
+    ts
+}
+
+fn deferred_method_return_ser_methods(
+    api_level: &ApiLevel,
+    no_alloc: bool,
+    method_model: &MethodModel,
+) -> TokenStream {
+    let mut ts = TokenStream::new();
+    let return_ty = if no_alloc {
+        quote! { &'b [u8] }
+    } else {
+        quote! { Vec<u8> }
+    };
+    for item in &api_level.items {
+        let ApiItemKind::Method {
+            ident, return_type, ..
+        } = &item.kind
+        else {
+            continue;
+        };
+        if method_model.pick(ident.sym.as_str()).unwrap() != MethodModelKind::Deferred {
+            continue;
+        }
+        let fn_name = Ident::new(format!("{}_ser_return_event", ident.sym));
+        let ser_output_or_unit = ser_method_output(
+            quote! { output_scratch },
+            quote! { event_scratch },
+            ident,
+            return_type,
+            quote! { seq },
+        );
+        let maybe_output = match return_type {
+            Some(ty) => {
+                let ty = ty.arg_pos_def(no_alloc);
+                quote! { , output: #ty }
+            }
+            None => quote! {},
+        };
+        ts.append_all(quote! {
+            pub fn #fn_name<'b>(output_scratch: &mut [u8], event_scratch: &'b mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
+                #ser_output_or_unit
             }
         });
     }

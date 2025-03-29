@@ -7,14 +7,14 @@ pub type ResponseSender<E> = oneshot::Sender<Result<Vec<u8>, Error<E>>>;
 pub type StreamUpdateSender<E> = mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>;
 
 pub struct CommonState<E> {
-    exit_on_error: bool,
-    request_id: SeqTy,
+    pub exit_on_error: bool,
+    pub request_id: SeqTy,
     // user_protocol: ProtocolInfo,
     // conn_state: Arc<RwLock<ConnectionInfo>>,
-    connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
-    response_map: HashMap<SeqTy, (ResponseSender<E>, Instant)>,
-    stream_handlers: HashMap<Vec<u16>, StreamUpdateSender<E>>,
-    link_setup_done: bool,
+    pub connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
+    pub response_map: HashMap<SeqTy, (ResponseSender<E>, Instant)>,
+    pub stream_handlers: HashMap<Vec<u16>, StreamUpdateSender<E>>,
+    pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
 }
 

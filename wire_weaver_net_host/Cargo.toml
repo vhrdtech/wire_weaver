@@ -7,7 +7,9 @@ description.workspace = true
 
 [dependencies]
 wire_weaver_client_server = { path = "../wire_weaver_client_server" }
-tokio = { version = "1", features = ["sync", "net"] }
+tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
 thiserror = "2.0"
 tracing = "0.1"
 shrink_wrap = { path = "../shrink_wrap" }

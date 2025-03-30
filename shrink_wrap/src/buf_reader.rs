@@ -30,7 +30,7 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_bool(&mut self) -> Result<bool, Error> {
-        if (self.bytes_left() == 0) && self.bit_idx == 7 {
+        if self.bits_in_byte_left() == 0 {
             return Err(Error::OutOfBounds);
         }
         let val = (self.buf[self.byte_idx] & (1 << self.bit_idx)) != 0;
@@ -279,6 +279,21 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    fn bits_in_byte_left(&self) -> u8 {
+        if self.byte_idx >= self.len_bytes {
+            return 0;
+        }
+        if self.is_at_bit7_rev {
+            if self.bit_idx >= 4 {
+                self.bit_idx - 3
+            } else {
+                0
+            }
+        } else {
+            self.bit_idx + 1
+        }
+    }
+
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
     }
@@ -359,5 +374,18 @@ mod tests {
         let value = rd.read_nib16_rev().unwrap();
         assert_eq!(value, 8);
         assert_eq!(rd.bytes_left(), 0);
+    }
+
+    #[test]
+    fn u4_rev_overlap() {
+        let buf = [0x10, 0x81];
+        let mut rd = BufReader::new(&buf);
+        let n = rd.read_nib16_rev().unwrap();
+        assert_eq!(n, 1);
+        let mut rd_split = rd.split(n as usize).unwrap();
+        let byte = rd_split.read_u8().unwrap();
+        assert_eq!(byte, 0x10);
+        let b = rd.read_bool().unwrap();
+        assert!(b);
     }
 }

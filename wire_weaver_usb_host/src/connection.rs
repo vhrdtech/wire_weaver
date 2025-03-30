@@ -131,12 +131,13 @@ fn apply_filter(device_info: &DeviceInfo, filter: &UsbDeviceFilter) -> bool {
             }
         }
         UsbDeviceFilter::AnyVhrdTechCanBus => {
+            let Some(manufacturer) = device_info.manufacturer_string() else {
+                return false;
+            };
             let Some(product_string) = device_info.product_string() else {
                 return false;
             };
-            device_info.vendor_id() == 0xc0de
-                && device_info.product_id() == 0xcafe
-                && product_string.contains("CAN")
+            manufacturer.to_lowercase().contains("vhrd") && product_string.contains("CAN")
         }
     }
 }

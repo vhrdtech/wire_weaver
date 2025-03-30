@@ -1,4 +1,4 @@
-use crate::ww::no_alloc_client::client_server_v0_1::{EventKind, RequestKind};
+use crate::ww::no_alloc_client::client_server_v0_1::{Event, EventKind, RequestKind};
 use crate::ww_nusb::{Sink, Source};
 use crate::{
     Command, ConnectionInfo, ConnectionState, DEFAULT_REQUEST_TIMEOUT, Error, IRQ_MAX_PACKET_SIZE,
@@ -132,9 +132,14 @@ pub async fn usb_worker(
 
     loop {
         match &mut link {
-            Some(link_ref) => {
-                match process_commands_and_endpoints(&mut cmd_rx, link_ref, &mut state).await {
-                    Ok(r) => info!("usb event loop (inner) exited with {:?}", r),
+            Some(l) => {
+                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state).await {
+                    Ok(r) => {
+                        info!("usb event loop (inner) exited with {:?}", r);
+                        if r == EventLoopResult::DisconnectAndExit {
+                            break;
+                        }
+                    }
                     Err(e) => error!("usb event loop (inner) exited with {:?}", e),
                 }
                 if state.exit_on_error {
@@ -204,20 +209,20 @@ async fn wait_for_connection_and_queue_commands(
         match cmd {
             Command::Connect {
                 filter,
-                on_error: timeout,
+                on_error,
                 connected_tx,
             } => {
-                state.exit_on_error = timeout != OnError::KeepRetrying;
+                state.exit_on_error = on_error != OnError::KeepRetrying;
                 state.request_id = 1;
                 // TODO: process commands with timeout expired before connected?
-                let (interface, di) = match crate::connection::connect(filter, timeout).await {
+                let (interface, di) = match crate::connection::connect(filter, on_error).await {
                     Ok(i_di) => i_di,
                     Err(e) => {
                         state.conn_state.write().await.state = ConnectionState::Error {
                             error_string: format!("{:?}", e),
                         };
                         // TODO: drop requests if any
-                        return if timeout == OnError::KeepRetrying {
+                        return if on_error == OnError::KeepRetrying {
                             Ok(None)
                         } else {
                             if let Some(tx) = connected_tx {
@@ -260,7 +265,7 @@ async fn wait_for_connection_and_queue_commands(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum EventLoopResult {
     DisconnectKeepStreams,
     DisconnectFromDevice,
@@ -336,10 +341,19 @@ async fn handle_message(
 ) -> Result<EventLoopSpinResult, Error> {
     match message {
         Ok(MessageKind::Data(len)) => {
+            if len == 0 {
+                warn!("got empty event data, ignoring");
+                return Ok(EventLoopSpinResult::Continue);
+            }
             let packet = &state.message_rx[..len];
             let mut rd = BufReader::new(packet);
-            let event: crate::ww::no_alloc_client::client_server_v0_1::Event =
-                rd.read(ElementSize::Implied)?;
+            let event: Event = match rd.read(ElementSize::Implied) {
+                Ok(e) => e,
+                Err(e) => {
+                    warn!("event deserialization failed: {e:?}, ignoring");
+                    return Ok(EventLoopSpinResult::Continue);
+                }
+            };
             trace!("event: {event:?}");
             match event.result {
                 Ok(event_kind) => match event_kind {
@@ -453,7 +467,7 @@ async fn handle_command(
             warn!("Ignoring Connect while already connected");
         }
         Command::DisconnectKeepStreams { disconnected_tx } => {
-            info!("Disconnecting on user request");
+            info!("Disconnecting on user request (but keeping streams ready for re-use)");
             link.send_disconnect().await?;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
@@ -466,7 +480,6 @@ async fn handle_command(
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
-            state.exit_on_error = true;
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
         Command::SendCall {

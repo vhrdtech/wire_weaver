@@ -5,6 +5,7 @@ use crate::{DeserializeShrinkWrap, Error};
 
 /// Buffer reader that treats input as a stream of nibbles.
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BufReader<'i> {
     buf: &'i [u8],
     // Buffer length from the front, shrinks when read_vlu16n_rev() is used.

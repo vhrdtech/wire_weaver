@@ -5,6 +5,7 @@ pub trait SerializeShrinkWrap {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ElementSize {
     Implied,
     /// Element size is unknown and stored at the back of the buffer.

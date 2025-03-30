@@ -78,6 +78,7 @@ enum Error {
     /// Tried to access a resource array using out of bounds index
     BadIndex,
     /// Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
+    SliceGetFailed,
     ArgsDesFailed,
     PathDesFailed,
     PropertyDesFailed,

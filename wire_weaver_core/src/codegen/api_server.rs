@@ -401,7 +401,7 @@ fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
             match #ref_vec_or_vec.byte_slice() {
                 Ok(slice) => slice,
                 Err(_e) => {
-                    return Err(Error::ArgsDesFailed);
+                    return Err(Error::SliceGetFailed);
                 }
             }
         }

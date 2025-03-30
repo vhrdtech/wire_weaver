@@ -4,6 +4,7 @@ use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
 // pub enum Vec<'i, T, const S: u32, F> where F: Fn(usize) -> Option<T> {
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
     // pub enum Vec<'i, T, const S: u32, I> where I: Iterator<Item=T> {
     Slice {

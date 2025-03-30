@@ -461,6 +461,7 @@ async fn serialize_request_send(
     request.ser_shrink_wrap(&mut wr)?;
     let request_bytes = wr.finish_and_take()?.to_vec();
 
+    trace!("Sending request: {:02x?}", request_bytes);
     tx.send(Message::Binary(request_bytes.into())).await?;
     // if link.is_tx_queue_empty() {
     //     state.common.packet_started_instant = None;

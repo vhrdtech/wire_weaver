@@ -1,6 +1,6 @@
-use crate::{UdpError, UdpTarget};
 use shrink_wrap::vec::RefVec;
 use shrink_wrap::{BufWriter, ElementSize, SerializeShrinkWrap};
+use std::net::IpAddr;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, info, trace};
@@ -8,6 +8,17 @@ use wire_weaver_client_server::event_loop_state::CommonState;
 use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1;
 use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::RequestKind;
 use wire_weaver_client_server::{Command, Error};
+
+pub struct UdpTarget {
+    pub addr: IpAddr,
+    pub port: u16,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum UdpError {
+    #[error("test")]
+    Test,
+}
 
 struct State {
     common: CommonState<UdpError>,
@@ -55,9 +66,41 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                     tx.send(Ok(())).unwrap();
                 }
             }
-            Command::DisconnectKeepStreams { .. } => {}
-            Command::DisconnectAndExit { .. } => {}
-            Command::SendCall { .. } => {}
+            Command::DisconnectKeepStreams { disconnected_tx } => {
+                info!("Disconnecting on user request (but keeping streams ready for re-use)");
+                if let Some(tx) = disconnected_tx {
+                    _ = tx.send(());
+                }
+            }
+            Command::DisconnectAndExit { disconnected_tx } => {
+                info!("Disconnecting and stopping UDP event loop on user request");
+                if let Some(tx) = disconnected_tx {
+                    _ = tx.send(());
+                }
+                break;
+            }
+            Command::SendCall {
+                args_bytes,
+                path,
+                timeout,
+                done_tx,
+            } => {
+                trace!("sending call to {path:?}");
+                let seq = state.common.register_prune_next_seq(timeout, done_tx);
+                let request = client_server_v0_1::Request {
+                    seq,
+                    path: RefVec::Slice {
+                        slice: &path,
+                        element_size: ElementSize::UnsizedSelfDescribing,
+                    },
+                    kind: RequestKind::Call {
+                        args: RefVec::new_byte_slice(&args_bytes),
+                    },
+                };
+                if let Some(link) = &mut link {
+                    serialize_request_send(request, link, &mut state, &mut scratch).await;
+                }
+            }
             Command::SendWrite {
                 value_bytes,
                 path,
@@ -84,6 +127,8 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
             Command::Subscribe { .. } => {}
         }
     }
+    state.common.cancel_all_streams();
+    state.common.cancel_all_requests();
     debug!("udp worker exited");
 }
 

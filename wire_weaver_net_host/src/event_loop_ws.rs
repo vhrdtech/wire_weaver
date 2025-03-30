@@ -256,8 +256,18 @@ async fn handle_message(
 ) -> Result<EventLoopSpinResult, WsError> {
     match message {
         Message::Binary(data) => {
+            if data.is_empty() {
+                warn!("got empty event data, ignoring");
+                return Ok(EventLoopSpinResult::Continue);
+            }
             let mut rd = BufReader::new(&data);
-            let event: Event = rd.read(ElementSize::Implied)?;
+            let event: Event = match rd.read(ElementSize::Implied) {
+                Ok(e) => e,
+                Err(e) => {
+                    warn!("event deserialization failed: {e:?}, ignoring");
+                    return Ok(EventLoopSpinResult::Continue);
+                }
+            };
             trace!("event: {event:?}");
             match event.result {
                 Ok(event_kind) => match event_kind {

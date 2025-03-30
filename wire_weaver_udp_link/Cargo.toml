@@ -1,0 +1,12 @@
+[package]
+name = "wire_weaver_udp_link"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+
+[dependencies]
+strum_macros = { workspace = true }
+defmt = { workspace = true, optional = true }
+wire_weaver = { path = "../wire_weaver" }
+shrink_wrap = { path = "../shrink_wrap", default-features = false }

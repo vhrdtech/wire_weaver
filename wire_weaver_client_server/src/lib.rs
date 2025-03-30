@@ -77,6 +77,12 @@ pub enum Error<E> {
     Transport(E),
 }
 
+impl<E> From<wire_weaver::shrink_wrap::Error> for Error<E> {
+    fn from(e: wire_weaver::shrink_wrap::Error) -> Self {
+        Error::ShrinkWrap(e)
+    }
+}
+
 /// Configures how to handle connection errors
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum OnError {

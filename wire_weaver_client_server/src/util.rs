@@ -9,9 +9,10 @@ pub async fn send_call_receive_reply<F, E: Debug>(
     cmd_tx: &mut mpsc::UnboundedSender<Command<F, E>>,
     args: Vec<u8>,
     path: Vec<Nib16>,
+    timeout: Option<Duration>,
 ) -> Result<Vec<u8>, Error<E>> {
     let (done_tx, done_rx) = oneshot::channel();
-    let timeout = Duration::from_millis(250);
+    let timeout = timeout.unwrap_or(Duration::from_millis(250));
     let cmd = Command::SendCall {
         args_bytes: args,
         path,

@@ -1,5 +1,6 @@
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, ToTokens};
+use crate::ast::path::Path;
+use proc_macro2::{Ident, TokenStream};
+use quote::{ToTokens, quote};
 
 pub(crate) fn serdes(
     ty_name: Ident,
@@ -28,13 +29,13 @@ pub(crate) fn serdes(
     }
 }
 
-pub(crate) fn strings_to_derive(traits: &Vec<String>) -> TokenStream {
+pub(crate) fn strings_to_derive(traits: &Vec<Path>) -> TokenStream {
     if traits.is_empty() {
         quote! {}
     } else {
-        let traits = traits
-            .iter()
-            .map(|s| Ident::new(s.as_str(), Span::call_site()));
+        // let traits = traits
+        //     .iter()
+        //     .map(|s| Ident::new(s.as_str(), Span::call_site()));
         quote! {
             #[derive(#(#traits),*)]
         }

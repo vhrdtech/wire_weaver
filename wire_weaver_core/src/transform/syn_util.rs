@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use syn::{Expr, Lit, Meta};
 
+use crate::ast::path::Path;
 use crate::ast::value::Value;
 use crate::ast::{Repr, Version};
 use crate::transform::{Messages, SynConversionError, SynConversionWarning};
@@ -125,7 +126,7 @@ pub(crate) fn take_repr_attr(
 pub(crate) fn take_derive_attr(
     attrs: &mut Vec<syn::Attribute>,
     _messages: &mut Messages,
-) -> Vec<String> {
+) -> Vec<Path> {
     let mut derive = vec![];
     for attr in attrs.iter() {
         if !attr.path().is_ident("derive") {
@@ -139,7 +140,7 @@ pub(crate) fn take_derive_attr(
             derives
                 .split(&[' ', ','])
                 .filter(|s| !s.is_empty())
-                .map(|s| s.to_string()),
+                .map(|s| Path::new_path(s)),
         );
     }
     attrs.retain(|a| !a.path().is_ident("derive"));

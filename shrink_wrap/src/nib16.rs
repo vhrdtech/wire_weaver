@@ -5,6 +5,7 @@ use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, Ser
 /// Variable length encoded u16 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 #[derive(Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Nib16(pub u16);
 
 impl Nib16 {

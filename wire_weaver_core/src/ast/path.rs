@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{ToTokens, TokenStreamExt, quote};
 
 use crate::ast::ident::Ident;
 
@@ -13,6 +13,12 @@ impl Path {
     pub fn new_ident(ident: Ident) -> Self {
         Path {
             segments: vec![ident],
+        }
+    }
+
+    pub fn new_path(path: &str) -> Self {
+        Path {
+            segments: path.split("::").map(|s| Ident::new(s)).collect(),
         }
     }
 }

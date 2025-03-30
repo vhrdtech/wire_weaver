@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::ast::api::ApiLevel;
+use crate::ast::path::Path;
 use crate::ast::{Context, ItemConst, ItemEnum, ItemStruct, Module, Source, Version};
 use crate::transform::collect_and_convert::CollectAndConvertPass;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
@@ -233,7 +234,7 @@ impl Transform {
                             item_enum_tf
                                 .item_enum
                                 .derive
-                                .extend(add_derives.iter().map(|s| s.to_string()));
+                                .extend(add_derives.iter().map(|s| Path::new_path(s)));
                             items.push(crate::ast::Item::Enum(item_enum_tf.item_enum));
                         }
                     }
@@ -242,7 +243,7 @@ impl Transform {
                             item_struct_tf
                                 .item_struct
                                 .derive
-                                .extend(add_derives.iter().map(|s| s.to_string()));
+                                .extend(add_derives.iter().map(|s| Path::new_path(s)));
                             items.push(crate::ast::Item::Struct(item_struct_tf.item_struct));
                         }
                     }

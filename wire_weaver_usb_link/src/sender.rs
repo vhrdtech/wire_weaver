@@ -1,5 +1,5 @@
-use crate::common::{Error, Op, WireWeaverUsbLink, VERSIONS_PAYLOAD_LEN};
-use crate::{PacketSink, PacketSource, CRC_KIND, LINK_PROTOCOL_VERSION};
+use crate::common::{Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
+use crate::{CRC_KIND, LINK_PROTOCOL_VERSION, PacketSink, PacketSource};
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]

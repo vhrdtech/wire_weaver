@@ -2,7 +2,7 @@
 mod tests {
     use crate::common::Op;
     use crate::*;
-    use core::future::{ready, Future};
+    use core::future::{Future, ready};
     use std::collections::VecDeque;
     use std::vec::Vec;
     use worst_executor::block_on;

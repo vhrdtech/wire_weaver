@@ -2,9 +2,9 @@ use convert_case::Casing;
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
+use crate::ast::Type;
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
 use crate::ast::ident::Ident;
-use crate::ast::Type;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::ty::FieldPath;
 

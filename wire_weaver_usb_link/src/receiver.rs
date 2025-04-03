@@ -1,5 +1,5 @@
-use crate::common::{Error, Op, WireWeaverUsbLink, VERSIONS_PAYLOAD_LEN};
-use crate::{PacketSink, PacketSource, ProtocolInfo, CRC_KIND, MIN_MESSAGE_SIZE};
+use crate::common::{Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
+use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource, ProtocolInfo};
 use shrink_wrap::BufReader;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.

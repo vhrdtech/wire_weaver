@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use syn::{Lit, LitInt};
 
 use shrink_wrap::ElementSize;
@@ -430,7 +430,7 @@ impl Type {
                             size_bits: len * size_bits,
                         },
                         ElementSize::UnsizedSelfDescribing => ElementSize::UnsizedSelfDescribing,
-                    }
+                    };
                 }
                 Layout::Option(_inner_ty) => unimplemented!(),
                 Layout::Result(_inner_ty) => unimplemented!(),

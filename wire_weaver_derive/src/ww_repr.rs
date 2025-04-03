@@ -1,6 +1,6 @@
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use syn::{parse2, Expr, ItemEnum, Lit};
+use syn::{Expr, ItemEnum, Lit, parse2};
 
 pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut attr = attr.into_iter();

@@ -1,5 +1,5 @@
-use crate::ast::ident::Ident;
 use crate::ast::Type;
+use crate::ast::ident::Ident;
 
 #[derive(Debug)]
 pub struct ApiLevel {

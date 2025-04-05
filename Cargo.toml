@@ -24,13 +24,13 @@ members = [
     "wire_weaver_net_host",
     "wire_weaver_client_server",
     "wire_weaver_udp_link",
+    "wire_weaver_tool"
     #    "examples/*",
     #    "tests"
 ]
 
 exclude = [
     "wire_weaver_usb_embassy", # mutually exclusive features
-    "wire_weaver_tool"
 ]
 
 [patch.crates-io]

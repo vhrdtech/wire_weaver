@@ -1,4 +1,5 @@
 use std::fs;
+use std::panic::catch_unwind;
 use std::path::PathBuf;
 
 use eframe::Storage;
@@ -6,9 +7,11 @@ use egui::{CentralPanel, Color32, Id, ScrollArea, SidePanel, TopBottomPanel, Ui,
 use egui_file::FileDialog;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumIter, IntoEnumIterator};
-use syn::Ident;
 use syn::__private::quote::__private::Span;
+use syn::Ident;
 use wire_weaver_core::ast::{Item, Source};
+use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
+use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::Transform;
 
 use crate::context::Context;
@@ -40,6 +43,9 @@ struct State {
     path: Option<PathBuf>,
     active_view: View,
     no_alloc: bool,
+    use_async: bool,
+    method_model: String,
+    property_model: String,
 }
 
 #[derive(Default, Eq, PartialEq, Copy, Clone, Serialize, Deserialize, AsRefStr, EnumIter)]
@@ -73,6 +79,7 @@ enum Message {
     // TODO: refactor
     Transform(Source, wire_weaver_core::transform::Message),
     Info(String),
+    Panicked(String),
 }
 
 impl TabUi for DebugView {
@@ -121,6 +128,29 @@ impl TabUi for DebugView {
             }
 
             if ui.checkbox(&mut self.state.no_alloc, "no_alloc").changed() {
+                self.generate_code();
+            }
+
+            if ui
+                .checkbox(&mut self.state.use_async, "use_async")
+                .changed()
+            {
+                self.generate_code();
+            }
+
+            ui.label("Method model:");
+            if ui
+                .text_edit_singleline(&mut self.state.method_model)
+                .lost_focus()
+            {
+                self.generate_code();
+            }
+
+            ui.label("Property model:");
+            if ui
+                .text_edit_singleline(&mut self.state.property_model)
+                .lost_focus()
+            {
                 self.generate_code();
             }
         });
@@ -218,16 +248,28 @@ impl DebugView {
         self.transient.syn_str = Some(format!("{ast:#?}"));
         self.transient.messages.push(Message::FileParsed);
 
-        let mut transform = Transform::new();
-        let path = self
-            .state
-            .path
-            .as_ref()
-            .map(|p| p.to_str().map(|s| s.to_string()))
-            .flatten()
-            .unwrap_or("editor".to_string());
-        transform.push_file(Source::File { path }, ast);
-        let ww_cx = transform.transform(&[]);
+        let ww_cx = catch_unwind(|| {
+            let mut transform = Transform::new();
+            let path = self
+                .state
+                .path
+                .as_ref()
+                .map(|p| p.to_str().map(|s| s.to_string()))
+                .flatten()
+                .unwrap_or("editor".to_string());
+            transform.push_file(Source::File { path }, ast);
+            let ww_cx = transform.transform(&[]);
+            (transform, ww_cx)
+        });
+        let (transform, ww_cx) = match ww_cx {
+            Ok((transform, ww_cx)) => (transform, ww_cx),
+            Err(e) => {
+                self.transient
+                    .messages
+                    .push(Message::Panicked(format!("{e:?}")));
+                return;
+            }
+        };
         for (source, messages) in transform.messages() {
             for message in messages.messages() {
                 self.transient
@@ -254,37 +296,90 @@ impl DebugView {
             for item in &module.items {
                 match item {
                     Item::Struct(item_struct) => {
-                        let code = wire_weaver_core::codegen::item_struct::struct_def(
-                            item_struct,
-                            no_alloc,
-                        );
+                        let code = catch_unwind(|| {
+                            wire_weaver_core::codegen::item_struct::struct_def(
+                                item_struct,
+                                no_alloc,
+                            )
+                        });
+                        let code = match code {
+                            Ok(code) => code,
+                            Err(e) => {
+                                self.transient
+                                    .messages
+                                    .push(Message::Panicked(format!("{e:?}")));
+                                return;
+                            }
+                        };
                         def_code += format!("// {}\n", item_struct.ident.sym).as_str();
                         def_code += format!("{code}").as_str();
                         def_code += "\n\n";
 
-                        let code = wire_weaver_core::codegen::item_struct::struct_serdes(
-                            item_struct,
-                            no_alloc,
-                        );
+                        let code = catch_unwind(|| {
+                            wire_weaver_core::codegen::item_struct::struct_serdes(
+                                item_struct,
+                                no_alloc,
+                            )
+                        });
+                        let code = match code {
+                            Ok(code) => code,
+                            Err(e) => {
+                                self.transient
+                                    .messages
+                                    .push(Message::Panicked(format!("{e:?}")));
+                                return;
+                            }
+                        };
                         serdes_code += format!("// {}\n", item_struct.ident.sym).as_str();
                         serdes_code += format!("{code}").as_str();
                         serdes_code += "\n\n";
                     }
                     Item::Enum(item_enum) => {
-                        let code =
-                            wire_weaver_core::codegen::item_enum::enum_def(item_enum, no_alloc);
+                        let code = catch_unwind(|| {
+                            wire_weaver_core::codegen::item_enum::enum_def(item_enum, no_alloc)
+                        });
+                        let code = match code {
+                            Ok(code) => code,
+                            Err(e) => {
+                                self.transient
+                                    .messages
+                                    .push(Message::Panicked(format!("{e:?}")));
+                                return;
+                            }
+                        };
                         def_code += format!("// {}\n", item_enum.ident.sym).as_str();
                         def_code += format!("{code}").as_str();
                         def_code += "\n\n";
 
-                        let code =
-                            wire_weaver_core::codegen::item_enum::enum_serdes(item_enum, no_alloc);
+                        let code = catch_unwind(|| {
+                            wire_weaver_core::codegen::item_enum::enum_serdes(item_enum, no_alloc)
+                        });
+                        let code = match code {
+                            Ok(code) => code,
+                            Err(e) => {
+                                self.transient
+                                    .messages
+                                    .push(Message::Panicked(format!("{e:?}")));
+                                return;
+                            }
+                        };
                         serdes_code += format!("// {}\n", item_enum.ident.sym).as_str();
                         serdes_code += format!("{code}").as_str();
                         serdes_code += "\n\n";
                     }
                     Item::Const(item_const) => {
-                        let code = wire_weaver_core::codegen::item_const::const_def(item_const);
+                        let code = catch_unwind(|| {
+                            wire_weaver_core::codegen::item_const::const_def(item_const)
+                        });
+                        let code = match code {
+                            Ok(code) => code,
+                            Err(e) => {
+                                self.transient
+                                    .messages
+                                    .push(Message::Panicked(format!("{e:?}")));
+                                return;
+                            }
+                        };
                         def_code += format!("{code}").as_str();
                         def_code += "\n\n";
                     }
@@ -307,21 +402,63 @@ impl DebugView {
             return;
         };
 
+        let property_model = if self.state.property_model.is_empty() {
+            PropertyModel {
+                default: Some(PropertyModelKind::GetSet),
+                items: vec![],
+            }
+        } else {
+            PropertyModel::parse(&self.state.property_model).unwrap()
+        };
+        let method_model = if self.state.method_model.is_empty() {
+            MethodModel {
+                default: Some(MethodModelKind::Immediate),
+                items: vec![],
+            }
+        } else {
+            MethodModel::parse(&self.state.method_model).unwrap()
+        };
+
         let mut api_code = String::new();
         for module in &ww_cx.modules {
             for api_level in &module.api_levels {
                 let location = syn::Path::from(Ident::new("api_model_location", Span::call_site()));
-                let code = wire_weaver_core::codegen::api_server::server_dispatcher(
-                    api_level,
-                    &Some(location.clone()),
-                    self.state.no_alloc,
-                );
+                let code = catch_unwind(|| {
+                    wire_weaver_core::codegen::api_server::server_dispatcher(
+                        api_level,
+                        &Some(location.clone()),
+                        self.state.no_alloc,
+                        self.state.use_async,
+                        &method_model,
+                        &property_model,
+                    )
+                });
+                let code = match code {
+                    Ok(code) => code,
+                    Err(e) => {
+                        self.transient
+                            .messages
+                            .push(Message::Panicked(format!("{e:?}")));
+                        return;
+                    }
+                };
                 api_code += format!("// Server side\n{code}\n\n").as_str();
-                let code = wire_weaver_core::codegen::api_client::client(
-                    api_level,
-                    &Some(location),
-                    self.state.no_alloc,
-                );
+                let code = catch_unwind(|| {
+                    wire_weaver_core::codegen::api_client::client(
+                        api_level,
+                        &Some(location),
+                        self.state.no_alloc,
+                    )
+                });
+                let code = match code {
+                    Ok(code) => code,
+                    Err(e) => {
+                        self.transient
+                            .messages
+                            .push(Message::Panicked(format!("{e:?}")));
+                        return;
+                    }
+                };
                 api_code += format!("// Client side\n{code}\n").as_str();
             }
         }
@@ -330,10 +467,16 @@ impl DebugView {
     }
 
     fn source_code_edit(source: &mut String, language: &str, ui: &mut Ui) {
-        let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx());
+        let style = egui::Style::default();
+        let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), &style);
         let mut layouter = |ui: &Ui, string: &str, wrap_width: f32| {
-            let mut layout_job =
-                egui_extras::syntax_highlighting::highlight(ui.ctx(), &theme, string, language);
+            let mut layout_job = egui_extras::syntax_highlighting::highlight(
+                ui.ctx(),
+                &style,
+                &theme,
+                string,
+                language,
+            );
             layout_job.wrap.max_width = wrap_width;
             ui.fonts(|f| f.layout_job(layout_job))
         };
@@ -353,13 +496,19 @@ impl DebugView {
     }
 
     fn source_code_view(source: &str, language: &str, ui: &mut Ui) {
-        let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx());
+        let style = egui::Style::default();
+        let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), &style);
         ScrollArea::vertical()
             .max_width(f32::INFINITY)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                let mut layout_job =
-                    egui_extras::syntax_highlighting::highlight(ui.ctx(), &theme, source, language);
+                let mut layout_job = egui_extras::syntax_highlighting::highlight(
+                    ui.ctx(),
+                    &style,
+                    &theme,
+                    source,
+                    language,
+                );
                 layout_job.wrap.max_width = f32::INFINITY;
                 ui.add(egui::Label::new(layout_job).selectable(true))
             });
@@ -398,6 +547,9 @@ impl DebugView {
                         },
                         Message::Info(i) => {
                             ui.colored_label(info_color, i.as_str());
+                        }
+                        Message::Panicked(e) => {
+                            ui.colored_label(err_color, e);
                         }
                     }
                 }

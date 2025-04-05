@@ -4,24 +4,23 @@ version = "0.1.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 edition = "2024"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
-rust-version = "1.76"
 
 [package.metadata.docs.rs]
 all-features = true
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
-egui = "0.28"
-eframe = { version = "0.28", default-features = false, features = [
+egui = "0.31"
+eframe = { version = "0.31", default-features = false, features = [
     #"accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow", # Use the glow rendering backend. Alternative: "wgpu".
     "persistence", # Enable restoring app state when restarting the app.
 ] }
-egui_extras = { version = "0.28", features = ["serde", "syntect"] }
-egui_dock = { version = "0.13", features = ["serde"] }
-egui_tiles = { version = "0.9.0", features = ["serde"] }
-egui_file = "0.18.0"
+egui_extras = { version = "0.31", features = ["serde", "syntect"] }
+egui_dock = { version = "0.16", features = ["serde"] }
+egui_tiles = { version = "0.12.0", features = ["serde"] }
+egui_file = "0.22.0"
 
 log = "0.4"
 
@@ -29,7 +28,7 @@ serde = { version = "1", features = ["derive"] }
 
 syn = "2.0"
 wire_weaver_core = { path = "../wire_weaver_core" }
-strum = { version = "0.26.3", features = ["derive"] }
+strum = { version = "0.27", features = ["derive"] }
 pathsearch = "0.2.0"
 subprocess = "0.2.9"
 

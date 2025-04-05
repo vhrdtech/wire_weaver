@@ -192,7 +192,7 @@ impl Transform {
         for syn_file in &self.files {
             item_counts.push(syn_file.items.len());
         }
-        for k in 0..8 {
+        for _k in 0..8 {
             // Take each item and run collect and convert pass, then put it back. (To not disturb borrow checker).
             for i in 0..self.files.len() {
                 for _ in 0..item_counts[i] {
@@ -212,7 +212,7 @@ impl Transform {
                 }
             }
             // Check if more passes are needed (each time a type references another type, one more pass is required)
-            println!("After pass {}", k + 1);
+            // println!("After pass {}", k + 1);
             if !self.need_more_passes() {
                 break;
             }
@@ -223,7 +223,7 @@ impl Transform {
             }
             return None;
         }
-        println!("Done");
+        // println!("Done");
 
         for syn_file in self.files.drain(..) {
             let mut items = vec![];

@@ -448,6 +448,7 @@ impl DebugView {
                         api_level,
                         &Some(location),
                         self.state.no_alloc,
+                        true,
                     )
                 });
                 let code = match code {

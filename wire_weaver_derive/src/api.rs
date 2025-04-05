@@ -23,6 +23,8 @@ struct Args {
     #[darling(default)]
     client: bool,
     #[darling(default)]
+    raw_client: bool,
+    #[darling(default)]
     server: bool,
     no_alloc: bool,
     use_async: bool,
@@ -170,6 +172,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         api_level,
                         &api_model_location,
                         args.no_alloc,
+                        !args.raw_client,
                     );
                     codegen_ts.append_all(ts);
                 }

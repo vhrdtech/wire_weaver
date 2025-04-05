@@ -12,9 +12,10 @@ pub fn client(
     api_level: &ApiLevel,
     api_model_location: &Option<syn::Path>,
     no_alloc: bool,
+    high_level_client: bool,
 ) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
-    let root_level = level_methods(api_level, no_alloc);
+    let root_level = level_methods(api_level, no_alloc, high_level_client);
     let output_des = output_des_fns(api_level, no_alloc);
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
@@ -28,6 +29,12 @@ pub fn client(
     } else {
         quote! {}
     };
+    let (generics_a, generics_b) = if high_level_client {
+        (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> })
+    } else {
+        (quote! {}, quote! {})
+    };
+    let hl_init = hl_init_methods(high_level_client);
     quote! {
         #args_structs
 
@@ -38,24 +45,30 @@ pub fn client(
         #api_model_includes
         #additional_use
 
-        impl Client {
+        impl #generics_a Client #generics_b {
             #root_level
             #output_des
+            #hl_init
         }
     }
 }
 
-fn level_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
+fn level_methods(api_level: &ApiLevel, no_alloc: bool, high_level_client: bool) -> TokenStream {
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_method(&item.kind, item.id, no_alloc));
+        .map(|item| level_method(&item.kind, item.id, no_alloc, high_level_client));
     quote! {
         #(#handlers)*
     }
 }
 
-fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
+fn level_method(
+    kind: &ApiItemKind,
+    id: u16,
+    no_alloc: bool,
+    high_level_client: bool,
+) -> TokenStream {
     // TODO: Handle sub-levels
     let path = if no_alloc {
         // quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
@@ -83,24 +96,36 @@ fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
         ApiItemKind::Method {
             ident,
             args,
-            return_type: _,
+            return_type,
         } => {
-            let (args_ser, args_list, args_bytes) = ser_args(ident, args, no_alloc);
-            let fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
+            let (args_ser, args_list, args_names, args_bytes) = ser_args(ident, args, no_alloc);
+            let ll_fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
+            let hl_fn_name = &ident;
+            let des_output_fn = Ident::new(format!("{}_des_output", ident.sym));
+            let hl_fn = if high_level_client {
+                let output_ty = return_type
+                    .as_ref()
+                    .map(|t| t.def(no_alloc))
+                    .unwrap_or(quote! { () });
+                quote! {
+                    pub async fn #hl_fn_name(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
+                        let (args, path) = self.#ll_fn_name(#args_names)?;
+                        let (args, path) = (args.to_vec(), path.to_vec());
+                        let data =
+                            wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, None)
+                                .await?;
+                        Ok(Self::#des_output_fn(&data)?.output)
+                    }
+                }
+            } else {
+                quote! {}
+            };
             quote! {
-                pub fn #fn_name(&mut self, #args_list) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
+                pub fn #ll_fn_name(&mut self, #args_list) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
                     #args_ser
-                    // let request = Request {
-                    //     seq: 123,
-                    //     path: #path,
-                    //     kind: RequestKind::Call { args: #args_bytes }
-                    // };
-                    // let mut wr = BufWriter::new(&mut self.event_scratch);
-                    // request.ser_shrink_wrap(&mut wr)?;
-                    // let request_bytes = #finish_wr;
-                    // Ok(request_bytes)
                     Ok((#args_bytes, #path))
                 }
+                #hl_fn
             }
         }
         ApiItemKind::Property { ident, ty } => {
@@ -171,7 +196,7 @@ fn ser_args(
     method_ident: &Ident,
     args: &[Argument],
     no_alloc: bool,
-) -> (TokenStream, TokenStream, TokenStream) {
+) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
     let args_struct_ident =
         format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
     let args_struct_ident = Ident::new(args_struct_ident);
@@ -180,12 +205,13 @@ fn ser_args(
             (
                 quote! {},
                 quote! {},
+                quote! {},
                 // 0 when no arguments to allow adding them later, as Option
                 // quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } },
                 quote! { &[0x00] },
             )
         } else {
-            (quote! {}, quote! {}, quote! { vec![] })
+            (quote! {}, quote! {}, quote! {}, quote! { vec![] })
         }
     } else {
         let idents = args.iter().map(|arg| {
@@ -205,13 +231,17 @@ fn ser_args(
             args.ser_shrink_wrap(&mut wr)?;
             let args_bytes = #finish_wr;
         };
-        let idents = args.iter().map(|arg| {
-            let ident: proc_macro2::Ident = (&arg.ident).into();
-            ident
-        });
+        let idents = args
+            .iter()
+            .map(|arg| {
+                let ident: proc_macro2::Ident = (&arg.ident).into();
+                ident
+            })
+            .collect::<Vec<_>>();
         let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
         let args_list = quote! { #(#idents: #tys),* };
-        (args_ser, args_list, quote! { args_bytes })
+        let args_names = quote! { #(#idents),* };
+        (args_ser, args_list, args_names, quote! { args_bytes })
     }
 }
 
@@ -247,5 +277,43 @@ fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStre
             let mut rd = BufReader::new(bytes);
             Ok(rd.read(ElementSize::Implied)?)
         }
+    }
+}
+
+fn hl_init_methods(high_level_client: bool) -> TokenStream {
+    if high_level_client {
+        quote! {
+            pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+                let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+                self.cmd_tx
+                    .send(wire_weaver_client_server::Command::DisconnectAndExit {
+                        disconnected_tx: Some(done_tx),
+                    })
+                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                let _ = done_rx.await.map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                Ok(())
+            }
+
+            pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+                self.cmd_tx
+                    .send(wire_weaver_client_server::Command::DisconnectAndExit {
+                        disconnected_tx: None,
+                    })
+                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                Ok(())
+            }
+
+            /// Disconnect from connected device. Event loop will be left running and error mode will lbe set to KeepRetrying.
+            pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+                self.cmd_tx
+                    .send(wire_weaver_client_server::Command::DisconnectKeepStreams {
+                        disconnected_tx: None,
+                    })
+                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                Ok(())
+            }
+        }
+    } else {
+        quote! {}
     }
 }

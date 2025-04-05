@@ -60,6 +60,8 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 pub enum Error<E> {
     #[error("Called a method that required event loop to be running")]
     EventLoopNotRunning,
+    #[error("No devices found to connect to")]
+    DeviceNotFound,
     #[error("Timeout")]
     Timeout,
     #[error("LinkSetup was not received from device after several retries")]

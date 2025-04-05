@@ -19,7 +19,7 @@ pub(crate) async fn connect(
             Some(di) => di,
             None => {
                 if timeout == OnError::ExitImmediately {
-                    return Err(Error::Timeout);
+                    return Err(Error::DeviceNotFound);
                 } else {
                     wait_device(&filter, timeout).await?
                 }
@@ -37,14 +37,14 @@ pub(crate) async fn connect(
             Err(e) => match &mut timeout {
                 OnError::ExitImmediately => {
                     error!("device {di:?} open failed: {e:?}, no timeout, bailing");
-                    return Err(Error::Timeout);
+                    return Err(Error::DeviceNotFound);
                 }
                 OnError::RetryFor { timeout, .. } => {
                     let now = Instant::now();
                     let dt = now.duration_since(wait_started);
                     if dt > *timeout {
                         error!("device {di:?} open failed: {e:?}, timeout expired, bailing");
-                        return Err(Error::Timeout);
+                        return Err(Error::DeviceNotFound);
                     } else {
                         *timeout = *timeout - dt;
                         error!(
@@ -74,12 +74,12 @@ async fn wait_device(
     };
     trace!("waiting for USB device to connect...");
     match timeout {
-        OnError::ExitImmediately => Err(Error::Timeout),
+        OnError::ExitImmediately => Err(Error::DeviceNotFound),
         OnError::RetryFor { mut timeout, .. } => loop {
             let wait_started = Instant::now();
             tokio::select! {
                 _ = tokio::time::sleep(timeout) => {
-                    return Err(Error::Timeout)
+                    return Err(Error::DeviceNotFound)
                 }
                 hotplug_event = watch.next() => {
                     let Some(hotplug_event) = hotplug_event else {
@@ -98,7 +98,7 @@ async fn wait_device(
                     let now = Instant::now();
                     let dt = now.duration_since(wait_started);
                     if dt > timeout {
-                        return Err(Error::Timeout)
+                        return Err(Error::DeviceNotFound)
                     } else {
                         timeout = timeout - dt;
                     }

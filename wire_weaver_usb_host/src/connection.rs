@@ -139,14 +139,21 @@ fn apply_filter(device_info: &DeviceInfo, filter: &UsbDeviceFilter) -> bool {
                 false
             }
         }
-        UsbDeviceFilter::AnyVhrdTechCanBus => {
+        UsbDeviceFilter::AnyVhrdTechCanBus | UsbDeviceFilter::AnyVhrdTechIo => {
             let Some(manufacturer) = device_info.manufacturer_string() else {
                 return false;
             };
             let Some(product_string) = device_info.product_string() else {
                 return false;
             };
-            manufacturer.to_lowercase().contains("vhrd") && product_string.contains("CAN")
+            if !manufacturer.to_lowercase().contains("vhrd") {
+                return false;
+            }
+            match filter {
+                UsbDeviceFilter::AnyVhrdTechCanBus => product_string.contains("CAN"),
+                UsbDeviceFilter::AnyVhrdTechIo => product_string.contains("IO"),
+                _ => unreachable!(),
+            }
         }
     }
 }

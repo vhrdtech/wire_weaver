@@ -5,6 +5,7 @@ mod ww_nusb;
 
 pub use event_loop::usb_worker;
 pub use nusb::DeviceInfo;
+pub use wire_weaver_client_server;
 pub use wire_weaver_usb_link::ProtocolInfo;
 
 use nusb::Error as NusbError;
@@ -31,6 +32,7 @@ pub enum UsbDeviceFilter {
     VidPidAndSerial { vid: u16, pid: u16, serial: String },
     Serial { serial: String },
     AnyVhrdTechCanBus,
+    AnyVhrdTechIo,
 }
 
 #[derive(Default)]

@@ -10,5 +10,6 @@ tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
 tracing = "0.1"
 wire_weaver = { path = "../wire_weaver" }
 wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["host"] }
+wire_weaver_client_server = { path = "../wire_weaver_client_server" }
 futures-lite = "2.6"
 thiserror = "2.0"

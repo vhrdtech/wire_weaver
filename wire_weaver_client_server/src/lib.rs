@@ -62,6 +62,8 @@ pub enum Error<E> {
     EventLoopNotRunning,
     #[error("Timeout")]
     Timeout,
+    #[error("LinkSetup was not received from device after several retries")]
+    LinkSetupTimeout,
     #[error("ShrinkWrap error {:?}", .0)]
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
     #[error("Tried connecting to a device with incompatible protocol")]

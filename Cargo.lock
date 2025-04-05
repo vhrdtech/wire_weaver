@@ -3752,6 +3752,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
+ "wire_weaver_client_server",
  "wire_weaver_usb_link",
 ]
 

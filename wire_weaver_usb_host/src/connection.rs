@@ -1,17 +1,20 @@
-use crate::{Error, OnError, UsbDeviceFilter};
+use crate::{UsbDeviceFilter, UsbError};
 use futures_lite::StreamExt;
 use nusb::hotplug::HotplugEvent;
 use nusb::{DeviceInfo, Interface};
 use std::time::Instant;
 use tracing::{error, trace};
+use wire_weaver_client_server::{Error, OnError};
 
 pub(crate) async fn connect(
     filter: UsbDeviceFilter,
     mut timeout: OnError,
-) -> Result<(Interface, DeviceInfo), Error> {
+) -> Result<(Interface, DeviceInfo), Error<UsbError>> {
     let wait_started = Instant::now();
     loop {
-        let di = nusb::list_devices()?.find(|d| apply_filter(d, &filter));
+        let di = nusb::list_devices()
+            .map_err(|e| Error::Transport(e.into()))?
+            .find(|d| apply_filter(d, &filter));
         let di = match di {
             Some(di) => di,
             None => {
@@ -24,7 +27,7 @@ pub(crate) async fn connect(
         };
         trace!("connecting to USB device: {di:?}");
         let interface = {
-            let dev = di.open()?;
+            let dev = di.open().map_err(|e| Error::Transport(e.into()))?;
             dev.claim_interface(0)
         };
         match interface {
@@ -58,9 +61,15 @@ pub(crate) async fn connect(
     }
 }
 
-async fn wait_device(filter: &UsbDeviceFilter, timeout: OnError) -> Result<DeviceInfo, Error> {
-    let mut watch = nusb::watch_devices()?;
-    if let Some(di) = nusb::list_devices()?.find(|d| apply_filter(d, filter)) {
+async fn wait_device(
+    filter: &UsbDeviceFilter,
+    timeout: OnError,
+) -> Result<DeviceInfo, Error<UsbError>> {
+    let mut watch = nusb::watch_devices().map_err(|e| Error::Transport(e.into()))?;
+    if let Some(di) = nusb::list_devices()
+        .map_err(|e| Error::Transport(e.into()))?
+        .find(|d| apply_filter(d, filter))
+    {
         return Ok(di);
     };
     trace!("waiting for USB device to connect...");
@@ -74,7 +83,7 @@ async fn wait_device(filter: &UsbDeviceFilter, timeout: OnError) -> Result<Devic
                 }
                 hotplug_event = watch.next() => {
                     let Some(hotplug_event) = hotplug_event else {
-                        return Err(Error::WatcherReturnedNone)
+                        return Err(Error::Transport(UsbError::WatcherReturnedNone))
                     };
                     if let HotplugEvent::Connected(di) = hotplug_event {
                         if apply_filter(&di, filter) {
@@ -104,7 +113,7 @@ async fn wait_device(filter: &UsbDeviceFilter, timeout: OnError) -> Result<Devic
                     }
                 }
             }
-            Err(Error::WatcherReturnedNone)
+            Err(Error::Transport(UsbError::WatcherReturnedNone))
         }
     }
 }

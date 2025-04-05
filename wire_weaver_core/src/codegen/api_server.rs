@@ -539,7 +539,7 @@ fn deferred_method_return_ser_methods(
 ) -> TokenStream {
     let mut ts = TokenStream::new();
     let return_ty = if no_alloc {
-        quote! { &'b [u8] }
+        quote! { &'i [u8] }
     } else {
         quote! { Vec<u8> }
     };
@@ -569,7 +569,7 @@ fn deferred_method_return_ser_methods(
             None => quote! {},
         };
         ts.append_all(quote! {
-            pub fn #fn_name<'b>(output_scratch: &mut [u8], event_scratch: &'b mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
+            pub fn #fn_name<'i>(output_scratch: &mut [u8], event_scratch: &'i mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
                 #ser_output_or_unit
             }
         });

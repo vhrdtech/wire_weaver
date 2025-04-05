@@ -71,7 +71,7 @@ impl Type {
                 let item_ty = match layout {
                     Layout::Builtin(ty) => ty.def(no_alloc),
                     Layout::Option(ty) => ty.def(no_alloc),
-                    Layout::Result(_ok_err_ty) => unimplemented!(),
+                    Layout::Result(_ok_err_ty) => unimplemented!("array of results"),
                     // Layout::Unsized(_) => unimplemented!(),
                     // Layout::Sized(_, _) => unimplemented!(),
                 };
@@ -91,8 +91,8 @@ impl Type {
                         quote! { Vec<#inner_ty> }
                     }
                 }
-                Layout::Option(_) => unimplemented!(),
-                Layout::Result(_) => unimplemented!(),
+                Layout::Option(_) => unimplemented!("vec of options"),
+                Layout::Result(_) => unimplemented!("vec of results"),
             },
             // Type::User(user_layout) => {
             //     let path = user_layout.path();
@@ -136,8 +136,8 @@ impl Type {
                         quote! { Vec<#inner_ty> }
                     }
                 }
-                Layout::Option(_) => unimplemented!(),
-                Layout::Result(_) => unimplemented!(),
+                Layout::Option(_) => unimplemented!("vec of options"),
+                Layout::Result(_) => unimplemented!("vec of results"),
             },
             Type::Unsized(path, is_lifetime) | Type::Sized(path, is_lifetime) => {
                 if *is_lifetime && no_alloc {
@@ -233,14 +233,14 @@ impl Type {
                 );
                 return;
             }
-            Type::ULeb32 => unimplemented!(),
-            Type::ULeb64 => unimplemented!(),
-            Type::ULeb128 => unimplemented!(),
-            Type::ILeb32 => unimplemented!(),
-            Type::ILeb64 => unimplemented!(),
-            Type::ILeb128 => unimplemented!(),
-            Type::Array(_, _) => unimplemented!(),
-            Type::Tuple(_) => unimplemented!(),
+            Type::ULeb32 => unimplemented!("uleb32"),
+            Type::ULeb64 => unimplemented!("uleb64"),
+            Type::ULeb128 => unimplemented!("uleb128"),
+            Type::ILeb32 => unimplemented!("ileb32"),
+            Type::ILeb64 => unimplemented!("ileb64"),
+            Type::ILeb128 => unimplemented!("ileb128"),
+            Type::Array(_, _) => unimplemented!("array"),
+            Type::Tuple(_) => unimplemented!("tuple"),
             Type::Vec(layout) => {
                 match layout {
                     Layout::Builtin(inner_ty) => {
@@ -255,8 +255,8 @@ impl Type {
                             tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                         }
                     }
-                    Layout::Option(_) => unimplemented!(),
-                    Layout::Result(_) => unimplemented!(),
+                    Layout::Option(_) => unimplemented!("vec of options"),
+                    Layout::Result(_) => unimplemented!("vec of results"),
                 }
                 return;
             }
@@ -313,18 +313,18 @@ impl Type {
                 tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
                 return;
             }
-            Type::ULeb32 => unimplemented!(),
-            Type::ULeb64 => unimplemented!(),
-            Type::ULeb128 => unimplemented!(),
-            Type::I4 => unimplemented!(),
+            Type::ULeb32 => unimplemented!("uleb32"),
+            Type::ULeb64 => unimplemented!("uleb64"),
+            Type::ULeb128 => unimplemented!("uleb128"),
+            Type::I4 => unimplemented!("i4"),
             Type::I8 => "read_i8",
             Type::I16 => "read_i16",
             Type::I32 => "read_i32",
             Type::I64 => "read_i64",
             Type::I128 => "read_i128",
-            Type::ILeb32 => unimplemented!(),
-            Type::ILeb64 => unimplemented!(),
-            Type::ILeb128 => unimplemented!(),
+            Type::ILeb32 => unimplemented!("ileb32"),
+            Type::ILeb64 => unimplemented!("ileb64"),
+            Type::ILeb128 => unimplemented!("ileb128"),
             Type::F32 => "read_f32",
             Type::F64 => "read_f64",
             // Type::Bytes => "read_bytes",
@@ -338,8 +338,8 @@ impl Type {
                     return;
                 }
             }
-            Type::Array(_, _) => unimplemented!(),
-            Type::Tuple(_) => unimplemented!(),
+            Type::Array(_, _) => unimplemented!("array"),
+            Type::Tuple(_) => unimplemented!("tuple"),
             Type::Vec(layout) => match layout {
                 Layout::Builtin(inner_ty) => {
                     // TODO: how to handle eob to be zero length?
@@ -348,8 +348,8 @@ impl Type {
                         .append_all(quote! { let #variable_name = rd.read(#inner_element_size)?; });
                     return;
                 }
-                Layout::Option(_) => unimplemented!(),
-                Layout::Result(_) => unimplemented!(),
+                Layout::Option(_) => unimplemented!("vec of options"),
+                Layout::Result(_) => unimplemented!("vec of results"),
             },
             // Type::User(_) => unimplemented!(),
             Type::Unsized(_, _) => {
@@ -432,10 +432,10 @@ impl Type {
                         ElementSize::UnsizedSelfDescribing => ElementSize::UnsizedSelfDescribing,
                     };
                 }
-                Layout::Option(_inner_ty) => unimplemented!(),
-                Layout::Result(_inner_ty) => unimplemented!(),
+                Layout::Option(_inner_ty) => unimplemented!("array of options"),
+                Layout::Result(_inner_ty) => unimplemented!("array of results"),
             },
-            Type::Tuple(_) => unimplemented!(),
+            Type::Tuple(_) => unimplemented!("tuple"),
             Type::Vec(_) => return ElementSize::Unsized,
             Type::Unsized(_, _) => return ElementSize::Unsized,
             Type::Sized(_, _) => {
@@ -443,7 +443,7 @@ impl Type {
                 //     return ElementSize::Sized {
                 //         size_bits: *size_bytes as usize * 8,
                 //     }
-                unimplemented!();
+                unimplemented!("element_size of Sized");
             }
             Type::IsSome(_) | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
             Type::Result(_, _ok_err_ty) => {

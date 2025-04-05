@@ -55,7 +55,7 @@ where
     pub fn iter(&self) -> RefVecIter<'i, T> {
         match self {
             RefVec::Slice { .. } => {
-                unimplemented!()
+                unimplemented!("RefVec slice iter")
             }
             RefVec::Buf {
                 buf,
@@ -221,7 +221,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             RefVecIter::Slice { .. } => {
-                unimplemented!()
+                unimplemented!("RefVecIter::Slice")
             }
             RefVecIter::Buf {
                 buf,

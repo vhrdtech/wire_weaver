@@ -28,7 +28,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FieldPathRoot {
     NamedField(syn::Ident),
     EnumVariant(syn::Ident),
@@ -37,7 +37,7 @@ pub enum FieldPathRoot {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FieldSelector {
     NamedField(syn::Ident),
     Tuple(u32),
@@ -47,6 +47,7 @@ pub enum FieldSelector {
     OptionIsSome,
 }
 
+#[derive(Debug)]
 pub struct FieldPath {
     root: FieldPathRoot,
     selectors: Vec<FieldSelector>,
@@ -78,9 +79,9 @@ impl FieldPath {
                 let ident = ident.to_string();
                 syn::Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
-            FieldPathRoot::EnumVariant(_) => unimplemented!(),
-            FieldPathRoot::Argument => unimplemented!(),
-            FieldPathRoot::Output => unimplemented!(),
+            FieldPathRoot::EnumVariant(_) => unimplemented!("field path: enum variant {self:?}"),
+            FieldPathRoot::Argument => unimplemented!("field path: argument {self:?}"),
+            FieldPathRoot::Output => unimplemented!("field path: output {self:?}"),
         }
     }
 }
@@ -438,7 +439,7 @@ impl<'i> CollectAndConvertPass<'i> {
                 }
             }
             syn::Type::Array(_type_array) => {
-                unimplemented!()
+                unimplemented!("collect_and_convert: array")
             }
             u => {
                 self.messages

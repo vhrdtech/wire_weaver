@@ -326,7 +326,7 @@ fn level_matcher(
         }
         // ApiItemKind::ImplTrait => {}
         // ApiItemKind::Level(_) => {}
-        _ => unimplemented!(),
+        u => unimplemented!("{u:?}"),
     }
 }
 

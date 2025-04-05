@@ -163,7 +163,7 @@ fn level_method(kind: &ApiItemKind, id: u16, no_alloc: bool) -> TokenStream {
         }
         // ApiItemKind::ImplTrait => {}
         // ApiItemKind::Level(_) => {}
-        _ => unimplemented!(),
+        u => unimplemented!("{u:?}"),
     }
 }
 

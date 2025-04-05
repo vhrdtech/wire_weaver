@@ -81,7 +81,7 @@ impl FieldPath {
             }
             FieldPathRoot::EnumVariant(_) => unimplemented!("field path: enum variant {self:?}"),
             FieldPathRoot::Argument => unimplemented!("field path: argument {self:?}"),
-            FieldPathRoot::Output => syn::Ident::new("_method_output", Span::call_site()),
+            FieldPathRoot::Output => syn::Ident::new("_output_flag", Span::call_site()),
         }
     }
 }
@@ -688,7 +688,7 @@ impl Parse for StreamMacroArgs {
 }
 
 /// Create flags for Result or Option fields without explicitly defined ones.
-fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
+pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
     let mut fields_without_flags = vec![];
     for (idx, f) in fields.iter().enumerate() {
         let is_flag_ty = matches!(f.ty, Type::Result(_, _) | Type::Option(_, _));

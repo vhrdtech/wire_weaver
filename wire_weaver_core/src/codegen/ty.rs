@@ -439,11 +439,8 @@ impl Type {
             Type::Vec(_) => return ElementSize::Unsized,
             Type::Unsized(_, _) => return ElementSize::Unsized,
             Type::Sized(_, _) => {
-                // Type::Sized(_, size_bytes, _) => {
-                //     return ElementSize::Sized {
-                //         size_bits: *size_bytes as usize * 8,
-                //     }
-                unimplemented!("element_size of Sized");
+                return ElementSize::UnsizedSelfDescribing;
+                // unimplemented!("element_size of Sized");
             }
             Type::IsSome(_) | Type::IsOk(_) => return ElementSize::Sized { size_bits: 1 },
             Type::Result(_, _ok_err_ty) => {

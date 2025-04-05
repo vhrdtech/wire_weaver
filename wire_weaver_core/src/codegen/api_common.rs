@@ -5,6 +5,7 @@ use quote::TokenStreamExt;
 use crate::ast::api::{ApiItemKind, ApiLevel};
 use crate::ast::ident::Ident;
 use crate::ast::{Field, ItemStruct, Type};
+use crate::transform::create_flags;
 
 pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let mut defs = TokenStream::new();
@@ -54,7 +55,7 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
         return;
     }
     let ident = format!("{}_output", method_ident.sym).to_case(convert_case::Case::Pascal);
-    let item_struct = ItemStruct {
+    let mut item_struct = ItemStruct {
         docs: vec![],
         derive: vec![],
         is_final: false,
@@ -68,6 +69,7 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
             default: None,
         }],
     };
+    create_flags(&mut item_struct.fields, &[]);
     defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));
     defs.append_all(super::item_struct::struct_serdes(&item_struct, no_alloc));
 }

@@ -7,6 +7,7 @@ use crate::transform::collect_and_convert::CollectAndConvertPass;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 
 mod collect_and_convert;
+pub use collect_and_convert::create_flags;
 mod syn_util;
 // mod visit_user_types;
 // TODO: check that no fields and no variants have the same name

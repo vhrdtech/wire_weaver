@@ -59,15 +59,15 @@ pub fn server_dispatcher(
             pub #maybe_async fn process_request<'a>(
                 &'a mut self,
                 bytes: &[u8],
-                error_scratch: &'a mut [u8]
+                output_scratch: &'a mut [u8]
             ) -> Result<&[u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
 
-                match self.process_request_inner(&request)#maybe_await {
+                match self.process_request_inner(&request, output_scratch)#maybe_await {
                     Ok(response_bytes) => Ok(response_bytes),
                     Err(e) => {
-                        let mut wr = BufWriter::new(error_scratch);
+                        let mut wr = BufWriter::new(output_scratch);
                         let event = Event {
                             seq: request.seq,
                             result: Err(e)
@@ -81,6 +81,7 @@ pub fn server_dispatcher(
             #maybe_async fn process_request_inner(
                 &mut self,
                 request: &Request<'_>,
+                output_scratch: &mut [u8]
             ) -> Result<&[u8], Error> {
                 if matches!(request.kind, RequestKind::Read) && request.seq == 0 {
                     return Ok(Self::ser_err_event(&mut self.event_scratch, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
@@ -174,7 +175,7 @@ fn level_matcher(
                 quote! {}
             };
             let ser_output_or_unit = ser_method_output(
-                quote! { &mut self.output_scratch },
+                quote! { output_scratch },
                 quote! { &mut self.event_scratch },
                 ident,
                 return_type,
@@ -254,7 +255,7 @@ fn level_matcher(
                     );
                     quote! {
                         let value = self.#get_property()#maybe_await;
-                        let mut wr = BufWriter::new(&mut self.output_scratch);
+                        let mut wr = BufWriter::new(output_scratch);
                         #ser
                     }
                 }
@@ -267,7 +268,7 @@ fn level_matcher(
                         &mut ser,
                     );
                     quote! {
-                        let mut wr = BufWriter::new(&mut self.output_scratch);
+                        let mut wr = BufWriter::new(output_scratch);
                         #ser
                     }
                 }

@@ -81,7 +81,7 @@ impl FieldPath {
             }
             FieldPathRoot::EnumVariant(_) => unimplemented!("field path: enum variant {self:?}"),
             FieldPathRoot::Argument => unimplemented!("field path: argument {self:?}"),
-            FieldPathRoot::Output => unimplemented!("field path: output {self:?}"),
+            FieldPathRoot::Output => syn::Ident::new("_method_output", Span::call_site()),
         }
     }
 }

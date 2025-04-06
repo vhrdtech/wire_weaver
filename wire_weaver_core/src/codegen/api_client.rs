@@ -103,10 +103,17 @@ fn level_method(
             let hl_fn_name = &ident;
             let des_output_fn = Ident::new(format!("{}_des_output", ident.sym));
             let hl_fn = if high_level_client {
-                let output_ty = return_type
-                    .as_ref()
-                    .map(|t| t.def(no_alloc))
-                    .unwrap_or(quote! { () });
+                let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
+                    let maybe_dot_output =
+                        if matches!(return_type, Type::Unsized(_, _) | Type::Sized(_, _)) {
+                            quote! {} // User type directly returned from method
+                        } else {
+                            quote! { .output } // Return type is wrapped in a struct
+                        };
+                    (return_type.def(no_alloc), maybe_dot_output)
+                } else {
+                    (quote! { () }, quote! {})
+                };
                 quote! {
                     pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
                         let (args, path) = self.#ll_fn_name(#args_names)?;
@@ -114,7 +121,7 @@ fn level_method(
                         let data =
                             wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
                                 .await?;
-                        Ok(Self::#des_output_fn(&data)?.output)
+                        Ok(Self::#des_output_fn(&data)? #maybe_dot_output)
                     }
                 }
             } else {

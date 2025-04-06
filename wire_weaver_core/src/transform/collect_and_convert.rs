@@ -585,9 +585,11 @@ impl<'i> CollectAndConvertPass<'i> {
                             id
                         }
                     };
+                    let docs = collect_docs_attrs(&mut attrs);
                     collect_unknown_attributes(&mut attrs, self.messages);
                     items.push(ApiItem {
                         id: id as u16,
+                        docs,
                         multiplicity: Multiplicity::Flat,
                         kind: ApiItemKind::Method {
                             ident: (&trait_item_fn.sig.ident).into(),
@@ -617,10 +619,12 @@ impl<'i> CollectAndConvertPass<'i> {
                     let stream_args: StreamMacroArgs =
                         syn::parse2(item_macro.mac.tokens.clone()).unwrap();
                     let path = FieldPath::new(FieldPathRoot::NamedField(stream_args.ident.clone())); // TODO: Clarify FieldPath purpose
+                    let docs = collect_docs_attrs(&mut attrs);
                     if kind == "stream_up" || kind == "stream_down" {
                         let is_up = kind == "stream_up";
                         items.push(ApiItem {
                             id: id as u16,
+                            docs,
                             multiplicity: Multiplicity::Flat,
                             kind: ApiItemKind::Stream {
                                 ident: stream_args.ident.into(),
@@ -632,6 +636,7 @@ impl<'i> CollectAndConvertPass<'i> {
                     } else if kind == "property" {
                         items.push(ApiItem {
                             id: id as u16,
+                            docs,
                             multiplicity: Multiplicity::Flat,
                             kind: ApiItemKind::Property {
                                 ident: stream_args.ident.into(),

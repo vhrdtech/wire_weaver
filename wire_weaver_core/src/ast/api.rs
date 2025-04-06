@@ -10,6 +10,7 @@ pub struct ApiLevel {
 #[derive(Debug)]
 pub struct ApiItem {
     pub id: u16,
+    pub docs: Vec<String>,
     pub multiplicity: Multiplicity,
     pub kind: ApiItemKind,
 }

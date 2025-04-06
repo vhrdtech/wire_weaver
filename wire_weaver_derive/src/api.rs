@@ -79,7 +79,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         } else {
             ww.clone()
         };
-        eprintln!("path: {ww_path}");
+        // eprintln!("path: {ww_path}");
 
         let mut transform = Transform::new();
         transform

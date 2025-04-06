@@ -32,7 +32,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
 pub enum FieldPathRoot {
     NamedField(syn::Ident),
     EnumVariant(syn::Ident),
-    Argument,
+    Argument(syn::Ident),
     Output,
 }
 
@@ -75,12 +75,11 @@ impl FieldPath {
 
     pub fn flag_ident(&self) -> syn::Ident {
         match &self.root {
-            FieldPathRoot::NamedField(ident) => {
+            FieldPathRoot::NamedField(ident) | FieldPathRoot::Argument(ident) => {
                 let ident = ident.to_string();
                 syn::Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
             FieldPathRoot::EnumVariant(_) => unimplemented!("field path: enum variant {self:?}"),
-            FieldPathRoot::Argument => unimplemented!("field path: argument {self:?}"),
             FieldPathRoot::Output => syn::Ident::new("_output_flag", Span::call_site()),
         }
     }
@@ -562,13 +561,13 @@ impl<'i> CollectAndConvertPass<'i> {
                         let FnArg::Typed(pat_type) = input else {
                             continue;
                         };
-                        let ty = self.transform_type(
-                            pat_type.ty.deref().clone(),
-                            &FieldPath::new(FieldPathRoot::Argument),
-                        )?;
                         let Pat::Ident(arg_ident) = pat_type.pat.deref() else {
                             continue;
                         };
+                        let ty = self.transform_type(
+                            pat_type.ty.deref().clone(),
+                            &FieldPath::new(FieldPathRoot::Argument(arg_ident.ident.clone())),
+                        )?;
                         args.push(Argument {
                             ident: (&arg_ident.ident).into(),
                             ty,
@@ -657,7 +656,7 @@ impl<'i> CollectAndConvertPass<'i> {
     fn transform_const(&mut self, item_const: &syn::ItemConst) -> Option<ItemConst> {
         let ty = self.transform_type(
             item_const.ty.deref().clone(),
-            &FieldPath::new(FieldPathRoot::Argument),
+            &FieldPath::new(FieldPathRoot::Argument(item_const.ident.clone())),
         )?;
         let mut attrs = item_const.attrs.clone();
         let docs = collect_docs_attrs(&mut attrs);

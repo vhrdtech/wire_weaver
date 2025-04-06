@@ -34,6 +34,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             if fields.is_empty() {
                 continue;
             }
+            create_flags(&mut fields, &[]);
 
             let ident = format!("{}_args", ident.sym).to_case(convert_case::Case::Pascal);
             let item_struct = ItemStruct {

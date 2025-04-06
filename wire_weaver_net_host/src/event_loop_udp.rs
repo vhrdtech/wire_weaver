@@ -24,10 +24,10 @@ struct State {
     common: CommonState<UdpError>,
 }
 
-impl State {
-    fn new() -> State {
+impl Default for State {
+    fn default() -> Self {
         State {
-            common: CommonState::new(),
+            common: CommonState::default(),
         }
     }
 }
@@ -39,7 +39,7 @@ struct Link {
 
 pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, UdpError>>) {
     debug!("udp worker started");
-    let mut state = State::new();
+    let mut state = State::default();
     let mut link = None;
     let mut scratch = [0u8; 2048];
     loop {

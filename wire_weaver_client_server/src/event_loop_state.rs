@@ -16,10 +16,12 @@ pub struct CommonState<E> {
     pub stream_handlers: HashMap<Vec<u16>, StreamUpdateSender<E>>,
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
+    pub last_ping_instant: Option<Instant>,
+    pub packet_accumulation_time: Duration,
 }
 
-impl<E> CommonState<E> {
-    pub fn new() -> Self {
+impl<E> Default for CommonState<E> {
+    fn default() -> Self {
         CommonState {
             exit_on_error: true,
             request_id: 1,
@@ -28,9 +30,13 @@ impl<E> CommonState<E> {
             stream_handlers: Default::default(),
             link_setup_done: false,
             packet_started_instant: None,
+            last_ping_instant: None,
+            packet_accumulation_time: Duration::from_millis(1),
         }
     }
+}
 
+impl<E> CommonState<E> {
     pub fn increment_request_id(&mut self) {
         let mut iterations_left = SeqTy::MAX as usize;
         while self.response_map.contains_key(&self.request_id) && iterations_left > 0 {

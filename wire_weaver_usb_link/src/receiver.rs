@@ -1,4 +1,4 @@
-use crate::common::{Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
+use crate::common::{DisconnectReason, Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
 use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource, ProtocolInfo};
 use shrink_wrap::BufReader;
 
@@ -31,7 +31,7 @@ pub enum MessageKind {
         client_server_protocol: ProtocolInfo,
         user_protocol: ProtocolInfo,
     },
-    Disconnect,
+    Disconnect(DisconnectReason),
     /// Device received LinkSetup, versions matched and is ready to receive messages
     #[cfg(feature = "host")]
     LinkSetupResult {
@@ -58,9 +58,9 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
             } else {
                 let len = self
                     .rx
-                    .read_packet(&mut self.rx_packet_buf)
+                    .read_packet(self.rx_packet_buf)
                     .await
-                    .map_err(|e| Error::SourceError(e))?;
+                    .map_err(Error::SourceError)?;
                 self.rx_stats.packets_received = self.rx_stats.packets_received.wrapping_add(1);
                 if len == 0 {
                     self.rx_left_bytes = 0;
@@ -89,7 +89,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                 }
                 let len11_8 = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
                 let len7_0 = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
-                let len = (len11_8 as usize) << 8 | len7_0 as usize;
+                let len = ((len11_8 as usize) << 8) | len7_0 as usize;
                 match kind {
                     Op::NoOp => {}
                     Op::MessageStart | Op::MessageContinue | Op::MessageEnd => {
@@ -251,7 +251,13 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                         self.remote_protocol = None;
                         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
                         self.rx_left_bytes = 0;
-                        return Ok(MessageKind::Disconnect);
+                        let reason = if rd.bytes_left() >= 1 {
+                            let reason = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
+                            DisconnectReason::from_repr(reason).unwrap_or(DisconnectReason::Unknown)
+                        } else {
+                            DisconnectReason::Unknown
+                        };
+                        return Ok(MessageKind::Disconnect(reason));
                     }
                     Op::Ping => {
                         self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());

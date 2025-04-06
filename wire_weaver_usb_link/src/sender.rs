@@ -1,4 +1,4 @@
-use crate::common::{Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
+use crate::common::{DisconnectReason, Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
 use crate::{CRC_KIND, LINK_PROTOCOL_VERSION, PacketSink, PacketSource};
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
@@ -123,9 +123,6 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     /// Intended use is to call force_send periodically, so that receiver sees messages no older,
     /// than chosen period.
     pub async fn send_message(&mut self, message: &[u8]) -> Result<(), Error<T::Error, R::Error>> {
-        if message.is_empty() {
-            return Err(Error::EmptyMessage);
-        }
         if message.len() > self.remote_max_message_size as usize {
             return Err(Error::MessageTooBig);
         }
@@ -219,14 +216,20 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     /// Sends Disconnect message, forces immediate packet transmission and marks link as not connected,
     /// to no accidentally receive data from incompatible host application.
-    pub async fn send_disconnect(&mut self) -> Result<(), Error<T::Error, R::Error>> {
+    pub async fn send_disconnect(
+        &mut self,
+        reason: DisconnectReason,
+    ) -> Result<(), Error<T::Error, R::Error>> {
         if self.tx_writer.bytes_left() < 2 {
             self.force_send().await?;
         }
         self.tx_writer
             .write_u4(Op::Disconnect as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(0)?;
+        self.write_len(1)?;
+        self.tx_writer
+            .write_u8(reason as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;
         self.silent_disconnect();
         Ok(())

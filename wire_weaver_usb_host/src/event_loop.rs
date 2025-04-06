@@ -16,7 +16,9 @@ use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::{
     Event, EventKind, Request, RequestKind,
 };
 use wire_weaver_client_server::{Command, Error, OnError};
-use wire_weaver_usb_link::{Error as LinkError, MessageKind, ProtocolInfo, WireWeaverUsbLink};
+use wire_weaver_usb_link::{
+    DisconnectReason, Error as LinkError, MessageKind, ProtocolInfo, WireWeaverUsbLink,
+};
 
 struct State {
     common: CommonState<UsbError>,
@@ -30,7 +32,7 @@ struct State {
 impl State {
     fn new(conn_state: Arc<RwLock<ConnectionInfo>>, user_protocol: ProtocolInfo) -> Self {
         State {
-            common: CommonState::new(),
+            common: CommonState::default(),
             message_rx: [0u8; MAX_MESSAGE_SIZE],
             user_protocol,
             conn_state,
@@ -97,6 +99,12 @@ pub async fn usb_worker(
                         },
                         None => 64,
                     };
+                    // TODO: tweak to actually hit next USB packet
+                    if max_packet_size <= 64 {
+                        state.common.packet_accumulation_time = Duration::from_micros(900);
+                    } else {
+                        state.common.packet_accumulation_time = Duration::from_micros(100);
+                    }
                     debug!("max_packet_size: {}", max_packet_size);
                     link = Some(WireWeaverUsbLink::new(
                         client_server_protocol,
@@ -213,8 +221,18 @@ async fn process_commands_and_endpoints(
     let mut link_setup_retries = 5;
     loop {
         let duration = if state.common.link_setup_done {
-            Duration::from_secs(3)
+            if let Some(instant) = state.common.packet_started_instant {
+                let dt_since_packet_start = Instant::now() - instant;
+                state
+                    .common
+                    .packet_accumulation_time
+                    .checked_sub(dt_since_packet_start)
+                    .unwrap_or(Duration::from_secs(0))
+            } else {
+                Duration::from_millis(wire_weaver_usb_link::PING_INTERVAL_MS)
+            }
         } else {
+            // resend GetDeviceInfo, might not be needed as packets should not get silently lost (apart from the very first), but just in case
             Duration::from_millis(50)
         };
         let timer = tokio::time::sleep(duration);
@@ -230,7 +248,7 @@ async fn process_commands_and_endpoints(
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
                     info!("usb event loop: all CanBus instances were dropped, exiting");
-                    link.send_disconnect().await.map_err(|e| Error::Transport(e.into()))?;
+                    link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(e.into()))?;
                     return Ok(EventLoopResult::DisconnectAndExit);
                 };
                 match handle_command(cmd, link, state, &mut scratch).await? {
@@ -249,6 +267,22 @@ async fn process_commands_and_endpoints(
                     } else {
                         error!("usb worker exiting, because link setup failed after several retries");
                         return Err(Error::LinkSetupTimeout);
+                    }
+                } else {
+                    if let Some(last) = &state.common.last_ping_instant {
+                        let dt = Instant::now() - *last;
+                        if dt > Duration::from_secs(5) {
+                            warn!("No ping from device for 5 seconds, exiting");
+                            return Ok(EventLoopResult::DisconnectFromDevice);
+                        }
+                    }
+                    if let Some(instant) = state.common.packet_started_instant {
+                        trace!("Sending accumulated packet {}us", (Instant::now() - instant).as_micros());
+                        state.common.packet_started_instant = None;
+                        link.force_send().await.map_err(|e| Error::Transport(e.into()))?;
+                    } else {
+                        trace!("Sending ping");
+                        link.send_ping().await.map_err(|e| Error::Transport(e.into()))?;
                     }
                 }
                 state.common.prune_timed_out_requests();
@@ -329,12 +363,13 @@ async fn handle_message(
             }
             // tx_events.send(Event::Received(packet.to_vec())).await.unwrap();
         }
-        Ok(MessageKind::Disconnect) => {
-            info!("Received Disconnect from remote device, exiting");
+        Ok(MessageKind::Disconnect(reason)) => {
+            info!("Received Disconnect({reason:?}) from remote device, exiting");
             return Ok(EventLoopSpinResult::DisconnectFromDevice);
         }
         Ok(MessageKind::Ping) => {
             trace!("Ping");
+            state.common.last_ping_instant = Some(Instant::now());
         }
         Ok(MessageKind::DeviceInfo {
             max_message_len,
@@ -401,7 +436,7 @@ async fn handle_command(
         }
         Command::DisconnectKeepStreams { disconnected_tx } => {
             info!("Disconnecting on user request (but keeping streams ready for re-use)");
-            link.send_disconnect()
+            link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(e.into()))?;
             if let Some(done_tx) = disconnected_tx {
@@ -411,7 +446,7 @@ async fn handle_command(
         }
         Command::DisconnectAndExit { disconnected_tx } => {
             info!("Disconnecting and stopping USB event loop on user request");
-            link.send_disconnect()
+            link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(e.into()))?;
             if let Some(done_tx) = disconnected_tx {
@@ -505,8 +540,5 @@ async fn serialize_request_send(
     } else {
         state.common.packet_started_instant = Some(Instant::now());
     }
-    link.force_send()
-        .await
-        .map_err(|e| Error::Transport(e.into()))?; // TODO: force send on timer
     Ok(())
 }

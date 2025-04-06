@@ -20,11 +20,13 @@ const LINK_PROTOCOL_VERSION: u8 = 1;
 /// potentially received.
 const MIN_MESSAGE_SIZE: usize = 64;
 
+pub const PING_INTERVAL_MS: u64 = 1000;
+
 // Some features are host and device specific to reduce confusion.
 #[cfg(all(feature = "device", feature = "host"))]
 compile_error!("Exactly one of 'device' or 'host' features must be enabled");
 
-pub use common::{Error, PacketSink, PacketSource, WireWeaverUsbLink};
+pub use common::{DisconnectReason, Error, PacketSink, PacketSource, WireWeaverUsbLink};
 pub use receiver::{MessageKind, ReceiverStats};
 pub use sender::SenderStats;
 pub use wire_weaver::ProtocolInfo;

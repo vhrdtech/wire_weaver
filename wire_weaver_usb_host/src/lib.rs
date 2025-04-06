@@ -17,16 +17,17 @@ use wire_weaver_usb_link::Error as LinkError;
 const IRQ_MAX_PACKET_SIZE: usize = 1024;
 const MAX_MESSAGE_SIZE: usize = 2048;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum UsbError {
-    #[error(transparent)]
-    Nusb(NusbError),
+    #[error("nusb error: {}", .0)]
+    Nusb(String),
     #[error("WireWeaverUsbLink error: {:?}", .0)]
     Link(wire_weaver_usb_link::Error<TransferError, TransferError>),
     #[error("nusb::watch_devices() iterator returned None")]
     WatcherReturnedNone,
 }
 
+#[derive(Clone, Debug)]
 pub enum UsbDeviceFilter {
     VidPid { vid: u16, pid: u16 },
     VidPidAndSerial { vid: u16, pid: u16, serial: String },
@@ -56,7 +57,7 @@ pub struct ConnectionInfo {
 
 impl From<NusbError> for UsbError {
     fn from(value: NusbError) -> Self {
-        UsbError::Nusb(value)
+        UsbError::Nusb(format!("{:?}", value))
     }
 }
 

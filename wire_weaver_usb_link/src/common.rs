@@ -31,7 +31,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     pub(crate) rx_in_fragmented_message: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error<T, R> {
     InternalBufOverflow,
@@ -43,7 +43,6 @@ pub enum Error<T, R> {
     ReceivedEmptyPacket,
 
     SinkError(T),
-    EmptyMessage,
     MessageTooBig,
 }
 
@@ -148,4 +147,14 @@ pub(crate) enum Op {
     /// Sent from host to device to let it know that driver or application is stopping.
     /// Sent from device to host to let it know that it is rebooting, e.g. to perform fw update.
     Disconnect = 10,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum DisconnectReason {
+    ApplicationCrash,
+    RequestByUser,
+    Other,
+    Unknown,
 }

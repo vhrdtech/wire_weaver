@@ -108,11 +108,11 @@ fn level_method(
                     .map(|t| t.def(no_alloc))
                     .unwrap_or(quote! { () });
                 quote! {
-                    pub async fn #hl_fn_name(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
+                    pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
                         let (args, path) = self.#ll_fn_name(#args_names)?;
                         let (args, path) = (args.to_vec(), path.to_vec());
                         let data =
-                            wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, None)
+                            wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
                                 .await?;
                         Ok(Self::#des_output_fn(&data)?.output)
                     }

@@ -12,7 +12,7 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         variants: &item_enum.variants,
         no_alloc,
     };
-    let lifetime = lifetime(item_enum, no_alloc);
+    let lifetime = enum_lifetime(item_enum, no_alloc);
     let repr_ty = enum_discriminant_type(item_enum);
     let derive = strings_to_derive(&item_enum.derive);
     let mut ts = quote! {
@@ -24,7 +24,7 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     ts
 }
 
-fn lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
+pub fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     if no_alloc && item_enum.potential_lifetimes() {
         quote!(<'i>)
     } else {
@@ -42,7 +42,7 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         item_enum,
         no_alloc,
     };
-    let lifetime = lifetime(item_enum, no_alloc);
+    let lifetime = enum_lifetime(item_enum, no_alloc);
     serdes(enum_name, enum_ser, enum_des, lifetime)
 }
 
@@ -57,7 +57,7 @@ fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
     Ident::new(ty, Span::call_site())
 }
 
-fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
+pub fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
     let enum_name: Ident = (&item_enum.ident).into();
     let ty = enum_discriminant_type(item_enum);
     quote! {

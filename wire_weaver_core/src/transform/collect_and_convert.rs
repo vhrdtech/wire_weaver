@@ -79,7 +79,18 @@ impl FieldPath {
                 let ident = ident.to_string();
                 syn::Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
-            FieldPathRoot::EnumVariant(_) => unimplemented!("field path: enum variant {self:?}"),
+            FieldPathRoot::EnumVariant(_enum_variant_name) => {
+                if let Some(selector) = self.selectors.first() {
+                    if let FieldSelector::NamedField(ident) = selector {
+                        let ident = ident.to_string();
+                        syn::Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
+                    } else {
+                        syn::Ident::new("_todo_flag", Span::call_site())
+                    }
+                } else {
+                    syn::Ident::new("_todo_flag", Span::call_site())
+                }
+            }
             FieldPathRoot::Output => syn::Ident::new("_output_flag", Span::call_site()),
         }
     }
@@ -384,7 +395,7 @@ impl<'i> CollectAndConvertPass<'i> {
                         "f32" => Type::F32,
                         "f64" => Type::F64,
                         "String" => Type::String,
-                        "Vec" => return self.transform_type_vec(path_segment, path),
+                        "Vec" | "RefVec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
                         user => {
@@ -492,12 +503,25 @@ impl<'i> CollectAndConvertPass<'i> {
                 ));
             return None;
         };
-        let Some(arg) = arg.args.first() else {
+        let mut args = arg.args.iter();
+        let Some(arg) = args.next() else {
             self.messages
                 .push_conversion_error(SynConversionError::UnsupportedType(
                     "expected Vec<T>, got Vec<T, ?>".into(),
                 ));
             return None;
+        };
+        let arg = if matches!(arg, GenericArgument::Lifetime(_)) {
+            let Some(arg) = args.next() else {
+                self.messages
+                    .push_conversion_error(SynConversionError::UnsupportedType(
+                        "expected Vec<'i, T>, got Vec<'i, T, ?>".into(),
+                    ));
+                return None;
+            };
+            arg
+        } else {
+            arg
         };
         let GenericArgument::Type(inner_ty) = arg else {
             self.messages

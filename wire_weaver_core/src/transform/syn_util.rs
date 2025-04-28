@@ -98,10 +98,7 @@ pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String>
     docs
 }
 
-pub(crate) fn take_repr_attr(
-    attrs: &mut Vec<syn::Attribute>,
-    messages: &mut Messages,
-) -> Option<Repr> {
+pub fn take_repr_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<Repr> {
     let (attr_idx, _) = attrs
         .iter()
         .enumerate()
@@ -121,6 +118,25 @@ pub(crate) fn take_repr_attr(
         return None;
     };
     Some(repr)
+}
+
+pub fn take_shrink_wrap_attr(
+    attrs: &mut Vec<syn::Attribute>,
+    messages: &mut Messages,
+) -> Option<String> {
+    let (attr_idx, _) = attrs
+        .iter()
+        .enumerate()
+        .find(|(_, a)| a.path().is_ident("shrink_wrap"))?;
+    let attr = attrs.remove(attr_idx);
+    let Meta::List(meta_list) = attr.meta else {
+        messages.push_conversion_error(SynConversionError::WrongReprAttr(
+            "expected #[shrink_wrap(no_alloc)]".into(),
+        ));
+        return None;
+    };
+    let config = meta_list.tokens.to_string();
+    Some(config)
 }
 
 pub(crate) fn take_derive_attr(
@@ -149,6 +165,10 @@ pub(crate) fn take_derive_attr(
 
 pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) {
     for a in attrs {
+        // ignore #[shrink_warp(...)] in after #[derive(ShrinkWrap)]
+        if a.path().is_ident("shrink_wrap") {
+            continue;
+        }
         messages.push_conversion_warning(SynConversionWarning::UnknownAttribute(format!(
             "{:?}",
             a.meta.path()

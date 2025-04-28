@@ -31,3 +31,11 @@ pub enum Error {
     ImpliedSizeInVec,
     InvalidBitCount,
 }
+
+pub mod prelude {
+    pub use crate::buf_reader::BufReader;
+    pub use crate::buf_writer::BufWriter;
+    pub use crate::traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
+    pub use crate::vec::RefVec;
+    pub use crate::Error as ShrinkWrapError;
+}

@@ -100,17 +100,18 @@ impl<'i> RefVec<'i, u8> {
         Ok(())
     }
 
-    pub fn byte_slice(&self) -> Result<&[u8], Error> {
+    pub fn byte_slice(&self) -> &[u8] {
         match self {
-            RefVec::Slice { slice, .. } => Ok(slice),
+            RefVec::Slice { slice, .. } => slice,
             RefVec::Buf {
                 buf,
                 elements_count,
                 ..
             } => {
                 let mut buf = *buf;
-                let slice = buf.read_raw_slice(*elements_count as usize)?;
-                Ok(slice)
+                // RefVec::Buf is created during deserialization, at which point it is checked that there
+                // are actually element_count bytes available, see DeserializeShrinkWrap below.
+                buf.read_raw_slice(*elements_count as usize).unwrap_or(&[])
             }
         }
     }
@@ -197,6 +198,14 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
     }
 }
 
+impl<'i> core::ops::Deref for RefVec<'i, u8> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.byte_slice()
+    }
+}
+
 pub enum RefVecIter<'i, T> {
     Slice {
         slice: &'i [T],
@@ -270,7 +279,7 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Debug> Debug for RefVec<'i, T> {
         let len = self.len();
         for (i, elem) in it.enumerate() {
             match elem {
-                Ok(elem) => write!(f, "{elem:02x?}")?,
+                Ok(elem) => write!(f, "{elem:02X?}")?,
                 Err(e) => write!(f, "{e:?}")?,
             }
             if i < len - 1 {

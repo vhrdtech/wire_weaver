@@ -101,7 +101,6 @@ fn level_method(
             let (args_ser, args_list, args_names, args_bytes) = ser_args(ident, args, no_alloc);
             let ll_fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
             let hl_fn_name = &ident;
-            let des_output_fn = Ident::new(format!("{}_des_output", ident.sym));
             let hl_fn = if high_level_client {
                 let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
                     let maybe_dot_output =
@@ -114,6 +113,12 @@ fn level_method(
                 } else {
                     (quote! { () }, quote! {})
                 };
+                let des_output_fn = Ident::new(format!("{}_des_output", ident.sym));
+                let handle_output = if return_type.is_some() {
+                    quote! { Ok(Self::#des_output_fn(&data)? #maybe_dot_output) }
+                } else {
+                    quote! { _ = data; Ok(()) }
+                };
                 quote! {
                     pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
                         let (args, path) = self.#ll_fn_name(#args_names)?;
@@ -121,7 +126,7 @@ fn level_method(
                         let data =
                             wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
                                 .await?;
-                        Ok(Self::#des_output_fn(&data)? #maybe_dot_output)
+                        #handle_output
                     }
                 }
             } else {

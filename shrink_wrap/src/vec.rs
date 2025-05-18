@@ -100,7 +100,7 @@ impl<'i> RefVec<'i, u8> {
         Ok(())
     }
 
-    pub fn byte_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         match self {
             RefVec::Slice { slice, .. } => slice,
             RefVec::Buf {
@@ -202,7 +202,7 @@ impl<'i> core::ops::Deref for RefVec<'i, u8> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        self.byte_slice()
+        self.as_slice()
     }
 }
 

@@ -324,7 +324,7 @@ async fn handle_message(
                 Ok(event_kind) => match event_kind {
                     EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
                         if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                            let r = data.byte_slice().to_vec();
+                            let r = data.as_slice().to_vec();
                             let _ = done_tx.send(Ok(r));
                         }
                     }
@@ -337,7 +337,7 @@ async fn handle_message(
                         let path = path.iter().map(|p| p.unwrap().0).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let r = data.byte_slice().to_vec();
+                            let r = data.as_slice().to_vec();
                             should_drop_handler = tx.send(Ok(r)).is_err();
                         }
                         if should_drop_handler {

@@ -217,7 +217,6 @@ fn level_matcher(
             }
         }
         ApiItemKind::Property { ident, ty } => {
-            let get_slice = get_slice(Ident::new("data"), no_alloc);
             let mut des = TokenStream::new();
             ty.buf_read(
                 proc_macro2::Ident::new("value", Span::call_site()),
@@ -276,7 +275,7 @@ fn level_matcher(
             quote! {
                 match &request.kind {
                     RequestKind::Write { data } => {
-                        let data = #get_slice;
+                        let data = data.as_slice();
                         let mut rd = BufReader::new(data);
                         #des
                         #set_property
@@ -373,16 +372,19 @@ fn ser_method_output(
     }
 }
 
-fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenStream, TokenStream) {
+fn des_args(
+    method_ident: &Ident,
+    args: &[Argument],
+    _no_alloc: bool,
+) -> (TokenStream, TokenStream) {
     let args_struct_ident =
         format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
     let args_struct_ident = Ident::new(args_struct_ident);
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
-        let get_slice = get_slice(Ident::new("args"), no_alloc);
         let args_des = quote! {
-            let args = #get_slice;
+            let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
             let args: #args_struct_ident = rd.read(ElementSize::Implied).map_err(|_e| Error::ArgsDesFailed)?;
@@ -393,21 +395,6 @@ fn des_args(method_ident: &Ident, args: &[Argument], no_alloc: bool) -> (TokenSt
         });
         let args_list = quote! { #(args.#idents),* };
         (args_des, args_list)
-    }
-}
-
-fn get_slice(ref_vec_or_vec: Ident, no_alloc: bool) -> TokenStream {
-    if no_alloc {
-        quote! {
-            match #ref_vec_or_vec.byte_slice() {
-                Ok(slice) => slice,
-                Err(_e) => {
-                    return Err(Error::SliceGetFailed);
-                }
-            }
-        }
-    } else {
-        quote! { #ref_vec_or_vec.as_slice() }
     }
 }
 

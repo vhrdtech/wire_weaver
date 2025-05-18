@@ -274,7 +274,7 @@ async fn handle_message(
                     EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
                         if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
                             let r = data
-                                .byte_slice()
+                                .as_slice()
                                 .map(|b| b.to_vec())
                                 .map_err(|_| Error::ByteSliceReadFailed);
                             let _ = done_tx.send(r);
@@ -290,7 +290,7 @@ async fn handle_message(
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
                             let r = data
-                                .byte_slice()
+                                .as_slice()
                                 .map(|b| b.to_vec())
                                 .map_err(|_| Error::ByteSliceReadFailed);
                             should_drop_handler = tx.send(r).is_err();

@@ -140,18 +140,21 @@ fn level_method(
                 #hl_fn
             }
         }
-        ApiItemKind::Property { ident, ty } => {
+        ApiItemKind::Property {
+            ident: prop_name,
+            ty,
+        } => {
             let mut ser = TokenStream::new();
             let ty_def = ty.arg_pos_def(no_alloc);
             ty.buf_write(
-                FieldPath::Value(quote! { #ident }),
+                FieldPath::Value(quote! { #prop_name }),
                 no_alloc,
                 quote! { ? },
                 &mut ser,
             );
-            let prop_ser_value_path = Ident::new(format!("{}_ser_value_path", ident.sym));
-            let prop_path = Ident::new(format!("{}_path", ident.sym));
-            let prop_des_value = Ident::new(format!("{}_des_value", ident.sym));
+            let prop_ser_value_path = Ident::new(format!("{}_ser_value_path", prop_name.sym));
+            let prop_path = Ident::new(format!("{}_path", prop_name.sym));
+            let prop_des_value = Ident::new(format!("{}_des_value", prop_name.sym));
             let finish_wr = if no_alloc {
                 quote! { wr.finish_and_take()? }
             } else {
@@ -164,9 +167,24 @@ fn level_method(
                 quote! { ? },
                 &mut des,
             );
+            let hl_fn_name = &prop_name;
+            let hl_fn = if high_level_client {
+                quote! {
+                    pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #prop_name: #ty_def) -> Result<(), wire_weaver_client_server::Error<E>> {
+                        let (args, path) = self.#prop_ser_value_path(#prop_name)?;
+                        let (args, path) = (args.to_vec(), path.to_vec());
+                        let _data =
+                            wire_weaver_client_server::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
+                                .await?;
+                        Ok(())
+                    }
+                }
+            } else {
+                quote! {}
+            };
             quote! {
                 #[inline]
-                pub fn #prop_ser_value_path(&mut self, #ident: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
+                pub fn #prop_ser_value_path(&mut self, #prop_name: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
                     let mut wr = BufWriter::new(&mut self.args_scratch);
                     #ser
                     let args_bytes = #finish_wr;
@@ -184,6 +202,8 @@ fn level_method(
                     #des
                     Ok(value)
                 }
+
+                #hl_fn
             }
         }
         ApiItemKind::Stream {

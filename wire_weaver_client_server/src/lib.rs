@@ -114,3 +114,11 @@ impl OnError {
         }
     }
 }
+
+#[derive(Copy, Clone)]
+pub enum Timeout {
+    /// Default timeout set via feature flags of wire_weaver_client_server crate.
+    Default,
+    /// Specified timeout in milliseconds.
+    Millis(u64),
+}

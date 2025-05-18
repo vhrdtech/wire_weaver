@@ -120,7 +120,7 @@ fn level_method(
                     quote! { _ = data; Ok(()) }
                 };
                 quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
+                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_server::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
                         let (args, path) = self.#ll_fn_name(#args_names)?;
                         let (args, path) = (args.to_vec(), path.to_vec());
                         let data =
@@ -170,7 +170,7 @@ fn level_method(
             let hl_fn_name = &prop_name;
             let hl_fn = if high_level_client {
                 quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: Option<std::time::Duration>, #prop_name: #ty_def) -> Result<(), wire_weaver_client_server::Error<E>> {
+                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_server::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_server::Error<E>> {
                         let (args, path) = self.#prop_ser_value_path(#prop_name)?;
                         let (args, path) = (args.to_vec(), path.to_vec());
                         let _data =

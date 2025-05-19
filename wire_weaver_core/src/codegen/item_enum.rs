@@ -13,16 +13,16 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         no_alloc,
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
-    let repr_ty = enum_discriminant_type(item_enum);
     let derive = strings_to_derive(&item_enum.derive);
-    let mut ts = quote! {
+    let base_ty = ww_discriminant_type(item_enum);
+    let ts = quote! {
         #derive
-        #[repr(#repr_ty)]
+        #[wire_weaver::ww_repr(#base_ty)]
         pub enum #enum_name #lifetime { #variants }
     };
-    if !item_enum.explicit_ww_repr {
-        ts.append_all(enum_discriminant(item_enum, lifetime));
-    }
+    // if !item_enum.explicit_ww_repr {
+    //     ts.append_all(enum_discriminant(item_enum, lifetime));
+    // }
     ts
 }
 
@@ -48,22 +48,27 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     serdes(enum_name, enum_ser, enum_des, lifetime)
 }
 
-fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
-    let ty = format!("u{}", item_enum.repr.std_bits());
+fn ww_discriminant_type(item_enum: &ItemEnum) -> Ident {
+    let ty = format!("u{}", item_enum.repr.required_bits());
     Ident::new(ty.as_str(), Span::call_site())
 }
 
-pub fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
-    let enum_name: Ident = (&item_enum.ident).into();
-    let ty = enum_discriminant_type(item_enum);
-    quote! {
-        impl #lifetime #enum_name #lifetime {
-            pub fn discriminant(&self) -> #ty {
-                unsafe { *<*const _>::from(self).cast::<#ty>() }
-            }
-        }
-    }
-}
+// fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
+//     let ty = format!("u{}", item_enum.repr.std_bits());
+//     Ident::new(ty.as_str(), Span::call_site())
+// }
+//
+// pub fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
+//     let enum_name: Ident = (&item_enum.ident).into();
+//     let ty = enum_discriminant_type(item_enum);
+//     quote! {
+//         impl #lifetime #enum_name #lifetime {
+//             pub fn discriminant(&self) -> #ty {
+//                 unsafe { *<*const _>::from(self).cast::<#ty>() }
+//             }
+//         }
+//     }
+// }
 
 struct CGEnumFieldsDef<'a> {
     variants: &'a [Variant],

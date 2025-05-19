@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use syn::{File, Item};
 use wire_weaver_core::ast::Source;
-use wire_weaver_core::codegen::item_enum::{enum_discriminant, enum_lifetime, enum_serdes};
+use wire_weaver_core::codegen::item_enum::enum_serdes;
 use wire_weaver_core::codegen::item_struct::struct_serdes;
 use wire_weaver_core::transform::syn_util::{take_shrink_wrap_attr, take_ww_repr_attr};
 use wire_weaver_core::transform::{Messages, Transform};
@@ -41,7 +41,7 @@ pub fn shrink_wrap(item: proc_macro::TokenStream) -> TokenStream {
     let mut transform = Transform::new();
     transform.push_file(Source::String("shrink_wrap_derive".into()), file);
     let add_derives = [];
-    let cx = transform.transform(&add_derives);
+    let cx = transform.transform(&add_derives, true);
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             eprintln!("{:?} {:?}", source, message);
@@ -61,11 +61,11 @@ pub fn shrink_wrap(item: proc_macro::TokenStream) -> TokenStream {
                     codegen_ts.append_all(ts);
                 }
                 wire_weaver_core::ast::Item::Enum(item_enum) => {
-                    let lifetime = enum_lifetime(item_enum, no_alloc);
-                    if !item_enum.explicit_ww_repr {
-                        let ts = enum_discriminant(item_enum, lifetime);
-                        codegen_ts.append_all(ts);
-                    }
+                    // let lifetime = enum_lifetime(item_enum, no_alloc);
+                    // if !item_enum.explicit_ww_repr {
+                    //     let ts = enum_discriminant(item_enum, lifetime);
+                    //     codegen_ts.append_all(ts);
+                    // }
 
                     let ts = enum_serdes(item_enum, no_alloc);
                     codegen_ts.append_all(ts);

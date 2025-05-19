@@ -34,6 +34,12 @@ impl FieldPath {
             FieldPath::Value(path) => path,
         }
     }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            FieldPath::Ref(path) | FieldPath::Value(path) => path.is_empty(),
+        }
+    }
 }
 
 impl Type {
@@ -197,10 +203,32 @@ impl Type {
                 }
             }
             Type::IsSome(option_field) => {
-                let object_path = field_path.by_value();
-                tokens.append_all(
-                    quote! { wr.write_bool(#object_path.#option_field.is_some()) #handle_eob; },
-                );
+                let path = if field_path.is_empty() {
+                    quote! { #option_field }
+                } else {
+                    let path = field_path.by_value();
+                    quote! { #path.#option_field }
+                };
+                tokens.append_all(quote! { wr.write_bool(#path.is_some()) #handle_eob; });
+                return;
+            }
+            Type::Option(_, _) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! {
+                    if let Some(v) = #field_path {
+                        wr.write(v) #handle_eob;
+                    }
+                });
+                return;
+            }
+            Type::IsOk(result_field) => {
+                let path = if field_path.is_empty() {
+                    quote! { #result_field }
+                } else {
+                    let path = field_path.by_value();
+                    quote! { #path.#result_field }
+                };
+                tokens.append_all(quote! { wr.write_bool(#path.is_ok()) #handle_eob; });
                 return;
             }
             Type::Result(_flag_ident, _ok_err_ty) => {
@@ -215,22 +243,6 @@ impl Type {
                         }
                     }
                 });
-                return;
-            }
-            Type::Option(_, _) => {
-                let field_path = field_path.by_ref();
-                tokens.append_all(quote! {
-                    if let Some(v) = #field_path {
-                        wr.write(v) #handle_eob;
-                    }
-                });
-                return;
-            }
-            Type::IsOk(result_field) => {
-                let object_path = field_path.by_value();
-                tokens.append_all(
-                    quote! { wr.write_bool(#object_path.#result_field.is_ok()) #handle_eob; },
-                );
                 return;
             }
             Type::ULeb32 => unimplemented!("uleb32"),

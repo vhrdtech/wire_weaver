@@ -2,7 +2,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::{Lit, LitInt};
 
-use crate::ast::{Field, Fields, ItemEnum, Repr, Variant};
+use crate::ast::{Field, Fields, ItemEnum, Repr, Type, Variant};
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes, strings_to_derive};
 
@@ -160,8 +160,12 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                     let mut ser = quote!();
                     for field in fields_named {
                         let field_name: Ident = (&field.ident).into();
-                        fields_names.push(field_name.clone());
-                        let field_path = FieldPath::Ref(quote!(#field_name));
+                        let field_path = if matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
+                            FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
+                        } else {
+                            fields_names.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
+                            FieldPath::Ref(quote!(#field_name))
+                        };
                         field
                             .ty
                             .buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
@@ -176,8 +180,12 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                     let mut ser = quote!();
                     for (idx, ty) in fields_unnamed.iter().enumerate() {
                         let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
-                        fields_numbers.push(field_name.clone());
-                        let field_path = FieldPath::Ref(quote!(#field_name));
+                        let field_path = if matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
+                            FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
+                        } else {
+                            fields_numbers.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
+                            FieldPath::Ref(quote!(#field_name))
+                        };
                         ty.buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();
@@ -300,7 +308,9 @@ impl<'a> ToTokens for CGEnumVariantsDes<'a> {
                     let mut des_fields = TokenStream::new();
                     for field in fields_named {
                         let field_name: Ident = (&field.ident).into();
-                        field_names.push(field_name.clone());
+                        if !matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
+                            field_names.push(field_name.clone());
+                        }
                         let handle_eob = field.handle_eob();
                         // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
                         field
@@ -314,7 +324,9 @@ impl<'a> ToTokens for CGEnumVariantsDes<'a> {
                     let mut des_fields = TokenStream::new();
                     for (idx, ty) in fields_unnamed.iter().enumerate() {
                         let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
-                        field_names.push(field_name.clone());
+                        if !matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
+                            field_names.push(field_name.clone());
+                        }
                         let handle_eob = quote! { ? };
                         // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
                         ty.buf_read(field_name, self.no_alloc, handle_eob, &mut des_fields);

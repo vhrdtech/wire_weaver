@@ -7,7 +7,7 @@ pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 
 pub mod buf_reader;
 pub mod buf_writer;
-pub mod nib16;
+pub mod nib32;
 pub mod traits;
 pub mod vec;
 
@@ -15,13 +15,13 @@ pub mod vec;
 pub mod alloc;
 mod un;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error {
     OutOfBounds,
     OutOfBoundsRev,
     OutOfBoundsRevCompact,
-    MalformedVlu16N,
+    MalformedUNib32,
     MalformedLeb,
     MalformedUtf8,
     StrTooLong,

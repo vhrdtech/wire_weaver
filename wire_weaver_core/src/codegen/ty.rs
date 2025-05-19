@@ -48,7 +48,7 @@ impl Type {
             Type::Bool => quote! { bool },
             Type::U4 | Type::U8 => quote! { u8 },
             Type::U16 => quote! { u16 },
-            Type::Nib16 => quote! { Nib16 },
+            Type::UNib32 => quote! { UNib32 },
             Type::U32 | Type::ULeb32 => quote! { u32 },
             Type::U64 | Type::ULeb64 => quote! { u64 },
             Type::U128 | Type::ULeb128 => quote! { u128 },
@@ -168,7 +168,7 @@ impl Type {
             Type::U4 => "write_u4",
             Type::U8 => "write_u8",
             Type::U16 => "write_u16",
-            Type::Nib16 => {
+            Type::UNib32 => {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 return;
@@ -320,8 +320,8 @@ impl Type {
             Type::U32 => "read_u32",
             Type::U64 => "read_u64",
             Type::U128 => "read_u128",
-            Type::Nib16 => {
-                let element_size = Type::Nib16.element_size_ts();
+            Type::UNib32 => {
+                let element_size = Type::UNib32.element_size_ts();
                 tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
                 return;
             }
@@ -417,7 +417,7 @@ impl Type {
             Type::U32 => 32,
             Type::U64 => 64,
             Type::U128 => 128,
-            Type::Nib16 => return ElementSize::UnsizedSelfDescribing,
+            Type::UNib32 => return ElementSize::UnsizedSelfDescribing,
             Type::ULeb32 => return ElementSize::UnsizedSelfDescribing,
             Type::ULeb64 => return ElementSize::UnsizedSelfDescribing,
             Type::ULeb128 => return ElementSize::UnsizedSelfDescribing,

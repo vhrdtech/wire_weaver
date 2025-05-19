@@ -16,7 +16,7 @@ pub enum RefVec<'i, T> {
     // },
     Buf {
         buf: BufReader<'i>,
-        elements_count: u16,
+        elements_count: u32,
         element_size: ElementSize,
     },
     // Gen {
@@ -137,7 +137,10 @@ where
                 }
             }
             RefVec::Buf { elements_count, .. } => {
-                wr.write_u16_rev(*elements_count)?;
+                let Ok(elements_count) = u16::try_from(*elements_count) else {
+                    return Err(Error::VecTooLong);
+                };
+                wr.write_u16_rev(elements_count)?;
                 for item in self.iter() {
                     let item = item?;
                     ser_item(wr, is_unsized, &item)?;
@@ -177,7 +180,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
         rd: &'di mut BufReader<'i>,
         element_size: ElementSize,
     ) -> Result<Self, Error> {
-        let elements_count = rd.read_nib16_rev()?;
+        let elements_count = rd.read_unib32_rev()?;
 
         #[cfg(feature = "defmt-extended")]
         defmt::trace!("Vec element count: {}", elements_count);
@@ -213,9 +216,9 @@ pub enum RefVecIter<'i, T> {
     },
     Buf {
         buf: BufReader<'i>,
-        elements_count: u16,
+        elements_count: u32,
         element_size: ElementSize,
-        pos: u16,
+        pos: u32,
     },
     // Gen {
     //     gen: F,
@@ -248,7 +251,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
                         return Some(Err(Error::ImpliedSizeInVec));
                     }
                     ElementSize::Unsized => {
-                        let len = match buf.read_nib16_rev() {
+                        let len = match buf.read_unib32_rev() {
                             Ok(len) => len,
                             Err(e) => {
                                 return Some(Err(e));

@@ -11,8 +11,6 @@ macro_rules! write_unx {
             }
 
             let mut bits_left = bit_count;
-            // let mut value = val;
-
             while bits_left > 0 {
                 if (self.bytes_left() == 0) && self.bit_idx == 7 {
                     return Err(Error::OutOfBounds);
@@ -32,7 +30,6 @@ macro_rules! write_unx {
                     self.byte_idx += 1;
                 }
 
-                // value >>= bits_to_write;
                 bits_left -= bits_to_write;
             }
 

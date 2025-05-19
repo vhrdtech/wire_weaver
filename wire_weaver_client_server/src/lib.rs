@@ -4,7 +4,7 @@ pub mod ww;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use wire_weaver::shrink_wrap::nib16::Nib16;
+use wire_weaver::shrink_wrap::nib32::UNib32;
 
 pub enum Command<F, E> {
     /// Try to connect to / open a device with the specified filter.
@@ -29,19 +29,19 @@ pub enum Command<F, E> {
     SendCall {
         // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
         args_bytes: Vec<u8>,
-        path: Vec<Nib16>,
+        path: Vec<UNib32>,
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendWrite {
         value_bytes: Vec<u8>,
-        path: Vec<Nib16>,
+        path: Vec<UNib32>,
         timeout: Option<Duration>,
         // Vec is always empty here, but allows for common code
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendRead {
-        path: Vec<Nib16>,
+        path: Vec<UNib32>,
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },

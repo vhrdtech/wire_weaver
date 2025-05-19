@@ -1,4 +1,4 @@
-use crate::nib16::Nib16;
+use crate::nib32::UNib32;
 use crate::un::write_unx;
 use crate::{Error, SerializeShrinkWrap};
 
@@ -56,7 +56,7 @@ impl<'i> BufWriter<'i> {
     /// Write one nibble, 4 lower bits are used and higher bits are ignored.
     pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
         self.align_nibble();
-        if (self.bytes_left() == 0) && self.bit_idx == 7 {
+        if self.nibbles_left() == 0 {
             return Err(Error::OutOfBounds);
         }
         if self.bit_idx == 7 {
@@ -96,8 +96,8 @@ impl<'i> BufWriter<'i> {
 
     /// Write u16 in Nib16 forward encoding. It will take from 1 nibble to 2 bytes in the buffer,
     /// depending on the number.
-    pub fn write_nib16(&mut self, val: u16) -> Result<(), Error> {
-        Nib16(val).write_forward(self)
+    pub fn write_unib32(&mut self, val: u32) -> Result<(), Error> {
+        UNib32(val).write_forward(self)
     }
 
     /// Write u16 to the back of the buffer, later when [BufWriter::encode_nib16_rev()] or [BufWriter::finish()]
@@ -281,7 +281,7 @@ impl<'i> BufWriter<'i> {
         let mut idx = from.0;
         for _ in 0..reverse_u16_written {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
-            total_nibbles += Nib16(val).len_nibbles();
+            total_nibbles += UNib32(val as u32).len_nibbles();
             idx += 2;
         }
         self.align_nibble();
@@ -298,7 +298,7 @@ impl<'i> BufWriter<'i> {
         for _ in 0..reverse_u16_written {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             self.len_bytes += 2;
-            Nib16(val).write_reversed(self)?;
+            UNib32(val as u32).write_reversed(self)?;
             idx += 2;
         }
         debug_assert!(self.bit_idx == 7);
@@ -337,6 +337,7 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Align writer to the next nibble if not already, setting remaining bits to zero.
+    #[inline]
     pub fn align_nibble(&mut self) {
         if self.bit_idx == 7 || self.bit_idx == 3 {
             return;
@@ -351,6 +352,7 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Align writer to the next byte if not already, setting remaining bits to zero.
+    #[inline]
     pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
@@ -362,7 +364,8 @@ impl<'i> BufWriter<'i> {
 
     /// Return the number of bytes left.
     /// Note that there might be space for some bits or a nibble when this function returns 0.
-    pub fn bytes_left(&mut self) -> usize {
+    #[inline]
+    pub fn bytes_left(&self) -> usize {
         if self.byte_idx >= self.len_bytes {
             return 0;
         }
@@ -373,7 +376,14 @@ impl<'i> BufWriter<'i> {
         }
     }
 
+    /// Returns the number of nibbles left. Note that there might be space for 0 to 3 bits when this function returns 0.
+    #[inline]
+    pub fn nibbles_left(&self) -> usize {
+        self.bytes_left() * 2 + if self.bit_idx == 3 { 1 } else { 0 }
+    }
+
     /// Return the current position in bytes and bits.
+    #[inline]
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
     }
@@ -460,7 +470,7 @@ mod tests {
     fn rev_u16_smallest() {
         let mut buf = [0; 9];
         let mut wr = BufWriter::new(&mut buf);
-        wr.write_nib16(2).unwrap();
+        wr.write_unib32(2).unwrap();
         wr.write_u16_rev(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
     }
@@ -480,9 +490,7 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         wr.write_bool(true).unwrap();
         wr.write_un8(7, 0b010_1010).unwrap();
-        println!("-");
         wr.write_un8(3, 0b110).unwrap();
-        println!("-");
         wr.write_un16(12, 0b1011_1001_0100).unwrap();
         wr.write_un32(17, 0b1_10101111_01010011).unwrap();
         let buf = wr.finish().unwrap();

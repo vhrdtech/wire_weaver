@@ -18,7 +18,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Vec<T> {
         rd: &'di mut BufReader<'i>,
         element_size: ElementSize,
     ) -> Result<Self, Error> {
-        let elements_count = rd.read_nib16_rev()?;
+        let elements_count = rd.read_unib32_rev()?;
 
         #[cfg(feature = "tracing-extended")]
         tracing::trace!("Vec element count: {}", elements_count);

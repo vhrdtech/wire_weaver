@@ -1,4 +1,4 @@
-use crate::nib16::Nib16;
+use crate::nib32::UNib32;
 use crate::traits::ElementSize;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
@@ -77,24 +77,24 @@ impl<'i> BufReader<'i> {
         Ok(u16::from_le_bytes(u16_bytes))
     }
 
-    pub fn read_nib16(&mut self) -> Result<u16, Error> {
-        let value = Nib16::read_forward(self)?.0;
+    pub fn read_unib32(&mut self) -> Result<u32, Error> {
+        let value = UNib32::read_forward(self)?.0;
 
         #[cfg(feature = "defmt-extended")]
-        defmt::trace!("read_nib16() = {}", value);
+        defmt::trace!("read_unib32() = {}", value);
         #[cfg(feature = "tracing-extended")]
-        tracing::trace!("read_nib16() = {}", value);
+        tracing::trace!("read_unib32() = {}", value);
 
         Ok(value)
     }
 
-    pub fn read_nib16_rev(&mut self) -> Result<u16, Error> {
-        let value = Nib16::read_reversed(self)?.0;
+    pub fn read_unib32_rev(&mut self) -> Result<u32, Error> {
+        let value = UNib32::read_reversed(self)?.0;
 
         #[cfg(feature = "defmt-extended")]
-        defmt::trace!("read_nib16_rev() = {}", value);
+        defmt::trace!("read_unib32_rev() = {}", value);
         #[cfg(feature = "tracing-extended")]
-        tracing::trace!("read_nib16_rev() = {}", value);
+        tracing::trace!("read_unib32_rev() = {}", value);
 
         Ok(value)
     }
@@ -186,12 +186,12 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
-        let len_bytes = self.read_nib16_rev()? as usize;
+        let len_bytes = self.read_unib32_rev()? as usize;
         self.read_raw_slice(len_bytes)
     }
 
     pub fn read_string(&mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.read_nib16_rev()? as usize;
+        let len_bytes = self.read_unib32_rev()? as usize;
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
@@ -279,6 +279,11 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    #[inline]
+    pub fn nibbles_left(&self) -> usize {
+        self.bytes_left() * 2 + if self.bit_idx == 3 { 1 } else { 0 }
+    }
+
     fn bits_in_byte_left(&self) -> u8 {
         if self.byte_idx >= self.len_bytes {
             return 0;
@@ -361,17 +366,17 @@ mod tests {
         let mut rd = BufReader::new(&buf);
         assert_eq!(rd.bytes_left(), 4);
 
-        let value = rd.read_nib16_rev().unwrap();
+        let value = rd.read_unib32_rev().unwrap();
         assert_eq!(value, 5);
 
         assert_eq!(rd.read_u8().unwrap(), 0xaa);
 
-        let value = rd.read_nib16_rev().unwrap();
+        let value = rd.read_unib32_rev().unwrap();
         assert_eq!(value, 3);
 
         assert_eq!(rd.read_u8().unwrap(), 0x12);
 
-        let value = rd.read_nib16_rev().unwrap();
+        let value = rd.read_unib32_rev().unwrap();
         assert_eq!(value, 8);
         assert_eq!(rd.bytes_left(), 0);
     }
@@ -380,7 +385,7 @@ mod tests {
     fn u4_rev_overlap() {
         let buf = [0x10, 0x81];
         let mut rd = BufReader::new(&buf);
-        let n = rd.read_nib16_rev().unwrap();
+        let n = rd.read_unib32_rev().unwrap();
         assert_eq!(n, 1);
         let mut rd_split = rd.split(n as usize).unwrap();
         let byte = rd_split.read_u8().unwrap();

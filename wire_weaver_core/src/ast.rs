@@ -140,7 +140,7 @@ pub enum Type {
     U64,
     U128,
 
-    Nib16,
+    UNib32,
     ULeb32,
     ULeb64,
     ULeb128,

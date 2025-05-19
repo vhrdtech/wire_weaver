@@ -6,7 +6,7 @@ use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
-    take_final_attr, take_flag_attr, take_id_attr, take_repr_attr, take_since_attr,
+    take_final_attr, take_flag_attr, take_id_attr, take_since_attr, take_ww_repr_attr,
 };
 use crate::transform::{
     ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
@@ -202,7 +202,11 @@ impl<'i> CollectAndConvertPass<'i> {
             }
         }
         let mut attrs = item_enum.attrs.clone();
-        let repr = take_repr_attr(&mut attrs, self.messages).unwrap_or_default();
+        let mut explicit_ww_repr = true;
+        let repr = take_ww_repr_attr(&mut attrs, self.messages).unwrap_or_else(|| {
+            explicit_ww_repr = false;
+            Default::default()
+        });
         if max_discriminant > repr.max_discriminant() {
             self.messages
                 .push_conversion_error(SynConversionError::EnumDiscriminantNotLargeEnough);
@@ -220,6 +224,7 @@ impl<'i> CollectAndConvertPass<'i> {
                 derive,
                 ident: (&item_enum.ident).into(),
                 repr,
+                explicit_ww_repr,
                 variants,
                 is_final,
             })

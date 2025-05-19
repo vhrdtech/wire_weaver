@@ -20,7 +20,9 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         #[repr(#repr_ty)]
         pub enum #enum_name #lifetime { #variants }
     };
-    ts.append_all(enum_discriminant(item_enum, lifetime));
+    if !item_enum.explicit_ww_repr {
+        ts.append_all(enum_discriminant(item_enum, lifetime));
+    }
     ts
 }
 
@@ -47,18 +49,8 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
 }
 
 fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
-    let ty = match item_enum.repr {
-        Repr::U(4) => "u8",
-        Repr::U(8) => "u8",
-        Repr::U(16) => "u16",
-        Repr::U(32) => "u32",
-        Repr::UNib32 => "u32",
-        Repr::U(bits) if bits < 8 => "u8",
-        Repr::U(bits) if bits < 16 => "u16",
-        Repr::U(bits) if bits < 32 => "u32",
-        u => unimplemented!("discriminant_type {:?}", u),
-    };
-    Ident::new(ty, Span::call_site())
+    let ty = format!("u{}", item_enum.repr.std_bits());
+    Ident::new(ty.as_str(), Span::call_site())
 }
 
 pub fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {

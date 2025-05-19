@@ -96,11 +96,11 @@ pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String>
     docs
 }
 
-pub fn take_repr_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<Repr> {
+pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<Repr> {
     let (attr_idx, _) = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("repr"))?;
+        .find(|(_, a)| a.path().is_ident("ww_repr"))?;
     let attr = attrs.remove(attr_idx);
     let Meta::List(meta_list) = attr.meta else {
         messages.push_conversion_error(SynConversionError::WrongReprAttr(

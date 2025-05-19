@@ -35,40 +35,49 @@ pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
         panic!("Maximum discriminant exceeded the {ww_repr:?}");
     }
 
-    let Some(repr_attr) = enum_def
+    let base_ty = Ident::new(
+        format!("u{}", ww_repr.std_bits()).as_str(),
+        Span::call_site(),
+    );
+    let maybe_repr_attr = if let Some(repr_attr) = enum_def
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("repr"))
-    else {
-        panic!("Expected #[repr(u8 / u16 or u32)] attribute");
-    };
-    let base_ty = if let Meta::List(list) = &repr_attr.meta {
-        let Some(repr) = list.tokens.clone().into_iter().next() else {
-            panic!("Expected #[repr(u8 / u16 or u32)] attribute");
+    {
+        // if #[repr(...)] is provided, ensure it is the same that would have been generated
+        if let Meta::List(list) = &repr_attr.meta {
+            let Some(repr) = list.tokens.clone().into_iter().next() else {
+                panic!("Expected #[repr(u8 / u16 or u32)] attribute");
+            };
+            let TokenTree::Ident(repr) = repr else {
+                panic!("Expected #[repr(u8 / u16 or u32)] attribute");
+            };
+            let available_bits = match repr.to_string().as_str() {
+                "u8" => 8,
+                "u16" => 16,
+                "u32" => 32,
+                r => panic!("Only u8 / u16 and u32 is supported, got '{r}'"),
+            };
+            if ww_repr.required_bits() > available_bits {
+                panic!(
+                    "repr used is not big enough to hold all the enum variants, required is u{}",
+                    ww_repr.required_bits()
+                );
+            }
+        } else {
+            panic!("Wrong repr provided, expected no #[repr(...)] or #[repr(u8 / u16 or u32)]");
         };
-        let TokenTree::Ident(repr) = repr else {
-            panic!("Expected #[repr(u8 / u16 or u32)] attribute");
-        };
-        let available_bits = match repr.to_string().as_str() {
-            "u8" => 8,
-            "u16" => 16,
-            "u32" => 32,
-            r => panic!("Only u8 / u16 and u32 is supported, got '{r}'"),
-        };
-        if ww_repr.required_bits() > available_bits {
-            panic!(
-                "repr used is not big enough to hold all the enum variants, required is u{}",
-                ww_repr.required_bits()
-            );
-        }
-        Ident::new(format!("u{available_bits}").as_str(), Span::call_site())
+        quote! {}
     } else {
-        panic!("Wrong repr provided, expected u8 / u16 or u32");
+        quote! {
+            #[repr(#base_ty)]
+        }
     };
 
     let enum_name = enum_def.ident.clone();
     let lifetimes = enum_def.generics.params.clone();
     quote! {
+        #maybe_repr_attr
         #enum_def
         impl <#lifetimes> #enum_name <#lifetimes> {
             pub fn discriminant(&self) -> #base_ty {

@@ -82,6 +82,7 @@ pub struct ItemEnum {
     pub derive: Vec<Path>,
     pub is_final: bool,
     pub repr: Repr,
+    pub explicit_ww_repr: bool,
     pub ident: Ident,
     pub variants: Vec<Variant>,
 }
@@ -324,6 +325,20 @@ impl Repr {
         match self {
             Repr::U(bits) => *bits,
             Repr::UNib32 => 32,
+        }
+    }
+
+    pub fn std_bits(&self) -> u8 {
+        match &self {
+            Repr::U(4) => 8,
+            Repr::U(8) => 8,
+            Repr::U(16) => 16,
+            Repr::U(32) => 32,
+            Repr::UNib32 => 32,
+            Repr::U(bits) if *bits < 8 => 8,
+            Repr::U(bits) if *bits < 16 => 16,
+            Repr::U(bits) if *bits < 32 => 32,
+            u => unimplemented!("discriminant_type {:?}", u),
         }
     }
 }

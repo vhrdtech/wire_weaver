@@ -258,7 +258,7 @@ impl DebugView {
                 .flatten()
                 .unwrap_or("editor".to_string());
             transform.push_file(Source::File { path }, ast);
-            let ww_cx = transform.transform(&[]);
+            let ww_cx = transform.transform(&[], false);
             (transform, ww_cx)
         });
         let (transform, ww_cx) = match ww_cx {

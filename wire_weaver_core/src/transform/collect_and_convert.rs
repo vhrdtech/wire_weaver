@@ -25,6 +25,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
     pub(crate) current_file: &'i SynFile,
     pub(crate) messages: &'i mut Messages,
     pub(crate) _source: Source,
+    pub(crate) unknown_types_as_unsized: bool,
 }
 
 #[allow(dead_code)]
@@ -451,11 +452,16 @@ impl<'i> CollectAndConvertPass<'i> {
                                     );
                                 }
                             }
-                            self.messages
-                                .push_conversion_error(SynConversionError::UnknownType(
-                                    user.into(),
-                                ));
-                            return None;
+                            return if self.unknown_types_as_unsized {
+                                // if called from attr macro, no way to inspect user code
+                                let ty = Type::Unsized(Path::new_ident(Ident::new(user)), true);
+                                Some(ty)
+                            } else {
+                                self.messages.push_conversion_error(
+                                    SynConversionError::UnknownType(user.into()),
+                                );
+                                None
+                            };
                         }
                     };
                     Some(ty)

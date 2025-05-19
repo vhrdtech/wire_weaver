@@ -184,7 +184,11 @@ impl Transform {
         Ok(())
     }
 
-    pub fn transform(&mut self, add_derives: &[&str]) -> Option<Context> {
+    pub fn transform(
+        &mut self,
+        add_derives: &[&str],
+        unknown_types_as_unsized: bool,
+    ) -> Option<Context> {
         let mut modules = vec![];
         // let mut visit_user_types = VisitUserTypes {
         //     files: &mut self.files
@@ -207,6 +211,7 @@ impl Transform {
                             .entry(current_file.source.clone())
                             .or_default(),
                         _source: current_file.source.clone(),
+                        unknown_types_as_unsized,
                     };
                     finalize.transform(&mut item);
                     self.files[i].items.push_back(item);

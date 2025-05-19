@@ -87,7 +87,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
             .expect("ww load failed");
 
         let cx = transform
-            .transform(&add_derives)
+            .transform(&add_derives, false)
             .expect("ww transform failed");
         for (source, messages) in transform.messages() {
             for message in messages.messages() {
@@ -236,7 +236,7 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
         ))
         .unwrap();
 
-    let cx = transform.transform(add_derives);
+    let cx = transform.transform(add_derives, false);
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
             eprintln!("{:?} {:?}", source, message);

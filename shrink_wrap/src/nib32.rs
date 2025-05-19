@@ -20,14 +20,6 @@ impl UNib32 {
     }
 
     pub(crate) fn write_forward(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        self.write_inner(wr, Error::OutOfBounds)
-    }
-
-    pub(crate) fn write_reversed(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        self.write_inner(wr, Error::OutOfBoundsRevCompact)
-    }
-
-    fn write_inner(&self, wr: &mut BufWriter, e: Error) -> Result<(), Error> {
         let mut val = self.0;
         let mut nibbles_left = self.len_nibbles();
         while nibbles_left > 0 {
@@ -37,9 +29,25 @@ impl UNib32 {
             } else {
                 nib
             };
-            wr.write_u4(nib).map_err(|_| e)?;
+            wr.write_u4(nib)?;
             val >>= 3;
             nibbles_left -= 1;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_reversed(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        let mut val = self.0;
+        for i in 0..self.len_nibbles() {
+            let nib = (val & 0b111) as u8;
+            // reversed unib is written left to write, but read from right to left, so "one more nibble" bits must also be reversed
+            if (i == self.len_nibbles() - 1) && self.len_nibbles() > 1 {
+                wr.write_u4(nib | ONE_MORE_NIBBLE)
+                    .map_err(|_| Error::OutOfBoundsRevCompact)?;
+            } else {
+                wr.write_u4(nib).map_err(|_| Error::OutOfBoundsRevCompact)?;
+            }
+            val >>= 3;
         }
         Ok(())
     }
@@ -139,7 +147,9 @@ mod test {
         UNib32(5).write_reversed(&mut wr).unwrap();
         assert_eq!(
             wr.finish().unwrap(),
-            &[0b0000_1000, 0b0001_1010, 0b0101_0101]
+            // note that "one more nibble" bits are true from right to left, opposite of the forward version
+            //               |            |
+            &[0b0000_0000, 0b1001_0010, 0b1101_0101]
         );
     }
 

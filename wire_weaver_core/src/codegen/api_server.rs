@@ -118,7 +118,7 @@ fn level_matchers(
 ) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
-            format!("{}u16", item.id).as_str(),
+            format!("{}u32", item.id).as_str(),
             Span::call_site(),
         ))
     });

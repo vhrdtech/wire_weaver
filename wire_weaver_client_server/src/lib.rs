@@ -46,7 +46,7 @@ pub enum Command<F, E> {
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     Subscribe {
-        path: Vec<u16>,
+        path: Vec<u32>,
         stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>,
         // stop_rx: oneshot::Receiver<()>,
     },

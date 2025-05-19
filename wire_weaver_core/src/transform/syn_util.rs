@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use syn::{Expr, Lit, Meta};
 
 use crate::ast::path::Path;
@@ -106,14 +104,14 @@ pub fn take_repr_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) 
     let attr = attrs.remove(attr_idx);
     let Meta::List(meta_list) = attr.meta else {
         messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[repr(u4/u8/u16/u32/nib16)]".into(),
+            "expected #[repr(u1..u32 / nib16)]".into(),
         ));
         return None;
     };
     let repr = meta_list.tokens.to_string();
-    let Ok(repr) = Repr::from_str(repr.as_str()) else {
+    let Some(repr) = Repr::parse_str(repr.as_str()) else {
         messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[repr(u4/u8/u16/u32/nib16)]".into(),
+            "expected #[repr(u1..u32 / nib16)]".into(),
         ));
         return None;
     };

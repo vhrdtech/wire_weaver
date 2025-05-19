@@ -48,11 +48,15 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
 
 fn enum_discriminant_type(item_enum: &ItemEnum) -> Ident {
     let ty = match item_enum.repr {
-        Repr::U4 => "u8",
-        Repr::U8 => "u8",
-        Repr::U16 => "u16",
-        Repr::Nib16 => "u16",
-        Repr::U32 => "u32",
+        Repr::U(4) => "u8",
+        Repr::U(8) => "u8",
+        Repr::U(16) => "u16",
+        Repr::U(32) => "u32",
+        Repr::UNib32 => "u32",
+        Repr::U(bits) if bits < 8 => "u8",
+        Repr::U(bits) if bits < 16 => "u16",
+        Repr::U(bits) if bits < 32 => "u32",
+        u => unimplemented!("discriminant_type {:?}", u),
     };
     Ident::new(ty, Span::call_site())
 }
@@ -114,15 +118,28 @@ struct CGEnumDes<'a> {
 }
 
 fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
-    let write_fn = match repr {
-        Repr::U4 => "write_u4",
-        Repr::U8 => "write_u8",
-        Repr::U16 => "write_u16",
-        Repr::Nib16 => "write_nib16",
-        Repr::U32 => "write_u32",
+    let (write_fn, bits) = match repr {
+        Repr::U(1) => {
+            tokens.append_all(quote! { wr.write_bool(self.discriminant() != 0)?; });
+            return;
+        }
+        Repr::U(4) => ("write_u4", None),
+        Repr::U(8) => ("write_u8", None),
+        Repr::U(16) => ("write_u16", None),
+        Repr::U(32) => ("write_u32", None),
+        Repr::UNib32 => ("write_unib32", None),
+        Repr::U(bits) if bits < 8 => ("write_un8", Some(bits)),
+        Repr::U(bits) if bits < 16 => ("write_un16", Some(bits)),
+        Repr::U(bits) if bits < 32 => ("write_un32", Some(bits)),
+        u => unimplemented!("discriminant_type {:?}", u),
     };
     let write_fn = Ident::new(write_fn, Span::call_site());
-    tokens.append_all(quote! { wr.#write_fn(self.discriminant())?; });
+    if let Some(bits) = bits {
+        let bit_count = Lit::Int(LitInt::new(format!("{bits}").as_str(), Span::call_site()));
+        tokens.append_all(quote! { wr.#write_fn(#bit_count, self.discriminant())?; });
+    } else {
+        tokens.append_all(quote! { wr.#write_fn(self.discriminant())?; });
+    }
 }
 
 impl<'a> ToTokens for CGEnumSer<'a> {
@@ -211,15 +228,26 @@ impl<'a> ToTokens for CGEnumSer<'a> {
     }
 }
 
-fn read_discriminant(repr: Repr) -> Ident {
-    let read_fn = match repr {
-        Repr::U4 => "read_u4",
-        Repr::U8 => "read_u8",
-        Repr::U16 => "read_u16",
-        Repr::Nib16 => "read_nib16",
-        Repr::U32 => "read_u32",
+fn read_discriminant(repr: Repr) -> TokenStream {
+    let (write_fn, bits) = match repr {
+        Repr::U(1) => return quote! { read_bool()? as u8; },
+        Repr::U(4) => ("read_u4", None),
+        Repr::U(8) => ("read_u8", None),
+        Repr::U(16) => ("read_u16", None),
+        Repr::U(32) => ("read_u32", None),
+        Repr::UNib32 => ("read_unib32", None),
+        Repr::U(bits) if bits < 8 => ("read_un8", Some(bits)),
+        Repr::U(bits) if bits < 16 => ("read_un16", Some(bits)),
+        Repr::U(bits) if bits < 32 => ("read_un32", Some(bits)),
+        u => unimplemented!("discriminant_type {:?}", u),
     };
-    Ident::new(read_fn, Span::call_site())
+    let read_fn = Ident::new(write_fn, Span::call_site());
+    if let Some(bits) = bits {
+        let bit_count = Lit::Int(LitInt::new(format!("{bits}").as_str(), Span::call_site()));
+        quote! { #read_fn(#bit_count)?; }
+    } else {
+        quote! { #read_fn()?; }
+    }
 }
 
 impl<'a> ToTokens for CGEnumDes<'a> {
@@ -236,7 +264,7 @@ impl<'a> ToTokens for CGEnumDes<'a> {
         // };
         let read_discriminant = read_discriminant(self.item_enum.repr);
         tokens.append_all(quote! {
-            let discriminant = rd.#read_discriminant()?;
+            let discriminant = rd.#read_discriminant;
             Ok(match discriminant {
                 #known_variants
                 _ => { return Err(ShrinkWrapError::EnumFutureVersionOrMalformedData); }

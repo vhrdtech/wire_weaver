@@ -116,6 +116,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
 pub(crate) const VERSIONS_PAYLOAD_LEN: usize = 4 + 1 + ProtocolInfo::size_bytes() * 2;
 
+#[repr(u8)]
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 pub(crate) enum Op {

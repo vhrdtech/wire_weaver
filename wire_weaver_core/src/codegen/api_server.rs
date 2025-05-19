@@ -48,7 +48,7 @@ pub fn server_dispatcher(
 
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
-            Error as ShrinkWrapError, nib16::Nib16
+            Error as ShrinkWrapError, nib32::UNib32
         };
         #api_model_includes
         #additional_use
@@ -493,9 +493,9 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         // TODO: Handle other levels
         let id = item.id;
         let path = if no_alloc {
-            quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+            quote! { RefVec::Slice { slice: &[UNib32(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
         } else {
-            quote! { vec![Nib16(#id)] }
+            quote! { vec![UNib32(#id)] }
         };
         // TODO: Make this more efficient and not use 2 buffers?
         ts.append_all(quote! {

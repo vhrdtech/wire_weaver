@@ -29,6 +29,7 @@ pub enum SynConversionError {
     FlagTypeIsNotBool,
     RecursionLimitReached,
     UnknownApiResource,
+    EnumDiscriminantNotLargeEnough,
 }
 
 #[derive(Default)]

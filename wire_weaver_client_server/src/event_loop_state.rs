@@ -13,7 +13,7 @@ pub struct CommonState<E> {
     // conn_state: Arc<RwLock<ConnectionInfo>>,
     pub connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
     pub response_map: HashMap<SeqTy, (ResponseSender<E>, Instant)>,
-    pub stream_handlers: HashMap<Vec<u16>, StreamUpdateSender<E>>,
+    pub stream_handlers: HashMap<Vec<u32>, StreamUpdateSender<E>>,
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
     pub last_ping_instant: Option<Instant>,

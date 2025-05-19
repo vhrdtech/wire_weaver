@@ -1,7 +1,6 @@
 use ident::Ident;
 use path::Path;
 use std::fmt::{Debug, Formatter};
-use strum_macros::EnumString;
 use value::Value;
 
 use crate::ast::api::ApiLevel;
@@ -95,19 +94,11 @@ pub struct ItemConst {
     pub value: syn::Expr,
 }
 
-#[derive(Copy, Clone, Debug, Default, EnumString)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum Repr {
-    #[strum(serialize = "u4")]
-    U4,
-    #[strum(serialize = "u8")]
-    U8,
-    #[strum(serialize = "u16")]
-    U16,
-    #[strum(serialize = "nib16")]
+    U(u8),
     #[default]
-    Nib16,
-    #[strum(serialize = "u32")]
-    U32,
+    UNib32,
 }
 
 #[derive(Debug)]
@@ -302,6 +293,37 @@ impl Field {
             ty,
             since: None,
             default: None,
+        }
+    }
+}
+
+impl Repr {
+    pub fn parse_str(s: &str) -> Option<Self> {
+        if s == "unib32" {
+            return Some(Repr::UNib32);
+        }
+        let s = s.strip_prefix("u")?;
+        let bits: u8 = s.parse().ok()?;
+        Some(Repr::U(bits))
+    }
+
+    pub fn max_discriminant(&self) -> u32 {
+        match self {
+            Repr::U(bits) => {
+                if *bits == 32 {
+                    u32::MAX
+                } else {
+                    2u32.pow(*bits as u32) - 1
+                }
+            }
+            Repr::UNib32 => u32::MAX,
+        }
+    }
+
+    pub fn required_bits(&self) -> u8 {
+        match self {
+            Repr::U(bits) => *bits,
+            Repr::UNib32 => 32,
         }
     }
 }

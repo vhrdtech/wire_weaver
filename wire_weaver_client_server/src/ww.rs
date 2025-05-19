@@ -6,6 +6,6 @@ use wire_weaver::wire_weaver_api;
     no_alloc = true,
     use_async = true,
     derive = "Debug",
-    // debug_to_file = "./target/ww_no_alloc.rs"
+    // debug_to_file = "../target/ww_no_alloc.rs"
 )]
 pub mod no_alloc_client {}

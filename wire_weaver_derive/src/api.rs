@@ -91,7 +91,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
             .expect("ww transform failed");
         for (source, messages) in transform.messages() {
             for message in messages.messages() {
-                println!("cargo:warning={:?} {:?}", source, message);
+                println!("{:?} {:?}", source, message);
             }
         }
 
@@ -206,11 +206,11 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         match File::create(&path) {
             Ok(mut f) => {
                 if let Err(e) = f.write_all(ts_formatted.as_bytes()) {
-                    println!("cargo:warning=Debug file write failed: {e:?}");
+                    eprintln!("Debug file write failed: {e:?}");
                 }
             }
             Err(e) => {
-                println!("cargo:warning=Debug file create failed: {path:?} {:?}", e);
+                eprintln!("Debug file create failed: {path:?} {:?}", e);
             }
         }
     }
@@ -236,14 +236,13 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
         ))
         .unwrap();
 
-    let cx = transform
-        .transform(add_derives)
-        .expect("internal error: client_server_v0_1 transform failed");
+    let cx = transform.transform(add_derives);
     for (source, messages) in transform.messages() {
         for message in messages.messages() {
-            println!("cargo:warning={:?} {:?}", source, message);
+            eprintln!("{:?} {:?}", source, message);
         }
     }
+    let cx = cx.expect("internal error: client_server_v0_1 transform failed");
 
     let ts = wire_weaver_core::codegen::generate(&cx, no_alloc);
     let api_model = Ident::new(api_model, Span::call_site());
@@ -251,7 +250,7 @@ fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> 
         pub mod #api_model {
             use wire_weaver::shrink_wrap::{
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError,
-                vec::RefVec, nib16::Nib16
+                vec::RefVec, nib32::UNib32
             };
             #ts
         }

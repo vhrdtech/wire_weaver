@@ -164,10 +164,25 @@ impl<'i> CollectAndConvertPass<'i> {
 
     fn transform_item_enum(&mut self, item_enum: &syn::ItemEnum) -> Option<ItemEnum> {
         let mut variants = vec![];
-        let mut next_discriminant = 0;
+        let mut current_discriminant: u32 = 0;
+        let mut max_discriminant: u32 = 0;
         let mut bail = false;
         for variant in &item_enum.variants {
-            let discriminant = self.get_discriminant(&mut next_discriminant, variant);
+            let discriminant = match self.get_discriminant(variant) {
+                Ok(Some(discriminant)) => {
+                    current_discriminant = discriminant;
+                    discriminant
+                }
+                Ok(None) => {
+                    let d = current_discriminant;
+                    current_discriminant = current_discriminant.saturating_add(1);
+                    d
+                }
+                Err(_) => {
+                    return None;
+                }
+            };
+            max_discriminant = max_discriminant.max(discriminant);
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             match self.convert_fields(&variant.fields, &path) {
                 Some(fields) => {
@@ -188,6 +203,11 @@ impl<'i> CollectAndConvertPass<'i> {
         }
         let mut attrs = item_enum.attrs.clone();
         let repr = take_repr_attr(&mut attrs, self.messages).unwrap_or_default();
+        if max_discriminant > repr.max_discriminant() {
+            self.messages
+                .push_conversion_error(SynConversionError::EnumDiscriminantNotLargeEnough);
+            return None;
+        }
         if bail {
             None
         } else {
@@ -206,7 +226,7 @@ impl<'i> CollectAndConvertPass<'i> {
         }
     }
 
-    fn get_discriminant(&mut self, next_discriminant: &mut u32, variant: &syn::Variant) -> u32 {
+    fn get_discriminant(&mut self, variant: &syn::Variant) -> Result<Option<u32>, ()> {
         variant
             .discriminant
             .as_ref()
@@ -214,24 +234,19 @@ impl<'i> CollectAndConvertPass<'i> {
                 if let Expr::Lit(lit) = expr {
                     if let Lit::Int(lit_int) = &lit.lit {
                         let d = lit_int.base10_parse().unwrap();
-                        *next_discriminant = d + 1;
-                        d
+                        Ok(Some(d))
                     } else {
                         self.messages
                             .push_conversion_error(SynConversionError::WrongDiscriminant);
-                        u32::MAX
+                        Err(())
                     }
                 } else {
                     self.messages
                         .push_conversion_error(SynConversionError::WrongDiscriminant);
-                    u32::MAX
+                    Err(())
                 }
             })
-            .unwrap_or_else(|| {
-                let d = *next_discriminant;
-                *next_discriminant += 1;
-                d
-            })
+            .unwrap_or(Ok(None))
     }
 
     fn convert_fields(&mut self, fields: &syn::Fields, path: &FieldPath) -> Option<Fields> {
@@ -612,7 +627,7 @@ impl<'i> CollectAndConvertPass<'i> {
                     let docs = collect_docs_attrs(&mut attrs);
                     collect_unknown_attributes(&mut attrs, self.messages);
                     items.push(ApiItem {
-                        id: id as u16,
+                        id,
                         docs,
                         multiplicity: Multiplicity::Flat,
                         kind: ApiItemKind::Method {
@@ -647,7 +662,7 @@ impl<'i> CollectAndConvertPass<'i> {
                     if kind == "stream_up" || kind == "stream_down" {
                         let is_up = kind == "stream_up";
                         items.push(ApiItem {
-                            id: id as u16,
+                            id,
                             docs,
                             multiplicity: Multiplicity::Flat,
                             kind: ApiItemKind::Stream {
@@ -659,7 +674,7 @@ impl<'i> CollectAndConvertPass<'i> {
                         });
                     } else if kind == "property" {
                         items.push(ApiItem {
-                            id: id as u16,
+                            id,
                             docs,
                             multiplicity: Multiplicity::Flat,
                             kind: ApiItemKind::Property {

@@ -1,5 +1,6 @@
 use crate::nib32::UNib32;
 use crate::traits::ElementSize;
+use crate::un::read_unx;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
 
@@ -58,6 +59,11 @@ impl<'i> BufReader<'i> {
             Ok(val)
         }
     }
+
+    read_unx!(read_un8, u8, 8);
+    read_unx!(read_un16, u16, 16);
+    read_unx!(read_un32, u32, 32);
+    read_unx!(read_un64, u64, 64);
 
     pub fn read_u8(&mut self) -> Result<u8, Error> {
         self.align_byte();

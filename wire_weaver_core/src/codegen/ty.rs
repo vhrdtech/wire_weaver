@@ -366,7 +366,7 @@ impl Type {
             // Type::User(_) => unimplemented!(),
             Type::Unsized(_, _) => {
                 tokens.append_all(quote! {
-                    let size = rd.read_nib16_rev()? as usize;
+                    let size = rd.read_unib32_rev()? as usize;
                     let mut rd_split = rd.split(size)?;
                     let #variable_name = rd_split.read(ElementSize::Unsized)?;
                 });

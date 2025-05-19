@@ -3,7 +3,7 @@ const PROTOCOL_GID: u32 = 1;
 struct Request {
     /// If 0 - no answer is expected
     seq: u16,
-    path: Vec<nib16>,
+    path: Vec<UNib32>,
     kind: RequestKind,
 }
 
@@ -53,7 +53,7 @@ enum EventKind {
     // If stream is a sequence of bytes, can be used to delimit frames or send other data out of band
     // StreamDelimiter { path: Vec<nib16>, user_data: u8 },
     // TODO: Add Option<SizeHint>
-    StreamUpdate { path: Vec<nib16>, data: Vec<u8> },
+    StreamUpdate { path: Vec<UNib32>, data: Vec<u8> },
     StreamClosed,
     Subscribed,
     RateChanged,
@@ -91,9 +91,9 @@ enum Error {
 }
 
 struct Version {
-    major: nib16,
-    minor: nib16,
-    patch: nib16,
+    major: UNib32,
+    minor: UNib32,
+    patch: UNib32,
 }
 
 enum ShaperConfig {

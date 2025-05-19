@@ -40,7 +40,7 @@ pub fn client(
 
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
-            Error as ShrinkWrapError, nib16::Nib16
+            Error as ShrinkWrapError, nib32::UNib32
         };
         #api_model_includes
         #additional_use
@@ -65,16 +65,16 @@ fn level_methods(api_level: &ApiLevel, no_alloc: bool, high_level_client: bool) 
 
 fn level_method(
     kind: &ApiItemKind,
-    id: u16,
+    id: u32,
     no_alloc: bool,
     high_level_client: bool,
 ) -> TokenStream {
     // TODO: Handle sub-levels
     let path = if no_alloc {
-        // quote! { RefVec::Slice { slice: &[Nib16(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
-        quote! { &[Nib16(#id)] }
+        // quote! { RefVec::Slice { slice: &[UNib32(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+        quote! { &[UNib32(#id)] }
     } else {
-        quote! { vec![Nib16(#id)] }
+        quote! { vec![UNib32(#id)] }
     };
     let return_ty = if no_alloc {
         quote! { &[u8] }
@@ -87,10 +87,10 @@ fn level_method(
     //     quote! { wr.finish()?.to_vec() }
     // };
     let path_ty = if no_alloc {
-        quote! { &[Nib16] }
+        quote! { &[UNib32] }
     } else {
         // should be u16?
-        quote! { Vec<Nib16> }
+        quote! { Vec<UNib32> }
     };
     match kind {
         ApiItemKind::Method {

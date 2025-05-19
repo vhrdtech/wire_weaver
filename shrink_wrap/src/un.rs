@@ -4,7 +4,7 @@ macro_rules! write_unx {
         #[doc = stringify!($max_bit_count)]
         #[doc = " bits from "]
         #[doc = stringify!($base_ty)]
-        #[doc = " val."]
+        #[doc = " number."]
         pub fn $fn_name(&mut self, bit_count: u8, value: $base_ty) -> Result<(), Error> {
             if bit_count > $max_bit_count {
                 return Err(Error::InvalidBitCount);
@@ -38,3 +38,46 @@ macro_rules! write_unx {
     };
 }
 pub(crate) use write_unx;
+
+macro_rules! read_unx {
+    ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
+        #[doc = "Read up to "]
+        #[doc = stringify!($max_bit_count)]
+        #[doc = " bits into "]
+        #[doc = stringify!($base_ty)]
+        #[doc = " number."]
+        pub fn $fn_name(&mut self, bit_count: u8) -> Result<$base_ty, Error> {
+            if bit_count > $max_bit_count {
+                return Err(Error::InvalidBitCount);
+            }
+
+            let mut result: $base_ty = 0;
+            let mut bits_left = bit_count;
+
+            while bits_left > 0 {
+                if (self.bytes_left() == 0) && self.bit_idx == 7 {
+                    return Err(Error::OutOfBounds);
+                }
+
+                let bits_to_read = bits_left.min(self.bit_idx + 1);
+                let mask = ((1 as u8) << bits_to_read) - 1;
+                let shift = self.bit_idx + 1 - bits_to_read;
+                let bits = (self.buf[self.byte_idx] >> shift) & mask;
+
+                result = (result << bits_to_read) | (bits as $base_ty);
+
+                self.bit_idx = self.bit_idx.wrapping_sub(bits_to_read);
+                if self.bit_idx == 255 {
+                    // Wrapping around after saturating_sub(1) from 0 .. 8 from 7
+                    self.bit_idx = 7;
+                    self.byte_idx += 1;
+                }
+
+                bits_left -= bits_to_read;
+            }
+
+            Ok(result)
+        }
+    };
+}
+pub(crate) use read_unx;

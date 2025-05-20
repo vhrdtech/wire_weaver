@@ -67,30 +67,52 @@ pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     Some(())
 }
 
-pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
-    let (attr_idx, _) = attrs
-        .iter()
-        .enumerate()
-        .find(|(_, a)| a.path().is_ident("final_evolution"))?;
-    let _attr = attrs.remove(attr_idx);
-    Some(())
+// pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
+//     let (attr_idx, _) = attrs
+//         .iter()
+//         .enumerate()
+//         .find(|(_, a)| a.path().is_ident("final_evolution"))?;
+//     let _attr = attrs.remove(attr_idx);
+//     Some(())
+// }
+
+#[derive(PartialEq, Eq)]
+pub(crate) enum EvolutionAttr {
+    /// No #[final_evolution] or #[evolve]
+    None,
+    /// #[final_evolution] meaning that child type can be flattened into parent, saving some nibbles on size.
+    /// But no more fields could be added to such structs and no additional enum variants with data.
+    /// Enum variants without data could still be added though.
+    FinalEvolution,
+    /// #[evolve] is present or assumed.
+    /// The size of the child object is serialized, so more fields and more enum variants even with data could be added,
+    /// without breaking compatibility.
+    Evolve,
 }
 
-pub(crate) fn take_sized_attr(attrs: &mut Vec<syn::Attribute>) -> Option<bool> {
-    let mut is_sized = false;
-    let (attr_idx, _) = attrs.iter().enumerate().find(|(_, a)| {
-        if a.path().is_ident("fixed_size") {
-            is_sized = true;
+pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> EvolutionAttr {
+    let mut is_final_evolution = false;
+    let attr_idx = attrs.iter().enumerate().find(|(_, a)| {
+        if a.path().is_ident("final_evolution") {
+            is_final_evolution = true;
             true
-        } else if a.path().is_ident("dynamic_size") {
-            is_sized = false;
+        } else if a.path().is_ident("evolve") {
+            is_final_evolution = false;
             true
         } else {
             false
         }
-    })?;
-    let _attr = attrs.remove(attr_idx);
-    Some(is_sized)
+    });
+    if let Some((attr_idx, _)) = attr_idx {
+        let _attr = attrs.remove(attr_idx);
+        if is_final_evolution {
+            EvolutionAttr::FinalEvolution
+        } else {
+            EvolutionAttr::Evolve
+        }
+    } else {
+        EvolutionAttr::None
+    }
 }
 
 pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String> {

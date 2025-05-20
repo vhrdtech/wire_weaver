@@ -5,8 +5,8 @@ use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
-    take_final_attr, take_flag_attr, take_id_attr, take_since_attr, take_sized_attr,
+    EvolutionAttr, collect_docs_attrs, collect_unknown_attributes, take_default_attr,
+    take_derive_attr, take_final_attr, take_flag_attr, take_id_attr, take_since_attr,
     take_ww_repr_attr,
 };
 use crate::transform::{
@@ -218,7 +218,7 @@ impl<'i> CollectAndConvertPass<'i> {
         if bail {
             None
         } else {
-            let is_final = take_final_attr(&mut attrs).is_some();
+            let is_final = take_final_attr(&mut attrs) == EvolutionAttr::FinalEvolution;
             let docs = collect_docs_attrs(&mut attrs);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
@@ -309,7 +309,7 @@ impl<'i> CollectAndConvertPass<'i> {
             None
         } else {
             let mut attrs = item_struct.attrs.clone();
-            let is_final = take_final_attr(&mut attrs).is_some();
+            let is_final = take_final_attr(&mut attrs) == EvolutionAttr::FinalEvolution;
             let docs = collect_docs_attrs(&mut attrs);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
@@ -427,31 +427,6 @@ impl<'i> CollectAndConvertPass<'i> {
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
                         other_ty => {
-                            // placed higher than Ux logic to give a chance to write #[unsized] U11, making it possible to evolve the type later
-                            if self.is_shrink_wrap_attr_macro {
-                                // if called from attr macro, no way to inspect user code
-                                let is_sized = if let Some(attrs) = attrs {
-                                    take_sized_attr(attrs)
-                                } else {
-                                    None
-                                };
-                                match is_sized {
-                                    Some(true) => {
-                                        return Some(Type::Sized(
-                                            Path::new_ident(Ident::new(other_ty)),
-                                            false,
-                                        ));
-                                    }
-                                    Some(false) => {
-                                        return Some(Type::Unsized(
-                                            Path::new_ident(Ident::new(other_ty)),
-                                            false,
-                                        ));
-                                    }
-                                    _ => {}
-                                }
-                            }
-
                             if let Some(un) = other_ty
                                 .strip_prefix('U')
                                 .or_else(|| other_ty.strip_suffix('u'))
@@ -466,6 +441,30 @@ impl<'i> CollectAndConvertPass<'i> {
                                     }
                                 }
                             }
+
+                            if self.is_shrink_wrap_attr_macro {
+                                // if called from attr macro, no way to inspect user code
+                                let is_final = if let Some(attrs) = attrs {
+                                    take_final_attr(attrs)
+                                } else {
+                                    EvolutionAttr::None
+                                };
+                                match is_final {
+                                    EvolutionAttr::FinalEvolution => {
+                                        return Some(Type::Sized(
+                                            Path::new_ident(Ident::new(other_ty)),
+                                            false,
+                                        ));
+                                    }
+                                    EvolutionAttr::Evolve | EvolutionAttr::None => {
+                                        return Some(Type::Unsized(
+                                            Path::new_ident(Ident::new(other_ty)),
+                                            false,
+                                        ));
+                                    }
+                                }
+                            }
+
                             for item in &self.current_file.items {
                                 if item.ident().map(|ident| ident == other_ty).unwrap_or(false) {
                                     let is_lifetime_is_final_evolution = match item {

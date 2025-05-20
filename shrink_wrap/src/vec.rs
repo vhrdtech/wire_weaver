@@ -293,6 +293,14 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Debug> Debug for RefVec<'i, T> {
     }
 }
 
+impl<'i> PartialEq for RefVec<'i, u8> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl<'i> Eq for RefVec<'i, u8> {}
+
 #[cfg(test)]
 mod tests {
     use crate::traits::ElementSize;

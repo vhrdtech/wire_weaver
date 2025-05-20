@@ -439,13 +439,13 @@ impl<'i> CollectAndConvertPass<'i> {
                                     Some(true) => {
                                         return Some(Type::Sized(
                                             Path::new_ident(Ident::new(other_ty)),
-                                            true,
+                                            false,
                                         ));
                                     }
                                     Some(false) => {
                                         return Some(Type::Unsized(
                                             Path::new_ident(Ident::new(other_ty)),
-                                            true,
+                                            false,
                                         ));
                                     }
                                     _ => {}

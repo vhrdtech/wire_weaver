@@ -82,15 +82,24 @@ impl<'a> ToTokens for CGEnumFieldsDef<'a> {
             let discriminant = variant.discriminant_lit();
             let variant = match &variant.fields {
                 Fields::Named(fields_named) => {
+                    let fields_named = fields_named
+                        .iter()
+                        .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
+                        .collect::<Vec<_>>();
+                    let fields_docs = fields_named.iter().map(|f| f.docs()).collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
                         fields_named.iter().map(|f| (&f.ident).into()).collect();
                     let field_types: Vec<TokenStream> = fields_named
                         .iter()
                         .map(|f| f.ty.def(self.no_alloc))
                         .collect();
-                    quote!(#ident { #(#field_names: #field_types),* } = #discriminant,)
+                    quote!(#ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
                 }
                 Fields::Unnamed(fields_unnamed) => {
+                    let fields_unnamed = fields_unnamed
+                        .iter()
+                        .filter(|ty| !matches!(ty, Type::IsOk(_) | Type::IsSome(_)))
+                        .collect::<Vec<_>>();
                     let field_types: Vec<TokenStream> = fields_unnamed
                         .iter()
                         .map(|ty| ty.def(self.no_alloc))
@@ -227,7 +236,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
 
 fn read_discriminant(repr: Repr) -> TokenStream {
     let (write_fn, bits) = match repr {
-        Repr::U(1) => return quote! { read_bool()? as u8; },
+        Repr::U(1) => return quote! { read_bool()? as u8 },
         Repr::U(4) => ("read_u4", None),
         Repr::U(8) => ("read_u8", None),
         Repr::U(16) => ("read_u16", None),
@@ -241,9 +250,9 @@ fn read_discriminant(repr: Repr) -> TokenStream {
     let read_fn = Ident::new(write_fn, Span::call_site());
     if let Some(bits) = bits {
         let bit_count = Lit::Int(LitInt::new(format!("{bits}").as_str(), Span::call_site()));
-        quote! { #read_fn(#bit_count)?; }
+        quote! { #read_fn(#bit_count)? }
     } else {
-        quote! { #read_fn()?; }
+        quote! { #read_fn()? }
     }
 }
 
@@ -318,6 +327,14 @@ impl Field {
                 quote!(.unwrap_or(#value))
             }
         }
+    }
+
+    pub fn docs(&self) -> TokenStream {
+        let mut ts = TokenStream::new();
+        for doc in &self.docs {
+            ts.extend(quote!(#[doc = #doc]));
+        }
+        ts
     }
 }
 

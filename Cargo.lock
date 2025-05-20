@@ -2625,6 +2625,7 @@ name = "shrink_wrap"
 version = "0.4.0"
 dependencies = [
  "defmt",
+ "paste",
  "tracing",
 ]
 

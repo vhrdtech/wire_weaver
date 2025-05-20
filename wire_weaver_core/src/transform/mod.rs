@@ -187,7 +187,7 @@ impl Transform {
     pub fn transform(
         &mut self,
         add_derives: &[&str],
-        unknown_types_as_unsized: bool,
+        is_shrink_wrap_attr_macro: bool,
     ) -> Option<Context> {
         let mut modules = vec![];
         // let mut visit_user_types = VisitUserTypes {
@@ -211,7 +211,7 @@ impl Transform {
                             .entry(current_file.source.clone())
                             .or_default(),
                         _source: current_file.source.clone(),
-                        unknown_types_as_unsized,
+                        is_shrink_wrap_attr_macro,
                     };
                     finalize.transform(&mut item);
                     self.files[i].items.push_back(item);

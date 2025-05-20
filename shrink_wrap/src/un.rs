@@ -1,3 +1,101 @@
+use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
+use paste::paste;
+
+macro_rules! un {
+    ($bits:literal, $base_bits:literal) => {
+        paste! {
+            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+            #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+            #[doc = $bits "-bit number, backed by u" $base_bits ", serialized as " $bits " bits"]
+            pub struct [<U $bits>]([<u $base_bits>]);
+            impl [<U $bits>] {
+                pub fn new(x: [<u $base_bits>]) -> Option<Self> {
+                    if x < [<2 _ u $base_bits>].pow(2) {
+                        Some(Self(x))
+                    } else {
+                        None
+                    }
+                }
+
+                pub fn value(&self) -> [<u $base_bits>] {
+                    self.0
+                }
+            }
+
+            impl SerializeShrinkWrap for [<U $bits>] {
+                fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                    wr.[<write_un $base_bits>]($bits, self.0)
+                }
+            }
+
+            impl<'i> DeserializeShrinkWrap<'i> for [<U $bits>] {
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>, _s: ElementSize) -> Result<Self, Error> {
+                    Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
+                }
+            }
+        }
+    };
+}
+
+macro_rules! unx {
+    ($($bits:literal),* / $base_bits:literal) => {
+        $(un!($bits, $base_bits);)*
+    };
+}
+
+unx!(1, 2, 3, 4, 5, 6, 7 / 8);
+unx!(9, 10, 11, 12, 13, 14, 15 / 16);
+unx!(
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31 / 32
+);
+unx!(
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63 / 64
+);
+
 macro_rules! write_unx {
     ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
         #[doc = "Write up to "]

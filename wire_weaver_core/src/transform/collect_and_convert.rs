@@ -6,7 +6,8 @@ use crate::ast::path::Path;
 use crate::ast::{Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
-    take_final_attr, take_flag_attr, take_id_attr, take_since_attr, take_ww_repr_attr,
+    take_final_attr, take_flag_attr, take_id_attr, take_since_attr, take_sized_attr,
+    take_ww_repr_attr,
 };
 use crate::transform::{
     ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
@@ -15,7 +16,8 @@ use crate::transform::{
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::{
-    Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, ReturnType, TraitItem,
+    Attribute, Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, ReturnType,
+    TraitItem,
 };
 
 /// Go through items in syn AST form and transform into own AST.
@@ -25,7 +27,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
     pub(crate) current_file: &'i SynFile,
     pub(crate) messages: &'i mut Messages,
     pub(crate) _source: Source,
-    pub(crate) unknown_types_as_unsized: bool,
+    pub(crate) is_shrink_wrap_attr_macro: bool,
 }
 
 #[allow(dead_code)]
@@ -342,7 +344,7 @@ impl<'i> CollectAndConvertPass<'i> {
             path.clone_and_push(FieldSelector::Tuple(def_order_idx))
         };
 
-        let ty = self.transform_type(field.ty, &path)?;
+        let ty = self.transform_type(field.ty, Some(&mut field.attrs), &path)?;
         let default = take_default_attr(&mut field.attrs, self.messages);
         let flag = take_flag_attr(&mut field.attrs);
         let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
@@ -388,7 +390,12 @@ impl<'i> CollectAndConvertPass<'i> {
         }
     }
 
-    fn transform_type(&mut self, ty: syn::Type, path: &FieldPath) -> Option<Type> {
+    fn transform_type(
+        &mut self,
+        ty: syn::Type,
+        attrs: Option<&mut Vec<Attribute>>,
+        path: &FieldPath,
+    ) -> Option<Type> {
         match ty {
             syn::Type::Path(type_path) => {
                 if type_path.path.segments.len() == 1 {
@@ -419,9 +426,48 @@ impl<'i> CollectAndConvertPass<'i> {
                         "Vec" | "RefVec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
-                        user => {
+                        other_ty => {
+                            // placed higher than Ux logic to give a chance to write #[unsized] U11, making it possible to evolve the type later
+                            if self.is_shrink_wrap_attr_macro {
+                                // if called from attr macro, no way to inspect user code
+                                let is_sized = if let Some(attrs) = attrs {
+                                    take_sized_attr(attrs)
+                                } else {
+                                    None
+                                };
+                                match is_sized {
+                                    Some(true) => {
+                                        return Some(Type::Sized(
+                                            Path::new_ident(Ident::new(other_ty)),
+                                            true,
+                                        ));
+                                    }
+                                    Some(false) => {
+                                        return Some(Type::Unsized(
+                                            Path::new_ident(Ident::new(other_ty)),
+                                            true,
+                                        ));
+                                    }
+                                    _ => {}
+                                }
+                            }
+
+                            if let Some(un) = other_ty
+                                .strip_prefix('U')
+                                .or_else(|| other_ty.strip_suffix('u'))
+                            {
+                                let bits: Result<u8, _> = un.parse();
+                                if let Ok(bits) = bits {
+                                    if (1..=63).contains(&bits) {
+                                        return Some(Type::Sized(
+                                            Path::new_ident(Ident::new(other_ty)),
+                                            false,
+                                        ));
+                                    }
+                                }
+                            }
                             for item in &self.current_file.items {
-                                if item.ident().map(|ident| ident == user).unwrap_or(false) {
+                                if item.ident().map(|ident| ident == other_ty).unwrap_or(false) {
                                     let is_lifetime_is_final_evolution = match item {
                                         SynItemWithContext::Enum { transformed, .. } => transformed
                                             .as_ref()
@@ -439,12 +485,12 @@ impl<'i> CollectAndConvertPass<'i> {
                                         |(is_lifetime, is_final_evolution)| {
                                             if is_final_evolution {
                                                 Type::Sized(
-                                                    Path::new_ident(Ident::new(user)),
+                                                    Path::new_ident(Ident::new(other_ty)),
                                                     is_lifetime,
                                                 )
                                             } else {
                                                 Type::Unsized(
-                                                    Path::new_ident(Ident::new(user)),
+                                                    Path::new_ident(Ident::new(other_ty)),
                                                     is_lifetime,
                                                 )
                                             }
@@ -452,16 +498,17 @@ impl<'i> CollectAndConvertPass<'i> {
                                     );
                                 }
                             }
-                            return if self.unknown_types_as_unsized {
-                                // if called from attr macro, no way to inspect user code
-                                let ty = Type::Unsized(Path::new_ident(Ident::new(user)), true);
-                                Some(ty)
-                            } else {
-                                self.messages.push_conversion_error(
-                                    SynConversionError::UnknownType(user.into()),
-                                );
-                                None
-                            };
+                            if self.is_shrink_wrap_attr_macro {
+                                return Some(Type::Unsized(
+                                    Path::new_ident(Ident::new(other_ty)),
+                                    true,
+                                ));
+                            }
+                            self.messages
+                                .push_conversion_error(SynConversionError::UnknownType(
+                                    other_ty.into(),
+                                ));
+                            return None;
                         }
                     };
                     Some(ty)
@@ -514,9 +561,9 @@ impl<'i> CollectAndConvertPass<'i> {
             return None;
         };
         let ok_path = path.clone_and_push(FieldSelector::ResultIfOk);
-        let ok_ty = self.transform_type(ok_ty.clone(), &ok_path)?;
+        let ok_ty = self.transform_type(ok_ty.clone(), None, &ok_path)?;
         let err_path = path.clone_and_push(FieldSelector::ResultIfErr);
-        let err_ty = self.transform_type(err_ty.clone(), &err_path)?;
+        let err_ty = self.transform_type(err_ty.clone(), None, &err_path)?;
         let flag_ident = path.flag_ident().into();
         Some(Type::Result(flag_ident, Box::new((ok_ty, err_ty))))
     }
@@ -556,7 +603,7 @@ impl<'i> CollectAndConvertPass<'i> {
                 )));
             return None;
         };
-        let inner_ty = self.transform_type(inner_ty.clone(), path)?;
+        let inner_ty = self.transform_type(inner_ty.clone(), None, path)?;
         Some(Type::Vec(Layout::Builtin(Box::new(inner_ty))))
     }
 
@@ -587,7 +634,7 @@ impl<'i> CollectAndConvertPass<'i> {
             return None;
         };
         let path = path.clone_and_push(FieldSelector::OptionIsSome);
-        let inner_ty = self.transform_type(inner_ty.clone(), &path)?;
+        let inner_ty = self.transform_type(inner_ty.clone(), None, &path)?;
         let flag_ident = path.flag_ident().into();
         Some(Type::Option(flag_ident, Box::new(inner_ty)))
     }
@@ -595,7 +642,7 @@ impl<'i> CollectAndConvertPass<'i> {
     fn transform_return_type(&mut self, ty: ReturnType, path: &FieldPath) -> Option<Type> {
         match ty {
             ReturnType::Default => None,
-            ReturnType::Type(_, ty) => self.transform_type(*ty, path),
+            ReturnType::Type(_, ty) => self.transform_type(*ty, None, path),
         }
     }
 
@@ -616,6 +663,7 @@ impl<'i> CollectAndConvertPass<'i> {
                         };
                         let ty = self.transform_type(
                             pat_type.ty.deref().clone(),
+                            None,
                             &FieldPath::new(FieldPathRoot::Argument(arg_ident.ident.clone())),
                         )?;
                         args.push(Argument {
@@ -679,7 +727,7 @@ impl<'i> CollectAndConvertPass<'i> {
                             kind: ApiItemKind::Stream {
                                 ident: stream_args.ident.into(),
                                 // ty: Type::Unsized(Path::new_ident(stream_args.ty_name.into()), false),
-                                ty: self.transform_type(stream_args.ty, &path)?,
+                                ty: self.transform_type(stream_args.ty, None, &path)?,
                                 is_up,
                             },
                         });
@@ -690,7 +738,7 @@ impl<'i> CollectAndConvertPass<'i> {
                             multiplicity: Multiplicity::Flat,
                             kind: ApiItemKind::Property {
                                 ident: stream_args.ident.into(),
-                                ty: self.transform_type(stream_args.ty, &path)?,
+                                ty: self.transform_type(stream_args.ty, None, &path)?,
                             },
                         });
                     } else {
@@ -711,6 +759,7 @@ impl<'i> CollectAndConvertPass<'i> {
     fn transform_const(&mut self, item_const: &syn::ItemConst) -> Option<ItemConst> {
         let ty = self.transform_type(
             item_const.ty.deref().clone(),
+            None,
             &FieldPath::new(FieldPathRoot::Argument(item_const.ident.clone())),
         )?;
         let mut attrs = item_const.attrs.clone();

@@ -76,6 +76,23 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     Some(())
 }
 
+pub(crate) fn take_sized_attr(attrs: &mut Vec<syn::Attribute>) -> Option<bool> {
+    let mut is_sized = false;
+    let (attr_idx, _) = attrs.iter().enumerate().find(|(_, a)| {
+        if a.path().is_ident("fixed_size") {
+            is_sized = true;
+            true
+        } else if a.path().is_ident("dynamic_size") {
+            is_sized = false;
+            true
+        } else {
+            false
+        }
+    })?;
+    let _attr = attrs.remove(attr_idx);
+    Some(is_sized)
+}
+
 pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String> {
     let mut docs = vec![];
     for attr in attrs.iter() {

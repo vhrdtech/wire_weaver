@@ -46,6 +46,7 @@ struct State {
     use_async: bool,
     method_model: String,
     property_model: String,
+    is_shrink_wrap_attr_macro: bool,
 }
 
 #[derive(Default, Eq, PartialEq, Copy, Clone, Serialize, Deserialize, AsRefStr, EnumIter)]
@@ -133,6 +134,16 @@ impl TabUi for DebugView {
 
             if ui
                 .checkbox(&mut self.state.use_async, "use_async")
+                .changed()
+            {
+                self.generate_code();
+            }
+
+            if ui
+                .checkbox(
+                    &mut self.state.is_shrink_wrap_attr_macro,
+                    "shrink_wrap_attr_macro",
+                )
                 .changed()
             {
                 self.generate_code();
@@ -258,7 +269,7 @@ impl DebugView {
                 .flatten()
                 .unwrap_or("editor".to_string());
             transform.push_file(Source::File { path }, ast);
-            let ww_cx = transform.transform(&[], false);
+            let ww_cx = transform.transform(&[], self.state.is_shrink_wrap_attr_macro);
             (transform, ww_cx)
         });
         let (transform, ww_cx) = match ww_cx {

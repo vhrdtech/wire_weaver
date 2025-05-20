@@ -13,7 +13,7 @@ pub mod vec;
 
 #[cfg(feature = "std")]
 pub mod alloc;
-mod un;
+pub mod un;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -36,6 +36,7 @@ pub mod prelude {
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
+    pub use crate::un::*;
     pub use crate::vec::RefVec;
     pub use crate::Error as ShrinkWrapError;
 }

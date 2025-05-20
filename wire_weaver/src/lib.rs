@@ -2,7 +2,7 @@
 
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};
-pub use wire_weaver_derive::{ShrinkWrap, wire_weaver_api, ww_repr};
+pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.
 /// Protocols are compatible if IDs are equal and if major versions matches for major >= 1.

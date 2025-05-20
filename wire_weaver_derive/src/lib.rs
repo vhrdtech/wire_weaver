@@ -5,76 +5,40 @@ mod ww_repr;
 
 mod shrink_wrap;
 
-#[proc_macro]
-pub fn wire_weaver(_input: TokenStream) -> TokenStream {
-    todo!()
-    // dbg!(&input);
-    // let mut input = input.into_iter();
-    // let Some(TokenTree::Literal(contents_or_path)) = input.next() else {
-    //     panic!("Provide WireWeaver root file as argument");
-    // };
-    // let flags: Vec<_> = input
-    //     .filter_map(|tt| {
-    //         if let TokenTree::Ident(ident) = tt {
-    //             Some(ident.to_string())
-    //         } else {
-    //             None
-    //         }
-    //     })
-    //     .collect();
-    // let contents_or_path = contents_or_path.to_string();
-    // let (root_file_path, root_file_contents) = if contents_or_path.starts_with('\"') {
-    //     let root_file_path = contents_or_path
-    //         .strip_prefix('\"')
-    //         .unwrap()
-    //         .strip_suffix('\"')
-    //         .unwrap();
-    //     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("Cargo manifest dir");
-    //     let root_file_path: PathBuf = [manifest_dir.as_str(), root_file_path].iter().collect();
-    //     let root_file_contents = std::fs::read_to_string(&root_file_path).unwrap();
-    //     (root_file_path, root_file_contents)
-    // } else {
-    //     let contents = contents_or_path
-    //         .strip_prefix("r#\"")
-    //         .unwrap()
-    //         .strip_suffix("\"#")
-    //         .unwrap();
-    //     ("inline".into(), contents.to_string())
-    // };
-    // let syn_file = syn::parse_file(root_file_contents.as_str()).unwrap();
-    // if flags.iter().any(|f| f.as_str() == "dbg_syn") {
-    //     dbg!(&syn_file);
-    // }
-    //
-    // let source = FileSource::File(root_file_path);
-    // let (ww_file, warnings) = WWFile::from_syn(source, syn_file).unwrap();
-    // dbg!(warnings);
-    // if flags.iter().any(|f| f.as_str() == "dbg_ds") {
-    //     dbg!(&ww_file);
-    // }
-    //
-    // let ts = wire_weaver_core::codegen::rust_no_std_file(&ww_file);
-    // if flags.iter().any(|f| f.as_str() == "dbg_gen") {
-    //     eprintln!("{ts}");
-    // }
-    //
-    // ts.into()
-}
-
-/// Use Rust definition of an enum or struct to derive shrink wrap wire format.
-/// Created for internal use in API code generation and introspection (wire format of WireWeaver itself).
-/// Probably should not be used directly in user code.
-#[proc_macro_derive(ShrinkWrap, attributes(shrink_wrap))]
-pub fn shrink_wrap_derive(item: TokenStream) -> TokenStream {
-    let ts = shrink_wrap::shrink_wrap(item);
-    ts.into()
-}
-
+/// Generates types definitions, serdes and API client or server side code from a .ww file.
+///
+/// Arguments:
+/// * ww = "path to ww file" (optional)
+/// * api_model = "client_server_v0_1" - whether to generate api model code as well (optional).
+///   If not provided, use, for example, wire_weaver_client_server as a dependency.
+/// * client = true/false - whether to generate client code or not.
+/// * server = true/false - whether to generate server code or not.
+/// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
+/// * use_async - whether to generate async-aware code.
+/// * debug_to_file = "path to an output file" - save generated code to a file for debug purposes.
+/// * derive = "A, B, C" - put additional derives on generated types definitions.
+/// * method_model = "move_*=deferred, rotate_*=deferred, _=immediate" - list of comma separated regex expressions and deferred or immediate keywords.
+///   Deferred methods can answer right away or later with a provided request id.
+///   Immediate methods have to answer right away and ideally do not block.
+///   Underscore captures all the unmatched methods.
+/// * property_model = "_=get_set" - list of comma separated regex expressions and value_on_changed or get_set keywords.
+///   Depending on the application, it might be more convenient to store property directly as a context struct member and
+///   use value_on_changed, so that generated code directly reads and writes to it. Notification method is called when the value is changed.
+///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
 #[proc_macro_attribute]
 pub fn wire_weaver_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     api::api(attr.into(), item.into()).into()
 }
 
+/// Use Rust definition of an enum or struct to derive shrink wrap wire format.
+/// Follow with ww_repr attribute to adjust discriminant size of enums.
+#[proc_macro_attribute]
+pub fn derive_shrink_wrap(attr: TokenStream, item: TokenStream) -> TokenStream {
+    shrink_wrap::shrink_wrap(attr.into(), item.into()).into()
+}
+
+/// Allows to use u1, u2, ..., u32 or UNib32 (variable length, 1 or more nibbles) for enum discriminant,
+/// when serializing and deserializing with ShrinkWrap.
 #[proc_macro_attribute]
 pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_repr::ww_repr(attr.into(), item.into()).into()

@@ -4,7 +4,7 @@ use syn::{File, Item};
 use wire_weaver_core::ast::Source;
 use wire_weaver_core::codegen::item_enum::{enum_def, enum_serdes};
 use wire_weaver_core::codegen::item_struct::{struct_def, struct_serdes};
-use wire_weaver_core::transform::syn_util::{take_shrink_wrap_attr, take_ww_repr_attr};
+use wire_weaver_core::transform::syn_util::take_shrink_wrap_attr;
 use wire_weaver_core::transform::{Messages, Transform};
 
 pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -15,12 +15,7 @@ pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
     for item in &file.items {
         match item {
             Item::Enum(item_enum) => {
-                let mut attrs = item_enum.attrs.clone();
-                let repr = take_ww_repr_attr(&mut attrs, &mut messages);
-                if repr.is_none() {
-                    panic!("enums must be #[repr(u8/u16/u32)]")
-                }
-                common_attrs = attrs;
+                common_attrs = item_enum.attrs.clone();
             }
             Item::Struct(item_struct) => {
                 common_attrs = item_struct.attrs.clone();
@@ -60,12 +55,6 @@ pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     codegen_ts.append_all(struct_serdes(item_struct, no_alloc));
                 }
                 wire_weaver_core::ast::Item::Enum(item_enum) => {
-                    // let lifetime = enum_lifetime(item_enum, no_alloc);
-                    // if !item_enum.explicit_ww_repr {
-                    //     let ts = enum_discriminant(item_enum, lifetime);
-                    //     codegen_ts.append_all(ts);
-                    // }
-
                     codegen_ts.append_all(enum_def(item_enum, no_alloc));
                     codegen_ts.append_all(enum_serdes(item_enum, no_alloc));
                 }

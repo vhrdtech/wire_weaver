@@ -76,7 +76,7 @@ macro_rules! write_unx {
                 let mut bits_left = bit_count;
                 while bits_left > 0 {
                     if (self.bytes_left() == 0) && self.bit_idx == 7 {
-                        return Err(Error::OutOfBounds);
+                        return Err(Error::OutOfBoundsWriteUN(UNib32(bit_count as u32)));
                     }
 
                     let bits_to_write = bits_left.min(self.bit_idx + 1);
@@ -116,8 +116,8 @@ macro_rules! read_unx {
                 let mut bits_left = bit_count;
 
                 while bits_left > 0 {
-                    if (self.bytes_left() == 0) && self.bit_idx == 7 {
-                        return Err(Error::OutOfBounds);
+                    if (self.bytes_left() == 0) && (self.bits_in_byte_left() == 0) {
+                        return Err(Error::OutOfBoundsReadUN(UNib32(bit_count as u32)));
                     }
 
                     let bits_to_read = bits_left.min(self.bit_idx + 1);

@@ -4,6 +4,7 @@ use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
 // pub enum Vec<'i, T, const S: u32, F> where F: Fn(usize) -> Option<T> {
+#[derive(Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
     // pub enum Vec<'i, T, const S: u32, I> where I: Iterator<Item=T> {
@@ -26,7 +27,7 @@ pub enum RefVec<'i, T> {
     // },
 }
 
-impl<'i, T> RefVec<'i, T> {
+impl<T> RefVec<'_, T> {
     pub fn element_size(&self) -> ElementSize {
         match self {
             RefVec::Slice { element_size, .. } => *element_size,
@@ -38,6 +39,13 @@ impl<'i, T> RefVec<'i, T> {
         match self {
             RefVec::Slice { slice, .. } => slice.len(),
             RefVec::Buf { elements_count, .. } => *elements_count as usize,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::Slice {
+            slice: &[],
+            element_size: ElementSize::Sized { size_bits: 0 },
         }
     }
 
@@ -54,9 +62,7 @@ where
 {
     pub fn iter(&self) -> RefVecIter<'i, T> {
         match self {
-            RefVec::Slice { .. } => {
-                unimplemented!("RefVec slice iter")
-            }
+            RefVec::Slice { slice, .. } => RefVecIter::Slice { slice, pos: 0 },
             RefVec::Buf {
                 buf,
                 elements_count,
@@ -117,9 +123,18 @@ impl<'i> RefVec<'i, u8> {
     }
 }
 
+impl<'i> RefVec<'i, &'i str> {
+    pub fn new_str_slice(str_slice: &'i [&'i str]) -> Self {
+        RefVec::Slice {
+            slice: str_slice,
+            element_size: ElementSize::Unsized,
+        }
+    }
+}
+
 impl<'i, T> SerializeShrinkWrap for RefVec<'i, T>
 where
-    T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>,
+    T: SerializeShrinkWrap + DeserializeShrinkWrap<'i> + Clone,
 {
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         if matches!(self.element_size(), ElementSize::Implied) {
@@ -190,7 +205,13 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
         // save BufReader state and read out elements to advance beyond Vec
         let buf = *rd;
         for _ in 0..elements_count {
-            let _item: T = rd.read(element_size)?;
+            if element_size == ElementSize::Unsized {
+                let size = rd.read_unib32_rev()?;
+                let mut rd_split = rd.split(size as usize)?;
+                let _item: T = rd_split.read(element_size)?;
+            } else {
+                let _item: T = rd.read(element_size)?;
+            }
         }
 
         Ok(RefVec::Buf {
@@ -201,7 +222,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
     }
 }
 
-impl<'i> core::ops::Deref for RefVec<'i, u8> {
+impl core::ops::Deref for RefVec<'_, u8> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -227,13 +248,18 @@ pub enum RefVecIter<'i, T> {
     // },
 }
 
-impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
+impl<'i, T: DeserializeShrinkWrap<'i> + Clone> Iterator for RefVecIter<'i, T> {
     type Item = Result<T, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            RefVecIter::Slice { .. } => {
-                unimplemented!("RefVecIter::Slice")
+            RefVecIter::Slice { slice, pos } => {
+                if *pos >= slice.len() {
+                    return None;
+                }
+                let idx = *pos;
+                *pos += 1;
+                Some(Ok(slice[idx].clone())) // Clone requirement in multiple places only because of this line
             }
             RefVecIter::Buf {
                 buf,
@@ -241,7 +267,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
                 element_size,
                 pos,
             } => {
-                if *pos == *elements_count {
+                if *pos >= *elements_count {
                     return None;
                 }
                 *pos += 1;
@@ -275,7 +301,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> Iterator for RefVecIter<'i, T> {
     }
 }
 
-impl<'i, T: DeserializeShrinkWrap<'i> + Debug> Debug for RefVec<'i, T> {
+impl<'i, T: DeserializeShrinkWrap<'i> + Debug + Clone> Debug for RefVec<'i, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.write_str("[")?;
         let it = self.iter();
@@ -293,13 +319,36 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Debug> Debug for RefVec<'i, T> {
     }
 }
 
-impl<'i> PartialEq for RefVec<'i, u8> {
+// impl<'i> PartialEq for RefVec<'i, u8> {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.as_slice() == other.as_slice()
+//     }
+// }
+//
+// impl<'i> Eq for RefVec<'i, u8> {}
+
+impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<'i, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.as_slice() == other.as_slice()
+        let mut other = other.iter();
+        for x in self.iter() {
+            let Ok(x) = x else {
+                return false;
+            };
+            let Some(y) = other.next() else {
+                return false;
+            };
+            let Ok(y) = y else {
+                return false;
+            };
+            if x != y {
+                return false;
+            }
+        }
+        true
     }
 }
 
-impl<'i> Eq for RefVec<'i, u8> {}
+impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
 
 #[cfg(test)]
 mod tests {
@@ -346,11 +395,12 @@ mod tests {
         let mut buf = [0u8; 64];
         let mut wr = BufWriter::new(&mut buf);
 
+        #[derive(Clone)]
         struct Evolved<'i> {
             byte: u8,
             additional_data: &'i [u8],
         }
-        impl<'i> SerializeShrinkWrap for Evolved<'i> {
+        impl SerializeShrinkWrap for Evolved<'_> {
             fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                 wr.write_u8(self.byte)?;
                 wr.write_raw_slice(self.additional_data)

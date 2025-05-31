@@ -428,6 +428,9 @@ impl<'i> CollectAndConvertPass<'i> {
                         "Vec" | "RefVec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
+                        "DateTime" => {
+                            Type::Sized(Path::new_ident((&path_segment.ident).into()), false)
+                        }
                         other_ty => {
                             // u1, u2, .., u63, except u8, u16, ...
                             if let Some(un) = other_ty

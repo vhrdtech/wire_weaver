@@ -422,7 +422,7 @@ impl<'i> CollectAndConvertPass<'i> {
                         "ileb128" | "ILeb128" => Type::ILeb128,
                         "f32" => Type::F32,
                         "f64" => Type::F64,
-                        "String" => Type::String,
+                        "String" | "str" => Type::String,
                         "Vec" | "RefVec" => return self.transform_type_vec(path_segment, path),
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
@@ -445,6 +445,14 @@ impl<'i> CollectAndConvertPass<'i> {
                                 }
                             }
 
+                            let mut is_lifetime = false;
+                            if let PathArguments::AngleBracketed(args) = &path_segment.arguments {
+                                let mut args = args.args.iter();
+                                if let Some(arg) = args.next() {
+                                    is_lifetime = matches!(arg, GenericArgument::Lifetime(_));
+                                }
+                            }
+
                             if self.is_shrink_wrap_attr_macro {
                                 // if called from attr macro, no way to inspect user code
                                 let is_final = if let Some(attrs) = attrs {
@@ -456,13 +464,13 @@ impl<'i> CollectAndConvertPass<'i> {
                                     EvolutionAttr::FinalEvolution => {
                                         return Some(Type::Sized(
                                             Path::new_ident(Ident::new(other_ty)),
-                                            false,
+                                            is_lifetime,
                                         ));
                                     }
                                     EvolutionAttr::Evolve | EvolutionAttr::None => {
                                         return Some(Type::Unsized(
                                             Path::new_ident(Ident::new(other_ty)),
-                                            false,
+                                            is_lifetime,
                                         ));
                                     }
                                 }
@@ -503,7 +511,7 @@ impl<'i> CollectAndConvertPass<'i> {
                             if self.is_shrink_wrap_attr_macro {
                                 return Some(Type::Unsized(
                                     Path::new_ident(Ident::new(other_ty)),
-                                    true,
+                                    is_lifetime,
                                 ));
                             }
                             self.messages
@@ -522,6 +530,16 @@ impl<'i> CollectAndConvertPass<'i> {
                         )));
                     None
                 }
+            }
+            syn::Type::Reference(type_ref) => {
+                let mut ty = self.transform_type(type_ref.elem.as_ref().clone(), attrs, path)?;
+                match &mut ty {
+                    Type::Unsized(_, lifetime) | Type::Sized(_, lifetime) => {
+                        *lifetime = true;
+                    }
+                    _ => {}
+                }
+                Some(ty)
             }
             syn::Type::Array(_type_array) => {
                 unimplemented!("collect_and_convert: array")

@@ -121,6 +121,7 @@ pub struct Field {
     pub default: Option<Value>,
 }
 
+// TODO: Convert to struct and add span
 #[derive(Clone, Debug)]
 pub enum Type {
     Bool,
@@ -263,6 +264,7 @@ impl Type {
             Type::Result(_, ok_err_ty) => {
                 ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
             }
+            Type::Option(_, some_ty) => some_ty.potential_lifetimes(),
             Type::Tuple(types) => {
                 for ty in types {
                     if ty.potential_lifetimes() {

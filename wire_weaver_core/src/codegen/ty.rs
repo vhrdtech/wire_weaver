@@ -8,6 +8,7 @@ use shrink_wrap::ElementSize;
 
 use crate::ast::{Layout, Type};
 
+#[derive(Clone)]
 pub(crate) enum FieldPath {
     Ref(TokenStream),
     Value(TokenStream),
@@ -193,12 +194,19 @@ impl Type {
             //     }
             // }
             Type::String => {
+                let field_path_value = field_path.clone().by_value();
+                let field_path_ref = field_path.by_ref();
+                tokens.append_all(quote! {
+                    let len = u16::try_from(#field_path_value.len()).map_err(|_| ShrinkWrapError::StrTooLong)?;
+                    wr.write_u16_rev(len)?;
+                });
                 if no_alloc {
-                    "write_string"
+                    tokens.append_all(quote! { wr.write_string(#field_path_ref) #handle_eob; });
+                    return;
                 } else {
-                    let field_path = field_path.by_ref();
-                    tokens
-                        .append_all(quote! { wr.write_string(#field_path.as_str()) #handle_eob; });
+                    tokens.append_all(
+                        quote! { wr.write_string(#field_path_ref.as_str()) #handle_eob; },
+                    );
                     return;
                 }
             }
@@ -341,12 +349,17 @@ impl Type {
             Type::F64 => "read_f64",
             // Type::Bytes => "read_bytes",
             Type::String => {
+                tokens.append_all(quote! {
+                    let str_len = rd.read_unib32_rev()? as usize;
+                    let mut rd_split = rd.split(str_len)?;
+                });
                 if no_alloc {
-                    "read_string"
-                } else {
                     tokens.append_all(
-                        quote! { let #variable_name = rd.read_string() #handle_eob .to_string(); },
+                        quote! { let #variable_name = rd_split.read_string() #handle_eob; },
                     );
+                    return;
+                } else {
+                    tokens.append_all(quote! { let #variable_name = rd_split.read_string() #handle_eob .to_string(); });
                     return;
                 }
             }

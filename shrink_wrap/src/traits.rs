@@ -84,6 +84,23 @@ impl_deserialize!(i128, read_i128);
 impl_deserialize!(f32, read_f32);
 impl_deserialize!(f64, read_f64);
 
+impl<'i> SerializeShrinkWrap for &'i str {
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_string(self)
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for &'i str {
+    fn des_shrink_wrap<'di>(
+        rd: &'di mut BufReader<'i>,
+        _element_size: ElementSize,
+    ) -> Result<Self, Error> {
+        // let str_len = rd.read_unib32_rev()? as usize;
+        // let mut rd_split = rd.split(str_len)?;
+        rd.read_string()
+    }
+}
+
 // Won't work with reordered bool's and u4's
 // Custom implementation is provided, which also allows to place is_ok and is_some flags manually.
 // impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {

@@ -226,8 +226,8 @@ impl<'i> BufWriter<'i> {
 
     /// Write variable length string, with length written to the back of the buffer.
     pub fn write_string(&mut self, val: &str) -> Result<(), Error> {
-        let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-        self.write_u16_rev(len)?;
+        // let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
+        // self.write_u16_rev(len)?;
         self.write_raw_slice(val.as_bytes())
     }
 

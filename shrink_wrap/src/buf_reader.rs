@@ -197,7 +197,8 @@ impl<'i> BufReader<'i> {
     }
 
     pub fn read_string(&mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.read_unib32_rev()? as usize;
+        // let len_bytes = self.read_unib32_rev()? as usize;
+        let len_bytes = self.bytes_left();
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }

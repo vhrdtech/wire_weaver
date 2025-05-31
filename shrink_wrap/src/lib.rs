@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
+use crate::nib32::UNib32;
 pub use buf_reader::BufReader;
 pub use buf_writer::BufWriter;
 pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
@@ -18,9 +19,20 @@ pub mod un;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error {
-    OutOfBounds,
+    OutOfBoundsWriteBool,
+    OutOfBoundsReadBool,
+    OutOfBoundsWriteU4,
+    OutOfBoundsReadU4,
+    OutOfBoundsWriteU8,
+    OutOfBoundsReadU8,
+    OutOfBoundsWriteRawSlice,
+    OutOfBoundsReadRawSlice,
+    OutOfBoundsWriteUN(UNib32),
+    OutOfBoundsReadUN(UNib32),
+    OutOfBoundsSplit,
     OutOfBoundsRev,
     OutOfBoundsRevCompact,
+    InternalSliceToArrayCast,
     MalformedUNib32,
     MalformedLeb,
     MalformedUtf8,
@@ -30,6 +42,7 @@ pub enum Error {
     EnumFutureVersionOrMalformedData,
     ImpliedSizeInVec,
     InvalidBitCount,
+    SubtypeOutOfRange,
 }
 
 pub mod prelude {

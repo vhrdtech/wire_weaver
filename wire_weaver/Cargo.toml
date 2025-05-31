@@ -8,7 +8,8 @@ description.workspace = true
 [dependencies]
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
 wire_weaver_derive = { path = "../wire_weaver_derive" }
-defmt = { version = "0.3", optional = true }
+defmt = { version = "1.0", optional = true }
+chrono = { version = "0.4", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -16,8 +17,12 @@ std = ["shrink_wrap/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
 defmt-extended = ["shrink_wrap/defmt-extended"]
 tracing-extended = ["shrink_wrap/tracing-extended"]
+chrono = ["dep:chrono"]
 
 [build-dependencies]
 wire_weaver_core = { path = "../wire_weaver_core" }
 pathsearch = "0.2.0"
 subprocess = "0.2.9"
+
+[dev-dependencies]
+hex-literal = "1"

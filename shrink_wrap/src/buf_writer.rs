@@ -17,11 +17,11 @@ use crate::{Error, SerializeShrinkWrap};
 /// ```
 pub struct BufWriter<'i> {
     buf: &'i mut [u8],
-    // Next byte to write to
+    /// Next byte to write to
     byte_idx: usize,
-    // Next bit to write to
+    /// Next bit to write to, starts from 7
     bit_idx: u8,
-    // Buffer length from the front, shrinks when write_u16_rev() is used.
+    /// Buffer length from the front, shrinks when write_u16_rev() is used.
     len_bytes: usize,
 }
 
@@ -40,7 +40,7 @@ impl<'i> BufWriter<'i> {
     /// Nibble writes will align the buffer to nibble boundary and byte writes to byte boundary.
     pub fn write_bool(&mut self, val: bool) -> Result<(), Error> {
         if (self.bytes_left() == 0) && self.bit_idx == 7 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsWriteBool);
         }
         self.buf[self.byte_idx] &= !(1 << self.bit_idx);
         self.buf[self.byte_idx] |= (val as u8) << self.bit_idx;
@@ -57,7 +57,7 @@ impl<'i> BufWriter<'i> {
     pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
         self.align_nibble();
         if self.nibbles_left() == 0 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsWriteU4);
         }
         if self.bit_idx == 7 {
             self.buf[self.byte_idx] &= 0b0000_1111;
@@ -81,7 +81,7 @@ impl<'i> BufWriter<'i> {
     pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() == 0 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsWriteU8);
         }
         self.buf[self.byte_idx] = val;
         self.byte_idx += 1;
@@ -193,7 +193,7 @@ impl<'i> BufWriter<'i> {
     pub fn write_raw_slice(&mut self, val: &[u8]) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() < val.len() {
-            return Err(Error::OutOfBoundsRev);
+            return Err(Error::OutOfBoundsWriteRawSlice);
         }
         self.buf[self.byte_idx..self.byte_idx + val.len()].copy_from_slice(val);
         self.byte_idx += val.len();
@@ -395,6 +395,7 @@ pub struct U16RevPos(usize);
 #[cfg(test)]
 mod tests {
     use crate::BufWriter;
+    use hex_literal::hex;
 
     #[test]
     fn finish_zeroes_reserved_bits() {
@@ -504,5 +505,32 @@ mod tests {
                 0b01010011
             ]
         );
+    }
+
+    #[test]
+    fn u4_rev_overlap() {
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u16_rev(1).unwrap();
+        wr.write_u8(0x10).unwrap();
+        wr.write_bool(true).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, hex!("10 81"))
+    }
+
+    #[test]
+    fn un_rev_overlap() {
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u16_rev(3).unwrap();
+        wr.write_un8(3, 1).unwrap();
+        wr.write_bool(false).unwrap();
+        wr.write_unib32(0).unwrap();
+        wr.write_un8(4, 5).unwrap();
+        wr.write_un8(5, 5).unwrap();
+        wr.write_un32(17, 58_800).unwrap();
+        wr.write_bool(false).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, hex!("20 52 B9 6C 03"))
     }
 }

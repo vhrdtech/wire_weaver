@@ -9,12 +9,14 @@ use crate::{DeserializeShrinkWrap, Error};
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BufReader<'i> {
     buf: &'i [u8],
-    // Buffer length from the front, shrinks when read_vlu16n_rev() is used.
+    /// Buffer length from the front, shrinks when read_vlu16n_rev() is used.
     len_bytes: usize,
+    /// * Starts as false: read next u4_rev from bits 3:0
+    /// * When true: read next u4_rev from bits 7:4 and decrement len_bytes
     is_at_bit7_rev: bool,
-    // Next byte to read from
+    /// Next byte to read from
     byte_idx: usize,
-    // Next bit to read from
+    /// Next bit to read from, starts from 7
     bit_idx: u8,
 }
 
@@ -32,7 +34,7 @@ impl<'i> BufReader<'i> {
 
     pub fn read_bool(&mut self) -> Result<bool, Error> {
         if self.bits_in_byte_left() == 0 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsReadBool);
         }
         let val = (self.buf[self.byte_idx] & (1 << self.bit_idx)) != 0;
         if self.bit_idx == 0 {
@@ -47,7 +49,7 @@ impl<'i> BufReader<'i> {
     pub fn read_u4(&mut self) -> Result<u8, Error> {
         self.align_nibble();
         if (self.bytes_left() == 0) && self.bit_idx == 7 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsReadU4);
         }
         if self.bit_idx == 7 {
             self.bit_idx = 3;
@@ -68,7 +70,7 @@ impl<'i> BufReader<'i> {
     pub fn read_u8(&mut self) -> Result<u8, Error> {
         self.align_byte();
         if self.bytes_left() == 0 {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsReadU8);
         }
         let val = self.buf[self.byte_idx];
         self.byte_idx += 1;
@@ -79,7 +81,7 @@ impl<'i> BufReader<'i> {
         let u16_bytes: [u8; 2] = self
             .read_raw_slice(2)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(u16::from_le_bytes(u16_bytes))
     }
 
@@ -109,7 +111,7 @@ impl<'i> BufReader<'i> {
         let u32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(u32::from_le_bytes(u32_bytes))
     }
 
@@ -117,7 +119,7 @@ impl<'i> BufReader<'i> {
         let u64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(u64::from_le_bytes(u64_bytes))
     }
 
@@ -125,7 +127,7 @@ impl<'i> BufReader<'i> {
         let u128_bytes: [u8; 16] = self
             .read_raw_slice(16)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(u128::from_le_bytes(u128_bytes))
     }
 
@@ -137,7 +139,7 @@ impl<'i> BufReader<'i> {
         let i16_bytes: [u8; 2] = self
             .read_raw_slice(2)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(i16::from_le_bytes(i16_bytes))
     }
 
@@ -145,7 +147,7 @@ impl<'i> BufReader<'i> {
         let i32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(i32::from_le_bytes(i32_bytes))
     }
 
@@ -153,7 +155,7 @@ impl<'i> BufReader<'i> {
         let i64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(i64::from_le_bytes(i64_bytes))
     }
 
@@ -161,7 +163,7 @@ impl<'i> BufReader<'i> {
         let i128_bytes: [u8; 16] = self
             .read_raw_slice(16)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(i128::from_le_bytes(i128_bytes))
     }
 
@@ -169,7 +171,7 @@ impl<'i> BufReader<'i> {
         let f32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(f32::from_le_bytes(f32_bytes))
     }
 
@@ -177,14 +179,14 @@ impl<'i> BufReader<'i> {
         let f64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
             .try_into()
-            .map_err(|_| Error::OutOfBounds)?;
+            .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(f64::from_le_bytes(f64_bytes))
     }
 
     pub fn read_raw_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();
         if self.bytes_left() < len {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsReadRawSlice);
         }
         let val = &self.buf[self.byte_idx..self.byte_idx + len];
         self.byte_idx += len;
@@ -213,16 +215,21 @@ impl<'i> BufReader<'i> {
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
         self.align_byte();
         if self.bytes_left() < len {
-            return Err(Error::OutOfBounds);
+            return Err(Error::OutOfBoundsSplit);
         }
         let prev_byte_idx = self.byte_idx;
         self.byte_idx += len;
         let buf = &self.buf[prev_byte_idx..prev_byte_idx + len];
 
         #[cfg(feature = "defmt-extended")]
-        defmt::trace!("split({}): {} {=[u8]:x}", len, prev_byte_idx, buf);
+        defmt::trace!(
+            "split({}): prev_byte_idx={} {=[u8]:x}",
+            len,
+            prev_byte_idx,
+            buf
+        );
         #[cfg(feature = "tracing-extended")]
-        tracing::trace!("split({len}): {prev_byte_idx} {:02x?}", buf);
+        tracing::trace!("split({len}): prev_byte_idx={prev_byte_idx} {:02x?}", buf);
 
         Ok(BufReader {
             buf,
@@ -295,9 +302,9 @@ impl<'i> BufReader<'i> {
         if self.byte_idx >= self.len_bytes {
             return 0;
         }
-        if self.is_at_bit7_rev {
-            if self.bit_idx >= 4 {
-                self.bit_idx - 3
+        if self.byte_idx + 1 == self.len_bytes && self.is_at_bit7_rev {
+            if self.bit_idx >= 3 {
+                self.bit_idx + 1 - 4
             } else {
                 0
             }
@@ -314,6 +321,7 @@ impl<'i> BufReader<'i> {
 #[cfg(test)]
 mod tests {
     use crate::BufReader;
+    use hex_literal::hex;
 
     #[test]
     fn bytes() {
@@ -399,5 +407,19 @@ mod tests {
         assert_eq!(byte, 0x10);
         let b = rd.read_bool().unwrap();
         assert!(b);
+    }
+
+    #[test]
+    fn un_rev_overlap() {
+        let buf = hex!("20 52 B9 6C 03");
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_unib32_rev(), Ok(3));
+        assert_eq!(rd.read_un8(3), Ok(1));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_unib32(), Ok(0));
+        assert_eq!(rd.read_un8(4), Ok(5));
+        assert_eq!(rd.read_un8(5), Ok(5));
+        assert_eq!(rd.read_un32(17), Ok(58_800));
+        assert_eq!(rd.read_bool(), Ok(false));
     }
 }

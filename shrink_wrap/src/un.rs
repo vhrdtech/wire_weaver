@@ -4,14 +4,14 @@ use paste::paste;
 macro_rules! un {
     ($bits:literal, $base_bits:literal) => {
         paste! {
-            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
             #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-            #[doc = $bits "-bit number, backed by u" $base_bits ", serialized as " $bits " bits"]
+            #[doc = $bits "-bit unsigned number, backed by u" $base_bits ", serialized as " $bits " bits"]
             pub struct [<U $bits>]([<u $base_bits>]);
             impl [<U $bits>] {
                 #[inline(always)]
                 pub const fn new(x: [<u $base_bits>]) -> Option<Self> {
-                    if x < [<2 _ u $base_bits>].pow($bits) {
+                    if x <= Self::max().0 {
                         Some(Self(x))
                     } else {
                         None
@@ -143,3 +143,78 @@ macro_rules! read_unx {
     };
 }
 pub(crate) use read_unx;
+
+macro_rules! signed_un {
+    ($bits:literal, $base_bits:literal) => {
+        paste! {
+            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+            #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+            #[doc = $bits "-bit signed number, backed by i" $base_bits ", serialized as " $bits " bits"]
+            pub struct [<I $bits>]([<i $base_bits>]);
+            impl [<I $bits>] {
+                #[inline(always)]
+                pub const fn new(x: [<i $base_bits>]) -> Option<Self> {
+                    if x >= Self::min().0 && x <= Self::max().0 {
+                        Some(Self(x))
+                    } else {
+                        None
+                    }
+                }
+
+                #[inline(always)]
+                pub const fn min() -> Self {
+                    Self(-[<2 _ i $base_bits>].pow($bits - 1))
+                }
+
+                #[inline(always)]
+                pub const fn zero() -> Self {
+                    Self(0)
+                }
+
+                #[inline(always)]
+                pub const fn max() -> Self {
+                    Self([<2 _ i $base_bits>].pow($bits - 1) - 1)
+                }
+
+                #[inline(always)]
+                pub const fn value(&self) -> [<i $base_bits>] {
+                    self.0
+                }
+            }
+
+            impl SerializeShrinkWrap for [<I $bits>] {
+                fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                    wr.[<write_un $base_bits>]($bits, self.0 as [<u $base_bits>])
+                }
+            }
+
+            impl<'i> DeserializeShrinkWrap<'i> for [<I $bits>] {
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>, _s: ElementSize) -> Result<Self, Error> {
+                    let val = rd.[<read_un $base_bits>]($bits)?;
+                    let is_negative = val & (1 << ($bits - 1)) != 0;
+                    if is_negative {
+                        const SIGN_EXTEND: [<u $base_bits>] = [<u $base_bits>]::MAX << $bits;
+                        Ok(Self((val | SIGN_EXTEND) as [<i $base_bits>]))
+                    } else {
+                        Ok(Self(val as [<i $base_bits>]))
+                    }
+                }
+            }
+        }
+    };
+}
+
+macro_rules! inx {
+    ($($bits:literal),* / $base_bits:literal) => {
+        $(signed_un!($bits, $base_bits);)*
+    };
+}
+
+inx!(2, 3, 4, 5, 6, 7 / 8);
+inx!(9, 10, 11, 12, 13, 14, 15 / 16);
+inx!(17, 18, 19, 20, 21, 22, 23, 24 / 32);
+inx!(25, 26, 27, 28, 29, 30, 31 / 32);
+inx!(33, 34, 35, 36, 37, 38, 39, 40 / 64);
+inx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
+inx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
+inx!(57, 58, 59, 60, 61, 62, 63 / 64);

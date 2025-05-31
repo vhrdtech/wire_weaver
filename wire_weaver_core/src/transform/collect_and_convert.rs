@@ -427,9 +427,12 @@ impl<'i> CollectAndConvertPass<'i> {
                         "Result" => return self.transform_type_result(path_segment, path),
                         "Option" => return self.transform_type_option(path_segment, path),
                         other_ty => {
+                            // u1, u2, .., u63, except u8, u16, ...
                             if let Some(un) = other_ty
                                 .strip_prefix('U')
-                                .or_else(|| other_ty.strip_suffix('u'))
+                                .or_else(|| other_ty.strip_prefix('u'))
+                                .or_else(|| other_ty.strip_prefix('I'))
+                                .or_else(|| other_ty.strip_prefix('i'))
                             {
                                 let bits: Result<u8, _> = un.parse();
                                 if let Ok(bits) = bits {

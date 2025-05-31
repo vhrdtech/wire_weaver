@@ -220,11 +220,16 @@ impl Type {
                 tokens.append_all(quote! { wr.write_bool(#path.is_some()) #handle_eob; });
                 return;
             }
-            Type::Option(_, _) => {
+            Type::Option(_, ty) => {
                 let field_path = field_path.by_ref();
+                let write = if ty.element_size() == ElementSize::Unsized {
+                    Self::write_unsized(quote! { val }, handle_eob)
+                } else {
+                    quote! { wr.write(val) #handle_eob; }
+                };
                 tokens.append_all(quote! {
-                    if let Some(v) = #field_path {
-                        wr.write(v) #handle_eob;
+                    if let Some(val) = #field_path {
+                        #write
                     }
                 });
                 return;
@@ -239,15 +244,25 @@ impl Type {
                 tokens.append_all(quote! { wr.write_bool(#path.is_ok()) #handle_eob; });
                 return;
             }
-            Type::Result(_flag_ident, _ok_err_ty) => {
+            Type::Result(_flag_ident, ok_err_ty) => {
                 let field_path = field_path.by_ref();
+                let write_ok = if ok_err_ty.0.element_size() == ElementSize::Unsized {
+                    Self::write_unsized(quote! { val }, handle_eob.clone())
+                } else {
+                    quote! { wr.write(val) #handle_eob; }
+                };
+                let write_err = if ok_err_ty.1.element_size() == ElementSize::Unsized {
+                    Self::write_unsized(quote! { e }, handle_eob)
+                } else {
+                    quote! { wr.write(e) #handle_eob; }
+                };
                 tokens.append_all(quote! {
                     match #field_path {
-                        Ok(v) => {
-                            wr.write(v) #handle_eob;
+                        Ok(val) => {
+                            #write_ok
                         }
                         Err(e) => {
-                            wr.write(e) #handle_eob;
+                            #write_err
                         }
                     }
                 });
@@ -288,29 +303,34 @@ impl Type {
             }
             Type::Unsized(_path, _) => {
                 let field_path = field_path.by_ref();
-                tokens.append_all(quote! {
-                    wr.align_byte();
-                    // reserve one size slot
-                    let size_slot_pos = wr.write_u16_rev(0) #handle_eob;
-                    let unsized_start_bytes = wr.pos().0;
-                    wr.write(#field_path) #handle_eob;
-                    // encode Type's internal sizes if any
-                    wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos) #handle_eob;
-                    // e.g. plain enum, only one nib discriminant is written => need to align
-                    wr.align_byte();
-                    let size_bytes = wr.pos().0 - unsized_start_bytes;
-                    let Ok(size_bytes) = u16::try_from(size_bytes) else {
-                        return Err(ShrinkWrapError::ItemTooLong);
-                    };
-                    // write Unsized size
-                    wr.update_u16_rev(size_slot_pos, size_bytes) #handle_eob;
-                });
+                tokens.append_all(Self::write_unsized(field_path, handle_eob));
                 return;
             }
         };
         let write_fn = Ident::new(write_fn, Span::call_site());
         let field_path = field_path.by_value();
         tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
+    }
+
+    fn write_unsized(field_path: TokenStream, handle_eob: TokenStream) -> TokenStream {
+        quote! {
+            wr.align_byte();
+            // reserve one size slot
+            let size_slot_pos = wr.write_u16_rev(0) #handle_eob;
+            let unsized_start_bytes = wr.pos().0;
+            wr.write(#field_path) #handle_eob;
+            // type's serializer might have written several nib16_rev's as well,
+            // encode and place them after type's data
+            wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos) #handle_eob;
+            // e.g., enum, only one nib discriminant is written => need to align
+            wr.align_byte();
+            let size_bytes = wr.pos().0 - unsized_start_bytes;
+            let Ok(size_bytes) = u16::try_from(size_bytes) else {
+                return Err(ShrinkWrapError::ItemTooLong);
+            };
+            // write actual Unsized size
+            wr.update_u16_rev(size_slot_pos, size_bytes) #handle_eob;
+        }
     }
 
     pub(crate) fn buf_read(
@@ -395,11 +415,29 @@ impl Type {
                 let is_ok: Ident = flag_ident.into();
                 let ok_element_size = ok_err_ty.0.element_size_ts();
                 let err_element_size = ok_err_ty.1.element_size_ts();
+                let read_ok = if ok_err_ty.0.element_size() == ElementSize::Unsized {
+                    quote! {
+                        let size = rd.read_unib32_rev()? as usize;
+                        let mut rd_split = rd.split(size)?;
+                        Ok(rd_split.read(ElementSize::Unsized)?)
+                    }
+                } else {
+                    quote! { Ok(rd.read(#ok_element_size)?) }
+                };
+                let read_err = if ok_err_ty.1.element_size() == ElementSize::Unsized {
+                    quote! {
+                        let size = rd.read_unib32_rev()? as usize;
+                        let mut rd_split = rd.split(size)?;
+                        Err(rd_split.read(ElementSize::Unsized)?)
+                    }
+                } else {
+                    quote! { Err(rd.read(#err_element_size)?) }
+                };
                 tokens.append_all(quote! {
                     let #variable_name = if #is_ok {
-                        Ok(rd.read(#ok_element_size)?)
+                        #read_ok
                     } else {
-                        Err(rd.read(#err_element_size)?)
+                        #read_err
                     };
                 });
                 return;
@@ -407,9 +445,18 @@ impl Type {
             Type::Option(flag_ident, option_ty) => {
                 let is_some: Ident = flag_ident.into();
                 let element_size = option_ty.element_size_ts();
+                let read = if option_ty.element_size() == ElementSize::Unsized {
+                    quote! {
+                        let size = rd.read_unib32_rev()? as usize;
+                        let mut rd_split = rd.split(size)?;
+                        Some(rd_split.read(ElementSize::Unsized)?)
+                    }
+                } else {
+                    quote! { Some(rd.read(#element_size)?) }
+                };
                 tokens.append_all(quote! {
                     let #variable_name = if #is_some {
-                        Some(rd.read(#element_size)?)
+                        #read
                     } else {
                         None
                     };

@@ -17,7 +17,9 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         quote!()
     };
     let derive = strings_to_derive(&item_struct.derive);
+    let docs = item_struct.docs.ts();
     let ts = quote! {
+        #docs
         #derive
         pub struct #ident #lifetime { #fields }
     };
@@ -37,7 +39,9 @@ impl<'a> ToTokens for CGStructFieldsDef<'a> {
             }
             let ident: Ident = (&struct_field.ident).into();
             let ty = struct_field.ty.def(self.no_alloc);
+            let docs = struct_field.docs.ts();
             tokens.append_all(quote! {
+                #docs
                 pub #ident: #ty,
             });
         }
@@ -120,18 +124,18 @@ mod tests {
 
     use crate::ast::ident::Ident;
     use crate::ast::value::Value;
-    use crate::ast::{Field, ItemStruct, Type, Version};
+    use crate::ast::{Docs, Field, ItemStruct, Type, Version};
     use crate::codegen::item_struct::struct_serdes;
 
     fn construct_struct_one() -> ItemStruct {
         ItemStruct {
-            docs: vec![],
+            docs: Docs::empty(),
             derive: vec![],
             is_final: false,
             ident: Ident::new("X1"),
             fields: vec![
                 Field {
-                    docs: vec![],
+                    docs: Docs::empty(),
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -139,7 +143,7 @@ mod tests {
                     default: None,
                 },
                 Field {
-                    docs: vec![],
+                    docs: Docs::empty(),
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -156,13 +160,13 @@ mod tests {
 
     fn construct_struct_two() -> ItemStruct {
         ItemStruct {
-            docs: vec![],
+            docs: Docs::empty(),
             derive: vec![],
             is_final: false,
             ident: Ident::new("X2"),
             fields: vec![
                 Field {
-                    docs: vec![],
+                    docs: Docs::empty(),
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,
@@ -170,7 +174,7 @@ mod tests {
                     default: None,
                 },
                 Field {
-                    docs: vec![],
+                    docs: Docs::empty(),
                     id: 0,
                     ident: Ident::new("a"),
                     ty: Type::Bool,

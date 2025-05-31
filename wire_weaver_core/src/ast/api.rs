@@ -1,16 +1,16 @@
-use crate::ast::Type;
 use crate::ast::ident::Ident;
+use crate::ast::{Docs, Type};
 
 #[derive(Debug)]
 pub struct ApiLevel {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub items: Vec<ApiItem>,
 }
 
 #[derive(Debug)]
 pub struct ApiItem {
     pub id: u32,
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub multiplicity: Multiplicity,
     pub kind: ApiItemKind,
 }

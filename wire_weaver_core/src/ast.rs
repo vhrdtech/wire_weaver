@@ -1,6 +1,9 @@
 use ident::Ident;
 use path::Path;
+use proc_macro2::TokenStream;
+use quote::quote;
 use std::fmt::{Debug, Formatter};
+use syn::LitStr;
 use value::Value;
 
 use crate::ast::api::ApiLevel;
@@ -17,7 +20,7 @@ pub struct Context {
 
 #[derive(Debug)]
 pub struct Module {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub source: Source,
     pub version: Version,
     pub items: Vec<Item>,
@@ -69,7 +72,7 @@ pub enum Item {
 
 #[derive(Debug)]
 pub struct ItemStruct {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub derive: Vec<Path>,
     pub is_final: bool,
     pub ident: Ident,
@@ -78,7 +81,7 @@ pub struct ItemStruct {
 
 #[derive(Debug)]
 pub struct ItemEnum {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub derive: Vec<Path>,
     pub is_final: bool,
     pub repr: Repr,
@@ -89,7 +92,7 @@ pub struct ItemEnum {
 
 #[derive(Debug)]
 pub struct ItemConst {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub ident: Ident,
     pub ty: Type,
     pub value: syn::Expr,
@@ -104,7 +107,7 @@ pub enum Repr {
 
 #[derive(Debug)]
 pub struct Variant {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub ident: Ident,
     pub fields: Fields,
     pub discriminant: u32,
@@ -113,7 +116,7 @@ pub struct Variant {
 
 #[derive(Debug)]
 pub struct Field {
-    pub docs: Vec<String>,
+    pub docs: Docs,
     pub id: u32,
     pub ident: Ident,
     pub ty: Type,
@@ -212,6 +215,29 @@ pub enum Layout {
 //     }
 // }
 
+#[derive(Debug)]
+pub struct Docs {
+    docs: Vec<LitStr>,
+}
+
+impl Docs {
+    pub fn empty() -> Docs {
+        Docs { docs: Vec::new() }
+    }
+
+    pub fn push(&mut self, s: LitStr) {
+        self.docs.push(s);
+    }
+
+    pub fn ts(&self) -> TokenStream {
+        let mut ts = TokenStream::new();
+        for doc in &self.docs {
+            ts.extend(quote!(#[doc = #doc]));
+        }
+        ts
+    }
+}
+
 impl ItemStruct {
     pub fn potential_lifetimes(&self) -> bool {
         for field in &self.fields {
@@ -290,7 +316,7 @@ impl Type {
 impl Field {
     pub fn new(id: u32, ident: &str, ty: Type) -> Self {
         Self {
-            docs: vec![],
+            docs: Docs::empty(),
             id,
             ident: Ident::new(ident),
             ty,

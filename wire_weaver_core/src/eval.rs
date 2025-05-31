@@ -61,13 +61,13 @@ pub fn ser_literal(lit: &str, item: &Item) -> Result<Vec<u8>, ()> {
 #[cfg(test)]
 mod tests {
     use crate::ast::ident::Ident;
-    use crate::ast::{Field, Item, ItemStruct, Type};
+    use crate::ast::{Docs, Field, Item, ItemStruct, Type};
     use crate::eval::ser_literal;
 
     #[test]
     fn simple_struct() {
         let struct_def = ItemStruct {
-            docs: vec![],
+            docs: Docs::empty(),
             derive: vec![],
             is_final: false,
             ident: Ident::new("MyStruct"),

@@ -3,7 +3,9 @@ use std::ops::Deref;
 use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
-use crate::ast::{Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant};
+use crate::ast::{
+    Docs, Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant,
+};
 use crate::transform::syn_util::{
     EvolutionAttr, collect_docs_attrs, collect_unknown_attributes, take_default_attr,
     take_derive_attr, take_final_attr, take_flag_attr, take_id_attr, take_since_attr,
@@ -822,7 +824,7 @@ pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
     for (shift, (pos, is_result, ident)) in fields_without_flags.into_iter().enumerate() {
         let flag_ident = Ident::new(format!("_{}_flag", ident.sym));
         let flag = Field {
-            docs: vec![],
+            docs: Docs::empty(),
             id: 0, // TODO: Adjust auto created flag IDs
             ident: flag_ident,
             ty: if is_result {

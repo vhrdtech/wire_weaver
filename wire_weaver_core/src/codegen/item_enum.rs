@@ -80,20 +80,21 @@ impl<'a> ToTokens for CGEnumFieldsDef<'a> {
         for variant in self.variants {
             let ident: Ident = (&variant.ident).into();
             let discriminant = variant.discriminant_lit();
+            let variant_docs = variant.docs.ts();
             let variant = match &variant.fields {
                 Fields::Named(fields_named) => {
                     let fields_named = fields_named
                         .iter()
                         .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
                         .collect::<Vec<_>>();
-                    let fields_docs = fields_named.iter().map(|f| f.docs()).collect::<Vec<_>>();
+                    let fields_docs = fields_named.iter().map(|f| f.docs.ts()).collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
                         fields_named.iter().map(|f| (&f.ident).into()).collect();
                     let field_types: Vec<TokenStream> = fields_named
                         .iter()
                         .map(|f| f.ty.def(self.no_alloc))
                         .collect();
-                    quote!(#ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
+                    quote!(#variant_docs #ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
                 }
                 Fields::Unnamed(fields_unnamed) => {
                     let fields_unnamed = fields_unnamed
@@ -104,9 +105,9 @@ impl<'a> ToTokens for CGEnumFieldsDef<'a> {
                         .iter()
                         .map(|ty| ty.def(self.no_alloc))
                         .collect();
-                    quote!(#ident ( #(#field_types),* ) = #discriminant,)
+                    quote!(#variant_docs #ident ( #(#field_types),* ) = #discriminant,)
                 }
-                Fields::Unit => quote!(#ident = #discriminant,),
+                Fields::Unit => quote!(#variant_docs #ident = #discriminant,),
             };
             tokens.append_all(variant);
         }
@@ -327,14 +328,6 @@ impl Field {
                 quote!(.unwrap_or(#value))
             }
         }
-    }
-
-    pub fn docs(&self) -> TokenStream {
-        let mut ts = TokenStream::new();
-        for doc in &self.docs {
-            ts.extend(quote!(#[doc = #doc]));
-        }
-        ts
     }
 }
 

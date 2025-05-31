@@ -4,7 +4,7 @@ use quote::TokenStreamExt;
 
 use crate::ast::api::{ApiItemKind, ApiLevel};
 use crate::ast::ident::Ident;
-use crate::ast::{Field, ItemStruct, Type};
+use crate::ast::{Docs, Field, ItemStruct, Type};
 use crate::transform::create_flags;
 
 pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
@@ -23,7 +23,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             let mut fields = vec![];
             for (id, arg) in args.iter().enumerate() {
                 fields.push(Field {
-                    docs: vec![],
+                    docs: Docs::empty(),
                     id: id as u32,
                     ident: arg.ident.clone(),
                     ty: arg.ty.clone(),
@@ -38,7 +38,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 
             let ident = format!("{}_args", ident.sym).to_case(convert_case::Case::Pascal);
             let item_struct = ItemStruct {
-                docs: vec![],
+                docs: Docs::empty(),
                 derive: vec![],
                 is_final: false,
                 ident: Ident::new(ident),
@@ -57,12 +57,12 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
     }
     let ident = format!("{}_output", method_ident.sym).to_case(convert_case::Case::Pascal);
     let mut item_struct = ItemStruct {
-        docs: vec![],
+        docs: Docs::empty(),
         derive: vec![],
         is_final: false,
         ident: Ident::new(ident),
         fields: vec![Field {
-            docs: vec![],
+            docs: Docs::empty(),
             id: 0,
             ident: Ident::new("output"),
             ty: return_type.clone(),

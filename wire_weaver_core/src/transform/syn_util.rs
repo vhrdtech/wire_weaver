@@ -2,7 +2,7 @@ use syn::{Expr, Lit, Meta};
 
 use crate::ast::path::Path;
 use crate::ast::value::Value;
-use crate::ast::{Repr, Version};
+use crate::ast::{Docs, Repr, Version};
 use crate::transform::{Messages, SynConversionError, SynConversionWarning};
 
 /// Take `#[id = integer]` attribute and return the number
@@ -115,8 +115,8 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> EvolutionAttr 
     }
 }
 
-pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String> {
-    let mut docs = vec![];
+pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
+    let mut docs = Docs::empty();
     for attr in attrs.iter() {
         if !attr.path().is_ident("doc") {
             continue;
@@ -128,7 +128,7 @@ pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<String>
             continue;
         };
         if let Lit::Str(lit_str) = expr_lit.lit {
-            docs.push(lit_str.value());
+            docs.push(lit_str);
         }
     }
     attrs.retain(|a| !a.path().is_ident("doc"));

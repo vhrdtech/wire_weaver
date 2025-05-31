@@ -11,6 +11,7 @@ use crate::ast::api::ApiLevel;
 pub mod api;
 pub mod ident;
 pub mod path;
+mod subtype;
 pub mod value;
 
 #[derive(Debug)]

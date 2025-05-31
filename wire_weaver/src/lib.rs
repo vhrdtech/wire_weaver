@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod date_time;
+
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};
 pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};

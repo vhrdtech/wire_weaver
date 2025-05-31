@@ -6,7 +6,7 @@ macro_rules! un {
         paste! {
             #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
             #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-            #[doc = $bits "-bit unsigned number, backed by u" $base_bits ", serialized as " $bits " bits"]
+            #[doc = $bits "-bit unsigned number, backed by u" $base_bits ", serialized as " $bits " bits with alignemnt of 1 bit."]
             pub struct [<U $bits>]([<u $base_bits>]);
             impl [<U $bits>] {
                 #[inline(always)]
@@ -24,8 +24,14 @@ macro_rules! un {
                 }
 
                 #[inline(always)]
+                pub const fn one() -> Self {
+                    Self(1)
+                }
+
+                #[inline(always)]
                 pub const fn max() -> Self {
-                    Self([<2 _ u $base_bits>].pow($bits) - 1)
+                    // avoid overflow (2^(n-1) - 1) + 2^(n-1)
+                    Self(([<2 _ u $base_bits>].pow($bits - 1) - 1) + [<2 _ u $base_bits>].pow($bits - 1))
                 }
 
                 #[inline(always)]
@@ -55,14 +61,14 @@ macro_rules! unx {
     };
 }
 
-unx!(1, 2, 3, 4, 5, 6, 7 / 8);
-unx!(9, 10, 11, 12, 13, 14, 15 / 16);
+unx!(1, 2, 3, 4, 5, 6, 7, 8 / 8);
+unx!(9, 10, 11, 12, 13, 14, 15, 16 / 16);
 unx!(17, 18, 19, 20, 21, 22, 23, 24 / 32);
-unx!(25, 26, 27, 28, 29, 30, 31 / 32);
+unx!(25, 26, 27, 28, 29, 30, 31, 32 / 32);
 unx!(33, 34, 35, 36, 37, 38, 39, 40 / 64);
 unx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
 unx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
-unx!(57, 58, 59, 60, 61, 62, 63 / 64);
+unx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
 
 macro_rules! write_unx {
     ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
@@ -149,7 +155,7 @@ macro_rules! signed_un {
         paste! {
             #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
             #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-            #[doc = $bits "-bit signed number, backed by i" $base_bits ", serialized as " $bits " bits"]
+            #[doc = $bits "-bit signed number, backed by i" $base_bits ", serialized as " $bits " bits with alignment of 1 bit."]
             pub struct [<I $bits>]([<i $base_bits>]);
             impl [<I $bits>] {
                 #[inline(always)]
@@ -163,7 +169,13 @@ macro_rules! signed_un {
 
                 #[inline(always)]
                 pub const fn min() -> Self {
-                    Self(-[<2 _ i $base_bits>].pow($bits - 1))
+                    // avoid overflow -2^(n-2) - 2^(n-2)
+                    Self(-[<2 _ i $base_bits>].pow($bits - 2) - [<2 _ i $base_bits>].pow($bits - 2))
+                }
+
+                #[inline(always)]
+                pub const fn minus_one() -> Self {
+                    Self(-1)
                 }
 
                 #[inline(always)]
@@ -172,8 +184,14 @@ macro_rules! signed_un {
                 }
 
                 #[inline(always)]
+                pub const fn one() -> Self {
+                    Self(1)
+                }
+
+                #[inline(always)]
                 pub const fn max() -> Self {
-                    Self([<2 _ i $base_bits>].pow($bits - 1) - 1)
+                    // avoid overflow (2^(n-2) - 1) + 2^(n-2)
+                    Self(([<2 _ i $base_bits>].pow($bits - 2) - 1) + [<2 _ i $base_bits>].pow($bits - 2))
                 }
 
                 #[inline(always)]
@@ -193,7 +211,8 @@ macro_rules! signed_un {
                     let val = rd.[<read_un $base_bits>]($bits)?;
                     let is_negative = val & (1 << ($bits - 1)) != 0;
                     if is_negative {
-                        const SIGN_EXTEND: [<u $base_bits>] = [<u $base_bits>]::MAX << $bits;
+                        const SIGN_EXTEND_M1: [<u $base_bits>] = [<u $base_bits>]::MAX << ($bits - 1);
+                        const SIGN_EXTEND: [<u $base_bits>] = SIGN_EXTEND_M1 << 1;
                         Ok(Self((val | SIGN_EXTEND) as [<i $base_bits>]))
                     } else {
                         Ok(Self(val as [<i $base_bits>]))
@@ -210,11 +229,23 @@ macro_rules! inx {
     };
 }
 
-inx!(2, 3, 4, 5, 6, 7 / 8);
+inx!(2, 3, 4, 5, 6, 7, 8 / 8);
 inx!(9, 10, 11, 12, 13, 14, 15 / 16);
 inx!(17, 18, 19, 20, 21, 22, 23, 24 / 32);
-inx!(25, 26, 27, 28, 29, 30, 31 / 32);
+inx!(25, 26, 27, 28, 29, 30, 31, 32 / 32);
 inx!(33, 34, 35, 36, 37, 38, 39, 40 / 64);
 inx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
 inx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
-inx!(57, 58, 59, 60, 61, 62, 63 / 64);
+inx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanity_check() {
+        assert_eq!(U7::max().0, 127);
+        assert_eq!(I7::max().0, 63);
+        assert_eq!(I7::min().0, -64);
+    }
+}

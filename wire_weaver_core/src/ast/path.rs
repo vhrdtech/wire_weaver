@@ -1,4 +1,4 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt, quote};
 
 use crate::ast::ident::Ident;
@@ -18,7 +18,7 @@ impl Path {
 
     pub fn new_path(path: &str) -> Self {
         Path {
-            segments: path.split("::").map(|s| Ident::new(s)).collect(),
+            segments: path.split("::").map(Ident::new).collect(),
         }
     }
 }
@@ -28,7 +28,7 @@ impl ToTokens for &Path {
         let segments = self
             .segments
             .iter()
-            .map(|ident| proc_macro2::Ident::new(ident.sym.as_str(), Span::call_site()));
+            .map(|ident| proc_macro2::Ident::new(ident.sym.as_str(), ident.span));
         tokens.append_all(quote! { #(#segments)::* })
     }
 }

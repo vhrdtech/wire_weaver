@@ -67,7 +67,7 @@ unx!(57, 58, 59, 60, 61, 62, 63 / 64);
 macro_rules! write_unx {
     ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
         paste::paste! {
-            #[doc = "Write up to " $max_bit_count " bits from " $base_ty " number."]
+            #[doc = "Write up to " $max_bit_count " bits from " $base_ty " number without alignment."]
             pub fn $fn_name(&mut self, bit_count: u8, value: $base_ty) -> Result<(), Error> {
                 if bit_count > $max_bit_count {
                     return Err(Error::InvalidBitCount);
@@ -106,7 +106,7 @@ pub(crate) use write_unx;
 macro_rules! read_unx {
     ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
         paste::paste! {
-            #[doc = "Read up to " $max_bit_count " bits into " $base_ty " number."]
+            #[doc = "Read up to " $max_bit_count " bits (without alignment) into " $base_ty " number."]
             pub fn $fn_name(&mut self, bit_count: u8) -> Result<$base_ty, Error> {
                 if bit_count > $max_bit_count {
                     return Err(Error::InvalidBitCount);

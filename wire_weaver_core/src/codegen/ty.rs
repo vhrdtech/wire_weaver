@@ -201,11 +201,11 @@ impl Type {
                     wr.write_u16_rev(len)?;
                 });
                 if no_alloc {
-                    tokens.append_all(quote! { wr.write_string(#field_path_ref) #handle_eob; });
+                    tokens.append_all(quote! { wr.write_raw_str(#field_path_ref) #handle_eob; });
                     return;
                 } else {
                     tokens.append_all(
-                        quote! { wr.write_string(#field_path_ref.as_str()) #handle_eob; },
+                        quote! { wr.write_raw_str(#field_path_ref.as_str()) #handle_eob; },
                     );
                     return;
                 }
@@ -375,11 +375,11 @@ impl Type {
                 });
                 if no_alloc {
                     tokens.append_all(
-                        quote! { let #variable_name = rd_split.read_string() #handle_eob; },
+                        quote! { let #variable_name = rd_split.read_raw_str() #handle_eob; },
                     );
                     return;
                 } else {
-                    tokens.append_all(quote! { let #variable_name = rd_split.read_string() #handle_eob .to_string(); });
+                    tokens.append_all(quote! { let #variable_name = rd_split.read_raw_str() #handle_eob .to_string(); });
                     return;
                 }
             }

@@ -4,7 +4,7 @@ use crate::un::read_unx;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
 
-/// Buffer reader that treats input as a stream of nibbles.
+/// Buffer reader that treats input as a stream of bits, nibbles or bytes.
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BufReader<'i> {
@@ -21,6 +21,7 @@ pub struct BufReader<'i> {
 }
 
 impl<'i> BufReader<'i> {
+    /// Create a new BufReader from the provided slice.
     pub fn new(buf: &'i [u8]) -> Self {
         let len_bytes = buf.len();
         Self {
@@ -32,6 +33,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// Read bool with alignment of 1 bit.
     pub fn read_bool(&mut self) -> Result<bool, Error> {
         if self.bits_in_byte_left() == 0 {
             return Err(Error::OutOfBoundsReadBool);
@@ -46,6 +48,9 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
+    /// Align to nibble and read one nibble into 4 lower bits of u8.
+    /// Note that there is a method read_un8(4, val), that will also read 4 bits from the buffer,
+    /// but will use an alignment of 1 bit instead.
     pub fn read_u4(&mut self) -> Result<u8, Error> {
         self.align_nibble();
         if (self.bytes_left() == 0) && self.bit_idx == 7 {
@@ -67,6 +72,7 @@ impl<'i> BufReader<'i> {
     read_unx!(read_un32, u32, 32);
     read_unx!(read_un64, u64, 64);
 
+    /// Read u8 with alignment of 1 byte.
     pub fn read_u8(&mut self) -> Result<u8, Error> {
         self.align_byte();
         if self.bytes_left() == 0 {
@@ -77,6 +83,7 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
+    /// Align to byte and read u16 in Little Endian.
     pub fn read_u16(&mut self) -> Result<u16, Error> {
         let u16_bytes: [u8; 2] = self
             .read_raw_slice(2)?
@@ -85,6 +92,7 @@ impl<'i> BufReader<'i> {
         Ok(u16::from_le_bytes(u16_bytes))
     }
 
+    /// Align to nibble and read a number encoded with UNib32 forward encoding, from the front of the buffer.
     pub fn read_unib32(&mut self) -> Result<u32, Error> {
         let value = UNib32::read_forward(self)?.0;
 
@@ -96,6 +104,7 @@ impl<'i> BufReader<'i> {
         Ok(value)
     }
 
+    /// Read a number encoded with UNib32 backward encoding, from the back of the buffer.
     pub fn read_unib32_rev(&mut self) -> Result<u32, Error> {
         let value = UNib32::read_reversed(self)?.0;
 
@@ -107,6 +116,7 @@ impl<'i> BufReader<'i> {
         Ok(value)
     }
 
+    /// Align to byte and read u32 in Little Endian.
     pub fn read_u32(&mut self) -> Result<u32, Error> {
         let u32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
@@ -115,6 +125,7 @@ impl<'i> BufReader<'i> {
         Ok(u32::from_le_bytes(u32_bytes))
     }
 
+    /// Align to byte and read u64 in Little Endian.
     pub fn read_u64(&mut self) -> Result<u64, Error> {
         let u64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
@@ -123,6 +134,7 @@ impl<'i> BufReader<'i> {
         Ok(u64::from_le_bytes(u64_bytes))
     }
 
+    /// Align to byte and read u128 in Little Endian.
     pub fn read_u128(&mut self) -> Result<u128, Error> {
         let u128_bytes: [u8; 16] = self
             .read_raw_slice(16)?
@@ -131,10 +143,12 @@ impl<'i> BufReader<'i> {
         Ok(u128::from_le_bytes(u128_bytes))
     }
 
+    /// Read i8 with alignment of 1 byte.
     pub fn read_i8(&mut self) -> Result<i8, Error> {
         Ok(self.read_u8()? as i8)
     }
 
+    /// Align to byte and read i16 in Little Endian.
     pub fn read_i16(&mut self) -> Result<i16, Error> {
         let i16_bytes: [u8; 2] = self
             .read_raw_slice(2)?
@@ -143,6 +157,7 @@ impl<'i> BufReader<'i> {
         Ok(i16::from_le_bytes(i16_bytes))
     }
 
+    /// Align to byte and read i32 in Little Endian.
     pub fn read_i32(&mut self) -> Result<i32, Error> {
         let i32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
@@ -151,6 +166,7 @@ impl<'i> BufReader<'i> {
         Ok(i32::from_le_bytes(i32_bytes))
     }
 
+    /// Align to byte and read i64 in Little Endian.
     pub fn read_i64(&mut self) -> Result<i64, Error> {
         let i64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
@@ -159,6 +175,7 @@ impl<'i> BufReader<'i> {
         Ok(i64::from_le_bytes(i64_bytes))
     }
 
+    /// Align to byte and read i128 in Little Endian.
     pub fn read_i128(&mut self) -> Result<i128, Error> {
         let i128_bytes: [u8; 16] = self
             .read_raw_slice(16)?
@@ -167,6 +184,7 @@ impl<'i> BufReader<'i> {
         Ok(i128::from_le_bytes(i128_bytes))
     }
 
+    /// Align to byte and read u32 in Little Endian, then create f32 from it.
     pub fn read_f32(&mut self) -> Result<f32, Error> {
         let f32_bytes: [u8; 4] = self
             .read_raw_slice(4)?
@@ -175,6 +193,7 @@ impl<'i> BufReader<'i> {
         Ok(f32::from_le_bytes(f32_bytes))
     }
 
+    /// Align to byte and read u64 in Little Endian, then create f64 from it.
     pub fn read_f64(&mut self) -> Result<f64, Error> {
         let f64_bytes: [u8; 8] = self
             .read_raw_slice(8)?
@@ -183,6 +202,7 @@ impl<'i> BufReader<'i> {
         Ok(f64::from_le_bytes(f64_bytes))
     }
 
+    /// Align to byte and create a slice with the provided length.
     pub fn read_raw_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();
         if self.bytes_left() < len {
@@ -193,18 +213,21 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
-    pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
-        let len_bytes = self.read_unib32_rev()? as usize;
-        self.read_raw_slice(len_bytes)
-    }
+    // pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
+    //     let len_bytes = self.read_unib32_rev()? as usize;
+    //     self.read_raw_slice(len_bytes)
+    // }
 
-    pub fn read_string(&mut self) -> Result<&'i str, Error> {
-        // let len_bytes = self.read_unib32_rev()? as usize;
+    /// Consume BufReader and treat all the remaining bytes as UTF8 encoded str.
+    /// The intended way to use this method is to first read the length of the string using
+    /// read_unib32_rev, then split the original BufReader and use this method.
+    pub fn read_raw_str(mut self) -> Result<&'i str, Error> {
         let len_bytes = self.bytes_left();
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
 
+    /// Read any type that implements DeserializeShrinkWrap.
     pub fn read<T: DeserializeShrinkWrap<'i>>(
         &mut self,
         element_size: ElementSize,
@@ -212,6 +235,9 @@ impl<'i> BufReader<'i> {
         T::des_shrink_wrap(self, element_size)
     }
 
+    /// Align to byte and split off a BufReader which can read up to the len bytes.
+    /// This is the main mechanism used for forwards and backwards compatibility, as it allows for older code
+    /// to ignore newer data by simply skipping additional bytes it doesn't know about.
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
         self.align_byte();
         if self.bytes_left() < len {
@@ -266,6 +292,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// Align to byte.
     pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
@@ -274,6 +301,7 @@ impl<'i> BufReader<'i> {
         self.byte_idx += 1;
     }
 
+    /// Returns the number of bytes left, taking into account that buffer is read from both sides.
     pub fn bytes_left(&self) -> usize {
         if self.byte_idx >= self.len_bytes {
             return 0;
@@ -293,6 +321,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// Returns the number of nibbles left, taking into account that buffer is read from both sides.
     #[inline]
     pub fn nibbles_left(&self) -> usize {
         self.bytes_left() * 2 + if self.bit_idx == 3 { 1 } else { 0 }
@@ -313,6 +342,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// Return byte and bit position, that will be used on the next read call.
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
     }

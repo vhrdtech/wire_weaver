@@ -26,6 +26,7 @@ pub struct BufWriter<'i> {
 }
 
 impl<'i> BufWriter<'i> {
+    /// Create a new BufWriter from the provided mutable slice.
     pub fn new(buf: &'i mut [u8]) -> Self {
         let len_bytes = buf.len();
         Self {
@@ -36,7 +37,7 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    /// Write on bit to the buffer. One can write 8 bits with this function and only one byte will be used in the buffer.
+    /// Write on bit to the buffer. One can write 8 bits with this function, and only one byte will be used in the buffer.
     /// Nibble writes will align the buffer to nibble boundary and byte writes to byte boundary.
     pub fn write_bool(&mut self, val: bool) -> Result<(), Error> {
         if (self.bytes_left() == 0) && self.bit_idx == 7 {
@@ -53,7 +54,9 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Write one nibble, 4 lower bits are used and higher bits are ignored.
+    /// Align to nibble and write one nibble, 4 lower bits are used, and higher bits are ignored.
+    /// Note that there is a method write_un8(4, val), that will also write 4 bits to the buffer,
+    /// but will use an alignment of 1 bit instead.
     pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
         self.align_nibble();
         if self.nibbles_left() == 0 {
@@ -77,7 +80,7 @@ impl<'i> BufWriter<'i> {
     write_unx!(write_un32, u32, 32);
     write_unx!(write_un64, u64, 64);
 
-    /// Write u8.
+    /// Write u8 with alignment of 1 byte.
     pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() == 0 {
@@ -88,20 +91,20 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Write u16 in Little Endian.
+    /// Write u16 in Little Endian and alignment of 1 byte.
     pub fn write_u16(&mut self, val: u16) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write u16 in Nib16 forward encoding. It will take from 1 nibble to 2 bytes in the buffer,
-    /// depending on the number.
+    /// Write u16 in UNib32 forward encoding. It will take from 1 nibble to 11 nibbles in the buffer,
+    /// depending on the number. Alignment of 4 bits is used.
     pub fn write_unib32(&mut self, val: u32) -> Result<(), Error> {
         UNib32(val).write_forward(self)
     }
 
     /// Write u16 to the back of the buffer, later when [BufWriter::encode_nib16_rev()] or [BufWriter::finish()]
-    /// are called, all the numbers will be encoded to Nib16 reverse encoding.
+    /// are called, all the numbers will be encoded to UNib32 reverse encoding.
     pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
@@ -118,6 +121,7 @@ impl<'i> BufWriter<'i> {
         U16RevPos(self.len_bytes)
     }
 
+    /// Update previously written u16 value in the back of the buffer, using the obtained index.
     pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
         if pos.0 + 1 >= self.buf.len() {
             return Err(Error::OutOfBoundsRev);
@@ -128,60 +132,60 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Write u32 in Little Endian.
+    /// Write u32 in Little Endian and alignment of 1 byte.
     pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write u64 in Little Endian.
+    /// Write u64 in Little Endian and alignment of 1 byte.
     pub fn write_u64(&mut self, val: u64) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write u128 in Little Endian.
+    /// Write u128 in Little Endian and alignment of 1 byte.
     pub fn write_u128(&mut self, val: u128) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write i8.
+    /// Write i8 and alignment of 1 byte.
     pub fn write_i8(&mut self, val: i8) -> Result<(), Error> {
         self.write_u8(val as u8)
     }
 
-    /// Write i16 in Little Endian.
+    /// Write i16 in Little Endian and alignment of 1 byte.
     pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write i32 in Little Endian.
+    /// Write i32 in Little Endian and alignment of 1 byte.
     pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write i64 in Little Endian.
+    /// Write i64 in Little Endian and alignment of 1 byte.
     pub fn write_i64(&mut self, val: i64) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write i128 in Little Endian.
+    /// Write i128 in Little Endian and alignment of 1 byte.
     pub fn write_i128(&mut self, val: i128) -> Result<(), Error> {
         self.write_raw_slice(&val.to_le_bytes())?;
         Ok(())
     }
 
-    /// Write f32 in Little Endian.
+    /// Write f32 in Little Endian and alignment of 1 byte.
     pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
         self.write_raw_slice(&val.to_bits().to_le_bytes())?;
         Ok(())
     }
 
-    /// Write f64 in Little Endian.
+    /// Write f64 in Little Endian and alignment of 1 byte.
     pub fn write_f64(&mut self, val: f64) -> Result<(), Error> {
         self.write_raw_slice(&val.to_bits().to_le_bytes())?;
         Ok(())
@@ -200,12 +204,12 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Write variable length slice, with length written to the back of the buffer.
-    pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
-        let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-        self.write_u16_rev(len)?;
-        self.write_raw_slice(val)
-    }
+    // Write variable length slice, with length written to the back of the buffer.
+    // pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
+    //     let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
+    //     self.write_u16_rev(len)?;
+    //     self.write_raw_slice(val)
+    // }
 
     pub fn fill_nibbles(&mut self, val: u8) {
         if self.write_u4(val).is_err() {
@@ -224,8 +228,10 @@ impl<'i> BufWriter<'i> {
         self.buf[self.byte_idx..].fill(val);
     }
 
-    /// Write variable length string, with length written to the back of the buffer.
-    pub fn write_string(&mut self, val: &str) -> Result<(), Error> {
+    /// Write variable length string to the buffer. Note that you need to write the length of
+    /// the string with write_u16_rev as well; otherwise it will be impossible to read it back with BufReader.
+    /// This is taken care of by Unsized mechanism in Type (for &str, String, Option and Result) and in RefVec.
+    pub fn write_raw_str(&mut self, val: &str) -> Result<(), Error> {
         // let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
         // self.write_u16_rev(len)?;
         self.write_raw_slice(val.as_bytes())
@@ -236,14 +242,14 @@ impl<'i> BufWriter<'i> {
         val.ser_shrink_wrap(self)
     }
 
-    /// Encode some of the numbers previously written to the back of the buffer (for example
+    /// Encode some of the numbers previously written to the back of the buffer (for example,
     /// when writing variable length slices, strings or objects).
-    /// This operations allows to preserve backwards and forwards compatibility:
+    /// This operation allows preserving backwards and forwards compatibility:
     /// * newer data read by old code: additional bytes can be ignored.
     /// * old data read by new code: missing bytes are expected and None or 0 length arrays are created.
     ///
     /// This function is primarily intended to be used in wire_weaver auto generated code.
-    /// Example of how this function is used in wire_weaver when serializing variable length object:
+    /// Example of how this function is used in wire_weaver when serializing a variable length object:
     /// ```
     /// use shrink_wrap::BufWriter;
     /// let mut buf = [0u8; 128];
@@ -251,14 +257,14 @@ impl<'i> BufWriter<'i> {
     ///
     /// let size_slot_pos = wr.write_u16_rev(0).unwrap(); // reserve u16_rev slot in the back of the buffer
     /// let unsized_start_bytes = wr.pos().0; // remember current position in bytes
-    /// // Write object of unknown size, potentially containing more objects with variable length,
+    /// // Write an object of unknown size, potentially containing more objects with variable length,
     /// // which in turn will write more u16_rev numbers to the back of the buffer.
     /// let unsized_object = vec![1u8, 2, 3];
     /// wr.write(&unsized_object).unwrap();
-    /// // Encode u16_rev numbers written by the object itself to Nib16 reverse encoding, if any
+    /// // Encode u16_rev numbers written by the object itself to UNib32 reverse encoding, if any
     /// wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos).unwrap();
     /// wr.align_byte(); // Variable sized objects must be byte aligned, because length is in bytes and to not shift the whole buffer by less than one byte
-    /// // Calculate the size of the variable length object + all of the u16_rev numbers it might have used in Nib16 reverse encoding.
+    /// // Calculate the size of the variable length object + all the u16_rev numbers it might have used in Nib16 reverse encoding.
     /// let size_bytes = wr.pos().0 - unsized_start_bytes;
     /// let size_bytes = u16::try_from(size_bytes).unwrap();
     /// assert_eq!(size_bytes, 4);
@@ -331,12 +337,12 @@ impl<'i> BufWriter<'i> {
         Ok(&self.buf[0..len])
     }
 
-    /// Simply return the buffer, note that buffer is not set to zero and might contain old data.
+    /// Return the buffer, note that buffer is not set to zero and might contain old data.
     pub fn deinit(self) -> &'i mut [u8] {
         self.buf
     }
 
-    /// Align writer to the next nibble if not already, setting remaining bits to zero.
+    /// Align writer to the next nibble if not already, setting the remaining bits to zero.
     #[inline]
     pub fn align_nibble(&mut self) {
         if self.bit_idx == 7 || self.bit_idx == 3 {
@@ -351,7 +357,7 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    /// Align writer to the next byte if not already, setting remaining bits to zero.
+    /// Align writer to the next byte if not already, setting the remaining bits to zero.
     #[inline]
     pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {

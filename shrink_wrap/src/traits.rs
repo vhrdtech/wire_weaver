@@ -86,7 +86,7 @@ impl_deserialize!(f64, read_f64);
 
 impl<'i> SerializeShrinkWrap for &'i str {
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_string(self)
+        wr.write_raw_str(self)
     }
 }
 
@@ -97,7 +97,7 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
     ) -> Result<Self, Error> {
         // let str_len = rd.read_unib32_rev()? as usize;
         // let mut rd_split = rd.split(str_len)?;
-        rd.read_string()
+        rd.read_raw_str()
     }
 }
 

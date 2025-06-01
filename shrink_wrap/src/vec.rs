@@ -171,12 +171,11 @@ fn ser_item<T: SerializeShrinkWrap>(
     is_unsized: bool,
     item: &T,
 ) -> Result<(), Error> {
-    let unsized_start = wr.pos().0;
-    let u16_rev_from = if is_unsized {
+    let (u16_rev_from, unsized_start) = if is_unsized {
         wr.align_byte();
-        Some(wr.u16_rev_pos())
+        (Some(wr.u16_rev_pos()), wr.pos().0)
     } else {
-        None
+        (None, wr.pos().0)
     };
     wr.write(item)?;
     if let Some(u16_rev_from) = u16_rev_from {

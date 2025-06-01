@@ -166,25 +166,28 @@ where
     }
 }
 
-fn ser_item<T: SerializeShrinkWrap>(
+pub(crate) fn write_item<T: SerializeShrinkWrap>(
     wr: &mut BufWriter,
-    is_unsized: bool,
     item: &T,
 ) -> Result<(), Error> {
-    let (u16_rev_from, unsized_start) = if is_unsized {
+    let is_unsized = <T as SerializeShrinkWrap>::ELEMENT_SIZE == ElementSize::Unsized;
+    let u16_rev_from_unsized_start = if is_unsized {
         wr.align_byte();
-        (Some(wr.u16_rev_pos()), wr.pos().0)
+        let size_slot_pos = wr.write_u16_rev(0)?;
+        let unsized_start_bytes = wr.pos().0;
+        Some((size_slot_pos, unsized_start_bytes))
     } else {
-        (None, wr.pos().0)
+        None
     };
     wr.write(item)?;
-    if let Some(u16_rev_from) = u16_rev_from {
-        wr.encode_nib16_rev(u16_rev_from, wr.u16_rev_pos())?;
-        let size = wr.pos().0 - unsized_start;
-        let Ok(size) = u16::try_from(size) else {
+    if let Some((size_slot_pos, unsized_start)) = u16_rev_from_unsized_start {
+        wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos)?;
+        wr.align_byte();
+        let size_bytes = wr.pos().0 - unsized_start;
+        let Ok(size_bytes) = u16::try_from(size_bytes) else {
             return Err(Error::ItemTooLong);
         };
-        wr.write_u16_rev(size)?;
+        wr.update_u16_rev(size_slot_pos, size_bytes)?;
     }
     Ok(())
 }

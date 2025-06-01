@@ -1,6 +1,5 @@
 #[cfg(feature = "chrono")]
-use chrono::{FixedOffset, NaiveDateTime, Utc};
-use shrink_wrap::nib32::UNib32;
+use chrono::{Datelike, FixedOffset, NaiveDateTime, Timelike, Utc};
 use shrink_wrap::prelude::*;
 use wire_weaver_derive::derive_shrink_wrap;
 
@@ -179,8 +178,26 @@ impl Into<NaiveDateTime> for DateTime {
 
 #[cfg(feature = "chrono")]
 impl From<chrono::DateTime<Utc>> for DateTime {
-    fn from(value: chrono::DateTime<Utc>) -> Self {
-        todo!()
+    fn from(dt: chrono::DateTime<Utc>) -> Self {
+        let date = dt.date_naive();
+        let time = dt.time();
+        let frac = if time.nanosecond() == 0 {
+            None
+        } else {
+            Some(U31::new(time.nanosecond()).unwrap())
+        };
+        DateTime {
+            date: NaiveDate {
+                year: Year(date.year()),
+                month: U4::new(date.month() as u8).unwrap(),
+                day: U5::new(date.day() as u8).unwrap(),
+            },
+            time: NaiveTime {
+                secs: U17::new(time.num_seconds_from_midnight()).unwrap(),
+                frac,
+            },
+            offset: None,
+        }
     }
 }
 
@@ -260,7 +277,7 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         dt.ser_shrink_wrap(&mut wr).unwrap();
         let bytes = wr.finish_and_take().unwrap();
-        // println!("{bytes:02X?}");
+        println!("{bytes:02X?}");
         assert_eq!(bytes, hex!("05 F3 96 C0"));
         let mut rd = BufReader::new(bytes);
         let dt_des = DateTime::des_shrink_wrap(&mut rd, ElementSize::Implied).unwrap();

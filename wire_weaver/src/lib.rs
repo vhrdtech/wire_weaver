@@ -7,6 +7,9 @@ pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};
 pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 
+#[cfg(feature = "chrono")]
+pub use chrono;
+
 /// User protocol ID and version. Only major and minor numbers are used and checked.
 /// Protocols are compatible if IDs are equal and if major versions matches for major >= 1.
 /// So all 1.x and 1.y series are considered compatible, so that older firmwares can talk to newer

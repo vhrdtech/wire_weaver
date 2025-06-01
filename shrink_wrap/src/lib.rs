@@ -48,6 +48,7 @@ pub enum Error {
 pub mod prelude {
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
+    pub use crate::nib32::UNib32;
     pub use crate::traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
     pub use crate::un::*;
     pub use crate::vec::RefVec;

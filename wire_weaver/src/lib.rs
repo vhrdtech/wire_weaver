@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod date_time;
+pub mod version;
 
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};

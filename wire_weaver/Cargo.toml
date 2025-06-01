@@ -10,6 +10,7 @@ shrink_wrap = { path = "../shrink_wrap", default-features = false }
 wire_weaver_derive = { path = "../wire_weaver_derive" }
 defmt = { version = "1.0", optional = true }
 chrono = { version = "0.4", default-features = false, optional = true }
+semver = { version = "1", default-features = false }
 
 [features]
 default = ["std"]

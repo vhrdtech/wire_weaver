@@ -368,8 +368,10 @@ impl Type {
     pub fn make_owned(&mut self) {
         match self {
             Type::Unsized(path, potential_lifetimes) | Type::Sized(path, potential_lifetimes) => {
-                path.make_owned();
-                *potential_lifetimes = false;
+                if *potential_lifetimes {
+                    path.make_owned();
+                    *potential_lifetimes = false;
+                }
             }
             Type::Option(_, some_ty) => some_ty.make_owned(),
             Type::Result(_, ok_err_ty) => {

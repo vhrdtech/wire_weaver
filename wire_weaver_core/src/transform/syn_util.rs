@@ -1,6 +1,5 @@
 use syn::{Expr, Lit, LitStr, Meta};
 
-use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::value::Value;
 use crate::ast::{Docs, Repr, Version};

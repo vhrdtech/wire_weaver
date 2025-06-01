@@ -221,6 +221,8 @@ impl Type {
                 return;
             }
             Type::Option(_, ty) => {
+                // handled explicitly, because is_some flag could be relocated using #[flag] attribute and generic
+                // Option implementation cannot rely on it
                 let field_path = field_path.by_ref();
                 let write = if ty.element_size() == ElementSize::Unsized {
                     Self::write_unsized(quote! { val }, handle_eob)
@@ -245,6 +247,8 @@ impl Type {
                 return;
             }
             Type::Result(_flag_ident, ok_err_ty) => {
+                // handled explicitly, because is_ok flag could be relocated using #[flag] attribute and generic
+                // Err implementation cannot rely on it
                 let field_path = field_path.by_ref();
                 let write_ok = if ok_err_ty.0.element_size() == ElementSize::Unsized {
                     Self::write_unsized(quote! { val }, handle_eob.clone())
@@ -349,8 +353,7 @@ impl Type {
             Type::U64 => "read_u64",
             Type::U128 => "read_u128",
             Type::UNib32 => {
-                let element_size = Type::UNib32.element_size_ts();
-                tokens.append_all(quote! { let #variable_name = rd.read(#element_size)?; });
+                tokens.append_all(quote! { let #variable_name = rd.read()?; });
                 return;
             }
             Type::ULeb32 => unimplemented!("uleb32"),
@@ -388,9 +391,7 @@ impl Type {
             Type::Vec(layout) => match layout {
                 Layout::Builtin(inner_ty) => {
                     // TODO: how to handle eob to be zero length?
-                    let inner_element_size = inner_ty.element_size_ts();
-                    tokens
-                        .append_all(quote! { let #variable_name = rd.read(#inner_element_size)?; });
+                    tokens.append_all(quote! { let #variable_name = rd.read()?; });
                     return;
                 }
                 Layout::Option(_) => unimplemented!("vec of options"),
@@ -401,37 +402,35 @@ impl Type {
                 tokens.append_all(quote! {
                     let size = rd.read_unib32_rev()? as usize;
                     let mut rd_split = rd.split(size)?;
-                    let #variable_name = rd_split.read(ElementSize::Unsized)?;
+                    let #variable_name = rd_split.read()?;
                 });
                 return;
             }
             Type::Sized(_, _) => {
                 tokens.append_all(quote! {
-                    let #variable_name = rd.read(ElementSize::Sized { size_bits: 0 })?;
+                    let #variable_name = rd.read()?;
                 });
                 return;
             }
             Type::Result(flag_ident, ok_err_ty) => {
                 let is_ok: Ident = flag_ident.into();
-                let ok_element_size = ok_err_ty.0.element_size_ts();
-                let err_element_size = ok_err_ty.1.element_size_ts();
                 let read_ok = if ok_err_ty.0.element_size() == ElementSize::Unsized {
                     quote! {
                         let size = rd.read_unib32_rev()? as usize;
                         let mut rd_split = rd.split(size)?;
-                        Ok(rd_split.read(ElementSize::Unsized)?)
+                        Ok(rd_split.read()?)
                     }
                 } else {
-                    quote! { Ok(rd.read(#ok_element_size)?) }
+                    quote! { Ok(rd.read()?) }
                 };
                 let read_err = if ok_err_ty.1.element_size() == ElementSize::Unsized {
                     quote! {
                         let size = rd.read_unib32_rev()? as usize;
                         let mut rd_split = rd.split(size)?;
-                        Err(rd_split.read(ElementSize::Unsized)?)
+                        Err(rd_split.read()?)
                     }
                 } else {
-                    quote! { Err(rd.read(#err_element_size)?) }
+                    quote! { Err(rd.read()?) }
                 };
                 tokens.append_all(quote! {
                     let #variable_name = if #is_ok {
@@ -444,15 +443,14 @@ impl Type {
             }
             Type::Option(flag_ident, option_ty) => {
                 let is_some: Ident = flag_ident.into();
-                let element_size = option_ty.element_size_ts();
                 let read = if option_ty.element_size() == ElementSize::Unsized {
                     quote! {
                         let size = rd.read_unib32_rev()? as usize;
                         let mut rd_split = rd.split(size)?;
-                        Some(rd_split.read(ElementSize::Unsized)?)
+                        Some(rd_split.read()?)
                     }
                 } else {
-                    quote! { Some(rd.read(#element_size)?) }
+                    quote! { Some(rd.read()?) }
                 };
                 tokens.append_all(quote! {
                     let #variable_name = if #is_some {
@@ -496,7 +494,7 @@ impl Type {
             Type::Array(len, layout) => match layout {
                 Layout::Builtin(ty) => {
                     return match ty.element_size() {
-                        ElementSize::Implied => ElementSize::Implied,
+                        // ElementSize::Implied => ElementSize::Implied,
                         ElementSize::Unsized => ElementSize::Unsized,
                         ElementSize::Sized { size_bits } => ElementSize::Sized {
                             size_bits: len * size_bits,
@@ -530,7 +528,7 @@ impl Type {
 
     pub fn element_size_ts(&self) -> TokenStream {
         match self.element_size() {
-            ElementSize::Implied => quote! { ElementSize::Implied },
+            // ElementSize::Implied => quote! { ElementSize::Implied },
             ElementSize::Unsized => quote! { ElementSize::Unsized },
             ElementSize::Sized { size_bits } => {
                 let size_bits = LitInt::new(format!("{size_bits}").as_str(), Span::call_site());

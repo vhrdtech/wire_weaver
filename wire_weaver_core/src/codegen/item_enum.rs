@@ -1,10 +1,10 @@
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{ToTokens, TokenStreamExt, quote};
-use syn::{Lit, LitInt};
-
 use crate::ast::{Field, Fields, ItemEnum, Repr, Type, Variant};
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes, strings_to_derive};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{ToTokens, TokenStreamExt, quote};
+use shrink_wrap::ElementSize;
+use syn::{Lit, LitInt};
 
 pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let enum_name: Ident = (&item_enum.ident).into();
@@ -45,7 +45,15 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         no_alloc,
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
-    serdes(enum_name, enum_ser, enum_des, lifetime, item_enum.cfg())
+    // TODO: calculate enum size
+    serdes(
+        enum_name,
+        enum_ser,
+        enum_des,
+        lifetime,
+        item_enum.cfg(),
+        ElementSize::Unsized,
+    )
 }
 
 fn ww_discriminant_type(item_enum: &ItemEnum) -> Ident {

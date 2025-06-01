@@ -1,9 +1,9 @@
-use proc_macro2::{Ident, TokenStream};
-use quote::{ToTokens, TokenStreamExt, quote};
-
 use crate::ast::{Field, ItemStruct, Type};
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes, strings_to_derive};
+use proc_macro2::{Ident, TokenStream};
+use quote::{ToTokens, TokenStreamExt, quote};
+use shrink_wrap::ElementSize;
 
 pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     let ident: Ident = (&item_struct.ident).into();
@@ -81,6 +81,8 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
         struct_des,
         lifetime,
         item_struct.cfg(),
+        // TODO: calculate struct size if #[final_evolution] attr is present
+        ElementSize::Unsized,
     )
 }
 

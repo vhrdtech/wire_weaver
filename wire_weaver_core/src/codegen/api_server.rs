@@ -62,7 +62,7 @@ pub fn server_dispatcher(
                 output_scratch: &'a mut [u8]
             ) -> Result<&[u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
-                let request = Request::des_shrink_wrap(&mut rd, ElementSize::Implied)?;
+                let request = Request::des_shrink_wrap(&mut rd)?;
 
                 match self.process_request_inner(&request, output_scratch)#maybe_await {
                     Ok(response_bytes) => Ok(response_bytes),
@@ -289,7 +289,7 @@ fn level_matcher(
                         #get_and_ser_property
                         let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
                         let kind = EventKind::ReadValue {
-                                data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                                data: RefVec::Slice { slice: output_bytes }
                             };
                         Ok(Self::ser_ok_event(&mut self.event_scratch, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
                     }
@@ -359,7 +359,7 @@ fn ser_method_output(
             let event = Event {
                 seq: #seq_path,
                 result: Ok(EventKind::ReturnValue {
-                    data: RefVec::Slice { slice: output_bytes, element_size: ElementSize::Sized { size_bits: 8 } }
+                    data: RefVec::Slice { slice: output_bytes }
                 })
             };
             event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
@@ -387,7 +387,7 @@ fn des_args(
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
-            let args: #args_struct_ident = rd.read(ElementSize::Implied).map_err(|_e| Error::ArgsDesFailed)?;
+            let args: #args_struct_ident = rd.read().map_err(|_e| Error::ArgsDesFailed)?;
         };
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();
@@ -404,7 +404,7 @@ fn des_args(
 /// and ser_unit_return_event(seq)
 fn ser_event(no_alloc: bool) -> TokenStream {
     let future_compatible_unit_return = if no_alloc {
-        quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } }
+        quote! { RefVec::Slice { slice: &[0x00] } }
     } else {
         quote! { vec![0] }
     };
@@ -485,7 +485,7 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         let ty = ty.def(no_alloc);
 
         let bytes_to_container = if no_alloc {
-            quote! { RefVec::Slice { slice: value_bytes, element_size: ElementSize::Sized { size_bits: 8 } } }
+            quote! { RefVec::Slice { slice: value_bytes } }
         } else {
             quote! { Vec::from(value_bytes) }
         };
@@ -493,7 +493,7 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         // TODO: Handle other levels
         let id = item.id;
         let path = if no_alloc {
-            quote! { RefVec::Slice { slice: &[UNib32(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
+            quote! { RefVec::Slice { slice: &[UNib32(#id)] } }
         } else {
             quote! { vec![UNib32(#id)] }
         };

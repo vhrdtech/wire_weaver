@@ -41,13 +41,17 @@ macro_rules! un {
             }
 
             impl SerializeShrinkWrap for [<U $bits>] {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_un $base_bits>]($bits, self.0)
                 }
             }
 
             impl<'i> DeserializeShrinkWrap<'i> for [<U $bits>] {
-                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>, _s: ElementSize) -> Result<Self, Error> {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
                 }
             }
@@ -201,13 +205,17 @@ macro_rules! signed_un {
             }
 
             impl SerializeShrinkWrap for [<I $bits>] {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_un $base_bits>]($bits, self.0 as [<u $base_bits>])
                 }
             }
 
             impl<'i> DeserializeShrinkWrap<'i> for [<I $bits>] {
-                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>, _s: ElementSize) -> Result<Self, Error> {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     let val = rd.[<read_un $base_bits>]($bits)?;
                     let is_negative = val & (1 << ($bits - 1)) != 0;
                     if is_negative {

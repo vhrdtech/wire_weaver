@@ -1,5 +1,4 @@
 use crate::nib32::UNib32;
-use crate::traits::ElementSize;
 use crate::un::read_unx;
 use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, Error};
@@ -228,11 +227,8 @@ impl<'i> BufReader<'i> {
     }
 
     /// Read any type that implements DeserializeShrinkWrap.
-    pub fn read<T: DeserializeShrinkWrap<'i>>(
-        &mut self,
-        element_size: ElementSize,
-    ) -> Result<T, Error> {
-        T::des_shrink_wrap(self, element_size)
+    pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
+        T::des_shrink_wrap(self)
     }
 
     /// Align to byte and split off a BufReader which can read up to the len bytes.

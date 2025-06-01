@@ -93,16 +93,17 @@ impl UNib32 {
 }
 
 impl SerializeShrinkWrap for UNib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)
     }
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for UNib32 {
-    fn des_shrink_wrap<'di>(
-        rd: &'di mut BufReader<'i>,
-        _element_size: ElementSize,
-    ) -> Result<Self, Error> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         UNib32::read_forward(rd)
     }
 }

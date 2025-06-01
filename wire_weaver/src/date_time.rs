@@ -63,18 +63,43 @@ pub struct NaiveTime {
 // #[subtype(valid(0..=86399))]
 pub struct Secs(U17);
 
-// impl DateTime {
-//     pub fn from_ymd_hms_naive_opt(year: i32, month: u8, day: u8, hour: u8, min: u8, sec: u8, nano: u32) -> Option<Self> {
-//         let year = Year::new(year)?;
-//         Some(DateTime {
-//             date,
-//             time,
-//             offset: None,
-//         })
-//     }
-// }
+impl DateTime {
+    pub fn from_ymd_hms_naive_opt(
+        year: i32,
+        month: u8,
+        day: u8,
+        hour: u8,
+        min: u8,
+        sec: u8,
+        nano: u32,
+    ) -> Option<Self> {
+        Some(DateTime {
+            date: NaiveDate::from_ymd_opt(year, month, day)?,
+            time: NaiveTime::from_hms_opt(hour, min, sec, nano)?,
+            offset: None,
+        })
+    }
+}
+
+impl NaiveDate {
+    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
+        if month == 0 || month > 12 || day == 0 || day > 31 {
+            return None;
+        }
+        if !(-262_142..=262_141).contains(&year) {
+            return None;
+        }
+        Some(NaiveDate {
+            year: Year(year),
+            month: U4::new(month).unwrap(),
+            day: U5::new(day).unwrap(),
+        })
+    }
+}
 
 impl SerializeShrinkWrap for Year {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
         let y = self.0 - 2025;
         let unsigned = if y < 0 {
@@ -87,11 +112,10 @@ impl SerializeShrinkWrap for Year {
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for Year {
-    fn des_shrink_wrap<'di>(
-        rd: &'di mut BufReader<'i>,
-        _element_size: ElementSize,
-    ) -> Result<Self, ShrinkWrapError> {
-        let unsigned: UNib32 = rd.read(ElementSize::Implied)?;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
+        let unsigned: UNib32 = rd.read()?;
         let is_negative = unsigned.0 & (1 << 19) != 0;
         let y = if is_negative {
             const ONES: u32 = u32::MAX << 19;
@@ -123,15 +147,32 @@ impl Year {
 }
 
 impl NaiveTime {
-    // pub fn from_hms_opt(hour: u8, minute: u8, second: u8, nano: u32) -> Option<Self> {
-    //     Some(NaiveTime {
-    //         secs,
-    //         frac,
-    //     })
-    // }
+    pub const fn from_hms_opt(hour: u8, minute: u8, second: u8, nano: u32) -> Option<Self> {
+        if hour > 23 || minute > 59 || second > 59 {
+            return None;
+        }
+        if nano >= 1_000_000_000 && second <= 58 {
+            return None;
+        }
+        if nano >= 2_000_000_000 {
+            return None;
+        }
+        let secs = (hour as u32) * 3600 + (minute as u32) * 60 + second as u32;
+        let frac = if nano != 0 {
+            Some(U31::new(nano).unwrap())
+        } else {
+            None
+        };
+        Some(NaiveTime {
+            secs: U17::new(secs).unwrap(),
+            frac,
+        })
+    }
 }
 
 impl SerializeShrinkWrap for NaiveTime {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
         wr.write(&self.secs)?;
         wr.write_bool(self.frac.is_some())?;
@@ -143,14 +184,13 @@ impl SerializeShrinkWrap for NaiveTime {
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for NaiveTime {
-    fn des_shrink_wrap<'di>(
-        rd: &'di mut BufReader<'i>,
-        _element_size: ElementSize,
-    ) -> Result<Self, ShrinkWrapError> {
-        let secs: U17 = rd.read(ElementSize::Implied)?;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
+        let secs: U17 = rd.read()?;
         let _frac_flag = rd.read_bool()?;
         let frac = if _frac_flag {
-            let frac: U31 = rd.read(ElementSize::Implied)?;
+            let frac: U31 = rd.read()?;
             if frac.value() >= 1_000_000_000 && secs.value() % 60 != 59 {
                 return Err(ShrinkWrapError::SubtypeOutOfRange);
             }
@@ -179,23 +219,9 @@ impl Into<NaiveDateTime> for DateTime {
 #[cfg(feature = "chrono")]
 impl From<chrono::DateTime<Utc>> for DateTime {
     fn from(dt: chrono::DateTime<Utc>) -> Self {
-        let date = dt.date_naive();
-        let time = dt.time();
-        let frac = if time.nanosecond() == 0 {
-            None
-        } else {
-            Some(U31::new(time.nanosecond()).unwrap())
-        };
         DateTime {
-            date: NaiveDate {
-                year: Year(date.year()),
-                month: U4::new(date.month() as u8).unwrap(),
-                day: U5::new(date.day() as u8).unwrap(),
-            },
-            time: NaiveTime {
-                secs: U17::new(time.num_seconds_from_midnight()).unwrap(),
-                frac,
-            },
+            date: dt.date_naive().into(),
+            time: dt.time().into(),
             offset: None,
         }
     }
@@ -228,8 +254,12 @@ impl TryInto<chrono::DateTime<FixedOffset>> for &DateTime {
 
 #[cfg(feature = "chrono")]
 impl From<chrono::NaiveDate> for NaiveDate {
-    fn from(value: chrono::NaiveDate) -> Self {
-        todo!()
+    fn from(date: chrono::NaiveDate) -> Self {
+        NaiveDate {
+            year: Year(date.year()),
+            month: U4::new(date.month() as u8).unwrap(),
+            day: U5::new(date.day() as u8).unwrap(),
+        }
     }
 }
 
@@ -242,8 +272,16 @@ impl Into<chrono::NaiveDate> for NaiveDate {
 
 #[cfg(feature = "chrono")]
 impl From<chrono::NaiveTime> for NaiveTime {
-    fn from(value: chrono::NaiveTime) -> Self {
-        todo!()
+    fn from(time: chrono::NaiveTime) -> Self {
+        let frac = if time.nanosecond() == 0 {
+            None
+        } else {
+            Some(U31::new(time.nanosecond()).unwrap())
+        };
+        NaiveTime {
+            secs: U17::new(time.num_seconds_from_midnight()).unwrap(),
+            frac,
+        }
     }
 }
 
@@ -280,7 +318,7 @@ mod tests {
         println!("{bytes:02X?}");
         assert_eq!(bytes, hex!("05 F3 96 C0"));
         let mut rd = BufReader::new(bytes);
-        let dt_des = DateTime::des_shrink_wrap(&mut rd, ElementSize::Implied).unwrap();
+        let dt_des = DateTime::des_shrink_wrap(&mut rd).unwrap();
         assert_eq!(dt, dt_des);
     }
 }

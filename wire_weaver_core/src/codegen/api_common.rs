@@ -43,6 +43,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 is_final: false,
                 ident: Ident::new(ident),
                 fields,
+                cfg: None,
             };
             defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));
             defs.append_all(super::item_struct::struct_serdes(&item_struct, no_alloc));
@@ -69,6 +70,7 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
             since: None,
             default: None,
         }],
+        cfg: None,
     };
     create_flags(&mut item_struct.fields, &[]);
     defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));

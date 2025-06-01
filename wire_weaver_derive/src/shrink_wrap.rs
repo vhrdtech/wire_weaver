@@ -4,7 +4,7 @@ use syn::{File, Item};
 use wire_weaver_core::ast::Source;
 use wire_weaver_core::codegen::item_enum::{enum_def, enum_serdes};
 use wire_weaver_core::codegen::item_struct::{struct_def, struct_serdes};
-use wire_weaver_core::transform::syn_util::take_shrink_wrap_attr;
+use wire_weaver_core::transform::syn_util::{take_owned_attr, take_shrink_wrap_attr};
 use wire_weaver_core::transform::{Messages, Transform};
 
 pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -31,6 +31,7 @@ pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
             no_alloc = true;
         }
     }
+    let generate_owned = take_owned_attr(&mut common_attrs, &mut messages);
 
     let mut transform = Transform::new();
     transform.push_file(Source::String("shrink_wrap_derive".into()), file);
@@ -53,10 +54,20 @@ pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 wire_weaver_core::ast::Item::Struct(item_struct) => {
                     codegen_ts.append_all(struct_def(item_struct, no_alloc));
                     codegen_ts.append_all(struct_serdes(item_struct, no_alloc));
+                    if let Some(feature) = &generate_owned {
+                        let struct_owned = item_struct.to_owned(feature.clone());
+                        codegen_ts.append_all(struct_def(&struct_owned, false));
+                        codegen_ts.append_all(struct_serdes(&struct_owned, false));
+                    }
                 }
                 wire_weaver_core::ast::Item::Enum(item_enum) => {
                     codegen_ts.append_all(enum_def(item_enum, no_alloc));
                     codegen_ts.append_all(enum_serdes(item_enum, no_alloc));
+                    if let Some(feature) = &generate_owned {
+                        let enum_owned = item_enum.to_owned(feature.clone());
+                        codegen_ts.append_all(enum_def(&enum_owned, false));
+                        codegen_ts.append_all(enum_serdes(&enum_owned, false));
+                    }
                 }
                 _ => {}
             }

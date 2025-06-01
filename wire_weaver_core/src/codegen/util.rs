@@ -7,8 +7,10 @@ pub(crate) fn serdes(
     ser: impl ToTokens,
     des: impl ToTokens,
     lifetime: TokenStream,
+    cfg: TokenStream,
 ) -> TokenStream {
     quote! {
+        #cfg
         impl #lifetime SerializeShrinkWrap for #ty_name #lifetime {
             fn ser_shrink_wrap(
                 &self,
@@ -18,6 +20,7 @@ pub(crate) fn serdes(
             }
         }
 
+        #cfg
         impl<'i> DeserializeShrinkWrap<'i> for #ty_name #lifetime {
             fn des_shrink_wrap<'di>(
                 rd: &'di mut BufReader<'i>,

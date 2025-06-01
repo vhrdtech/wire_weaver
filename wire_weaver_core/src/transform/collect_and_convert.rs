@@ -101,7 +101,7 @@ impl FieldPath {
     }
 }
 
-impl<'i> CollectAndConvertPass<'i> {
+impl CollectAndConvertPass<'_> {
     pub(crate) fn transform(&mut self, item: &mut SynItemWithContext) {
         match item {
             // Item::Const(_) => {}
@@ -232,6 +232,7 @@ impl<'i> CollectAndConvertPass<'i> {
                 explicit_ww_repr,
                 variants,
                 is_final,
+                cfg: None,
             })
         }
     }
@@ -323,6 +324,7 @@ impl<'i> CollectAndConvertPass<'i> {
                 ident: (&item_struct.ident).into(),
                 is_final,
                 fields,
+                cfg: None,
             })
         }
     }
@@ -465,20 +467,18 @@ impl<'i> CollectAndConvertPass<'i> {
                                 } else {
                                     EvolutionAttr::None
                                 };
-                                match is_final {
-                                    EvolutionAttr::FinalEvolution => {
-                                        return Some(Type::Sized(
-                                            Path::new_ident(Ident::new(other_ty)),
-                                            is_lifetime,
-                                        ));
-                                    }
+                                return match is_final {
+                                    EvolutionAttr::FinalEvolution => Some(Type::Sized(
+                                        Path::new_ident(Ident::new(other_ty)),
+                                        is_lifetime,
+                                    )),
                                     EvolutionAttr::Evolve | EvolutionAttr::None => {
-                                        return Some(Type::Unsized(
+                                        Some(Type::Unsized(
                                             Path::new_ident(Ident::new(other_ty)),
                                             is_lifetime,
-                                        ));
+                                        ))
                                     }
-                                }
+                                };
                             }
 
                             for item in &self.current_file.items {
@@ -843,7 +843,7 @@ pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
 }
 
 /// Change IsOk to IsSome for explicit flags, as full field list is needed to determine which one to use.
-fn change_is_ok_to_is_some(fields: &mut Vec<Field>) {
+fn change_is_ok_to_is_some(fields: &mut [Field]) {
     let mut flip = vec![];
     for (idx, f) in fields.iter().enumerate() {
         let Type::IsOk(ident) = &f.ty else { continue };

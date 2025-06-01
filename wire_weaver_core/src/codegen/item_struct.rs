@@ -18,7 +18,9 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     };
     let derive = strings_to_derive(&item_struct.derive);
     let docs = item_struct.docs.ts();
+    let cfg = item_struct.cfg();
     let ts = quote! {
+        #cfg
         #docs
         #derive
         pub struct #ident #lifetime { #fields }
@@ -73,7 +75,13 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     } else {
         quote!()
     };
-    serdes(struct_name, struct_ser, struct_des, lifetime)
+    serdes(
+        struct_name,
+        struct_ser,
+        struct_des,
+        lifetime,
+        item_struct.cfg(),
+    )
 }
 
 impl<'a> ToTokens for CGStructSer<'a> {
@@ -155,6 +163,7 @@ mod tests {
                     default: Some(Value::Bool(true)),
                 },
             ],
+            cfg: None,
         }
     }
 
@@ -182,6 +191,7 @@ mod tests {
                     default: None,
                 },
             ],
+            cfg: None,
         }
     }
 

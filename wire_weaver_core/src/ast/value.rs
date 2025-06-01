@@ -1,6 +1,6 @@
 use proc_macro2::Literal;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Bool(bool),
     F32(f32),

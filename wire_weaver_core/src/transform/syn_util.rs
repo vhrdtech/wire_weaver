@@ -1,5 +1,6 @@
-use syn::{Expr, Lit, Meta};
+use syn::{Expr, Lit, LitStr, Meta};
 
+use crate::ast::ident::Ident;
 use crate::ast::path::Path;
 use crate::ast::value::Value;
 use crate::ast::{Docs, Repr, Version};
@@ -174,6 +175,33 @@ pub fn take_shrink_wrap_attr(
     };
     let config = meta_list.tokens.to_string();
     Some(config)
+}
+
+pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<LitStr> {
+    let (attr_idx, _) = attrs
+        .iter()
+        .enumerate()
+        .find(|(_, a)| a.path().is_ident("owned"))?;
+    let attr = attrs.remove(attr_idx);
+    let Meta::NameValue(named_value) = attr.meta else {
+        messages.push_conversion_error(SynConversionError::WrongReprAttr(
+            "expected #[owned = \"feature_name\"]".into(),
+        ));
+        return None;
+    };
+    let Expr::Lit(expr_lit) = named_value.value else {
+        messages.push_conversion_error(SynConversionError::WrongReprAttr(
+            "expected #[owned = \"feature_name\"]".into(),
+        ));
+        return None;
+    };
+    let Lit::Str(feature) = expr_lit.lit else {
+        messages.push_conversion_error(SynConversionError::WrongReprAttr(
+            "expected #[owned = \"feature_name\"]".into(),
+        ));
+        return None;
+    };
+    Some(feature)
 }
 
 pub(crate) fn take_derive_attr(

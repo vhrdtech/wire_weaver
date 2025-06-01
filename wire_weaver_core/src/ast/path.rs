@@ -21,6 +21,13 @@ impl Path {
             segments: path.split("::").map(Ident::new).collect(),
         }
     }
+
+    pub fn make_owned(&mut self) {
+        if let Some(last_segment) = self.segments.last_mut() {
+            let s = last_segment.sym.as_str();
+            *last_segment = Ident::new(format!("{}Owned", s));
+        }
+    }
 }
 
 impl ToTokens for &Path {

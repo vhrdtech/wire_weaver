@@ -95,8 +95,6 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
         rd: &'di mut BufReader<'i>,
         _element_size: ElementSize,
     ) -> Result<Self, Error> {
-        // let str_len = rd.read_unib32_rev()? as usize;
-        // let mut rd_split = rd.split(str_len)?;
         rd.read_raw_str()
     }
 }

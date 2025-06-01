@@ -71,16 +71,17 @@ pub enum Item {
     Const(ItemConst),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ItemStruct {
     pub docs: Docs,
     pub derive: Vec<Path>,
     pub is_final: bool,
     pub ident: Ident,
     pub fields: Vec<Field>,
+    pub cfg: Option<LitStr>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ItemEnum {
     pub docs: Docs,
     pub derive: Vec<Path>,
@@ -89,6 +90,7 @@ pub struct ItemEnum {
     pub explicit_ww_repr: bool,
     pub ident: Ident,
     pub variants: Vec<Variant>,
+    pub cfg: Option<LitStr>,
 }
 
 #[derive(Debug)]
@@ -106,7 +108,7 @@ pub enum Repr {
     UNib32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Variant {
     pub docs: Docs,
     pub ident: Ident,
@@ -115,7 +117,7 @@ pub struct Variant {
     pub since: Option<Version>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Field {
     pub docs: Docs,
     pub id: u32,
@@ -148,7 +150,8 @@ pub enum Type {
     I32,
     I64,
     I128,
-
+    // TODO: U2, I2, ... as separate variants
+    // TODO: DateTime, Version as separate variants
     ILeb32,
     ILeb64,
     ILeb128,
@@ -170,6 +173,7 @@ pub enum Type {
     // On read: BufReader size will be limited to the one read from the back, unread bytes will be skipped.
     // On write: size will be written to the back of the buffer.
     // Type name is used only for dynamic ser/des operations.
+    // TODO: use enum structs instead of tuples
     Unsized(Path, bool),
     // User defined, size is known and fixed, or deterministic (depends on enum discriminant) and will not be read/written.
     Sized(Path, bool),
@@ -185,7 +189,7 @@ pub enum Type {
     IsOk(Ident),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Fields {
     Named(Vec<Field>),
     Unnamed(Vec<Type>),
@@ -216,7 +220,7 @@ pub enum Layout {
 //     }
 // }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Docs {
     docs: Vec<LitStr>,
 }
@@ -248,6 +252,24 @@ impl ItemStruct {
         }
         false
     }
+
+    pub fn to_owned(&self, feature: LitStr) -> Self {
+        let mut owned = self.clone();
+        owned.ident = Ident::new(format!("{}Owned", self.ident.sym));
+        owned.cfg = Some(feature);
+        for f in &mut owned.fields {
+            f.ty.make_owned();
+        }
+        owned
+    }
+
+    pub fn cfg(&self) -> TokenStream {
+        if let Some(feature) = &self.cfg {
+            quote! { #[cfg(feature = #feature)] }
+        } else {
+            quote! {}
+        }
+    }
 }
 
 impl ItemEnum {
@@ -258,6 +280,36 @@ impl ItemEnum {
             }
         }
         false
+    }
+
+    pub fn to_owned(&self, feature: LitStr) -> Self {
+        let mut owned = self.clone();
+        owned.ident = Ident::new(format!("{}Owned", self.ident.sym));
+        owned.cfg = Some(feature);
+        for v in &mut owned.variants {
+            match &mut v.fields {
+                Fields::Named(named) => {
+                    for f in named {
+                        f.ty.make_owned();
+                    }
+                }
+                Fields::Unnamed(unnamed) => {
+                    for f in unnamed {
+                        f.make_owned();
+                    }
+                }
+                Fields::Unit => {}
+            }
+        }
+        owned
+    }
+
+    pub fn cfg(&self) -> TokenStream {
+        if let Some(feature) = &self.cfg {
+            quote! { #[cfg(feature = #feature)] }
+        } else {
+            quote! {}
+        }
     }
 }
 
@@ -310,6 +362,45 @@ impl Type {
             Type::Unsized(_, potential_lifetimes) => *potential_lifetimes,
             Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
             _ => false,
+        }
+    }
+
+    pub fn make_owned(&mut self) {
+        match self {
+            Type::Unsized(path, potential_lifetimes) | Type::Sized(path, potential_lifetimes) => {
+                path.make_owned();
+                *potential_lifetimes = false;
+            }
+            Type::Option(_, some_ty) => some_ty.make_owned(),
+            Type::Result(_, ok_err_ty) => {
+                ok_err_ty.0.make_owned();
+                ok_err_ty.1.make_owned();
+            }
+            Type::Array(_, layout) => {
+                layout.make_owned();
+            }
+            Type::Tuple(types) => {
+                for ty in types {
+                    ty.make_owned();
+                }
+            }
+            Type::Vec(layout) => {
+                layout.make_owned();
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Layout {
+    pub fn make_owned(&mut self) {
+        match self {
+            Layout::Builtin(ty) => ty.make_owned(),
+            Layout::Option(ty) => ty.make_owned(),
+            Layout::Result(ok_err_ty) => {
+                ok_err_ty.0.make_owned();
+                ok_err_ty.1.make_owned();
+            }
         }
     }
 }

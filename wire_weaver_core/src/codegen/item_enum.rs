@@ -45,7 +45,7 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         no_alloc,
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
-    serdes(enum_name, enum_ser, enum_des, lifetime)
+    serdes(enum_name, enum_ser, enum_des, lifetime, item_enum.cfg())
 }
 
 fn ww_discriminant_type(item_enum: &ItemEnum) -> Ident {

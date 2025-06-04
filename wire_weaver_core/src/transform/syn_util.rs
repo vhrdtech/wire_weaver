@@ -1,9 +1,11 @@
-use syn::{Expr, Lit, LitStr, Meta};
-
 use crate::ast::path::Path;
 use crate::ast::value::Value;
 use crate::ast::{Docs, Repr, Version};
 use crate::transform::{Messages, SynConversionError, SynConversionWarning};
+use proc_macro2::TokenStream;
+use quote::quote;
+use shrink_wrap::ElementSize;
+use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
 pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
@@ -76,28 +78,19 @@ pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
 //     Some(())
 // }
 
-#[derive(PartialEq, Eq)]
-pub(crate) enum EvolutionAttr {
-    /// No #[final_evolution] or #[evolve]
-    None,
-    /// #[final_evolution] meaning that child type can be flattened into parent, saving some nibbles on size.
-    /// But no more fields could be added to such structs and no additional enum variants with data.
-    /// Enum variants without data could still be added though.
-    FinalEvolution,
-    /// #[evolve] is present or assumed.
-    /// The size of the child object is serialized, so more fields and more enum variants even with data could be added,
-    /// without breaking compatibility.
-    Evolve,
-}
-
-pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> EvolutionAttr {
-    let mut is_final_evolution = false;
+pub(crate) fn take_size_assumption(attrs: &mut Vec<syn::Attribute>) -> Option<ElementSize> {
+    let mut is_final_structure = false;
+    let mut is_self_describing = false;
+    let mut is_sized = false;
     let attr_idx = attrs.iter().enumerate().find(|(_, a)| {
-        if a.path().is_ident("final_evolution") {
-            is_final_evolution = true;
+        if a.path().is_ident("final_structure") {
+            is_final_structure = true;
             true
-        } else if a.path().is_ident("evolve") {
-            is_final_evolution = false;
+        } else if a.path().is_ident("self_describing") {
+            is_self_describing = true;
+            true
+        } else if a.path().is_ident("sized") {
+            is_sized = true;
             true
         } else {
             false
@@ -105,13 +98,17 @@ pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> EvolutionAttr 
     });
     if let Some((attr_idx, _)) = attr_idx {
         let _attr = attrs.remove(attr_idx);
-        if is_final_evolution {
-            EvolutionAttr::FinalEvolution
+        if is_final_structure {
+            Some(ElementSize::UnsizedFinalStructure)
+        } else if is_self_describing {
+            Some(ElementSize::SelfDescribing)
+        } else if is_sized {
+            Some(ElementSize::Sized { size_bits: 0 })
         } else {
-            EvolutionAttr::Evolve
+            None
         }
     } else {
-        EvolutionAttr::None
+        None
     }
 }
 
@@ -238,4 +235,17 @@ pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>, messag
             a.meta.path()
         )));
     }
+}
+
+#[must_use]
+pub(crate) fn trace_extended_key_val(_key: &str, _val: &str) -> TokenStream {
+    // let msg = format!("{key} {val}");
+    // let msg = LitStr::new(msg.as_str(), proc_macro2::Span::call_site());
+    // quote! {
+    //     #[cfg(feature = "tracing-extended")]
+    //     tracing::trace!(#msg);
+    //     #[cfg(feature = "defmt-extended")]
+    //     defmt::trace!(#msg);
+    // }
+    quote! {}
 }

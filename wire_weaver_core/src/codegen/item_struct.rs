@@ -1,6 +1,9 @@
 use crate::ast::{Field, ItemStruct, Type};
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::{serdes, strings_to_derive};
+use crate::codegen::util::{
+    assert_element_size, element_size_ts, serdes, strings_to_derive, sum_element_sizes_recursively,
+};
+use crate::transform::syn_util::trace_extended_key_val;
 use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use shrink_wrap::ElementSize;
@@ -19,11 +22,17 @@ pub fn struct_def(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     let derive = strings_to_derive(&item_struct.derive);
     let docs = item_struct.docs.ts();
     let cfg = item_struct.cfg();
+    let assert_size = if let Some(size) = item_struct.size_assumption {
+        assert_element_size(&item_struct.ident, size, item_struct.cfg.clone())
+    } else {
+        quote! {}
+    };
     let ts = quote! {
         #cfg
         #docs
         #derive
         pub struct #ident #lifetime { #fields }
+        #assert_size
     };
     ts
 }
@@ -33,7 +42,7 @@ struct CGStructFieldsDef<'a> {
     no_alloc: bool,
 }
 
-impl<'a> ToTokens for CGStructFieldsDef<'a> {
+impl ToTokens for CGStructFieldsDef<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for struct_field in self.fields {
             if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
@@ -75,19 +84,47 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
     } else {
         quote!()
     };
+
+    let mut unknown_unsized = vec![];
+    let mut sum = item_struct.size_assumption.unwrap_or(ElementSize::Unsized); // struct is Unsized by default.
+    // No need to check if it's already Unsized.
+    if !matches!(sum, ElementSize::Unsized) {
+        // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
+        // See ElementSize docs and comments on sum method.
+        for f in &item_struct.fields {
+            if let Some(size) = f.ty.element_size() {
+                sum = sum.add(size);
+            }
+            if let Type::Unsized(path, _) = &f.ty {
+                // TODO: separate Unsized and last ident, so that element_size does not cover Unsized case and there is always a type name in it?
+                if let Some(ident) = path.segments.last() {
+                    unknown_unsized.push(ident.into());
+                }
+            }
+        }
+    }
+    let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
+    let element_size = if implicitly_unsized {
+        element_size_ts(ElementSize::Unsized)
+    } else {
+        sum_element_sizes_recursively(sum, unknown_unsized)
+    };
     serdes(
         struct_name,
         struct_ser,
         struct_des,
         lifetime,
         item_struct.cfg(),
-        // TODO: calculate struct size if #[final_evolution] attr is present
-        ElementSize::Unsized,
+        element_size,
     )
 }
 
 impl<'a> ToTokens for CGStructSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all(trace_extended_key_val(
+            "Serialize struct",
+            self.item_struct.ident.sym.as_str(),
+        ));
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
             let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
@@ -95,6 +132,10 @@ impl<'a> ToTokens for CGStructSer<'a> {
             } else {
                 FieldPath::Value(quote! {self.#field_name})
             };
+            tokens.append_all(trace_extended_key_val(
+                "Serialize struct field",
+                struct_field.ident.sym.as_str(),
+            ));
             struct_field
                 .ty
                 .buf_write(field_path, self.no_alloc, quote! { ? }, tokens);
@@ -108,6 +149,10 @@ impl<'a> ToTokens for CGStructSer<'a> {
 impl<'a> ToTokens for CGStructDes<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut field_names = vec![];
+        tokens.append_all(trace_extended_key_val(
+            "Deserialize struct",
+            self.item_struct.ident.sym.as_str(),
+        ));
         for struct_field in &self.item_struct.fields {
             let field_name: Ident = (&struct_field.ident).into();
             if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
@@ -115,6 +160,10 @@ impl<'a> ToTokens for CGStructDes<'a> {
             }
             let handle_eob = struct_field.handle_eob();
             // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+            tokens.append_all(trace_extended_key_val(
+                "Deserialize struct field",
+                struct_field.ident.sym.as_str(),
+            ));
             struct_field
                 .ty
                 .buf_read(field_name, self.no_alloc, handle_eob, tokens);
@@ -141,7 +190,6 @@ mod tests {
         ItemStruct {
             docs: Docs::empty(),
             derive: vec![],
-            is_final: false,
             ident: Ident::new("X1"),
             fields: vec![
                 Field {
@@ -166,6 +214,7 @@ mod tests {
                 },
             ],
             cfg: None,
+            size_assumption: None,
         }
     }
 
@@ -173,7 +222,6 @@ mod tests {
         ItemStruct {
             docs: Docs::empty(),
             derive: vec![],
-            is_final: false,
             ident: Ident::new("X2"),
             fields: vec![
                 Field {
@@ -194,6 +242,7 @@ mod tests {
                 },
             ],
             cfg: None,
+            size_assumption: None,
         }
     }
 

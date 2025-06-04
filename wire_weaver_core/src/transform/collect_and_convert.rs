@@ -7,15 +7,15 @@ use crate::ast::{
     Docs, Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant,
 };
 use crate::transform::syn_util::{
-    EvolutionAttr, collect_docs_attrs, collect_unknown_attributes, take_default_attr,
-    take_derive_attr, take_final_attr, take_flag_attr, take_id_attr, take_since_attr,
-    take_ww_repr_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
+    take_flag_attr, take_id_attr, take_since_attr, take_size_assumption, take_ww_repr_attr,
 };
 use crate::transform::{
     ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
     SynItemWithContext,
 };
 use proc_macro2::Span;
+use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{
     Attribute, Expr, FnArg, GenericArgument, Lit, Pat, PathArguments, PathSegment, ReturnType,
@@ -29,7 +29,7 @@ pub(crate) struct CollectAndConvertPass<'i> {
     pub(crate) current_file: &'i SynFile,
     pub(crate) messages: &'i mut Messages,
     pub(crate) _source: Source,
-    pub(crate) is_shrink_wrap_attr_macro: bool,
+    // pub(crate) is_shrink_wrap_attr_macro: bool,
 }
 
 #[allow(dead_code)]
@@ -114,11 +114,12 @@ impl CollectAndConvertPass<'_> {
                 }
                 if let Some(item_enum) = self.transform_item_enum(item_enum) {
                     let is_lifetime = item_enum.potential_lifetimes();
-                    let is_final_evolution = item_enum.is_final;
+                    let is_unsized = item_enum.size_assumption.is_none()
+                        || matches!(item_enum.size_assumption, Some(ElementSize::Unsized));
                     *transformed = Some(ItemEnumTransformed {
                         item_enum,
                         is_lifetime,
-                        is_final_evolution,
+                        is_unsized,
                     });
                 }
             }
@@ -134,11 +135,12 @@ impl CollectAndConvertPass<'_> {
                 }
                 if let Some(item_struct) = self.transform_item_struct(item_struct) {
                     let is_lifetime = item_struct.potential_lifetimes();
-                    let is_final_evolution = item_struct.is_final;
+                    let is_unsized = item_struct.size_assumption.is_none()
+                        || matches!(item_struct.size_assumption, Some(ElementSize::Unsized));
                     *transformed = Some(ItemStructTransformed {
                         item_struct,
                         is_lifetime,
-                        is_final_evolution,
+                        is_unsized,
                     });
                 }
             }
@@ -220,7 +222,7 @@ impl CollectAndConvertPass<'_> {
         if bail {
             None
         } else {
-            let is_final = take_final_attr(&mut attrs) == EvolutionAttr::FinalEvolution;
+            let size_assumption = take_size_assumption(&mut attrs);
             let docs = collect_docs_attrs(&mut attrs);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
@@ -231,7 +233,7 @@ impl CollectAndConvertPass<'_> {
                 repr,
                 explicit_ww_repr,
                 variants,
-                is_final,
+                size_assumption,
                 cfg: None,
             })
         }
@@ -312,7 +314,7 @@ impl CollectAndConvertPass<'_> {
             None
         } else {
             let mut attrs = item_struct.attrs.clone();
-            let is_final = take_final_attr(&mut attrs) == EvolutionAttr::FinalEvolution;
+            let size_assumption = take_size_assumption(&mut attrs);
             let docs = collect_docs_attrs(&mut attrs);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
@@ -322,7 +324,7 @@ impl CollectAndConvertPass<'_> {
                 docs,
                 derive,
                 ident: (&item_struct.ident).into(),
-                is_final,
+                size_assumption,
                 fields,
                 cfg: None,
             })
@@ -460,51 +462,30 @@ impl CollectAndConvertPass<'_> {
                                 }
                             }
 
-                            if self.is_shrink_wrap_attr_macro {
-                                // if called from attr macro, no way to inspect user code
-                                let is_final = if let Some(attrs) = attrs {
-                                    take_final_attr(attrs)
-                                } else {
-                                    EvolutionAttr::None
-                                };
-                                return match is_final {
-                                    EvolutionAttr::FinalEvolution => Some(Type::Sized(
-                                        Path::new_ident(Ident::new(other_ty)),
-                                        is_lifetime,
-                                    )),
-                                    EvolutionAttr::Evolve | EvolutionAttr::None => {
-                                        Some(Type::Unsized(
-                                            Path::new_ident(Ident::new(other_ty)),
-                                            is_lifetime,
-                                        ))
-                                    }
-                                };
-                            }
-
                             for item in &self.current_file.items {
                                 if item.ident().map(|ident| ident == other_ty).unwrap_or(false) {
-                                    let is_lifetime_is_final_evolution = match item {
+                                    let is_lifetime_is_unsized = match item {
                                         SynItemWithContext::Enum { transformed, .. } => transformed
                                             .as_ref()
-                                            .map(|t| (t.is_lifetime, t.is_final_evolution)),
+                                            .map(|t| (t.is_lifetime, t.is_unsized)),
                                         SynItemWithContext::Struct { transformed, .. } => {
                                             transformed
                                                 .as_ref()
-                                                .map(|t| (t.is_lifetime, t.is_final_evolution))
+                                                .map(|t| (t.is_lifetime, t.is_unsized))
                                         }
                                         SynItemWithContext::ApiLevel { .. } => unreachable!(),
                                         SynItemWithContext::Const { .. } => unreachable!(),
                                     };
                                     // if is_lifetime is None, one more pass is needed
-                                    return is_lifetime_is_final_evolution.map(
-                                        |(is_lifetime, is_final_evolution)| {
-                                            if is_final_evolution {
-                                                Type::Sized(
+                                    return is_lifetime_is_unsized.map(
+                                        |(is_lifetime, is_unsized)| {
+                                            if is_unsized {
+                                                Type::Unsized(
                                                     Path::new_ident(Ident::new(other_ty)),
                                                     is_lifetime,
                                                 )
                                             } else {
-                                                Type::Unsized(
+                                                Type::Sized(
                                                     Path::new_ident(Ident::new(other_ty)),
                                                     is_lifetime,
                                                 )
@@ -513,17 +494,10 @@ impl CollectAndConvertPass<'_> {
                                     );
                                 }
                             }
-                            if self.is_shrink_wrap_attr_macro {
-                                return Some(Type::Unsized(
-                                    Path::new_ident(Ident::new(other_ty)),
-                                    is_lifetime,
-                                ));
-                            }
-                            self.messages
-                                .push_conversion_error(SynConversionError::UnknownType(
-                                    other_ty.into(),
-                                ));
-                            return None;
+                            return Some(Type::Unsized(
+                                Path::new_ident(Ident::new(other_ty)),
+                                is_lifetime,
+                            ));
                         }
                     };
                     Some(ty)

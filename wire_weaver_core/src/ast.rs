@@ -2,6 +2,7 @@ use ident::Ident;
 use path::Path;
 use proc_macro2::TokenStream;
 use quote::quote;
+use shrink_wrap::ElementSize;
 use std::fmt::{Debug, Formatter};
 use syn::LitStr;
 use value::Value;
@@ -11,7 +12,7 @@ use crate::ast::api::ApiLevel;
 pub mod api;
 pub mod ident;
 pub mod path;
-mod subtype;
+// pub mod subtype;
 pub mod value;
 
 #[derive(Debug)]
@@ -37,6 +38,7 @@ pub struct Version {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Source {
+    ShrinkWrapDerive,
     File {
         /// Path relative to project root.
         /// Project root itself is known to executable through other mechanism.
@@ -56,8 +58,9 @@ pub enum Source {
 impl Debug for Source {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Source::ShrinkWrapDerive => write!(f, "ShrinkWrapDerive"),
             Source::File { path } => write!(f, "Source::File(path={})", path),
-            Source::String(_) => write!(f, "Source::String"),
+            Source::String(src) => write!(f, "Source::String({src})"),
             Source::Registry { .. } => unimplemented!(),
             Source::Git { .. } => unimplemented!(),
         }
@@ -75,7 +78,7 @@ pub enum Item {
 pub struct ItemStruct {
     pub docs: Docs,
     pub derive: Vec<Path>,
-    pub is_final: bool,
+    pub size_assumption: Option<ElementSize>,
     pub ident: Ident,
     pub fields: Vec<Field>,
     pub cfg: Option<LitStr>,
@@ -85,7 +88,7 @@ pub struct ItemStruct {
 pub struct ItemEnum {
     pub docs: Docs,
     pub derive: Vec<Path>,
-    pub is_final: bool,
+    pub size_assumption: Option<ElementSize>,
     pub repr: Repr,
     pub explicit_ww_repr: bool,
     pub ident: Ident,
@@ -166,13 +169,8 @@ pub enum Type {
     Tuple(Vec<Type>),
     Vec(Layout),
 
-    // All types going through generic read<T: DeserializeShrinkWrap>(&T) and write<T: SerializeShrinkWrap>(&T)
-    // User(UserLayout),
-
     // User defined, size unknown.
     // On read: BufReader size will be limited to the one read from the back, unread bytes will be skipped.
-    // On write: size will be written to the back of the buffer.
-    // Type name is used only for dynamic ser/des operations.
     // TODO: use enum structs instead of tuples
     Unsized(Path, bool),
     // User defined, size is known and fixed, or deterministic (depends on enum discriminant) and will not be read/written.

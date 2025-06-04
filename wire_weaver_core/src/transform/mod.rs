@@ -110,13 +110,13 @@ enum SynItemWithContext {
 struct ItemEnumTransformed {
     item_enum: ItemEnum,
     is_lifetime: bool,
-    is_final_evolution: bool,
+    is_unsized: bool,
 }
 
 struct ItemStructTransformed {
     item_struct: ItemStruct,
     is_lifetime: bool,
-    is_final_evolution: bool,
+    is_unsized: bool,
 }
 
 impl SynItemWithContext {
@@ -172,6 +172,7 @@ impl Transform {
 
     pub fn load_and_push(&mut self, source: Source) -> Result<(), String> {
         let contents = match &source {
+            Source::ShrinkWrapDerive => unreachable!(),
             Source::File { path } => {
                 std::fs::read_to_string(path.as_str()).map_err(|e| format!("{path} {e:?}"))?
             }
@@ -187,7 +188,7 @@ impl Transform {
     pub fn transform(
         &mut self,
         add_derives: &[&str],
-        is_shrink_wrap_attr_macro: bool,
+        _is_shrink_wrap_attr_macro: bool,
     ) -> Option<Context> {
         let mut modules = vec![];
         // let mut visit_user_types = VisitUserTypes {
@@ -211,7 +212,7 @@ impl Transform {
                             .entry(current_file.source.clone())
                             .or_default(),
                         _source: current_file.source.clone(),
-                        is_shrink_wrap_attr_macro,
+                        // is_shrink_wrap_attr_macro,
                     };
                     finalize.transform(&mut item);
                     self.files[i].items.push_back(item);

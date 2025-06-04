@@ -1,6 +1,9 @@
 use crate::ast::{Field, Fields, ItemEnum, Repr, Type, Variant};
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::{serdes, strings_to_derive};
+use crate::codegen::util::{
+    assert_element_size, element_size_ts, serdes, strings_to_derive, sum_element_sizes_recursively,
+};
+use crate::transform::syn_util::trace_extended_key_val;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use shrink_wrap::ElementSize;
@@ -15,10 +18,16 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let lifetime = enum_lifetime(item_enum, no_alloc);
     let derive = strings_to_derive(&item_enum.derive);
     let base_ty = ww_discriminant_type(item_enum);
+    let assert_size = if let Some(size) = item_enum.size_assumption {
+        assert_element_size(&item_enum.ident, size, item_enum.cfg.clone())
+    } else {
+        quote! {}
+    };
     let ts = quote! {
         #derive
         #[wire_weaver::ww_repr(#base_ty)]
         pub enum #enum_name #lifetime { #variants }
+        #assert_size
     };
     // if !item_enum.explicit_ww_repr {
     //     ts.append_all(enum_discriminant(item_enum, lifetime));
@@ -45,14 +54,56 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         no_alloc,
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
-    // TODO: calculate enum size
+
+    let mut unknown_unsized = vec![];
+    let mut sum = item_enum.size_assumption.unwrap_or(ElementSize::Unsized); // enum is Unsized by default.
+    // No need to check if it's already Unsized.
+    if !matches!(sum, ElementSize::Unsized) {
+        // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
+        // See ElementSize docs and comments on sum method.
+        for v in &item_enum.variants {
+            match &v.fields {
+                Fields::Named(named) => {
+                    for f in named {
+                        if let Some(size) = f.ty.element_size() {
+                            sum = sum.add(size);
+                        }
+                        if let Type::Unsized(path, _) = &f.ty {
+                            if let Some(ident) = path.segments.last() {
+                                unknown_unsized.push(ident.into());
+                            }
+                        }
+                    }
+                }
+                Fields::Unnamed(unnamed) => {
+                    for ty in unnamed {
+                        if let Some(size) = ty.element_size() {
+                            sum = sum.add(size);
+                        }
+                        if let Type::Unsized(path, _) = ty {
+                            if let Some(ident) = path.segments.last() {
+                                unknown_unsized.push(ident.into());
+                            }
+                        }
+                    }
+                }
+                Fields::Unit => {}
+            }
+        }
+    }
+    let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
+    let element_size = if implicitly_unsized {
+        element_size_ts(ElementSize::Unsized)
+    } else {
+        sum_element_sizes_recursively(sum, unknown_unsized)
+    };
     serdes(
         enum_name,
         enum_ser,
         enum_des,
         lifetime,
         item_enum.cfg(),
-        ElementSize::Unsized,
+        element_size,
     )
 }
 
@@ -163,6 +214,10 @@ impl<'a> ToTokens for CGEnumSer<'a> {
         // if self.item_enum.variants.is_empty() {
         //     tokens.append_all(quote!( wr.write_vlu16n(0)?; ));
         // } else {
+        tokens.append_all(trace_extended_key_val(
+            "Serialize enum",
+            self.item_enum.ident.sym.as_str(),
+        ));
         write_discriminant(self.item_enum.repr, tokens);
         // }
 
@@ -198,6 +253,10 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                             fields_names.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
                             FieldPath::Ref(quote!(#field_name))
                         };
+                        tokens.append_all(trace_extended_key_val(
+                            "Serialize named field",
+                            field.ident.sym.as_str(),
+                        ));
                         field
                             .ty
                             .buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
@@ -218,6 +277,10 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                             fields_numbers.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
                             FieldPath::Ref(quote!(#field_name))
                         };
+                        tokens.append_all(trace_extended_key_val(
+                            "Serialize unnamed field",
+                            field_name.to_string().as_str(),
+                        ));
                         ty.buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
                     let variant_name: Ident = (&variant.ident).into();
@@ -277,6 +340,10 @@ impl<'a> ToTokens for CGEnumDes<'a> {
         //         _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
         //     })
         // };
+        tokens.append_all(trace_extended_key_val(
+            "Deserialize enum",
+            self.item_enum.ident.sym.as_str(),
+        ));
         let read_discriminant = read_discriminant(self.item_enum.repr);
         tokens.append_all(quote! {
             let discriminant = rd.#read_discriminant;
@@ -339,7 +406,7 @@ impl Field {
     }
 }
 
-impl<'a> ToTokens for CGEnumVariantsDes<'a> {
+impl ToTokens for CGEnumVariantsDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in &self.item_enum.variants {
             let discriminant = variant.discriminant_lit();
@@ -356,6 +423,10 @@ impl<'a> ToTokens for CGEnumVariantsDes<'a> {
                         }
                         let handle_eob = field.handle_eob();
                         // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+                        tokens.append_all(trace_extended_key_val(
+                            "Deserialize named field",
+                            field.ident.sym.as_str(),
+                        ));
                         field
                             .ty
                             .buf_read(field_name, self.no_alloc, handle_eob, &mut des_fields);
@@ -372,6 +443,10 @@ impl<'a> ToTokens for CGEnumVariantsDes<'a> {
                         }
                         let handle_eob = quote! { ? };
                         // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
+                        tokens.append_all(trace_extended_key_val(
+                            "Deserialize unnamed field",
+                            field_name.to_string().as_str(),
+                        ));
                         ty.buf_read(field_name, self.no_alloc, handle_eob, &mut des_fields);
                     }
                     tokens.append_all(quote!(#discriminant => { #des_fields #enum_name::#variant_name( #(#field_names),* ) }))

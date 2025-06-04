@@ -40,10 +40,10 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             let item_struct = ItemStruct {
                 docs: Docs::empty(),
                 derive: vec![],
-                is_final: false,
                 ident: Ident::new(ident),
                 fields,
                 cfg: None,
+                size_assumption: None,
             };
             defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));
             defs.append_all(super::item_struct::struct_serdes(&item_struct, no_alloc));
@@ -60,7 +60,6 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
     let mut item_struct = ItemStruct {
         docs: Docs::empty(),
         derive: vec![],
-        is_final: false,
         ident: Ident::new(ident),
         fields: vec![Field {
             docs: Docs::empty(),
@@ -71,6 +70,7 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
             default: None,
         }],
         cfg: None,
+        size_assumption: None,
     };
     create_flags(&mut item_struct.fields, &[]);
     defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));

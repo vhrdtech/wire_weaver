@@ -6,7 +6,7 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
-defmt = { version = "0.3", optional = true }
+defmt = { version = "1.0", optional = true }
 tracing = { version = "0.1", optional = true }
 paste = "1"
 

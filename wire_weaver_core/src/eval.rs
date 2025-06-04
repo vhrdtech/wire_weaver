@@ -69,10 +69,10 @@ mod tests {
         let struct_def = ItemStruct {
             docs: Docs::empty(),
             derive: vec![],
-            is_final: false,
             ident: Ident::new("MyStruct"),
             fields: vec![Field::new(0, "a", Type::Bool), Field::new(1, "b", Type::U8)],
             cfg: None,
+            size_assumption: None,
         };
         let buf = ser_literal("MyStruct { a: true, b: 10 }", &Item::Struct(struct_def)).unwrap();
         assert_eq!(buf, &[0b1000_0000, 10]);

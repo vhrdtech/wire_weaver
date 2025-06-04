@@ -12,6 +12,7 @@ const ONE_MORE_NIBBLE: u8 = 0b1000;
 
 impl UNib32 {
     pub fn len_nibbles(&self) -> usize {
+        // TODO: measure what is faster, this impl or the one in tests
         if self.0 == 0 {
             1
         } else {
@@ -38,14 +39,17 @@ impl UNib32 {
 
     pub(crate) fn write_reversed(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let mut val = self.0;
-        for i in 0..self.len_nibbles() {
+        let len = self.len_nibbles();
+        for i in 0..len {
             let nib = (val & 0b111) as u8;
             // reversed unib is written left to write, but read from right to left, so "one more nibble" bits must also be reversed
-            if (i == self.len_nibbles() - 1) && self.len_nibbles() > 1 {
+            if len >= 1 && i == 0 {
+                // (len == 1 && i == 0) || (len > 1 && i == 0)
+                // no flag if only one nibble or if last nibble (seen from right to left, so at i == 0)
+                wr.write_u4(nib).map_err(|_| Error::OutOfBoundsRevCompact)?;
+            } else {
                 wr.write_u4(nib | ONE_MORE_NIBBLE)
                     .map_err(|_| Error::OutOfBoundsRevCompact)?;
-            } else {
-                wr.write_u4(nib).map_err(|_| Error::OutOfBoundsRevCompact)?;
             }
             val >>= 3;
         }
@@ -93,7 +97,7 @@ impl UNib32 {
 }
 
 impl SerializeShrinkWrap for UNib32 {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)
@@ -101,7 +105,7 @@ impl SerializeShrinkWrap for UNib32 {
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for UNib32 {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         UNib32::read_forward(rd)
@@ -186,6 +190,27 @@ mod test {
         test_forward(8, 2, &[0b1000_0001]); // 000 001
         test_forward(0o124, 3, &[0b1100_1010, 0b0001_0000]); // 0o 4 2 1
         test_forward(0o777, 3, &[0b1111_1111, 0b0111_0000]); // 0o 7 7 7
+    }
+
+    #[inline]
+    fn test_reversed(num: u16) {
+        const SIZE: usize = 8;
+        let mut buf = [0u8; SIZE];
+        let mut wr = BufWriter::new(&mut buf);
+        // UNib32(num).write_reversed(&mut wr).unwrap();
+        wr.write_u16_rev(num).unwrap();
+        // assert_eq!(SIZE * 2 - wr.nibbles_left(), nib_count);
+        let buf = wr.finish().unwrap();
+        let mut rd = BufReader::new(buf);
+        assert_eq!(UNib32::read_reversed(&mut rd), Ok(UNib32(num as u32)));
+        // assert_eq!(buf, repr);
+    }
+
+    #[test]
+    fn unib32_reversed_sanity_check() {
+        for i in 0..65_535 {
+            test_reversed(i);
+        }
     }
 
     // #[test]

@@ -29,7 +29,7 @@ pub enum Error {
     OutOfBoundsReadRawSlice,
     OutOfBoundsWriteUN(UNib32),
     OutOfBoundsReadUN(UNib32),
-    OutOfBoundsSplit,
+    OutOfBoundsSplit(UNib32),
     OutOfBoundsRev,
     OutOfBoundsRevCompact,
     InternalSliceToArrayCast,

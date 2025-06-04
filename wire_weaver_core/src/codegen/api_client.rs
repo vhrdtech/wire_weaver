@@ -307,7 +307,7 @@ fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStre
     quote! {
         pub fn #fn_name(bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
             let mut rd = BufReader::new(bytes);
-            Ok(rd.read()?)
+            Ok(#ty_def::des_shrink_wrap(&mut rd)?)
         }
     }
 }

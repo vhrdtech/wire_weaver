@@ -1,5 +1,5 @@
 use shrink_wrap::vec::RefVec;
-use shrink_wrap::{BufWriter, ElementSize, SerializeShrinkWrap};
+use shrink_wrap::{BufWriter, SerializeShrinkWrap};
 use std::net::IpAddr;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
@@ -89,12 +89,9 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                 let seq = state.common.register_prune_next_seq(timeout, done_tx);
                 let request = client_server_v0_1::Request {
                     seq,
-                    path: RefVec::Slice {
-                        slice: &path,
-                        element_size: ElementSize::UnsizedSelfDescribing,
-                    },
+                    path: RefVec::Slice { slice: &path },
                     kind: RequestKind::Call {
-                        args: RefVec::new_byte_slice(&args_bytes),
+                        args: RefVec::new_bytes(&args_bytes),
                     },
                 };
                 if let Some(link) = &mut link {
@@ -111,12 +108,9 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                 let seq = state.common.register_prune_next_seq(timeout, done_tx);
                 let request = client_server_v0_1::Request {
                     seq,
-                    path: RefVec::Slice {
-                        slice: &path,
-                        element_size: ElementSize::UnsizedSelfDescribing,
-                    },
+                    path: RefVec::Slice { slice: &path },
                     kind: RequestKind::Write {
-                        data: RefVec::new_byte_slice(&value_bytes),
+                        data: RefVec::new_bytes(&value_bytes),
                     },
                 };
                 if let Some(link) = &mut link {

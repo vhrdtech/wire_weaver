@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::vec::RefVec;
-use wire_weaver::shrink_wrap::{BufReader, BufWriter, ElementSize, SerializeShrinkWrap};
+use wire_weaver::shrink_wrap::{
+    BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap,
+};
 use wire_weaver_client_server::event_loop_state::CommonState;
 use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::{
     Event, EventKind, Request, RequestKind,
@@ -312,7 +314,7 @@ async fn handle_message(
             }
             let packet = &state.message_rx[..len];
             let mut rd = BufReader::new(packet);
-            let event: Event = match rd.read(ElementSize::Implied) {
+            let event = match Event::des_shrink_wrap(&mut rd) {
                 Ok(e) => e,
                 Err(e) => {
                     warn!("event deserialization failed: {e:?}, ignoring");
@@ -458,12 +460,9 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Call {
-                    args: RefVec::new_byte_slice(&args_bytes),
+                    args: RefVec::new_bytes(&args_bytes),
                 },
             };
             serialize_request_send(request, link, state, scratch).await?;
@@ -478,12 +477,9 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Write {
-                    data: RefVec::new_byte_slice(&value_bytes),
+                    data: RefVec::new_bytes(&value_bytes),
                 },
             };
             serialize_request_send(request, link, state, scratch).await?;
@@ -497,10 +493,7 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Read,
             };
             serialize_request_send(request, link, state, scratch).await?;

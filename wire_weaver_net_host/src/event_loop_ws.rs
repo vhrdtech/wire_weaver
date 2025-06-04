@@ -1,7 +1,7 @@
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use shrink_wrap::vec::RefVec;
-use shrink_wrap::{BufReader, BufWriter, ElementSize, SerializeShrinkWrap};
+use shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use std::net::IpAddr;
 use std::time::Duration;
 use tokio::net::TcpStream;
@@ -261,7 +261,7 @@ async fn handle_message(
                 return Ok(EventLoopSpinResult::Continue);
             }
             let mut rd = BufReader::new(&data);
-            let event: Event = match rd.read(ElementSize::Implied) {
+            let event = match Event::des_shrink_wrap(&mut rd) {
                 Ok(e) => e,
                 Err(e) => {
                     warn!("event deserialization failed: {e:?}, ignoring");
@@ -388,12 +388,9 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = client_server_v0_1::Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Call {
-                    args: RefVec::new_byte_slice(&args_bytes),
+                    args: RefVec::new_bytes(&args_bytes),
                 },
             };
             serialize_request_send(request, tx, state, scratch).await?;
@@ -408,12 +405,9 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = client_server_v0_1::Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Write {
-                    data: RefVec::new_byte_slice(&value_bytes),
+                    data: RefVec::new_bytes(&value_bytes),
                 },
             };
             serialize_request_send(request, tx, state, scratch).await?;
@@ -427,10 +421,7 @@ async fn handle_command(
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = client_server_v0_1::Request {
                 seq,
-                path: RefVec::Slice {
-                    slice: &path,
-                    element_size: ElementSize::UnsizedSelfDescribing,
-                },
+                path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Read,
             };
             serialize_request_send(request, tx, state, scratch).await?;

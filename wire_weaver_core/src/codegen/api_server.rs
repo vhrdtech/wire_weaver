@@ -339,7 +339,7 @@ fn ser_method_output(
 ) -> TokenStream {
     if let Some(ty) = return_type {
         let ser_output = if matches!(ty, Type::Sized(_, _) | Type::Unsized(_, _)) {
-            quote! { wr.write(&output).map_err(|_| Error::ResponseSerFailed)?; }
+            quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::ResponseSerFailed)?; }
         } else {
             let output_struct_name =
                 Ident::new(format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal));
@@ -347,7 +347,7 @@ fn ser_method_output(
                 let output = #output_struct_name {
                     output: output
                 };
-                wr.write(&output).map_err(|_| Error::ResponseSerFailed)?;
+                output.ser_shrink_wrap(&mut wr).map_err(|_| Error::ResponseSerFailed)?;
             }
         };
         quote! {
@@ -387,7 +387,7 @@ fn des_args(
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
-            let args: #args_struct_ident = rd.read().map_err(|_e| Error::ArgsDesFailed)?;
+            let args = #args_struct_ident::des_shrink_wrap(&mut rd).map_err(|_e| Error::ArgsDesFailed)?;
         };
         let idents = args.iter().map(|arg| {
             let ident: proc_macro2::Ident = (&arg.ident).into();

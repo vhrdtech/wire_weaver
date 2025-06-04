@@ -8,33 +8,28 @@ use wire_weaver_core::transform::syn_util::{take_owned_attr, take_shrink_wrap_at
 use wire_weaver_core::transform::{Messages, Transform};
 
 pub fn shrink_wrap(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let file = syn::parse2::<File>(item).unwrap();
+    let mut file = syn::parse2::<File>(item).unwrap();
 
     let mut messages = Messages::default();
-    let mut common_attrs = Vec::new();
-    for item in &file.items {
-        match item {
-            Item::Enum(item_enum) => {
-                common_attrs = item_enum.attrs.clone();
-            }
-            Item::Struct(item_struct) => {
-                common_attrs = item_struct.attrs.clone();
-            }
-            _ => {}
-        }
-    }
-
     let mut no_alloc = false;
-    let attr = take_shrink_wrap_attr(&mut common_attrs, &mut messages);
-    if let Some(attr) = attr {
-        if attr == "no_alloc" {
-            no_alloc = true;
+    let mut generate_owned = None;
+    for item in &mut file.items {
+        let attrs = match item {
+            Item::Enum(item_enum) => &mut item_enum.attrs,
+            Item::Struct(item_struct) => &mut item_struct.attrs,
+            _ => continue,
+        };
+        let attr = take_shrink_wrap_attr(attrs, &mut messages);
+        if let Some(attr) = attr {
+            if attr == "no_alloc" {
+                no_alloc = true;
+            }
         }
+        generate_owned = take_owned_attr(attrs, &mut messages);
     }
-    let generate_owned = take_owned_attr(&mut common_attrs, &mut messages);
 
     let mut transform = Transform::new();
-    transform.push_file(Source::String("shrink_wrap_derive".into()), file);
+    transform.push_file(Source::ShrinkWrapDerive, file);
     let add_derives = [];
     let cx = transform.transform(&add_derives, true);
     for (source, messages) in transform.messages() {

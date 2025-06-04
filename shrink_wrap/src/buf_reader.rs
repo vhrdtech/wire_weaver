@@ -1,7 +1,7 @@
 use crate::nib32::UNib32;
 use crate::un::read_unx;
 use crate::Error::OutOfBoundsRev;
-use crate::{DeserializeShrinkWrap, Error};
+use crate::{DeserializeShrinkWrap, ElementSize, Error};
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
 #[derive(Copy, Clone)]
@@ -226,9 +226,26 @@ impl<'i> BufReader<'i> {
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
 
-    /// Read any type that implements DeserializeShrinkWrap.
+    /// Read any value that implements DeserializeShrinkWrap.
+    ///
+    /// For Unsized types, size is read from the back of the buffer as reverse UNib32.
+    /// Then [split](BufReader::split) reader is used to actually deserialize the value.
+    ///
+    /// Note that values deserialized with this method must be serialized with [write](crate::BufWriter::write).
+    /// Values serialized with [ser_shrink_wrap](SerializeShrinkWrap::ser_shrink_wrap) must be
+    /// deserialized with [des_shrink_wrap](DeserializeShrinkWrap::des_shrink_wrap).
     pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
-        T::des_shrink_wrap(self)
+        if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
+            #[cfg(feature = "tracing-extended")]
+            tracing::trace!("reading Unsized object");
+            let size = self.read_unib32_rev()? as usize;
+            let mut rd_split = self.split(size)?;
+            T::des_shrink_wrap(&mut rd_split)
+        } else {
+            #[cfg(feature = "tracing-extended")]
+            tracing::trace!("reading ?Sized object");
+            T::des_shrink_wrap(self)
+        }
     }
 
     /// Align to byte and split off a BufReader which can read up to the len bytes.
@@ -237,7 +254,7 @@ impl<'i> BufReader<'i> {
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
         self.align_byte();
         if self.bytes_left() < len {
-            return Err(Error::OutOfBoundsSplit);
+            return Err(Error::OutOfBoundsSplit(UNib32(len as u32)));
         }
         let prev_byte_idx = self.byte_idx;
         self.byte_idx += len;

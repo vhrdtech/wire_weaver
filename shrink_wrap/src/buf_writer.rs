@@ -1,6 +1,6 @@
 use crate::nib32::UNib32;
 use crate::un::write_unx;
-use crate::{Error, SerializeShrinkWrap};
+use crate::{ElementSize, Error, SerializeShrinkWrap};
 
 /// no_std buffer writer that supports 1 bit, 4 bit, variable length integer and other operations.
 /// No alignment requirements are imposed on the byte buffer provided.
@@ -113,6 +113,8 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("written u16 rev = {val} at pos = {}", self.len_bytes);
         Ok(U16RevPos(self.len_bytes))
     }
 
@@ -129,6 +131,8 @@ impl<'i> BufWriter<'i> {
         let val_be = val.to_le_bytes();
         self.buf[pos.0] = val_be[0];
         self.buf[pos.0 + 1] = val_be[1];
+        #[cfg(feature = "tracing-extended")]
+        tracing::trace!("updated u16 rev at pos{} = {val}", pos.0);
         Ok(())
     }
 
@@ -237,9 +241,43 @@ impl<'i> BufWriter<'i> {
         self.write_raw_slice(val.as_bytes())
     }
 
-    /// Write any object that implements SerializeShrinkWrap trait.
+    /// Write any value that implements SerializeShrinkWrap trait.
+    ///
+    /// If the value is Unsized, then size is calculated and written to the back of the buffer as u16.
+    /// Which is later encoded to reverse UNib32.
+    ///
+    /// Note that for serializing root structs or enums, it's better to call ser_shrink_wrap directly,
+    /// as it avoids wasting space for the object size, which is known from the buffer size itself.
+    ///
+    /// Values serialized with this method must be deserialized with [read](crate::BufReader::read).
+    /// Values serialized with [ser_shrink_wrap](SerializeShrinkWrap::ser_shrink_wrap) must be
+    /// deserialized with [des_shrink_wrap](crate::DeserializeShrinkWrap::des_shrink_wrap).
+    /// (because of the additional size written by write and expected by the read).
     pub fn write<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {
-        val.ser_shrink_wrap(self)
+        let unsized_info = if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
+            // ensure start_idx below is on a byte boundary
+            self.align_byte();
+            // reserve one size slot
+            let size_slot_pos = self.write_u16_rev(0)?;
+            let unsized_start_idx = self.pos().0;
+            Some((size_slot_pos, unsized_start_idx))
+        } else {
+            None
+        };
+        val.ser_shrink_wrap(self)?;
+        if let Some((size_slot_pos, unsized_start_idx)) = unsized_info {
+            // T might have written several nib16_rev's as well, encode and place them after type's data
+            self.encode_nib16_rev(self.u16_rev_pos(), size_slot_pos)?;
+            // e.g., enum, only one nib discriminant is written => need to align
+            self.align_byte();
+            let size_bytes = self.pos().0 - unsized_start_idx;
+            let Ok(size_bytes) = u16::try_from(size_bytes) else {
+                return Err(Error::ItemTooLong);
+            };
+            // write actual Unsized size, it will be encoded later, by the parent write method or when finish is called
+            self.update_u16_rev(size_slot_pos, size_bytes)?;
+        }
+        Ok(())
     }
 
     /// Encode some of the numbers previously written to the back of the buffer (for example,
@@ -305,6 +343,8 @@ impl<'i> BufWriter<'i> {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             self.len_bytes += 2;
             UNib32(val as u32).write_reversed(self)?;
+            #[cfg(feature = "tracing-extended")]
+            tracing::trace!("encoded rev.UNib32 = {val}");
             idx += 2;
         }
         debug_assert!(self.bit_idx == 7);

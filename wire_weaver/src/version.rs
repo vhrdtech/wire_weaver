@@ -1,3 +1,4 @@
+use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
 use wire_weaver_derive::derive_shrink_wrap;
 
@@ -5,18 +6,25 @@ use wire_weaver_derive::derive_shrink_wrap;
 /// The minimum size is 2 bytes, when major, minor and patch are less than 8 and pre and build are None.
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 #[shrink_wrap(no_alloc)]
 #[owned = "std"]
+#[final_structure]
 pub struct Version<'i> {
     pub major: UNib32,
     pub minor: UNib32,
     pub patch: UNib32,
+    #[flag]
+    build: bool,
+    /// Optional pre-release identifier on a version string. This comes after - in a SemVer version, like 1.0.0-alpha.1
+    /// Used in compatibility checks.
     pub pre: Option<&'i str>,
+    /// Optional build metadata identifier. This comes after + in a SemVer version, as in 0.8.1+zstd.1.5.0.
+    /// Not used in compatibility checks, only treated as additional metadata.
     pub build: Option<&'i str>,
 }
 
-impl Version<'_> {
+impl<'i> Version<'i> {
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
         Version {
             major: UNib32(major),
@@ -25,6 +33,42 @@ impl Version<'_> {
             pre: None,
             build: None,
         }
+    }
+
+    pub fn full(
+        major: u32,
+        minor: u32,
+        patch: u32,
+        pre: Option<&'i str>,
+        build: Option<&'i str>,
+    ) -> Self {
+        Version {
+            major: UNib32(major),
+            minor: UNib32(minor),
+            patch: UNib32(patch),
+            pre,
+            build,
+        }
+    }
+}
+
+impl Debug for Version<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}.{}.{}", self.major.0, self.minor.0, self.patch.0)?;
+        if let Some(pre) = self.pre {
+            write!(f, "-{}", pre)?;
+        }
+        if let Some(build) = self.build {
+            write!(f, "+{}", build)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "std")]
+impl Debug for VersionOwned {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self.as_ref())
     }
 }
 
@@ -37,6 +81,32 @@ impl VersionOwned {
             patch: UNib32(patch),
             pre: None,
             build: None,
+        }
+    }
+
+    pub fn full(
+        major: u32,
+        minor: u32,
+        patch: u32,
+        pre: Option<String>,
+        build: Option<String>,
+    ) -> Self {
+        VersionOwned {
+            major: UNib32(major),
+            minor: UNib32(minor),
+            patch: UNib32(patch),
+            pre,
+            build,
+        }
+    }
+
+    pub fn as_ref(&self) -> Version<'_> {
+        Version {
+            major: self.major,
+            minor: self.minor,
+            patch: self.patch,
+            pre: self.pre.as_deref(),
+            build: self.build.as_deref(),
         }
     }
 }
@@ -112,5 +182,35 @@ impl Version<'_> {
             pre: self.pre.map(|pre| pre.to_string()),
             build: self.build.map(|build| build.to_string()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{from_slice, to_slice};
+    use hex_literal::hex;
+
+    #[test]
+    fn v1_compatibility() {
+        let version = Version::new(0, 1, 2);
+        let mut buf = [0u8; 8];
+        let bytes = to_slice(&mut buf, &version).unwrap();
+        assert_eq!(bytes, hex!("01 20"));
+
+        let version_des: Version = from_slice(bytes).unwrap();
+        assert_eq!(version_des, version);
+    }
+
+    #[test]
+    fn v1_compatibility_full() {
+        let version = Version::full(0, 1, 2, Some("pre"), Some("build"));
+        let mut buf = [0u8; 32];
+        let bytes = to_slice(&mut buf, &version).unwrap();
+        println!("{:02x?}", bytes);
+        assert_eq!(bytes, hex!("01 2C 707265 6275696C64 5 3"));
+
+        let version_des: Version = from_slice(bytes).unwrap();
+        assert_eq!(version_des, version);
     }
 }

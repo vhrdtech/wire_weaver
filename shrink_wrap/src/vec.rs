@@ -3,22 +3,20 @@ use core::fmt::{Debug, Formatter};
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
-// pub enum Vec<'i, T, const S: u32, F> where F: Fn(usize) -> Option<T> {
 #[derive(Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
-    // pub enum Vec<'i, T, const S: u32, I> where I: Iterator<Item=T> {
     Slice {
         slice: &'i [T],
     },
-    // Iterator {
-    //     it: I
-    // },
     Buf {
         buf: BufReader<'i>,
         elements_count: u32,
     },
-    // Gen {
+    // Iterator { ?
+    //     it: I
+    // },
+    // Gen { ?
     //     gen: F,
     //     len_elements: usize,
     //     // element_size: ElementSize,
@@ -26,12 +24,9 @@ pub enum RefVec<'i, T> {
 }
 
 impl<T> RefVec<'_, T> {
-    // pub fn element_size(&self) -> ElementSize {
-    //     match self {
-    //         RefVec::Slice { element_size, .. } => *element_size,
-    //         RefVec::Buf { element_size, .. } => *element_size,
-    //     }
-    // }
+    pub const fn new() -> Self {
+        Self::Slice { slice: &[] }
+    }
 
     pub fn len(&self) -> usize {
         match self {
@@ -40,20 +35,20 @@ impl<T> RefVec<'_, T> {
         }
     }
 
-    pub fn empty() -> Self {
-        Self::Slice { slice: &[] }
-    }
-
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl<T> Default for RefVec<'_, T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl<'i, T> RefVec<'i, T>
 where
     T: DeserializeShrinkWrap<'i>,
-    // F: Fn(usize) -> Option<T>
-    // I: Iterator<Item=T>,
 {
     pub fn iter(&self) -> RefVecIter<'i, T> {
         match self {
@@ -70,9 +65,9 @@ where
     }
 }
 
-// implementing separately because partial specialisation is not yet supported
+// implementing separately because partial specialization is not yet supported
 impl<'i> RefVec<'i, u8> {
-    pub fn new_byte_slice(slice: &'i [u8]) -> Self {
+    pub fn new_bytes(slice: &'i [u8]) -> Self {
         RefVec::Slice { slice }
     }
 
@@ -81,6 +76,7 @@ impl<'i> RefVec<'i, u8> {
         let Ok(len_u16) = u16::try_from(len) else {
             return Err(Error::VecTooLong);
         };
+        // len == size in bytes when serialized, so this works
         wr.write_u16_rev(len_u16)?;
         let len = self.len();
         match self {
@@ -123,12 +119,9 @@ impl<'i, T> SerializeShrinkWrap for RefVec<'i, T>
 where
     T: SerializeShrinkWrap + DeserializeShrinkWrap<'i> + Clone,
 {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        // if <T as SerializeShrinkWrap>::ELEMENT_SIZE == ElementSize::Implied {
-        //     return Err(Error::ImpliedSizeInVec);
-        // }
         match self {
             RefVec::Slice { slice, .. } => {
                 let Ok(elements_count) = u16::try_from(slice.len()) else {
@@ -136,7 +129,7 @@ where
                 };
                 wr.write_u16_rev(elements_count)?;
                 for item in slice.iter() {
-                    write_item(wr, item)?;
+                    wr.write(item)?;
                 }
             }
             RefVec::Buf { elements_count, .. } => {
@@ -146,7 +139,7 @@ where
                 wr.write_u16_rev(elements_count)?;
                 for item in self.iter() {
                     let item = item?;
-                    write_item(wr, &item)?;
+                    wr.write(&item)?;
                 }
             }
         }
@@ -154,34 +147,8 @@ where
     }
 }
 
-pub(crate) fn write_item<T: SerializeShrinkWrap>(
-    wr: &mut BufWriter,
-    item: &T,
-) -> Result<(), Error> {
-    let is_unsized = <T as SerializeShrinkWrap>::ELEMENT_SIZE == ElementSize::Unsized;
-    let u16_rev_from_unsized_start = if is_unsized {
-        wr.align_byte();
-        let size_slot_pos = wr.write_u16_rev(0)?;
-        let unsized_start_bytes = wr.pos().0;
-        Some((size_slot_pos, unsized_start_bytes))
-    } else {
-        None
-    };
-    wr.write(item)?;
-    if let Some((size_slot_pos, unsized_start)) = u16_rev_from_unsized_start {
-        wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos)?;
-        wr.align_byte();
-        let size_bytes = wr.pos().0 - unsized_start;
-        let Ok(size_bytes) = u16::try_from(size_bytes) else {
-            return Err(Error::ItemTooLong);
-        };
-        wr.update_u16_rev(size_slot_pos, size_bytes)?;
-    }
-    Ok(())
-}
-
 impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let elements_count = rd.read_unib32_rev()?;
@@ -194,13 +161,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
         // save BufReader state and read out elements to advance beyond Vec
         let buf = *rd;
         for _ in 0..elements_count {
-            if T::ELEMENT_SIZE == ElementSize::Unsized {
-                let size = rd.read_unib32_rev()?;
-                let mut rd_split = rd.split(size as usize)?;
-                let _item: T = rd_split.read()?;
-            } else {
-                let _item: T = rd.read()?;
-            }
+            let _item: T = rd.read()?;
         }
 
         Ok(RefVec::Buf {
@@ -257,30 +218,7 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Clone> Iterator for RefVecIter<'i, T> {
                     return None;
                 }
                 *pos += 1;
-                let item = match T::ELEMENT_SIZE {
-                    // ElementSize::Implied => {
-                    //     *pos = *elements_count;
-                    //     return Some(Err(Error::ImpliedSizeInVec));
-                    // }
-                    ElementSize::Unsized => {
-                        let len = match buf.read_unib32_rev() {
-                            Ok(len) => len,
-                            Err(e) => {
-                                return Some(Err(e));
-                            }
-                        };
-                        // dbg!(len);
-                        let mut buf = match buf.split(len as usize) {
-                            Ok(buf) => buf,
-                            Err(e) => {
-                                return Some(Err(e));
-                            }
-                        };
-                        buf.read()
-                    }
-                    ElementSize::Sized { .. } => buf.read(),
-                    ElementSize::UnsizedSelfDescribing => buf.read(),
-                };
+                let item = buf.read();
                 Some(item)
             }
         }
@@ -339,6 +277,7 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
 #[cfg(test)]
 mod tests {
     use crate::traits::ElementSize;
+    use crate::un::U7;
     use crate::vec::RefVec;
     use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
     use hex_literal::hex;
@@ -422,6 +361,25 @@ mod tests {
     }
 
     #[test]
+    fn string_sanity() {
+        // &str and String are Unsized
+        const _: () = assert!(
+            matches!(
+                <Vec<&str> as SerializeShrinkWrap>::ELEMENT_SIZE,
+                ElementSize::UnsizedFinalStructure
+            ),
+            "Vec<Unsized> must be UnsizedFinalStructure"
+        );
+        const _: () = assert!(
+            matches!(
+                <Vec<String> as SerializeShrinkWrap>::ELEMENT_SIZE,
+                ElementSize::UnsizedFinalStructure
+            ),
+            "Vec<Unsized> must be UnsizedFinalStructure"
+        );
+    }
+
+    #[test]
     fn vec_vec_string() {
         let arr = vec![vec!["a", "bc"], vec!["def", "ghij"], vec!["klmno"]];
         let mut buf = [0u8; 64];
@@ -432,11 +390,65 @@ mod tests {
         assert_eq!(
             buf,
             hex!(
-                "616263 0212"
-                "6465666768696A 0432"
-                "6B6C6D6E6F 51"
-                "06 19 5 3"
+                "616263"
+                "6465666768696A"
+                "6B6C6D6E6F"
+                "0 5 1 4 3 2 2 1 2 3"
             )
         );
+
+        let mut rd = BufReader::new(buf);
+        let arr_des: Vec<Vec<String>> = rd.read().unwrap();
+        assert_eq!(arr, arr_des);
+
+        // deserialize without alloc
+        let mut rd = BufReader::new(buf);
+        let arr_des: RefVec<'_, RefVec<'_, &str>> = rd.read().unwrap();
+        let mut iter = arr_des.iter();
+        let mut iter0 = iter.next().unwrap().unwrap().iter();
+        assert_eq!(iter0.next(), Some(Ok("a")));
+        assert_eq!(iter0.next(), Some(Ok("bc")));
+        assert_eq!(iter0.next(), None);
+        let mut iter1 = iter.next().unwrap().unwrap().iter();
+        assert_eq!(iter1.next(), Some(Ok("def")));
+        assert_eq!(iter1.next(), Some(Ok("ghij")));
+        assert_eq!(iter1.next(), None);
+        let mut iter2 = iter.next().unwrap().unwrap().iter();
+        assert_eq!(iter2.next(), Some(Ok("klmno")));
+        assert_eq!(iter2.next(), None);
+
+        // serialize without alloc
+        let arr_ref = RefVec::Slice {
+            slice: &[
+                RefVec::Slice {
+                    slice: &["a", "bc"],
+                },
+                RefVec::Slice {
+                    slice: &["def", "ghij"],
+                },
+                RefVec::Slice { slice: &["klmno"] },
+            ],
+        };
+        let mut buf2 = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf2);
+        wr.write(&arr_ref).unwrap();
+        let buf_ref = wr.finish_and_take().unwrap();
+        assert_eq!(buf, buf_ref);
+    }
+
+    #[test]
+    fn vec_u7() {
+        let arr = vec![
+            Some(U7::new(1).unwrap()),
+            Some(U7::new(2).unwrap()),
+            Some(U7::new(3).unwrap()),
+            None,
+        ];
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write(&arr).unwrap();
+        let buf = wr.finish_and_take().unwrap();
+        println!("{:02X?}", buf);
+        assert_eq!(buf, hex!("81 82 83 04"));
     }
 }

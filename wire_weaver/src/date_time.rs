@@ -1,5 +1,6 @@
 #[cfg(feature = "chrono")]
 use chrono::{Datelike, FixedOffset, NaiveDateTime, Timelike, Utc};
+use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
 use wire_weaver_derive::derive_shrink_wrap;
 
@@ -14,15 +15,14 @@ use wire_weaver_derive::derive_shrink_wrap;
 /// * +4 bits for 2033 <= year <= 2088 and so on.
 /// * +24 bits for year <2025.
 #[derive_shrink_wrap]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[self_describing]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DateTime {
-    #[final_evolution]
     pub date: NaiveDate,
 
-    #[final_evolution]
     pub time: NaiveTime,
 
-    #[subtype(Offset, valid(-86_399..=86_399))]
+    // #[subtype(Offset, valid(-86_399..=86_399))]
     pub offset: Option<I18>,
 }
 
@@ -32,17 +32,17 @@ pub struct DateTime {
 /// * Minimal size is 13 bits (2025 <= year <= 2032).
 /// * Size is 17 bits (2033 <= year <= 2088)
 /// * Maximum size is 37 bits.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive_shrink_wrap]
+#[self_describing]
 pub struct NaiveDate {
     /// -262_142 <= year <= 262_141
-    #[final_evolution]
     pub year: Year,
 
-    #[subtype(Month, valid(1..=12))]
+    // #[subtype(Month, valid(1..=12))]
     pub month: U4,
 
-    #[subtype(Day, valid(1..=31))]
+    // #[subtype(Day, valid(1..=31))]
     pub day: U5,
 }
 
@@ -51,7 +51,7 @@ pub struct Year(i32);
 
 /// ISO 8601 time without timezone.
 /// Size is 18 bits without nanoseconds and 49 bits with nanoseconds.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // #[derive_shrink_wrap]
 pub struct NaiveTime {
     pub secs: U17,
@@ -61,7 +61,7 @@ pub struct NaiveTime {
 }
 
 // #[subtype(valid(0..=86399))]
-pub struct Secs(U17);
+// pub struct Secs(U17);
 
 impl DateTime {
     pub fn from_ymd_hms_naive_opt(
@@ -98,7 +98,7 @@ impl NaiveDate {
 }
 
 impl SerializeShrinkWrap for Year {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
         let y = self.0 - 2025;
@@ -112,7 +112,7 @@ impl SerializeShrinkWrap for Year {
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for Year {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
         let unsigned: UNib32 = rd.read()?;
@@ -171,7 +171,7 @@ impl NaiveTime {
 }
 
 impl SerializeShrinkWrap for NaiveTime {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
         wr.write(&self.secs)?;
@@ -184,7 +184,7 @@ impl SerializeShrinkWrap for NaiveTime {
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for NaiveTime {
-    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedSelfDescribing;
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
         let secs: U17 = rd.read()?;
@@ -202,17 +202,58 @@ impl<'i> DeserializeShrinkWrap<'i> for NaiveTime {
     }
 }
 
-#[cfg(feature = "chrono")]
-impl From<NaiveDateTime> for DateTime {
-    fn from(value: NaiveDateTime) -> Self {
-        todo!()
+impl Debug for DateTime {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?} {:?}", self.date, self.time)?;
+        if let Some(offset) = self.offset {
+            write!(f, " {}", offset.value())?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for NaiveDate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}-M{}-D{}",
+            self.year.year(),
+            self.month.value(),
+            self.day.value()
+        )
+    }
+}
+
+impl Debug for NaiveTime {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let sec = self.secs.value() % 60;
+        let mins = self.secs.value() / 60;
+        let min = mins % 60;
+        let hour = mins / 60;
+        write!(f, "{hour}:{min}:{sec}")?;
+        if let Some(nano) = &self.frac {
+            write!(f, ".{}", nano.value())?;
+        }
+        Ok(())
     }
 }
 
 #[cfg(feature = "chrono")]
-impl Into<NaiveDateTime> for DateTime {
-    fn into(self) -> NaiveDateTime {
-        todo!()
+impl From<NaiveDateTime> for DateTime {
+    fn from(value: NaiveDateTime) -> Self {
+        DateTime {
+            date: value.date().into(),
+            time: value.time().into(),
+            offset: None,
+        }
+    }
+}
+
+#[cfg(feature = "chrono")]
+impl From<DateTime> for NaiveDateTime {
+    fn from(value: DateTime) -> Self {
+        // TODO: apply offset if present?
+        NaiveDateTime::new(value.date.into(), value.time.into())
     }
 }
 
@@ -232,6 +273,7 @@ impl TryInto<chrono::DateTime<Utc>> for DateTime {
     type Error = ();
 
     fn try_into(self) -> Result<chrono::DateTime<Utc>, Self::Error> {
+        // shift by offset if it is present?
         todo!()
     }
 }
@@ -239,16 +281,12 @@ impl TryInto<chrono::DateTime<Utc>> for DateTime {
 #[cfg(feature = "chrono")]
 impl From<chrono::DateTime<FixedOffset>> for DateTime {
     fn from(value: chrono::DateTime<FixedOffset>) -> Self {
-        todo!()
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl TryInto<chrono::DateTime<FixedOffset>> for &DateTime {
-    type Error = ();
-
-    fn try_into(self) -> Result<chrono::DateTime<FixedOffset>, Self::Error> {
-        todo!()
+        let offset = value.offset().local_minus_utc();
+        DateTime {
+            date: value.date_naive().into(),
+            time: value.time().into(),
+            offset: Some(I18::new(offset).unwrap()),
+        }
     }
 }
 
@@ -264,9 +302,14 @@ impl From<chrono::NaiveDate> for NaiveDate {
 }
 
 #[cfg(feature = "chrono")]
-impl Into<chrono::NaiveDate> for NaiveDate {
-    fn into(self) -> chrono::NaiveDate {
-        todo!()
+impl From<NaiveDate> for chrono::NaiveDate {
+    fn from(value: NaiveDate) -> Self {
+        chrono::NaiveDate::from_ymd_opt(
+            value.year.year(),
+            value.month.value() as u32,
+            value.day.value() as u32,
+        )
+        .unwrap()
     }
 }
 
@@ -286,9 +329,13 @@ impl From<chrono::NaiveTime> for NaiveTime {
 }
 
 #[cfg(feature = "chrono")]
-impl Into<chrono::NaiveTime> for NaiveTime {
-    fn into(self) -> chrono::NaiveTime {
-        todo!()
+impl From<NaiveTime> for chrono::NaiveTime {
+    fn from(value: NaiveTime) -> Self {
+        chrono::NaiveTime::from_num_seconds_from_midnight_opt(
+            value.secs.value(),
+            value.frac.map(|f| f.value()).unwrap_or(0),
+        )
+        .unwrap()
     }
 }
 
@@ -296,6 +343,31 @@ impl Into<chrono::NaiveTime> for NaiveTime {
 mod tests {
     use super::*;
     use hex_literal::hex;
+
+    #[test]
+    fn sanity_check() {
+        const _: () = assert!(
+            matches!(
+                <DateTime as SerializeShrinkWrap>::ELEMENT_SIZE,
+                ElementSize::SelfDescribing
+            ),
+            "DateTime must be UnsizedSelfDescribing because Option and child types"
+        );
+        const _: () = assert!(
+            matches!(
+                <NaiveDate as SerializeShrinkWrap>::ELEMENT_SIZE,
+                ElementSize::SelfDescribing
+            ),
+            "NaiveDate must be UnsizedSelfDescribing because of UNib32"
+        );
+        const _: () = assert!(
+            matches!(
+                <NaiveTime as SerializeShrinkWrap>::ELEMENT_SIZE,
+                ElementSize::SelfDescribing
+            ),
+            "NaiveTime must be UnsizedSelfDescribing because of Option"
+        );
+    }
 
     #[test]
     fn v1_compatibility_not_broken() {
@@ -315,7 +387,7 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         dt.ser_shrink_wrap(&mut wr).unwrap();
         let bytes = wr.finish_and_take().unwrap();
-        println!("{bytes:02X?}");
+        // println!("{bytes:02X?}");
         assert_eq!(bytes, hex!("05 F3 96 C0"));
         let mut rd = BufReader::new(bytes);
         let dt_des = DateTime::des_shrink_wrap(&mut rd).unwrap();

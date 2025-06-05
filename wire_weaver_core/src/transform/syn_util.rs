@@ -33,30 +33,56 @@ pub(crate) fn take_default_attr(
         ));
         return None;
     };
-    let Expr::Lit(expr_lit) = name_value.value else {
-        messages.push_conversion_error(SynConversionError::WrongDefaultAttr(
-            "Expected default = lit".into(),
-        ));
-        return None;
-    };
-    match expr_lit.lit {
-        Lit::Float(lit_float) => {
-            // TODO: Handle f32 and f64 properly
-            Some(Value::F32(lit_float.base10_parse().unwrap()))
+    match name_value.value {
+        // Expr::Array(_) => {}
+        // Expr::Call(_) => {}
+        Expr::Lit(expr_lit) => {
+            match expr_lit.lit {
+                Lit::Float(lit_float) => {
+                    // TODO: Handle f32 and f64 properly
+                    Some(Value::F32(lit_float.base10_parse().unwrap()))
+                }
+                Lit::Int(lit_int) => {
+                    // lit_int.suffix()
+                    // TODO: create default integer and do not emit suffix on it, emit suffix if it is present
+                    Some(Value::I32(lit_int.base10_parse().unwrap()))
+                }
+                u => {
+                    messages.push_conversion_error(SynConversionError::WrongDefaultAttr(format!(
+                        "Not supported lit: {u:?}"
+                    )));
+                    None
+                } // Lit::Str(_) => {}
+                  // Lit::ByteStr(_) => {}
+                  // Lit::CStr(_) => {}
+                  // Lit::Byte(_) => {}
+                  // Lit::Char(_) => {}
+                  // Lit::Int(_) => {}
+                  // Lit::Bool(_) => {}
+                  // Lit::Verbatim(_) => {}
+            }
         }
-        u => {
-            messages.push_conversion_error(SynConversionError::WrongDefaultAttr(format!(
-                "Not supported lit: {u:?}"
-            )));
+        Expr::Path(expr_path) => {
+            if expr_path.path.is_ident("None") {
+                Some(Value::None)
+            } else {
+                messages.push_conversion_error(SynConversionError::WrongDefaultAttr(format!(
+                    "Not supported path: {expr_path:?}"
+                )));
+                None
+            }
+        }
+        // Expr::Range(_) => {}
+        // Expr::Repeat(_) => {}
+        // Expr::Struct(_) => {}
+        // Expr::Tuple(_) => {}
+        // Expr::Verbatim(_) => {}
+        _ => {
+            messages.push_conversion_error(SynConversionError::WrongDefaultAttr(
+                "Expected default = lit/path/struct".into(),
+            ));
             None
-        } // Lit::Str(_) => {}
-          // Lit::ByteStr(_) => {}
-          // Lit::CStr(_) => {}
-          // Lit::Byte(_) => {}
-          // Lit::Char(_) => {}
-          // Lit::Int(_) => {}
-          // Lit::Bool(_) => {}
-          // Lit::Verbatim(_) => {}
+        }
     }
 }
 

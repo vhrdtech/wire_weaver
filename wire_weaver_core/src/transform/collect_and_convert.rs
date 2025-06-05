@@ -3,6 +3,7 @@ use std::ops::Deref;
 use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity};
 use crate::ast::ident::Ident;
 use crate::ast::path::Path;
+use crate::ast::value::Value;
 use crate::ast::{
     Docs, Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant,
 };
@@ -11,7 +12,7 @@ use crate::transform::syn_util::{
     take_flag_attr, take_id_attr, take_since_attr, take_size_assumption, take_ww_repr_attr,
 };
 use crate::transform::{
-    ItemEnumTransformed, ItemStructTransformed, Messages, SynConversionError, SynFile,
+    ItemEnumTransformed, ItemStructTransformed, Message, Messages, SynConversionError, SynFile,
     SynItemWithContext,
 };
 use proc_macro2::Span;
@@ -276,6 +277,7 @@ impl CollectAndConvertPass<'_> {
                     named.push(field)
                 }
                 create_flags(&mut named, &explicit_flags);
+                propagate_default_to_flags(&mut named, self.messages);
                 change_is_ok_to_is_some(&mut named);
                 Some(Fields::Named(named))
             }
@@ -319,6 +321,7 @@ impl CollectAndConvertPass<'_> {
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
             create_flags(&mut fields, &explicit_flags);
+            propagate_default_to_flags(&mut fields, self.messages);
             change_is_ok_to_is_some(&mut fields);
             Some(ItemStruct {
                 docs,
@@ -813,6 +816,50 @@ pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
             default: None,
         };
         fields.insert(pos + shift, flag);
+    }
+}
+
+fn propagate_default_to_flags(fields: &mut [Field], messages: &mut Messages) {
+    let mut set_to_default_false = vec![];
+    let mut default_found = false;
+    let mut default_is_not_last = false;
+    for f in fields.iter() {
+        if f.default.is_none() {
+            if default_found {
+                default_is_not_last = true;
+            }
+            continue;
+        }
+        default_found = true;
+        let Some(default) = &f.default else { continue };
+        if !matches!(f.ty, Type::Option(_, _)) {
+            messages.messages.push(Message::SynConversionError(
+                SynConversionError::DefaultUsedOnNotOption,
+            ));
+        }
+        if default != &Value::None {
+            messages.messages.push(Message::SynConversionError(
+                SynConversionError::UnsupportedDefaultValue,
+            ));
+        }
+        set_to_default_false.push(f.ident.sym.clone());
+    }
+    for ident in set_to_default_false {
+        for f in fields.iter_mut() {
+            if let Type::IsSome(flag_for_ident) = &f.ty {
+                if flag_for_ident.sym != ident {
+                    continue;
+                }
+                f.default = Some(Value::Bool(false)); // read is_some flag as false on EOB
+            } else if matches!(f.ty, Type::Option(_, _)) && f.ident.sym == ident {
+                f.default = None; // TODO: Change to actual default value
+            }
+        }
+    }
+    if default_is_not_last {
+        messages.messages.push(Message::SynConversionError(
+            SynConversionError::WrongEvolvedTypeOrder,
+        ));
     }
 }
 

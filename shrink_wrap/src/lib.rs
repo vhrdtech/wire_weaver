@@ -40,10 +40,24 @@ pub enum Error {
     VecTooLong,
     ItemTooLong,
     EnumFutureVersionOrMalformedData,
-    ImpliedSizeInVec,
     InvalidBitCount,
     SubtypeOutOfRange,
 }
+
+// impl Error {
+//     pub fn is_read_eob(&self) -> bool {
+//         use Error::*;
+//         matches!(
+//             self,
+//             OutOfBoundsReadBool
+//                 | OutOfBoundsReadU4
+//                 | OutOfBoundsReadU8
+//                 | OutOfBoundsReadRawSlice
+//                 | OutOfBoundsReadUN(_)
+//                 | OutOfBoundsRev
+//         )
+//     }
+// }
 
 pub mod prelude {
     pub use crate::buf_reader::BufReader;

@@ -30,6 +30,9 @@ pub enum SynConversionError {
     RecursionLimitReached,
     UnknownApiResource,
     EnumDiscriminantNotLargeEnough,
+    DefaultUsedOnNotOption,
+    UnsupportedDefaultValue,
+    WrongEvolvedTypeOrder,
 }
 
 #[derive(Default)]

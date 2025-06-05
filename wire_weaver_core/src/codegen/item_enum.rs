@@ -399,7 +399,7 @@ impl Field {
         match &self.default {
             None => quote!(?),
             Some(value) => {
-                let value = value.to_lit();
+                let value = value.ts();
                 quote!(.unwrap_or(#value))
             }
         }

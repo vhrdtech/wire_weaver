@@ -415,7 +415,7 @@ impl Type {
                 let is_some: Ident = flag_ident.into();
                 tokens.append_all(quote! {
                     let #variable_name = if #is_some {
-                        Some(rd.read()?)
+                        Some(rd.read() #handle_eob)
                     } else {
                         None
                     };

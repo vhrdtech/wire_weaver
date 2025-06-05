@@ -1,7 +1,9 @@
-use proc_macro2::Literal;
+use proc_macro2::{Literal, TokenStream};
+use quote::quote;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
+    None,
     Bool(bool),
     F32(f32),
     F64(f64),
@@ -18,10 +20,25 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn to_lit(&self) -> Literal {
+    pub fn ts(&self) -> TokenStream {
         match self {
+            Value::None => quote! { None },
+            Value::Bool(value) => {
+                if *value {
+                    quote! { true }
+                } else {
+                    quote! { false }
+                }
+            }
             // Value::Bool(_) => {}
-            Value::F32(val) => Literal::f32_suffixed(*val),
+            Value::F32(val) => {
+                let lit = Literal::f32_suffixed(*val);
+                quote! { #lit }
+            }
+            Value::I32(val) => {
+                let lit = Literal::i32_unsuffixed(*val); // TODO: preserve suffixes
+                quote! { #lit }
+            }
             u => unimplemented!("{u:?}"), // Value::F64(_) => {}
                                           // Value::U8(_) => {}
                                           // Value::U16(_) => {}

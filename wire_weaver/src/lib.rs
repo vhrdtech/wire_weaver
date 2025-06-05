@@ -11,7 +11,7 @@ pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 #[cfg(feature = "chrono")]
 pub use chrono;
 
-pub fn to_slice<'i, T: SerializeShrinkWrap>(
+pub fn to_ww_bytes<'i, T: SerializeShrinkWrap>(
     buf: &'i mut [u8],
     value: &T,
 ) -> Result<&'i [u8], shrink_wrap::Error> {
@@ -20,12 +20,18 @@ pub fn to_slice<'i, T: SerializeShrinkWrap>(
     wr.finish_and_take()
 }
 
-pub fn from_slice<'i, T: DeserializeShrinkWrap<'i>>(
+pub fn from_ww_bytes<'i, T: DeserializeShrinkWrap<'i>>(
     buf: &'i [u8],
 ) -> Result<T, shrink_wrap::Error> {
     let mut rd = BufReader::new(buf);
     let value = T::des_shrink_wrap(&mut rd)?;
     Ok(value)
+}
+
+pub mod prelude {
+    pub use super::{from_ww_bytes, to_ww_bytes};
+    pub use shrink_wrap::prelude::*;
+    pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 }
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.

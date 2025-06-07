@@ -1,6 +1,6 @@
 use ident::Ident;
 use path::Path;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use shrink_wrap::ElementSize;
 use std::fmt::{Debug, Formatter};
@@ -230,6 +230,10 @@ impl Docs {
 
     pub fn push(&mut self, s: LitStr) {
         self.docs.push(s);
+    }
+
+    pub fn push_str(&mut self, s: impl AsRef<str>) {
+        self.docs.push(LitStr::new(s.as_ref(), Span::call_site()));
     }
 
     pub fn ts(&self) -> TokenStream {

@@ -17,6 +17,8 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
     let derive = strings_to_derive(&item_enum.derive);
+    let docs = item_enum.docs.ts();
+    let cfg = item_enum.cfg();
     let base_ty = ww_discriminant_type(item_enum);
     let assert_size = if let Some(size) = item_enum.size_assumption {
         assert_element_size(&item_enum.ident, size, item_enum.cfg.clone())
@@ -24,6 +26,8 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         quote! {}
     };
     let ts = quote! {
+        #cfg
+        #docs
         #derive
         #[wire_weaver::ww_repr(#base_ty)]
         pub enum #enum_name #lifetime { #variants }
@@ -59,6 +63,9 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     let mut sum = item_enum.size_assumption.unwrap_or(ElementSize::Unsized); // enum is Unsized by default.
     // No need to check if it's already Unsized.
     if !matches!(sum, ElementSize::Unsized) {
+        if matches!(item_enum.repr, Repr::UNib32) {
+            sum = sum.add(ElementSize::SelfDescribing);
+        }
         // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
         // See ElementSize docs and comments on sum method.
         for v in &item_enum.variants {

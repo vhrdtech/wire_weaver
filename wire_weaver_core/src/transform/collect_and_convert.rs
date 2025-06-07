@@ -7,6 +7,7 @@ use crate::ast::value::Value;
 use crate::ast::{
     Docs, Field, Fields, ItemConst, ItemEnum, ItemStruct, Layout, Source, Type, Variant,
 };
+use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_derive_attr,
     take_flag_attr, take_id_attr, take_since_attr, take_size_assumption, take_ww_repr_attr,
@@ -224,7 +225,8 @@ impl CollectAndConvertPass<'_> {
             None
         } else {
             let size_assumption = take_size_assumption(&mut attrs);
-            let docs = collect_docs_attrs(&mut attrs);
+            let mut docs = collect_docs_attrs(&mut attrs);
+            add_notes(&mut docs, size_assumption, true);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
             Some(ItemEnum {
@@ -317,7 +319,8 @@ impl CollectAndConvertPass<'_> {
         } else {
             let mut attrs = item_struct.attrs.clone();
             let size_assumption = take_size_assumption(&mut attrs);
-            let docs = collect_docs_attrs(&mut attrs);
+            let mut docs = collect_docs_attrs(&mut attrs);
+            add_notes(&mut docs, size_assumption, false);
             let derive = take_derive_attr(&mut attrs, self.messages);
             collect_unknown_attributes(&mut attrs, self.messages);
             create_flags(&mut fields, &explicit_flags);

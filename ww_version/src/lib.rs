@@ -1,6 +1,8 @@
 use core::fmt::{Debug, Formatter};
-use shrink_wrap::prelude::*;
-use wire_weaver_derive::derive_shrink_wrap;
+use wire_weaver::prelude::*;
+
+#[cfg(feature = "semver")]
+pub use semver;
 
 /// SemVer version as defined by <https://semver.org> in ShrinkWrap format.
 /// The minimum size is 2 bytes, when major, minor and patch are less than 8 and pre and build are None.
@@ -111,7 +113,7 @@ impl VersionOwned {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "semver"))]
 impl TryFrom<semver::Version> for VersionOwned {
     type Error = &'static str;
 
@@ -134,7 +136,7 @@ impl TryFrom<semver::Version> for VersionOwned {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "semver"))]
 impl TryInto<semver::Version> for VersionOwned {
     type Error = semver::Error;
 
@@ -172,7 +174,7 @@ impl TryInto<semver::Version> for VersionOwned {
 //     }
 // }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "semver"))]
 impl Version<'_> {
     pub fn make_owned(&self) -> VersionOwned {
         VersionOwned {
@@ -207,7 +209,7 @@ mod tests {
         let version = Version::full(0, 1, 2, Some("pre"), Some("build"));
         let mut buf = [0u8; 32];
         let bytes = to_ww_bytes(&mut buf, &version).unwrap();
-        println!("{:02x?}", bytes);
+        // println!("{:02x?}", bytes);
         assert_eq!(bytes, hex!("01 2C 707265 6275696C64 5 3"));
 
         let version_des: Version = from_ww_bytes(bytes).unwrap();

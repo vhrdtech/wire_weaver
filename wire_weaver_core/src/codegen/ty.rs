@@ -193,25 +193,25 @@ impl Type {
             //         return;
             //     }
             // }
-            Type::String => {
-                // size is handled here as a small optimization, generic write and read implementations would also work.
-                // Since String is very simple and does not contain any inner objects, there is no need to do no-op calculations.
-                let field_path_value = field_path.clone().by_value();
-                let field_path_ref = field_path.by_ref();
-                tokens.append_all(quote! {
-                    let len = u16::try_from(#field_path_value.len()).map_err(|_| ShrinkWrapError::StrTooLong)?;
-                    wr.write_u16_rev(len)?;
-                });
-                if no_alloc {
-                    tokens.append_all(quote! { wr.write_raw_str(#field_path_ref) #handle_eob; });
-                    return;
-                } else {
-                    tokens.append_all(
-                        quote! { wr.write_raw_str(#field_path_ref.as_str()) #handle_eob; },
-                    );
-                    return;
-                }
-            }
+            // Type::String => {
+            //     // size is handled here as a small optimization, generic write and read implementations would also work.
+            //     // Since String is very simple and does not contain any inner objects, there is no need to do no-op calculations.
+            //     // let field_path_value = field_path.clone().by_value();
+            //     let field_path_ref = field_path.by_ref();
+            //     tokens.append_all(quote! {
+            //         let len = u16::try_from(#field_path_ref.len()).map_err(|_| ShrinkWrapError::StrTooLong)?;
+            //         wr.write_u16_rev(len)?;
+            //     });
+            //     if no_alloc {
+            //         tokens.append_all(quote! { wr.write_raw_str(#field_path_ref) #handle_eob; });
+            //         return;
+            //     } else {
+            //         tokens.append_all(
+            //             quote! { wr.write_raw_str(#field_path_ref.as_str()) #handle_eob; },
+            //         );
+            //         return;
+            //     }
+            // }
             Type::IsSome(option_field) => {
                 let path = if field_path.is_empty() {
                     quote! { #option_field }
@@ -292,7 +292,7 @@ impl Type {
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 return;
             }
-            Type::Unsized(_path, _) => {
+            Type::Unsized(_, _) | Type::String => {
                 let field_path = field_path.by_ref();
                 // same as Sized, special handling of Unsized moved to the BufWriter::write and BufRead::read instead
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
@@ -328,7 +328,7 @@ impl Type {
     pub(crate) fn buf_read(
         &self,
         variable_name: Ident,
-        no_alloc: bool,
+        _no_alloc: bool,
         handle_eob: TokenStream,
         tokens: &mut TokenStream,
     ) {
@@ -359,21 +359,21 @@ impl Type {
             Type::F32 => "read_f32",
             Type::F64 => "read_f64",
             // Type::Bytes => "read_bytes",
-            Type::String => {
-                tokens.append_all(quote! {
-                    let str_len = rd.read_unib32_rev()? as usize;
-                    let mut rd_split = rd.split(str_len)?;
-                });
-                if no_alloc {
-                    tokens.append_all(
-                        quote! { let #variable_name = rd_split.read_raw_str() #handle_eob; },
-                    );
-                    return;
-                } else {
-                    tokens.append_all(quote! { let #variable_name = rd_split.read_raw_str() #handle_eob .to_string(); });
-                    return;
-                }
-            }
+            // Type::String => {
+            //     tokens.append_all(quote! {
+            //         let str_len = rd.read_unib32_rev()? as usize;
+            //         let mut rd_split = rd.split(str_len)?;
+            //     });
+            //     if no_alloc {
+            //         tokens.append_all(
+            //             quote! { let #variable_name = rd_split.read_raw_str() #handle_eob; },
+            //         );
+            //         return;
+            //     } else {
+            //         tokens.append_all(quote! { let #variable_name = rd_split.read_raw_str() #handle_eob .to_string(); });
+            //         return;
+            //     }
+            // }
             Type::Array(_, _) => unimplemented!("array"),
             Type::Tuple(_) => unimplemented!("tuple"),
             Type::Vec(layout) => match layout {
@@ -386,7 +386,7 @@ impl Type {
                 Layout::Result(_) => unimplemented!("vec of results"),
             },
             // Type::User(_) => unimplemented!(),
-            Type::Unsized(_, _) => {
+            Type::Unsized(_, _) | Type::String => {
                 tokens.append_all(quote! {
                     // let size = rd.read_unib32_rev()? as usize;
                     // let mut rd_split = rd.split(size)?;

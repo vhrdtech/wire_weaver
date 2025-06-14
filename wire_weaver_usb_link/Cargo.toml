@@ -6,7 +6,7 @@ authors.workspace = true
 description = "Transport layer on top of USB packets, allowing multiple messages per packet"
 
 [dependencies]
-crc = "3"
+crc = "3.3.0"
 strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
 wire_weaver = { path = "../wire_weaver", default-features = false }

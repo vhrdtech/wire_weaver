@@ -4,7 +4,9 @@
 use crate::nib32::UNib32;
 pub use buf_reader::BufReader;
 pub use buf_writer::BufWriter;
-pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
+pub use traits::{
+    from_ww_bytes, to_ww_bytes, DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap,
+};
 
 pub mod buf_reader;
 pub mod buf_writer;
@@ -63,7 +65,9 @@ pub mod prelude {
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::nib32::UNib32;
-    pub use crate::traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
+    pub use crate::traits::{
+        from_ww_bytes, to_ww_bytes, DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap,
+    };
     pub use crate::un::*;
     pub use crate::vec::RefVec;
     pub use crate::Error as ShrinkWrapError;

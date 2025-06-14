@@ -3,28 +3,10 @@
 mod test;
 
 pub use shrink_wrap;
-use shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
+use shrink_wrap::{BufReader, BufWriter};
 pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 
-pub fn to_ww_bytes<'i, T: SerializeShrinkWrap>(
-    buf: &'i mut [u8],
-    value: &T,
-) -> Result<&'i [u8], shrink_wrap::Error> {
-    let mut wr = BufWriter::new(buf);
-    value.ser_shrink_wrap(&mut wr)?;
-    wr.finish_and_take()
-}
-
-pub fn from_ww_bytes<'i, T: DeserializeShrinkWrap<'i>>(
-    buf: &'i [u8],
-) -> Result<T, shrink_wrap::Error> {
-    let mut rd = BufReader::new(buf);
-    let value = T::des_shrink_wrap(&mut rd)?;
-    Ok(value)
-}
-
 pub mod prelude {
-    pub use super::{from_ww_bytes, to_ww_bytes};
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
 }
@@ -38,6 +20,7 @@ pub mod prelude {
 /// be used during development.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[deprecated]
 pub struct ProtocolInfo {
     pub protocol_id: u32,
     pub major_version: u8,

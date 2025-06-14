@@ -1,15 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod date_time;
 mod test;
-pub mod version;
 
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
-
-#[cfg(feature = "chrono")]
-pub use chrono;
 
 pub fn to_ww_bytes<'i, T: SerializeShrinkWrap>(
     buf: &'i mut [u8],

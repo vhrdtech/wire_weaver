@@ -1,5 +1,5 @@
 [package]
-name = "ww_version"
+name = "ww_date_time"
 version = "0.1.0" # tracked separately for each data type
 authors.workspace = true
 description.workspace = true
@@ -7,14 +7,14 @@ edition.workspace = true
 
 [dependencies]
 wire_weaver = { path = "../wire_weaver", default-features = false }
-semver = { version = "1", default-features = false, optional = true }
+chrono = { version = "0.4", default-features = false, optional = true }
 defmt = { version = "1.0", optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "chrono"]
 std = ["wire_weaver/std"]
 defmt = ["dep:defmt", "wire_weaver/defmt"]
-semver = ["dep:semver"]
+chrono = ["dep:chrono"]
 
 [dev-dependencies]
 hex-literal = "1"

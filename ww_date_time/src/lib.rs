@@ -1,17 +1,19 @@
 #[cfg(feature = "chrono")]
 use chrono::{Datelike, FixedOffset, NaiveDateTime, Timelike, Utc};
 use core::fmt::{Debug, Formatter};
-use shrink_wrap::prelude::*;
-use wire_weaver_derive::derive_shrink_wrap;
+use wire_weaver::prelude::*;
+
+#[cfg(feature = "chrono")]
+pub use chrono;
 
 /// ISO 8601 combined date and time with optional time zone and optional nanoseconds.
 /// Year is stored as UNib32 shifted by 2025.
 ///
 /// * For 2025 <= year <= 2032:
-/// * Minimum size is 32 bits (no time zone and without nanoseconds).
-/// * Size with timezone and without nanoseconds is 50 bits.
-/// * Size with nanoseconds and without timezone is 63 bits.
-/// * Size with timezone and nanoseconds is 81 bits.
+/// * Minimum size is 32 bits (UTC time zone and without nanoseconds).
+/// * Size with naive / fixed offset time zone and without nanoseconds is 53 bits.
+/// * Size with nanoseconds and with UTC timezone is 63 bits.
+/// * Size with naive / fixed offset time zone and nanoseconds is 84 bits.
 /// * +4 bits for 2033 <= year <= 2088 and so on.
 /// * +24 bits for year <2025.
 #[derive_shrink_wrap]
@@ -22,8 +24,31 @@ pub struct DateTime {
 
     pub time: NaiveTime,
 
-    // #[subtype(Offset, valid(-86_399..=86_399))]
-    pub offset: Option<I18>,
+    pub timezone: Timezone,
+}
+
+/// Timezone information.
+/// UTC is preferred ant takes only 1 bit.
+#[derive_shrink_wrap]
+#[ww_repr(u1)]
+#[sized]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Timezone {
+    UTC,
+    Other(OtherTimezone),
+}
+
+/// Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.
+#[derive_shrink_wrap]
+#[ww_repr(u3)]
+#[sized]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum OtherTimezone {
+    Naive,
+    FixedOffset {
+        // #[subtype(Offset, valid(-86_399..=86_399))]
+        secs: I18,
+    },
 }
 
 /// ISO 8601 calendar date without timezone.
@@ -64,6 +89,22 @@ pub struct NaiveTime {
 // pub struct Secs(U17);
 
 impl DateTime {
+    pub fn from_ymd_hms_utc_opt(
+        year: i32,
+        month: u8,
+        day: u8,
+        hour: u8,
+        min: u8,
+        sec: u8,
+        nano: u32,
+    ) -> Option<Self> {
+        Some(DateTime {
+            date: NaiveDate::from_ymd_opt(year, month, day)?,
+            time: NaiveTime::from_hms_opt(hour, min, sec, nano)?,
+            timezone: Timezone::UTC,
+        })
+    }
+
     pub fn from_ymd_hms_naive_opt(
         year: i32,
         month: u8,
@@ -76,7 +117,7 @@ impl DateTime {
         Some(DateTime {
             date: NaiveDate::from_ymd_opt(year, month, day)?,
             time: NaiveTime::from_hms_opt(hour, min, sec, nano)?,
-            offset: None,
+            timezone: Timezone::Other(OtherTimezone::Naive),
         })
     }
 }
@@ -204,10 +245,10 @@ impl<'i> DeserializeShrinkWrap<'i> for NaiveTime {
 
 impl Debug for DateTime {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?} {:?}", self.date, self.time)?;
-        if let Some(offset) = self.offset {
-            write!(f, " {}", offset.value())?;
-        }
+        write!(f, "{:?} {:?} {:?}", self.date, self.time, self.timezone)?;
+        // if let Some(offset) = self.offset {
+        //     write!(f, " {}", offset.value())?;
+        // }
         Ok(())
     }
 }
@@ -244,7 +285,7 @@ impl From<NaiveDateTime> for DateTime {
         DateTime {
             date: value.date().into(),
             time: value.time().into(),
-            offset: None,
+            timezone: Timezone::Other(OtherTimezone::Naive),
         }
     }
 }
@@ -263,7 +304,7 @@ impl From<chrono::DateTime<Utc>> for DateTime {
         DateTime {
             date: dt.date_naive().into(),
             time: dt.time().into(),
-            offset: None,
+            timezone: Timezone::UTC,
         }
     }
 }
@@ -285,7 +326,9 @@ impl From<chrono::DateTime<FixedOffset>> for DateTime {
         DateTime {
             date: value.date_naive().into(),
             time: value.time().into(),
-            offset: Some(I18::new(offset).unwrap()),
+            timezone: Timezone::Other(OtherTimezone::FixedOffset {
+                secs: I18::new(offset).unwrap(),
+            }),
         }
     }
 }
@@ -381,7 +424,7 @@ mod tests {
                 secs: U17::new(58_800).unwrap(),
                 frac: None,
             },
-            offset: None,
+            timezone: Timezone::UTC,
         };
         let mut buf = [0u8; 12];
         let mut wr = BufWriter::new(&mut buf);

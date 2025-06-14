@@ -27,7 +27,7 @@ members = [
     "wire_weaver_tool"
     #    "examples/*",
     #    "tests"
-]
+, "ww_client_server", "ww_date_time", "ww_version"]
 
 exclude = [
     "wire_weaver_usb_embassy", # mutually exclusive features

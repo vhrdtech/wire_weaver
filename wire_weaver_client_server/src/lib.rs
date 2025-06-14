@@ -1,6 +1,6 @@
 pub mod event_loop_state;
 pub mod util;
-pub mod ww;
+pub mod ww; // TODO: remove and use ww_client_server
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};

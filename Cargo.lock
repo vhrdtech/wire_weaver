@@ -3668,11 +3668,9 @@ dependencies = [
 name = "wire_weaver"
 version = "0.4.0"
 dependencies = [
- "chrono",
  "defmt 1.0.1",
  "hex-literal",
  "pathsearch",
- "semver",
  "shrink_wrap",
  "subprocess",
  "tracing",
@@ -3818,6 +3816,34 @@ name = "writeable"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
+
+[[package]]
+name = "ww_client_server"
+version = "0.4.0"
+dependencies = [
+ "wire_weaver",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_date_time"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "defmt 1.0.1",
+ "hex-literal",
+ "wire_weaver",
+]
+
+[[package]]
+name = "ww_version"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.0.1",
+ "hex-literal",
+ "semver",
+ "wire_weaver",
+]
 
 [[package]]
 name = "x11rb"

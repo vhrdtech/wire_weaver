@@ -23,10 +23,10 @@ pub trait TabUi {
     fn load_state(&mut self, storage: &dyn Storage, cx: &mut Context);
 }
 
-pub trait TabCommon {
-    fn new_with_id(id: usize) -> Self;
-    fn id(&self) -> Id;
-}
+// pub trait TabCommon {
+//     fn new_with_id(id: usize) -> Self;
+//     fn id(&self) -> Id;
+// }
 
 impl Serialize for Tab {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

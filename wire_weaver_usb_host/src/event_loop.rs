@@ -1,18 +1,16 @@
 use crate::ww_nusb::{Sink, Source};
 use crate::{
-    ConnectionInfo, ConnectionState, IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE, UsbDeviceFilter,
-    UsbError,
+    ConnectionInfo, ConnectionState, UsbDeviceFilter, UsbError, IRQ_MAX_PACKET_SIZE,
+    MAX_MESSAGE_SIZE,
 };
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::vec::RefVec;
-use wire_weaver::shrink_wrap::{
-    BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap,
-};
+use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver_client_server::event_loop_state::CommonState;
 use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::{
     Event, EventKind, Request, RequestKind,

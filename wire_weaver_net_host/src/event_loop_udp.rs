@@ -51,7 +51,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
         match cmd {
             Command::Connect {
                 filter,
-                on_error,
+                on_error: _,
                 connected_tx,
             } => {
                 // TODO: send connection request, handle timeout, wait response
@@ -95,7 +95,9 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                     },
                 };
                 if let Some(link) = &mut link {
-                    serialize_request_send(request, link, &mut state, &mut scratch).await;
+                    serialize_request_send(request, link, &mut state, &mut scratch)
+                        .await
+                        .unwrap();
                 }
             }
             Command::SendWrite {
@@ -114,7 +116,9 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                     },
                 };
                 if let Some(link) = &mut link {
-                    serialize_request_send(request, link, &mut state, &mut scratch).await;
+                    serialize_request_send(request, link, &mut state, &mut scratch)
+                        .await
+                        .unwrap();
                 }
             }
             Command::SendRead { .. } => {}

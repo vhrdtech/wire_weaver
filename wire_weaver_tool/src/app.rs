@@ -70,8 +70,8 @@ impl eframe::App for WireWeaverToolApp {
             .show_add_popup(true)
             .draggable_tabs(true)
             // .show_tab_name_on_hover(true)
-            .show_window_close_buttons(true)
-            .show_window_collapse_buttons(true)
+            .show_leaf_close_all_buttons(true)
+            .show_leaf_collapse_buttons(true)
             .style({
                 let mut style = Style::from_egui(ctx.style().as_ref());
                 style.tab_bar.fill_tab_bar = true;

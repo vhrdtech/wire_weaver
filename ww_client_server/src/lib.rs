@@ -1,12 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-use ww_version::Version;
+use ww_version::{FullVersion, Version};
 
 #[cfg(feature = "std")]
 use ww_version::VersionOwned;
 
 pub const PROTOCOL_GID: u32 = 1; // TODO: Remove!
+
+pub const VERSION: FullVersion = FullVersion::new("ww_client_server", Version::new(0, 1, 0));
 
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]

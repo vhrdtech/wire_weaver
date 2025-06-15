@@ -3740,6 +3740,7 @@ dependencies = [
  "tracing",
  "wire_weaver",
  "ww_client_server",
+ "ww_version",
 ]
 
 [[package]]
@@ -3784,6 +3785,7 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "wire_weaver_client_common",
+ "wire_weaver_udp_link",
 ]
 
 [[package]]
@@ -3813,9 +3815,9 @@ name = "wire_weaver_udp_link"
 version = "0.4.0"
 dependencies = [
  "defmt",
- "shrink_wrap",
  "strum_macros 0.27.1",
  "wire_weaver",
+ "ww_version",
 ]
 
 [[package]]

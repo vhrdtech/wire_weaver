@@ -11,6 +11,7 @@ thiserror = "2.0"
 tracing = "0.1"
 wire_weaver = { path = "../wire_weaver" }
 ww_client_server = { path = "../ww_client_server" }
+ww_version = { path = "../ww_version", features = ["std"] }
 
 [features]
 default = ["default-timeout-250ms"]

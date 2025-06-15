@@ -1,7 +1,8 @@
-use crate::{DEFAULT_REQUEST_TIMEOUT, Error, SeqTy};
+use crate::{DEFAULT_REQUEST_TIMEOUT, Error, OnError, SeqTy};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
+use ww_version::FullVersionOwned;
 
 pub type ResponseSender<E> = oneshot::Sender<Result<Vec<u8>, Error<E>>>;
 pub type StreamUpdateSender<E> = mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>;
@@ -18,6 +19,7 @@ pub struct CommonState<E> {
     pub packet_started_instant: Option<Instant>,
     pub last_ping_instant: Option<Instant>,
     pub packet_accumulation_time: Duration,
+    pub user_protocol_version: Option<FullVersionOwned>,
 }
 
 impl<E> Default for CommonState<E> {
@@ -32,6 +34,7 @@ impl<E> Default for CommonState<E> {
             packet_started_instant: None,
             last_ping_instant: None,
             packet_accumulation_time: Duration::from_millis(1),
+            user_protocol_version: None,
         }
     }
 }
@@ -100,5 +103,17 @@ impl<E> CommonState<E> {
                 let _ = tx.send(Err(Error::Timeout));
             }
         }
+    }
+
+    pub fn on_connect(
+        &mut self,
+        on_error: OnError,
+        connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
+        user_protocol_version: FullVersionOwned,
+    ) {
+        self.exit_on_error = on_error != OnError::KeepRetrying;
+        self.request_id = 1;
+        self.connected_tx = connected_tx; // sent after handshake is actually done
+        self.user_protocol_version = Some(user_protocol_version);
     }
 }

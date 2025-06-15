@@ -2,6 +2,8 @@ pub mod event_loop_state;
 pub mod util;
 pub mod ww; // TODO: remove
 pub use ww_client_server;
+pub use ww_version;
+use ww_version::FullVersionOwned;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -11,6 +13,7 @@ pub enum Command<F, E> {
     /// Try to connect to / open a device with the specified filter.
     Connect {
         filter: F,
+        user_protocol_version: FullVersionOwned,
         on_error: OnError,
         connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
     },
@@ -77,6 +80,12 @@ pub enum Error<E> {
     RemoteError(ww_client_server::Error),
     #[error("Failed to deserialize a bytes slice from device response")]
     ByteSliceReadFailed,
+    #[error("All command senders were dropped")]
+    CmdTxDropped,
+    #[error("Exit command received")]
+    ExitRequested,
+    #[error("IO error {}", .0)]
+    Io(#[from] std::io::Error),
 
     #[error("Transport specific error")]
     Transport(E),

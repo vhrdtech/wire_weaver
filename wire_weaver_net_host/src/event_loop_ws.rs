@@ -10,7 +10,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
-use wire_weaver_client_common::{Command, Error, OnError};
+use wire_weaver_client_common::{Command, Error};
 use wire_weaver_client_common::{
     ww_client_server,
     ww_client_server::{Event, EventKind, RequestKind},
@@ -196,16 +196,17 @@ async fn wait_for_connection_and_queue_commands(
                 filter,
                 on_error,
                 connected_tx,
+                user_protocol_version,
             } => {
-                state.common.exit_on_error = on_error != OnError::KeepRetrying;
-                state.common.request_id = 1;
+                state
+                    .common
+                    .on_connect(on_error, connected_tx, user_protocol_version); // TODO: use user protocol version
                 let (ws, _response) = tokio_tungstenite::connect_async(format!(
                     "ws://{}:{}/{}",
                     filter.addr, filter.port, filter.path
                 ))
                 .await?;
                 let (tx, rx) = ws.split();
-                state.common.connected_tx = connected_tx;
                 return Ok(Some(Link {
                     _target: filter,
                     tx,

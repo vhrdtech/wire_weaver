@@ -148,9 +148,8 @@ async fn wait_for_connection_and_queue_commands(
                 filter,
                 on_error,
                 connected_tx,
+                user_protocol_version,
             } => {
-                state.common.exit_on_error = on_error != OnError::KeepRetrying;
-                state.common.request_id = 1;
                 // TODO: process commands with timeout expired before connected?
                 let (interface, di) = match crate::connection::connect(filter, on_error).await {
                     Ok(i_di) => i_di,
@@ -169,7 +168,9 @@ async fn wait_for_connection_and_queue_commands(
                         };
                     }
                 };
-                state.common.connected_tx = connected_tx;
+                state
+                    .common
+                    .on_connect(on_error, connected_tx, user_protocol_version); // TODO: use user protocol version
                 return Ok(Some((interface, di)));
             }
             Command::Subscribe {

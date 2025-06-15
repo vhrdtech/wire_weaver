@@ -7,8 +7,6 @@ use egui::{CentralPanel, Color32, Id, ScrollArea, SidePanel, TopBottomPanel, Ui,
 use egui_file::FileDialog;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumIter, IntoEnumIterator};
-use syn::__private::quote::__private::Span;
-use syn::Ident;
 use wire_weaver_core::ast::{Item, Source};
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};

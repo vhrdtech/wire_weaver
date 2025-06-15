@@ -2,7 +2,7 @@
 
 WireWeaver is a wire format and API code generator for resource constrained systems (for example microcontrollers).
 It allows you to define data types, methods, properties and streams and generate code that uses no standard library or
-memory allocation.
+memory allocation. Unsized types - `Vec<T>`, String and others are supported (even on no_std without allocator!).
 Backwards and forwards compatibility is supported: devices with older format version can communicate with newer ones and
 vice versa.
 
@@ -57,7 +57,7 @@ Some types are one- or four-bit aligned and the rest are one-byte aligned. Dense
 save space, including in enum discriminants (which can even be U1).
 Byte arrays, strings, and Unsized objects are
 all one-byte
-aligned to limit code complexity and computations required. Unused bits are set to zero and can be used when evolving a
+aligned to limit code complexity and computations required. Unused bits are set to zero and can be reclaimed when evolving a
 type.
 
 For example:
@@ -88,7 +88,7 @@ fn version1_1() {
 ```
 
 Older code can still read new data and will skip the Option, and newer code can read old data, yielding None.
-All the while, the serialized size didn't even change! (It could have though, it's just an example).
+All the while, the serialized size didn't even change (it could have though, it's just an example).
 
 ## Wire format
 
@@ -157,16 +157,43 @@ fn evolved_struct() {
 
 ## API
 
-Define a custom protocol as collections of methods, properties or streams and generate server and client side code.
-Event based communication model is used.
-Generated code will perform protocol compatibility checks.
+Define a custom protocol as collections of resources - methods, properties or streams and generate server and client side code.
+Multiple levels are supported, each resource is identified via a number path from root, forming a tree. Efficient path is used, consisting of UNib32 encoded numbers, taking as little as 4 bits.
 
-Under the hood API code generator uses a WireWeaver definition of Event. Custom Event type can also be provided?
+Resources can be arranged into "ww-trait's" and then "implemented" at various points in the API tree. Accessing them is possible in the same manner via resource paths, or through their globally unique ID (crate name + version or unique ID + version). Many useful "ww-traits" are planned, implementing things like firmware update, event counters, logging, power management, etc. That way code to handle them all can be reused greatly between very different projects. UI can also be arranged into small reusable blocks.
 
-## TODO: Versioning
+Two models are planned: client-server and bus. Client-server model is functional (`ww_client_server` crate) and supported in code generation for both server and client side, std and no_std. Bus model is still in development.
 
-Each file containing WireWeaver code must be saved with a version appended after its name. Before code generation,
-compatibility check is performed to ensure backwards and forward compatibility.
+### Transport protocols
+
+Several transport protocols are supported:
+* USB (nusb on host side, embassy on embedded, no drivers needed on Windows/Mac/Linux)
+* WebSocket (for reliable control access)
+* UDP (for telemetry)
+* TODO: CAN Bus (using CANOpen)
+
+Others could be easily implemented, possibly reusing the same code.
+
+USB and UDP transports support multiple events per packet/datagram. Many small messages can be accumulated over a time window conserving bandwidth and allowing much higher message throughput per unit of time that would otherwise be possible with one message per packet/datagram.
+
+
+
+## Versioning
+
+Each type and "ww-trait" version is it's crate version, same versioning rules apply.
+Types and "ww-trait's" are globally identified by their crate name and version. `FullVersion` type is provided in `ww_version` crate
+that carries crate name in addition to version numbers.
+
+### Compact ww-trait version
+
+There is a possibility to make API calls on "ww-traits", without knowing the exact resource path. For example one could make a "sleep"
+call on all devices in a CAN Bus network, that support "PowerManagement" trait. Or "get_fw_version" on any device supporting "FirmwareInfo" trait. In order to do so, instead of relying on resource path (a vector of numbers from API root), `FullVersion` is sent instead.
+
+Compared to resource paths that can only take a few bytes (numbers are UNib32 encoded, so the smallest path is 4 bits), `FullVersion` is likely
+to take about 8-16 bytes or more and vary with the crate name. This is unfortunate for constrained systems, or if one want to pack many calls into one packet.
+
+Solution to this is `CompactVersion`, which carries globally unique type id and major.minor version components only, all UNib32 encoded.
+The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are manually assigned and tracked via git instead.
 
 ## UI utility
 
@@ -187,11 +214,7 @@ Planned features:
 * Support for bytecode loading to extract types and api information
 * Support for source loading from external sources and compiling to bytecode (through Rust lib FFI or backend service)
 
-## TODO: Repository
-
-Public repository for common dependencies and unique protocol IDs.
-
-## TODO: Bounded numbers
+## TODO: Subtypes (bounded numbers and array lengths)
 
 Simple checked numbers where only a range of values is allowed:
 

@@ -433,11 +433,11 @@ impl DebugView {
         let mut api_code = String::new();
         for module in &ww_cx.modules {
             for api_level in &module.api_levels {
-                let location = syn::Path::from(Ident::new("api_model_location", Span::call_site()));
+                // let location = syn::Path::from(Ident::new("api_model_location", Span::call_site()));
                 let code = catch_unwind(|| {
                     wire_weaver_core::codegen::api_server::server_dispatcher(
                         api_level,
-                        &Some(location.clone()),
+                        // &Some(location.clone()),
                         self.state.no_alloc,
                         self.state.use_async,
                         &method_model,
@@ -457,7 +457,7 @@ impl DebugView {
                 let code = catch_unwind(|| {
                     wire_weaver_core::codegen::api_client::client(
                         api_level,
-                        &Some(location),
+                        // &Some(location),
                         self.state.no_alloc,
                         true,
                     )

@@ -1,6 +1,7 @@
 pub mod event_loop_state;
 pub mod util;
-pub mod ww; // TODO: remove and use ww_client_server
+pub mod ww; // TODO: remove
+pub use ww_client_server;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -73,7 +74,7 @@ pub enum Error<E> {
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
     #[error("Device returned WireWeaver client_server error: {:?}", .0)]
-    RemoteError(ww::no_alloc_client::client_server_v0_1::Error),
+    RemoteError(ww_client_server::Error),
     #[error("Failed to deserialize a bytes slice from device response")]
     ByteSliceReadFailed,
 

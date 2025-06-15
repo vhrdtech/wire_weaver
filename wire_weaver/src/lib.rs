@@ -20,7 +20,7 @@ pub mod prelude {
 /// be used during development.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[deprecated]
+// #[deprecated]
 pub struct ProtocolInfo {
     pub protocol_id: u32,
     pub major_version: u8,

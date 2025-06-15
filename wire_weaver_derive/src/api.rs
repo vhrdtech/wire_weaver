@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use pathsearch::find_executable_in_path;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{TokenStreamExt, quote};
 use relative_path::RelativePath;
 use subprocess::{Exec, Redirection};
@@ -19,7 +19,6 @@ use wire_weaver_core::transform::Transform;
 #[derive(Debug, FromMeta)]
 struct Args {
     ww: Option<String>,
-    api_model: Option<String>,
     #[darling(default)]
     client: bool,
     #[darling(default)]
@@ -111,10 +110,10 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         } else {
             MethodModel::parse(&args.method_model).unwrap()
         };
-        let api_model_location = args
-            .api_model
-            .as_ref()
-            .map(|a| syn::Path::from_string(a.as_str()).unwrap());
+        // let api_model_location = args
+        //     .api_model
+        //     .as_ref()
+        //     .map(|a| syn::Path::from_string(a.as_str()).unwrap());
         let mut codegen_ts = TokenStream::new();
         for module in &cx.modules {
             for item in &module.items {
@@ -158,7 +157,6 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                 if args.server {
                     let ts = wire_weaver_core::codegen::api_server::server_dispatcher(
                         api_level,
-                        &api_model_location,
                         args.no_alloc,
                         args.use_async,
                         &method_model,
@@ -170,7 +168,6 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                 if args.client {
                     let ts = wire_weaver_core::codegen::api_client::client(
                         api_level,
-                        &api_model_location,
                         args.no_alloc,
                         !args.raw_client,
                     );
@@ -183,18 +180,6 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
         for item in items.items {
             api_mod_items.push(item);
         }
-    }
-
-    // let mut ts = TokenStream::new();
-    // ts.append_all(item);
-    if let Some(api_model) = &args.api_model {
-        let api_model: ItemMod = syn::parse2(generate_api_model(
-            api_model.as_str(),
-            &add_derives,
-            args.no_alloc,
-        ))
-        .expect("internal: api_model contains errors");
-        api_mod_items.push(syn::Item::Mod(api_model));
     }
 
     let ts: TokenStream = quote! { #api_mod };
@@ -216,45 +201,6 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     ts
-}
-
-fn generate_api_model(api_model: &str, add_derives: &[&str], no_alloc: bool) -> TokenStream {
-    let mut transform = Transform::new();
-    // let mut path = PathBuf::from(
-    //     std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
-    // );
-    // path.extend(&["proto", "client_server_v0_1.ww"]);
-    // transform
-    //     .load_and_push(Source::File {
-    //         path: path.to_str().unwrap().to_owned(),
-    //     })
-    //     .expect("client_server_v0_1.ww must exist");
-    let api_model_bytes = include_bytes!("../../proto/client_server_v0_1.ww");
-    transform
-        .load_and_push(Source::String(
-            std::str::from_utf8(api_model_bytes).unwrap().to_string(),
-        ))
-        .unwrap();
-
-    let cx = transform.transform(add_derives, false);
-    for (source, messages) in transform.messages() {
-        for message in messages.messages() {
-            eprintln!("{:?} {:?}", source, message);
-        }
-    }
-    let cx = cx.expect("internal error: client_server_v0_1 transform failed");
-
-    let ts = wire_weaver_core::codegen::generate(&cx, no_alloc);
-    let api_model = Ident::new(api_model, Span::call_site());
-    quote! {
-        pub mod #api_model {
-            use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize, Error as ShrinkWrapError,
-                vec::RefVec, nib32::UNib32
-            };
-            #ts
-        }
-    }
 }
 
 pub fn format_rust(code: &str) -> String {

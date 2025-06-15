@@ -5,9 +5,7 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, info, trace};
 use wire_weaver_client_server::event_loop_state::CommonState;
-use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1;
-use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::RequestKind;
-use wire_weaver_client_server::{Command, Error};
+use wire_weaver_client_server::{Command, Error, ww_client_server, ww_client_server::RequestKind};
 
 pub struct UdpTarget {
     pub addr: IpAddr,
@@ -87,7 +85,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
             } => {
                 trace!("sending call to {path:?}");
                 let seq = state.common.register_prune_next_seq(timeout, done_tx);
-                let request = client_server_v0_1::Request {
+                let request = ww_client_server::Request {
                     seq,
                     path: RefVec::Slice { slice: &path },
                     kind: RequestKind::Call {
@@ -108,7 +106,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
             } => {
                 trace!("sending write to {path:?}");
                 let seq = state.common.register_prune_next_seq(timeout, done_tx);
-                let request = client_server_v0_1::Request {
+                let request = ww_client_server::Request {
                     seq,
                     path: RefVec::Slice { slice: &path },
                     kind: RequestKind::Write {
@@ -131,7 +129,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
 }
 
 async fn serialize_request_send(
-    request: client_server_v0_1::Request<'_>,
+    request: ww_client_server::Request<'_>,
     link: &mut Link,
     _state: &mut State,
     scratch: &mut [u8],

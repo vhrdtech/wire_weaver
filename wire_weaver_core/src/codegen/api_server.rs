@@ -13,7 +13,7 @@ use crate::property_model::{PropertyModel, PropertyModelKind};
 
 pub fn server_dispatcher(
     api_level: &ApiLevel,
-    api_model_location: &Option<syn::Path>,
+    // api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     use_async: bool,
     method_model: &MethodModel,
@@ -29,13 +29,13 @@ pub fn server_dispatcher(
     } else {
         quote! {}
     };
-    let api_model_includes = if let Some(api_model_location) = api_model_location {
-        quote! {
-            use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
-        }
-    } else {
-        quote! {}
-    };
+    // let api_model_includes = if let Some(api_model_location) = api_model_location {
+    //     quote! {
+    //         use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
+    //     }
+    // } else {
+    //     quote! {}
+    // };
     let (maybe_async, maybe_await) = if use_async {
         (quote! { async }, quote! { .await })
     } else {
@@ -50,7 +50,8 @@ pub fn server_dispatcher(
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib32::UNib32
         };
-        #api_model_includes
+        // #api_model_includes
+        use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
         #additional_use
 
         impl Context {

@@ -1,21 +1,21 @@
 use crate::ww_nusb::{Sink, Source};
 use crate::{
-    ConnectionInfo, ConnectionState, UsbDeviceFilter, UsbError, IRQ_MAX_PACKET_SIZE,
-    MAX_MESSAGE_SIZE,
+    ConnectionInfo, ConnectionState, IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE, UsbDeviceFilter,
+    UsbError,
 };
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
-use wire_weaver_client_server::event_loop_state::CommonState;
-use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::{
-    Event, EventKind, Request, RequestKind,
-};
 use wire_weaver_client_server::{Command, Error, OnError};
+use wire_weaver_client_server::{
+    event_loop_state::CommonState,
+    ww_client_server::{Event, EventKind, Request, RequestKind},
+};
 use wire_weaver_usb_link::{
     DisconnectReason, Error as LinkError, MessageKind, ProtocolInfo, WireWeaverUsbLink,
 };
@@ -86,7 +86,7 @@ pub async fn usb_worker(
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
                 Ok(Some((interface, di))) => {
                     let client_server_protocol = ProtocolInfo {
-                        protocol_id: wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::PROTOCOL_GID,
+                        protocol_id: wire_weaver_client_server::ww::PROTOCOL_GID,
                         major_version: 0,
                         minor_version: 1,
                     };

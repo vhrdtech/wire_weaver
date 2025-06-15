@@ -11,6 +11,7 @@ pub const PROTOCOL_GID: u32 = 1;
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]
 #[owned = "std"]
+#[derive(Debug)]
 struct Request<'i> {
     /// If 0 - no answer is expected
     seq: u16,
@@ -22,6 +23,7 @@ struct Request<'i> {
 #[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
+#[derive(Debug)]
 enum RequestKind<'i> {
     Version,
     Call {
@@ -56,6 +58,7 @@ enum RequestKind<'i> {
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]
 #[owned = "std"]
+#[derive(Debug)]
 struct Event<'i> {
     seq: u16,
     // path
@@ -66,6 +69,7 @@ struct Event<'i> {
 #[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
+#[derive(Debug)]
 enum EventKind<'i> {
     Version {
         protocol_id: u32,
@@ -101,6 +105,7 @@ enum EventKind<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
 #[self_describing]
+#[derive(Debug)]
 enum Error {
     // Tried to unsubscribe twice from a resource
     // AlreadyUnsubscribed,
@@ -128,6 +133,7 @@ enum Error {
 }
 
 #[derive_shrink_wrap]
+#[derive(Debug)]
 enum ShaperConfig {
     NoLimit,
     MaxBitrate { byte_per_s: u32 },

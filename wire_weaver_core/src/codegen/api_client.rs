@@ -10,7 +10,7 @@ use crate::codegen::ty::FieldPath;
 
 pub fn client(
     api_level: &ApiLevel,
-    api_model_location: &Option<syn::Path>,
+    // api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     high_level_client: bool,
 ) -> TokenStream {
@@ -22,13 +22,13 @@ pub fn client(
     } else {
         quote! {}
     };
-    let api_model_includes = if let Some(api_model_location) = api_model_location {
-        quote! {
-            use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
-        }
-    } else {
-        quote! {}
-    };
+    // let api_model_includes = if let Some(api_model_location) = api_model_location {
+    //     quote! {
+    //         use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
+    //     }
+    // } else {
+    //     quote! {}
+    // };
     let (generics_a, generics_b) = if high_level_client {
         (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> })
     } else {
@@ -42,7 +42,8 @@ pub fn client(
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib32::UNib32
         };
-        #api_model_includes
+        // #api_model_includes
+        use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
         #additional_use
 
         impl #generics_a Client #generics_b {

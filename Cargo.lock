@@ -3739,6 +3739,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
+ "ww_client_server",
 ]
 
 [[package]]

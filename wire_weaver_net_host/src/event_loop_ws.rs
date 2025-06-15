@@ -10,11 +10,11 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_server::event_loop_state::CommonState;
-use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1;
-use wire_weaver_client_server::ww::no_alloc_client::client_server_v0_1::{
-    Event, EventKind, RequestKind,
-};
 use wire_weaver_client_server::{Command, Error, OnError};
+use wire_weaver_client_server::{
+    ww_client_server,
+    ww_client_server::{Event, EventKind, RequestKind},
+};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -386,7 +386,7 @@ async fn handle_command(
         } => {
             trace!("sending call to {path:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = client_server_v0_1::Request {
+            let request = ww_client_server::Request {
                 seq,
                 path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Call {
@@ -403,7 +403,7 @@ async fn handle_command(
         } => {
             trace!("sending write to {path:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = client_server_v0_1::Request {
+            let request = ww_client_server::Request {
                 seq,
                 path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Write {
@@ -419,7 +419,7 @@ async fn handle_command(
         } => {
             trace!("sending read to {path:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = client_server_v0_1::Request {
+            let request = ww_client_server::Request {
                 seq,
                 path: RefVec::Slice { slice: &path },
                 kind: RequestKind::Read,
@@ -437,7 +437,7 @@ async fn handle_command(
 }
 
 async fn serialize_request_send(
-    request: client_server_v0_1::Request<'_>,
+    request: ww_client_server::Request<'_>,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     _state: &mut State,
     scratch: &mut [u8],

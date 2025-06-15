@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use core::fmt::{Debug, Formatter};
 use wire_weaver::prelude::*;
 
@@ -174,7 +176,7 @@ impl TryInto<semver::Version> for VersionOwned {
 //     }
 // }
 
-#[cfg(all(feature = "std", feature = "semver"))]
+#[cfg(all(feature = "std"))]
 impl Version<'_> {
     pub fn make_owned(&self) -> VersionOwned {
         VersionOwned {

@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #[cfg(feature = "chrono")]
 use chrono::{Datelike, FixedOffset, NaiveDateTime, Timelike, Utc};
 use core::fmt::{Debug, Formatter};

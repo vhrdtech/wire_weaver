@@ -5,28 +5,40 @@ pub trait SerializeShrinkWrap {
     const ELEMENT_SIZE: ElementSize;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error>;
+
+    fn to_ww_bytes<'i>(&self, buf: &'i mut [u8]) -> Result<&'i [u8], Error> {
+        let mut wr = BufWriter::new(buf);
+        self.ser_shrink_wrap(&mut wr)?;
+        wr.finish_and_take()
+    }
 }
 
 pub trait DeserializeShrinkWrap<'i>: Sized {
     const ELEMENT_SIZE: ElementSize;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error>;
+
+    fn from_ww_bytes(buf: &'i [u8]) -> Result<Self, Error> {
+        let mut rd = BufReader::new(buf);
+        let value = Self::des_shrink_wrap(&mut rd)?;
+        Ok(value)
+    }
 }
 
-pub fn to_ww_bytes<'i, T: SerializeShrinkWrap>(
-    buf: &'i mut [u8],
-    value: &T,
-) -> Result<&'i [u8], Error> {
-    let mut wr = BufWriter::new(buf);
-    value.ser_shrink_wrap(&mut wr)?;
-    wr.finish_and_take()
-}
+// pub fn to_ww_bytes<'i, T: SerializeShrinkWrap>(
+//     buf: &'i mut [u8],
+//     value: &T,
+// ) -> Result<&'i [u8], Error> {
+//     let mut wr = BufWriter::new(buf);
+//     value.ser_shrink_wrap(&mut wr)?;
+//     wr.finish_and_take()
+// }
 
-pub fn from_ww_bytes<'i, T: DeserializeShrinkWrap<'i>>(buf: &'i [u8]) -> Result<T, Error> {
-    let mut rd = BufReader::new(buf);
-    let value = T::des_shrink_wrap(&mut rd)?;
-    Ok(value)
-}
+// pub fn from_ww_bytes<'i, T: DeserializeShrinkWrap<'i>>(buf: &'i [u8]) -> Result<T, Error> {
+//     let mut rd = BufReader::new(buf);
+//     let value = T::des_shrink_wrap(&mut rd)?;
+//     Ok(value)
+// }
 
 /// Core type governing how objects are serialized and composed together.
 ///

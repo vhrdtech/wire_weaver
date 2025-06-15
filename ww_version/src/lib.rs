@@ -190,17 +190,16 @@ impl Version<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{from_ww_bytes, to_ww_bytes};
     use hex_literal::hex;
 
     #[test]
     fn v1_compatibility() {
         let version = Version::new(0, 1, 2);
         let mut buf = [0u8; 8];
-        let bytes = to_ww_bytes(&mut buf, &version).unwrap();
+        let bytes = version.to_ww_bytes(&mut buf).unwrap();
         assert_eq!(bytes, hex!("01 20"));
 
-        let version_des: Version = from_ww_bytes(bytes).unwrap();
+        let version_des = Version::from_ww_bytes(bytes).unwrap();
         assert_eq!(version_des, version);
     }
 
@@ -208,11 +207,11 @@ mod tests {
     fn v1_compatibility_full() {
         let version = Version::full(0, 1, 2, Some("pre"), Some("build"));
         let mut buf = [0u8; 32];
-        let bytes = to_ww_bytes(&mut buf, &version).unwrap();
+        let bytes = version.to_ww_bytes(&mut buf).unwrap();
         // println!("{:02x?}", bytes);
         assert_eq!(bytes, hex!("01 2C 707265 6275696C64 5 3"));
 
-        let version_des: Version = from_ww_bytes(bytes).unwrap();
+        let version_des = Version::from_ww_bytes(bytes).unwrap();
         assert_eq!(version_des, version);
     }
 }

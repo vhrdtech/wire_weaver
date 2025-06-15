@@ -28,8 +28,29 @@ pub struct Version<'i> {
     pub build: Option<&'i str>,
 }
 
+#[derive_shrink_wrap]
+#[derive(PartialEq, Eq, Clone)]
+#[shrink_wrap(no_alloc)]
+#[owned = "std"]
+#[final_structure]
+pub struct FullVersion<'i> {
+    pub crate_id: &'i str,
+    pub version: Version<'i>,
+}
+
+/// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
+/// Type id is globally unique across all crates.
+#[derive_shrink_wrap]
+#[derive(PartialEq, Eq, Clone)]
+#[final_structure]
+pub struct CompactVersion {
+    pub global_type_id: UNib32,
+    pub major: UNib32,
+    pub minor: UNib32,
+}
+
 impl<'i> Version<'i> {
-    pub fn new(major: u32, minor: u32, patch: u32) -> Self {
+    pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
         Version {
             major: UNib32(major),
             minor: UNib32(minor),
@@ -39,7 +60,7 @@ impl<'i> Version<'i> {
         }
     }
 
-    pub fn full(
+    pub const fn full(
         major: u32,
         minor: u32,
         patch: u32,
@@ -56,6 +77,12 @@ impl<'i> Version<'i> {
     }
 }
 
+impl<'i> FullVersion<'i> {
+    pub const fn new(crate_id: &'i str, version: Version<'i>) -> Self {
+        FullVersion { crate_id, version }
+    }
+}
+
 impl Debug for Version<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}.{}.{}", self.major.0, self.minor.0, self.patch.0)?;
@@ -69,6 +96,12 @@ impl Debug for Version<'_> {
     }
 }
 
+impl Debug for FullVersion<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{} {:?}", self.crate_id, self.version)
+    }
+}
+
 #[cfg(feature = "std")]
 impl Debug for VersionOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -78,7 +111,7 @@ impl Debug for VersionOwned {
 
 #[cfg(feature = "std")]
 impl VersionOwned {
-    pub fn new(major: u32, minor: u32, patch: u32) -> Self {
+    pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
         VersionOwned {
             major: UNib32(major),
             minor: UNib32(minor),
@@ -88,7 +121,7 @@ impl VersionOwned {
         }
     }
 
-    pub fn full(
+    pub const fn full(
         major: u32,
         minor: u32,
         patch: u32,
@@ -176,7 +209,7 @@ impl TryInto<semver::Version> for VersionOwned {
 //     }
 // }
 
-#[cfg(all(feature = "std"))]
+#[cfg(feature = "std")]
 impl Version<'_> {
     pub fn make_owned(&self) -> VersionOwned {
         VersionOwned {
@@ -185,6 +218,16 @@ impl Version<'_> {
             patch: self.patch,
             pre: self.pre.map(|pre| pre.to_string()),
             build: self.build.map(|build| build.to_string()),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<FullVersion<'_>> for FullVersionOwned {
+    fn from(value: FullVersion<'_>) -> Self {
+        FullVersionOwned {
+            crate_id: value.crate_id.to_string(),
+            version: value.version.make_owned(),
         }
     }
 }

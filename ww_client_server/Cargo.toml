@@ -2,7 +2,7 @@
 name = "ww_client_server"
 version.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "Client-server API model data types for both no_std and host."
 edition.workspace = true
 
 [dependencies]

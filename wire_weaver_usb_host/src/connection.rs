@@ -4,7 +4,7 @@ use nusb::hotplug::HotplugEvent;
 use nusb::{DeviceInfo, Interface};
 use std::time::Instant;
 use tracing::{error, trace};
-use wire_weaver_client_server::{Error, OnError};
+use wire_weaver_client_common::{Error, OnError};
 
 pub(crate) async fn connect(
     filter: UsbDeviceFilter,

@@ -121,11 +121,11 @@ fn level_method(
                     quote! { _ = data; Ok(()) }
                 };
                 quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_server::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_server::Error<E>> {
+                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
                         let (args, path) = self.#ll_fn_name(#args_names)?;
                         let (args, path) = (args.to_vec(), path.to_vec());
                         let data =
-                            wire_weaver_client_server::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
+                            wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
                                 .await?;
                         #handle_output
                     }
@@ -171,11 +171,11 @@ fn level_method(
             let hl_fn_name = &prop_name;
             let hl_fn = if high_level_client {
                 quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_server::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_server::Error<E>> {
+                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error<E>> {
                         let (args, path) = self.#prop_ser_value_path(#prop_name)?;
                         let (args, path) = (args.to_vec(), path.to_vec());
                         let _data =
-                            wire_weaver_client_server::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
+                            wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
                                 .await?;
                         Ok(())
                     }
@@ -316,33 +316,33 @@ fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStre
 fn hl_init_methods(high_level_client: bool) -> TokenStream {
     if high_level_client {
         quote! {
-            pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+            pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
                 let (done_tx, done_rx) = tokio::sync::oneshot::channel();
                 self.cmd_tx
-                    .send(wire_weaver_client_server::Command::DisconnectAndExit {
+                    .send(wire_weaver_client_common::Command::DisconnectAndExit {
                         disconnected_tx: Some(done_tx),
                     })
-                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
-                let _ = done_rx.await.map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+                let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
                 Ok(())
             }
 
-            pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+            pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
                 self.cmd_tx
-                    .send(wire_weaver_client_server::Command::DisconnectAndExit {
+                    .send(wire_weaver_client_common::Command::DisconnectAndExit {
                         disconnected_tx: None,
                     })
-                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
                 Ok(())
             }
 
             /// Disconnect from connected device. Event loop will be left running and error mode will lbe set to KeepRetrying.
-            pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_server::Error<E>> {
+            pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
                 self.cmd_tx
-                    .send(wire_weaver_client_server::Command::DisconnectKeepStreams {
+                    .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
                         disconnected_tx: None,
                     })
-                    .map_err(|_| wire_weaver_client_server::Error::EventLoopNotRunning)?;
+                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
                 Ok(())
             }
         }

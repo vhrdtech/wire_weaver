@@ -9,9 +9,9 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver_client_server::event_loop_state::CommonState;
-use wire_weaver_client_server::{Command, Error, OnError};
-use wire_weaver_client_server::{
+use wire_weaver_client_common::event_loop_state::CommonState;
+use wire_weaver_client_common::{Command, Error, OnError};
+use wire_weaver_client_common::{
     ww_client_server,
     ww_client_server::{Event, EventKind, RequestKind},
 };

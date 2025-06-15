@@ -4,8 +4,8 @@ use std::net::IpAddr;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, info, trace};
-use wire_weaver_client_server::event_loop_state::CommonState;
-use wire_weaver_client_server::{Command, Error, ww_client_server, ww_client_server::RequestKind};
+use wire_weaver_client_common::event_loop_state::CommonState;
+use wire_weaver_client_common::{Command, Error, ww_client_server, ww_client_server::RequestKind};
 
 pub struct UdpTarget {
     pub addr: IpAddr,

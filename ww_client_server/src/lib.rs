@@ -6,7 +6,7 @@ use ww_version::Version;
 #[cfg(feature = "std")]
 use ww_version::VersionOwned;
 
-pub const PROTOCOL_GID: u32 = 1;
+pub const PROTOCOL_GID: u32 = 1; // TODO: Remove!
 
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]

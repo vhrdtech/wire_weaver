@@ -22,12 +22,15 @@ members = [
     "wire_weaver_usb_host",
     "wire_weaver_usb_link",
     "wire_weaver_net_host",
-    "wire_weaver_client_server",
+    "wire_weaver_client_common",
     "wire_weaver_udp_link",
-    "wire_weaver_tool"
+    "wire_weaver_tool",
     #    "examples/*",
     #    "tests"
-, "ww_client_server", "ww_date_time", "ww_version"]
+    "ww_client_server",
+    "ww_date_time",
+    "ww_version"
+]
 
 exclude = [
     "wire_weaver_usb_embassy", # mutually exclusive features

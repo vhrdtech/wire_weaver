@@ -1,8 +1,8 @@
 [package]
-name = "wire_weaver_client_server"
+name = "wire_weaver_client_common"
 version.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "Client-server API model host side common data types (USB, WebSocket, UDP event loop state) and helper functions"
 edition.workspace = true
 
 [dependencies]

@@ -11,8 +11,8 @@ use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
-use wire_weaver_client_server::{Command, Error, OnError};
-use wire_weaver_client_server::{
+use wire_weaver_client_common::{
+    Command, Error, OnError,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
@@ -86,7 +86,7 @@ pub async fn usb_worker(
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
                 Ok(Some((interface, di))) => {
                     let client_server_protocol = ProtocolInfo {
-                        protocol_id: wire_weaver_client_server::ww::PROTOCOL_GID,
+                        protocol_id: wire_weaver_client_common::ww::PROTOCOL_GID,
                         major_version: 0,
                         minor_version: 1,
                     };

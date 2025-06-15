@@ -6,7 +6,7 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
-wire_weaver_client_server = { path = "../wire_weaver_client_server" }
+wire_weaver_client_common = { path = "../wire_weaver_client_common" }
 tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
 tokio-tungstenite = "0.27"
 futures-util = "0.3"

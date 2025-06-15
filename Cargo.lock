@@ -3732,7 +3732,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wire_weaver_client_server"
+name = "wire_weaver_client_common"
 version = "0.4.0"
 dependencies = [
  "thiserror 2.0.12",
@@ -3783,7 +3783,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "wire_weaver_client_server",
+ "wire_weaver_client_common",
 ]
 
 [[package]]
@@ -3828,7 +3828,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
- "wire_weaver_client_server",
+ "wire_weaver_client_common",
  "wire_weaver_usb_link",
 ]
 

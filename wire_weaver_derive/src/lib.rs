@@ -1,6 +1,10 @@
 use proc_macro::TokenStream;
 
 mod api;
+mod shrink_wrap;
+mod version;
+mod ww_impl;
+mod ww_impl_args;
 mod ww_repr;
 
 mod shrink_wrap;
@@ -42,4 +46,10 @@ pub fn derive_shrink_wrap(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_repr::ww_repr(attr.into(), item.into()).into()
+}
+
+/// Create FullVersion with the crate name and major.minor.patch numbers during compile time.
+#[proc_macro]
+pub fn full_version(item: TokenStream) -> TokenStream {
+    version::full_version(item.into()).into()
 }

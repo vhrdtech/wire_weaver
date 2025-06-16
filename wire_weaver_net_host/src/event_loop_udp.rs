@@ -319,7 +319,7 @@ async fn handle_datagram(
                 );
                 if let Some(user_version) = &state.common.user_protocol_version {
                     link.send_op(Op::LinkSetup {
-                        client: ww_client_server::VERSION,
+                        client: ww_client_server::FULL_VERSION,
                         user: FullVersion {
                             crate_id: user_version.crate_id.as_str(),
                             version: user_version.version.as_ref(),

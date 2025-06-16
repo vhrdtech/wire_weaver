@@ -5,12 +5,13 @@ use std::path::PathBuf;
 use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use pathsearch::find_executable_in_path;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{TokenStreamExt, quote};
 use relative_path::RelativePath;
 use subprocess::{Exec, Redirection};
 use syn::ItemMod;
 
+use proc_macro2::Ident;
 use wire_weaver_core::ast::{Item, Source};
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
@@ -161,6 +162,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         args.use_async,
                         &method_model,
                         &property_model,
+                        &Ident::new("Context", Span::call_site()),
                     );
                     codegen_ts.append_all(ts);
                 }
@@ -170,6 +172,7 @@ pub fn api(args: TokenStream, item: TokenStream) -> TokenStream {
                         api_level,
                         args.no_alloc,
                         !args.raw_client,
+                        &Ident::new("Client", Span::call_site()),
                     );
                     codegen_ts.append_all(ts);
                 }

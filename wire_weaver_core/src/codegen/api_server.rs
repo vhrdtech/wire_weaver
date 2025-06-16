@@ -18,6 +18,7 @@ pub fn server_dispatcher(
     use_async: bool,
     method_model: &MethodModel,
     property_model: &PropertyModel,
+    context_ident: &proc_macro2::Ident,
 ) -> TokenStream {
     let args_structs = api_common::args_structs(api_level, no_alloc);
     let level_matchers =
@@ -29,13 +30,6 @@ pub fn server_dispatcher(
     } else {
         quote! {}
     };
-    // let api_model_includes = if let Some(api_model_location) = api_model_location {
-    //     quote! {
-    //         use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
-    //     }
-    // } else {
-    //     quote! {}
-    // };
     let (maybe_async, maybe_await) = if use_async {
         (quote! { async }, quote! { .await })
     } else {
@@ -54,7 +48,7 @@ pub fn server_dispatcher(
         use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
         #additional_use
 
-        impl Context {
+        impl #context_ident {
             /// Returns an Error only if request deserialization or error serialization failed.
             /// If there are any other errors, they are returned to the remote caller.
             pub #maybe_async fn process_request<'a>(

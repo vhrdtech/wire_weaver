@@ -8,6 +8,7 @@ use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes}
 
 mod collect_and_convert;
 pub use collect_and_convert::create_flags;
+use syn::ItemTrait;
 mod docs_util;
 pub mod syn_util;
 // mod visit_user_types;
@@ -171,6 +172,20 @@ impl Transform {
             _shebang: syn_file.shebang,
             attrs: syn_file.attrs,
             items,
+        });
+    }
+
+    pub fn push_trait(&mut self, item_trait: ItemTrait) {
+        let attrs = item_trait.attrs.clone();
+        self.files.push(SynFile {
+            source: Source::ShrinkWrapDerive,
+            _shebang: None,
+            attrs,
+            items: [SynItemWithContext::ApiLevel {
+                item_trait,
+                transformed: None,
+            }]
+            .into(),
         });
     }
 

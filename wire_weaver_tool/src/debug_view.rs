@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use eframe::Storage;
 use egui::{CentralPanel, Color32, Id, ScrollArea, SidePanel, TopBottomPanel, Ui, WidgetText};
 use egui_file::FileDialog;
+use proc_macro2::{Ident, Span};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumIter, IntoEnumIterator};
 use wire_weaver_core::ast::{Item, Source};
@@ -440,6 +441,7 @@ impl DebugView {
                         self.state.use_async,
                         &method_model,
                         &property_model,
+                        &Ident::new("Context", Span::call_site()),
                     )
                 });
                 let code = match code {
@@ -458,6 +460,7 @@ impl DebugView {
                         // &Some(location),
                         self.state.no_alloc,
                         true,
+                        &Ident::new("Client", Span::call_site()),
                     )
                 });
                 let code = match code {

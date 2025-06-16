@@ -56,6 +56,9 @@
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_udp_link/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_host/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_client_server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_client_common/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_date_time/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_version/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

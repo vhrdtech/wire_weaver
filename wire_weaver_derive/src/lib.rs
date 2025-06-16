@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use syn::parse_macro_input;
 
 mod api;
 mod shrink_wrap;
@@ -7,14 +8,10 @@ mod ww_impl;
 mod ww_impl_args;
 mod ww_repr;
 
-mod shrink_wrap;
-
 /// Generates types definitions, serdes and API client or server side code from a .ww file.
 ///
 /// Arguments:
 /// * ww = "path to ww file" (optional)
-/// * api_model = "client_server_v0_1" - whether to generate api model code as well (optional).
-///   If not provided, use, for example, wire_weaver_client_server as a dependency.
 /// * client = true/false - whether to generate client code or not.
 /// * server = true/false - whether to generate server code or not.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
@@ -32,6 +29,12 @@ mod shrink_wrap;
 #[proc_macro_attribute]
 pub fn wire_weaver_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     api::api(attr.into(), item.into()).into()
+}
+
+#[proc_macro]
+pub fn ww_impl(args: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as ww_impl_args::ImplArgs);
+    ww_impl::ww_impl(args).into()
 }
 
 /// Use Rust definition of an enum or struct to derive shrink wrap wire format.

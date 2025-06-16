@@ -8,7 +8,7 @@ use ww_version::VersionOwned;
 
 pub const PROTOCOL_GID: u32 = 1; // TODO: Remove!
 
-pub const VERSION: FullVersion = FullVersion::new("ww_client_server", Version::new(0, 1, 0));
+pub const FULL_VERSION: FullVersion = wire_weaver::full_version!();
 
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]
@@ -16,9 +16,9 @@ pub const VERSION: FullVersion = FullVersion::new("ww_client_server", Version::n
 #[derive(Debug)]
 struct Request<'i> {
     /// If 0 - no answer is expected
-    seq: u16,
-    path: RefVec<'i, UNib32>,
-    kind: RequestKind<'i>,
+    pub seq: u16,
+    pub path: RefVec<'i, UNib32>,
+    pub kind: RequestKind<'i>,
 }
 
 #[derive_shrink_wrap]
@@ -31,7 +31,7 @@ enum RequestKind<'i> {
     Call {
         args: RefVec<'i, u8>,
     },
-    // CallTraitMethod { trait_gid: u32, resource: u8, args: Vec<u8> },
+    // CallTraitMethod { trait_gid: Either<FullVersion, CompactVersion>, path: RefVec<'i, UNib32>, args: Vec<u8> },
     /// Read property
     Read,
     // ReadDefault,
@@ -62,9 +62,9 @@ enum RequestKind<'i> {
 #[owned = "std"]
 #[derive(Debug)]
 struct Event<'i> {
-    seq: u16,
+    pub seq: u16,
     // path
-    result: Result<EventKind<'i>, Error>,
+    pub result: Result<EventKind<'i>, Error>,
 }
 
 #[derive_shrink_wrap]

@@ -4,7 +4,7 @@ mod test;
 
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};
-pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
+pub use wire_weaver_derive::{derive_shrink_wrap, full_version, wire_weaver_api, ww_impl, ww_repr};
 
 pub mod prelude {
     pub use shrink_wrap::prelude::*;

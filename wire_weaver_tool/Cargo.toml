@@ -27,6 +27,7 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 
 syn = "2.0"
+proc-macro2 = { workspace = true }
 wire_weaver_core = { path = "../wire_weaver_core" }
 strum = { version = "0.27", features = ["derive"] }
 pathsearch = "0.2.0"

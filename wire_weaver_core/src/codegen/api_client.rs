@@ -13,6 +13,7 @@ pub fn client(
     // api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     high_level_client: bool,
+    ident: &proc_macro2::Ident,
 ) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
     let root_level = level_methods(api_level, no_alloc, high_level_client);
@@ -46,7 +47,7 @@ pub fn client(
         use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
         #additional_use
 
-        impl #generics_a Client #generics_b {
+        impl #generics_a #ident #generics_b {
             #root_level
             #output_des
             #hl_init

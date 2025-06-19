@@ -1,19 +1,17 @@
-use convert_case::Casing;
-use proc_macro2::{Span, TokenStream};
-use quote::quote;
-
 use crate::ast::Type;
-use crate::ast::api::{ApiItemKind, ApiLevel, Argument};
-use crate::ast::ident::Ident;
+use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument};
+use crate::ast::path::Path;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::ty::FieldPath;
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 pub fn client(
     api_level: &ApiLevel,
-    // api_model_location: &Option<syn::Path>,
     no_alloc: bool,
     high_level_client: bool,
-    ident: &proc_macro2::Ident,
+    ident: &Ident,
 ) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
     let root_level = level_methods(api_level, no_alloc, high_level_client);
@@ -23,34 +21,35 @@ pub fn client(
     } else {
         quote! {}
     };
-    // let api_model_includes = if let Some(api_model_location) = api_model_location {
-    //     quote! {
-    //         use #api_model_location::{Request, RequestKind, Event, EventKind, Error};
-    //     }
-    // } else {
-    //     quote! {}
-    // };
     let (generics_a, generics_b) = if high_level_client {
         (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> })
     } else {
         (quote! {}, quote! {})
     };
     let hl_init = hl_init_methods(high_level_client);
+
+    let parent = match &api_level.source_location {
+        ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
+        ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
+    };
+    let use_external = api_level.use_external_types(Path::new_ident(parent.clone()));
     quote! {
-        #args_structs
+        mod api_client {
+            #args_structs
 
-        use wire_weaver::shrink_wrap::{
-            DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
-            Error as ShrinkWrapError, nib32::UNib32
-        };
-        // #api_model_includes
-        use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
-        #additional_use
+            use wire_weaver::shrink_wrap::{
+                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
+                Error as ShrinkWrapError, nib32::UNib32
+            };
+            use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
+            #additional_use
+            #use_external
 
-        impl #generics_a #ident #generics_b {
-            #root_level
-            #output_des
-            #hl_init
+            impl #generics_a super::#ident #generics_b {
+                #root_level
+                #output_des
+                #hl_init
+            }
         }
     }
 }
@@ -73,7 +72,6 @@ fn level_method(
 ) -> TokenStream {
     // TODO: Handle sub-levels
     let path = if no_alloc {
-        // quote! { RefVec::Slice { slice: &[UNib32(#id)], element_size: ElementSize::UnsizedSelfDescribing } }
         quote! { &[UNib32(#id)] }
     } else {
         quote! { vec![UNib32(#id)] }
@@ -83,15 +81,9 @@ fn level_method(
     } else {
         quote! { Vec<u8> }
     };
-    // let finish_wr = if no_alloc {
-    //     quote! { wr.finish_and_take()? }
-    // } else {
-    //     quote! { wr.finish()?.to_vec() }
-    // };
     let path_ty = if no_alloc {
         quote! { &[UNib32] }
     } else {
-        // should be u16?
         quote! { Vec<UNib32> }
     };
     match kind {
@@ -101,21 +93,21 @@ fn level_method(
             return_type,
         } => {
             let (args_ser, args_list, args_names, args_bytes) = ser_args(ident, args, no_alloc);
-            let ll_fn_name = Ident::new(format!("{}_ser_args_path", ident.sym));
+            let ll_fn_name = Ident::new(format!("{}_ser_args_path", ident).as_str(), ident.span());
             let hl_fn_name = &ident;
             let hl_fn = if high_level_client {
                 let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
-                    let maybe_dot_output =
-                        if matches!(return_type, Type::Unsized(_, _) | Type::Sized(_, _)) {
-                            quote! {} // User type directly returned from method
-                        } else {
-                            quote! { .output } // Return type is wrapped in a struct
-                        };
+                    let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
+                        quote! {} // User type directly returned from method
+                    } else {
+                        quote! { .output } // Return type is wrapped in a struct
+                    };
                     (return_type.def(no_alloc), maybe_dot_output)
                 } else {
                     (quote! { () }, quote! {})
                 };
-                let des_output_fn = Ident::new(format!("{}_des_output", ident.sym));
+                let des_output_fn =
+                    Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
                 let handle_output = if return_type.is_some() {
                     quote! { Ok(Self::#des_output_fn(&data)? #maybe_dot_output) }
                 } else {
@@ -154,9 +146,15 @@ fn level_method(
                 quote! { ? },
                 &mut ser,
             );
-            let prop_ser_value_path = Ident::new(format!("{}_ser_value_path", prop_name.sym));
-            let prop_path = Ident::new(format!("{}_path", prop_name.sym));
-            let prop_des_value = Ident::new(format!("{}_des_value", prop_name.sym));
+            let prop_ser_value_path = Ident::new(
+                format!("{}_ser_value_path", prop_name).as_str(),
+                prop_name.span(),
+            );
+            let prop_path = Ident::new(format!("{}_path", prop_name).as_str(), prop_name.span());
+            let prop_des_value = Ident::new(
+                format!("{}_des_value", prop_name).as_str(),
+                prop_name.span(),
+            );
             let finish_wr = if no_alloc {
                 quote! { wr.finish_and_take()? }
             } else {
@@ -164,7 +162,7 @@ fn level_method(
             };
             let mut des = TokenStream::new();
             ty.buf_read(
-                proc_macro2::Ident::new("value", Span::call_site()),
+                &Ident::new("value", Span::call_site()),
                 no_alloc,
                 quote! { ? },
                 &mut des,
@@ -213,16 +211,16 @@ fn level_method(
             ty: _,
             is_up: _,
         } => {
-            let fn_name = Ident::new(format!("{}_stream_path", ident.sym));
+            let fn_name = Ident::new(format!("{}_stream_path", ident).as_str(), ident.span());
             quote! {
                 pub fn #fn_name(&self) -> #path_ty {
                     #path
                 }
             }
         }
-        // ApiItemKind::ImplTrait => {}
-        // ApiItemKind::Level(_) => {}
-        u => unimplemented!("{u:?}"),
+        ApiItemKind::ImplTrait { .. } => {
+            quote! {}
+        }
     }
 }
 
@@ -231,9 +229,12 @@ fn ser_args(
     args: &[Argument],
     no_alloc: bool,
 ) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
-    let args_struct_ident =
-        format!("{}_args", method_ident.sym).to_case(convert_case::Case::Pascal);
-    let args_struct_ident = Ident::new(args_struct_ident);
+    let args_struct_ident = Ident::new(
+        format!("{}_args", method_ident)
+            .to_case(Case::Pascal)
+            .as_str(),
+        method_ident.span(),
+    );
     if args.is_empty() {
         if no_alloc {
             (
@@ -241,17 +242,13 @@ fn ser_args(
                 quote! {},
                 quote! {},
                 // 0 when no arguments to allow adding them later, as Option
-                // quote! { RefVec::Slice { slice: &[0x00], element_size: ElementSize::Sized { size_bits: 8 } } },
                 quote! { &[0x00] },
             )
         } else {
             (quote! {}, quote! {}, quote! {}, quote! { vec![] })
         }
     } else {
-        let idents = args.iter().map(|arg| {
-            let ident: proc_macro2::Ident = (&arg.ident).into();
-            ident
-        });
+        let idents = args.iter().map(|arg| &arg.ident);
 
         let finish_wr = if no_alloc {
             quote! { wr.finish_and_take()? }
@@ -265,13 +262,7 @@ fn ser_args(
             args.ser_shrink_wrap(&mut wr)?;
             let args_bytes = #finish_wr;
         };
-        let idents = args
-            .iter()
-            .map(|arg| {
-                let ident: proc_macro2::Ident = (&arg.ident).into();
-                ident
-            })
-            .collect::<Vec<_>>();
+        let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
         let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
         let args_list = quote! { #(#idents: #tys),* };
         let args_names = quote! { #(#idents),* };
@@ -288,7 +279,6 @@ fn output_des_fns(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         } => return_type
             .as_ref()
             .map(|ty| output_des_fn(ident, ty, no_alloc)),
-        ApiItemKind::Level(_) => unimplemented!(),
         _ => None,
     });
     quote! {
@@ -297,13 +287,15 @@ fn output_des_fns(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 }
 
 fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStream {
-    let fn_name = Ident::new(format!("{}_des_output", ident.sym));
+    let fn_name = Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
 
-    let ty_def = if matches!(return_type, Type::Unsized(_, _) | Type::Sized(_, _)) {
+    let ty_def = if matches!(return_type, Type::External(_, _)) {
         return_type.def(no_alloc)
     } else {
-        let output_struct_name =
-            Ident::new(format!("{}_output", ident.sym).to_case(convert_case::Case::Pascal));
+        let output_struct_name = Ident::new(
+            format!("{}_output", ident).to_case(Case::Pascal).as_str(),
+            ident.span(),
+        );
         quote! { #output_struct_name }
     };
     quote! {
@@ -337,7 +329,7 @@ fn hl_init_methods(high_level_client: bool) -> TokenStream {
                 Ok(())
             }
 
-            /// Disconnect from connected device. Event loop will be left running and error mode will lbe set to KeepRetrying.
+            /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
             pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
                 self.cmd_tx
                     .send(wire_weaver_client_common::Command::DisconnectKeepStreams {

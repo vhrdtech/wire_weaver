@@ -4,11 +4,11 @@ mod test;
 
 pub use shrink_wrap;
 use shrink_wrap::{BufReader, BufWriter};
-pub use wire_weaver_derive::{derive_shrink_wrap, full_version, wire_weaver_api, ww_impl, ww_repr};
+pub use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait};
 
 pub mod prelude {
     pub use shrink_wrap::prelude::*;
-    pub use wire_weaver_derive::{derive_shrink_wrap, wire_weaver_api, ww_repr};
+    pub use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait};
 }
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.

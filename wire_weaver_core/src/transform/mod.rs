@@ -1,335 +1,192 @@
-use std::collections::{HashMap, VecDeque};
-
-use crate::ast::api::ApiLevel;
-use crate::ast::path::Path;
-use crate::ast::{Context, ItemConst, ItemEnum, ItemStruct, Module, Source, Version};
-use crate::transform::collect_and_convert::CollectAndConvertPass;
-use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
-
-mod collect_and_convert;
-pub use collect_and_convert::create_flags;
-use syn::ItemTrait;
 mod docs_util;
 pub mod syn_util;
-// mod visit_user_types;
+pub mod transform_api_level;
+pub mod transform_enum;
+pub mod transform_struct;
+pub mod transform_ty;
 // TODO: check that no fields and no variants have the same name
-// TODO: check that variants fit within chosen repr
 
-#[derive(Debug, Clone)]
-pub enum SynConversionWarning {
-    UnknownAttribute(String),
-    UnknownFileItem,
+use crate::ast::{Docs, Field, Type};
+use crate::transform::syn_util::{
+    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
+    take_id_attr, take_since_attr,
+};
+use crate::transform::transform_ty::transform_type;
+use proc_macro2::{Ident, Span};
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum FieldPathRoot {
+    NamedField(Ident),
+    EnumVariant(Ident),
+    Argument(Ident),
+    Output,
 }
 
-#[derive(Debug, Clone)]
-pub enum SynConversionError {
-    UnknownType(String),
-    UnsupportedType(String),
-    WrongDefaultAttr(String),
-    WrongDiscriminant,
-    WrongReprAttr(String),
-    FlagTypeIsNotBool,
-    RecursionLimitReached,
-    UnknownApiResource,
-    EnumDiscriminantNotLargeEnough,
-    DefaultUsedOnNotOption,
-    UnsupportedDefaultValue,
-    WrongEvolvedTypeOrder,
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum FieldSelector {
+    NamedField(Ident),
+    Tuple(u32),
+    Array(usize),
+    ResultIfOk,
+    ResultIfErr,
+    OptionIsSome,
 }
 
-#[derive(Default)]
-pub struct Messages {
-    messages: Vec<Message>,
+#[derive(Debug)]
+pub struct FieldPath {
+    root: FieldPathRoot,
+    selectors: Vec<FieldSelector>,
 }
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    SynConversionWarning(SynConversionWarning),
-    SynConversionError(SynConversionError),
-}
-
-impl Messages {
-    pub fn messages(&self) -> &[Message] {
-        &self.messages
+impl FieldPath {
+    pub fn new(root: FieldPathRoot) -> Self {
+        FieldPath {
+            root,
+            selectors: vec![],
+        }
     }
 
-    pub fn error_count(&self) -> usize {
-        let mut error_count = 0;
-        for msg in &self.messages {
-            if matches!(msg, Message::SynConversionError(_)) {
-                error_count += 1;
+    #[allow(dead_code)]
+    pub fn push(&mut self, selector: FieldSelector) {
+        self.selectors.push(selector);
+    }
+
+    pub fn clone_and_push(&self, selector: FieldSelector) -> Self {
+        FieldPath {
+            root: self.root.clone(),
+            selectors: self.selectors.iter().cloned().chain([selector]).collect(),
+        }
+    }
+
+    pub fn flag_ident(&self) -> Ident {
+        match &self.root {
+            FieldPathRoot::NamedField(ident) | FieldPathRoot::Argument(ident) => {
+                let ident = ident.to_string();
+                Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
-        }
-        error_count
-    }
-
-    fn push_conversion_warning(&mut self, warning: SynConversionWarning) {
-        self.messages.push(Message::SynConversionWarning(warning))
-    }
-
-    fn push_conversion_error(&mut self, error: SynConversionError) {
-        self.messages.push(Message::SynConversionError(error))
-    }
-}
-
-pub fn dependencies(_ast: syn::File) -> Vec<Source> {
-    todo!()
-}
-
-#[derive(Default)]
-pub struct Transform {
-    files: Vec<SynFile>,
-    messages: HashMap<Source, Messages>,
-}
-
-pub(crate) struct SynFile {
-    source: Source,
-    _shebang: Option<String>,
-    attrs: Vec<syn::Attribute>,
-    items: VecDeque<SynItemWithContext>,
-}
-
-enum SynItemWithContext {
-    Enum {
-        item_enum: syn::ItemEnum,
-        // transformed: Option<ItemEnum>,
-        // is_lifetime: Option<bool>,
-        transformed: Option<ItemEnumTransformed>,
-    },
-    Struct {
-        item_struct: syn::ItemStruct,
-        // transformed: Option<ItemStruct>,
-        // is_lifetime: Option<bool>,
-        transformed: Option<ItemStructTransformed>,
-    },
-    ApiLevel {
-        item_trait: syn::ItemTrait,
-        transformed: Option<ApiLevel>,
-    },
-    Const {
-        item_const: syn::ItemConst,
-        transformed: Option<ItemConst>,
-    },
-}
-
-struct ItemEnumTransformed {
-    item_enum: ItemEnum,
-    is_lifetime: bool,
-    is_unsized: bool,
-}
-
-struct ItemStructTransformed {
-    item_struct: ItemStruct,
-    is_lifetime: bool,
-    is_unsized: bool,
-}
-
-impl SynItemWithContext {
-    pub fn ident(&self) -> Option<syn::Ident> {
-        match self {
-            SynItemWithContext::Enum { item_enum, .. } => Some(item_enum.ident.clone()),
-            SynItemWithContext::Struct { item_struct, .. } => Some(item_struct.ident.clone()),
-            SynItemWithContext::ApiLevel { .. } => None,
-            SynItemWithContext::Const { .. } => None,
-        }
-    }
-}
-
-impl Transform {
-    pub fn new() -> Self {
-        Transform::default()
-    }
-
-    pub fn push_file(&mut self, source: Source, syn_file: syn::File) {
-        let mut items = VecDeque::new();
-        for item in syn_file.items {
-            match item {
-                syn::Item::Struct(item_struct) => {
-                    items.push_back(SynItemWithContext::Struct {
-                        item_struct,
-                        transformed: None,
-                    });
+            FieldPathRoot::EnumVariant(_enum_variant_name) => {
+                if let Some(selector) = self.selectors.first() {
+                    if let FieldSelector::NamedField(ident) = selector {
+                        let ident = ident.to_string();
+                        Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
+                    } else {
+                        Ident::new("_todo_flag", Span::call_site())
+                    }
+                } else {
+                    Ident::new("_todo_flag", Span::call_site())
                 }
-                syn::Item::Enum(item_enum) => {
-                    items.push_back(SynItemWithContext::Enum {
-                        item_enum,
-                        transformed: None,
-                    });
-                }
-                syn::Item::Trait(item_trait) => items.push_back(SynItemWithContext::ApiLevel {
-                    item_trait,
-                    transformed: None,
-                }),
-                syn::Item::Const(item_const) => items.push_back(SynItemWithContext::Const {
-                    item_const,
-                    transformed: None,
-                }),
-                _ => {}
             }
+            FieldPathRoot::Output => Ident::new("_output_flag", Span::call_site()),
         }
-        self.files.push(SynFile {
-            source,
-            _shebang: syn_file.shebang,
-            attrs: syn_file.attrs,
-            items,
-        });
     }
+}
 
-    pub fn push_trait(&mut self, item_trait: ItemTrait) {
-        let attrs = item_trait.attrs.clone();
-        self.files.push(SynFile {
-            source: Source::ShrinkWrapDerive,
-            _shebang: None,
-            attrs,
-            items: [SynItemWithContext::ApiLevel {
-                item_trait,
-                transformed: None,
-            }]
-            .into(),
-        });
+/// Create flags for Result or Option fields without explicitly defined ones.
+pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
+    let mut fields_without_flags = vec![];
+    for (idx, f) in fields.iter().enumerate() {
+        let is_flag_ty = matches!(f.ty, Type::Result(_, _) | Type::Option(_, _));
+        if is_flag_ty && !explicit_flags.iter().any(|i| i == &f.ident) {
+            fields_without_flags.push((idx, matches!(f.ty, Type::Result(_, _)), f.ident.clone()));
+        }
     }
-
-    pub fn load_and_push(&mut self, source: Source) -> Result<(), String> {
-        let contents = match &source {
-            Source::ShrinkWrapDerive => unreachable!(),
-            Source::File { path } => {
-                std::fs::read_to_string(path.as_str()).map_err(|e| format!("{path} {e:?}"))?
-            }
-            Source::String(contents) => contents.clone(),
-            Source::Registry { .. } => unimplemented!(),
-            Source::Git { .. } => unimplemented!(),
+    for (shift, (pos, is_result, ident)) in fields_without_flags.into_iter().enumerate() {
+        let flag_ident = Ident::new(format!("_{}_flag", ident).as_str(), ident.span());
+        let flag = Field {
+            docs: Docs::empty(),
+            id: 0, // TODO: Adjust auto created flag IDs
+            ident: flag_ident,
+            ty: if is_result {
+                Type::IsOk(ident)
+            } else {
+                Type::IsSome(ident)
+            },
+            since: None,
+            default: None,
         };
-        let ast = syn::parse_file(contents.as_str()).map_err(|e| format!("{e:?}"))?;
-        self.push_file(source, ast);
-        Ok(())
+        fields.insert(pos + shift, flag);
     }
+}
 
-    pub fn transform(
-        &mut self,
-        add_derives: &[&str],
-        _is_shrink_wrap_attr_macro: bool,
-    ) -> Option<Context> {
-        let mut modules = vec![];
-        // let mut visit_user_types = VisitUserTypes {
-        //     files: &mut self.files
-        // };
-        let mut item_counts = vec![];
-        for syn_file in &self.files {
-            item_counts.push(syn_file.items.len());
-        }
-        for _k in 0..8 {
-            // Take each item and run collect and convert pass, then put it back. (To not disturb borrow checker).
-            for i in 0..self.files.len() {
-                for _ in 0..item_counts[i] {
-                    let mut item = self.files[i].items.pop_front().expect("");
-                    let current_file = self.files.get(i).expect("");
-                    let mut finalize = CollectAndConvertPass {
-                        _files: &self.files,
-                        current_file,
-                        messages: self
-                            .messages
-                            .entry(current_file.source.clone())
-                            .or_default(),
-                        _source: current_file.source.clone(),
-                        // is_shrink_wrap_attr_macro,
-                    };
-                    finalize.transform(&mut item);
-                    self.files[i].items.push_back(item);
-                }
-            }
-            // Check if more passes are needed (each time a type references another type, one more pass is required)
-            // println!("After pass {}", k + 1);
-            if !self.need_more_passes() {
-                break;
-            }
-        }
-        if self.need_more_passes() {
-            if let Some((_, messages)) = self.messages.iter_mut().next() {
-                messages.push_conversion_error(SynConversionError::RecursionLimitReached);
-            }
-            return None;
-        }
-        // println!("Done");
+// fn transform_const(item_const: &syn::ItemConst) -> Result<ItemConst, String> {
+//     let ty = transform_type(
+//         item_const.ty.deref().clone(),
+//         None,
+//         &FieldPath::new(FieldPathRoot::Argument(item_const.ident.clone())),
+//     )?;
+//     let mut attrs = item_const.attrs.clone();
+//     let docs = collect_docs_attrs(&mut attrs);
+//     collect_unknown_attributes(&mut attrs);
+//     Ok(ItemConst {
+//         docs,
+//         ident: item_const.ident.clone().into(),
+//         ty,
+//         value: item_const.expr.deref().clone(),
+//     })
+// }
 
-        for syn_file in self.files.drain(..) {
-            let mut items = vec![];
-            let mut api_levels = vec![];
-            for item in syn_file.items {
-                match item {
-                    SynItemWithContext::Enum { transformed, .. } => {
-                        if let Some(mut item_enum_tf) = transformed {
-                            item_enum_tf
-                                .item_enum
-                                .derive
-                                .extend(add_derives.iter().map(|s| Path::new_path(s)));
-                            items.push(crate::ast::Item::Enum(item_enum_tf.item_enum));
-                        }
-                    }
-                    SynItemWithContext::Struct { transformed, .. } => {
-                        if let Some(mut item_struct_tf) = transformed {
-                            item_struct_tf
-                                .item_struct
-                                .derive
-                                .extend(add_derives.iter().map(|s| Path::new_path(s)));
-                            items.push(crate::ast::Item::Struct(item_struct_tf.item_struct));
-                        }
-                    }
-                    SynItemWithContext::ApiLevel { transformed, .. } => {
-                        if let Some(api_level) = transformed {
-                            api_levels.push(api_level);
-                        }
-                    }
-                    SynItemWithContext::Const { transformed, .. } => {
-                        if let Some(item_const) = transformed {
-                            items.push(crate::ast::Item::Const(item_const))
-                        }
-                    }
-                }
-            }
-            let mut attrs = syn_file.attrs;
-            let docs = collect_docs_attrs(&mut attrs);
-            let messages = self.messages.entry(syn_file.source.clone()).or_default();
-            collect_unknown_attributes(&mut attrs, messages);
-            modules.push(Module {
-                docs,
-                source: syn_file.source.clone(),
-                version: Version {
-                    major: 0,
-                    minor: 1,
-                    patch: 0,
-                },
-                items,
-                api_levels,
-            });
+pub fn transform_field(
+    def_order_idx: u32,
+    field: &syn::Field,
+    path: &FieldPath,
+) -> Result<(Field, bool), String> {
+    let mut field = field.clone();
+    let ident = field.ident.clone().unwrap_or(Ident::new(
+        format!("_{def_order_idx}").as_str(),
+        Span::call_site(),
+    ));
+
+    let path = if let Some(ident) = field.ident {
+        path.clone_and_push(FieldSelector::NamedField(ident))
+    } else {
+        path.clone_and_push(FieldSelector::Tuple(def_order_idx))
+    };
+
+    let ty = transform_type(field.ty, Some(&mut field.attrs), &path)?;
+    let default = take_default_attr(&mut field.attrs)?;
+    let flag = take_flag_attr(&mut field.attrs);
+    let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
+    let docs = collect_docs_attrs(&mut field.attrs);
+    collect_unknown_attributes(&mut field.attrs);
+
+    if flag.is_some() {
+        if !matches!(ty, Type::Bool) {
+            return Err(format!("{ident:?} flag type is not bool"));
         }
-        let error_count = self.messages.iter().fold(0, |error_count, (_, messages)| {
-            error_count + messages.error_count()
-        });
-        if error_count == 0 {
-            Some(Context { modules })
+        let result_ident = ident;
+        let ident = if flag.is_some() {
+            Ident::new(
+                format!("_{}_flag", result_ident).as_str(),
+                result_ident.span(),
+            )
         } else {
-            None
-        }
-    }
+            result_ident.clone()
+        };
 
-    fn need_more_passes(&self) -> bool {
-        for file in &self.files {
-            for item in &file.items {
-                let item_not_transformed = match item {
-                    SynItemWithContext::Enum { transformed, .. } => transformed.is_none(),
-                    SynItemWithContext::Struct { transformed, .. } => transformed.is_none(),
-                    SynItemWithContext::ApiLevel { transformed, .. } => transformed.is_none(),
-                    SynItemWithContext::Const { .. } => false,
-                };
-                if item_not_transformed {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    pub fn messages(&self) -> impl Iterator<Item = (&Source, &Messages)> {
-        self.messages.iter()
+        Ok((
+            Field {
+                docs,
+                id,
+                ident,
+                ty: Type::IsOk(result_ident),
+                since: None,
+                default,
+            },
+            true,
+        ))
+    } else {
+        Ok((
+            Field {
+                docs,
+                id,
+                ident,
+                ty,
+                since: take_since_attr(&mut field.attrs),
+                default,
+            },
+            false,
+        ))
     }
 }

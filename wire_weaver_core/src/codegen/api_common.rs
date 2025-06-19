@@ -1,9 +1,8 @@
 use convert_case::Casing;
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::TokenStreamExt;
 
 use crate::ast::api::{ApiItemKind, ApiLevel};
-use crate::ast::ident::Ident;
 use crate::ast::{Docs, Field, ItemStruct, Type};
 use crate::transform::create_flags;
 
@@ -36,11 +35,16 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             }
             create_flags(&mut fields, &[]);
 
-            let ident = format!("{}_args", ident.sym).to_case(convert_case::Case::Pascal);
+            let ident = Ident::new(
+                format!("{}_args", ident)
+                    .to_case(convert_case::Case::Pascal)
+                    .as_str(),
+                ident.span(),
+            );
             let item_struct = ItemStruct {
                 docs: Docs::empty(),
                 derive: vec![],
-                ident: Ident::new(ident),
+                ident,
                 fields,
                 cfg: None,
                 size_assumption: None,
@@ -53,18 +57,23 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 }
 
 fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Type, no_alloc: bool) {
-    if matches!(return_type, Type::Unsized(_, _) | Type::Sized(_, _)) {
+    if matches!(return_type, Type::External(_, _)) {
         return;
     }
-    let ident = format!("{}_output", method_ident.sym).to_case(convert_case::Case::Pascal);
+    let ident = Ident::new(
+        format!("{}_output", method_ident)
+            .to_case(convert_case::Case::Pascal)
+            .as_str(),
+        method_ident.span(),
+    );
     let mut item_struct = ItemStruct {
         docs: Docs::empty(),
         derive: vec![],
-        ident: Ident::new(ident),
+        ident,
         fields: vec![Field {
             docs: Docs::empty(),
             id: 0,
-            ident: Ident::new("output"),
+            ident: Ident::new("output", Span::call_site()),
             ty: return_type.clone(),
             since: None,
             default: None,

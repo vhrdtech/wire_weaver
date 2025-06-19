@@ -5,7 +5,7 @@ use shrink_wrap::ElementSize;
 use syn::{LitInt, LitStr};
 
 pub(crate) fn serdes(
-    ty_name: Ident,
+    ty_name: &Ident,
     ser: impl ToTokens,
     des: impl ToTokens,
     lifetime: TokenStream,
@@ -48,7 +48,6 @@ pub(crate) fn strings_to_derive(traits: &Vec<Path>) -> TokenStream {
 
 pub fn element_size_ts(size: ElementSize) -> TokenStream {
     match size {
-        // ElementSize::Implied => quote! { ElementSize::Implied },
         ElementSize::Unsized => quote! { ElementSize::Unsized },
         ElementSize::UnsizedFinalStructure => quote! { ElementSize::UnsizedFinalStructure },
         ElementSize::SelfDescribing => quote! { ElementSize::SelfDescribing },
@@ -82,11 +81,7 @@ fn sum_unknown(mut sizes: Vec<Ident>) -> TokenStream {
     }
 }
 
-pub fn assert_element_size(
-    ident: &crate::ast::ident::Ident,
-    size: ElementSize,
-    cfg: Option<LitStr>,
-) -> TokenStream {
+pub fn assert_element_size(ident: &Ident, size: ElementSize, cfg: Option<LitStr>) -> TokenStream {
     let size_ts = match size {
         ElementSize::Unsized => quote! { Unsized },
         ElementSize::UnsizedFinalStructure => quote! { UnsizedFinalStructure },
@@ -99,7 +94,7 @@ pub fn assert_element_size(
         ElementSize::SelfDescribing => "SelfDescribing",
         ElementSize::Sized { .. } => "Sized",
     };
-    let err_msg = format!("{} must be {size}", ident.sym);
+    let err_msg = format!("{} must be {size}", ident);
     let err_msg = LitStr::new(&err_msg, Span::call_site());
     let cfg = if let Some(cfg) = cfg {
         quote! { #[cfg(feature = #cfg)] }
@@ -118,5 +113,20 @@ pub fn assert_element_size(
             matches!(<#ident as DeserializeShrinkWrap>::ELEMENT_SIZE, ElementSize::#size_ts),
             #err_msg
         );
+    }
+}
+
+pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream {
+    if condition {
+        tokens_if_true
+    } else {
+        TokenStream::new()
+    }
+}
+
+pub fn add_prefix(prefix: Option<&Ident>, ident: &Ident) -> Ident {
+    match prefix {
+        Some(prefix) => Ident::new(format!("{}_{}", prefix, ident).as_str(), ident.span()),
+        None => ident.clone(),
     }
 }

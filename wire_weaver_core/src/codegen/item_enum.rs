@@ -10,14 +10,14 @@ use shrink_wrap::ElementSize;
 use syn::{Lit, LitInt};
 
 pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
-    let enum_name: Ident = (&item_enum.ident).into();
+    let enum_name = &item_enum.ident;
     let variants = CGEnumFieldsDef {
         variants: &item_enum.variants,
         no_alloc,
     };
     let lifetime = enum_lifetime(item_enum, no_alloc);
     let derive = strings_to_derive(&item_enum.derive);
-    let docs = item_enum.docs.ts();
+    let docs = &item_enum.docs;
     let cfg = item_enum.cfg();
     let base_ty = ww_discriminant_type(item_enum);
     let assert_size = if let Some(size) = item_enum.size_assumption {
@@ -48,7 +48,7 @@ pub fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
 }
 
 pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
-    let enum_name: Ident = (&item_enum.ident).into();
+    let enum_name = &item_enum.ident;
     let enum_ser = CGEnumSer {
         item_enum,
         no_alloc,
@@ -75,9 +75,9 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
                         if let Some(size) = f.ty.element_size() {
                             sum = sum.add(size);
                         }
-                        if let Type::Unsized(path, _) = &f.ty {
+                        if let Type::External(path, _) = &f.ty {
                             if let Some(ident) = path.segments.last() {
-                                unknown_unsized.push(ident.into());
+                                unknown_unsized.push(ident.clone());
                             }
                         }
                     }
@@ -87,9 +87,9 @@ pub fn enum_serdes(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
                         if let Some(size) = ty.element_size() {
                             sum = sum.add(size);
                         }
-                        if let Type::Unsized(path, _) = ty {
+                        if let Type::External(path, _) = ty {
                             if let Some(ident) = path.segments.last() {
-                                unknown_unsized.push(ident.into());
+                                unknown_unsized.push(ident.clone());
                             }
                         }
                     }
@@ -144,18 +144,18 @@ struct CGEnumFieldsDef<'a> {
 impl<'a> ToTokens for CGEnumFieldsDef<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in self.variants {
-            let ident: Ident = (&variant.ident).into();
+            let ident = &variant.ident;
             let discriminant = variant.discriminant_lit();
-            let variant_docs = variant.docs.ts();
+            let variant_docs = &variant.docs;
             let variant = match &variant.fields {
                 Fields::Named(fields_named) => {
                     let fields_named = fields_named
                         .iter()
                         .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
                         .collect::<Vec<_>>();
-                    let fields_docs = fields_named.iter().map(|f| f.docs.ts()).collect::<Vec<_>>();
+                    let fields_docs = fields_named.iter().map(|f| &f.docs).collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
-                        fields_named.iter().map(|f| (&f.ident).into()).collect();
+                        fields_named.iter().map(|f| f.ident.clone()).collect();
                     let field_types: Vec<TokenStream> = fields_named
                         .iter()
                         .map(|f| f.ty.def(self.no_alloc))
@@ -218,34 +218,13 @@ fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
 impl<'a> ToTokens for CGEnumSer<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         // TODO: forbid empty enums or not?
-        // if self.item_enum.variants.is_empty() {
-        //     tokens.append_all(quote!( wr.write_vlu16n(0)?; ));
-        // } else {
         tokens.append_all(trace_extended_key_val(
             "Serialize enum",
-            self.item_enum.ident.sym.as_str(),
+            self.item_enum.ident.to_string().as_str(),
         ));
         write_discriminant(self.item_enum.repr, tokens);
-        // }
 
-        // if self.item_enum.is_final && !self.item_enum.contains_data_fields() {
-        //     tokens.append_all(quote!( Ok(()) ));
-        //     return;
-        // }
-
-        let enum_name: Ident = (&self.item_enum.ident).into();
-        // let unit_variants: Vec<_> = self
-        //     .item_enum
-        //     .variants
-        //     .iter()
-        //     .filter_map(|v| {
-        //         if v.is_unit() {
-        //             Some(v.ident.clone())
-        //         } else {
-        //             None
-        //         }
-        //     })
-        //     .collect();
+        let enum_name = &self.item_enum.ident;
         let mut ser_data_variants = quote! {};
         for variant in &self.item_enum.variants {
             match &variant.fields {
@@ -253,7 +232,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                     let mut fields_names = vec![];
                     let mut ser = quote!();
                     for field in fields_named {
-                        let field_name: Ident = (&field.ident).into();
+                        let field_name = &field.ident;
                         let field_path = if matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
                             FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
                         } else {
@@ -262,13 +241,13 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                         };
                         tokens.append_all(trace_extended_key_val(
                             "Serialize named field",
-                            field.ident.sym.as_str(),
+                            field.ident.to_string().as_str(),
                         ));
                         field
                             .ty
                             .buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
-                    let variant_name: Ident = (&variant.ident).into();
+                    let variant_name = &variant.ident;
                     ser_data_variants.append_all(
                         quote!(#enum_name::#variant_name { #(#fields_names),* } => { #ser }),
                     );
@@ -290,7 +269,7 @@ impl<'a> ToTokens for CGEnumSer<'a> {
                         ));
                         ty.buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
                     }
-                    let variant_name: Ident = (&variant.ident).into();
+                    let variant_name = &variant.ident;
                     ser_data_variants.append_all(
                         quote!(#enum_name::#variant_name ( #(#fields_numbers),* ) => { #ser }),
                     );
@@ -335,21 +314,15 @@ fn read_discriminant(repr: Repr) -> TokenStream {
     }
 }
 
-impl<'a> ToTokens for CGEnumDes<'a> {
+impl ToTokens for CGEnumDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let known_variants = CGEnumVariantsDes {
             item_enum: self.item_enum,
             no_alloc: self.no_alloc,
         };
-        // let des = quote! {
-        //     Ok(match discriminant {
-        //         #known_variants
-        //         _ => { return Err(shrink_wrap::Error::EnumFutureVersionOrMalformedData); }
-        //     })
-        // };
         tokens.append_all(trace_extended_key_val(
             "Deserialize enum",
-            self.item_enum.ident.sym.as_str(),
+            self.item_enum.ident.to_string().as_str(),
         ));
         let read_discriminant = read_discriminant(self.item_enum.repr);
         tokens.append_all(quote! {
@@ -359,27 +332,6 @@ impl<'a> ToTokens for CGEnumDes<'a> {
                 _ => { return Err(ShrinkWrapError::EnumFutureVersionOrMalformedData); }
             })
         });
-        // if self.item_enum.is_final {
-        //     tokens.append_all(quote! {
-        //         let discriminant = rd.read_vlu16n()?;
-        //         #des
-        //     });
-        // } else if !self.item_enum.contains_data_fields() {
-        //     tokens.append_all(quote! {
-        //         let discriminant = rd.read_vlu16n()?;
-        //         // let _future_size = rd.read_vlu16n_rev()?;
-        //         #des
-        //     });
-        // } else {
-        //     tokens.append_all(quote! {
-        //         {
-        //             let discriminant = rd.read_vlu16n()?;
-        //             let size = rd.read_vlu16n_rev()? as usize;
-        //             let mut rd = rd.split(size)?;
-        //             #des
-        //         }
-        //     });
-        // }
     }
 }
 
@@ -417,14 +369,14 @@ impl ToTokens for CGEnumVariantsDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in &self.item_enum.variants {
             let discriminant = variant.discriminant_lit();
-            let enum_name: Ident = (&self.item_enum.ident).into();
-            let variant_name: Ident = (&variant.ident).into();
+            let enum_name = &self.item_enum.ident;
+            let variant_name = &variant.ident;
             match &variant.fields {
                 Fields::Named(fields_named) => {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
                     for field in fields_named {
-                        let field_name: Ident = (&field.ident).into();
+                        let field_name = &field.ident;
                         if !matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
                             field_names.push(field_name.clone());
                         }
@@ -432,7 +384,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                         // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
                         tokens.append_all(trace_extended_key_val(
                             "Deserialize named field",
-                            field.ident.sym.as_str(),
+                            field.ident.to_string().as_str(),
                         ));
                         field
                             .ty
@@ -454,7 +406,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             "Deserialize unnamed field",
                             field_name.to_string().as_str(),
                         ));
-                        ty.buf_read(field_name, self.no_alloc, handle_eob, &mut des_fields);
+                        ty.buf_read(&field_name, self.no_alloc, handle_eob, &mut des_fields);
                     }
                     tokens.append_all(quote!(#discriminant => { #des_fields #enum_name::#variant_name( #(#field_names),* ) }))
                 }

@@ -1,4 +1,3 @@
-use crate::ast::ident::Ident;
 use crate::ast::{Item, Type};
 use shrink_wrap::BufWriter;
 use std::collections::HashMap;
@@ -13,7 +12,7 @@ pub fn ser_literal(lit: &str, item: &Item) -> Result<Vec<u8>, ()> {
         .into_iter()
         .filter_map(|f| {
             if let Member::Named(ident) = f.member {
-                Some((Ident::from(ident), f.expr))
+                Some((ident, f.expr))
             } else {
                 None
             }
@@ -53,23 +52,23 @@ pub fn ser_literal(lit: &str, item: &Item) -> Result<Vec<u8>, ()> {
             }
         }
         Item::Enum(_) => unimplemented!(),
-        Item::Const(_) => unimplemented!(),
+        // Item::Const(_) => unimplemented!(),
     }
     Ok(wr.finish().unwrap().to_vec())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::ident::Ident;
     use crate::ast::{Docs, Field, Item, ItemStruct, Type};
     use crate::eval::ser_literal;
+    use proc_macro2::{Ident, Span};
 
     #[test]
     fn simple_struct() {
         let struct_def = ItemStruct {
             docs: Docs::empty(),
             derive: vec![],
-            ident: Ident::new("MyStruct"),
+            ident: Ident::new("MyStruct", Span::call_site()),
             fields: vec![Field::new(0, "a", Type::Bool), Field::new(1, "b", Type::U8)],
             cfg: None,
             size_assumption: None,

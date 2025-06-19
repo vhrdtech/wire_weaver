@@ -105,7 +105,7 @@ impl Type {
             //     let path = user_layout.path();
             //     quote! { #path }
             // }
-            Type::Unsized(path, is_lifetime) | Type::Sized(path, is_lifetime) => {
+            Type::External(path, is_lifetime) => {
                 if *is_lifetime && no_alloc {
                     quote! { #path<'i> }
                 } else {
@@ -146,7 +146,7 @@ impl Type {
                 Layout::Option(_) => unimplemented!("vec of options"),
                 Layout::Result(_) => unimplemented!("vec of results"),
             },
-            Type::Unsized(path, is_lifetime) | Type::Sized(path, is_lifetime) => {
+            Type::External(path, is_lifetime) => {
                 if *is_lifetime && no_alloc {
                     quote! { #path<'_> }
                 } else {
@@ -286,13 +286,7 @@ impl Type {
                 }
                 return;
             }
-            // Type::User(_) => unimplemented!(),
-            Type::Sized(_, _) => {
-                let field_path = field_path.by_ref();
-                tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
-                return;
-            }
-            Type::Unsized(_, _) | Type::String => {
+            Type::External(_, _) | Type::String => {
                 let field_path = field_path.by_ref();
                 // same as Sized, special handling of Unsized moved to the BufWriter::write and BufRead::read instead
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
@@ -304,30 +298,9 @@ impl Type {
         tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
     }
 
-    // fn write_unsized(field_path: TokenStream, handle_eob: TokenStream) -> TokenStream {
-    //     quote! {
-    //         wr.align_byte();
-    //         // reserve one size slot
-    //         let size_slot_pos = wr.write_u16_rev(0) #handle_eob;
-    //         let unsized_start_bytes = wr.pos().0;
-    //         wr.write(#field_path) #handle_eob;
-    //         // type's serializer might have written several nib16_rev's as well,
-    //         // encode and place them after type's data
-    //         wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos) #handle_eob;
-    //         // e.g., enum, only one nib discriminant is written => need to align
-    //         wr.align_byte();
-    //         let size_bytes = wr.pos().0 - unsized_start_bytes;
-    //         let Ok(size_bytes) = u16::try_from(size_bytes) else {
-    //             return Err(ShrinkWrapError::ItemTooLong);
-    //         };
-    //         // write actual Unsized size
-    //         wr.update_u16_rev(size_slot_pos, size_bytes) #handle_eob;
-    //     }
-    // }
-
     pub(crate) fn buf_read(
         &self,
-        variable_name: Ident,
+        variable_name: &Ident,
         _no_alloc: bool,
         handle_eob: TokenStream,
         tokens: &mut TokenStream,
@@ -385,8 +358,7 @@ impl Type {
                 Layout::Option(_) => unimplemented!("vec of options"),
                 Layout::Result(_) => unimplemented!("vec of results"),
             },
-            // Type::User(_) => unimplemented!(),
-            Type::Unsized(_, _) | Type::String => {
+            Type::External(_, _) | Type::String => {
                 tokens.append_all(quote! {
                     // let size = rd.read_unib32_rev()? as usize;
                     // let mut rd_split = rd.split(size)?;
@@ -394,14 +366,8 @@ impl Type {
                 });
                 return;
             }
-            Type::Sized(_, _) => {
-                tokens.append_all(quote! {
-                    let #variable_name = rd.read()?;
-                });
-                return;
-            }
             Type::Result(flag_ident, _ok_err_ty) => {
-                let is_ok: Ident = flag_ident.into();
+                let is_ok = &flag_ident;
                 tokens.append_all(quote! {
                     let #variable_name = if #is_ok {
                         Ok(rd.read()?)
@@ -412,7 +378,7 @@ impl Type {
                 return;
             }
             Type::Option(flag_ident, _option_ty) => {
-                let is_some: Ident = flag_ident.into();
+                let is_some = &flag_ident;
                 tokens.append_all(quote! {
                     let #variable_name = if #is_some {
                         Some(rd.read() #handle_eob)
@@ -487,11 +453,7 @@ impl Type {
                 return Some(sum);
             }
             Type::Vec(_) => return Some(ElementSize::UnsizedFinalStructure),
-            Type::Unsized(_, _) => return None, // cannot know if it's actually Unsized or not, const calculation will be performed instead
-            Type::Sized(_, _) => {
-                return Some(ElementSize::Sized { size_bits: 0 }); // TODO: size of Sized is important?
-                // unimplemented!("element_size of Sized");
-            }
+            Type::External(_, _) => return None, // cannot know if it's actually Unsized or not, const calculation will be performed instead
             Type::IsSome(_) | Type::IsOk(_) => return Some(ElementSize::Sized { size_bits: 1 }),
             Type::Result(_, ok_err_ty) => {
                 let mut sum = ElementSize::SelfDescribing;

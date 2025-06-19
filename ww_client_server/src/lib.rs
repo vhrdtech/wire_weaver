@@ -1,14 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod util;
+
 use wire_weaver::prelude::*;
 use ww_version::{FullVersion, Version};
 
 #[cfg(feature = "std")]
 use ww_version::VersionOwned;
 
-pub const PROTOCOL_GID: u32 = 1; // TODO: Remove!
-
-pub const FULL_VERSION: FullVersion = wire_weaver::full_version!();
+pub const FULL_VERSION: FullVersion = full_version!();
 
 #[derive_shrink_wrap]
 #[shrink_wrap(no_alloc)]
@@ -22,6 +22,7 @@ struct Request<'i> {
 }
 
 #[derive_shrink_wrap]
+#[ww_repr(u4)]
 #[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
@@ -68,6 +69,7 @@ struct Event<'i> {
 }
 
 #[derive_shrink_wrap]
+#[ww_repr(u4)]
 #[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
@@ -135,6 +137,7 @@ enum Error {
 }
 
 #[derive_shrink_wrap]
+#[ww_repr(u4)]
 #[derive(Debug)]
 enum ShaperConfig {
     NoLimit,

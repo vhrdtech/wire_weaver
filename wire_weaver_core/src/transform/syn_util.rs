@@ -1,7 +1,6 @@
 use crate::ast::path::Path;
 use crate::ast::value::Value;
 use crate::ast::{Docs, Repr, Version};
-use crate::transform::{Messages, SynConversionError, SynConversionWarning};
 use proc_macro2::TokenStream;
 use quote::quote;
 use shrink_wrap::ElementSize;
@@ -18,20 +17,18 @@ pub(crate) fn take_since_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<Versio
 }
 
 /// Take `#[default = lit]` attribute and return Value containing provided literal
-pub(crate) fn take_default_attr(
-    attrs: &mut Vec<syn::Attribute>,
-    messages: &mut Messages,
-) -> Option<Value> {
-    let (attr_idx, _) = attrs
+pub(crate) fn take_default_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<Value>, String> {
+    let attr_idx = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("default"))?;
+        .find(|(_, a)| a.path().is_ident("default"))
+        .map(|(idx, _)| idx);
+    let Some(attr_idx) = attr_idx else {
+        return Ok(None);
+    };
     let attr = attrs.remove(attr_idx);
     let Meta::NameValue(name_value) = attr.meta else {
-        messages.push_conversion_error(SynConversionError::WrongDefaultAttr(
-            "Expected default = lit".into(),
-        ));
-        return None;
+        return Err("Expected default = lit".into());
     };
     match name_value.value {
         // Expr::Array(_) => {}
@@ -40,36 +37,28 @@ pub(crate) fn take_default_attr(
             match expr_lit.lit {
                 Lit::Float(lit_float) => {
                     // TODO: Handle f32 and f64 properly
-                    Some(Value::F32(lit_float.base10_parse().unwrap()))
+                    Ok(Some(Value::F32(lit_float.base10_parse().unwrap())))
                 }
                 Lit::Int(lit_int) => {
                     // lit_int.suffix()
                     // TODO: create default integer and do not emit suffix on it, emit suffix if it is present
-                    Some(Value::I32(lit_int.base10_parse().unwrap()))
+                    Ok(Some(Value::I32(lit_int.base10_parse().unwrap())))
                 }
-                u => {
-                    messages.push_conversion_error(SynConversionError::WrongDefaultAttr(format!(
-                        "Not supported lit: {u:?}"
-                    )));
-                    None
-                } // Lit::Str(_) => {}
-                  // Lit::ByteStr(_) => {}
-                  // Lit::CStr(_) => {}
-                  // Lit::Byte(_) => {}
-                  // Lit::Char(_) => {}
-                  // Lit::Int(_) => {}
-                  // Lit::Bool(_) => {}
-                  // Lit::Verbatim(_) => {}
+                u => Err(format!("Not supported lit: {u:?}")), // Lit::Str(_) => {}
+                                                               // Lit::ByteStr(_) => {}
+                                                               // Lit::CStr(_) => {}
+                                                               // Lit::Byte(_) => {}
+                                                               // Lit::Char(_) => {}
+                                                               // Lit::Int(_) => {}
+                                                               // Lit::Bool(_) => {}
+                                                               // Lit::Verbatim(_) => {}
             }
         }
         Expr::Path(expr_path) => {
             if expr_path.path.is_ident("None") {
-                Some(Value::None)
+                Ok(Some(Value::None))
             } else {
-                messages.push_conversion_error(SynConversionError::WrongDefaultAttr(format!(
-                    "Not supported path: {expr_path:?}"
-                )));
-                None
+                Err(format!("Not supported path: {expr_path:?}"))
             }
         }
         // Expr::Range(_) => {}
@@ -77,12 +66,7 @@ pub(crate) fn take_default_attr(
         // Expr::Struct(_) => {}
         // Expr::Tuple(_) => {}
         // Expr::Verbatim(_) => {}
-        _ => {
-            messages.push_conversion_error(SynConversionError::WrongDefaultAttr(
-                "Expected default = lit/path/struct".into(),
-            ));
-            None
-        }
+        _ => Err("Expected default = lit/path/struct".into()),
     }
 }
 
@@ -158,78 +142,63 @@ pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     docs
 }
 
-pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<Repr> {
+pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String> {
     let (attr_idx, _) = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("ww_repr"))?;
+        .find(|(_, a)| a.path().is_ident("ww_repr"))
+        .ok_or("ww_repr attribute is required")?;
     let attr = attrs.remove(attr_idx);
     let Meta::List(meta_list) = attr.meta else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[repr(u1..u32 / nib16)]".into(),
-        ));
-        return None;
+        return Err("expected #[repr(u1..u32 / nib16)]".into());
     };
     let repr = meta_list.tokens.to_string();
     let Some(repr) = Repr::parse_str(repr.as_str()) else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[repr(u1..u32 / nib16)]".into(),
-        ));
-        return None;
+        return Err("expected #[repr(u1..u32 / nib16)]".into());
     };
-    Some(repr)
+    Ok(repr)
 }
 
-pub fn take_shrink_wrap_attr(
-    attrs: &mut Vec<syn::Attribute>,
-    messages: &mut Messages,
-) -> Option<String> {
-    let (attr_idx, _) = attrs
+pub fn take_shrink_wrap_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<String>, String> {
+    let attr_idx = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("shrink_wrap"))?;
+        .find(|(_, a)| a.path().is_ident("shrink_wrap"))
+        .map(|(idx, _)| idx);
+    let Some(attr_idx) = attr_idx else {
+        return Ok(None);
+    };
     let attr = attrs.remove(attr_idx);
     let Meta::List(meta_list) = attr.meta else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[shrink_wrap(no_alloc)]".into(),
-        ));
-        return None;
+        return Err("expected #[shrink_wrap(no_alloc)]".into());
     };
     let config = meta_list.tokens.to_string();
-    Some(config)
+    Ok(Some(config))
 }
 
-pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) -> Option<LitStr> {
-    let (attr_idx, _) = attrs
+pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
+    let attr_idx = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("owned"))?;
+        .find(|(_, a)| a.path().is_ident("owned"))
+        .map(|(idx, _)| idx);
+    let Some(attr_idx) = attr_idx else {
+        return Ok(None);
+    };
     let attr = attrs.remove(attr_idx);
     let Meta::NameValue(named_value) = attr.meta else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[owned = \"feature_name\"]".into(),
-        ));
-        return None;
+        return Err("expected #[owned = \"feature_name\"]".into());
     };
     let Expr::Lit(expr_lit) = named_value.value else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[owned = \"feature_name\"]".into(),
-        ));
-        return None;
+        return Err("expected #[owned = \"feature_name\"]".into());
     };
     let Lit::Str(feature) = expr_lit.lit else {
-        messages.push_conversion_error(SynConversionError::WrongReprAttr(
-            "expected #[owned = \"feature_name\"]".into(),
-        ));
-        return None;
+        return Err("expected #[owned = \"feature_name\"]".into());
     };
-    Some(feature)
+    Ok(Some(feature))
 }
 
-pub(crate) fn take_derive_attr(
-    attrs: &mut Vec<syn::Attribute>,
-    _messages: &mut Messages,
-) -> Vec<Path> {
+pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
     let mut derive = vec![];
     for attr in attrs.iter() {
         if !attr.path().is_ident("derive") {
@@ -250,16 +219,13 @@ pub(crate) fn take_derive_attr(
     derive
 }
 
-pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>, messages: &mut Messages) {
+pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>) {
     for a in attrs {
         // ignore #[shrink_warp(...)] in after #[derive(ShrinkWrap)]
         if a.path().is_ident("shrink_wrap") {
             continue;
         }
-        messages.push_conversion_warning(SynConversionWarning::UnknownAttribute(format!(
-            "{:?}",
-            a.meta.path()
-        )));
+        println!("Unknown attribute: {:?}", a.meta.path());
     }
 }
 

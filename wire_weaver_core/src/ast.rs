@@ -1,33 +1,16 @@
-use ident::Ident;
 use path::Path;
-use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{ToTokens, quote};
 use shrink_wrap::ElementSize;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use syn::LitStr;
 use value::Value;
 
-use crate::ast::api::ApiLevel;
-
 pub mod api;
-pub mod ident;
 pub mod path;
 // pub mod subtype;
+pub mod trait_macro_args;
 pub mod value;
-
-#[derive(Debug)]
-pub struct Context {
-    pub modules: Vec<Module>,
-}
-
-#[derive(Debug)]
-pub struct Module {
-    pub docs: Docs,
-    pub source: Source,
-    pub version: Version,
-    pub items: Vec<Item>,
-    pub api_levels: Vec<ApiLevel>,
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Version {
@@ -36,42 +19,11 @@ pub struct Version {
     pub patch: u32,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Source {
-    ShrinkWrapDerive,
-    File {
-        /// Path relative to project root.
-        /// Project root itself is known to executable through other mechanism.
-        path: String,
-    },
-    String(String),
-    Registry {
-        collection: String,
-        version: Version,
-    },
-    Git {
-        url: String,
-        sha: String,
-    },
-}
-
-impl Debug for Source {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Source::ShrinkWrapDerive => write!(f, "ShrinkWrapDerive"),
-            Source::File { path } => write!(f, "Source::File(path={})", path),
-            Source::String(src) => write!(f, "Source::String({src})"),
-            Source::Registry { .. } => unimplemented!(),
-            Source::Git { .. } => unimplemented!(),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Item {
     Struct(ItemStruct),
     Enum(ItemEnum),
-    Const(ItemConst),
+    // Const(ItemConst),
 }
 
 #[derive(Clone, Debug)]
@@ -131,7 +83,7 @@ pub struct Field {
 }
 
 // TODO: Convert to struct and add span
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
     Bool,
 
@@ -169,12 +121,11 @@ pub enum Type {
     Tuple(Vec<Type>),
     Vec(Layout),
 
-    // User defined, size unknown.
-    // On read: BufReader size will be limited to the one read from the back, unread bytes will be skipped.
+    // User defined type
     // TODO: use enum structs instead of tuples
-    Unsized(Path, bool),
+    External(Path, bool),
     // User defined, size is known and fixed, or deterministic (depends on enum discriminant) and will not be read/written.
-    Sized(Path, bool),
+    // Sized(Path, bool),
 
     // is_some_flag, optional_ty
     Option(Ident, Box<Type>),
@@ -194,7 +145,7 @@ pub enum Fields {
     Unit,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Layout {
     Builtin(Box<Type>),
     // Skip reading data if previously read flag is false.
@@ -236,12 +187,20 @@ impl Docs {
         self.docs.push(LitStr::new(s.as_ref(), Span::call_site()));
     }
 
-    pub fn ts(&self) -> TokenStream {
-        let mut ts = TokenStream::new();
+    // pub fn ts(&self) -> TokenStream {
+    //     let mut ts = TokenStream::new();
+    //     for doc in &self.docs {
+    //         ts.extend(quote!(#[doc = #doc]));
+    //     }
+    //     ts
+    // }
+}
+
+impl ToTokens for Docs {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         for doc in &self.docs {
-            ts.extend(quote!(#[doc = #doc]));
+            tokens.extend(quote!(#[doc = #doc]));
         }
-        ts
     }
 }
 
@@ -257,7 +216,7 @@ impl ItemStruct {
 
     pub fn to_owned(&self, feature: LitStr) -> Self {
         let mut owned = self.clone();
-        owned.ident = Ident::new(format!("{}Owned", self.ident.sym));
+        owned.ident = Ident::new(format!("{}Owned", self.ident).as_str(), self.ident.span());
         owned.cfg = Some(feature);
         for f in &mut owned.fields {
             f.ty.make_owned();
@@ -286,7 +245,7 @@ impl ItemEnum {
 
     pub fn to_owned(&self, feature: LitStr) -> Self {
         let mut owned = self.clone();
-        owned.ident = Ident::new(format!("{}Owned", self.ident.sym));
+        owned.ident = Ident::new(format!("{}Owned", self.ident).as_str(), self.ident.span());
         owned.cfg = Some(feature);
         for v in &mut owned.variants {
             match &mut v.fields {
@@ -361,15 +320,16 @@ impl Type {
                     ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
                 }
             },
-            Type::Unsized(_, potential_lifetimes) => *potential_lifetimes,
-            Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
+            Type::External(_, potential_lifetimes) => *potential_lifetimes,
+            // Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
             _ => false,
         }
     }
 
     pub fn make_owned(&mut self) {
         match self {
-            Type::Unsized(path, potential_lifetimes) | Type::Sized(path, potential_lifetimes) => {
+            Type::External(path, potential_lifetimes) => {
+                // Type::Unsized(path, potential_lifetimes) | Type::Sized(path, potential_lifetimes) => {
                 if *potential_lifetimes {
                     path.make_owned();
                     *potential_lifetimes = false;
@@ -414,7 +374,7 @@ impl Field {
         Self {
             docs: Docs::empty(),
             id,
-            ident: Ident::new(ident),
+            ident: Ident::new(ident, Span::call_site()),
             ty,
             since: None,
             default: None,

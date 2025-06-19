@@ -9,10 +9,10 @@ description.workspace = true
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
-strum = "0.26"
-strum_macros = "0.26"
+#strum = "0.26"
+#strum_macros = "0.26"
 shrink_wrap = { path = "../shrink_wrap", default-features = false }
-convert_case = "0.6"
+convert_case = "0.8"
 pest = "2.7"
 pest_derive = { version = "2.7", features = ["grammar-extras"] }
 regex = "1.11"

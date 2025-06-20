@@ -276,9 +276,9 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
 
 #[cfg(test)]
 mod tests {
+    use crate::ref_vec::RefVec;
     use crate::traits::ElementSize;
     use crate::un::U7;
-    use crate::vec::RefVec;
     use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
     use hex_literal::hex;
 

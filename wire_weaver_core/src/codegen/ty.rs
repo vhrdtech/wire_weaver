@@ -6,7 +6,7 @@ use syn::{Lit, LitInt};
 
 use shrink_wrap::ElementSize;
 
-use crate::ast::{Layout, Type};
+use crate::ast::Type;
 
 #[derive(Clone)]
 pub(crate) enum FieldPath {
@@ -74,14 +74,8 @@ impl Type {
                     quote! { String }
                 }
             }
-            Type::Array(len, layout) => {
-                let item_ty = match layout {
-                    Layout::Builtin(ty) => ty.def(no_alloc),
-                    Layout::Option(ty) => ty.def(no_alloc),
-                    Layout::Result(_ok_err_ty) => unimplemented!("array of results"),
-                    // Layout::Unsized(_) => unimplemented!(),
-                    // Layout::Sized(_, _) => unimplemented!(),
-                };
+            Type::Array(len, ty) => {
+                let item_ty = ty.def(no_alloc);
                 let len = Lit::Int(LitInt::new(format!("{}", len).as_str(), Span::call_site()));
                 quote! { [#item_ty; #len] }
             }
@@ -89,18 +83,14 @@ impl Type {
                 let types = types.iter().map(|ty| ty.def(no_alloc));
                 quote! { ( #(#types),* ) }
             }
-            Type::Vec(layout) => match layout {
-                Layout::Builtin(inner_ty) => {
-                    let inner_ty = inner_ty.def(no_alloc);
-                    if no_alloc {
-                        quote! { RefVec<'i, #inner_ty> }
-                    } else {
-                        quote! { Vec<#inner_ty> }
-                    }
+            Type::Vec(inner_ty) => {
+                let inner_ty = inner_ty.def(no_alloc);
+                if no_alloc {
+                    quote! { RefVec<'i, #inner_ty> }
+                } else {
+                    quote! { Vec<#inner_ty> }
                 }
-                Layout::Option(_) => unimplemented!("vec of options"),
-                Layout::Result(_) => unimplemented!("vec of results"),
-            },
+            }
             // Type::User(user_layout) => {
             //     let path = user_layout.path();
             //     quote! { #path }
@@ -122,6 +112,14 @@ impl Type {
                 quote! { Option<#option_ty> }
             }
             Type::IsSome(_) | Type::IsOk(_) => quote! { bool },
+            Type::RefBox(box_ty) => {
+                let box_ty = box_ty.def(no_alloc);
+                if no_alloc {
+                    quote! { RefBox<'i, #box_ty> }
+                } else {
+                    quote! { Box<#box_ty>}
+                }
+            }
         }
     }
 
@@ -134,18 +132,14 @@ impl Type {
                     quote! { String }
                 }
             }
-            Type::Vec(layout) => match layout {
-                Layout::Builtin(inner_ty) => {
-                    let inner_ty = inner_ty.def(no_alloc);
-                    if no_alloc {
-                        quote! { RefVec<'_, #inner_ty> }
-                    } else {
-                        quote! { Vec<#inner_ty> }
-                    }
+            Type::Vec(inner_ty) => {
+                let inner_ty = inner_ty.def(no_alloc);
+                if no_alloc {
+                    quote! { RefVec<'_, #inner_ty> }
+                } else {
+                    quote! { Vec<#inner_ty> }
                 }
-                Layout::Option(_) => unimplemented!("vec of options"),
-                Layout::Result(_) => unimplemented!("vec of results"),
-            },
+            }
             Type::External(path, is_lifetime) => {
                 if *is_lifetime && no_alloc {
                     quote! { #path<'_> }
@@ -267,26 +261,19 @@ impl Type {
             Type::ILeb128 => unimplemented!("ileb128"),
             Type::Array(_, _) => unimplemented!("array"),
             Type::Tuple(_) => unimplemented!("tuple"),
-            Type::Vec(layout) => {
-                match layout {
-                    Layout::Builtin(inner_ty) => {
-                        let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
-                        if is_vec_u8 && no_alloc {
-                            let field_path = field_path.as_provided();
-                            tokens.append_all(
-                                quote! { #field_path.ser_shrink_wrap_vec_u8(wr) #handle_eob; },
-                            );
-                        } else {
-                            let field_path = field_path.by_ref();
-                            tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
-                        }
-                    }
-                    Layout::Option(_) => unimplemented!("vec of options"),
-                    Layout::Result(_) => unimplemented!("vec of results"),
+            Type::Vec(inner_ty) => {
+                let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
+                if is_vec_u8 && no_alloc {
+                    let field_path = field_path.as_provided();
+                    tokens
+                        .append_all(quote! { #field_path.ser_shrink_wrap_vec_u8(wr) #handle_eob; });
+                } else {
+                    let field_path = field_path.by_ref();
+                    tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 }
                 return;
             }
-            Type::External(_, _) | Type::String => {
+            Type::External(_, _) | Type::String | Type::RefBox(_) => {
                 let field_path = field_path.by_ref();
                 // same as Sized, special handling of Unsized moved to the BufWriter::write and BufRead::read instead
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
@@ -349,16 +336,12 @@ impl Type {
             // }
             Type::Array(_, _) => unimplemented!("array"),
             Type::Tuple(_) => unimplemented!("tuple"),
-            Type::Vec(layout) => match layout {
-                Layout::Builtin(_inner_ty) => {
-                    // TODO: how to handle eob to be zero length?
-                    tokens.append_all(quote! { let #variable_name = rd.read()?; });
-                    return;
-                }
-                Layout::Option(_) => unimplemented!("vec of options"),
-                Layout::Result(_) => unimplemented!("vec of results"),
-            },
-            Type::External(_, _) | Type::String => {
+            Type::Vec(_inner_ty) => {
+                // TODO: how to handle eob to be zero length?
+                tokens.append_all(quote! { let #variable_name = rd.read()?; });
+                return;
+            }
+            Type::External(_, _) | Type::String | Type::RefBox(_) => {
                 tokens.append_all(quote! {
                     // let size = rd.read_unib32_rev()? as usize;
                     // let mut rd_split = rd.split(size)?;
@@ -419,31 +402,16 @@ impl Type {
             Type::F32 => 32,
             Type::F64 => 64,
             Type::String => return Some(ElementSize::Unsized),
-            Type::Array(len, layout) => {
-                return match layout {
-                    Layout::Builtin(ty) => {
-                        let size = match ty.element_size()? {
-                            ElementSize::Unsized => ElementSize::Unsized,
-                            ElementSize::UnsizedFinalStructure => {
-                                ElementSize::UnsizedFinalStructure
-                            }
-                            ElementSize::SelfDescribing => ElementSize::SelfDescribing,
-                            ElementSize::Sized { size_bits } => ElementSize::Sized {
-                                size_bits: len * size_bits,
-                            },
-                        };
-                        Some(size)
-                    }
-                    Layout::Option(some_ty) => {
-                        Some(ElementSize::SelfDescribing.add(some_ty.element_size()?))
-                    }
-                    Layout::Result(ok_err_ty) => {
-                        let mut sum = ElementSize::SelfDescribing;
-                        sum = sum.add(ok_err_ty.0.element_size()?);
-                        sum = sum.add(ok_err_ty.1.element_size()?);
-                        Some(sum)
-                    }
+            Type::Array(len, ty) => {
+                let size = match ty.element_size()? {
+                    ElementSize::Unsized => ElementSize::Unsized,
+                    ElementSize::UnsizedFinalStructure => ElementSize::UnsizedFinalStructure,
+                    ElementSize::SelfDescribing => ElementSize::SelfDescribing,
+                    ElementSize::Sized { size_bits } => ElementSize::Sized {
+                        size_bits: len * size_bits,
+                    },
                 };
+                return Some(size);
             }
             Type::Tuple(types) => {
                 let mut sum = ElementSize::Sized { size_bits: 0 };
@@ -464,6 +432,7 @@ impl Type {
             Type::Option(_, option_ty) => {
                 return Some(option_ty.element_size()?.add(ElementSize::SelfDescribing));
             }
+            Type::RefBox(_) => return Some(ElementSize::Unsized),
         };
         Some(ElementSize::Sized { size_bits })
     }

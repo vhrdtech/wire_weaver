@@ -36,7 +36,7 @@ pub struct ApiItem {
     pub kind: ApiItemKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Multiplicity {
     Flat,
     Array { size_bound: u32 },

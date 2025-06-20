@@ -8,10 +8,11 @@ use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
 pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
+    // TODO: implement id's
     None
 }
 
-/// Take `#[since = "X.Y.Z"]` attribute and return the Version
+/// Take `#[since = "X.Y"]` attribute and return the Version
 pub(crate) fn take_since_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
     None
 }
@@ -78,15 +79,6 @@ pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     let _attr = attrs.remove(attr_idx);
     Some(())
 }
-
-// pub(crate) fn take_final_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
-//     let (attr_idx, _) = attrs
-//         .iter()
-//         .enumerate()
-//         .find(|(_, a)| a.path().is_ident("final_evolution"))?;
-//     let _attr = attrs.remove(attr_idx);
-//     Some(())
-// }
 
 pub(crate) fn take_size_assumption(attrs: &mut Vec<syn::Attribute>) -> Option<ElementSize> {
     let mut is_final_structure = false;

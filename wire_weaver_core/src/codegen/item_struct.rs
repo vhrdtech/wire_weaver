@@ -96,7 +96,6 @@ pub fn struct_serdes(item_struct: &ItemStruct, no_alloc: bool) -> TokenStream {
                 sum = sum.add(size);
             }
             if let Type::External(path, _) = &f.ty {
-                // TODO: separate Unsized and last ident, so that element_size does not cover Unsized case and there is always a type name in it?
                 if let Some(ident) = path.segments.last() {
                     unknown_unsized.push(ident.clone());
                 }

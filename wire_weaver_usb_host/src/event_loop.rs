@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver::shrink_wrap::vec::RefVec;
+use wire_weaver::shrink_wrap::ref_vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver_client_common::{
     Command, Error, OnError,

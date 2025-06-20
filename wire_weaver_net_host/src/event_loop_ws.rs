@@ -1,6 +1,6 @@
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
-use shrink_wrap::vec::RefVec;
+use shrink_wrap::ref_vec::RefVec;
 use shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use std::net::IpAddr;
 use std::time::Duration;

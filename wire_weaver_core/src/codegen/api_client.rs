@@ -70,7 +70,6 @@ fn level_method(
     no_alloc: bool,
     high_level_client: bool,
 ) -> TokenStream {
-    // TODO: Handle sub-levels
     let path = if no_alloc {
         quote! { &[UNib32(#id)] }
     } else {

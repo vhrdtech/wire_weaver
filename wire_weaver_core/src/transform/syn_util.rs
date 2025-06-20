@@ -151,22 +151,22 @@ pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String
     Ok(repr)
 }
 
-pub fn take_shrink_wrap_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<String>, String> {
-    let attr_idx = attrs
-        .iter()
-        .enumerate()
-        .find(|(_, a)| a.path().is_ident("shrink_wrap"))
-        .map(|(idx, _)| idx);
-    let Some(attr_idx) = attr_idx else {
-        return Ok(None);
-    };
-    let attr = attrs.remove(attr_idx);
-    let Meta::List(meta_list) = attr.meta else {
-        return Err("expected #[shrink_wrap(no_alloc)]".into());
-    };
-    let config = meta_list.tokens.to_string();
-    Ok(Some(config))
-}
+// pub fn take_shrink_wrap_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<String>, String> {
+//     let attr_idx = attrs
+//         .iter()
+//         .enumerate()
+//         .find(|(_, a)| a.path().is_ident("shrink_wrap"))
+//         .map(|(idx, _)| idx);
+//     let Some(attr_idx) = attr_idx else {
+//         return Ok(None);
+//     };
+//     let attr = attrs.remove(attr_idx);
+//     let Meta::List(meta_list) = attr.meta else {
+//         return Err("expected #[shrink_wrap(no_alloc)]".into());
+//     };
+//     let config = meta_list.tokens.to_string();
+//     Ok(Some(config))
+// }
 
 pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
     let attr_idx = attrs

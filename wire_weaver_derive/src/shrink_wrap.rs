@@ -3,7 +3,7 @@ use quote::TokenStreamExt;
 use syn::{File, Item};
 use wire_weaver_core::codegen::item_enum::{enum_def, enum_serdes};
 use wire_weaver_core::codegen::item_struct::{struct_def, struct_serdes};
-use wire_weaver_core::transform::syn_util::{take_owned_attr, take_shrink_wrap_attr};
+use wire_weaver_core::transform::syn_util::take_owned_attr;
 use wire_weaver_core::transform::transform_enum::transform_item_enum;
 use wire_weaver_core::transform::transform_struct::transform_item_struct;
 
@@ -25,19 +25,13 @@ fn shrink_wrap_inner(mut file: File) -> Result<TokenStream, String> {
         Item::Struct(item_struct) => &mut item_struct.attrs,
         _ => return Err("Expected enum or struct".into()),
     };
-    let attr = take_shrink_wrap_attr(attrs)?;
-    let mut no_alloc = false;
-    if let Some(attr) = attr {
-        if attr == "no_alloc" {
-            no_alloc = true;
-        }
-    }
     let generate_owned = take_owned_attr(attrs)?;
 
     let mut ts = TokenStream::new();
     match &item {
         Item::Enum(item_enum) => {
             let ww_item_enum = transform_item_enum(item_enum)?;
+            let no_alloc = ww_item_enum.potential_lifetimes();
             ts.append_all(enum_def(&ww_item_enum, no_alloc));
             ts.append_all(enum_serdes(&ww_item_enum, no_alloc));
             if let Some(feature) = &generate_owned {
@@ -48,6 +42,7 @@ fn shrink_wrap_inner(mut file: File) -> Result<TokenStream, String> {
         }
         Item::Struct(item_struct) => {
             let ww_item_struct = transform_item_struct(item_struct)?;
+            let no_alloc = ww_item_struct.potential_lifetimes();
             ts.append_all(struct_def(&ww_item_struct, no_alloc));
             ts.append_all(struct_serdes(&ww_item_struct, no_alloc));
             if let Some(feature) = &generate_owned {

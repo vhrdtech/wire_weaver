@@ -11,7 +11,6 @@ pub use semver;
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone)]
-#[shrink_wrap(no_alloc)]
 #[owned = "std"]
 #[final_structure]
 pub struct Version<'i> {
@@ -30,7 +29,6 @@ pub struct Version<'i> {
 
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone)]
-#[shrink_wrap(no_alloc)]
 #[owned = "std"]
 #[final_structure]
 pub struct FullVersion<'i> {

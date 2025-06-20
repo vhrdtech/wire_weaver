@@ -10,7 +10,6 @@ use ww_version::FullVersion;
 /// On the other hand if there are too many small events, packing them all into one datagram allows to get more of them
 /// across, without network stack limitations or overflows of some kind.
 #[derive_shrink_wrap]
-#[shrink_wrap(no_alloc)]
 struct Datagram<'i> {
     /// Constant 0xDA7A_63A1 to filter out stray datagrams and also encode this protocol version (and wire_weaver/shrink_wrap version as well).
     /// Assuming that if someones wants to craft a malicious datagram they can still do it, even if SHA256 or such is used,
@@ -27,7 +26,6 @@ pub const UDP_LINK_MAGIC: u32 = 0xDA7A_63A1;
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[shrink_wrap(no_alloc)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Op<'i> {
     /// ww_client_server serialized Request

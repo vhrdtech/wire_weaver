@@ -11,7 +11,6 @@ use ww_version::VersionOwned;
 pub const FULL_VERSION: FullVersion = full_version!();
 
 #[derive_shrink_wrap]
-#[shrink_wrap(no_alloc)]
 #[owned = "std"]
 #[derive(Debug)]
 struct Request<'i> {
@@ -23,7 +22,6 @@ struct Request<'i> {
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
@@ -59,7 +57,6 @@ enum RequestKind<'i> {
 }
 
 #[derive_shrink_wrap]
-#[shrink_wrap(no_alloc)]
 #[owned = "std"]
 #[derive(Debug)]
 struct Event<'i> {
@@ -70,7 +67,6 @@ struct Event<'i> {
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[shrink_wrap(no_alloc)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]

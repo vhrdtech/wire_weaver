@@ -1,6 +1,6 @@
 use super::{FieldPath, FieldSelector};
+use crate::ast::Type;
 use crate::ast::path::Path;
-use crate::ast::{Layout, Type};
 use proc_macro2::{Ident, Span};
 use syn::{Attribute, GenericArgument, PathArguments, PathSegment, ReturnType};
 
@@ -28,11 +28,8 @@ pub fn transform_type(
         }
         syn::Type::Reference(type_ref) => {
             let mut ty = transform_type(type_ref.elem.as_ref().clone(), _attrs, path)?;
-            match &mut ty {
-                Type::External(_, lifetime) => {
-                    *lifetime = true;
-                }
-                _ => {}
+            if let Type::External(_, lifetime) = &mut ty {
+                *lifetime = true;
             }
             Ok(ty)
         }
@@ -71,6 +68,7 @@ fn transform_path_segment(
         "Vec" | "RefVec" => transform_type_vec(path_segment, field_path)?,
         "Result" => transform_type_result(path_segment, field_path)?,
         "Option" => transform_type_option(path_segment, field_path)?,
+        "RefBox" => transform_type_ref_box(path_segment, field_path)?,
         other_ty => {
             // u1, u2, .., u63, except u8, u16, ...
             if let Some(un) = other_ty
@@ -130,25 +128,25 @@ fn transform_type_result(path_segment: &PathSegment, path: &FieldPath) -> Result
 
 fn transform_type_vec(path_segment: &PathSegment, path: &FieldPath) -> Result<Type, String> {
     let PathArguments::AngleBracketed(arg) = &path_segment.arguments else {
-        return Err("expected Vec<T>, got Vec or Vec()".into());
+        return Err("expected RefVec<T>, got RefVec or RefVec()".into());
     };
     let mut args = arg.args.iter();
     let Some(arg) = args.next() else {
-        return Err("expected Vec<T>, got Vec<T, ?>".into());
+        return Err("expected RefVec<T>, got RefVec<T, ?>".into());
     };
     let arg = if matches!(arg, GenericArgument::Lifetime(_)) {
         let Some(arg) = args.next() else {
-            return Err("expected Vec<'i, T>, got Vec<'i, T, ?>".into());
+            return Err("expected RefVec<'i, T>, got RefVec<'i, T, ?>".into());
         };
         arg
     } else {
         arg
     };
     let GenericArgument::Type(inner_ty) = arg else {
-        return Err(format!("expected Vec<T>, got {arg:?}"));
+        return Err(format!("expected RefVec<T>, got {arg:?}"));
     };
     let inner_ty = transform_type(inner_ty.clone(), None, path)?;
-    Ok(Type::Vec(Layout::Builtin(Box::new(inner_ty))))
+    Ok(Type::Vec(Box::new(inner_ty)))
 }
 
 fn transform_type_option(path_segment: &PathSegment, path: &FieldPath) -> Result<Type, String> {
@@ -165,6 +163,29 @@ fn transform_type_option(path_segment: &PathSegment, path: &FieldPath) -> Result
     let inner_ty = transform_type(inner_ty.clone(), None, &path)?;
     let flag_ident = path.flag_ident();
     Ok(Type::Option(flag_ident, Box::new(inner_ty)))
+}
+
+fn transform_type_ref_box(path_segment: &PathSegment, path: &FieldPath) -> Result<Type, String> {
+    let PathArguments::AngleBracketed(arg) = &path_segment.arguments else {
+        return Err("expected RefBox<'i T>, got RefBox or RefBox()".into());
+    };
+    let mut args = arg.args.iter();
+    let Some(arg) = args.next() else {
+        return Err("expected RefBox<T>, got RefBox<T, ?>".into());
+    };
+    let arg = if matches!(arg, GenericArgument::Lifetime(_)) {
+        let Some(arg) = args.next() else {
+            return Err("expected RefBox<'i, T>, got RefBox<'i, T, ?>".into());
+        };
+        arg
+    } else {
+        arg
+    };
+    let GenericArgument::Type(inner_ty) = arg else {
+        return Err(format!("expected RefBox<T>, got {arg:?}"));
+    };
+    let inner_ty = transform_type(inner_ty.clone(), None, path)?;
+    Ok(Type::RefBox(Box::new(inner_ty)))
 }
 
 pub fn transform_return_type(ty: ReturnType, path: &FieldPath) -> Result<Option<Type>, String> {

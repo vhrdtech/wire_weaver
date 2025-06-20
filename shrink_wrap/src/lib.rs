@@ -9,8 +9,9 @@ pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 pub mod buf_reader;
 pub mod buf_writer;
 pub mod nib32;
+pub mod ref_box;
+pub mod ref_vec;
 pub mod traits;
-pub mod vec;
 
 #[cfg(feature = "std")]
 pub mod alloc;
@@ -63,8 +64,9 @@ pub mod prelude {
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::nib32::UNib32;
+    pub use crate::ref_box::RefBox;
+    pub use crate::ref_vec::{RefVec, RefVecIter};
     pub use crate::traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
     pub use crate::un::*;
-    pub use crate::vec::RefVec;
     pub use crate::Error as ShrinkWrapError;
 }

@@ -106,7 +106,6 @@ pub enum Type {
     I64,
     I128,
     // TODO: U2, I2, ... as separate variants
-    // TODO: DateTime, Version as separate variants
     ILeb32,
     ILeb64,
     ILeb128,
@@ -117,9 +116,9 @@ pub enum Type {
     // Bytes,
     String,
 
-    Array(usize, Layout),
+    Array(usize, Box<Type>),
     Tuple(Vec<Type>),
-    Vec(Layout),
+    Vec(Box<Type>),
 
     // User defined type
     // TODO: use enum structs instead of tuples
@@ -136,6 +135,8 @@ pub enum Type {
     Result(Ident, Box<(Type, Type)>),
     // Only relevant for fields with type Result<T, E>. Vec<Result<T, E>> handles flags differently.
     IsOk(Ident),
+
+    RefBox(Box<Type>),
 }
 
 #[derive(Clone, Debug)]
@@ -144,30 +145,6 @@ pub enum Fields {
     Unnamed(Vec<Type>),
     Unit,
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Layout {
-    Builtin(Box<Type>),
-    // Skip reading data if previously read flag is false.
-    Option(Box<Type>),
-    // Read T or E depending on previously read flag.
-    Result(Box<(Type, Type)>),
-}
-
-// #[derive(Debug)]
-// pub enum UserLayout {
-//     Unsized(Path),
-//     Sized(Path, u32),
-// }
-//
-// impl UserLayout {
-//     pub fn path(&self) -> &Path {
-//         match self {
-//             UserLayout::Unsized(path) => path,
-//             UserLayout::Sized(path, _) => path,
-//         }
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub struct Docs {
@@ -186,14 +163,6 @@ impl Docs {
     pub fn push_str(&mut self, s: impl AsRef<str>) {
         self.docs.push(LitStr::new(s.as_ref(), Span::call_site()));
     }
-
-    // pub fn ts(&self) -> TokenStream {
-    //     let mut ts = TokenStream::new();
-    //     for doc in &self.docs {
-    //         ts.extend(quote!(#[doc = #doc]));
-    //     }
-    //     ts
-    // }
 }
 
 impl ToTokens for Docs {
@@ -300,7 +269,7 @@ impl Variant {
 impl Type {
     pub fn potential_lifetimes(&self) -> bool {
         match self {
-            Type::String | Type::Vec(_) => true,
+            Type::String | Type::Vec(_) | Type::RefBox(_) => true,
             Type::Result(_, ok_err_ty) => {
                 ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
             }
@@ -313,13 +282,7 @@ impl Type {
                 }
                 false
             }
-            Type::Array(_, layout) => match layout {
-                Layout::Builtin(ty) => ty.potential_lifetimes(),
-                Layout::Option(ty) => ty.potential_lifetimes(),
-                Layout::Result(ok_err_ty) => {
-                    ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
-                }
-            },
+            Type::Array(_, ty) => ty.potential_lifetimes(),
             Type::External(_, potential_lifetimes) => *potential_lifetimes,
             // Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
             _ => false,
@@ -352,19 +315,6 @@ impl Type {
                 layout.make_owned();
             }
             _ => {}
-        }
-    }
-}
-
-impl Layout {
-    pub fn make_owned(&mut self) {
-        match self {
-            Layout::Builtin(ty) => ty.make_owned(),
-            Layout::Option(ty) => ty.make_owned(),
-            Layout::Result(ok_err_ty) => {
-                ok_err_ty.0.make_owned();
-                ok_err_ty.1.make_owned();
-            }
         }
     }
 }

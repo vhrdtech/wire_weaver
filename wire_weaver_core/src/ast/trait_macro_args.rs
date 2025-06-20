@@ -1,10 +1,13 @@
-use proc_macro2::Ident;
+use crate::ast::api::Multiplicity;
+use proc_macro2::{Ident, Span};
+use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
 use syn::{LitStr, Token};
 
 /// Used inside `ww_trait!` to define a stream or a sink: `stream!(stream_name: StreamTy);`
 pub struct StreamMacroArgs {
     pub ident: Ident,
+    pub resource_array: ResourceArray,
     _colon: Token![:],
     pub ty: syn::Type,
 }
@@ -13,6 +16,7 @@ impl Parse for StreamMacroArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(StreamMacroArgs {
             ident: input.parse()?,
+            resource_array: input.parse()?,
             _colon: input.parse()?,
             ty: input.parse()?,
         })
@@ -26,6 +30,7 @@ impl Parse for StreamMacroArgs {
 #[derive(Debug)]
 pub struct ImplTraitMacroArgs {
     pub resource_name: Ident,
+    pub resource_array: ResourceArray,
     _colon: Token![:],
     pub location: ImplTraitLocation,
     _colon_colon: Token![::],
@@ -35,6 +40,7 @@ pub struct ImplTraitMacroArgs {
 impl Parse for ImplTraitMacroArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let resource_name = input.parse()?;
+        let resource_array = input.parse()?;
         let _colon: Token![:] = input.parse()?;
         let location = input.parse()?;
         if !matches!(location, ImplTraitLocation::SameFile) {
@@ -42,6 +48,7 @@ impl Parse for ImplTraitMacroArgs {
         }
         Ok(ImplTraitMacroArgs {
             resource_name,
+            resource_array,
             _colon: Default::default(),
             location,
             _colon_colon: Default::default(),
@@ -92,6 +99,40 @@ impl Parse for ImplTraitLocation {
             })
         } else {
             Ok(ImplTraitLocation::SameFile)
+        }
+    }
+}
+
+impl ImplTraitLocation {
+    pub fn crate_name(&self) -> Option<Ident> {
+        match self {
+            ImplTraitLocation::SameFile => None,
+            ImplTraitLocation::AnotherFile { part_of_crate, .. } => Some(part_of_crate.clone()),
+            ImplTraitLocation::CratesIo { crate_name, .. } => {
+                Some(Ident::new(crate_name.as_str(), Span::call_site()))
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ResourceArray {
+    pub multiplicity: Multiplicity,
+    // TODO: length subtype
+}
+
+impl Parse for ResourceArray {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(syn::token::Bracket) {
+            let (_, _, _inside_brackets) = input.parse_any_delimiter()?;
+            Ok(ResourceArray {
+                multiplicity: Multiplicity::Array { size_bound: 0 },
+            })
+        } else {
+            Ok(ResourceArray {
+                multiplicity: Multiplicity::Flat,
+            })
         }
     }
 }

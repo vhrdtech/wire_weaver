@@ -6,7 +6,7 @@ use crate::ast::api::{
 };
 use crate::ast::trait_macro_args::{ImplTraitMacroArgs, StreamMacroArgs};
 use std::ops::Deref;
-use syn::{FnArg, Pat, TraitItem};
+use syn::{FnArg, GenericParam, Pat, TraitItem};
 
 pub fn transform_api_level(
     item_trait: &syn::ItemTrait,
@@ -50,10 +50,31 @@ pub fn transform_api_level(
                 };
                 let docs = collect_docs_attrs(&mut attrs);
                 collect_unknown_attributes(&mut attrs);
+                let multiplicity = if trait_item_fn.sig.generics.params.is_empty() {
+                    Multiplicity::Flat
+                } else {
+                    const ERR: &str = "Only '<N: u32>' generic parameter is supported on methods";
+                    if trait_item_fn.sig.generics.params.len() != 1 {
+                        return Err(ERR.into());
+                    }
+                    let param = trait_item_fn.sig.generics.params.iter().next().unwrap();
+                    let GenericParam::Type(type_param) = param else {
+                        return Err(ERR.into());
+                    };
+                    if type_param.ident != "N" {
+                        return Err(ERR.into());
+                    }
+                    if type_param.bounds.len() != 1 {
+                        return Err(ERR.into());
+                    }
+                    // let bound = type_param.bounds.iter().next().unwrap();
+
+                    Multiplicity::Array { size_bound: 0 }
+                };
                 items.push(ApiItem {
                     id,
                     docs,
-                    multiplicity: Multiplicity::Flat,
+                    multiplicity,
                     kind: ApiItemKind::Method {
                         ident: trait_item_fn.sig.ident.clone(),
                         args,
@@ -89,7 +110,7 @@ pub fn transform_api_level(
                     items.push(ApiItem {
                         id,
                         docs,
-                        multiplicity: Multiplicity::Flat,
+                        multiplicity: stream_args.resource_array.multiplicity,
                         kind: ApiItemKind::Stream {
                             ident: stream_args.ident,
                             // ty: Type::Unsized(Path::new_ident(stream_args.ty_name.into()), false),
@@ -104,7 +125,7 @@ pub fn transform_api_level(
                     items.push(ApiItem {
                         id,
                         docs,
-                        multiplicity: Multiplicity::Flat,
+                        multiplicity: stream_args.resource_array.multiplicity,
                         kind: ApiItemKind::Property {
                             ident: stream_args.ident,
                             ty: transform_type(stream_args.ty, None, &path)?,
@@ -116,7 +137,7 @@ pub fn transform_api_level(
                     items.push(ApiItem {
                         id,
                         docs,
-                        multiplicity: Multiplicity::Flat,
+                        multiplicity: args.resource_array.multiplicity,
                         kind: ApiItemKind::ImplTrait { args, level: None },
                     });
                 } else {

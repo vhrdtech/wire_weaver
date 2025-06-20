@@ -123,6 +123,10 @@ enum Error {
     BadPath,
     /// Tried to access a resource array using out of bounds index
     BadIndex,
+    /// Expected an array index in the resource path, but got None instead
+    ExpectedArrayIndexGotNone,
+    /// Tried to deserialize UNib32 from the resource path, but got an error
+    ArrayIndexDesFailed,
 
     // Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
     // SliceGetFailed,

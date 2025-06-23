@@ -110,6 +110,34 @@ pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
     }
 }
 
+/// Check that using stack for flags will work
+pub fn check_flag_order(fields: &[Field]) -> Result<(), String> {
+    let mut flags_stack = vec![];
+    for field in fields.iter() {
+        match &field.ty {
+            Type::Result(_, _) | Type::Option(_, _) => {
+                let Some(flag_ident) = flags_stack.pop() else {
+                    return Err(format!(
+                        "incorrect flag order (no flag), expected LIFO: {}",
+                        field.ident
+                    ));
+                };
+                if flag_ident != field.ident {
+                    return Err(format!(
+                        "incorrect flag order, expected LIFO: {}",
+                        field.ident
+                    ));
+                }
+            }
+            Type::IsOk(ident) | Type::IsSome(ident) => {
+                flags_stack.push(ident.clone());
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 // fn transform_const(item_const: &syn::ItemConst) -> Result<ItemConst, String> {
 //     let ty = transform_type(
 //         item_const.ty.deref().clone(),

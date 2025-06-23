@@ -95,6 +95,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                 named.push(field)
             }
             transform::create_flags(&mut named, &explicit_flags);
+            transform::check_flag_order(&named)?;
             propagate_default_to_flags(&mut named)?;
             change_is_ok_to_is_some(&mut named);
             Ok(Fields::Named(named))

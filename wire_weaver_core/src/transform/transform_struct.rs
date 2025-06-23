@@ -26,6 +26,7 @@ pub fn transform_item_struct(item_struct: &syn::ItemStruct) -> Result<ItemStruct
     let derive = take_derive_attr(&mut attrs);
     collect_unknown_attributes(&mut attrs);
     transform::create_flags(&mut fields, &explicit_flags);
+    transform::check_flag_order(&fields)?;
     propagate_default_to_flags(&mut fields)?;
     change_is_ok_to_is_some(&mut fields);
     Ok(ItemStruct {

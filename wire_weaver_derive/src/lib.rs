@@ -7,6 +7,7 @@ mod version;
 mod ww_api;
 mod ww_impl_args;
 mod ww_repr;
+mod ww_trait;
 
 /// Generates types definitions, serdes and API client or server side code.
 ///
@@ -47,8 +48,8 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn ww_trait(_attr: TokenStream, _item: TokenStream) -> TokenStream {
-    TokenStream::new()
+pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
+    ww_trait::ww_trait(attr.into(), item.into()).into()
 }
 
 /// Use Rust definition of an enum or struct to derive shrink wrap wire format.

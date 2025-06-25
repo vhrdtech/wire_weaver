@@ -3743,6 +3743,7 @@ dependencies = [
 name = "wire_weaver_derive"
 version = "0.4.0"
 dependencies = [
+ "convert_case",
  "darling",
  "pathsearch",
  "proc-macro2",
@@ -3848,6 +3849,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
 
 [[package]]
+name = "ww_can_bus"
+version = "0.1.0"
+dependencies = [
+ "defmt",
+ "wire_weaver",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.1.0"
 dependencies = [
@@ -3863,6 +3872,15 @@ dependencies = [
  "defmt",
  "hex-literal",
  "wire_weaver",
+]
+
+[[package]]
+name = "ww_self"
+version = "0.1.0"
+dependencies = [
+ "defmt",
+ "wire_weaver",
+ "ww_version",
 ]
 
 [[package]]

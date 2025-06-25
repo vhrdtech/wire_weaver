@@ -4,7 +4,9 @@ use quote::{TokenStreamExt, quote};
 use syn::{Lit, LitInt};
 
 use crate::ast::Type;
-use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity};
+use crate::ast::api::{
+    ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
+};
 use crate::ast::path::Path;
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
@@ -240,7 +242,9 @@ fn level_matcher(
             args,
             return_type,
         } => handle_method(index_chain, &mod_ident, cx, ident, args, return_type),
-        ApiItemKind::Property { ident, ty } => handle_property(index_chain, cx, ident, ty),
+        ApiItemKind::Property { access, ident, ty } => {
+            handle_property(index_chain, cx, ident, ty, *access)
+        }
         ApiItemKind::Stream {
             ident,
             ty: _,
@@ -327,6 +331,7 @@ fn handle_property(
     cx: &ApiServerCGContext,
     ident: &Ident,
     ty: &Type,
+    access: PropertyAccess,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
@@ -387,27 +392,44 @@ fn handle_property(
             }
         }
     };
+    let write = quote! {
+        RequestKind::Write { data } => {
+            let data = data.as_slice();
+            let mut rd = BufReader::new(data);
+            #des
+            #set_property
+            if request.seq == 0 {
+                Ok(&[])
+            } else {
+                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::ResponseSerFailed)?)
+            }
+        }
+    };
+    let maybe_write = maybe_quote(
+        matches!(
+            access,
+            PropertyAccess::WriteOnly | PropertyAccess::ReadWrite
+        ),
+        write,
+    );
+    let read = quote! {
+        RequestKind::Read => {
+            #get_and_ser_property
+            let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
+            let kind = EventKind::ReadValue {
+                    data: RefVec::Slice { slice: output_bytes }
+                };
+            Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
+        }
+    };
+    let maybe_read = maybe_quote(
+        matches!(access, PropertyAccess::ReadOnly | PropertyAccess::ReadWrite),
+        read,
+    );
     quote! {
         match &request.kind {
-            RequestKind::Write { data } => {
-                let data = data.as_slice();
-                let mut rd = BufReader::new(data);
-                #des
-                #set_property
-                if request.seq == 0 {
-                    Ok(&[])
-                } else {
-                    Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::ResponseSerFailed)?)
-                }
-            }
-            RequestKind::Read => {
-                #get_and_ser_property
-                let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
-                let kind = EventKind::ReadValue {
-                        data: RefVec::Slice { slice: output_bytes }
-                    };
-                Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
-            }
+            #maybe_write
+            #maybe_read
             _ => { Err(Error::OperationNotSupported) }
         }
     }

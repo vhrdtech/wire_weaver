@@ -4,7 +4,7 @@ use super::{FieldPath, FieldPathRoot};
 use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity,
 };
-use crate::ast::trait_macro_args::{ImplTraitMacroArgs, StreamMacroArgs};
+use crate::ast::trait_macro_args::{ImplTraitMacroArgs, PropertyMacroArgs, StreamMacroArgs};
 use std::ops::Deref;
 use syn::{FnArg, GenericParam, Pat, TraitItem};
 
@@ -119,16 +119,18 @@ pub fn transform_api_level(
                         },
                     });
                 } else if kind == "property" {
-                    let stream_args: StreamMacroArgs =
+                    let property_args: PropertyMacroArgs =
                         syn::parse2(item_macro.mac.tokens.clone()).unwrap();
-                    let path = FieldPath::new(FieldPathRoot::NamedField(stream_args.ident.clone())); // TODO: Clarify FieldPath purpose
+                    let path =
+                        FieldPath::new(FieldPathRoot::NamedField(property_args.ident.clone())); // TODO: Clarify FieldPath purpose
                     items.push(ApiItem {
                         id,
                         docs,
-                        multiplicity: stream_args.resource_array.multiplicity,
+                        multiplicity: property_args.resource_array.multiplicity,
                         kind: ApiItemKind::Property {
-                            ident: stream_args.ident,
-                            ty: transform_type(stream_args.ty, None, &path)?,
+                            access: property_args.property_access,
+                            ident: property_args.ident,
+                            ty: transform_type(property_args.ty, None, &path)?,
                         },
                     });
                 } else if kind == "ww_impl" {

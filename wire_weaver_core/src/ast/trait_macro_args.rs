@@ -1,4 +1,4 @@
-use crate::ast::api::Multiplicity;
+use crate::ast::api::{Multiplicity, PropertyAccess};
 use proc_macro2::{Ident, Span};
 use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
@@ -6,6 +6,16 @@ use syn::{LitStr, Token};
 
 /// Used inside `ww_trait!` to define a stream or a sink: `stream!(stream_name: StreamTy);`
 pub struct StreamMacroArgs {
+    pub ident: Ident,
+    pub resource_array: ResourceArray,
+    _colon: Token![:],
+    pub ty: syn::Type,
+}
+
+/// Used inside `ww_trait!` to define a property: `property!(led: bool);`, by default properties are read-write.
+/// Read-only property: `property!(ro status: u32);`.
+pub struct PropertyMacroArgs {
+    pub property_access: PropertyAccess,
     pub ident: Ident,
     pub resource_array: ResourceArray,
     _colon: Token![:],
@@ -23,10 +33,36 @@ impl Parse for StreamMacroArgs {
     }
 }
 
+impl Parse for PropertyMacroArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let maybe_ident: Ident = input.parse()?;
+        let (ident, property_access) =
+            if maybe_ident == "ro" || maybe_ident == "rw" || maybe_ident == "wo" {
+                let access = match maybe_ident.to_string().as_str() {
+                    "ro" => PropertyAccess::ReadOnly,
+                    "rw" => PropertyAccess::ReadWrite,
+                    "wo" => PropertyAccess::WriteOnly,
+                    _ => unreachable!(),
+                };
+                (input.parse()?, access)
+            } else {
+                (maybe_ident, PropertyAccess::ReadWrite)
+            };
+        Ok(PropertyMacroArgs {
+            property_access,
+            ident,
+            resource_array: input.parse()?,
+            _colon: input.parse()?,
+            ty: input.parse()?,
+        })
+    }
+}
+
 /// Used inside `ww_trait!` to refer to another `ww_trait` and generate a trait_name_x_process_inner handler and a call to.
 /// * In the same file: `ww_impl!(resource_name: TraitName)`
 /// * In another file: `ww_impl!(resource_name: "../path/to/file.rs"::TraitName)`
 /// * Inside a crate lib.rs: `ww_impl!(resource_name: "crate_name:x.y"::TraitName)`
+/// * Array syntax: ww_impl!(resource_name[]: TraitName);
 #[derive(Debug)]
 pub struct ImplTraitMacroArgs {
     pub resource_name: Ident,

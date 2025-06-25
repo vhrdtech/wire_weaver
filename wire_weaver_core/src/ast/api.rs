@@ -52,6 +52,7 @@ pub enum ApiItemKind {
     Property {
         ident: Ident,
         ty: Type,
+        access: PropertyAccess,
     },
     Stream {
         ident: Ident,
@@ -68,6 +69,13 @@ pub enum ApiItemKind {
 pub struct Argument {
     pub ident: Ident,
     pub ty: Type,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum PropertyAccess {
+    ReadOnly,
+    ReadWrite,
+    WriteOnly,
 }
 
 impl ApiLevel {

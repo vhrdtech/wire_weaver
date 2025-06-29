@@ -246,6 +246,61 @@ inx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
 inx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
 inx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
 
+/// N-bit unsigned number, unlike Ux and Ix which are const size, here N is serialized as well and not known beforehand.
+/// Serialized as `3 + 3(N<=8) or 4(N<=16) or 5(N<=32) or 6(N<=64) + N bits`.
+/// Serialized layout: discriminant(U3), bit_count(U3, U4, U5 or U6), value (N-bits).
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[repr(u8)]
+pub enum UN {
+    UN8 { bit_count: U3, value: u8 },
+    UN16 { bit_count: U4, value: u16 },
+    UN32 { bit_count: U5, value: u32 },
+    UN64 { bit_count: U6, value: u64 },
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[repr(u8)]
+pub enum IN {
+    IN8 { bit_count: U3, value: i8 },
+    IN16 { bit_count: U4, value: i16 },
+    IN32 { bit_count: U5, value: i32 },
+    IN64 { bit_count: U6, value: i64 },
+}
+
+impl SerializeShrinkWrap for UN {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), Error> {
+        todo!()
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for UN {
+    const ELEMENT_SIZE: ElementSize = <UN as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        todo!()
+    }
+}
+
+impl SerializeShrinkWrap for IN {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), Error> {
+        todo!()
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for IN {
+    const ELEMENT_SIZE: ElementSize = <UN as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

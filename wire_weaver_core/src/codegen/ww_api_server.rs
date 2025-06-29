@@ -73,8 +73,8 @@ pub fn impl_server_dispatcher(
                 pub #maybe_async fn #handler_ident<'a>(
                     &mut self,
                     bytes: &[u8],
-                    scratch_event: &'a mut [u8],
                     scratch_args: &'a mut [u8],
+                    scratch_event: &'a mut [u8],
                     scratch_err: &'a mut [u8]
                 ) -> Result<&'a [u8], ShrinkWrapError> {
                     let mut rd = BufReader::new(bytes);
@@ -83,7 +83,7 @@ pub fn impl_server_dispatcher(
                     //     return Ok(ser_err_event(scratch_err, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
                     // }
                     let mut path_iter = request.path.iter();
-                    match self.process_request_inner(&mut path_iter, &request, scratch_event, scratch_args)#maybe_await {
+                    match self.process_request_inner(&mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
                         Ok(response_bytes) => Ok(response_bytes),
                         Err(e) => {
                             let mut wr = BufWriter::new(scratch_err);
@@ -133,8 +133,8 @@ fn process_request_inner_recursive(
             #maybe_index_chain_def
             path_iter: &mut RefVecIter<'_, UNib32>,
             request: &Request<'_>,
-            scratch_event: &'a mut [u8],
             scratch_args: &'a mut [u8],
+            scratch_event: &'a mut [u8],
         ) -> Result<&'a [u8], Error> {
             match path_iter.next() {
                 #level_matchers
@@ -320,7 +320,7 @@ fn handle_method(
                 Err(Error::OperationNotImplemented)
             }
             _ => {
-                Err(Error::OperationNotImplemented)
+                Err(Error::OperationNotSupported)
             }
         }
     }
@@ -688,7 +688,7 @@ fn deferred_method_return_ser_methods(
             None => quote! {},
         };
         ts.append_all(quote! {
-            pub fn #fn_name<'i>(scratch_event: &'i mut [u8], scratch_args: &'i mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
+            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
                 #ser_output_or_unit
             }
         });

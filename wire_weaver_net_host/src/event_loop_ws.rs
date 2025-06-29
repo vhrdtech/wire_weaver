@@ -269,7 +269,8 @@ async fn handle_message(
                     return Ok(EventLoopSpinResult::Continue);
                 }
             };
-            trace!("event: {event:?}");
+            let data: &[u8] = &data;
+            trace!("event: {:02x?} {event:?}", data);
             match event.result {
                 Ok(event_kind) => match event_kind {
                     EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {

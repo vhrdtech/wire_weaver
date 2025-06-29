@@ -128,12 +128,12 @@ pub enum Type {
 
     // is_some_flag, optional_ty
     Option(Ident, Box<Type>),
-    // Only relevant for fields with type Option<T>. Vec<Option<T>> handles flags differently.
+    // Only used for relocation of is_some flag in structs and enum struct variants.
     IsSome(Ident),
 
     // is_ok_flag, (ok_ty, err_ty)
     Result(Ident, Box<(Type, Type)>),
-    // Only relevant for fields with type Result<T, E>. Vec<Result<T, E>> handles flags differently.
+    // Only used for relocation of is_ok flag in structs and enum struct variants.
     IsOk(Ident),
 
     RefBox(Box<Type>),

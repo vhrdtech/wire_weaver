@@ -1,21 +1,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
-use crate::nib32::UNib32;
-pub use buf_reader::BufReader;
-pub use buf_writer::BufWriter;
-pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
-
 pub mod buf_reader;
+pub use buf_reader::BufReader;
 pub mod buf_writer;
+pub use buf_writer::BufWriter;
 pub mod nib32;
+pub use crate::nib32::UNib32;
 pub mod ref_box;
+pub use ref_box::RefBox;
 pub mod ref_vec;
+pub use ref_vec::{RefVec, RefVecIter};
 pub mod traits;
+pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 
 #[cfg(feature = "std")]
 pub mod alloc;
+pub mod nib;
 pub mod un;
+pub use nib::Nibble;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -63,6 +66,7 @@ pub enum Error {
 pub mod prelude {
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
+    pub use crate::nib::Nibble;
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;
     pub use crate::ref_vec::{RefVec, RefVecIter};

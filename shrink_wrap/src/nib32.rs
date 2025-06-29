@@ -2,7 +2,7 @@ use core::fmt::{Debug, Formatter};
 
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
 
-/// Variable length encoded u16 based on nibbles.
+/// Variable length encoded u32 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

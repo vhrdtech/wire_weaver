@@ -27,7 +27,7 @@ pub fn impl_server_dispatcher(
     let stream_send_methods = stream_ser_methods(api_level, no_alloc);
     let additional_use = maybe_quote(
         no_alloc,
-        quote! { use wire_weaver::shrink_wrap::vec::{RefVec, RefVecIter}; },
+        quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
     );
     let maybe_async = maybe_quote(use_async, quote! { async });
     let maybe_await = maybe_quote(use_async, quote! { .await });

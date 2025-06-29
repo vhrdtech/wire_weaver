@@ -17,7 +17,7 @@ pub fn client(
     let root_level = level_methods(api_level, no_alloc, high_level_client);
     let output_des = output_des_fns(api_level, no_alloc);
     let additional_use = if no_alloc {
-        quote! { use wire_weaver::shrink_wrap::vec::RefVec; }
+        quote! { use wire_weaver::shrink_wrap::RefVec; }
     } else {
         quote! {}
     };

@@ -29,7 +29,13 @@ members = [
     #    "tests"
     "ww_client_server",
     "ww_date_time",
-    "ww_version"
+    "ww_version",
+    "ww_numeric",
+    "ww_self",
+    "ww_si",
+    "ww_can_bus",
+    "ww_log_bare_metal",
+    "ww_dfu",
 ]
 
 exclude = [

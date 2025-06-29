@@ -53,15 +53,25 @@ use wire_weaver::prelude::*;
 
 ### Library types
 
-* ww_date_time crate
+* ww_numeric
+    * `NumericValue`: value of the supported numeric types
+    * `NumericBaseType`: discrete, floating and fixed point number types
+    * `NumericAnyType`: base types + subtype and shift-scale
+* ww_si - SI and derived values using `NumericValue` as storage
+* ww_date_time
     * `DateTime`: ISO 8601 combined date and time with optional time zone and optional nanoseconds.
       Minimum size is 32 bits.
     * `NaiveDate`: ISO 8601 calendar date without timezone. Year stored as shifted by 2025, minimum size is 13 bits.
     * `NaiveTime`: ISO 8601 time without timezone. Size is 18 bits without nanoseconds and 49 bits with nanoseconds.
-* ww_version crate
+* ww_version
     * `Version`: SemVer version (including pre and build strings), no alloc
     * `VersionOwned`: SemVer version, same as `Version` but uses String's
     * `CompactVersion`: Global type id + major and minor version numbers, uses UNib32 for all three
+* ww_client_server - `Request`, `RequestKind`, `Event`, `EventKind`, `Error` used for client-server API model.
+* ww_can_bus - CAN Bus types and API
+* ww_dfu - Firmware update API
+* ww_log_bare_metal - Logging types and API for no_std bare metal targets
+* ww_self - WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection.
 
 ### Alignment
 
@@ -168,6 +178,10 @@ fn evolved_struct() {
 }
 ```
 
+#### Non-evolvable types
+
+final_structure, self_describing, sized
+
 ## API
 
 Define a custom protocol as collections of resources - methods, properties or streams and generate server and client
@@ -204,6 +218,53 @@ trait Log {
 #### Get/Set and value on change
 
 ### Traits
+
+#### User handler flattening (no_std)
+
+### Resource arrays
+
+Any resource can also be an array - method, property, stream and trait implementation:
+
+```rust
+trait ArrayOf {
+    fn run<N: u32>();
+    stream!(adc[]: u16);
+    property!(led[]: bool);
+    ww_impl!(motor[]: ww_motor_control::Motor);
+}
+```
+
+TODO: size bounds
+
+Traits inside other traits can also contain arrays, all the indices leading up to them are accumulated and passed as
+Rust array `[u32; N]` argument into a corresponding user handler.
+
+#### Array of resources vs resource of array
+
+Here, resource led is itself an array, when accessing it - an index will be added to the resource path.
+Each one of three bool's is accessed separately from each other.
+
+```rust
+trait ArrayOfResources {
+    property!(led[3]: bool);
+}
+```
+
+On the other hand, here led is not an array, but it's type is. All three boolean's are accessed in one go.
+
+```rust
+trait ResourceOfArrays {
+    property!(led: [bool; 3]);
+}
+```
+
+Both can be used together as well, for example:
+
+```rust
+trait ArrayOfArrays {
+    property!(rgb_led[3]: [u8; 3]);
+}
+```
 
 ### Transport protocols
 
@@ -284,3 +345,8 @@ Specify SI unit for any number:
 * velocity: `f32<"m/s">`
 
 Units are not transmitted over the wire, used as a hint for code generation and in UI tool.
+
+## Crate naming
+
+`wire_weaver_` prefix is used on core crates that implement all the functionality.  
+`ww_` prefix is used on small crates using WireWeaver to provide new types and define APIs.

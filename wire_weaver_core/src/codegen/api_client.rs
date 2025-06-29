@@ -134,6 +134,7 @@ fn level_method(
             }
         }
         ApiItemKind::Property {
+            access,
             ident: prop_name,
             ty,
         } => {

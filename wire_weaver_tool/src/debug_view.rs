@@ -8,10 +8,9 @@ use egui_file::FileDialog;
 use proc_macro2::{Ident, Span};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumIter, IntoEnumIterator};
-use wire_weaver_core::ast::{Item, Source};
+use wire_weaver_core::ast::Item;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
-use wire_weaver_core::transform::Transform;
 
 use crate::context::Context;
 use crate::tab::TabUi;
@@ -76,8 +75,6 @@ enum Message {
     FileLoaded,
     SynError(String),
     FileParsed,
-    // TODO: refactor
-    Transform(Source, wire_weaver_core::transform::Message),
     Info(String),
     Panicked(String),
 }
@@ -259,7 +256,6 @@ impl DebugView {
         self.transient.messages.push(Message::FileParsed);
 
         let ww_cx = catch_unwind(|| {
-            let mut transform = Transform::new();
             let path = self
                 .state
                 .path

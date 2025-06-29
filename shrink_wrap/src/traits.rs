@@ -73,6 +73,7 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
 ///
 /// Calculations are done during compile time thanks to const evaluation and static asserts are inserted to ensure correct behavior.
 #[derive(Copy, Clone, Debug)]
+#[repr(u8)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ElementSize {
     /// Element size is unknown and stored at the back of the buffer.
@@ -132,6 +133,35 @@ impl ElementSize {
 
     pub const fn bits(size_bits: usize) -> ElementSize {
         ElementSize::Sized { size_bits }
+    }
+
+    pub fn discriminant(&self) -> u8 {
+        unsafe { *<*const _>::from(self).cast::<u8>() }
+    }
+}
+
+impl SerializeShrinkWrap for ElementSize {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 2 };
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_un8(2, self.discriminant())
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for ElementSize {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 2 };
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        let discriminant = rd.read_un8(2)?;
+        Ok(match discriminant {
+            0 => ElementSize::Unsized,
+            1 => ElementSize::UnsizedFinalStructure,
+            2 => ElementSize::SelfDescribing,
+            3 => ElementSize::Sized { size_bits: 0 },
+            _ => {
+                return Err(Error::EnumFutureVersionOrMalformedData);
+            }
+        })
     }
 }
 

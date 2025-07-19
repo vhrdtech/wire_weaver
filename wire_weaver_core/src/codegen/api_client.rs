@@ -1,5 +1,5 @@
 use crate::ast::Type;
-use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument};
+use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, PropertyAccess};
 use crate::ast::path::Path;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::ty::FieldPath;
@@ -75,15 +75,15 @@ fn level_method(
     } else {
         quote! { vec![UNib32(#id)] }
     };
-    let return_ty = if no_alloc {
-        quote! { &[u8] }
-    } else {
-        quote! { Vec<u8> }
-    };
     let path_ty = if no_alloc {
         quote! { &[UNib32] }
     } else {
         quote! { Vec<UNib32> }
+    };
+    let return_ty = if no_alloc {
+        quote! { &[u8] }
+    } else {
+        quote! { Vec<u8> }
     };
     match kind {
         ApiItemKind::Method {
@@ -133,79 +133,16 @@ fn level_method(
                 #hl_fn
             }
         }
-        ApiItemKind::Property {
+        ApiItemKind::Property { access, ident, ty } => handle_property(
+            no_alloc,
+            high_level_client,
+            path,
+            path_ty,
+            return_ty,
             access,
-            ident: prop_name,
+            ident,
             ty,
-        } => {
-            let mut ser = TokenStream::new();
-            let ty_def = ty.arg_pos_def(no_alloc);
-            ty.buf_write(
-                FieldPath::Value(quote! { #prop_name }),
-                no_alloc,
-                quote! { ? },
-                &mut ser,
-            );
-            let prop_ser_value_path = Ident::new(
-                format!("{}_ser_value_path", prop_name).as_str(),
-                prop_name.span(),
-            );
-            let prop_path = Ident::new(format!("{}_path", prop_name).as_str(), prop_name.span());
-            let prop_des_value = Ident::new(
-                format!("{}_des_value", prop_name).as_str(),
-                prop_name.span(),
-            );
-            let finish_wr = if no_alloc {
-                quote! { wr.finish_and_take()? }
-            } else {
-                quote! { wr.finish()?.to_vec() }
-            };
-            let mut des = TokenStream::new();
-            ty.buf_read(
-                &Ident::new("value", Span::call_site()),
-                no_alloc,
-                quote! { ? },
-                &mut des,
-            );
-            let hl_fn_name = &prop_name;
-            let hl_fn = if high_level_client {
-                quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error<E>> {
-                        let (args, path) = self.#prop_ser_value_path(#prop_name)?;
-                        let (args, path) = (args.to_vec(), path.to_vec());
-                        let _data =
-                            wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
-                                .await?;
-                        Ok(())
-                    }
-                }
-            } else {
-                quote! {}
-            };
-            quote! {
-                #[inline]
-                pub fn #prop_ser_value_path(&mut self, #prop_name: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
-                    let mut wr = BufWriter::new(&mut self.args_scratch);
-                    #ser
-                    let args_bytes = #finish_wr;
-                    Ok((args_bytes, #path))
-                }
-
-                #[inline]
-                pub fn #prop_path(&self) -> #path_ty {
-                    #path
-                }
-
-                #[inline]
-                pub fn #prop_des_value(value_bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
-                    let mut rd = BufReader::new(value_bytes);
-                    #des
-                    Ok(value)
-                }
-
-                #hl_fn
-            }
-        }
+        ),
         ApiItemKind::Stream {
             ident,
             ty: _,
@@ -221,6 +158,109 @@ fn level_method(
         ApiItemKind::ImplTrait { .. } => {
             quote! {}
         }
+    }
+}
+
+fn handle_property(
+    no_alloc: bool,
+    high_level_client: bool,
+    path: TokenStream,
+    path_ty: TokenStream,
+    return_ty: TokenStream,
+    access: &PropertyAccess,
+    prop_name: &Ident,
+    ty: &Type,
+) -> TokenStream {
+    let mut ser = TokenStream::new();
+    let ty_def = ty.arg_pos_def(no_alloc);
+    ty.buf_write(
+        FieldPath::Value(quote! { #prop_name }),
+        no_alloc,
+        quote! { ? },
+        &mut ser,
+    );
+    let prop_ser_value_path = Ident::new(
+        format!("{}_ser_value_path", prop_name).as_str(),
+        prop_name.span(),
+    );
+    let prop_path = Ident::new(format!("{}_path", prop_name).as_str(), prop_name.span());
+    let prop_des_value = Ident::new(
+        format!("{}_des_value", prop_name).as_str(),
+        prop_name.span(),
+    );
+    let finish_wr = if no_alloc {
+        quote! { wr.finish_and_take()? }
+    } else {
+        quote! { wr.finish()?.to_vec() }
+    };
+    let mut des = TokenStream::new();
+    ty.buf_read(
+        &Ident::new("value", Span::call_site()),
+        no_alloc,
+        quote! { ? },
+        &mut des,
+    );
+    let hl_write_fn = Ident::new(format!("write_{}", prop_name).as_str(), prop_name.span());
+    let hl_write_fn = if high_level_client
+        && matches!(
+            access,
+            PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
+        ) {
+        quote! {
+            pub async fn #hl_write_fn(&mut self, timeout: wire_weaver_client_common::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error<E>> {
+                let mut wr = BufWriter::new(&mut self.args_scratch);
+                #ser
+                let args = #finish_wr.to_vec();
+                let path = #path.to_vec();
+                let _data =
+                    wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
+                        .await?;
+                Ok(())
+            }
+        }
+    } else {
+        quote! {}
+    };
+    let hl_read_fn = Ident::new(format!("read_{}", prop_name).as_str(), prop_name.span());
+    let hl_read_fn = if high_level_client
+        && matches!(access, PropertyAccess::ReadWrite | PropertyAccess::ReadOnly)
+    {
+        quote! {
+            pub async fn #hl_read_fn(&mut self) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
+                let path = #path.to_vec();
+                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, path).await?;
+                let mut rd = BufReader::new(&bytes);
+                #des
+                Ok(value)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        // #[inline]
+        // pub fn #prop_ser_value_path(&mut self, #prop_name: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
+        //     let mut wr = BufWriter::new(&mut self.args_scratch);
+        //     #ser
+        //     let args_bytes = #finish_wr;
+        //     Ok((args_bytes, #path))
+        // }
+        //
+        // #[inline]
+        // pub fn #prop_path(&self) -> #path_ty {
+        //     #path
+        // }
+        //
+        // #[inline]
+        // pub fn #prop_des_value(value_bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
+        //     let mut rd = BufReader::new(value_bytes);
+        //     #des
+        //     Ok(value)
+        // }
+
+        #hl_write_fn
+        #hl_read_fn
     }
 }
 

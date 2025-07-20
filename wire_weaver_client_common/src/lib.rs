@@ -89,6 +89,8 @@ pub enum Error<E> {
 
     #[error("Transport specific error")]
     Transport(E),
+    #[error("User error {}", .0)]
+    User(String),
 }
 
 impl<E> From<wire_weaver::shrink_wrap::Error> for Error<E> {

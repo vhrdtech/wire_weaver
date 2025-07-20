@@ -1,6 +1,5 @@
+use wire_weaver::{prelude::*, shrink_wrap};
 use ww_numeric::NumericValue;
-
-// TODO: or private?
 
 // Base
 pub struct Second(pub NumericValue);
@@ -56,3 +55,54 @@ pub struct AngularVelocity(pub NumericValue);
 pub struct AngularAcceleration(pub NumericValue);
 pub struct HertzPerSecond(pub NumericValue);
 pub struct VolumetricFlow(pub NumericValue);
+
+// Dynamic
+pub struct INib8P3(i8);
+
+impl UNib8M3 {
+    pub const fn new(n: u8) -> Option<INib8P3> {
+        todo!()
+    }
+
+    pub const fn minus_three() -> Self {
+        INib8P3(-3 + 3)
+    }
+    pub const fn minus_two() -> Self {
+        INib8P3(-2 + 3)
+    }
+    pub const fn minus_one() -> Self {
+        INib8P3(-1 + 3)
+    }
+    pub const fn zero() -> Self {
+        INib8P3(0 + 3)
+    }
+    pub const fn one() -> Self {
+        INib8P3(1 + 3)
+    }
+    pub const fn two() -> Self {
+        INib8P3(2 + 3)
+    }
+    pub const fn three() -> Self {
+        INib8P3(3 + 3)
+    }
+    pub const fn four() -> Self {
+        INib8P3(4 + 3)
+    }
+}
+
+#[derive_shrink_wrap]
+pub struct SI {
+    pub second: INib8P3,
+    pub meter: INib8P3,
+    pub kilogram: INib8P3,
+    pub ampere: INib8P3,
+    #[flag]
+    candela: bool,
+    #[flag]
+    mole: bool,
+    #[flag]
+    kelvin: bool,
+    pub kelvin: Option<INib8P3>,
+    pub mole: Option<INib8P3>,
+    pub candela: Option<INib8P3>,
+}

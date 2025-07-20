@@ -7,26 +7,17 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-pub fn client(
-    api_level: &ApiLevel,
-    no_alloc: bool,
-    high_level_client: bool,
-    ident: &Ident,
-) -> TokenStream {
+pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStream {
     let args_structs = args_structs(api_level, no_alloc);
-    let root_level = level_methods(api_level, no_alloc, high_level_client);
+    let root_level = level_methods(api_level, no_alloc);
     let output_des = output_des_fns(api_level, no_alloc);
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::RefVec; }
     } else {
         quote! {}
     };
-    let (generics_a, generics_b) = if high_level_client {
-        (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> })
-    } else {
-        (quote! {}, quote! {})
-    };
-    let hl_init = hl_init_methods(high_level_client);
+    let (generics_a, generics_b) = (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> });
+    let hl_init = hl_init_methods();
 
     let parent = match &api_level.source_location {
         ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
@@ -54,22 +45,17 @@ pub fn client(
     }
 }
 
-fn level_methods(api_level: &ApiLevel, no_alloc: bool, high_level_client: bool) -> TokenStream {
+fn level_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_method(&item.kind, item.id, no_alloc, high_level_client));
+        .map(|item| level_method(&item.kind, item.id, no_alloc));
     quote! {
         #(#handlers)*
     }
 }
 
-fn level_method(
-    kind: &ApiItemKind,
-    id: u32,
-    no_alloc: bool,
-    high_level_client: bool,
-) -> TokenStream {
+fn level_method(kind: &ApiItemKind, id: u32, no_alloc: bool) -> TokenStream {
     let path = if no_alloc {
         quote! { &[UNib32(#id)] }
     } else {
@@ -80,69 +66,20 @@ fn level_method(
     } else {
         quote! { Vec<UNib32> }
     };
-    let return_ty = if no_alloc {
-        quote! { &[u8] }
-    } else {
-        quote! { Vec<u8> }
-    };
+    // let return_ty = if no_alloc {
+    //     quote! { &[u8] }
+    // } else {
+    //     quote! { Vec<u8> }
+    // };
     match kind {
         ApiItemKind::Method {
             ident,
             args,
             return_type,
-        } => {
-            let (args_ser, args_list, args_names, args_bytes) = ser_args(ident, args, no_alloc);
-            let ll_fn_name = Ident::new(format!("{}_ser_args_path", ident).as_str(), ident.span());
-            let hl_fn_name = &ident;
-            let hl_fn = if high_level_client {
-                let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
-                    let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
-                        quote! {} // User type directly returned from method
-                    } else {
-                        quote! { .output } // Return type is wrapped in a struct
-                    };
-                    (return_type.def(no_alloc), maybe_dot_output)
-                } else {
-                    (quote! { () }, quote! {})
-                };
-                let des_output_fn =
-                    Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
-                let handle_output = if return_type.is_some() {
-                    quote! { Ok(Self::#des_output_fn(&data)? #maybe_dot_output) }
-                } else {
-                    quote! { _ = data; Ok(()) }
-                };
-                quote! {
-                    pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
-                        let (args, path) = self.#ll_fn_name(#args_names)?;
-                        let (args, path) = (args.to_vec(), path.to_vec());
-                        let data =
-                            wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args, path, timeout)
-                                .await?;
-                        #handle_output
-                    }
-                }
-            } else {
-                quote! {}
-            };
-            quote! {
-                pub fn #ll_fn_name(&mut self, #args_list) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
-                    #args_ser
-                    Ok((#args_bytes, #path))
-                }
-                #hl_fn
-            }
+        } => handle_method(no_alloc, path, ident, args, return_type),
+        ApiItemKind::Property { access, ident, ty } => {
+            handle_property(no_alloc, path, access, ident, ty)
         }
-        ApiItemKind::Property { access, ident, ty } => handle_property(
-            no_alloc,
-            high_level_client,
-            path,
-            path_ty,
-            return_ty,
-            access,
-            ident,
-            ty,
-        ),
         ApiItemKind::Stream {
             ident,
             ty: _,
@@ -161,12 +98,47 @@ fn level_method(
     }
 }
 
+fn handle_method(
+    no_alloc: bool,
+    path: TokenStream,
+    ident: &Ident,
+    args: &[Argument],
+    return_type: &Option<Type>,
+) -> TokenStream {
+    let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, no_alloc);
+    let hl_fn_name = &ident;
+    let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
+        let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
+            quote! {} // User type directly returned from method
+        } else {
+            quote! { .output } // Return type is wrapped in a struct
+        };
+        (return_type.def(no_alloc), maybe_dot_output)
+    } else {
+        (quote! { () }, quote! {})
+    };
+    let des_output_fn = Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
+    let handle_output = if return_type.is_some() {
+        quote! { Ok(Self::#des_output_fn(&data)? #maybe_dot_output) }
+    } else {
+        quote! { _ = data; Ok(()) }
+    };
+    quote! {
+        pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
+            #args_ser
+            let args_bytes = #args_bytes;
+            let path = #path;
+            let data =
+                wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args_bytes, path, timeout)
+                    .await?;
+            #handle_output
+        }
+    }
+}
+
 fn handle_property(
     no_alloc: bool,
-    high_level_client: bool,
     path: TokenStream,
-    path_ty: TokenStream,
-    return_ty: TokenStream,
     access: &PropertyAccess,
     prop_name: &Ident,
     ty: &Type,
@@ -178,15 +150,6 @@ fn handle_property(
         no_alloc,
         quote! { ? },
         &mut ser,
-    );
-    let prop_ser_value_path = Ident::new(
-        format!("{}_ser_value_path", prop_name).as_str(),
-        prop_name.span(),
-    );
-    let prop_path = Ident::new(format!("{}_path", prop_name).as_str(), prop_name.span());
-    let prop_des_value = Ident::new(
-        format!("{}_des_value", prop_name).as_str(),
-        prop_name.span(),
     );
     let finish_wr = if no_alloc {
         quote! { wr.finish_and_take()? }
@@ -201,17 +164,16 @@ fn handle_property(
         &mut des,
     );
     let hl_write_fn = Ident::new(format!("write_{}", prop_name).as_str(), prop_name.span());
-    let hl_write_fn = if high_level_client
-        && matches!(
-            access,
-            PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
-        ) {
+    let hl_write_fn = if matches!(
+        access,
+        PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
+    ) {
         quote! {
             pub async fn #hl_write_fn(&mut self, timeout: wire_weaver_client_common::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error<E>> {
                 let mut wr = BufWriter::new(&mut self.args_scratch);
                 #ser
-                let args = #finish_wr.to_vec();
-                let path = #path.to_vec();
+                let args = #finish_wr;
+                let path = #path;
                 let _data =
                     wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
                         .await?;
@@ -222,13 +184,11 @@ fn handle_property(
         quote! {}
     };
     let hl_read_fn = Ident::new(format!("read_{}", prop_name).as_str(), prop_name.span());
-    let hl_read_fn = if high_level_client
-        && matches!(access, PropertyAccess::ReadWrite | PropertyAccess::ReadOnly)
-    {
+    let hl_read_fn = if matches!(access, PropertyAccess::ReadWrite | PropertyAccess::ReadOnly) {
         quote! {
-            pub async fn #hl_read_fn(&mut self) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
-                let path = #path.to_vec();
-                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, path).await?;
+            pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
+                let path = #path;
+                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, path, timeout).await?;
                 let mut rd = BufReader::new(&bytes);
                 #des
                 Ok(value)
@@ -239,26 +199,6 @@ fn handle_property(
     };
 
     quote! {
-        // #[inline]
-        // pub fn #prop_ser_value_path(&mut self, #prop_name: #ty_def) -> Result<(#return_ty, #path_ty), ShrinkWrapError> {
-        //     let mut wr = BufWriter::new(&mut self.args_scratch);
-        //     #ser
-        //     let args_bytes = #finish_wr;
-        //     Ok((args_bytes, #path))
-        // }
-        //
-        // #[inline]
-        // pub fn #prop_path(&self) -> #path_ty {
-        //     #path
-        // }
-        //
-        // #[inline]
-        // pub fn #prop_des_value(value_bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
-        //     let mut rd = BufReader::new(value_bytes);
-        //     #des
-        //     Ok(value)
-        // }
-
         #hl_write_fn
         #hl_read_fn
     }
@@ -346,40 +286,36 @@ fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStre
     }
 }
 
-fn hl_init_methods(high_level_client: bool) -> TokenStream {
-    if high_level_client {
-        quote! {
-            pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
-                let (done_tx, done_rx) = tokio::sync::oneshot::channel();
-                self.cmd_tx
-                    .send(wire_weaver_client_common::Command::DisconnectAndExit {
-                        disconnected_tx: Some(done_tx),
-                    })
-                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-                let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-                Ok(())
-            }
-
-            pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
-                self.cmd_tx
-                    .send(wire_weaver_client_common::Command::DisconnectAndExit {
-                        disconnected_tx: None,
-                    })
-                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-                Ok(())
-            }
-
-            /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
-            pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
-                self.cmd_tx
-                    .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
-                        disconnected_tx: None,
-                    })
-                    .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-                Ok(())
-            }
+fn hl_init_methods() -> TokenStream {
+    quote! {
+        pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+            let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+            self.cmd_tx
+                .send(wire_weaver_client_common::Command::DisconnectAndExit {
+                    disconnected_tx: Some(done_tx),
+                })
+                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            Ok(())
         }
-    } else {
-        quote! {}
+
+        pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+            self.cmd_tx
+                .send(wire_weaver_client_common::Command::DisconnectAndExit {
+                    disconnected_tx: None,
+                })
+                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            Ok(())
+        }
+
+        /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
+        pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+            self.cmd_tx
+                .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
+                    disconnected_tx: None,
+                })
+                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            Ok(())
+        }
     }
 }

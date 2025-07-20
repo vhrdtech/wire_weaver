@@ -20,8 +20,6 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) client: bool,
     #[darling(default)]
-    pub(crate) raw_client: bool,
-    #[darling(default)]
     pub(crate) server: bool,
     pub(crate) no_alloc: bool,
     pub(crate) use_async: bool,

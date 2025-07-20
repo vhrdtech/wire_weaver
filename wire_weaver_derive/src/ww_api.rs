@@ -73,7 +73,6 @@ fn api_inner(args: ImplArgs) -> Result<TokenStream, String> {
         let ts = wire_weaver_core::codegen::api_client::client(
             &level,
             args.ext.no_alloc,
-            !args.ext.raw_client,
             &args.context_ident,
         );
         codegen_ts.append_all(ts);

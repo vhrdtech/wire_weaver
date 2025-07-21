@@ -24,6 +24,11 @@ pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStrea
         ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
     };
     let use_external = api_level.use_external_types(Path::new_ident(parent.clone()));
+    let external_crate_name = match &api_level.source_location {
+        ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
+        ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
+    };
+    let trait_clients = client_structs_recursive(api_level, Some(external_crate_name), no_alloc);
     quote! {
         mod api_client {
             #args_structs
@@ -41,6 +46,8 @@ pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStrea
                 #output_des
                 #hl_init
             }
+
+            #trait_clients
         }
     }
 }
@@ -318,4 +325,53 @@ fn hl_init_methods() -> TokenStream {
             Ok(())
         }
     }
+}
+
+fn client_structs_recursive(
+    api_level: &ApiLevel,
+    ext_crate_name: Option<&Ident>,
+    no_alloc: bool,
+) -> TokenStream {
+    let mut ts = TokenStream::new();
+    let args_structs = args_structs(api_level, no_alloc);
+
+    let mod_name = api_level.mod_ident(ext_crate_name);
+    // let use_external = api_level.use_external_types(
+    //     ext_crate_name
+    //         .map(|n| Path::new_ident(n.clone()))
+    //         .unwrap_or(Path::new_path("super::super")),
+    // );
+    let client_struct_name = Ident::new(
+        format!("{}_client", mod_name).to_case(Case::Snake).as_str(),
+        mod_name.span(),
+    );
+    let methods = level_methods(api_level, no_alloc);
+    ts.extend(quote! {
+        mod #mod_name {
+            use super::*;
+            // #use_external
+            #args_structs
+            pub struct #client_struct_name<'i> {
+                base_uri: &'i [UNib32],
+                args_scratch: &'i mut [u8],
+                cmd_tx: &'i mut tokio::sync::mpsc::UnboundedSender<Command<F, E>>,
+            }
+
+            impl<'i, F, E> #client_struct_name<'i, F, E> {
+                #methods
+            }
+        }
+    });
+    for item in &api_level.items {
+        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
+            continue;
+        };
+        let level = level.as_ref().expect("empty level");
+        ts.extend(client_structs_recursive(
+            level,
+            args.location.crate_name().as_ref(),
+            no_alloc,
+        ));
+    }
+    ts
 }

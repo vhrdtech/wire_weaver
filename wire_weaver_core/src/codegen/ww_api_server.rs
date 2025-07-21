@@ -204,7 +204,7 @@ fn level_matchers(
                 quote! { .0 }
             };
             let maybe_index_chain_push =
-                index_chain.push_back(quote! { path_iter.next().ok_or(Error::ExpectedArrayIndexGotNone)?#check_err_on_no_alloc });
+                index_chain.push_back( quote! { }, quote! { path_iter.next().ok_or(Error::ExpectedArrayIndexGotNone)?#check_err_on_no_alloc });
             let lm = level_matcher(
                 &item.kind,
                 index_chain,

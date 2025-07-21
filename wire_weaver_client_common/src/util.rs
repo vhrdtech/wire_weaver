@@ -47,13 +47,13 @@ impl Timeout {
 pub async fn send_call_receive_reply<F, E: Debug>(
     cmd_tx: &mut mpsc::UnboundedSender<Command<F, E>>,
     args: Vec<u8>,
-    path: Vec<UNib32>,
+    path: &[u32],
     timeout: Timeout,
 ) -> Result<Vec<u8>, Error<E>> {
     let (done_tx, done_rx) = oneshot::channel();
     let cmd = Command::SendCall {
         args_bytes: args,
-        path,
+        path: path.iter().map(|i| UNib32(*i)).collect(),
         timeout: Some(timeout.timeout()),
         done_tx: Some(done_tx),
     };
@@ -64,13 +64,13 @@ pub async fn send_call_receive_reply<F, E: Debug>(
 pub async fn send_write_receive_reply<F, E: Debug>(
     cmd_tx: &mut mpsc::UnboundedSender<Command<F, E>>,
     value: Vec<u8>,
-    path: Vec<UNib32>,
+    path: &[u32],
     timeout: Timeout,
 ) -> Result<(), Error<E>> {
     let (done_tx, done_rx) = oneshot::channel();
     let cmd = Command::SendWrite {
         value_bytes: value,
-        path,
+        path: path.iter().map(|i| UNib32(*i)).collect(),
         timeout: Some(timeout.timeout()),
         done_tx: Some(done_tx),
     };
@@ -80,12 +80,12 @@ pub async fn send_write_receive_reply<F, E: Debug>(
 
 pub async fn send_read_receive_reply<F, E: Debug>(
     cmd_tx: &mut mpsc::UnboundedSender<Command<F, E>>,
-    path: Vec<UNib32>,
+    path: &[u32],
     timeout: Timeout,
 ) -> Result<Vec<u8>, Error<E>> {
     let (done_tx, done_rx) = oneshot::channel();
     let cmd = Command::SendRead {
-        path,
+        path: path.iter().map(|i| UNib32(*i)).collect(),
         timeout: Some(timeout.timeout()),
         done_tx: Some(done_tx),
     };

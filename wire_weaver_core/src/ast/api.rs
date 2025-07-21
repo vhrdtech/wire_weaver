@@ -98,6 +98,16 @@ impl ApiLevel {
         }
     }
 
+    pub fn client_struct_name(&self, ext_crate_name: Option<&Ident>) -> Ident {
+        let mod_name = self.mod_ident(ext_crate_name);
+        Ident::new(
+            format!("{}_client", mod_name)
+                .to_case(Case::Pascal)
+                .as_str(),
+            mod_name.span(),
+        )
+    }
+
     pub fn use_external_types(&self, parent: Path) -> TokenStream {
         let mut ext_types = HashSet::new();
         for item in &self.items {

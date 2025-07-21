@@ -2,48 +2,45 @@ use crate::ast::Type;
 use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, PropertyAccess};
 use crate::ast::path::Path;
 use crate::codegen::api_common::args_structs;
+use crate::codegen::index_chain::IndexChain;
 use crate::codegen::ty::FieldPath;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStream {
-    let args_structs = args_structs(api_level, no_alloc);
-    let root_level = level_methods(api_level, no_alloc);
-    let output_des = output_des_fns(api_level, no_alloc);
     let additional_use = if no_alloc {
         quote! { use wire_weaver::shrink_wrap::RefVec; }
     } else {
         quote! {}
     };
-    let (generics_a, generics_b) = (quote! { <F, E: core::fmt::Debug> }, quote! { <F, E> });
     let hl_init = hl_init_methods();
 
-    let parent = match &api_level.source_location {
+    let ext_crate_name = match &api_level.source_location {
         ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
         ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
     };
-    let use_external = api_level.use_external_types(Path::new_ident(parent.clone()));
-    let external_crate_name = match &api_level.source_location {
-        ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
-        ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
-    };
-    let trait_clients = client_structs_recursive(api_level, Some(external_crate_name), no_alloc);
+    let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
+    let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
+    let trait_clients =
+        client_structs_recursive(api_level, IndexChain::new(), Some(ext_crate_name), no_alloc);
     quote! {
         mod api_client {
-            #args_structs
-
             use wire_weaver::shrink_wrap::{
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
                 Error as ShrinkWrapError, nib32::UNib32
             };
-            use ww_client_server::{Request, RequestKind, Event, EventKind, Error};
             #additional_use
-            #use_external
+            use super::Command; // TODO: un-hardcode use Command
 
-            impl #generics_a super::#ident #generics_b {
-                #root_level
-                #output_des
+            impl<F, E: core::fmt::Debug> super::#ident<F, E> {
+                pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_, F, E> {
+                    #root_mod_name::#root_client_struct_name {
+                        args_scratch: &mut self.args_scratch,
+                        cmd_tx: &mut self.cmd_tx,
+                    }
+                }
+
                 #hl_init
             }
 
@@ -52,40 +49,89 @@ pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStrea
     }
 }
 
-fn level_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
+fn client_structs_recursive(
+    api_level: &ApiLevel,
+    mut index_chain: IndexChain,
+    ext_crate_name: Option<&Ident>,
+    no_alloc: bool,
+) -> TokenStream {
+    let mut ts = TokenStream::new();
+    let args_structs = args_structs(api_level, no_alloc);
+
+    let mod_name = api_level.mod_ident(ext_crate_name);
+    let use_external = api_level.use_external_types(
+        ext_crate_name
+            .map(|n| Path::new_ident(n.clone()))
+            .unwrap_or(Path::new_path("super::super")),
+    );
+    let client_struct_name = api_level.client_struct_name(ext_crate_name);
+    let methods = level_methods(api_level, index_chain, no_alloc);
+
+    // call before increment_length so that root level does not have it
+    let maybe_index_chain_field = index_chain.struct_field_def();
+
+    let mut child_ts = TokenStream::new();
+    for item in &api_level.items {
+        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
+            continue;
+        };
+        let level = level.as_ref().expect("empty level");
+        index_chain.increment_length();
+        child_ts.extend(client_structs_recursive(
+            level,
+            index_chain,
+            args.location.crate_name().as_ref(),
+            no_alloc,
+        ));
+    }
+
+    ts.extend(quote! {
+        mod #mod_name {
+            use super::*;
+            #use_external
+            #args_structs
+
+            pub struct #client_struct_name<'i, F, E> {
+                #maybe_index_chain_field
+                pub args_scratch: &'i mut [u8],
+                pub cmd_tx: &'i mut tokio::sync::mpsc::UnboundedSender<Command<F, E>>,
+            }
+
+            impl<'i, F, E: core::fmt::Debug> #client_struct_name<'i, F, E> {
+                #methods
+            }
+
+            #child_ts
+        }
+    });
+    ts
+}
+
+fn level_methods(api_level: &ApiLevel, index_chain: IndexChain, no_alloc: bool) -> TokenStream {
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_method(&item.kind, item.id, no_alloc));
+        .map(|item| level_method(&item.kind, item.id, index_chain, no_alloc));
     quote! {
         #(#handlers)*
     }
 }
 
-fn level_method(kind: &ApiItemKind, id: u32, no_alloc: bool) -> TokenStream {
-    let path = if no_alloc {
-        quote! { &[UNib32(#id)] }
-    } else {
-        quote! { vec![UNib32(#id)] }
-    };
-    let path_ty = if no_alloc {
-        quote! { &[UNib32] }
-    } else {
-        quote! { Vec<UNib32> }
-    };
-    // let return_ty = if no_alloc {
-    //     quote! { &[u8] }
-    // } else {
-    //     quote! { Vec<u8> }
-    // };
+fn level_method(
+    kind: &ApiItemKind,
+    id: u32,
+    mut index_chain: IndexChain,
+    no_alloc: bool,
+) -> TokenStream {
+    let index_chain_push = index_chain.push_back(quote! { self. }, quote! { #id });
     match kind {
         ApiItemKind::Method {
             ident,
             args,
             return_type,
-        } => handle_method(no_alloc, path, ident, args, return_type),
+        } => handle_method(no_alloc, index_chain_push, ident, args, return_type),
         ApiItemKind::Property { access, ident, ty } => {
-            handle_property(no_alloc, path, access, ident, ty)
+            handle_property(no_alloc, index_chain_push, access, ident, ty)
         }
         ApiItemKind::Stream {
             ident,
@@ -93,21 +139,37 @@ fn level_method(kind: &ApiItemKind, id: u32, no_alloc: bool) -> TokenStream {
             is_up: _,
         } => {
             let fn_name = Ident::new(format!("{}_stream_path", ident).as_str(), ident.span());
+            let ty = index_chain.return_ty_def();
             quote! {
-                pub fn #fn_name(&self) -> #path_ty {
-                    #path
+                pub fn #fn_name(&self) -> #ty {
+                    #index_chain_push
+                    index_chain
                 }
             }
         }
-        ApiItemKind::ImplTrait { .. } => {
-            quote! {}
+        ApiItemKind::ImplTrait { args, level } => {
+            let level_entry_fn_name = &args.resource_name;
+            let level = level.as_ref().expect("api level");
+            let ext_crate_name = args.location.crate_name().clone();
+            let mod_name = level.mod_ident(ext_crate_name.as_ref());
+            let client_struct_name = level.client_struct_name(ext_crate_name.as_ref());
+            quote! {
+                pub fn #level_entry_fn_name(&mut self) -> #mod_name::#client_struct_name<'_, F, E> {
+                    #index_chain_push;
+                    #mod_name::#client_struct_name {
+                        index_chain,
+                        args_scratch: self.args_scratch,
+                        cmd_tx: self.cmd_tx,
+                    }
+                }
+            }
         }
     }
 }
 
 fn handle_method(
     no_alloc: bool,
-    path: TokenStream,
+    index_chain_push: TokenStream,
     ident: &Ident,
     args: &[Argument],
     return_type: &Option<Type>,
@@ -124,19 +186,31 @@ fn handle_method(
     } else {
         (quote! { () }, quote! {})
     };
-    let des_output_fn = Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
-    let handle_output = if return_type.is_some() {
-        quote! { Ok(Self::#des_output_fn(&data)? #maybe_dot_output) }
+    let handle_output = if let Some(return_type) = return_type {
+        let ty_def = if matches!(return_type, Type::External(_, _)) {
+            return_type.def(no_alloc)
+        } else {
+            let output_struct_name = Ident::new(
+                format!("{}_output", ident).to_case(Case::Pascal).as_str(),
+                ident.span(),
+            );
+            quote! { #output_struct_name }
+        };
+        quote! {
+            let mut rd = BufReader::new(&return_bytes);
+            Ok(#ty_def::des_shrink_wrap(&mut rd)? #maybe_dot_output)
+        }
     } else {
-        quote! { _ = data; Ok(()) }
+        quote! { _ = return_bytes; Ok(()) }
     };
+
     quote! {
         pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
             #args_ser
             let args_bytes = #args_bytes;
-            let path = #path;
-            let data =
-                wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args_bytes, path, timeout)
+            #index_chain_push
+            let return_bytes =
+                wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args_bytes, &index_chain, timeout)
                     .await?;
             #handle_output
         }
@@ -145,7 +219,7 @@ fn handle_method(
 
 fn handle_property(
     no_alloc: bool,
-    path: TokenStream,
+    index_chain_push: TokenStream,
     access: &PropertyAccess,
     prop_name: &Ident,
     ty: &Type,
@@ -180,9 +254,9 @@ fn handle_property(
                 let mut wr = BufWriter::new(&mut self.args_scratch);
                 #ser
                 let args = #finish_wr;
-                let path = #path;
+                #index_chain_push
                 let _data =
-                    wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, path, timeout)
+                    wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, &index_chain, timeout)
                         .await?;
                 Ok(())
             }
@@ -194,8 +268,8 @@ fn handle_property(
     let hl_read_fn = if matches!(access, PropertyAccess::ReadWrite | PropertyAccess::ReadOnly) {
         quote! {
             pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
-                let path = #path;
-                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, path, timeout).await?;
+                #index_chain_push
+                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, &index_chain, timeout).await?;
                 let mut rd = BufReader::new(&bytes);
                 #des
                 Ok(value)
@@ -257,42 +331,6 @@ fn ser_args(
     }
 }
 
-fn output_des_fns(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
-    let handlers = api_level.items.iter().filter_map(|item| match &item.kind {
-        ApiItemKind::Method {
-            ident,
-            args: _,
-            return_type,
-        } => return_type
-            .as_ref()
-            .map(|ty| output_des_fn(ident, ty, no_alloc)),
-        _ => None,
-    });
-    quote! {
-        #(#handlers)*
-    }
-}
-
-fn output_des_fn(ident: &Ident, return_type: &Type, no_alloc: bool) -> TokenStream {
-    let fn_name = Ident::new(format!("{}_des_output", ident).as_str(), ident.span());
-
-    let ty_def = if matches!(return_type, Type::External(_, _)) {
-        return_type.def(no_alloc)
-    } else {
-        let output_struct_name = Ident::new(
-            format!("{}_output", ident).to_case(Case::Pascal).as_str(),
-            ident.span(),
-        );
-        quote! { #output_struct_name }
-    };
-    quote! {
-        pub fn #fn_name(bytes: &[u8]) -> Result<#ty_def, ShrinkWrapError> {
-            let mut rd = BufReader::new(bytes);
-            Ok(#ty_def::des_shrink_wrap(&mut rd)?)
-        }
-    }
-}
-
 fn hl_init_methods() -> TokenStream {
     quote! {
         pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
@@ -325,53 +363,4 @@ fn hl_init_methods() -> TokenStream {
             Ok(())
         }
     }
-}
-
-fn client_structs_recursive(
-    api_level: &ApiLevel,
-    ext_crate_name: Option<&Ident>,
-    no_alloc: bool,
-) -> TokenStream {
-    let mut ts = TokenStream::new();
-    let args_structs = args_structs(api_level, no_alloc);
-
-    let mod_name = api_level.mod_ident(ext_crate_name);
-    // let use_external = api_level.use_external_types(
-    //     ext_crate_name
-    //         .map(|n| Path::new_ident(n.clone()))
-    //         .unwrap_or(Path::new_path("super::super")),
-    // );
-    let client_struct_name = Ident::new(
-        format!("{}_client", mod_name).to_case(Case::Snake).as_str(),
-        mod_name.span(),
-    );
-    let methods = level_methods(api_level, no_alloc);
-    ts.extend(quote! {
-        mod #mod_name {
-            use super::*;
-            // #use_external
-            #args_structs
-            pub struct #client_struct_name<'i> {
-                base_uri: &'i [UNib32],
-                args_scratch: &'i mut [u8],
-                cmd_tx: &'i mut tokio::sync::mpsc::UnboundedSender<Command<F, E>>,
-            }
-
-            impl<'i, F, E> #client_struct_name<'i, F, E> {
-                #methods
-            }
-        }
-    });
-    for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
-            continue;
-        };
-        let level = level.as_ref().expect("empty level");
-        ts.extend(client_structs_recursive(
-            level,
-            args.location.crate_name().as_ref(),
-            no_alloc,
-        ));
-    }
-    ts
 }

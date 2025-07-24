@@ -307,3 +307,77 @@ impl<'i, T: DeserializeShrinkWrap<'i>, E: DeserializeShrinkWrap<'i>> Deserialize
         }
     }
 }
+
+macro_rules! impl_tuple {
+    ($($types:ident),* ; $($indices: literal),*) => {
+        paste! {
+            impl<$($types: SerializeShrinkWrap),*> SerializeShrinkWrap for ($($types),*) {
+                const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+
+                fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                    $(wr.write(&self.$indices)?;)*
+                    Ok(())
+                }
+            }
+
+            impl<'i, $($types: DeserializeShrinkWrap<'i>),*> DeserializeShrinkWrap<'i>
+                for ($($types),*)
+            {
+                const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+                    $(let [<_ $indices>] = rd.read()?;)*
+                    Ok(( $([<_ $indices>]),* ))
+                }
+            }
+        }
+    };
+}
+
+macro_rules! add_recursive {
+    () => {};
+    ($t: ident) => { $t::ELEMENT_SIZE };
+    ($t: ident, $($types: ident),*) => { $t::ELEMENT_SIZE.add(add_recursive!($($types),*)) };
+}
+
+impl_tuple!(A, B; 0, 1);
+impl_tuple!(A, B, C; 0, 1, 2);
+impl_tuple!(A, B, C, D; 0, 1, 2, 3);
+impl_tuple!(A, B, C, D, E; 0, 1, 2, 3, 4);
+impl_tuple!(A, B, C, D, E, F; 0, 1, 2, 3, 4, 5);
+impl_tuple!(A, B, C, D, E, F, G; 0, 1, 2, 3, 4, 5, 6);
+impl_tuple!(A, B, C, D, E, F, G, H; 0, 1, 2, 3, 4, 5, 6, 7);
+
+impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        for elem in self {
+            wr.write(elem)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'i, const N: usize, T: DeserializeShrinkWrap<'i> + Default + Copy> DeserializeShrinkWrap<'i>
+    for [T; N]
+{
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        let mut array: [T; N] = [T::default(); N];
+        for i in 0..N {
+            array[i] = rd.read()?;
+        }
+
+        // let mut array: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+        //
+        // for i in 0..N {
+        //     let elem = rd.read()?;
+        //     array[i] = MaybeUninit::new(elem);
+        // }
+        //
+        // let array = unsafe { core::mem::transmute::<_, [T; N]>(array) };
+        Ok(array)
+    }
+}

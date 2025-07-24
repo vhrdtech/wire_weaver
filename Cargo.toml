@@ -26,7 +26,7 @@ members = [
     "wire_weaver_udp_link",
     "wire_weaver_tool",
     #    "examples/*",
-    #    "tests"
+    "tests",
     "ww_client_server",
     "ww_date_time",
     "ww_version",

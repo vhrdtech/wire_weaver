@@ -2,7 +2,7 @@ use super::{FieldPath, FieldSelector};
 use crate::ast::Type;
 use crate::ast::path::Path;
 use proc_macro2::{Ident, Span};
-use syn::{Attribute, GenericArgument, PathArguments, PathSegment, ReturnType};
+use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};
 
 pub fn transform_type(
     ty: syn::Type,
@@ -33,7 +33,25 @@ pub fn transform_type(
             }
             Ok(ty)
         }
-        // syn::Type::Array(_type_array) => {
+        syn::Type::Tuple(type_tuple) => {
+            let mut types = vec![];
+            for elem in type_tuple.elems.into_iter() {
+                let ty = transform_type(elem, None, path)?;
+                types.push(ty);
+            }
+            Ok(Type::Tuple(types))
+        }
+        syn::Type::Array(type_array) => {
+            let Expr::Lit(lit) = type_array.len else {
+                return Err("only literals supported as array length".into());
+            };
+            let Lit::Int(lit_int) = lit.lit else {
+                return Err("only integers supported as array length".into());
+            };
+            let len: usize = lit_int.base10_parse().unwrap();
+            let ty = transform_type(*type_array.elem, None, path)?;
+            Ok(Type::Array(len, Box::new(ty)))
+        }
         u => Err(format!("{u:?} is not supported")),
     }
 }

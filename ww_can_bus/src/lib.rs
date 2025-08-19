@@ -143,10 +143,10 @@ pub trait CANBusInterface {
     fn performance() -> Option<CANInterfacePerformance>;
 }
 
-struct CANEnvelope<'i> {
-    frame: CANFrame<'i>,
-    timestamp_us: Option<u32>, // since tick or absolute?
-    timestamp_ns: Option<U30>,
+pub struct CANEnvelope<'i> {
+    pub frame: CANFrame<'i>,
+    pub timestamp_us: Option<u32>, // since tick or absolute?
+    pub timestamp_ns: Option<U30>,
 }
 
 #[derive_shrink_wrap]

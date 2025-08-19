@@ -20,16 +20,9 @@ pub struct UdpTarget {
 
 pub type UdpError = ();
 
+#[derive(Default)]
 struct State {
     common: CommonState<UdpError>,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State {
-            common: CommonState::default(),
-        }
-    }
 }
 
 struct Link {
@@ -59,7 +52,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
                 {
                     Ok(r) => {
                         info!("loop (inner) exited with {:?}", r);
-                        if r == EventLoopResult::DisconnectAndExit {
+                        if r == EventLoopResult::Exit {
                             break;
                         }
                     }
@@ -116,8 +109,8 @@ impl Link {
 #[derive(Debug, PartialEq)]
 enum EventLoopResult {
     DisconnectKeepStreams,
-    DisconnectFromDevice,
-    DisconnectAndExit,
+    Disconnect,
+    Exit,
 }
 
 async fn process_commands_and_endpoints(
@@ -146,21 +139,21 @@ async fn process_commands_and_endpoints(
                 match handle_datagram(datagram, link, state).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                 }
             }
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
                     info!("all tx instances were dropped, exiting");
                     _ = link.send_op(Op::Disconnect { reason: "cmd_tx_dropped" }).await;
-                    return Ok(EventLoopResult::DisconnectAndExit);
+                    return Ok(EventLoopResult::Exit);
                 };
                 match handle_command(cmd, link, state, scratch).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                 }
             }
             _ = timer => {
@@ -328,6 +321,7 @@ async fn handle_datagram(
                     })
                     .await?;
                 } else {
+                    error!("no user protocol version");
                 }
             }
             Op::LinkSetup { .. } => {}

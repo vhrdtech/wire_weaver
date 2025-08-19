@@ -18,7 +18,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             self.force_send().await?;
         }
         self.tx_writer
-            .write_u4(Op::NoOp as u8)
+            .write_u4(Op::Nop as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.write_len(0)?;
         self.force_send().await?;
@@ -141,7 +141,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             let mut remaining_bytes = message;
             let mut crc_in_next_packet = None;
             let mut is_first_chunk = true;
-            while remaining_bytes.len() > 0 {
+            while !remaining_bytes.is_empty() {
                 if self.tx_writer.bytes_left() < 3 {
                     self.force_send().await?;
                 }
@@ -152,16 +152,14 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
                     Op::MessageStart
                 } else if remaining_bytes.len() - len_chunk > 0 {
                     Op::MessageContinue
+                } else if self.tx_writer.bytes_left() - len_chunk - 2 >= 2 {
+                    // CRC will fit
+                    Op::MessageEnd
                 } else {
-                    if self.tx_writer.bytes_left() - len_chunk - 2 >= 2 {
-                        // CRC will fit
-                        Op::MessageEnd
-                    } else {
-                        // CRC in the next packet with 0 remaining bytes of the message
-                        let crc = CRC_KIND.checksum(message);
-                        crc_in_next_packet = Some(crc);
-                        Op::MessageContinue
-                    }
+                    // CRC in the next packet with 0 remaining bytes of the message
+                    let crc = CRC_KIND.checksum(message);
+                    crc_in_next_packet = Some(crc);
+                    Op::MessageContinue
                 };
                 self.tx_writer
                     .write_u4(kind as u8)
@@ -264,11 +262,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             .tx_writer
             .finish()
             .map_err(|_| Error::InternalBufOverflow)?;
-        if data.len() > 0 {
-            self.tx
-                .write_packet(data)
-                .await
-                .map_err(|e| Error::SinkError(e))?;
+        if !data.is_empty() {
+            self.tx.write_packet(data).await.map_err(Error::SinkError)?;
         }
         self.tx_stats.packets_sent = self.tx_stats.packets_sent.wrapping_add(1);
         Ok(())

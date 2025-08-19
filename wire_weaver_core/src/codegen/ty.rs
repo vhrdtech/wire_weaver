@@ -29,7 +29,7 @@ impl FieldPath {
         }
     }
 
-    fn as_provided(self) -> TokenStream {
+    fn into_inner(self) -> TokenStream {
         match self {
             FieldPath::Ref(path) => path,
             FieldPath::Value(path) => path,
@@ -264,7 +264,7 @@ impl Type {
             Type::Vec(inner_ty) => {
                 let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
                 if is_vec_u8 && no_alloc {
-                    let field_path = field_path.as_provided();
+                    let field_path = field_path.into_inner();
                     tokens
                         .append_all(quote! { #field_path.ser_shrink_wrap_vec_u8(wr) #handle_eob; });
                 } else {

@@ -67,7 +67,7 @@ pub async fn usb_worker(
                 match process_commands_and_endpoints(&mut cmd_rx, l, &mut state).await {
                     Ok(r) => {
                         info!("usb event loop (inner) exited with {:?}", r);
-                        if r == EventLoopResult::DisconnectAndExit {
+                        if r == EventLoopResult::Exit {
                             break;
                         }
                     }
@@ -206,8 +206,8 @@ async fn wait_for_connection_and_queue_commands(
 #[derive(Debug, PartialEq)]
 enum EventLoopResult {
     DisconnectKeepStreams,
-    DisconnectFromDevice,
-    DisconnectAndExit,
+    Disconnect,
+    Exit,
 }
 
 async fn process_commands_and_endpoints(
@@ -242,21 +242,21 @@ async fn process_commands_and_endpoints(
                 match handle_message(message, link, state).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                 }
             }
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
                     info!("usb event loop: all CanBus instances were dropped, exiting");
                     link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(e.into()))?;
-                    return Ok(EventLoopResult::DisconnectAndExit);
+                    return Ok(EventLoopResult::Exit);
                 };
                 match handle_command(cmd, link, state, &mut scratch).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                 }
             }
             _ = timer => {
@@ -274,7 +274,7 @@ async fn process_commands_and_endpoints(
                         let dt = Instant::now() - *last;
                         if dt > Duration::from_secs(5) {
                             warn!("No ping from device for 5 seconds, exiting");
-                            return Ok(EventLoopResult::DisconnectFromDevice);
+                            return Ok(EventLoopResult::Disconnect);
                         }
                     }
                     if let Some(instant) = state.common.packet_started_instant {

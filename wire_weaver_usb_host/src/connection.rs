@@ -46,7 +46,7 @@ pub(crate) async fn connect(
                         error!("device {di:?} open failed: {e:?}, timeout expired, bailing");
                         return Err(Error::DeviceNotFound);
                     } else {
-                        *timeout = *timeout - dt;
+                        *timeout -= dt;
                         error!(
                             "device {di:?} open failed: {e:?}, waiting another device for {}s...",
                             timeout.as_secs(),
@@ -100,7 +100,7 @@ async fn wait_device(
                     if dt > timeout {
                         return Err(Error::DeviceNotFound)
                     } else {
-                        timeout = timeout - dt;
+                        timeout -= dt;
                     }
                 }
             }

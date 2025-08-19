@@ -48,16 +48,9 @@ impl From<shrink_wrap::Error> for WsError {
     }
 }
 
+#[derive(Default)]
 struct State {
     common: CommonState<WsError>,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State {
-            common: CommonState::default(),
-        }
-    }
 }
 
 struct Link {
@@ -78,7 +71,7 @@ pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<WsTarget, WsE
                 {
                     Ok(r) => {
                         info!("loop (inner) exited with {:?}", r);
-                        if r == EventLoopResult::DisconnectAndExit {
+                        if r == EventLoopResult::Exit {
                             break;
                         }
                     }
@@ -114,8 +107,8 @@ pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<WsTarget, WsE
 #[derive(Debug, PartialEq)]
 enum EventLoopResult {
     DisconnectKeepStreams,
-    DisconnectFromDevice,
-    DisconnectAndExit,
+    Disconnect,
+    Exit,
 }
 
 async fn process_commands_and_endpoints(
@@ -139,8 +132,8 @@ async fn process_commands_and_endpoints(
                     Some(Ok(message)) => match handle_message(message, &mut link.tx, state).await? {
                         EventLoopSpinResult::Continue => {}
                         EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                        EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                        EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                        EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                        EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                     }
                     Some(Err(e)) => {
                         return Err(e.into());
@@ -155,13 +148,13 @@ async fn process_commands_and_endpoints(
                 let Some(cmd) = cmd else {
                     info!("all tx instances were dropped, exiting");
                     link.tx.send(Message::Close(None)).await?;
-                    return Ok(EventLoopResult::DisconnectAndExit);
+                    return Ok(EventLoopResult::Exit);
                 };
                 match handle_command(cmd, &mut link.tx, state, scratch).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::DisconnectFromDevice),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::DisconnectAndExit)
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
                 }
             }
             _ = timer => {

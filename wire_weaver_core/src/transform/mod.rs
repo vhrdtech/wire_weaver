@@ -67,13 +67,9 @@ impl FieldPath {
                 Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
             FieldPathRoot::EnumVariant(_enum_variant_name) => {
-                if let Some(selector) = self.selectors.first() {
-                    if let FieldSelector::NamedField(ident) = selector {
-                        let ident = ident.to_string();
-                        Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
-                    } else {
-                        Ident::new("_todo_flag", Span::call_site())
-                    }
+                if let Some(FieldSelector::NamedField(ident)) = self.selectors.first() {
+                    let ident = ident.to_string();
+                    Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
                 } else {
                     Ident::new("_todo_flag", Span::call_site())
                 }

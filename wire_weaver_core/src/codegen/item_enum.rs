@@ -141,7 +141,7 @@ struct CGEnumFieldsDef<'a> {
     no_alloc: bool,
 }
 
-impl<'a> ToTokens for CGEnumFieldsDef<'a> {
+impl ToTokens for CGEnumFieldsDef<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in self.variants {
             let ident = &variant.ident;
@@ -215,7 +215,7 @@ fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
     }
 }
 
-impl<'a> ToTokens for CGEnumSer<'a> {
+impl ToTokens for CGEnumSer<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         // TODO: forbid empty enums or not?
         tokens.append_all(trace_extended_key_val(

@@ -120,7 +120,7 @@ pub(crate) const VERSIONS_PAYLOAD_LEN: usize = 4 + 1 + ProtocolInfo::size_bytes(
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 pub(crate) enum Op {
-    NoOp = 0,
+    Nop = 0,
 
     /// 0x1l, 0xll, `data[0..len]` in first packet
     MessageStart = 1,

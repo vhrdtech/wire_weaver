@@ -1,4 +1,4 @@
-use crate::common::{DisconnectReason, Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
+use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
 use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource, ProtocolInfo};
 use shrink_wrap::BufReader;
 
@@ -39,7 +39,7 @@ pub enum MessageKind {
     },
 }
 
-impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
+impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
     /// Tries to unpack a next message sent from the [MessageSender](crate::MessageSender).
     /// If one or more packets are needed to reassemble a message, waits for all of them
     /// to arrive. If packet contained multiple messages, this function returns immediately with the
@@ -82,7 +82,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     && kind != Op::DeviceInfo
                     && kind != Op::LinkSetup
                     && kind != Op::LinkSetupResult
-                    && kind != Op::NoOp
+                    && kind != Op::Nop
                 {
                     self.rx_left_bytes = 0;
                     return Err(Error::ProtocolsVersionMismatch);
@@ -91,7 +91,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                 let len7_0 = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
                 let len = ((len11_8 as usize) << 8) | len7_0 as usize;
                 match kind {
-                    Op::NoOp => {}
+                    Op::Nop => {}
                     Op::MessageStart | Op::MessageContinue | Op::MessageEnd => {
                         let Ok(message_piece) = rd.read_raw_slice(len) else {
                             self.rx_stats.receive_errors =
@@ -188,7 +188,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     }
                     #[cfg(feature = "host")]
                     Op::DeviceInfo => {
-                        if rd.bytes_left() >= VERSIONS_PAYLOAD_LEN {
+                        if rd.bytes_left() >= crate::common::VERSIONS_PAYLOAD_LEN {
                             let max_message_len =
                                 rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
                             let link_version =
@@ -210,7 +210,7 @@ impl<'a, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'a, T, R> {
                     }
                     #[cfg(feature = "device")]
                     Op::LinkSetup => {
-                        if rd.bytes_left() >= VERSIONS_PAYLOAD_LEN {
+                        if rd.bytes_left() >= crate::common::VERSIONS_PAYLOAD_LEN {
                             let remote_max_message_size =
                                 rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
                             let link_protocol_version =

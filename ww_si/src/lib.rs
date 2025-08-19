@@ -1,4 +1,4 @@
-use wire_weaver::{prelude::*, shrink_wrap};
+use wire_weaver::prelude::*;
 use ww_numeric::NumericValue;
 
 // Base
@@ -59,8 +59,8 @@ pub struct VolumetricFlow(pub NumericValue);
 // Dynamic
 pub struct INib8P3(i8);
 
-impl UNib8M3 {
-    pub const fn new(n: u8) -> Option<INib8P3> {
+impl INib8P3 {
+    pub const fn new(_n: u8) -> Option<INib8P3> {
         todo!()
     }
 
@@ -74,7 +74,7 @@ impl UNib8M3 {
         INib8P3(-1 + 3)
     }
     pub const fn zero() -> Self {
-        INib8P3(0 + 3)
+        INib8P3(3)
     }
     pub const fn one() -> Self {
         INib8P3(1 + 3)
@@ -87,6 +87,10 @@ impl UNib8M3 {
     }
     pub const fn four() -> Self {
         INib8P3(4 + 3)
+    }
+
+    pub const fn value(&self) -> i8 {
+        self.0 - 3
     }
 }
 
@@ -105,4 +109,20 @@ pub struct SI {
     pub kelvin: Option<INib8P3>,
     pub mole: Option<INib8P3>,
     pub candela: Option<INib8P3>,
+}
+
+impl SerializeShrinkWrap for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
+        todo!()
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
+        todo!()
+    }
 }

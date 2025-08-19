@@ -7,12 +7,14 @@ use shrink_wrap::ElementSize;
 use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
+#[allow(clippy::ptr_arg)]
 pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     // TODO: implement id's
     None
 }
 
 /// Take `#[since = "X.Y"]` attribute and return the Version
+#[allow(clippy::ptr_arg)]
 pub(crate) fn take_since_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<Version> {
     None
 }
@@ -204,7 +206,7 @@ pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
             derives
                 .split(&[' ', ','])
                 .filter(|s| !s.is_empty())
-                .map(|s| Path::new_path(s)),
+                .map(Path::new_path),
         );
     }
     attrs.retain(|a| !a.path().is_ident("derive"));

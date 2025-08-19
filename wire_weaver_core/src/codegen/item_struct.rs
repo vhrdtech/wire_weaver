@@ -146,7 +146,7 @@ impl ToTokens for CGStructSer<'_> {
     }
 }
 
-impl<'a> ToTokens for CGStructDes<'a> {
+impl ToTokens for CGStructDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut field_names = vec![];
         tokens.append_all(trace_extended_key_val(

@@ -131,6 +131,11 @@ impl ApiLevel {
         let mut ts = TokenStream::new();
         for ext_ty in ext_types {
             use_ty(&parent, &ext_ty, &mut ts);
+            if ext_ty.potential_lifetimes() {
+                let mut ty_owned = ext_ty.clone();
+                ty_owned.make_owned();
+                use_ty(&parent, &ty_owned, &mut ts);
+            }
         }
         ts
     }

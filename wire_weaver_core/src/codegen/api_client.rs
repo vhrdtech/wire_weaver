@@ -225,7 +225,13 @@ fn handle_property(
     ty: &Type,
 ) -> TokenStream {
     let mut ser = TokenStream::new();
-    let ty_def = ty.arg_pos_def(no_alloc);
+    let ty_def = if ty.potential_lifetimes() && !no_alloc {
+        let mut ty_owned = ty.clone();
+        ty_owned.make_owned();
+        ty_owned.arg_pos_def(no_alloc)
+    } else {
+        ty.arg_pos_def(no_alloc)
+    };
     ty.buf_write(
         FieldPath::Value(quote! { #prop_name }),
         no_alloc,

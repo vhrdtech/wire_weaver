@@ -1,6 +1,9 @@
+pub mod command_sender;
 pub mod event_loop_state;
-pub mod util;
-pub mod ww; // TODO: remove
+pub mod timeout;
+pub mod ww;
+
+// TODO: remove
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;
@@ -8,6 +11,7 @@ use ww_version::FullVersionOwned;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::nib32::UNib32;
+use ww_client_server::PathKindOwned;
 
 pub enum Command<F, E> {
     /// Try to connect to / open a device with the specified filter.
@@ -31,26 +35,30 @@ pub enum Command<F, E> {
     },
 
     SendCall {
+        path: Vec<UNib32>,
+        path_kind: PathKindOwned,
         // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
         args_bytes: Vec<u8>,
-        path: Vec<UNib32>,
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendWrite {
-        value_bytes: Vec<u8>,
         path: Vec<UNib32>,
+        path_kind: PathKindOwned,
+        value_bytes: Vec<u8>,
         timeout: Option<Duration>,
         // Vec is always empty here, but allows for common code
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendRead {
         path: Vec<UNib32>,
+        path_kind: PathKindOwned,
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     Subscribe {
         path: Vec<u32>,
+        path_kind: PathKindOwned,
         stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>,
         // stop_rx: oneshot::Receiver<()>,
     },
@@ -64,6 +72,8 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 pub enum Error<E> {
     #[error("Called a method that required event loop to be running")]
     EventLoopNotRunning,
+    #[error("Tried to make a trait call on a CommandSender which does not have a base path")]
+    RelativePathWithoutBase,
     #[error("No devices found to connect to")]
     DeviceNotFound,
     #[error("Timeout")]
@@ -125,12 +135,4 @@ impl OnError {
             timeout: Duration::from_secs(secs),
         }
     }
-}
-
-#[derive(Copy, Clone)]
-pub enum Timeout {
-    /// Default timeout set via feature flags of wire_weaver_client_server crate.
-    Default,
-    /// Specified timeout in milliseconds.
-    Millis(u64),
 }

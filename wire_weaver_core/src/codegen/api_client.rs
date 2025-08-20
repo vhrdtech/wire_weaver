@@ -63,6 +63,7 @@ fn client_structs_recursive(
         ext_crate_name
             .map(|n| Path::new_ident(n.clone()))
             .unwrap_or(Path::new_path("super::super")),
+        no_alloc,
     );
     let client_struct_name = api_level.client_struct_name(ext_crate_name);
     let methods = level_methods(api_level, index_chain, no_alloc);

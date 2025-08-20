@@ -137,15 +137,17 @@ impl ApiLevel {
         ext_types
     }
 
-    pub fn use_external_types(&self, parent: Path) -> TokenStream {
+    pub fn use_external_types(&self, parent: Path, no_alloc: bool) -> TokenStream {
         let ext_types = self.external_types();
         let mut ts = TokenStream::new();
         for (ext_ty, lifetime) in ext_types {
-            use_ty(&parent, &ext_ty, &mut ts);
-            if lifetime {
+            if lifetime && !no_alloc {
+                // use UserTypeOwned instead of UserType<'_>
                 let mut ty_owned = ext_ty.clone();
                 ty_owned.make_owned();
                 use_ty(&parent, &ty_owned, &mut ts);
+            } else {
+                use_ty(&parent, &ext_ty, &mut ts);
             }
         }
         ts

@@ -53,7 +53,8 @@ pub fn impl_server_dispatcher(
     );
     let mod_doc = &api_level.docs;
     let args_structs = args_structs_recursive(api_level, Some(external_crate_name), no_alloc);
-    let use_external = api_level.use_external_types(Path::new_ident(external_crate_name.clone()));
+    let use_external =
+        api_level.use_external_types(Path::new_ident(external_crate_name.clone()), no_alloc);
     quote! {
         #mod_doc
         mod api_impl {
@@ -506,6 +507,7 @@ fn args_structs_recursive(
         ext_crate_name
             .map(|n| Path::new_ident(n.clone()))
             .unwrap_or(Path::new_path("super::super")),
+        no_alloc,
     );
     ts.extend(quote! {
         mod #mod_name {

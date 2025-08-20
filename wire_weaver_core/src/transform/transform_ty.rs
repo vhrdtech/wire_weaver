@@ -1,7 +1,7 @@
 use super::{FieldPath, FieldSelector};
 use crate::ast::Type;
 use crate::ast::path::Path;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Ident;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};
 
 pub fn transform_type(
@@ -99,7 +99,7 @@ fn transform_path_segment(
                 if let Ok(bits) = bits {
                     if (1..=63).contains(&bits) {
                         return Ok(Type::External(
-                            Path::new_ident(Ident::new(other_ty, Span::call_site())),
+                            Path::new_ident(Ident::new(other_ty, path_segment.ident.span())),
                             false,
                         ));
                     }
@@ -107,7 +107,7 @@ fn transform_path_segment(
             }
 
             return Ok(Type::External(
-                Path::new_ident(Ident::new(other_ty, Span::call_site())),
+                Path::new_ident(Ident::new(other_ty, path_segment.ident.span())),
                 is_lifetime(&path_segment.arguments),
             ));
         }

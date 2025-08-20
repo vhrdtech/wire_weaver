@@ -317,6 +317,37 @@ impl Type {
             _ => {}
         }
     }
+
+    pub fn visit_external_types<F: FnMut(&Path, bool)>(&self, f: &mut F) {
+        match self {
+            Type::External(path, potential_lifetimes) => {
+                f(path, *potential_lifetimes);
+            }
+            Type::Option(_, some_ty) => {
+                some_ty.visit_external_types(f);
+            }
+            Type::Result(_, ok_err_ty) => {
+                let (ok_ty, err_ty) = &**ok_err_ty;
+                ok_ty.visit_external_types(f);
+                err_ty.visit_external_types(f);
+            }
+            Type::Array(_, ty) => {
+                ty.visit_external_types(f);
+            }
+            Type::Tuple(types) => {
+                for ty in types {
+                    ty.visit_external_types(f);
+                }
+            }
+            Type::Vec(ty) => {
+                ty.visit_external_types(f);
+            }
+            Type::RefBox(ty) => {
+                ty.visit_external_types(f);
+            }
+            _ => {}
+        }
+    }
 }
 
 impl Field {

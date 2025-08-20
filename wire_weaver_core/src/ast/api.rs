@@ -108,7 +108,7 @@ impl ApiLevel {
         )
     }
 
-    pub fn use_external_types(&self, parent: Path) -> TokenStream {
+    pub fn external_types(&self) -> HashSet<(Path, bool)> {
         let mut ext_types = HashSet::new();
         for item in &self.items {
             match &item.kind {
@@ -116,22 +116,33 @@ impl ApiLevel {
                     args, return_type, ..
                 } => {
                     for arg in args {
-                        ext_types.insert(arg.ty.clone());
+                        arg.ty.visit_external_types(&mut |ext, lifetime| {
+                            ext_types.insert((ext.clone(), lifetime));
+                        });
                     }
                     if let Some(ty) = return_type {
-                        ext_types.insert(ty.clone());
+                        ty.visit_external_types(&mut |ext, lifetime| {
+                            ext_types.insert((ext.clone(), lifetime));
+                        });
                     }
                 }
                 ApiItemKind::Property { ty, .. } | ApiItemKind::Stream { ty, .. } => {
-                    ext_types.insert(ty.clone());
+                    ty.visit_external_types(&mut |ext, lifetime| {
+                        ext_types.insert((ext.clone(), lifetime));
+                    });
                 }
                 ApiItemKind::ImplTrait { .. } => {}
             }
         }
+        ext_types
+    }
+
+    pub fn use_external_types(&self, parent: Path) -> TokenStream {
+        let ext_types = self.external_types();
         let mut ts = TokenStream::new();
-        for ext_ty in ext_types {
+        for (ext_ty, lifetime) in ext_types {
             use_ty(&parent, &ext_ty, &mut ts);
-            if ext_ty.potential_lifetimes() {
+            if lifetime {
                 let mut ty_owned = ext_ty.clone();
                 ty_owned.make_owned();
                 use_ty(&parent, &ty_owned, &mut ts);
@@ -141,16 +152,14 @@ impl ApiLevel {
     }
 }
 
-fn use_ty(parent: &Path, ty: &Type, ts: &mut TokenStream) {
-    if let Type::External(path, _) = &ty {
-        if path.segments.len() == 1 {
-            ts.extend(quote! {
-                use #parent::#path;
-            });
-        } else {
-            ts.extend(quote! {
-                use #path;
-            });
-        }
+fn use_ty(parent: &Path, path: &Path, ts: &mut TokenStream) {
+    if path.segments.len() == 1 {
+        ts.extend(quote! {
+            use #parent::#path;
+        });
+    } else {
+        ts.extend(quote! {
+            use #path;
+        });
     }
 }

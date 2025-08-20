@@ -39,7 +39,7 @@ pub struct FullVersion<'i> {
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
 /// Type id is globally unique across all crates.
 #[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 #[final_structure]
 pub struct CompactVersion {
     pub global_type_id: UNib32,
@@ -104,6 +104,13 @@ impl Debug for FullVersion<'_> {
 impl Debug for VersionOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self.as_ref())
+    }
+}
+
+#[cfg(feature = "std")]
+impl Debug for FullVersionOwned {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{} {:?}", self.crate_id, self.version)
     }
 }
 
@@ -216,6 +223,16 @@ impl Version<'_> {
             patch: self.patch,
             pre: self.pre.map(|pre| pre.to_string()),
             build: self.build.map(|build| build.to_string()),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl FullVersion<'_> {
+    pub fn make_owned(&self) -> FullVersionOwned {
+        FullVersionOwned {
+            crate_id: self.crate_id.to_string(),
+            version: self.version.make_owned(),
         }
     }
 }

@@ -1,16 +1,21 @@
 [package]
 name = "tests"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 publish = false
 
 [dev-dependencies]
-wire_weaver = { path = "../crates/wire_weaver" }
+wire_weaver = { path = "../wire_weaver" }
+hex-literal = "1"
+
+#[[test]]
+#name = "serdes"
+#path = "serdes.rs"
+#
+#[[test]]
+#name = "shrink_wrap_derive"
+#path = "shrink_wrap_derive.rs"
 
 [[test]]
-name = "serdes"
-path = "serdes.rs"
-
-[[test]]
-name = "shrink_wrap_derive"
-path = "shrink_wrap_derive.rs"
+name = "basic_types"
+path = "basic_types.rs"

@@ -259,8 +259,16 @@ impl Type {
             Type::ILeb32 => unimplemented!("ileb32"),
             Type::ILeb64 => unimplemented!("ileb64"),
             Type::ILeb128 => unimplemented!("ileb128"),
-            Type::Array(_, _) => unimplemented!("array"),
-            Type::Tuple(_) => unimplemented!("tuple"),
+            Type::Array(_, _) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
+                return;
+            }
+            Type::Tuple(_types) => {
+                let field_path = field_path.by_ref();
+                tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
+                return;
+            }
             Type::Vec(inner_ty) => {
                 let is_vec_u8 = matches!(inner_ty.deref(), Type::U8);
                 if is_vec_u8 && no_alloc {
@@ -334,8 +342,24 @@ impl Type {
             //         return;
             //     }
             // }
-            Type::Array(_, _) => unimplemented!("array"),
-            Type::Tuple(_) => unimplemented!("tuple"),
+            Type::Array(_len, _ty) => {
+                // tokens.append_all(quote! {
+                //     let mut #variable_name: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+                //     for i in 0..#len {
+                //         let elem = rd.read()?;
+                //         #variable_name[i] = MaybeUninit::new(elem);
+                //     }
+                // });
+                // let ty_def = ty.def(_no_alloc);
+                // tokens.append_all(quote! { let #variable_name = unsafe { core::mem::transmute::<_, [#ty_def; #len]>(#variable_name) }; });
+                // return;
+                tokens.append_all(quote! { let #variable_name = rd.read()?; });
+                return;
+            }
+            Type::Tuple(_) => {
+                tokens.append_all(quote! { let #variable_name = rd.read()?; });
+                return;
+            }
             Type::Vec(_inner_ty) => {
                 // TODO: how to handle eob to be zero length?
                 tokens.append_all(quote! { let #variable_name = rd.read()?; });

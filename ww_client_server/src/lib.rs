@@ -3,20 +3,34 @@
 pub mod util;
 
 use wire_weaver::prelude::*;
-use ww_version::{FullVersion, Version};
+use ww_version::{CompactVersion, FullVersion};
 
 #[cfg(feature = "std")]
-use ww_version::VersionOwned;
+use ww_version::FullVersionOwned;
 
 pub const FULL_VERSION: FullVersion = full_version!();
 
+/// Represents one operation (call, read, write, etc.) to be performed on a resource.
+/// 3 modes of addressing is supported:
+/// * Explicit - only the number path to a resource is used, smallest size
+/// * CompactVersion - request to a trait resource, for commonly used traits that are used often and have an ID assigned TODO: add git link to global trait list
+/// * FullVersion - request to a trait resource defined in an arbitrary Rust crate, full crate name, and it's version is used as an ID
 #[derive_shrink_wrap]
 #[owned = "std"]
 #[derive(Debug)]
-struct Request<'i> {
-    /// If 0 - no answer is expected
+pub struct Request<'i> {
+    /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
+    /// 0 means no answer is expected.
     pub seq: u16,
+
+    /// Path from the root to the final resource if [absolute path addressing is used](PathKind::Absolute).
+    /// Path to the level, where trait is implemented otherwise (empty if trait is implemented at root level).
     pub path: RefVec<'i, UNib32>,
+
+    /// Specifies whether resource is addressed explicitly, using full path to it or through global trait ID.
+    pub addressing: PathKind<'i>,
+
+    /// Action being requested
     pub kind: RequestKind<'i>,
 }
 
@@ -25,17 +39,42 @@ struct Request<'i> {
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
-enum RequestKind<'i> {
-    Version,
+pub enum PathKind<'i> {
+    /// [Request](Request).path is used as a full path to the resource, regardless whether it is in a trait or not.
+    Absolute,
+
+    /// [Request](Request).path is selecting an API level where trait is implemented, then path_from_trait is used to identify a resource.
+    /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
+    GlobalCompact {
+        gid: CompactVersion,
+        path_from_trait: RefVec<'i, UNib32>,
+    },
+
+    /// [Request](Request).path is selecting an API level where trait is implemented, then path_from_trait is used to identify a resource.
+    /// This kind of request is the biggest, because full crate name is used.
+    GlobalFull {
+        gid: FullVersion<'i>,
+        path_from_trait: RefVec<'i, UNib32>,
+    },
+}
+
+#[derive_shrink_wrap]
+#[ww_repr(u4)]
+#[final_structure]
+#[owned = "std"]
+#[derive(Debug)]
+pub enum RequestKind<'i> {
+    /// Call a method using provided arguments. Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
     Call {
         args: RefVec<'i, u8>,
     },
-    // CallTraitMethod { trait_gid: Either<FullVersion, CompactVersion>, path: RefVec<'i, UNib32>, args: Vec<u8> },
-    /// Read property
+
+    /// Read a property.
     Read,
     // ReadDefault,
     // ReadMany,
-    /// Write property or stream down
+    /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
+    /// Objects of a stream are also serialized in full and sent as one unit.
     Write {
         data: RefVec<'i, u8>,
     },
@@ -46,20 +85,23 @@ enum RequestKind<'i> {
     ChangeRate {
         shaper_config: ShaperConfig,
     },
+
     /// Subscribe to property changes
     Subscribe,
     /// Unsubscribe from property changes
     Unsubscribe,
+
+    Introspect,
+    // Version,
     // Borrow,
     // Release,
-    Introspect,
     // Heartbeat,
 }
 
 #[derive_shrink_wrap]
 #[owned = "std"]
 #[derive(Debug)]
-struct Event<'i> {
+pub struct Event<'i> {
     pub seq: u16,
     // path
     pub result: Result<EventKind<'i>, Error>,
@@ -70,18 +112,16 @@ struct Event<'i> {
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
-enum EventKind<'i> {
-    Version {
-        protocol_id: u32,
-        version: Version<'i>,
-    },
+pub enum EventKind<'i> {
     ReturnValue {
         data: RefVec<'i, u8>,
     },
+
     ReadValue {
         data: RefVec<'i, u8>,
     },
     Written,
+
     StreamOpened,
     // If stream is a sequence of bytes, can be used to delimit frames or send other data out of band
     // StreamDelimiter { path: Vec<nib16>, user_data: u8 },
@@ -92,21 +132,27 @@ enum EventKind<'i> {
     },
     StreamClosed,
     Subscribed,
+
     RateChanged,
     Unsubscribed,
-    // Borrowed,
-    // Released,
+
     Introspect {
         ww_bytes: RefVec<'i, u8>,
     },
+    // Version {
+    //     protocol_id: u32,
+    //     version: Version<'i>,
+    // },
     // Heartbeat { data: Vec<u8> },
+    // Borrowed,
+    // Released,
 }
 
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
 #[self_describing]
 #[derive(Debug)]
-enum Error {
+pub enum Error {
     // Tried to unsubscribe twice from a resource
     // AlreadyUnsubscribed,
     // Tried to open a stream twice
@@ -139,8 +185,8 @@ enum Error {
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[derive(Debug)]
-enum ShaperConfig {
+pub enum ShaperConfig {
     NoLimit,
-    MaxBitrate { byte_per_s: u32 },
+    MaxBitrate { bytes_per_s: u32 },
     MaxRate { events_per_s: u32 },
 }

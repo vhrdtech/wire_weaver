@@ -4,6 +4,8 @@ pub mod timeout;
 pub mod ww;
 
 // TODO: remove
+pub use command_sender::{CommandSender, CommandSenderPath};
+pub use timeout::Timeout;
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;
@@ -134,5 +136,15 @@ impl OnError {
         Self::RetryFor {
             timeout: Duration::from_secs(secs),
         }
+    }
+}
+
+impl<F, E> Command<F, E> {
+    pub fn disconnect_and_exit() -> (Self, oneshot::Receiver<()>) {
+        let (tx, rx) = oneshot::channel();
+        let cmd = Command::DisconnectAndExit {
+            disconnected_tx: Some(tx),
+        };
+        (cmd, rx)
     }
 }

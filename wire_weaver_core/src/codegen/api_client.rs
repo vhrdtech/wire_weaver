@@ -31,7 +31,6 @@ pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStrea
                 Error as ShrinkWrapError, nib32::UNib32
             };
             #additional_use
-            use super::Command; // TODO: un-hardcode use Command
 
             impl<F, E: core::fmt::Debug> super::#ident<F, E> {
                 pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_, F, E> {
@@ -95,7 +94,7 @@ fn client_structs_recursive(
             pub struct #client_struct_name<'i, F, E> {
                 #maybe_index_chain_field
                 pub args_scratch: &'i mut [u8],
-                pub cmd_tx: &'i mut tokio::sync::mpsc::UnboundedSender<Command<F, E>>,
+                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender<F, E>
             }
 
             impl<'i, F, E: core::fmt::Debug> #client_struct_name<'i, F, E> {
@@ -210,9 +209,11 @@ fn handle_method(
             #args_ser
             let args_bytes = #args_bytes;
             #index_chain_push
-            let return_bytes =
-                wire_weaver_client_common::util::send_call_receive_reply(&mut self.cmd_tx, args_bytes, &index_chain, timeout)
-                    .await?;
+            let return_bytes = self.cmd_tx.send_call_receive_reply(
+                wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                args_bytes,
+                timeout
+            ).await?;
             #handle_output
         }
     }
@@ -262,9 +263,11 @@ fn handle_property(
                 #ser
                 let args = #finish_wr;
                 #index_chain_push
-                let _data =
-                    wire_weaver_client_common::util::send_write_receive_reply(&mut self.cmd_tx, args, &index_chain, timeout)
-                        .await?;
+                let _data = self.cmd_tx.send_write_receive_reply(
+                    wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                    args,
+                    timeout
+                ).await?;
                 Ok(())
             }
         }
@@ -276,7 +279,10 @@ fn handle_property(
         quote! {
             pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
                 #index_chain_push
-                let bytes = wire_weaver_client_common::util::send_read_receive_reply(&mut self.cmd_tx, &index_chain, timeout).await?;
+                let bytes = self.cmd_tx.send_read_receive_reply(
+                    wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                    timeout
+                ).await?;
                 let mut rd = BufReader::new(&bytes);
                 #des
                 Ok(value)
@@ -341,11 +347,9 @@ fn ser_args(
 fn hl_init_methods() -> TokenStream {
     quote! {
         pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
-            let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+            let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
             self.cmd_tx
-                .send(wire_weaver_client_common::Command::DisconnectAndExit {
-                    disconnected_tx: Some(done_tx),
-                })
+                .send(cmd)
                 .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             Ok(())

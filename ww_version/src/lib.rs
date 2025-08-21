@@ -10,7 +10,7 @@ pub use semver;
 /// The minimum size is 2 bytes, when major, minor and patch are less than 8 and pre and build are None.
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Hash)]
 #[owned = "std"]
 #[final_structure]
 pub struct Version<'i> {
@@ -28,7 +28,7 @@ pub struct Version<'i> {
 }
 
 #[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Hash)]
 #[owned = "std"]
 #[final_structure]
 pub struct FullVersion<'i> {

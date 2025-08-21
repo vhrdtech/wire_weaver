@@ -1,5 +1,6 @@
 use crate::timeout::Timeout;
 use crate::{Command, Error};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
@@ -7,7 +8,7 @@ use tokio::sync::oneshot;
 use tracing::trace;
 use wire_weaver::prelude::UNib32;
 use ww_client_server::PathKindOwned;
-use ww_version::{CompactVersion, FullVersion};
+use ww_version::{CompactVersion, FullVersion, FullVersionOwned};
 
 /// Entry point for an API root or API trait implementation. Inside - wrapper over a channel sender half (currently tokio::mpsc::UnboundedSender).
 ///
@@ -16,10 +17,17 @@ use ww_version::{CompactVersion, FullVersion};
 pub struct CommandSender<F, E> {
     tx: UnboundedSender<Command<F, E>>,
     // TODO: CommandSender outstanding request limit?
-    /// * None for command sender attached to API root
-    /// * Some(empty path) for trait implemented at root level
-    /// * Some(non-empty path) for trait implemented at some deeper level
-    base_path: Option<Vec<UNib32>>,
+    /// * None for command sender attached to API root, trait addressing will result in an error.
+    /// * Some(empty path) for trait implemented at root level (unknown path), trait addressing will be used.
+    /// * Some(non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
+    ///
+    /// "Some" cases are only for trait clients (ww_impl! macro). API root client (ww_api!) uses absolute addressing.
+    trait_path: Option<Vec<UNib32>>,
+
+    /// Mapping from FullVersion (crate name as string + semver) to trait GID of much smaller size.
+    /// Optimally, should be requested from a device, so that newly assigned GIDs not yet known to a device are not used.
+    /// But can also be forced to a known GID if performance is critical.
+    gid_map: HashMap<FullVersionOwned, CompactVersion>,
 }
 
 /// Resource path, intended to be used from generated client code in either of the two modes:
@@ -59,11 +67,10 @@ impl<F, E: Debug> CommandSender<F, E> {
         args: Vec<u8>,
         timeout: Timeout,
     ) -> Result<Vec<u8>, Error<E>> {
-        let (path, path_kind) = self.to_ww_client_server_path(path)?;
+        let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendCall {
             args_bytes: args,
-            path,
             path_kind,
             timeout: Some(timeout.timeout()),
             done_tx: Some(done_tx),
@@ -80,11 +87,10 @@ impl<F, E: Debug> CommandSender<F, E> {
         value: Vec<u8>,
         timeout: Timeout,
     ) -> Result<(), Error<E>> {
-        let (path, path_kind) = self.to_ww_client_server_path(path)?;
+        let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendWrite {
             value_bytes: value,
-            path,
             path_kind,
             timeout: Some(timeout.timeout()),
             done_tx: Some(done_tx),
@@ -100,10 +106,9 @@ impl<F, E: Debug> CommandSender<F, E> {
         path: CommandSenderPath<'_>,
         timeout: Timeout,
     ) -> Result<Vec<u8>, Error<E>> {
-        let (path, path_kind) = self.to_ww_client_server_path(path)?;
+        let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendRead {
-            path,
             path_kind,
             timeout: Some(timeout.timeout()),
             done_tx: Some(done_tx),
@@ -130,51 +135,53 @@ impl<F, E: Debug> CommandSender<F, E> {
         Ok(data)
     }
 
-    fn to_ww_client_server_path(
-        &self,
-        path: CommandSenderPath,
-    ) -> Result<(Vec<UNib32>, PathKindOwned), Error<E>> {
-        if matches!(path, CommandSenderPath::Absolute { .. }) && self.base_path.is_some() {
+    fn to_ww_client_server_path(&self, path: CommandSenderPath) -> Result<PathKindOwned, Error<E>> {
+        if matches!(path, CommandSenderPath::Absolute { .. }) && self.trait_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
             ));
         }
-        let (path, path_kind) = match path {
-            CommandSenderPath::Absolute { path } => (
-                path.iter().map(|i| UNib32(*i)).collect(),
-                PathKindOwned::Absolute,
-            ),
+        let path_kind = match path {
+            CommandSenderPath::Absolute { path } => PathKindOwned::Absolute {
+                path: path.iter().map(|i| UNib32(*i)).collect(),
+            },
             CommandSenderPath::GlobalCompact {
                 gid,
                 path_from_trait,
             } => {
-                let Some(base) = &self.base_path else {
-                    return Err(Error::RelativePathWithoutBase);
-                };
-                (
-                    base.clone(),
+                if let Some(base) = &self.trait_path {
+                    let mut path = base.clone();
+                    path.extend(path_from_trait.iter().map(|i| UNib32(*i)));
+                    PathKindOwned::Absolute { path }
+                } else {
                     PathKindOwned::GlobalCompact {
                         gid,
                         path_from_trait: path_from_trait.iter().map(|i| UNib32(*i)).collect(),
-                    },
-                )
+                    }
+                }
             }
             CommandSenderPath::GlobalFull {
                 gid,
                 path_from_trait,
             } => {
-                let Some(base) = &self.base_path else {
-                    return Err(Error::RelativePathWithoutBase);
-                };
-                (
-                    base.clone(),
+                if let Some(base) = &self.trait_path {
+                    let mut path = base.clone();
+                    path.extend(path_from_trait.iter().map(|i| UNib32(*i)));
+                    PathKindOwned::Absolute { path }
+                } else if let Some(compact) = self.gid_map.get(&gid.make_owned()) {
+                    // TODO: actually not possible to implement Borrow for FullVersionOwned?
+                    PathKindOwned::GlobalCompact {
+                        gid: compact.clone(),
+                        path_from_trait: path_from_trait.iter().map(|i| UNib32(*i)).collect(),
+                    }
+                } else {
                     PathKindOwned::GlobalFull {
                         gid: gid.make_owned(),
                         path_from_trait: path_from_trait.iter().map(|i| UNib32(*i)).collect(),
-                    },
-                )
+                    }
+                }
             }
         };
-        Ok((path, path_kind))
+        Ok(path_kind)
     }
 }

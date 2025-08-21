@@ -23,12 +23,8 @@ pub struct Request<'i> {
     /// 0 means no answer is expected.
     pub seq: u16,
 
-    /// Path from the root to the final resource if [absolute path addressing is used](PathKind::Absolute).
-    /// Path to the level, where trait is implemented otherwise (empty if trait is implemented at root level).
-    pub path: RefVec<'i, UNib32>,
-
     /// Specifies whether resource is addressed explicitly, using full path to it or through global trait ID.
-    pub addressing: PathKind<'i>,
+    pub path_kind: PathKind<'i>,
 
     /// Action being requested
     pub kind: RequestKind<'i>,
@@ -40,17 +36,17 @@ pub struct Request<'i> {
 #[owned = "std"]
 #[derive(Debug)]
 pub enum PathKind<'i> {
-    /// [Request](Request).path is used as a full path to the resource, regardless whether it is in a trait or not.
-    Absolute,
+    /// Full path to a resource, regardless whether it is in a trait or not.
+    Absolute { path: RefVec<'i, UNib32> },
 
-    /// [Request](Request).path is selecting an API level where trait is implemented, then path_from_trait is used to identify a resource.
+    /// Request is for a trait implemented at root level, path_from_trait is used to identify a resource inside the trait.
     /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
     GlobalCompact {
         gid: CompactVersion,
         path_from_trait: RefVec<'i, UNib32>,
     },
 
-    /// [Request](Request).path is selecting an API level where trait is implemented, then path_from_trait is used to identify a resource.
+    /// Request is for a trait implemented at root level, path_from_trait is used to identify a resource inside the trait.
     /// This kind of request is the biggest, because full crate name is used.
     GlobalFull {
         gid: FullVersion<'i>,

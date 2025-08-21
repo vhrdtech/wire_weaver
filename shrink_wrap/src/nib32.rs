@@ -4,7 +4,7 @@ use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, Ser
 
 /// Variable length encoded u32 based on nibbles.
 /// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct UNib32(pub u32);
 

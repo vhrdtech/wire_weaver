@@ -12,7 +12,6 @@ use ww_version::FullVersionOwned;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use wire_weaver::shrink_wrap::nib32::UNib32;
 use ww_client_server::PathKindOwned;
 
 pub enum Command<F, E> {
@@ -37,7 +36,6 @@ pub enum Command<F, E> {
     },
 
     SendCall {
-        path: Vec<UNib32>,
         path_kind: PathKindOwned,
         // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
         args_bytes: Vec<u8>,
@@ -45,7 +43,6 @@ pub enum Command<F, E> {
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendWrite {
-        path: Vec<UNib32>,
         path_kind: PathKindOwned,
         value_bytes: Vec<u8>,
         timeout: Option<Duration>,
@@ -53,13 +50,11 @@ pub enum Command<F, E> {
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     SendRead {
-        path: Vec<UNib32>,
         path_kind: PathKindOwned,
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
     },
     Subscribe {
-        path: Vec<u32>,
         path_kind: PathKindOwned,
         stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>,
         // stop_rx: oneshot::Receiver<()>,
@@ -74,8 +69,6 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 pub enum Error<E> {
     #[error("Called a method that required event loop to be running")]
     EventLoopNotRunning,
-    #[error("Tried to make a trait call on a CommandSender which does not have a base path")]
-    RelativePathWithoutBase,
     #[error("No devices found to connect to")]
     DeviceNotFound,
     #[error("Timeout")]

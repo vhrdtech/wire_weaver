@@ -424,7 +424,10 @@ fn handle_property(
         }
     };
     let maybe_read = maybe_quote(
-        matches!(access, PropertyAccess::ReadOnly | PropertyAccess::ReadWrite),
+        matches!(
+            access,
+            PropertyAccess::Const | PropertyAccess::ReadOnly | PropertyAccess::ReadWrite
+        ),
         read,
     );
     quote! {

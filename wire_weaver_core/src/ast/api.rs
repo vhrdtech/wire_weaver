@@ -73,8 +73,13 @@ pub struct Argument {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PropertyAccess {
+    /// Property is not going to change, observe not available
+    Const,
+    /// Property can only be read, but can change and be observed for changes
     ReadOnly,
+    /// Property can be read, written and observed for changes
     ReadWrite,
+    /// Property can only be written
     WriteOnly,
 }
 

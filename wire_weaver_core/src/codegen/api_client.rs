@@ -275,7 +275,10 @@ fn handle_property(
         quote! {}
     };
     let hl_read_fn = Ident::new(format!("read_{}", prop_name).as_str(), prop_name.span());
-    let hl_read_fn = if matches!(access, PropertyAccess::ReadWrite | PropertyAccess::ReadOnly) {
+    let hl_read_fn = if matches!(
+        access,
+        PropertyAccess::Const | PropertyAccess::ReadWrite | PropertyAccess::ReadOnly
+    ) {
         quote! {
             pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
                 #index_chain_push

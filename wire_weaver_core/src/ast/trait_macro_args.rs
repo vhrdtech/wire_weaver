@@ -37,8 +37,9 @@ impl Parse for PropertyMacroArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let maybe_ident: Ident = input.parse()?;
         let (ident, property_access) =
-            if maybe_ident == "ro" || maybe_ident == "rw" || maybe_ident == "wo" {
+            if ["const", "ro", "rw", "wo"].contains(&maybe_ident.to_string().as_str()) {
                 let access = match maybe_ident.to_string().as_str() {
+                    "const" => PropertyAccess::Const,
                     "ro" => PropertyAccess::ReadOnly,
                     "rw" => PropertyAccess::ReadWrite,
                     "wo" => PropertyAccess::WriteOnly,

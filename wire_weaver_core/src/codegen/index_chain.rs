@@ -3,7 +3,7 @@ use quote::quote;
 
 #[derive(Copy, Clone)]
 pub struct IndexChain {
-    len: usize,
+    len: u32,
 }
 
 impl IndexChain {
@@ -16,7 +16,7 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            quote! { index_chain: [u32; #len] , }
+            quote! { index_chain: [UNib32; #len] , }
         }
     }
 
@@ -25,7 +25,7 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            quote! { pub index_chain: [u32; #len], }
+            quote! { pub index_chain: [UNib32; #len], }
         }
     }
 
@@ -34,7 +34,7 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            quote! { -> [u32; #len] }
+            quote! { -> [UNib32; #len] }
         }
     }
 
@@ -63,12 +63,12 @@ impl IndexChain {
         let len = self.len;
         if prev_len == 0 {
             quote! {
-                let index_chain: [u32; 1] = [#expr];
+                let index_chain: [UNib32; 1] = [#expr];
             }
         } else {
             let copy_previous = (0..prev_len).map(|i| quote! { #source index_chain[#i] });
             quote! {
-                let index_chain: [u32; #len] = [#(#copy_previous),*, #expr];
+                let index_chain: [UNib32; #len] = [#(#copy_previous),*, #expr];
             }
         }
     }

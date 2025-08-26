@@ -39,7 +39,7 @@ pub struct FullVersion<'i> {
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
 /// Type id is globally unique across all crates.
 #[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[final_structure]
 pub struct CompactVersion {
     pub global_type_id: UNib32,

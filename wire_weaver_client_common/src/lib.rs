@@ -4,7 +4,7 @@ pub mod timeout;
 pub mod ww;
 
 // TODO: remove
-pub use command_sender::{CommandSender, CommandSenderPath};
+pub use command_sender::CommandSender;
 pub use timeout::Timeout;
 pub use ww_client_server;
 pub use ww_version;

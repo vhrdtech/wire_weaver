@@ -3,6 +3,7 @@
 pub mod util;
 
 use wire_weaver::prelude::*;
+use wire_weaver::shrink_wrap;
 use ww_version::{CompactVersion, FullVersion};
 
 #[cfg(feature = "std")]
@@ -185,4 +186,29 @@ pub enum ShaperConfig {
     NoLimit,
     MaxBitrate { bytes_per_s: u32 },
     MaxRate { events_per_s: u32 },
+}
+
+impl<'i> PathKind<'i> {
+    pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {
+        let path = match self {
+            PathKind::Absolute { path } => PathKindOwned::Absolute {
+                path: path.iter().collect::<Result<Vec<_>, _>>()?,
+            },
+            PathKind::GlobalCompact {
+                gid,
+                path_from_trait,
+            } => PathKindOwned::GlobalCompact {
+                gid: *gid,
+                path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
+            },
+            PathKind::GlobalFull {
+                gid,
+                path_from_trait,
+            } => PathKindOwned::GlobalFull {
+                gid: gid.make_owned(),
+                path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
+            },
+        };
+        Ok(path)
+    }
 }

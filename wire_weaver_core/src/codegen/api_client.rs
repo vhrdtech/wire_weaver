@@ -210,7 +210,7 @@ fn handle_method(
             let args_bytes = #args_bytes;
             #index_chain_push
             let return_bytes = self.cmd_tx.send_call_receive_reply(
-                wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
                 args_bytes,
                 timeout
             ).await?;
@@ -264,7 +264,7 @@ fn handle_property(
                 let args = #finish_wr;
                 #index_chain_push
                 let _data = self.cmd_tx.send_write_receive_reply(
-                    wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                    PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
                     args,
                     timeout
                 ).await?;
@@ -283,7 +283,7 @@ fn handle_property(
             pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
                 #index_chain_push
                 let bytes = self.cmd_tx.send_read_receive_reply(
-                    wire_weaver_client_common::CommandSenderPath::Absolute { path: &index_chain },
+                    PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
                     timeout
                 ).await?;
                 let mut rd = BufReader::new(&bytes);

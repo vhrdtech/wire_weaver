@@ -9,7 +9,7 @@ mod ww_impl_args;
 mod ww_repr;
 mod ww_trait;
 
-/// Generates types definitions, serdes and API client or server side code.
+/// Generate types definitions, serdes and API client or server side code.
 ///
 /// Arguments:
 /// * client = true/false - whether to generate client code or not.
@@ -28,8 +28,17 @@ mod ww_trait;
 ///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
 #[proc_macro]
 pub fn ww_api(args: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(args as ww_impl_args::ImplArgs);
+    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
     ww_api::ww_api(args).into()
+}
+
+/// Generate types definitions, serdes and trait client or server side code.
+///
+/// See [ww_api](ww_api) for supported arguments.
+#[proc_macro]
+pub fn ww_impl(args: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
+    ww_api::ww_impl(args).into()
 }
 
 /// Define a ww_trait, this macro is only a marker and produces no Rust code. All the work is done inside ww_impl! macro, which

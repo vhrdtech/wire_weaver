@@ -8,13 +8,48 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStream {
-    let additional_use = if no_alloc {
-        quote! { use wire_weaver::shrink_wrap::RefVec; }
+#[derive(Copy, Clone, PartialEq)]
+pub enum ClientModel {
+    /// Prepare ww_client_server::Request and return it.
+    /// Generates no_std, no_alloc and sync code.
+    Raw,
+    /// Prepare ww_client_server::Request, convert it to RequestOwned and
+    /// send through wire_weaver_client_common::CommandSender to a worker thread.
+    /// Generates std, async code that allocates.
+    AsyncWorker,
+}
+
+impl ClientModel {
+    fn no_alloc(&self) -> bool {
+        match self {
+            ClientModel::Raw => true,
+            ClientModel::AsyncWorker => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum ClientPathMode {
+    Absolute,
+    GlobalTrait,
+}
+
+pub fn client(
+    api_level: &ApiLevel,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    client_struct: &Ident,
+) -> TokenStream {
+    let additional_use = if model == ClientModel::AsyncWorker {
+        quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
     } else {
         quote! {}
     };
-    let hl_init = hl_init_methods();
+    let hl_init = if model == ClientModel::AsyncWorker {
+        cmd_tx_disconnect_methods()
+    } else {
+        quote! {}
+    };
 
     let ext_crate_name = match &api_level.source_location {
         ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
@@ -22,17 +57,22 @@ pub fn client(api_level: &ApiLevel, no_alloc: bool, ident: &Ident) -> TokenStrea
     };
     let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
     let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
-    let trait_clients =
-        client_structs_recursive(api_level, IndexChain::new(), Some(ext_crate_name), no_alloc);
+    let trait_clients = client_structs_recursive(
+        api_level,
+        IndexChain::new(),
+        Some(ext_crate_name),
+        model,
+        path_mode,
+    );
     quote! {
         mod api_client {
             use wire_weaver::shrink_wrap::{
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
-                Error as ShrinkWrapError, nib32::UNib32
+                Error as ShrinkWrapError, nib32::UNib32, RefVec
             };
             #additional_use
 
-            impl<F, E: core::fmt::Debug> super::#ident<F, E> {
+            impl<F, E: core::fmt::Debug> super::#client_struct<F, E> {
                 pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_, F, E> {
                     #root_mod_name::#root_client_struct_name {
                         args_scratch: &mut self.args_scratch,
@@ -52,20 +92,22 @@ fn client_structs_recursive(
     api_level: &ApiLevel,
     mut index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
-    no_alloc: bool,
+    model: ClientModel,
+    path_mode: ClientPathMode,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
-    let args_structs = args_structs(api_level, no_alloc);
+    let args_structs = args_structs(api_level, model.no_alloc());
 
     let mod_name = api_level.mod_ident(ext_crate_name);
     let use_external = api_level.use_external_types(
         ext_crate_name
             .map(|n| Path::new_ident(n.clone()))
             .unwrap_or(Path::new_path("super::super")),
-        no_alloc,
+        model.no_alloc(),
     );
     let client_struct_name = api_level.client_struct_name(ext_crate_name);
-    let methods = level_methods(api_level, index_chain, no_alloc);
+    let full_gid_path = api_level.full_gid_path();
+    let methods = level_methods(api_level, index_chain, model, path_mode, &full_gid_path);
 
     // call before increment_length so that root level does not have it
     let maybe_index_chain_field = index_chain.struct_field_def();
@@ -81,7 +123,8 @@ fn client_structs_recursive(
             level,
             index_chain,
             args.location.crate_name().as_ref(),
-            no_alloc,
+            model,
+            path_mode,
         ));
     }
 
@@ -107,11 +150,23 @@ fn client_structs_recursive(
     ts
 }
 
-fn level_methods(api_level: &ApiLevel, index_chain: IndexChain, no_alloc: bool) -> TokenStream {
-    let handlers = api_level
-        .items
-        .iter()
-        .map(|item| level_method(&item.kind, item.id, index_chain, no_alloc));
+fn level_methods(
+    api_level: &ApiLevel,
+    index_chain: IndexChain,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    full_gid_path: &TokenStream,
+) -> TokenStream {
+    let handlers = api_level.items.iter().map(|item| {
+        level_method(
+            &item.kind,
+            item.id,
+            index_chain,
+            model,
+            path_mode,
+            full_gid_path,
+        )
+    });
     quote! {
         #(#handlers)*
     }
@@ -121,18 +176,34 @@ fn level_method(
     kind: &ApiItemKind,
     id: u32,
     mut index_chain: IndexChain,
-    no_alloc: bool,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    full_gid_path: &TokenStream,
 ) -> TokenStream {
-    let index_chain_push = index_chain.push_back(quote! { self. }, quote! { #id });
+    let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
     match kind {
         ApiItemKind::Method {
             ident,
             args,
             return_type,
-        } => handle_method(no_alloc, index_chain_push, ident, args, return_type),
-        ApiItemKind::Property { access, ident, ty } => {
-            handle_property(no_alloc, index_chain_push, access, ident, ty)
-        }
+        } => handle_method(
+            model,
+            path_mode,
+            full_gid_path,
+            index_chain_push,
+            ident,
+            args,
+            return_type,
+        ),
+        ApiItemKind::Property { access, ident, ty } => handle_property(
+            model,
+            path_mode,
+            full_gid_path,
+            index_chain_push,
+            access,
+            ident,
+            ty,
+        ),
         ApiItemKind::Stream {
             ident,
             ty: _,
@@ -168,27 +239,29 @@ fn level_method(
 }
 
 fn handle_method(
-    no_alloc: bool,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    full_gid_path: &TokenStream,
     index_chain_push: TokenStream,
     ident: &Ident,
     args: &[Argument],
     return_type: &Option<Type>,
 ) -> TokenStream {
-    let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, no_alloc);
-    let hl_fn_name = &ident;
+    let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, model.no_alloc());
+    let call_fn_name = &ident;
     let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
         let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
             quote! {} // User type directly returned from method
         } else {
             quote! { .output } // Return type is wrapped in a struct
         };
-        (return_type.def(no_alloc), maybe_dot_output)
+        (return_type.def(model.no_alloc()), maybe_dot_output)
     } else {
         (quote! { () }, quote! {})
     };
     let handle_output = if let Some(return_type) = return_type {
         let ty_def = if matches!(return_type, Type::External(_, _)) {
-            return_type.def(no_alloc)
+            return_type.def(model.no_alloc())
         } else {
             let output_struct_name = Ident::new(
                 format!("{}_output", ident).to_case(Case::Pascal).as_str(),
@@ -204,13 +277,15 @@ fn handle_method(
         quote! { _ = return_bytes; Ok(()) }
     };
 
+    let path_kind = path_kind(path_mode, full_gid_path);
     quote! {
-        pub async fn #hl_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
+        pub async fn #call_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
             #args_ser
             let args_bytes = #args_bytes;
             #index_chain_push
+            let path_kind = #path_kind;
             let return_bytes = self.cmd_tx.send_call_receive_reply(
-                PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
+                path_kind,
                 args_bytes,
                 timeout
             ).await?;
@@ -220,27 +295,29 @@ fn handle_method(
 }
 
 fn handle_property(
-    no_alloc: bool,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    full_gid_path: &TokenStream,
     index_chain_push: TokenStream,
     access: &PropertyAccess,
     prop_name: &Ident,
     ty: &Type,
 ) -> TokenStream {
     let mut ser = TokenStream::new();
-    let ty_def = if ty.potential_lifetimes() && !no_alloc {
+    let ty_def = if ty.potential_lifetimes() && !model.no_alloc() {
         let mut ty_owned = ty.clone();
         ty_owned.make_owned();
-        ty_owned.arg_pos_def(no_alloc)
+        ty_owned.arg_pos_def(model.no_alloc())
     } else {
-        ty.arg_pos_def(no_alloc)
+        ty.arg_pos_def(model.no_alloc())
     };
     ty.buf_write(
         FieldPath::Value(quote! { #prop_name }),
-        no_alloc,
+        model.no_alloc(),
         quote! { ? },
         &mut ser,
     );
-    let finish_wr = if no_alloc {
+    let finish_wr = if model.no_alloc() {
         quote! { wr.finish_and_take()? }
     } else {
         quote! { wr.finish()?.to_vec() }
@@ -248,10 +325,11 @@ fn handle_property(
     let mut des = TokenStream::new();
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
-        no_alloc,
+        model.no_alloc(),
         quote! { ? },
         &mut des,
     );
+    let path_kind = path_kind(path_mode, full_gid_path);
     let hl_write_fn = Ident::new(format!("write_{}", prop_name).as_str(), prop_name.span());
     let hl_write_fn = if matches!(
         access,
@@ -263,8 +341,9 @@ fn handle_property(
                 #ser
                 let args = #finish_wr;
                 #index_chain_push
+                let path_kind = #path_kind;
                 let _data = self.cmd_tx.send_write_receive_reply(
-                    PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
+                    path_kind,
                     args,
                     timeout
                 ).await?;
@@ -282,8 +361,9 @@ fn handle_property(
         quote! {
             pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
                 #index_chain_push
+                let path_kind = #path_kind;
                 let bytes = self.cmd_tx.send_read_receive_reply(
-                    PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } },
+                    path_kind,
                     timeout
                 ).await?;
                 let mut rd = BufReader::new(&bytes);
@@ -347,7 +427,7 @@ fn ser_args(
     }
 }
 
-fn hl_init_methods() -> TokenStream {
+fn cmd_tx_disconnect_methods() -> TokenStream {
     quote! {
         pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
@@ -376,5 +456,20 @@ fn hl_init_methods() -> TokenStream {
                 .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             Ok(())
         }
+    }
+}
+
+/// Creates ww_client_server::PathKind in user context
+fn path_kind(path_mode: ClientPathMode, full_gid_path: &TokenStream) -> TokenStream {
+    match path_mode {
+        ClientPathMode::Absolute => {
+            quote! { PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } } }
+        }
+        ClientPathMode::GlobalTrait => quote! {
+            PathKind::GlobalFull {
+                gid: #full_gid_path,
+                path_from_trait: RefVec::Slice { slice: &index_chain },
+            }
+        },
     }
 }

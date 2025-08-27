@@ -1,4 +1,4 @@
-use crate::ww_impl_args::ImplArgs;
+use crate::ww_impl_args::ApiArgs;
 use proc_macro2::{Span, TokenStream};
 use quote::TokenStreamExt;
 use relative_path::RelativePath;
@@ -8,15 +8,22 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use wire_weaver_core::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation};
 use wire_weaver_core::ast::trait_macro_args::ImplTraitLocation;
+use wire_weaver_core::codegen::api_client::{ClientModel, ClientPathMode};
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::transform_api_level::transform_api_level;
 
-pub fn ww_api(args: ImplArgs) -> TokenStream {
-    api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
+pub fn ww_api(args: ApiArgs) -> TokenStream {
+    api_inner(args, true)
+        .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn api_inner(args: ImplArgs) -> Result<TokenStream, String> {
+pub fn ww_impl(args: ApiArgs) -> TokenStream {
+    api_inner(args, false)
+        .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
+}
+
+fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
     let mut cache = HashMap::new();
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
@@ -28,13 +35,6 @@ fn api_inner(args: ImplArgs) -> Result<TokenStream, String> {
         &manifest_dir,
         &mut cache,
     )?;
-
-    // let add_derives = args
-    //     .ext
-    //     .derive
-    //     .split(&[' ', ','])
-    //     .filter(|s| !s.is_empty())
-    //     .collect::<Vec<_>>();
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {
@@ -69,10 +69,26 @@ fn api_inner(args: ImplArgs) -> Result<TokenStream, String> {
         codegen_ts.append_all(ts);
     }
 
-    if args.ext.client {
+    if !args.ext.client.is_empty() {
+        let model = match args.ext.client.as_str() {
+            "raw" => ClientModel::Raw,
+            "async_worker" => ClientModel::AsyncWorker,
+            _ => {
+                return Err(format!(
+                    "client supports raw or async_worked modes, got: '{}'",
+                    args.ext.client
+                ));
+            }
+        };
+        let path_mode = if is_root {
+            ClientPathMode::Absolute
+        } else {
+            ClientPathMode::GlobalTrait
+        };
         let ts = wire_weaver_core::codegen::api_client::client(
             &level,
-            args.ext.no_alloc,
+            model,
+            path_mode,
             &args.context_ident,
         );
         codegen_ts.append_all(ts);

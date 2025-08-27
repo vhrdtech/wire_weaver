@@ -157,6 +157,21 @@ impl ApiLevel {
         }
         ts
     }
+
+    pub fn full_gid(&self) -> Ident {
+        Ident::new(
+            format!("{}_FULL_GID", self.name)
+                .to_case(Case::Constant)
+                .as_str(),
+            self.name.span(),
+        )
+    }
+
+    pub fn full_gid_path(&self) -> TokenStream {
+        let crate_name = self.source_location.crate_name();
+        let full_gid = self.full_gid();
+        quote! { #crate_name::#full_gid }
+    }
 }
 
 fn use_ty(parent: &Path, path: &Path, ts: &mut TokenStream) {
@@ -168,5 +183,14 @@ fn use_ty(parent: &Path, path: &Path, ts: &mut TokenStream) {
         ts.extend(quote! {
             use #path;
         });
+    }
+}
+
+impl ApiLevelSourceLocation {
+    pub fn crate_name(&self) -> &Ident {
+        match self {
+            ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
+            ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
+        }
     }
 }

@@ -49,17 +49,15 @@ fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
         .iter()
         .filter(|a| a.path().is_ident("doc"))
         .collect();
-    let ident = Ident::new(
-        item_trait
-            .ident
-            .to_string()
+    let full_gid = Ident::new(
+        format!("{}_FULL_GID", item_trait.ident)
             .to_case(Case::Constant)
             .as_str(),
         item_trait.ident.span(),
     );
     Ok(quote! {
         #(#docs)*
-        pub const #ident: () = ();
+        pub const #full_gid: ww_version::FullVersion = wire_weaver_derive::full_version!();
         #check_types_lifetimes
     })
 }

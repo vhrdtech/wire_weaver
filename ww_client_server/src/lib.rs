@@ -79,14 +79,15 @@ pub enum RequestKind<'i> {
     // WriteMany,
     OpenStream,
     CloseStream,
-    ChangeRate {
-        shaper_config: ShaperConfig,
-    },
 
     /// Subscribe to property changes
     Subscribe,
     /// Unsubscribe from property changes
     Unsubscribe,
+
+    ChangeRate {
+        shaper_config: ShaperConfig,
+    },
 
     Introspect,
     // Version,
@@ -119,7 +120,10 @@ pub enum EventKind<'i> {
     },
     Written,
 
-    StreamOpened,
+    StreamOpened {
+        // When subscribing through trait interface, this path is used later to match stream updates to an original request
+        path: Vec<UNib32>,
+    },
     // If stream is a sequence of bytes, can be used to delimit frames or send other data out of band
     // StreamDelimiter { path: Vec<nib16>, user_data: u8 },
     // TODO: Add Option<SizeHint>
@@ -127,14 +131,23 @@ pub enum EventKind<'i> {
         path: Vec<UNib32>,
         data: RefVec<'i, u8>,
     },
-    StreamClosed,
-    Subscribed,
+    StreamClosed {
+        path: Vec<UNib32>,
+    },
+
+    Subscribed {
+        // When subscribing through trait interface, this path is used later to match stream updates to an original request
+        path: Vec<UNib32>,
+    },
+    Unsubscribed {
+        path: Vec<UNib32>,
+    },
 
     RateChanged,
-    Unsubscribed,
 
     Introspect {
-        ww_bytes: RefVec<'i, u8>,
+        // ww_self version?
+        ww_self_bytes: RefVec<'i, u8>,
     },
     // Version {
     //     protocol_id: u32,
@@ -181,14 +194,14 @@ pub enum Error {
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ShaperConfig {
     NoLimit,
     MaxBitrate { bytes_per_s: u32 },
     MaxRate { events_per_s: u32 },
 }
 
-impl<'i> PathKind<'i> {
+impl PathKind<'_> {
     pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {
         let path = match self {
             PathKind::Absolute { path } => PathKindOwned::Absolute {
@@ -210,5 +223,37 @@ impl<'i> PathKind<'i> {
             },
         };
         Ok(path)
+    }
+}
+
+impl RequestKind<'_> {
+    pub fn make_owned(&self) -> RequestKindOwned {
+        match self {
+            RequestKind::Call { args } => RequestKindOwned::Call {
+                args: args.to_vec(),
+            },
+            RequestKind::Read => RequestKindOwned::Read,
+            RequestKind::Write { data } => RequestKindOwned::Write {
+                data: data.to_vec(),
+            },
+            RequestKind::OpenStream => RequestKindOwned::OpenStream,
+            RequestKind::CloseStream => RequestKindOwned::CloseStream,
+            RequestKind::Subscribe => RequestKindOwned::Subscribe,
+            RequestKind::Unsubscribe => RequestKindOwned::Unsubscribe,
+            RequestKind::ChangeRate { shaper_config } => RequestKindOwned::ChangeRate {
+                shaper_config: *shaper_config,
+            },
+            RequestKind::Introspect => RequestKindOwned::Introspect,
+        }
+    }
+}
+
+impl Request<'_> {
+    pub fn make_owned(&self) -> Result<RequestOwned, shrink_wrap::Error> {
+        Ok(RequestOwned {
+            seq: self.seq,
+            path_kind: self.path_kind.make_owned()?,
+            kind: self.kind.make_owned(),
+        })
     }
 }

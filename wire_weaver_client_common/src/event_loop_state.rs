@@ -4,17 +4,17 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use ww_version::FullVersionOwned;
 
-pub type ResponseSender<E> = oneshot::Sender<Result<Vec<u8>, Error<E>>>;
-pub type StreamUpdateSender<E> = mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>;
+pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
+pub type StreamUpdateSender = mpsc::UnboundedSender<Result<Vec<u8>, Error>>;
 
-pub struct CommonState<E> {
+pub struct CommonState {
     pub exit_on_error: bool,
     pub request_id: SeqTy,
     // user_protocol: ProtocolInfo,
     // conn_state: Arc<RwLock<ConnectionInfo>>,
-    pub connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
-    pub response_map: HashMap<SeqTy, (ResponseSender<E>, Instant)>,
-    pub stream_handlers: HashMap<Vec<u32>, StreamUpdateSender<E>>,
+    pub connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
+    pub response_map: HashMap<SeqTy, (ResponseSender, Instant)>,
+    pub stream_handlers: HashMap<Vec<u32>, StreamUpdateSender>,
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
     pub last_ping_instant: Option<Instant>,
@@ -22,7 +22,7 @@ pub struct CommonState<E> {
     pub user_protocol_version: Option<FullVersionOwned>,
 }
 
-impl<E> Default for CommonState<E> {
+impl Default for CommonState {
     fn default() -> Self {
         CommonState {
             exit_on_error: true,
@@ -39,7 +39,7 @@ impl<E> Default for CommonState<E> {
     }
 }
 
-impl<E> CommonState<E> {
+impl CommonState {
     pub fn increment_request_id(&mut self) {
         let mut iterations_left = SeqTy::MAX as usize;
         while self.response_map.contains_key(&self.request_id) && iterations_left > 0 {
@@ -54,7 +54,7 @@ impl<E> CommonState<E> {
     pub fn register_prune_next_seq(
         &mut self,
         timeout: Option<Duration>,
-        done_tx: Option<ResponseSender<E>>,
+        done_tx: Option<ResponseSender>,
     ) -> SeqTy {
         if let Some(done_tx) = done_tx {
             let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
@@ -108,7 +108,7 @@ impl<E> CommonState<E> {
     pub fn on_connect(
         &mut self,
         on_error: OnError,
-        connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
+        connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
         user_protocol_version: FullVersionOwned,
     ) {
         self.exit_on_error = on_error != OnError::KeepRetrying;

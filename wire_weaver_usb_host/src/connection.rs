@@ -1,13 +1,13 @@
-use crate::{UsbDeviceFilter, UsbError};
+use crate::UsbError;
 use futures_lite::StreamExt;
 use nusb::hotplug::HotplugEvent;
 use nusb::{DeviceInfo, Interface};
 use std::time::Instant;
 use tracing::{error, trace};
-use wire_weaver_client_common::{Error, OnError};
+use wire_weaver_client_common::{DeviceFilter, Error, OnError};
 
 pub(crate) async fn connect(
-    filter: UsbDeviceFilter,
+    filter: DeviceFilter,
     mut timeout: OnError,
 ) -> Result<(Interface, DeviceInfo), Error<UsbError>> {
     let wait_started = Instant::now();
@@ -62,7 +62,7 @@ pub(crate) async fn connect(
 }
 
 async fn wait_device(
-    filter: &UsbDeviceFilter,
+    filter: &DeviceFilter,
     timeout: OnError,
 ) -> Result<DeviceInfo, Error<UsbError>> {
     let mut watch = nusb::watch_devices().map_err(|e| Error::Transport(e.into()))?;
@@ -118,12 +118,12 @@ async fn wait_device(
     }
 }
 
-fn apply_filter(device_info: &DeviceInfo, filter: &UsbDeviceFilter) -> bool {
+fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> bool {
     match filter {
-        UsbDeviceFilter::VidPid { vid, pid } => {
+        DeviceFilter::UsbVidPid { vid, pid } => {
             device_info.vendor_id() == *vid && device_info.product_id() == *pid
         }
-        UsbDeviceFilter::VidPidAndSerial { vid, pid, serial } => {
+        DeviceFilter::UsbVidPidAndSerial { vid, pid, serial } => {
             if device_info.vendor_id() != *vid || device_info.product_id() != *pid {
                 false
             } else if let Some(s) = device_info.serial_number() {
@@ -132,14 +132,14 @@ fn apply_filter(device_info: &DeviceInfo, filter: &UsbDeviceFilter) -> bool {
                 false
             }
         }
-        UsbDeviceFilter::Serial { serial } => {
+        DeviceFilter::Serial { serial } => {
             if let Some(s) = device_info.serial_number() {
                 s == serial
             } else {
                 false
             }
         }
-        UsbDeviceFilter::AnyVhrdTechCanBus | UsbDeviceFilter::AnyVhrdTechIo => {
+        DeviceFilter::AnyVhrdTechCanBus | DeviceFilter::AnyVhrdTechIo => {
             let Some(manufacturer) = device_info.manufacturer_string() else {
                 return false;
             };
@@ -150,8 +150,8 @@ fn apply_filter(device_info: &DeviceInfo, filter: &UsbDeviceFilter) -> bool {
                 return false;
             }
             match filter {
-                UsbDeviceFilter::AnyVhrdTechCanBus => product_string.contains("CAN"),
-                UsbDeviceFilter::AnyVhrdTechIo => product_string.contains("IO"),
+                DeviceFilter::AnyVhrdTechCanBus => product_string.contains("CAN"),
+                DeviceFilter::AnyVhrdTechIo => product_string.contains("IO"),
                 _ => unreachable!(),
             }
         }

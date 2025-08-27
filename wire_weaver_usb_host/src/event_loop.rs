@@ -1,8 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{
-    ConnectionInfo, ConnectionState, IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE, UsbDeviceFilter,
-    UsbError,
-};
+use crate::{ConnectionInfo, ConnectionState, IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE, UsbError};
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::sync::Arc;
@@ -12,7 +9,7 @@ use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::ref_vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver_client_common::{
-    Command, Error, OnError,
+    Command, DeviceFilter, Error, OnError,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
@@ -21,7 +18,7 @@ use wire_weaver_usb_link::{
 };
 
 struct State {
-    common: CommonState<UsbError>,
+    common: CommonState,
     message_rx: [u8; MAX_MESSAGE_SIZE],
     user_protocol: ProtocolInfo,
     conn_state: Arc<RwLock<ConnectionInfo>>,
@@ -49,7 +46,7 @@ impl State {
 }
 
 pub async fn usb_worker(
-    mut cmd_rx: mpsc::UnboundedReceiver<Command<UsbDeviceFilter, UsbError>>,
+    mut cmd_rx: mpsc::UnboundedReceiver<Command>,
     conn_state: Arc<RwLock<ConnectionInfo>>,
     user_protocol: ProtocolInfo,
     max_hs_usb_packet_size: usize,
@@ -134,7 +131,7 @@ pub async fn usb_worker(
 }
 
 async fn wait_for_connection_and_queue_commands(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<UsbDeviceFilter, UsbError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
 ) -> Result<Option<(Interface, DeviceInfo)>, ()> {
     loop {
@@ -174,7 +171,7 @@ async fn wait_for_connection_and_queue_commands(
                 return Ok(Some((interface, di)));
             }
             Command::Subscribe {
-                path,
+                path_kind,
                 stream_data_tx,
             } => {
                 state.common.stream_handlers.insert(path, stream_data_tx);
@@ -211,13 +208,13 @@ enum EventLoopResult {
 }
 
 async fn process_commands_and_endpoints(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<UsbDeviceFilter, UsbError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
-) -> Result<EventLoopResult, Error<UsbError>> {
+) -> Result<EventLoopResult, Error> {
     link.send_get_device_info()
         .await
-        .map_err(|e| Error::Transport(e.into()))?;
+        .map_err(|e| Error::Transport(format!("{:?}", e)))?;
     let mut scratch = [0u8; 512];
     let mut link_setup_retries = 5;
     loop {
@@ -249,7 +246,7 @@ async fn process_commands_and_endpoints(
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
                     info!("usb event loop: all CanBus instances were dropped, exiting");
-                    link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(e.into()))?;
+                    link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     return Ok(EventLoopResult::Exit);
                 };
                 match handle_command(cmd, link, state, &mut scratch).await? {
@@ -263,7 +260,7 @@ async fn process_commands_and_endpoints(
                 if !state.common.link_setup_done {
                     if link_setup_retries > 0 {
                         warn!("resending GetDeviceInfo after no answer received from device");
-                        link.send_get_device_info().await.map_err(|e| Error::Transport(e.into()))?;
+                        link.send_get_device_info().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                         link_setup_retries -= 1;
                     } else {
                         error!("usb worker exiting, because link setup failed after several retries");
@@ -280,10 +277,10 @@ async fn process_commands_and_endpoints(
                     if let Some(instant) = state.common.packet_started_instant {
                         trace!("Sending accumulated packet {}us", (Instant::now() - instant).as_micros());
                         state.common.packet_started_instant = None;
-                        link.force_send().await.map_err(|e| Error::Transport(e.into()))?;
+                        link.force_send().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     } else {
                         trace!("Sending ping");
-                        link.send_ping().await.map_err(|e| Error::Transport(e.into()))?;
+                        link.send_ping().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     }
                 }
                 state.common.prune_timed_out_requests();
@@ -304,7 +301,7 @@ async fn handle_message(
     message: Result<MessageKind, LinkError<TransferError, TransferError>>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
-) -> Result<EventLoopSpinResult, Error<UsbError>> {
+) -> Result<EventLoopSpinResult, Error> {
     match message {
         Ok(MessageKind::Data(len)) => {
             if len == 0 {
@@ -379,7 +376,7 @@ async fn handle_message(
             // only one version is in use right now, so no need to choose between different client server versions or link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await
-                .map_err(|e| Error::Transport(UsbError::Link(e)))?;
+                .map_err(|e| Error::Transport(UsbError::Link(e).into()))?;
         }
         Ok(MessageKind::LinkSetupResult { versions_matches }) => {
             if !versions_matches {
@@ -408,23 +405,23 @@ async fn handle_message(
                 );
                 state.max_protocol_mismatched_messages -= 1;
             } else {
-                return Err(Error::Transport(UsbError::Link(e)));
+                return Err(Error::Transport(UsbError::Link(e).into()));
             }
         }
         Err(e @ LinkError::InternalBufOverflow | e @ LinkError::MessageTooBig) => {
             warn!("handle_message: ignoring {e:?}");
         }
-        Err(e) => return Err(Error::Transport(UsbError::Link(e))),
+        Err(e) => return Err(Error::Transport(UsbError::Link(e).into())),
     }
     Ok(EventLoopSpinResult::Continue)
 }
 
 async fn handle_command(
-    cmd: Command<UsbDeviceFilter, UsbError>,
+    cmd: Command,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
     scratch: &mut [u8],
-) -> Result<EventLoopSpinResult, Error<UsbError>> {
+) -> Result<EventLoopSpinResult, Error> {
     match cmd {
         Command::Connect { .. } => {
             warn!("Ignoring Connect while already connected");
@@ -433,7 +430,7 @@ async fn handle_command(
             info!("Disconnecting on user request (but keeping streams ready for re-use)");
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
-                .map_err(|e| Error::Transport(e.into()))?;
+                .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
@@ -443,7 +440,7 @@ async fn handle_command(
             info!("Disconnecting and stopping USB event loop on user request");
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
-                .map_err(|e| Error::Transport(e.into()))?;
+                .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
@@ -451,7 +448,7 @@ async fn handle_command(
         }
         Command::SendCall {
             args_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -468,7 +465,7 @@ async fn handle_command(
         }
         Command::SendWrite {
             value_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -484,7 +481,7 @@ async fn handle_command(
             serialize_request_send(request, link, state, scratch).await?;
         }
         Command::SendRead {
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -498,7 +495,7 @@ async fn handle_command(
             serialize_request_send(request, link, state, scratch).await?;
         }
         Command::Subscribe {
-            path,
+            path_kind,
             stream_data_tx,
         } => {
             state.common.stream_handlers.insert(path, stream_data_tx);
@@ -513,14 +510,14 @@ async fn serialize_request_send(
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
     scratch: &mut [u8],
-) -> Result<(), Error<UsbError>> {
+) -> Result<(), Error> {
     let mut wr = BufWriter::new(scratch);
     request.ser_shrink_wrap(&mut wr)?;
     let request_bytes = wr.finish_and_take()?.to_vec();
 
     link.send_message(&request_bytes)
         .await
-        .map_err(|e| Error::Transport(e.into()))?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
+        .map_err(|e| Error::Transport(format!("{:?}", e)))?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
     if link.is_tx_queue_empty() {
         state.common.packet_started_instant = None;
     } else {

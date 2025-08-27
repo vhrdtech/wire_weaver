@@ -1,7 +1,6 @@
 use crate::timeout::Timeout;
 use crate::{Command, Error};
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
@@ -14,8 +13,8 @@ use ww_version::{CompactVersion, FullVersionOwned};
 ///
 /// Commands sent through this channel are received by a worker thread (e.g., USB or WebSocket clients) and forwarded to a connected device.
 /// Replies are received through one-shot channels created on the fly when requests are sent.
-pub struct CommandSender<F, E> {
-    tx: UnboundedSender<Command<F, E>>,
+pub struct CommandSender {
+    tx: UnboundedSender<Command>,
     // TODO: CommandSender outstanding request limit?
     /// * None for command sender attached to API root, trait addressing will result in an error.
     /// * Some(empty path) for trait implemented at root level (unknown path), trait addressing will be used.
@@ -30,30 +29,12 @@ pub struct CommandSender<F, E> {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
 }
 
-// Resource path, intended to be used from generated client code in either of the two modes:
-// * Absolute mode, then base_path is None and only Absolute variant will be accepted.
-// * Relative mode, used to access trait resources without knowing anything else about an API, in which case base_path is Some.
+// pub struct CommandEnvelope {
 //
-// Differs from [ww_client_server::PathKind](ww_client_server::PathKind) in a subtle way, so that using only one type is not possible:
-// in ww_client_server version all variants of this type essentially carry path (it's a separate field in [Request](ww_client_server::Request).
-// here though, GlobalCompact and GlobalFull does not have a base_path, since generated client code cannot know it, hence the need for
-// a separate type.
-// pub enum CommandSenderPath<'i> {
-//     Absolute {
-//         path: &'i [u32],
-//     },
-//     GlobalCompact {
-//         gid: CompactVersion,
-//         path_from_trait: &'i [u32],
-//     },
-//     GlobalFull {
-//         gid: FullVersion<'i>,
-//         path_from_trait: &'i [u32],
-//     },
 // }
 
-impl<F, E: Debug> CommandSender<F, E> {
-    pub fn send(&self, command: Command<F, E>) -> Result<(), Error<E>> {
+impl CommandSender {
+    pub fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?
         self.tx
             .send(command)
@@ -66,7 +47,7 @@ impl<F, E: Debug> CommandSender<F, E> {
         path: PathKind<'_>,
         args: Vec<u8>,
         timeout: Timeout,
-    ) -> Result<Vec<u8>, Error<E>> {
+    ) -> Result<Vec<u8>, Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendCall {
@@ -86,7 +67,7 @@ impl<F, E: Debug> CommandSender<F, E> {
         path: PathKind<'_>,
         value: Vec<u8>,
         timeout: Timeout,
-    ) -> Result<(), Error<E>> {
+    ) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendWrite {
@@ -105,7 +86,7 @@ impl<F, E: Debug> CommandSender<F, E> {
         &self,
         path: PathKind<'_>,
         timeout: Timeout,
-    ) -> Result<Vec<u8>, Error<E>> {
+    ) -> Result<Vec<u8>, Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendRead {
@@ -121,11 +102,11 @@ impl<F, E: Debug> CommandSender<F, E> {
 
     async fn send_cmd_receive_reply(
         &self,
-        cmd: Command<F, E>,
+        cmd: Command,
         timeout: Duration,
-        done_rx: oneshot::Receiver<Result<Vec<u8>, Error<E>>>,
+        done_rx: oneshot::Receiver<Result<Vec<u8>, Error>>,
         desc: &'static str,
-    ) -> Result<Vec<u8>, Error<E>> {
+    ) -> Result<Vec<u8>, Error> {
         self.tx.send(cmd).map_err(|_| Error::EventLoopNotRunning)?;
         let rx_or_timeout = tokio::time::timeout(timeout, done_rx).await;
         trace!("got {desc} response: {:02x?}", rx_or_timeout);
@@ -135,7 +116,7 @@ impl<F, E: Debug> CommandSender<F, E> {
         Ok(data)
     }
 
-    fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error<E>> {
+    fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.trait_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
@@ -175,7 +156,7 @@ impl<F, E: Debug> CommandSender<F, E> {
                 } else if let Some(compact) = self.gid_map.get(&gid.make_owned()) {
                     // TODO: actually not possible to implement Borrow for FullVersionOwned?
                     PathKindOwned::GlobalCompact {
-                        gid: compact.clone(),
+                        gid: *compact,
                         path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
                     }
                 } else {

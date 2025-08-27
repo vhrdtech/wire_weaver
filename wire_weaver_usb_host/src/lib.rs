@@ -12,6 +12,7 @@ use nusb::Error as NusbError;
 use nusb::transfer::TransferError;
 use std::fmt::Debug;
 use tracing::error;
+use wire_weaver_client_common::DeviceFilter;
 use wire_weaver_usb_link::Error as LinkError;
 
 const IRQ_MAX_PACKET_SIZE: usize = 1024;
@@ -25,15 +26,6 @@ pub enum UsbError {
     Link(wire_weaver_usb_link::Error<TransferError, TransferError>),
     #[error("nusb::watch_devices() iterator returned None")]
     WatcherReturnedNone,
-}
-
-#[derive(Clone, Debug)]
-pub enum UsbDeviceFilter {
-    VidPid { vid: u16, pid: u16 },
-    VidPidAndSerial { vid: u16, pid: u16, serial: String },
-    Serial { serial: String },
-    AnyVhrdTechCanBus,
-    AnyVhrdTechIo,
 }
 
 #[derive(Default)]
@@ -73,19 +65,23 @@ impl From<LinkError<TransferError, TransferError>> for UsbError {
 //     }
 // }
 
-impl From<&DeviceInfo> for UsbDeviceFilter {
-    fn from(info: &DeviceInfo) -> Self {
-        if let Some(serial) = info.serial_number() {
-            UsbDeviceFilter::VidPidAndSerial {
-                vid: info.vendor_id(),
-                pid: info.product_id(),
-                serial: serial.to_string(),
-            }
-        } else {
-            UsbDeviceFilter::VidPid {
-                vid: info.vendor_id(),
-                pid: info.product_id(),
-            }
+pub(crate) fn device_info_to_filter(info: &DeviceInfo) -> DeviceFilter {
+    if let Some(serial) = info.serial_number() {
+        DeviceFilter::UsbVidPidAndSerial {
+            vid: info.vendor_id(),
+            pid: info.product_id(),
+            serial: serial.to_string(),
         }
+    } else {
+        DeviceFilter::UsbVidPid {
+            vid: info.vendor_id(),
+            pid: info.product_id(),
+        }
+    }
+}
+
+impl Into<String> for UsbError {
+    fn into(self) -> String {
+        format!("{:?}", self)
     }
 }

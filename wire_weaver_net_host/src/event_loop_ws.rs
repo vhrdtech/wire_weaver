@@ -50,7 +50,7 @@ impl From<shrink_wrap::Error> for WsError {
 
 #[derive(Default)]
 struct State {
-    common: CommonState<WsError>,
+    common: CommonState,
 }
 
 struct Link {
@@ -59,7 +59,7 @@ struct Link {
     rx: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
-pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<WsTarget, WsError>>) {
+pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
     debug!("ws worker started");
     let mut state = State::default();
     let mut link = None;
@@ -112,7 +112,7 @@ enum EventLoopResult {
 }
 
 async fn process_commands_and_endpoints(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<WsTarget, WsError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut Link,
     state: &mut State,
     scratch: &mut [u8],
@@ -176,7 +176,7 @@ async fn process_commands_and_endpoints(
 }
 
 async fn wait_for_connection_and_queue_commands(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<WsTarget, WsError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
 ) -> Result<Option<Link>, WsError> {
     loop {
@@ -348,7 +348,7 @@ async fn handle_message(
 }
 
 async fn handle_command(
-    cmd: Command<WsTarget, WsError>,
+    cmd: Command,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     state: &mut State,
     scratch: &mut [u8],
@@ -375,7 +375,7 @@ async fn handle_command(
         }
         Command::SendCall {
             args_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -392,7 +392,7 @@ async fn handle_command(
         }
         Command::SendWrite {
             value_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -408,7 +408,7 @@ async fn handle_command(
             serialize_request_send(request, tx, state, scratch).await?;
         }
         Command::SendRead {
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -422,7 +422,7 @@ async fn handle_command(
             serialize_request_send(request, tx, state, scratch).await?;
         }
         Command::Subscribe {
-            path,
+            path_kind,
             stream_data_tx,
         } => {
             state.common.stream_handlers.insert(path, stream_data_tx);

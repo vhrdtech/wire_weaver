@@ -5,6 +5,7 @@ pub mod ww;
 
 // TODO: remove
 pub use command_sender::CommandSender;
+use std::net::IpAddr;
 pub use timeout::Timeout;
 pub use ww_client_server;
 pub use ww_version;
@@ -14,13 +15,13 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use ww_client_server::PathKindOwned;
 
-pub enum Command<F, E> {
+pub enum Command {
     /// Try to connect to / open a device with the specified filter.
     Connect {
-        filter: F,
+        filter: DeviceFilter,
         user_protocol_version: FullVersionOwned,
         on_error: OnError,
-        connected_tx: Option<oneshot::Sender<Result<(), Error<E>>>>,
+        connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     },
 
     /// Complete outstanding requests (but ignore new ones)? Then close device connection, but keep worker task running.
@@ -40,23 +41,23 @@ pub enum Command<F, E> {
         // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
         args_bytes: Vec<u8>,
         timeout: Option<Duration>,
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     },
     SendWrite {
         path_kind: PathKindOwned,
         value_bytes: Vec<u8>,
         timeout: Option<Duration>,
         // Vec is always empty here, but allows for common code
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     },
     SendRead {
         path_kind: PathKindOwned,
         timeout: Option<Duration>,
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error<E>>>>,
+        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     },
     Subscribe {
         path_kind: PathKindOwned,
-        stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error<E>>>,
+        stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error>>,
         // stop_rx: oneshot::Receiver<()>,
     },
     // RecycleBuffer(Vec<u8>),
@@ -66,7 +67,7 @@ pub type SeqTy = u16;
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error<E> {
+pub enum Error {
     #[error("Called a method that required event loop to be running")]
     EventLoopNotRunning,
     #[error("No devices found to connect to")]
@@ -75,30 +76,29 @@ pub enum Error<E> {
     Timeout,
     #[error("LinkSetup was not received from device after several retries")]
     LinkSetupTimeout,
-    #[error("ShrinkWrap error {:?}", .0)]
+    #[error("shrink_wrap::Error {:?}", .0)]
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
     #[error("Tried connecting to a device with incompatible protocol")]
     IncompatibleDeviceProtocol,
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
-    #[error("Device returned WireWeaver client_server error: {:?}", .0)]
+    #[error("Remote device returned ww_client_server::Error: {:?}", .0)]
     RemoteError(ww_client_server::Error),
-    #[error("Failed to deserialize a bytes slice from device response")]
-    ByteSliceReadFailed,
+    // #[error("Failed to deserialize a bytes slice from device response")]
+    // ByteSliceReadFailed,
     #[error("All command senders were dropped")]
     CmdTxDropped,
     #[error("Exit command received")]
     ExitRequested,
-    #[error("IO error {}", .0)]
-    Io(#[from] std::io::Error),
-
-    #[error("Transport specific error")]
-    Transport(E),
+    // #[error("IO error {}", .0)]
+    // Io(#[from] std::io::Error),
+    #[error("Transport specific error: {}", .0)]
+    Transport(String),
     #[error("User error {}", .0)]
     User(String),
 }
 
-impl<E> From<wire_weaver::shrink_wrap::Error> for Error<E> {
+impl From<wire_weaver::shrink_wrap::Error> for Error {
     fn from(e: wire_weaver::shrink_wrap::Error) -> Self {
         Error::ShrinkWrap(e)
     }
@@ -132,7 +132,7 @@ impl OnError {
     }
 }
 
-impl<F, E> Command<F, E> {
+impl Command {
     pub fn disconnect_and_exit() -> (Self, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
         let cmd = Command::DisconnectAndExit {
@@ -140,4 +140,31 @@ impl<F, E> Command<F, E> {
         };
         (cmd, rx)
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum DeviceFilter {
+    WebSocket {
+        addr: IpAddr,
+        port: u16,
+        path: String,
+    },
+    UDP {
+        addr: IpAddr,
+        port: u16,
+    },
+    UsbVidPid {
+        vid: u16,
+        pid: u16,
+    },
+    UsbVidPidAndSerial {
+        vid: u16,
+        pid: u16,
+        serial: String,
+    },
+    Serial {
+        serial: String,
+    },
+    AnyVhrdTechCanBus,
+    AnyVhrdTechIo,
 }

@@ -22,7 +22,7 @@ pub type UdpError = ();
 
 #[derive(Default)]
 struct State {
-    common: CommonState<UdpError>,
+    common: CommonState,
 }
 
 struct Link {
@@ -32,7 +32,7 @@ struct Link {
     scratch: [u8; 2048],
 }
 
-pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, UdpError>>) {
+pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
     debug!("udp worker started");
     let mut state = State::default();
     let mut link = None;
@@ -87,7 +87,7 @@ pub async fn udp_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command<UdpTarget, U
 
 impl Link {
     // TODO: UDP accumulate and send many at once
-    async fn send_op(&mut self, op: Op<'_>) -> Result<(), Error<UdpError>> {
+    async fn send_op(&mut self, op: Op<'_>) -> Result<(), Error> {
         let datagram = Datagram {
             magic: UDP_LINK_MAGIC,
             seq: self.seq,
@@ -114,12 +114,12 @@ enum EventLoopResult {
 }
 
 async fn process_commands_and_endpoints(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<UdpTarget, UdpError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut Link,
     state: &mut State,
     scratch: &mut [u8],
     udp_rx: &mut [u8],
-) -> Result<EventLoopResult, Error<UdpError>> {
+) -> Result<EventLoopResult, Error> {
     link.send_op(Op::GetDeviceInfo).await?;
     let mut link_setup_retries = 5;
     loop {
@@ -175,9 +175,9 @@ async fn process_commands_and_endpoints(
 }
 
 async fn wait_for_connection_and_queue_commands(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command<UdpTarget, UdpError>>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
-) -> Result<Option<Link>, Error<UdpError>> {
+) -> Result<Option<Link>, Error> {
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             return Err(Error::CmdTxDropped);
@@ -243,7 +243,7 @@ async fn handle_datagram(
     datagram: &[u8],
     link: &mut Link,
     state: &mut State,
-) -> Result<EventLoopSpinResult, Error<UdpError>> {
+) -> Result<EventLoopSpinResult, Error> {
     let datagram = Datagram::from_ww_bytes(datagram)?;
     // TODO: discard duplicates
     for op in datagram.ops.iter() {
@@ -356,11 +356,11 @@ async fn handle_datagram(
 }
 
 async fn handle_command(
-    cmd: Command<UdpTarget, UdpError>,
+    cmd: Command,
     link: &mut Link,
     state: &mut State,
     scratch: &mut [u8],
-) -> Result<EventLoopSpinResult, Error<UdpError>> {
+) -> Result<EventLoopSpinResult, Error> {
     match cmd {
         Command::Connect { .. } => {
             warn!("Ignoring Connect while already connected");
@@ -389,7 +389,7 @@ async fn handle_command(
         }
         Command::SendCall {
             args_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -406,7 +406,7 @@ async fn handle_command(
         }
         Command::SendWrite {
             value_bytes,
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -422,7 +422,7 @@ async fn handle_command(
             serialize_request_send(request, link, state, scratch).await?;
         }
         Command::SendRead {
-            path,
+            path_kind,
             timeout,
             done_tx,
         } => {
@@ -436,7 +436,7 @@ async fn handle_command(
             serialize_request_send(request, link, state, scratch).await?;
         }
         Command::Subscribe {
-            path,
+            path_kind,
             stream_data_tx,
         } => {
             state.common.stream_handlers.insert(path, stream_data_tx);
@@ -451,7 +451,7 @@ async fn serialize_request_send(
     _state: &mut State,
     scratch: &mut [u8],
     // scratch2: &mut [u8],
-) -> Result<(), Error<UdpError>> {
+) -> Result<(), Error> {
     let request_bytes = request.to_ww_bytes(scratch)?;
     link.send_op(Op::RequestData {
         data: RefVec::new_bytes(request_bytes),

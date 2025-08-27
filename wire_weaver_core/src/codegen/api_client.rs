@@ -4,6 +4,7 @@ use crate::ast::path::Path;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::ty::FieldPath;
+use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -72,8 +73,8 @@ pub fn client(
             };
             #additional_use
 
-            impl<F, E: core::fmt::Debug> super::#client_struct<F, E> {
-                pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_, F, E> {
+            impl super::#client_struct {
+                pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_> {
                     #root_mod_name::#root_client_struct_name {
                         args_scratch: &mut self.args_scratch,
                         cmd_tx: &mut self.cmd_tx,
@@ -134,13 +135,13 @@ fn client_structs_recursive(
             #use_external
             #args_structs
 
-            pub struct #client_struct_name<'i, F, E> {
+            pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
                 pub args_scratch: &'i mut [u8],
-                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender<F, E>
+                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender
             }
 
-            impl<'i, F, E: core::fmt::Debug> #client_struct_name<'i, F, E> {
+            impl<'i> #client_struct_name<'i> {
                 #methods
             }
 
@@ -225,7 +226,7 @@ fn level_method(
             let mod_name = level.mod_ident(ext_crate_name.as_ref());
             let client_struct_name = level.client_struct_name(ext_crate_name.as_ref());
             quote! {
-                pub fn #level_entry_fn_name(&mut self) -> #mod_name::#client_struct_name<'_, F, E> {
+                pub fn #level_entry_fn_name(&mut self) -> #mod_name::#client_struct_name<'_> {
                     #index_chain_push;
                     #mod_name::#client_struct_name {
                         index_chain,
@@ -248,7 +249,6 @@ fn handle_method(
     return_type: &Option<Type>,
 ) -> TokenStream {
     let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, model.no_alloc());
-    let call_fn_name = &ident;
     let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
         let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
             quote! {} // User type directly returned from method
@@ -278,20 +278,48 @@ fn handle_method(
     };
 
     let path_kind = path_kind(path_mode, full_gid_path);
-    quote! {
-        pub async fn #call_fn_name(&mut self, timeout: wire_weaver_client_common::Timeout, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error<E>> {
-            #args_ser
-            let args_bytes = #args_bytes;
-            #index_chain_push
-            let path_kind = #path_kind;
-            let return_bytes = self.cmd_tx.send_call_receive_reply(
-                path_kind,
-                args_bytes,
-                timeout
-            ).await?;
-            #handle_output
+    let fn_call = |default_timeout: bool| {
+        let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
+        let call_fn_name = if default_timeout {
+            ident.clone()
+        } else {
+            Ident::new(&format!("{}_timeout", ident), ident.span())
+        };
+        quote! {
+            pub async fn #call_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
+                #args_ser
+                let args_bytes = #args_bytes;
+                #index_chain_push
+                let path_kind = #path_kind;
+                let return_bytes = self.cmd_tx.send_call_receive_reply(
+                    path_kind,
+                    args_bytes,
+                    #timeout_val
+                ).await?;
+                #handle_output
+            }
         }
+    };
+
+    let fn_call_default_timeout = fn_call(true);
+    let fn_call = fn_call(false);
+    quote! {
+        #fn_call_default_timeout
+        #fn_call
     }
+}
+
+fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
+    let maybe_timeout_arg = maybe_quote(
+        !default_timeout,
+        quote! { , timeout: wire_weaver_client_common::Timeout },
+    );
+    let timeout_val = if default_timeout {
+        quote! { wire_weaver_client_common::Timeout::Default }
+    } else {
+        quote! { timeout }
+    };
+    (maybe_timeout_arg, timeout_val)
 }
 
 fn handle_property(
@@ -330,54 +358,82 @@ fn handle_property(
         &mut des,
     );
     let path_kind = path_kind(path_mode, full_gid_path);
-    let hl_write_fn = Ident::new(format!("write_{}", prop_name).as_str(), prop_name.span());
-    let hl_write_fn = if matches!(
+
+    let write_fns = if matches!(
         access,
         PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
     ) {
-        quote! {
-            pub async fn #hl_write_fn(&mut self, timeout: wire_weaver_client_common::Timeout, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error<E>> {
-                let mut wr = BufWriter::new(&mut self.args_scratch);
-                #ser
-                let args = #finish_wr;
-                #index_chain_push
-                let path_kind = #path_kind;
-                let _data = self.cmd_tx.send_write_receive_reply(
-                    path_kind,
-                    args,
-                    timeout
-                ).await?;
-                Ok(())
+        let prop_write = |default_timeout: bool| {
+            let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
+            let write_fn_name = if default_timeout {
+                Ident::new(&format!("write_{}", prop_name), prop_name.span())
+            } else {
+                Ident::new(&format!("write_{}_timeout", prop_name), prop_name.span())
+            };
+            quote! {
+                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def #maybe_timeout_arg) -> Result<(), wire_weaver_client_common::Error> {
+                    let mut wr = BufWriter::new(&mut self.args_scratch);
+                    #ser
+                    let args = #finish_wr;
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    let _data = self.cmd_tx.send_write_receive_reply(
+                        path_kind,
+                        args,
+                        #timeout_val
+                    ).await?;
+                    Ok(())
+                }
             }
+        };
+        let prop_write_default_timeout = prop_write(true);
+        let prop_write = prop_write(false);
+        quote! {
+            #prop_write_default_timeout
+            #prop_write
         }
     } else {
         quote! {}
     };
-    let hl_read_fn = Ident::new(format!("read_{}", prop_name).as_str(), prop_name.span());
-    let hl_read_fn = if matches!(
+
+    let read_fns = if matches!(
         access,
         PropertyAccess::Const | PropertyAccess::ReadWrite | PropertyAccess::ReadOnly
     ) {
-        quote! {
-            pub async fn #hl_read_fn(&mut self, timeout: wire_weaver_client_common::Timeout) -> Result<#ty_def, wire_weaver_client_common::Error<E>> {
-                #index_chain_push
-                let path_kind = #path_kind;
-                let bytes = self.cmd_tx.send_read_receive_reply(
-                    path_kind,
-                    timeout
-                ).await?;
-                let mut rd = BufReader::new(&bytes);
-                #des
-                Ok(value)
+        let prop_read = |default_timeout: bool| {
+            let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
+            let read_fn_name = if default_timeout {
+                Ident::new(&format!("read_{}", prop_name), prop_name.span())
+            } else {
+                Ident::new(&format!("read_{}_timeout", prop_name), prop_name.span())
+            };
+            quote! {
+                pub async fn #read_fn_name(&mut self #maybe_timeout_arg) -> Result<#ty_def, wire_weaver_client_common::Error> {
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    let bytes = self.cmd_tx.send_read_receive_reply(
+                        path_kind,
+                        #timeout_val
+                    ).await?;
+                    let mut rd = BufReader::new(&bytes);
+                    #des
+                    Ok(value)
+                }
             }
+        };
+        let prop_read_default_timout = prop_read(true);
+        let prop_read = prop_read(false);
+        quote! {
+            #prop_read_default_timout
+            #prop_read
         }
     } else {
         quote! {}
     };
 
     quote! {
-        #hl_write_fn
-        #hl_read_fn
+        #write_fns
+        #read_fns
     }
 }
 
@@ -429,7 +485,7 @@ fn ser_args(
 
 fn cmd_tx_disconnect_methods() -> TokenStream {
     quote! {
-        pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+        pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
             self.cmd_tx
                 .send(cmd)
@@ -438,7 +494,7 @@ fn cmd_tx_disconnect_methods() -> TokenStream {
             Ok(())
         }
 
-        pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+        pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             self.cmd_tx
                 .send(wire_weaver_client_common::Command::DisconnectAndExit {
                     disconnected_tx: None,
@@ -448,7 +504,7 @@ fn cmd_tx_disconnect_methods() -> TokenStream {
         }
 
         /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
-        pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error<E>> {
+        pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             self.cmd_tx
                 .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
                     disconnected_tx: None,

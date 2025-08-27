@@ -29,10 +29,6 @@ pub struct CommandSender {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
 }
 
-// pub struct CommandEnvelope {
-//
-// }
-
 impl CommandSender {
     pub fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?

@@ -78,6 +78,7 @@ pub fn client(
                     #root_mod_name::#root_client_struct_name {
                         args_scratch: &mut self.args_scratch,
                         cmd_tx: &mut self.cmd_tx,
+                        timeout: self.timeout,
                     }
                 }
 
@@ -138,7 +139,8 @@ fn client_structs_recursive(
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
                 pub args_scratch: &'i mut [u8],
-                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender
+                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender,
+                pub timeout: core::time::Duration,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -313,9 +315,9 @@ fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
     let maybe_timeout_arg =
         maybe_quote(!default_timeout, quote! { , timeout: core::time::Duration });
     let timeout_val = if default_timeout {
-        quote! { wire_weaver_client_common::Timeout::Default }
-    } else {
         quote! { self.timeout }
+    } else {
+        quote! { timeout }
     };
     (maybe_timeout_arg, timeout_val)
 }

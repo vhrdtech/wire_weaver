@@ -1,4 +1,5 @@
 use wire_weaver::prelude::*;
+use ww_numeric::SubTypeKind;
 
 /// Represents one or more CAN Bus interfaces with one clock and power source and possibly sharing memory
 /// between interfaces as well. This trait mimics real hardware implementations found on e.g., STM32
@@ -112,10 +113,10 @@ pub trait CANBusInterface {
     sink!(tx_buffer: CANEnvelope<'i>); // CANTxEnvelope with marker for saving to SD card to see later what it was?
 
     // Dedicated TX buffer
-    fn tx_write_dedicated(slot: u16, frame: CANFrame<'i>) -> Result<(), E>;
-    fn tx_read_dedicated(slot: u16) -> Result<CANFrame<'i>, E>;
-    fn tx_dedicated_pend(slot: u16) -> Result<(), E>;
-    fn tx_dedicated_periodic(slot: u16, period: Microseconds) -> Result<(), E>;
+    //fn tx_write_dedicated(slot: u16, frame: CANFrame<'i>) -> Result<(), E>;
+    //fn tx_read_dedicated(slot: u16) -> Result<CANFrame<'i>, E>;
+    //fn tx_dedicated_pend(slot: u16) -> Result<(), E>;
+    //fn tx_dedicated_periodic(slot: u16, period: Microseconds) -> Result<(), E>;
 
     // RX FIFO or Queue 0
     stream!(rx_buffer0: CANEnvelope<'i>);

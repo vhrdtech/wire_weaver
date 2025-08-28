@@ -1286,7 +1286,9 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "wire_weaver",
+ "wire_weaver_derive",
  "ww_numeric",
+ "ww_version",
 ]
 
 [[package]]

@@ -9,12 +9,18 @@ use wire_weaver_client_common::{DeviceFilter, Error, OnError};
 pub(crate) async fn connect(
     filter: DeviceFilter,
     mut timeout: OnError,
-) -> Result<(Interface, DeviceInfo), Error<UsbError>> {
+) -> Result<(Interface, DeviceInfo), Error> {
     let wait_started = Instant::now();
     loop {
-        let di = nusb::list_devices()
-            .map_err(|e| Error::Transport(e.into()))?
-            .find(|d| apply_filter(d, &filter));
+        // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux
+        let devices = nusb::list_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
+        let mut di = None;
+        for d in devices {
+            if apply_filter(&d, &filter)? {
+                di = Some(d);
+                break;
+            }
+        }
         let di = match di {
             Some(di) => di,
             None => {
@@ -27,7 +33,7 @@ pub(crate) async fn connect(
         };
         trace!("connecting to USB device: {di:?}");
         let interface = {
-            let dev = di.open().map_err(|e| Error::Transport(e.into()))?;
+            let dev = di.open().map_err(|e| Error::Transport(format!("{}", e)))?;
             dev.claim_interface(0)
         };
         match interface {
@@ -61,17 +67,14 @@ pub(crate) async fn connect(
     }
 }
 
-async fn wait_device(
-    filter: &DeviceFilter,
-    timeout: OnError,
-) -> Result<DeviceInfo, Error<UsbError>> {
-    let mut watch = nusb::watch_devices().map_err(|e| Error::Transport(e.into()))?;
-    if let Some(di) = nusb::list_devices()
-        .map_err(|e| Error::Transport(e.into()))?
-        .find(|d| apply_filter(d, filter))
-    {
-        return Ok(di);
-    };
+async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceInfo, Error> {
+    let mut watch = nusb::watch_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
+    let devices = nusb::list_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
+    for d in devices {
+        if apply_filter(&d, filter)? {
+            return Ok(d);
+        }
+    }
     trace!("waiting for USB device to connect...");
     match timeout {
         OnError::ExitImmediately => Err(Error::DeviceNotFound),
@@ -83,10 +86,10 @@ async fn wait_device(
                 }
                 hotplug_event = watch.next() => {
                     let Some(hotplug_event) = hotplug_event else {
-                        return Err(Error::Transport(UsbError::WatcherReturnedNone))
+                        return Err(Error::Transport(UsbError::WatcherReturnedNone.into()))
                     };
                     if let HotplugEvent::Connected(di) = hotplug_event {
-                        if apply_filter(&di, filter) {
+                        if apply_filter(&di, filter)? {
                             // as per nusb docs, must wait a bit on Windows after getting watched device, otherwise connection fails
                             #[cfg(target_os = "windows")]
                             tokio::time::sleep(std::time::Duration::from_millis(10)).await; // TODO: is 10ms enough on slow Windows VM?
@@ -108,18 +111,18 @@ async fn wait_device(
         OnError::KeepRetrying => {
             while let Some(hotplug_event) = watch.next().await {
                 if let HotplugEvent::Connected(di) = hotplug_event {
-                    if apply_filter(&di, filter) {
+                    if apply_filter(&di, filter)? {
                         return Ok(di);
                     }
                 }
             }
-            Err(Error::Transport(UsbError::WatcherReturnedNone))
+            Err(Error::Transport(UsbError::WatcherReturnedNone.into()))
         }
     }
 }
 
-fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> bool {
-    match filter {
+fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> Result<bool, Error> {
+    let matches = match filter {
         DeviceFilter::UsbVidPid { vid, pid } => {
             device_info.vendor_id() == *vid && device_info.product_id() == *pid
         }
@@ -141,13 +144,13 @@ fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> bool {
         }
         DeviceFilter::AnyVhrdTechCanBus | DeviceFilter::AnyVhrdTechIo => {
             let Some(manufacturer) = device_info.manufacturer_string() else {
-                return false;
+                return Ok(false);
             };
             let Some(product_string) = device_info.product_string() else {
-                return false;
+                return Ok(false);
             };
             if !manufacturer.to_lowercase().contains("vhrd") {
-                return false;
+                return Ok(false);
             }
             match filter {
                 DeviceFilter::AnyVhrdTechCanBus => product_string.contains("CAN"),
@@ -155,5 +158,12 @@ fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> bool {
                 _ => unreachable!(),
             }
         }
-    }
+        u => {
+            return Err(Error::Transport(format!(
+                "unsupported filter for USB host: {:?}",
+                u
+            )));
+        }
+    };
+    Ok(matches)
 }

@@ -8,8 +8,9 @@ use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::ref_vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
+use wire_weaver_client_common::ww_client_server::PathKindOwned;
 use wire_weaver_client_common::{
-    Command, DeviceFilter, Error, OnError,
+    Command, Error, OnError,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
@@ -174,7 +175,10 @@ async fn wait_for_connection_and_queue_commands(
                 path_kind,
                 stream_data_tx,
             } => {
-                state.common.stream_handlers.insert(path, stream_data_tx);
+                if let PathKindOwned::Absolute { path } = path_kind {
+                    state.common.stream_handlers.insert(path, stream_data_tx);
+                }
+                // TODO: register stream handler when using traits, absolute path will only be known when device replies
             }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
@@ -332,7 +336,7 @@ async fn handle_message(
                         }
                     }
                     EventKind::StreamUpdate { path, data } => {
-                        let path = path.iter().map(|p| p.unwrap().0).collect::<Vec<_>>();
+                        let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
                             let r = data.as_slice().to_vec();
@@ -452,11 +456,11 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending call to {path:?}");
+            trace!("sending call to {path_kind:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Call {
                     args: RefVec::new_bytes(&args_bytes),
                 },
@@ -469,11 +473,11 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending write to {path:?}");
+            trace!("sending write to {path_kind:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Write {
                     data: RefVec::new_bytes(&value_bytes),
                 },
@@ -485,11 +489,11 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending read to {path:?}");
+            trace!("sending read to {path_kind:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
             let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Read,
             };
             serialize_request_send(request, link, state, scratch).await?;
@@ -498,7 +502,10 @@ async fn handle_command(
             path_kind,
             stream_data_tx,
         } => {
-            state.common.stream_handlers.insert(path, stream_data_tx);
+            if let PathKindOwned::Absolute { path } = path_kind {
+                state.common.stream_handlers.insert(path, stream_data_tx);
+            }
+            // TODO: is it correct to ignore non absolute paths here?
         }
     }
     Ok(EventLoopSpinResult::Continue)

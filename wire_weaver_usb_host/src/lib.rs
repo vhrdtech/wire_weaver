@@ -12,7 +12,6 @@ use nusb::Error as NusbError;
 use nusb::transfer::TransferError;
 use std::fmt::Debug;
 use tracing::error;
-use wire_weaver_client_common::DeviceFilter;
 use wire_weaver_usb_link::Error as LinkError;
 
 const IRQ_MAX_PACKET_SIZE: usize = 1024;
@@ -65,20 +64,20 @@ impl From<LinkError<TransferError, TransferError>> for UsbError {
 //     }
 // }
 
-pub(crate) fn device_info_to_filter(info: &DeviceInfo) -> DeviceFilter {
-    if let Some(serial) = info.serial_number() {
-        DeviceFilter::UsbVidPidAndSerial {
-            vid: info.vendor_id(),
-            pid: info.product_id(),
-            serial: serial.to_string(),
-        }
-    } else {
-        DeviceFilter::UsbVidPid {
-            vid: info.vendor_id(),
-            pid: info.product_id(),
-        }
-    }
-}
+// pub(crate) fn device_info_to_filter(info: &DeviceInfo) -> DeviceFilter {
+//     if let Some(serial) = info.serial_number() {
+//         DeviceFilter::UsbVidPidAndSerial {
+//             vid: info.vendor_id(),
+//             pid: info.product_id(),
+//             serial: serial.to_string(),
+//         }
+//     } else {
+//         DeviceFilter::UsbVidPid {
+//             vid: info.vendor_id(),
+//             pid: info.product_id(),
+//         }
+//     }
+// }
 
 impl Into<String> for UsbError {
     fn into(self) -> String {

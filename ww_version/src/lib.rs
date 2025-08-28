@@ -247,6 +247,15 @@ impl From<FullVersion<'_>> for FullVersionOwned {
     }
 }
 
+impl FullVersionOwned {
+    pub fn as_ref(&self) -> FullVersion<'_> {
+        FullVersion {
+            crate_id: &self.crate_id,
+            version: self.version.as_ref(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

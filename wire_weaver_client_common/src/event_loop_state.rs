@@ -2,6 +2,7 @@ use crate::{DEFAULT_REQUEST_TIMEOUT, Error, OnError, SeqTy};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
+use wire_weaver::prelude::UNib32;
 use ww_version::FullVersionOwned;
 
 pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
@@ -14,7 +15,7 @@ pub struct CommonState {
     // conn_state: Arc<RwLock<ConnectionInfo>>,
     pub connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     pub response_map: HashMap<SeqTy, (ResponseSender, Instant)>,
-    pub stream_handlers: HashMap<Vec<u32>, StreamUpdateSender>,
+    pub stream_handlers: HashMap<Vec<UNib32>, StreamUpdateSender>,
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
     pub last_ping_instant: Option<Instant>,

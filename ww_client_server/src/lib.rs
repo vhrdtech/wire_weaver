@@ -226,6 +226,34 @@ impl PathKind<'_> {
     }
 }
 
+impl PathKindOwned {
+    pub fn as_ref(&self) -> PathKind<'_> {
+        match self {
+            PathKindOwned::Absolute { path } => PathKind::Absolute {
+                path: RefVec::Slice { slice: &path },
+            },
+            PathKindOwned::GlobalCompact {
+                gid,
+                path_from_trait,
+            } => PathKind::GlobalCompact {
+                gid: *gid,
+                path_from_trait: RefVec::Slice {
+                    slice: &path_from_trait,
+                },
+            },
+            PathKindOwned::GlobalFull {
+                gid,
+                path_from_trait,
+            } => PathKind::GlobalFull {
+                gid: gid.as_ref(),
+                path_from_trait: RefVec::Slice {
+                    slice: &path_from_trait,
+                },
+            },
+        }
+    }
+}
+
 impl RequestKind<'_> {
     pub fn make_owned(&self) -> RequestKindOwned {
         match self {

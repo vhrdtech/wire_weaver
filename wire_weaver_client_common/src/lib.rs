@@ -1,12 +1,10 @@
 pub mod command_sender;
 pub mod event_loop_state;
-pub mod timeout;
 pub mod ww;
 
 // TODO: remove
 pub use command_sender::CommandSender;
 use std::net::IpAddr;
-pub use timeout::Timeout;
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;

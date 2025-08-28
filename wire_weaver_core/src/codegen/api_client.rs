@@ -310,14 +310,12 @@ fn handle_method(
 }
 
 fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
-    let maybe_timeout_arg = maybe_quote(
-        !default_timeout,
-        quote! { , timeout: wire_weaver_client_common::Timeout },
-    );
+    let maybe_timeout_arg =
+        maybe_quote(!default_timeout, quote! { , timeout: core::time::Duration });
     let timeout_val = if default_timeout {
         quote! { wire_weaver_client_common::Timeout::Default }
     } else {
-        quote! { timeout }
+        quote! { self.timeout }
     };
     (maybe_timeout_arg, timeout_val)
 }

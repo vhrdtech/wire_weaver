@@ -1,4 +1,3 @@
-use crate::timeout::Timeout;
 use crate::{Command, Error};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -42,18 +41,18 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         args: Vec<u8>,
-        timeout: Timeout,
+        timeout: Duration,
     ) -> Result<Vec<u8>, Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendCall {
             args_bytes: args,
             path_kind,
-            timeout: Some(timeout.timeout()),
+            timeout: Some(timeout),
             done_tx: Some(done_tx),
         };
         let data = self
-            .send_cmd_receive_reply(cmd, timeout.timeout(), done_rx, "call")
+            .send_cmd_receive_reply(cmd, timeout, done_rx, "call")
             .await?;
         Ok(data)
     }
@@ -62,18 +61,18 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         value: Vec<u8>,
-        timeout: Timeout,
+        timeout: Duration,
     ) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendWrite {
             value_bytes: value,
             path_kind,
-            timeout: Some(timeout.timeout()),
+            timeout: Some(timeout),
             done_tx: Some(done_tx),
         };
         let _data = self
-            .send_cmd_receive_reply(cmd, timeout.timeout(), done_rx, "write")
+            .send_cmd_receive_reply(cmd, timeout, done_rx, "write")
             .await?;
         Ok(())
     }
@@ -81,17 +80,17 @@ impl CommandSender {
     pub async fn send_read_receive_reply(
         &self,
         path: PathKind<'_>,
-        timeout: Timeout,
+        timeout: Duration,
     ) -> Result<Vec<u8>, Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendRead {
             path_kind,
-            timeout: Some(timeout.timeout()),
+            timeout: Some(timeout),
             done_tx: Some(done_tx),
         };
         let data = self
-            .send_cmd_receive_reply(cmd, timeout.timeout(), done_rx, "read")
+            .send_cmd_receive_reply(cmd, timeout, done_rx, "read")
             .await?;
         Ok(data)
     }

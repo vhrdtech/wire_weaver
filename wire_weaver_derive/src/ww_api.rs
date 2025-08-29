@@ -57,7 +57,7 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
 
     let mut codegen_ts = TokenStream::new();
     if args.ext.server {
-        let ts = wire_weaver_core::codegen::ww_api_server::impl_server_dispatcher(
+        let ts = wire_weaver_core::codegen::api_server::impl_server_dispatcher(
             &level,
             args.ext.no_alloc,
             args.ext.use_async,

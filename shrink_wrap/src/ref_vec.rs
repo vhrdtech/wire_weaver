@@ -306,12 +306,24 @@ mod tests {
 
     #[test]
     fn read_vec_unsized() {
+        #[derive(Clone, PartialEq, Debug)]
+        struct Old {
+            byte: u8,
+        }
+        impl<'i> DeserializeShrinkWrap<'i> for Old {
+            const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+            fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+                Ok(Old { byte: rd.read()? })
+            }
+        }
+
         let buf = [0xAB, 0x12, 0x34, 0x56, 0xCD, 0x78, 0x02, 0x42];
         let mut rd = BufReader::new(&buf);
-        let arr: RefVec<'_, u8> = rd.read().unwrap();
+        let arr: RefVec<'_, Old> = rd.read().unwrap();
         let mut iter = arr.iter();
-        assert_eq!(iter.next(), Some(Ok(0xAB)));
-        assert_eq!(iter.next(), Some(Ok(0xCD)));
+        assert_eq!(iter.next(), Some(Ok(Old { byte: 0xAB })));
+        assert_eq!(iter.next(), Some(Ok(Old { byte: 0xCD })));
         assert_eq!(iter.next(), None);
     }
 

@@ -64,7 +64,7 @@ pub fn impl_server_dispatcher(
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
                 Error as ShrinkWrapError, nib32::UNib32, ElementSize
             };
-            use ww_client_server::{Request, RequestKind, Event, EventKind, Error, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
+            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
             #additional_use
             #use_external
 
@@ -83,7 +83,14 @@ pub fn impl_server_dispatcher(
                     // if matches!(request.kind, RequestKind::Read) && request.seq == 0 { // TODO: Move to property read
                     //     return Ok(ser_err_event(scratch_err, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
                     // }
-                    let mut path_iter = request.path.iter();
+                    // TODO: handle trait paths on server side
+                    let PathKind::Absolute { path } = &request.path_kind else {
+                        let mut wr = BufWriter::new(scratch_err);
+                        let event = Event { seq: request.seq, result: Err(Error::PathKindNotSupported) };
+                        event.ser_shrink_wrap(&mut wr)?;
+                        return Ok(wr.finish_and_take()?);
+                    };
+                    let mut path_iter = path.iter();
                     match self.process_request_inner(&mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
                         Ok(response_bytes) => Ok(response_bytes),
                         Err(e) => {
@@ -141,7 +148,7 @@ fn process_request_inner_recursive(
                 #level_matchers
                 None => {
                     match request.kind {
-                        RequestKind::Version => { Err(Error::OperationNotImplemented) }, // TODO: handle only if Some passed
+                        // RequestKind::Version => { Err(Error::OperationNotImplemented) },
                         // RequestKind::Introspect { Err(Error::OperationNotImplemented) },
                         _ => { Err(Error::OperationNotSupported) },
                     }

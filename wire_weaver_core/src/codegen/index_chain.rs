@@ -3,7 +3,7 @@ use quote::quote;
 
 #[derive(Copy, Clone)]
 pub struct IndexChain {
-    len: u32,
+    len: usize,
 }
 
 impl IndexChain {

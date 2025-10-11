@@ -29,6 +29,14 @@ pub struct CommandSender {
 }
 
 impl CommandSender {
+    pub fn new(tx: UnboundedSender<Command>) -> Self {
+        Self {
+            tx,
+            trait_path: None,
+            gid_map: HashMap::new(),
+        }
+    }
+
     pub fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?
         self.tx

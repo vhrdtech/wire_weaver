@@ -234,6 +234,7 @@ fn level_method(
                         index_chain,
                         args_scratch: self.args_scratch,
                         cmd_tx: self.cmd_tx,
+                        timeout: self.timeout,
                     }
                 }
             }
@@ -312,8 +313,7 @@ fn handle_method(
 }
 
 fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
-    let maybe_timeout_arg =
-        maybe_quote(!default_timeout, quote! { , timeout: core::time::Duration });
+    let maybe_timeout_arg = maybe_quote(!default_timeout, quote! { timeout: core::time::Duration });
     let timeout_val = if default_timeout {
         quote! { self.timeout }
     } else {
@@ -477,7 +477,10 @@ fn ser_args(
         };
         let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
         let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
-        let args_list = quote! { #(#idents: #tys),* };
+        let mut args_list = quote! { #(#idents: #tys),* };
+        if !args.is_empty() {
+            args_list.extend(quote! { , });
+        }
         let args_names = quote! { #(#idents),* };
         (args_ser, args_list, args_names, quote! { args_bytes })
     }

@@ -3,7 +3,6 @@
 pub mod util;
 
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap;
 use ww_version::{CompactVersion, FullVersion};
 
 #[cfg(feature = "std")]
@@ -190,6 +189,8 @@ pub enum Error {
     OperationNotImplemented,
     /// Tried to read a property with request seq number set to 0, meaning no response is expected
     ReadPropertyWithSeqZero,
+    /// Returned if only absolute paths are handled (on very resource constrained nodes)
+    PathKindNotSupported,
 }
 
 #[derive_shrink_wrap]
@@ -201,6 +202,7 @@ pub enum ShaperConfig {
     MaxRate { events_per_s: u32 },
 }
 
+#[cfg(feature = "std")]
 impl PathKind<'_> {
     pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {
         let path = match self {
@@ -226,6 +228,7 @@ impl PathKind<'_> {
     }
 }
 
+#[cfg(feature = "std")]
 impl PathKindOwned {
     pub fn as_ref(&self) -> PathKind<'_> {
         match self {
@@ -254,6 +257,7 @@ impl PathKindOwned {
     }
 }
 
+#[cfg(feature = "std")]
 impl RequestKind<'_> {
     pub fn make_owned(&self) -> RequestKindOwned {
         match self {
@@ -276,6 +280,7 @@ impl RequestKind<'_> {
     }
 }
 
+#[cfg(feature = "std")]
 impl Request<'_> {
     pub fn make_owned(&self) -> Result<RequestOwned, shrink_wrap::Error> {
         Ok(RequestOwned {

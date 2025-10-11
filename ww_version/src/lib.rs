@@ -34,6 +34,7 @@ pub struct Version<'i> {
 pub struct FullVersion<'i> {
     pub crate_id: &'i str,
     pub version: Version<'i>,
+    // TODO: Add type name
 }
 
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
@@ -45,6 +46,7 @@ pub struct CompactVersion {
     pub global_type_id: UNib32,
     pub major: UNib32,
     pub minor: UNib32,
+    // TODO: Add type id
 }
 
 impl<'i> Version<'i> {
@@ -247,6 +249,7 @@ impl From<FullVersion<'_>> for FullVersionOwned {
     }
 }
 
+#[cfg(feature = "std")]
 impl FullVersionOwned {
     pub fn as_ref(&self) -> FullVersion<'_> {
         FullVersion {

@@ -6,7 +6,7 @@ authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver client server protocol on top of USB (device side, embassy on microcontrollers)"
 
 [dependencies]
-embassy-usb = { version = "0.4", features = ["defmt"] }
-embassy-sync = "0.6"
+embassy-usb = { version = "0.5", features = ["defmt"] }
+embassy-sync = "0.7"
 defmt = "1.0"
 wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device"] }

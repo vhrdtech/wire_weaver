@@ -44,8 +44,9 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             None,
         );
         // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
-        let read_ep = alt.endpoint_interrupt_out(max_packet_size, 1);
-        let write_ep = alt.endpoint_interrupt_in(max_packet_size, 1);
+        // TODO: verify that None as endpoint address here is correct, first available endpoint will be used internally
+        let read_ep = alt.endpoint_interrupt_out(None, max_packet_size, 1);
+        let write_ep = alt.endpoint_interrupt_in(None, max_packet_size, 1);
 
         drop(func);
 

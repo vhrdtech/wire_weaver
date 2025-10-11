@@ -204,7 +204,7 @@ pub enum ShaperConfig {
 
 #[cfg(feature = "std")]
 impl PathKind<'_> {
-    pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {
+    pub fn make_owned(&self) -> Result<PathKindOwned, wire_weaver::shrink_wrap::Error> {
         let path = match self {
             PathKind::Absolute { path } => PathKindOwned::Absolute {
                 path: path.iter().collect::<Result<Vec<_>, _>>()?,
@@ -282,7 +282,7 @@ impl RequestKind<'_> {
 
 #[cfg(feature = "std")]
 impl Request<'_> {
-    pub fn make_owned(&self) -> Result<RequestOwned, shrink_wrap::Error> {
+    pub fn make_owned(&self) -> Result<RequestOwned, wire_weaver::shrink_wrap::Error> {
         Ok(RequestOwned {
             seq: self.seq,
             path_kind: self.path_kind.make_owned()?,

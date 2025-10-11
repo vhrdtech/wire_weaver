@@ -57,7 +57,7 @@ fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
     );
     Ok(quote! {
         #(#docs)*
-        pub const #full_gid: ww_version::FullVersion = wire_weaver_derive::full_version!();
+        pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
         #check_types_lifetimes
     })
 }

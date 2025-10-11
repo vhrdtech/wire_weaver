@@ -12,7 +12,7 @@ mod ww_trait;
 /// Generate types definitions, serdes and API client or server side code.
 ///
 /// Arguments:
-/// * client = true/false - whether to generate client code or not.
+/// * client = absent or "" - do not generate client code at all; "raw" or "async_worker" - generate client with specified flavor.
 /// * server = true/false - whether to generate server code or not.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
 /// * use_async - whether to generate async-aware code.

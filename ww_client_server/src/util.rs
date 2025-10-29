@@ -1,6 +1,5 @@
 use super::{Event, EventKind};
-use wire_weaver::prelude::RefVec;
-use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap};
+use shrink_wrap::{BufWriter, Error, SerializeShrinkWrap, ref_vec::RefVec};
 
 pub fn ser_ok_event<'a>(
     scratch: &'a mut [u8],

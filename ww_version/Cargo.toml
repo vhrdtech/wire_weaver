@@ -6,14 +6,15 @@ description.workspace = true
 edition.workspace = true
 
 [dependencies]
-wire_weaver = { path = "../wire_weaver", default-features = false }
+shrink_wrap = { path = "../shrink_wrap", default-features = false }
+wire_weaver_derive = { path = "../wire_weaver_derive" }
 semver = { version = "1", default-features = false, optional = true }
 defmt = { version = "1.0", optional = true }
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["shrink_wrap/std", "semver/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
 semver = ["dep:semver"]
 
 [dev-dependencies]

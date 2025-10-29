@@ -6,9 +6,10 @@ description = "Client-server API model data types for both no_std and host."
 edition.workspace = true
 
 [dependencies]
-wire_weaver = { path = "../wire_weaver", default-features = false }
+shrink_wrap = { path = "../shrink_wrap", default-features = false }
+wire_weaver_derive = { path = "../wire_weaver_derive" }
 ww_version = { path = "../ww_version", default-features = false }
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_version/std"]
+std = ["shrink_wrap/std", "ww_version/std"]

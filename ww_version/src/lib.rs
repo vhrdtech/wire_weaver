@@ -1,7 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::fmt::{Debug, Formatter};
-use wire_weaver::prelude::*;
+use shrink_wrap::prelude::*;
+use wire_weaver_derive::derive_shrink_wrap;
 
 #[cfg(feature = "semver")]
 pub use semver;

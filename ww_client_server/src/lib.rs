@@ -2,7 +2,8 @@
 
 pub mod util;
 
-use wire_weaver::prelude::*;
+use shrink_wrap::prelude::*;
+use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_repr};
 use ww_version::{CompactVersion, FullVersion};
 
 #[cfg(feature = "std")]
@@ -204,7 +205,7 @@ pub enum ShaperConfig {
 
 #[cfg(feature = "std")]
 impl PathKind<'_> {
-    pub fn make_owned(&self) -> Result<PathKindOwned, wire_weaver::shrink_wrap::Error> {
+    pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {
         let path = match self {
             PathKind::Absolute { path } => PathKindOwned::Absolute {
                 path: path.iter().collect::<Result<Vec<_>, _>>()?,
@@ -233,7 +234,7 @@ impl PathKindOwned {
     pub fn as_ref(&self) -> PathKind<'_> {
         match self {
             PathKindOwned::Absolute { path } => PathKind::Absolute {
-                path: RefVec::Slice { slice: &path },
+                path: RefVec::Slice { slice: path },
             },
             PathKindOwned::GlobalCompact {
                 gid,
@@ -241,7 +242,7 @@ impl PathKindOwned {
             } => PathKind::GlobalCompact {
                 gid: *gid,
                 path_from_trait: RefVec::Slice {
-                    slice: &path_from_trait,
+                    slice: path_from_trait,
                 },
             },
             PathKindOwned::GlobalFull {
@@ -250,7 +251,7 @@ impl PathKindOwned {
             } => PathKind::GlobalFull {
                 gid: gid.as_ref(),
                 path_from_trait: RefVec::Slice {
-                    slice: &path_from_trait,
+                    slice: path_from_trait,
                 },
             },
         }
@@ -282,7 +283,7 @@ impl RequestKind<'_> {
 
 #[cfg(feature = "std")]
 impl Request<'_> {
-    pub fn make_owned(&self) -> Result<RequestOwned, wire_weaver::shrink_wrap::Error> {
+    pub fn make_owned(&self) -> Result<RequestOwned, shrink_wrap::Error> {
         Ok(RequestOwned {
             seq: self.seq,
             path_kind: self.path_kind.make_owned()?,

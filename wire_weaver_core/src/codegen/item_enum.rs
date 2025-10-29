@@ -29,7 +29,7 @@ pub fn enum_def(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
         #cfg
         #docs
         #derive
-        #[wire_weaver::ww_repr(#base_ty)]
+        #[ww_repr(#base_ty)]
         pub enum #enum_name #lifetime { #variants }
         #assert_size
     };

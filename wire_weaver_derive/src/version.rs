@@ -1,6 +1,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
-use std::env::var; // cannot use var! as that would be proc macro info itself instead of a target crate
+// cannot use var! as that would be proc macro info itself instead of a target crate
+use std::env::var;
 use syn::Lit;
 
 pub(crate) fn full_version(_args: TokenStream) -> TokenStream {

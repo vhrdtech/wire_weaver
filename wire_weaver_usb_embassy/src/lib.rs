@@ -1,8 +1,14 @@
 #![no_std]
 
+mod event_loop;
+mod init;
+
+pub use event_loop::{UsbBuffers, UsbTimings, usb_event_loop};
+pub use init::{UsbContext, UsbInitBuffers, usb_init};
+
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{msos, Builder};
+use embassy_usb::{Builder, msos};
 use wire_weaver_usb_link::{PacketSink, PacketSource};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
@@ -18,7 +24,7 @@ pub struct WireWeaverClass<'d, D: Driver<'d>> {
 
 impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
     pub fn new(builder: &mut Builder<'d, D>, max_packet_size: u16) -> Self {
-        assert!(builder.control_buf_len() >= 7);
+        defmt::debug_assert!(builder.control_buf_len() >= 7);
 
         let mut func = builder.function(
             USB_CLASS_VENDOR_SPECIFIC,

@@ -8,7 +8,6 @@ edition = "2024"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-#serde = { version = "1.0", features = ["derive"] }
 defmt = "1.0"
 strum_macros = "0.27"
 
@@ -20,6 +19,7 @@ members = [
     "wire_weaver_derive",
     "shrink_wrap",
     "wire_weaver_usb_host",
+    "wire_weaver_usb_embassy",
     "wire_weaver_usb_link",
     "wire_weaver_net_host",
     "wire_weaver_client_common",
@@ -37,9 +37,3 @@ members = [
     "ww_log_bare_metal",
     "ww_dfu",
 ]
-
-exclude = [
-    "wire_weaver_usb_embassy", # mutually exclusive features
-]
-
-[patch.crates-io]

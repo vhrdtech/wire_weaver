@@ -3,12 +3,18 @@
 mod test;
 
 pub use shrink_wrap;
+use shrink_wrap::prelude::ShrinkWrapError;
 use shrink_wrap::{BufReader, BufWriter};
 pub use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait};
+pub use ww_version;
+use ww_version::FullVersion;
 
 pub mod prelude {
     pub use shrink_wrap::prelude::*;
-    pub use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait};
+    pub use wire_weaver_derive::{
+        ShrinkWrap, derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait,
+    };
+    pub use ww_version;
 }
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.
@@ -59,4 +65,18 @@ impl ProtocolInfo {
             self.major_version == other.major_version
         }
     }
+}
+
+pub trait WireWeaverAsyncApiBackend {
+    /// Deserialize request and process it.
+    fn process_bytes<'a>(
+        &mut self,
+        data: &[u8],
+        scratch_args: &'a mut [u8],
+        scratch_event: &'a mut [u8],
+        scratch_err: &'a mut [u8],
+    ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+
+    /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
+    fn version(&self) -> FullVersion<'_>;
 }

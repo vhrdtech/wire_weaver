@@ -1,27 +1,53 @@
-use crate::WireWeaverClass;
+use crate::{UsbTimings, WireWeaverClass};
+use defmt::{info, trace};
 use embassy_usb::driver::Driver;
 use embassy_usb::msos::windows_version;
 use embassy_usb::{Builder, Config, UsbDevice};
+use wire_weaver::{ProtocolInfo, WireWeaverAsyncApiBackend};
+use wire_weaver_usb_link::WireWeaverUsbLink;
 
-pub struct UsbContext<'d, D: Driver<'d>> {
+pub struct UsbServer<'d, D: Driver<'d>, B> {
     pub(crate) usb: UsbDevice<'d, D>,
-    pub(crate) ww: WireWeaverClass<'d, D>,
+    pub(crate) link: WireWeaverUsbLink<'d, super::Sender<'d, D>, super::Receiver<'d, D>>,
+    pub(crate) state: B,
+    pub(crate) timings: UsbTimings,
+    pub(crate) rx_message: &'d mut [u8],
+    pub(crate) scratch_args: &'d mut [u8],
+    pub(crate) scratch_event: &'d mut [u8],
 }
 
-pub struct UsbInitBuffers {
+pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
+    // TODO: call buffer_usage and tune
     config_descriptor: [u8; 256],
     bos_descriptor: [u8; 256],
     msos_descriptor: [u8; 256],
     control: [u8; 128],
+    /// Used to receive USB packets
+    rx: [u8; MAX_USB_PACKET_LEN],
+    /// Used to assemble frames from multiple USB packets
+    rx_message: [u8; MAX_MESSAGE_LEN],
+    /// Used to prepare USB packets for transmission
+    tx: [u8; MAX_USB_PACKET_LEN],
+    /// Used to serialize arguments of methods
+    scratch_args: [u8; MAX_MESSAGE_LEN],
+    /// Used to serialize final event out of arguments and other pieces
+    scratch_event: [u8; MAX_MESSAGE_LEN],
 }
 
-impl Default for UsbInitBuffers {
+impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
+    for UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>
+{
     fn default() -> Self {
-        UsbInitBuffers {
+        UsbBuffers {
             config_descriptor: [0u8; 256],
             bos_descriptor: [0u8; 256],
             msos_descriptor: [0u8; 256],
             control: [0u8; 128],
+            rx: [0u8; MAX_USB_PACKET_LEN],
+            rx_message: [0u8; MAX_MESSAGE_LEN],
+            tx: [0u8; MAX_USB_PACKET_LEN],
+            scratch_args: [0u8; MAX_MESSAGE_LEN],
+            scratch_event: [0u8; MAX_MESSAGE_LEN],
         }
     }
 }
@@ -38,11 +64,20 @@ impl Default for UsbInitBuffers {
 /// * Set serial_number (default is None, use e.g., embassy_stm32::uid::uid_hex())
 /// * max_power (default is 100mA)
 /// * self_powered (default is false)
-pub fn usb_init<'d, 'b: 'd, D: Driver<'d>, C: FnOnce(&mut Config)>(
+pub fn usb_init<
+    'd,
+    const MAX_USB_PACKET_LEN: usize,
+    const MAX_MESSAGE_LEN: usize,
+    D: Driver<'d>,
+    C: FnOnce(&mut Config),
+    B: WireWeaverAsyncApiBackend,
+>(
     driver: D,
-    buffers: &'b mut UsbInitBuffers,
+    buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
+    state: B,
+    timings: UsbTimings,
     config_mut: C,
-) -> UsbContext<'d, D> {
+) -> UsbServer<'d, D, B> {
     let mut config = Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Vhrd.Tech");
     config.product = Some("WireWeaver Generic");
@@ -74,7 +109,36 @@ pub fn usb_init<'d, 'b: 'd, D: Driver<'d>, C: FnOnce(&mut Config)>(
 
     // Build the builder.
     let usb = builder.build();
-    defmt::info!("USB builder built");
+    info!("USB builder built");
+    trace!("{}", usb.buffer_usage());
 
-    UsbContext { usb, ww }
+    let user_protocol = ProtocolInfo {
+        protocol_id: 13,
+        major_version: 0,
+        minor_version: 1,
+    };
+    let client_server_protocol = ProtocolInfo {
+        protocol_id: 1,
+        major_version: 0,
+        minor_version: 1,
+    };
+    let (tx, rx) = ww.split(); // TODO: do not split?
+    let link = WireWeaverUsbLink::new(
+        client_server_protocol,
+        user_protocol,
+        tx,
+        &mut buffers.tx,
+        rx,
+        &mut buffers.rx,
+    );
+
+    UsbServer {
+        usb,
+        link,
+        state,
+        timings,
+        rx_message: &mut buffers.rx_message,
+        scratch_args: &mut buffers.scratch_args,
+        scratch_event: &mut buffers.scratch_event,
+    }
 }

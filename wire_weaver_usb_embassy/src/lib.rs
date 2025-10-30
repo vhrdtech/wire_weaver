@@ -3,8 +3,8 @@
 mod event_loop;
 mod init;
 
-pub use event_loop::{UsbBuffers, UsbTimings, usb_event_loop};
-pub use init::{UsbContext, UsbInitBuffers, usb_init};
+pub use event_loop::UsbTimings;
+pub use init::{UsbBuffers, UsbServer, usb_init};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::types::InterfaceNumber;

@@ -17,11 +17,11 @@ pub struct UsbServer<'d, D: Driver<'d>, B> {
 }
 
 pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
-    // TODO: call buffer_usage and tune
-    config_descriptor: [u8; 256],
-    bos_descriptor: [u8; 256],
-    msos_descriptor: [u8; 256],
-    control: [u8; 128],
+    // buffer_usage can be used to tune these
+    config_descriptor: [u8; 64],
+    bos_descriptor: [u8; 64],
+    msos_descriptor: [u8; 192],
+    control: [u8; 64],
     /// Used to receive USB packets
     rx: [u8; MAX_USB_PACKET_LEN],
     /// Used to assemble frames from multiple USB packets
@@ -39,10 +39,10 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
 {
     fn default() -> Self {
         UsbBuffers {
-            config_descriptor: [0u8; 256],
-            bos_descriptor: [0u8; 256],
-            msos_descriptor: [0u8; 256],
-            control: [0u8; 128],
+            config_descriptor: [0u8; 64],
+            bos_descriptor: [0u8; 64],
+            msos_descriptor: [0u8; 192],
+            control: [0u8; 64],
             rx: [0u8; MAX_USB_PACKET_LEN],
             rx_message: [0u8; MAX_MESSAGE_LEN],
             tx: [0u8; MAX_USB_PACKET_LEN],

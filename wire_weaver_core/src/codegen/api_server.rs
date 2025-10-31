@@ -91,7 +91,7 @@ pub fn impl_server_dispatcher(
                         return Ok(wr.finish_and_take()?);
                     };
                     let mut path_iter = path.iter();
-                    match self.process_request_inner(&mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
+                    match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
                         Ok(response_bytes) => Ok(response_bytes),
                         Err(e) => {
                             let mut wr = BufWriter::new(scratch_err);
@@ -139,6 +139,7 @@ fn process_request_inner_recursive(
         #maybe_async fn #ident<'a>(
             &mut self,
             #maybe_index_chain_def
+            path: RefVec<'_, UNib32>,
             path_iter: &mut RefVecIter<'_, UNib32>,
             request: &Request<'_>,
             scratch_args: &'a mut [u8],
@@ -457,7 +458,7 @@ fn handle_stream(
     let close = Ident::new(format!("{}_close", ident).as_str(), ident.span());
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
-    let ser_output = |event_kind: Ident| {
+    let ser_output = |event_kind: TokenStream| {
         quote! {
             let event = Event {
                 seq: request.seq,
@@ -466,12 +467,12 @@ fn handle_stream(
             Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::ResponseSerFailed)?)
         }
     };
-    let ser_output_open = ser_output(Ident::new("StreamOpened", Span::call_site()));
-    let ser_output_close = ser_output(Ident::new("StreamClosed", Span::call_site()));
+    let ser_output_open = ser_output(quote! { StreamOpened { path } });
+    let ser_output_close = ser_output(quote! { StreamClosed { path } });
 
     let specific_ops = if is_up {
         let change_rate = Ident::new(format!("{}_change_rate", ident).as_str(), ident.span());
-        let ser_output = ser_output(Ident::new("RateChanged", Span::call_site()));
+        let ser_output = ser_output(quote! { RateChanged });
         quote! {
             RequestKind::ChangeRate { shaper_config } => {
                 let r = self.#change_rate(#maybe_index_chain_call shaper_config)#maybe_await;
@@ -480,7 +481,7 @@ fn handle_stream(
         }
     } else {
         let write = Ident::new(format!("{}_write", ident).as_str(), ident.span());
-        let ser_output = ser_output(Ident::new("Written", Span::call_site()));
+        let ser_output = ser_output(quote! { Written });
         quote! {
             RequestKind::Write { data } => {
                 let r = self.#write(#maybe_index_chain_call)#maybe_await;

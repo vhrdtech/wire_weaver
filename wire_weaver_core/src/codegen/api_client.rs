@@ -215,7 +215,7 @@ fn level_method(
             let fn_name = Ident::new(format!("{}_stream_path", ident).as_str(), ident.span());
             let ty = index_chain.return_ty_def();
             quote! {
-                pub fn #fn_name(&self) -> #ty {
+                pub fn #fn_name(&self) #ty {
                     #index_chain_push
                     index_chain
                 }

@@ -1,16 +1,21 @@
 use crate::UsbServer;
-use defmt::{error, info, trace, warn};
-use embassy_futures::select::{Either, select};
+use defmt::{error, info, trace};
+use embassy_futures::select::{Either, Either3, select3};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::Receiver;
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::driver::{Driver, EndpointError};
 use wire_weaver::WireWeaverAsyncApiBackend;
 use wire_weaver_usb_link::{DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink};
 
+// TODO: tune ignore timer duration
+const IGNORE_TIMER_DURATION: Duration = Duration::from_micros(10);
+
 pub struct UsbTimings {
     /// USB packet is not send immediately to avoid sending a lot of small packets
     packet_accumulation_time: Duration,
     /// Used to determine if host driver is stopped and no longer receiving data
-    packet_send_timeout: Duration,
+    pub(crate) packet_send_timeout: Duration,
     /// How often to send Ping packets
     ww_ping_period: Duration,
 }
@@ -47,6 +52,7 @@ impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
                 match api_loop(
                     &mut self.state,
                     &mut self.link,
+                    &mut self.call_publish_rx,
                     self.rx_message,
                     self.scratch_args,
                     self.scratch_event,
@@ -71,9 +77,11 @@ impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
     }
 }
 
+// NOTE: when host closes USB device, our attempts to send a packet will get stuck and timeout in super::Sender
 async fn api_loop<'d, D: Driver<'d>>(
     backend: &mut impl WireWeaverAsyncApiBackend,
     link: &mut WireWeaverUsbLink<'d, super::Sender<'d, D>, super::Receiver<'d, D>>,
+    call_publish_rx: &mut Receiver<'d, CriticalSectionRawMutex, (), 1>,
     rx_message_buf: &mut [u8],
     scratch_args: &mut [u8],
     scratch_event: &mut [u8],
@@ -88,55 +96,64 @@ async fn api_loop<'d, D: Driver<'d>>(
     );
 
     let mut scratch_err = [0u8; 32];
-
     let mut packet_started_instant: Option<Instant> = None;
+    let mut next_ping_instant = Instant::now() + timings.ww_ping_period;
     loop {
-        let delay = if let Some(instant) = packet_started_instant {
-            let dt_since_packet_start = Instant::now() - instant;
-            timings
+        let till_force_send = if let Some(instant) = packet_started_instant {
+            let dt_since_packet_start = Instant::now()
+                .checked_duration_since(instant)
+                .unwrap_or(Duration::from_ticks(0));
+            let till_force_send = timings
                 .packet_accumulation_time
                 .checked_sub(dt_since_packet_start)
-                .unwrap_or(Duration::from_ticks(0))
+                .unwrap_or(Duration::from_ticks(0));
+            if till_force_send < IGNORE_TIMER_DURATION {
+                packet_started_instant = None;
+                trace!("sending accumulated packet");
+                link.force_send().await?;
+                next_ping_instant = Instant::now() + timings.ww_ping_period;
+                None
+            } else {
+                Some(till_force_send)
+            }
         } else {
-            timings.ww_ping_period
+            None
         };
-        let tim = Timer::after(delay);
+        let till_ping = next_ping_instant
+            .checked_duration_since(Instant::now())
+            .unwrap_or(Duration::from_ticks(0));
+        let till_ping = if till_ping < IGNORE_TIMER_DURATION {
+            trace!("sending ping");
+            link.send_ping().await?;
+            next_ping_instant = Instant::now() + timings.ww_ping_period;
+            timings.ww_ping_period
+        } else {
+            till_ping
+        };
+        let till_min = till_force_send
+            .map(|f| f.min(till_ping))
+            .unwrap_or(till_ping);
+        let tim = Timer::after(till_min);
+
         let message_rx = link.receive_message(rx_message_buf);
-        // let can_frame = can_frame_rx.receive();
-        match select(tim, message_rx).await {
-            Either::First(_) => {
+        match select3(tim, message_rx, call_publish_rx.receive()).await {
+            Either3::First(_) => {
                 // timer timeout
-                let send_timeout = Timer::after(timings.packet_send_timeout);
                 if packet_started_instant.is_some() {
                     packet_started_instant = None;
                     trace!("sending accumulated packet");
-                    match select(link.force_send(), send_timeout).await {
-                        Either::First(r) => r?,
-                        Either::Second(_) => {
-                            warn!(
-                                "Timeout while force_send'ing, host didn't sent Disconnect?, exiting"
-                            );
-                            return Ok(());
-                        }
-                    }
+                    link.force_send().await?;
                 } else {
                     trace!("sending ping");
-                    match select(link.send_ping(), send_timeout).await {
-                        Either::First(r) => r?,
-                        Either::Second(_) => {
-                            warn!(
-                                "Timeout while sending ping, host didn't sent Disconnect?, exiting"
-                            );
-                            return Ok(());
-                        }
-                    }
+                    link.send_ping().await?;
                 }
+                next_ping_instant = Instant::now() + timings.ww_ping_period;
             }
-            Either::Second(message) => match message? {
+            Either3::Second(message) => match message? {
                 // message from host
                 MessageKind::Data(len) => {
                     let message = &rx_message_buf[..len];
-                    trace!("message: {:x}", message);
+                    trace!("message: {:02x}", message);
                     match backend
                         .process_bytes(
                             message,
@@ -150,21 +167,16 @@ async fn api_loop<'d, D: Driver<'d>>(
                             if event_bytes.is_empty() {
                                 continue;
                             }
-                            let send_msg = link.send_message(event_bytes);
-                            let send_timeout = Timer::after(timings.packet_send_timeout);
-                            match select(send_msg, send_timeout).await {
-                                Either::First(r) => r?,
-                                Either::Second(_) => {
-                                    warn!(
-                                        "Timeout while sending message(ww response), host didn't sent Disconnect?, exiting"
-                                    );
-                                    return Ok(());
-                                }
-                            }
+                            let packets_sent_prev = link.sender_stats().packets_sent;
+                           link.send_message(event_bytes).await?;
                             if link.is_tx_queue_empty() {
                                 packet_started_instant = None;
                             } else if packet_started_instant.is_none() {
                                 packet_started_instant = Some(Instant::now());
+                            }
+                            if link.sender_stats().packets_sent != packets_sent_prev {
+                                // if at least one USB packet was just sent, there is no need to seng ping too soon
+                                next_ping_instant = Instant::now() + timings.ww_ping_period;
                             }
                         }
                         Err(_e) => {
@@ -177,12 +189,26 @@ async fn api_loop<'d, D: Driver<'d>>(
                     return Ok(());
                 }
                 MessageKind::Ping => {
-                    // Ignoring Ping from host due to how send is implemented:
-                    // Our ping send above will get stuck and timeout, indicating host is disconnected.
-                    trace!("Ping");
+                    trace!("ping from host");
                 }
                 _ /* MessageKind::LinkSetup { .. } */ => {} // not used at this stage
             },
+            Either3::Third(_) => {
+                // notification from user code to call send_updates() on the backend
+                let packets_sent_prev = link.sender_stats().packets_sent;
+                backend
+                    .send_updates(link, scratch_args, scratch_event)
+                    .await;
+                if link.is_tx_queue_empty() {
+                    packet_started_instant = None;
+                } else if packet_started_instant.is_none() {
+                    packet_started_instant = Some(Instant::now());
+                }
+                if link.sender_stats().packets_sent != packets_sent_prev {
+                    // if at least one USB packet was just sent, there is no need to seng ping too soon
+                    next_ping_instant = Instant::now() + timings.ww_ping_period;
+                }
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 use crate::{UsbTimings, WireWeaverClass};
 use defmt::{info, trace};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
 use embassy_usb::msos::windows_version;
 use embassy_usb::{Builder, Config, UsbDevice};
@@ -9,6 +11,7 @@ use wire_weaver_usb_link::WireWeaverUsbLink;
 pub struct UsbServer<'d, D: Driver<'d>, B> {
     pub(crate) usb: UsbDevice<'d, D>,
     pub(crate) link: WireWeaverUsbLink<'d, super::Sender<'d, D>, super::Receiver<'d, D>>,
+    pub(crate) call_publish_rx: Receiver<'d, CriticalSectionRawMutex, (), 1>,
     pub(crate) state: B,
     pub(crate) timings: UsbTimings,
     pub(crate) rx_message: &'d mut [u8],
@@ -32,6 +35,7 @@ pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: us
     scratch_args: [u8; MAX_MESSAGE_LEN],
     /// Used to serialize final event out of arguments and other pieces
     scratch_event: [u8; MAX_MESSAGE_LEN],
+    call_publish: Channel<CriticalSectionRawMutex, (), 1>,
 }
 
 impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
@@ -48,6 +52,7 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
             tx: [0u8; MAX_USB_PACKET_LEN],
             scratch_args: [0u8; MAX_MESSAGE_LEN],
             scratch_event: [0u8; MAX_MESSAGE_LEN],
+            call_publish: Channel::new(),
         }
     }
 }
@@ -77,7 +82,10 @@ pub fn usb_init<
     state: B,
     timings: UsbTimings,
     config_mut: C,
-) -> UsbServer<'d, D, B> {
+) -> (
+    UsbServer<'d, D, B>,
+    Sender<'d, CriticalSectionRawMutex, (), 1>,
+) {
     let mut config = Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Vhrd.Tech");
     config.product = Some("WireWeaver Generic");
@@ -105,7 +113,7 @@ pub fn usb_init<
     builder.msos_descriptor(windows_version::WIN8_1, 2);
 
     // Create class on the builder.
-    let ww = WireWeaverClass::new(&mut builder, 64);
+    let ww = WireWeaverClass::new(&mut builder, 64, timings.packet_send_timeout);
 
     // Build the builder.
     let usb = builder.build();
@@ -132,13 +140,17 @@ pub fn usb_init<
         &mut buffers.rx,
     );
 
-    UsbServer {
-        usb,
-        link,
-        state,
-        timings,
-        rx_message: &mut buffers.rx_message,
-        scratch_args: &mut buffers.scratch_args,
-        scratch_event: &mut buffers.scratch_event,
-    }
+    (
+        UsbServer {
+            usb,
+            link,
+            state,
+            timings,
+            rx_message: &mut buffers.rx_message,
+            scratch_args: &mut buffers.scratch_args,
+            scratch_event: &mut buffers.scratch_event,
+            call_publish_rx: buffers.call_publish.receiver(),
+        },
+        buffers.call_publish.sender(),
+    )
 }

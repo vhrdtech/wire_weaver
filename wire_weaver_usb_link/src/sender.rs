@@ -1,5 +1,6 @@
 use crate::common::{DisconnectReason, Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
 use crate::{CRC_KIND, LINK_PROTOCOL_VERSION, PacketSink, PacketSource};
+use wire_weaver::MessageSink;
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -288,5 +289,11 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     /// Returns statistics struct.
     pub fn sender_stats(&self) -> &SenderStats {
         &self.tx_stats
+    }
+}
+
+impl<'i, T: PacketSink, R: PacketSource> MessageSink for WireWeaverUsbLink<'i, T, R> {
+    async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+        self.send_message(message).await.map_err(|_| ())
     }
 }

@@ -77,14 +77,21 @@ pub trait WireWeaverAsyncApiBackend {
         scratch_err: &'a mut [u8],
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
 
-    // fn send_updates(&mut self, sink: &mut impl WireWeaverAsyncSink) -> impl Future<Output = ()> {
-    //     let _ = sink;
-    // }
-    //
+    fn send_updates(
+        &mut self,
+        sink: &mut impl MessageSink,
+        scratch_value: &mut [u8],
+        scratch_event: &mut [u8],
+    ) -> impl Future<Output = ()> {
+        let _ = sink;
+        let (_, _) = (scratch_value, scratch_event);
+        core::future::ready(())
+    }
+
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;
 }
-//
-// pub trait WireWeaverAsyncSink {
-//     fn send(&mut self, data: &[u8]) -> impl Future<Output = Result<(), ShrinkWrapError>>;
-// }
+
+pub trait MessageSink {
+    fn send(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>>;
+}

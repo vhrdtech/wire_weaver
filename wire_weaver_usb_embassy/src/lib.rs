@@ -3,6 +3,9 @@
 mod event_loop;
 mod init;
 
+use defmt::warn;
+use embassy_futures::select::{Either, select};
+use embassy_time::{Duration, Timer};
 pub use event_loop::UsbTimings;
 pub use init::{UsbBuffers, UsbServer, usb_init};
 
@@ -20,10 +23,15 @@ pub struct WireWeaverClass<'d, D: Driver<'d>> {
     _data_if: InterfaceNumber,
     read_ep: D::EndpointOut,
     write_ep: D::EndpointIn,
+    write_timeout: Duration,
 }
 
 impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
-    pub fn new(builder: &mut Builder<'d, D>, max_packet_size: u16) -> Self {
+    pub fn new(
+        builder: &mut Builder<'d, D>,
+        max_packet_size: u16,
+        write_timeout: Duration,
+    ) -> Self {
         defmt::debug_assert!(builder.control_buf_len() >= 7);
 
         let mut func = builder.function(
@@ -60,6 +68,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             _data_if: data_if,
             read_ep,
             write_ep,
+            write_timeout,
         }
     }
 
@@ -91,6 +100,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         (
             Sender {
                 write_ep: self.write_ep,
+                write_timeout: self.write_timeout,
             },
             Receiver {
                 read_ep: self.read_ep,
@@ -99,11 +109,12 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
     }
 }
 
-/// WireWeaver raw packet sender.
+/// USB raw packet sender.
 ///
 /// You can obtain a `Sender` with [`WireWeaverClass::split`]
 pub struct Sender<'d, D: Driver<'d>> {
     write_ep: D::EndpointIn,
+    write_timeout: Duration,
 }
 
 impl<'d, D: Driver<'d>> Sender<'d, D> {
@@ -115,7 +126,15 @@ impl<'d, D: Driver<'d>> Sender<'d, D> {
 
     /// Writes a single packet into the IN endpoint.
     pub async fn write_packet(&mut self, data: &[u8]) -> Result<(), EndpointError> {
-        self.write_ep.write(data).await
+        let write = self.write_ep.write(data);
+        let timeout = Timer::after(self.write_timeout);
+        match select(write, timeout).await {
+            Either::First(r) => r,
+            Either::Second(_t) => {
+                warn!("USB write timed out, host must have closed the device");
+                Err(EndpointError::Disabled)
+            }
+        }
     }
 
     /// Waits for the USB host to enable this interface
@@ -124,7 +143,7 @@ impl<'d, D: Driver<'d>> Sender<'d, D> {
     }
 }
 
-/// WireWeaver raw packet receiver.
+/// USB raw packet receiver.
 ///
 /// You can obtain a `Receiver` with [`WireWeaverClass::split`]
 pub struct Receiver<'d, D: Driver<'d>> {
@@ -155,7 +174,7 @@ impl<'d, D: Driver<'d>> PacketSink for Sender<'d, D> {
 
     async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         defmt::trace!("usb sending packet {:02x}", data);
-        self.write_ep.write(data).await
+        Sender::write_packet(self, data).await
     }
 }
 

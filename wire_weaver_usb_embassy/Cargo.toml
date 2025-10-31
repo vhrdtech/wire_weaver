@@ -9,6 +9,7 @@ description = "WireWeaver client server protocol on top of USB (device side, emb
 embassy-usb = { version = "0.5", features = ["defmt"] }
 embassy-futures = "0.1"
 embassy-time = "0.5"
+embassy-sync = "0.7"
 defmt = "1.0"
 wire_weaver = { path = "../wire_weaver", default-features = false }
 wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device", "defmt"] }

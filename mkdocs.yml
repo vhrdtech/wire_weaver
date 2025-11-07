@@ -1,0 +1,61 @@
+site_name: wire-weaver
+repo_name: vhrdtech/wire_weaver
+repo_url: https://github.com/vhrdtech/wire_weaver
+
+nav:
+  - "index.md"
+  - Types:
+    - "types/built-in.md"
+    - "types/library.md"
+    - "types/alignment.md"
+  - Format:
+    - "format/wire.md"
+  - "versioning.md"
+  - "api.md"
+
+theme:
+  name: material
+  logo: assets/logo.png
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: red
+      accent: black
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: red
+      accent: black
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+  features:
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+  font: false
+copyright: >
+  Copyright &copy; 2025 Roman Isaikin
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.superfences
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+watch:
+  - .
+
+
+plugins:
+- search

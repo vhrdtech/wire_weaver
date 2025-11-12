@@ -1,4 +1,4 @@
-# Library types
+# Standard library types overview
 
 * ww_numeric
     * `NumericValue`: value of the supported numeric types

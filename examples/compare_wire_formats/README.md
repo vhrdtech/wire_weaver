@@ -51,14 +51,17 @@ In particular the following features are resulting in a considerably smaller siz
     * `00 12` first nibble is PathKind discriminant, then `0, 1, 2` is path array, nibbles are 4-bit aligned, so the two
       stick together
     * `00` first nibbles is RequestKind discriminant, second one is padding before u8 args array
-    * From the back: `01 22 33` are the lengths of the arrays and strings - 3, 3, 2, 2, 1, padding
+    * From the back: `01 22 53` are the lengths of the objects, string array and string themselves - 3, 5, 2, 2, 1,
+      padding
 * Boolean values stored as bits - `0b0010_1010 = 0x2A`
 * Option's flag grouping - see the source on how the flags for Option's are relocated to be grouped with the bool array.
+
+Note that ShrinkWrap format while being smaller, also supports backwards and forwards compatibility.
 
 Results:
 
 ```
-WireWeaver: len: 16: [D2, 04, 00, 12, 00, AA, BB, CC, 2A, CC, 61, 62, 63, 01, 22, 33]
+WireWeaver: len: 18: [D2, 04, 00, 12, 03, 00, AA, BB, CC, 03, 2A, CC, 61, 62, 63, 01, 22, 53]
 Postcard: len: 27: [D2, 09, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
 Bincode: len: 28: [FB, D2, 04, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
 MessagePack: len: 49: [98, CD, 04, D2, 81, A8, 41, 62, 73, 6F, 6C, 75, 74, 65, 91, 93, 00, 01, 02, 81, A4, 43, 61, 6C, 6C, 91, 93, CC, AA, CC, BB, CC, CC, 95, C2, C3, C2, C3, C2, CC, CC, C0, C0, 92, A2, 61, 62, A1, 63]

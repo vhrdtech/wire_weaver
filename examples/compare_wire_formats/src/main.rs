@@ -27,7 +27,6 @@ struct Request<'i> {
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[final_structure]
 enum PathKind<'i> {
     Absolute { path: RefVec<'i, UNib32> },
     GlobalCompact,
@@ -36,7 +35,6 @@ enum PathKind<'i> {
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-#[final_structure]
 enum RequestKind<'i> {
     Call { args: RefVec<'i, u8> },
     Read,

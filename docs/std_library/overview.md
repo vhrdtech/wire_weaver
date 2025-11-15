@@ -1,10 +1,11 @@
-# Standard library types overview
+# Overview
 
-* ww_numeric
-    * `NumericValue`: value of the supported numeric types
-    * `NumericBaseType`: discrete, floating and fixed point number types
-    * `NumericAnyType`: base types + subtype and shift-scale
-* ww_si - SI and derived values using `NumericValue` as storage
+The following crates provide types and traits that can be used in a variety of projects.
+Most of them depend only on `wire_weaver` itself.
+
+All the crates are `no_std`, when `default-features = false`.
+By default `std` feature is active providing owned types.
+
 * ww_date_time
     * `DateTime`: ISO 8601 combined date and time with optional time zone and optional nanoseconds.
       Minimum size is 32 bits.
@@ -14,6 +15,11 @@
     * `Version`: SemVer version (including pre and build strings), no alloc
     * `VersionOwned`: SemVer version, same as `Version` but uses String's
     * `CompactVersion`: Global type id + major and minor version numbers, uses UNib32 for all three
+* ww_numeric
+    * `NumericValue`: value of the supported numeric types
+    * `NumericBaseType`: discrete, floating and fixed point number types
+    * `NumericAnyType`: base types + subtype and shift-scale
+* ww_si - SI and derived values using `NumericValue` as storage
 * ww_client_server - `Request`, `RequestKind`, `Event`, `EventKind`, `Error` used for client-server API model.
 * ww_can_bus - CAN Bus types and API
 * ww_dfu - Firmware update API

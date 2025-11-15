@@ -1,13 +1,17 @@
 # WireWeaver
 
-WireWeaver is an API code generator for resource constrained systems (for example microcontrollers).
-It allows defining data types, methods, properties and streams and generate code that uses no standard library or
-memory allocation. Unsized types - `Vec<T>`, String and others are supported (even on no_std without allocator!).
-Backwards and forwards compatibility is supported as well: devices with older format version can communicate with newer ones and
-vice versa.
+<div style="text-align:center">
+<img src="./docs/assets/logo.png" alt="logo" width="200"/>
+</div>
+
+> WireWeaver is an API code generator for microcontrollers, supporting user-defined types, methods, properties, streams,
+> and traits.
+> It handles unsized types like Vec<T> and String even in no_std environments without an allocator,
+> and ensures full backward and forward compatibility between devices across format versions.
 
 Currently only Rust language is supported, with the idea to handle device communications in Rust and provide higher
-level bindings for Python, C++ and other languages. C support is tentatively planned to be implemented directly, to run e.g., on TMS320 DSPs.
+level bindings for Python, C++ and other languages. C support is tentatively planned to be implemented directly, to run
+e.g., on TMS320 DSPs.
 
 Current state is - approaching alpha release.
 
@@ -15,21 +19,27 @@ Current state is - approaching alpha release.
 
 Documentation is available [here](https://vhrdtech.github.io/wire_weaver/wire_format/shrink_wrap/).
 
-Supports RPC (functions with any number of arguments of any type, returning any type), streams (byte and object), properties and traits.
+Supports RPC (functions with any number of arguments of any type, returning any type), streams (byte and object),
+properties and traits.
 Blocking and async mode.
-Traits can be made "global" by publishing them on crates.io. Useful for things like logging, GPIO control or firmware update, allowing code reuse across projects.
+Traits can be made "global" by publishing them on crates.io.
+Useful for things like logging, GPIO control or firmware update, allowing code reuse across projects.
 
-Wire format used (called shrink_wrap) is binary and designed to use bits and nibbles to make it compact without compression. See comparison to other formats [here]().
+Wire format used (called shrink_wrap) is binary and designed to use bits and nibbles to make it compact without
+compression.
+See comparison to other formats in [examples/compare_wire_formats]().
 
 ## Quick start
 
-Easiest way to start using WireWeaver is through one of the templates below, which contain firmware for several development boards, API, client and Python bindings crates.
+Easiest way to start using WireWeaver is through one of the templates below, which contain firmware for several
+development boards, API, client and Python bindings crates.
 
 ### Microcontroller API over USB template
 
 [WireWeaver template](https://github.com/vhrdtech/wire_weaver_template)
 
-This is a minimal example showing an MCU firmware with USB, common no_std API crate, server on the MCU and client in Rust and Python.
+This is a minimal example showing an MCU firmware with USB, common no_std API crate, server on the MCU and client in
+Rust and Python.
 
 ### Microcontroller API over Ethernet template
 
@@ -43,8 +53,8 @@ See [Project setup]() page in the docs, which explains how setup projects in mor
 
 TODO
 
-
 ## Crate naming
 
 `wire_weaver_` prefix is used on core crates that implement all the functionality.  
-`ww_` prefix is used on crates using WireWeaver to provide standard library types and traits. Use it as well if you think that your crate is useful across multiple projects.
+`ww_` prefix is used on crates using WireWeaver to provide standard library types and traits. Use it as well if you
+think that your crate is useful across multiple projects.

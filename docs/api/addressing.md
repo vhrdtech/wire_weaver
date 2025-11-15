@@ -1,4 +1,4 @@
-# API resources addressing
+# Resources addressing
 
 Primary mode of addressing to uniquely identify a resource (method, property, stream or trait) is an array of indices,
 starting from an API root.
@@ -48,3 +48,7 @@ Solution to this is `CompactVersion`, which carries globally unique type id and 
 UNib32 encoded.
 The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
 manually assigned and tracked via git instead.
+
+## API report
+
+TODO: export a file describing all levels of API with IDs

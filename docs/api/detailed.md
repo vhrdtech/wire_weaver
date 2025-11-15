@@ -1,4 +1,4 @@
-# Advanced usage
+# Detailed usage
 
 ## Methods
 

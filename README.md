@@ -18,7 +18,7 @@ Current state is - approaching alpha release.
 ## TLDR
 
 Documentation with a step-by-step guide is
-available [here](https://vhrdtech.github.io/wire_weaver/wire_format/shrink_wrap/).
+available [here](https://vhrdtech.github.io/wire_weaver/).
 
 Supported:
 

@@ -1,8 +1,8 @@
 # WireWeaver
 
-<div style="text-align:center">
+<p align="center">
 <img src="./docs/assets/logo.png" alt="logo" width="200"/>
-</div>
+</p>
 
 > WireWeaver is an API code generator for microcontrollers, supporting user-defined types, methods, properties, streams,
 > and traits.
@@ -17,22 +17,33 @@ Current state is - approaching alpha release.
 
 ## TLDR
 
-Documentation is available [here](https://vhrdtech.github.io/wire_weaver/wire_format/shrink_wrap/).
+Documentation with a step-by-step guide is
+available [here](https://vhrdtech.github.io/wire_weaver/wire_format/shrink_wrap/).
 
-Supports RPC (functions with any number of arguments of any type, returning any type), streams (byte and object),
-properties and traits.
-Blocking and async mode.
+Supported:
+
+* RPC - functions with any number of arguments of any type, returning any type
+* Streams of bytes or objects
+* Properties of any type
+* Traits
+* Blocking and async mode
+* USB without drivers on Windows, Linux and macOS
+* soon: WebSocket and UDP support
+* soon: CAN bus support
+
 Traits can be made "global" by publishing them on crates.io.
 Useful for things like logging, GPIO control or firmware update, allowing code reuse across projects.
 
 Wire format used (called shrink_wrap) is binary and designed to use bits and nibbles to make it compact without
 compression.
-See comparison to other formats in [examples/compare_wire_formats]().
+See comparison to other formats in [examples/compare_wire_formats](./examples/compare_wire_formats).
 
 ## Quick start
 
 Easiest way to start using WireWeaver is through one of the templates below, which contain firmware for several
 development boards, API, client and Python bindings crates.
+
+If you do not have physical hardware at hand, there is virtual device support.
 
 ### Microcontroller API over USB template
 

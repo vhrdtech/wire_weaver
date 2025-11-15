@@ -1,23 +1,19 @@
 # Derive
 
-## Prerequisites
-
-All examples below assume that wire_weaver dependency is added in Cargo.toml and the following use statement:
-
-```rust
-use wire_weaver::prelude::*;
-```
-
-### Automatic derive attribute macro
-
 Writing out serializing and deserializing code by hand would be very tedious and error-prone. So a procedural macro
 is provided that can create all the code.
+
+## Prerequisites
+
+All examples below assume that wire_weaver dependency is added in Cargo.toml: `wire_weaver = "0.4.0"`.
 
 #### Structs
 
 Simple example on how to automatically get serializing and deserializing code generated for a struct:
 
 ```rust
+use wire_weaver::prelude::*;
+
 #[derive_shrink_wrap]
 #[derive(Debug, PartialEq)]
 struct CoordV1 {
@@ -62,3 +58,7 @@ fn evolved_struct() {
 #### Non-evolvable types
 
 final_structure, self_describing, sized
+
+# Next step
+
+Check out [API overview](../api/overview.md).

@@ -20,7 +20,7 @@
     
     
       
-        <title>Standard library types overview - wire-weaver</title>
+        <title>Overview - wire-weaver</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#standard-library-types-overview" class="md-skip">
+        <a href="#overview" class="md-skip">
           Skip to content
         </a>
       
@@ -101,7 +101,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Standard library types overview
+              Overview
             
           </span>
         </div>
@@ -358,7 +358,7 @@
   
   
   <span class="md-ellipsis">
-    API resources addressing
+    Resources addressing
     
   </span>
   
@@ -642,7 +642,7 @@
   
   
   <span class="md-ellipsis">
-    Standard library types overview
+    Overview
     
   </span>
   
@@ -875,6 +875,28 @@
   
   
     <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MCU with USB template
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../dev_tool/" class="md-nav__link">
         
   
@@ -927,15 +949,12 @@
   
 
 
-<h1 id="standard-library-types-overview">Standard library types overview</h1>
+<h1 id="overview">Overview</h1>
+<p>The following crates provide types and traits that can be used in a variety of projects.
+Most of them depend only on <code>wire_weaver</code> itself.</p>
+<p>All the crates are <code>no_std</code>, when <code>default-features = false</code>.
+By default <code>std</code> feature is active providing owned types.</p>
 <ul>
-<li>ww_numeric<ul>
-<li><code>NumericValue</code>: value of the supported numeric types</li>
-<li><code>NumericBaseType</code>: discrete, floating and fixed point number types</li>
-<li><code>NumericAnyType</code>: base types + subtype and shift-scale</li>
-</ul>
-</li>
-<li>ww_si - SI and derived values using <code>NumericValue</code> as storage</li>
 <li>ww_date_time<ul>
 <li><code>DateTime</code>: ISO 8601 combined date and time with optional time zone and optional nanoseconds.
   Minimum size is 32 bits.</li>
@@ -949,6 +968,13 @@
 <li><code>CompactVersion</code>: Global type id + major and minor version numbers, uses UNib32 for all three</li>
 </ul>
 </li>
+<li>ww_numeric<ul>
+<li><code>NumericValue</code>: value of the supported numeric types</li>
+<li><code>NumericBaseType</code>: discrete, floating and fixed point number types</li>
+<li><code>NumericAnyType</code>: base types + subtype and shift-scale</li>
+</ul>
+</li>
+<li>ww_si - SI and derived values using <code>NumericValue</code> as storage</li>
 <li>ww_client_server - <code>Request</code>, <code>RequestKind</code>, <code>Event</code>, <code>EventKind</code>, <code>Error</code> used for client-server API model.</li>
 <li>ww_can_bus - CAN Bus types and API</li>
 <li>ww_dfu - Firmware update API</li>

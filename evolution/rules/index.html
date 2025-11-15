@@ -358,7 +358,7 @@
   
   
   <span class="md-ellipsis">
-    API resources addressing
+    Resources addressing
     
   </span>
   
@@ -717,7 +717,7 @@
   
   
   <span class="md-ellipsis">
-    Standard library types overview
+    Overview
     
   </span>
   
@@ -949,6 +949,28 @@
   
   
     <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MCU with USB template
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../dev_tool/" class="md-nav__link">
         
   
@@ -1059,7 +1081,7 @@ variants).
 Size of a type is marked as one of: <code>Unsized</code>, <code>FinalStructure</code>, <code>SelfDescribing</code> or <code>Sized</code>.</p>
 <h3 id="unsized-types">Unsized types</h3>
 <p>By default, user defined struct or enum is <code>Unsized</code>. Both can contain variable-size types - vectors,
-strings or other structs and enums. Unsized types support all the evolution options. Is it recommended to stick with
+strings or other structs and enums. Unsized types support all the evolution options. It is recommended to stick with
 unsized types,
 unless extreme space-saving is required.</p>
 <p>When serializing, size of such objects is counted and written to the resulting byte array. Which is the only overhead,
@@ -1073,6 +1095,7 @@ giving all the nice backwards and forwards compatibility features.</p>
 </ul>
 </li>
 <li>New <code>Sized</code> fields can be added into previously unused padding bits.</li>
+<li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
 </ul>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types</h3>
@@ -1084,6 +1107,11 @@ giving all the nice backwards and forwards compatibility features.</p>
 <p>Data types used in API are a part of SemVer guarantee and are subject to the rules above. Meaning that it's not allowed
 to break compatibility on any of the data types used directly or indirectly without also bumping a major version of an
 API as well.</p>
+<ul>
+<li>Adding argument</li>
+<li><code>T</code> to struct of <code>T</code> in return position</li>
+<li><code>T</code> to <code>Vec&lt;T&gt;</code> in return position?</li>
+</ul>
 
 
 

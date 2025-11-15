@@ -20,7 +20,7 @@
     
     
       
-        <title>API resources addressing - wire-weaver</title>
+        <title>Resources addressing - wire-weaver</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api-resources-addressing" class="md-skip">
+        <a href="#resources-addressing" class="md-skip">
           Skip to content
         </a>
       
@@ -101,7 +101,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API resources addressing
+              Resources addressing
             
           </span>
         </div>
@@ -369,7 +369,7 @@
   
   
   <span class="md-ellipsis">
-    API resources addressing
+    Resources addressing
     
   </span>
   
@@ -382,7 +382,7 @@
   
   
   <span class="md-ellipsis">
-    API resources addressing
+    Resources addressing
     
   </span>
   
@@ -417,6 +417,15 @@
   <a href="#trait-addressing-compactversion" class="md-nav__link">
     <span class="md-ellipsis">
       Trait addressing (CompactVersion)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      API report
     </span>
   </a>
   
@@ -693,7 +702,7 @@
   
   
   <span class="md-ellipsis">
-    Standard library types overview
+    Overview
     
   </span>
   
@@ -925,6 +934,28 @@
   
   
     <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MCU with USB template
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../dev_tool/" class="md-nav__link">
         
   
@@ -984,6 +1015,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#api-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      API report
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1003,7 +1043,7 @@
   
 
 
-<h1 id="api-resources-addressing">API resources addressing</h1>
+<h1 id="resources-addressing">Resources addressing</h1>
 <p>Primary mode of addressing to uniquely identify a resource (method, property, stream or trait) is an array of indices,
 starting from an API root.
 It is the most efficient way as well, utilising UNib32 variable length numbers based on nibbles
@@ -1040,6 +1080,8 @@ wants to pack many calls into one packet.</p>
 UNib32 encoded.
 The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
 manually assigned and tracked via git instead.</p>
+<h2 id="api-report">API report</h2>
+<p>TODO: export a file describing all levels of API with IDs</p>
 
 
 

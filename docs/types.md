@@ -80,3 +80,24 @@ fn version1_1() {
 
 Older code can still read new data and will skip the Option, and newer code can read old data, yielding None.
 All the while, the serialized size didn't even change (it could have though, it's just an example).
+
+## TODO: Subtypes (bounded numbers and array lengths)
+
+Simple checked numbers where only a range of values is allowed:
+
+* `u16<{1..=512}>`
+
+Set of allowed values:
+
+* `u8<{0..=8}, 12, 16, 20, 24, 32, 48, 64>`
+
+Numbers are checked before serialization and after deserialization.
+
+## TODO: SI support
+
+Specify SI unit for any number:
+
+* current: `f32<"A">`
+* velocity: `f32<"m/s">`
+
+Units are not transmitted over the wire, used as a hint for code generation and in UI tool.

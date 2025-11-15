@@ -5,15 +5,16 @@ repo_url: https://github.com/vhrdtech/wire_weaver
 nav:
   - "index.md"
   - "types.md"
-  - Evolution:
-      - "evolution/rules.md"
-      - "evolution/checker_tool.md"
   - API:
       - "api/resources.md"
       - "api/addressing.md"
       - "api/versioning.md"
-  - Wire Format:
+  - SerDes:
       - "wire_format/shrink_wrap.md"
+      - "wire_format/derive.md"
+  - Evolution:
+      - "evolution/rules.md"
+      - "evolution/checker_tool.md"
   - Standard library:
       - "std_library/overview.md"
       - "std_library/ww_date_time.md"
@@ -25,6 +26,7 @@ nav:
       - "std_library/ww_dfu.md"
       - "std_library/ww_can_bus.md"
       - "std_library/ww_log_baremetal.md"
+  - "dev_tool.md"
 
 theme:
   name: material

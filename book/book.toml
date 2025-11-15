@@ -1,6 +1,0 @@
-[book]
-title = "vhL book"
-description = "vhL is a language aimed at fully defining machine-to-machine communications"
-authors = ["Roman Isaikin"]
-multilingual = false
-src = "src"

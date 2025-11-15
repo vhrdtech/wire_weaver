@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../../types/">
+        <link rel="prev" href="../../std_library/ww_log_baremetal/">
       
       
-        <link rel="next" href="../addressing/">
+        <link rel="next" href="../usb/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -20,7 +20,7 @@
     
     
       
-        <title>API - wire-weaver</title>
+        <title>Overview - wire_weaver</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#transport-protocols" class="md-skip">
           Skip to content
         </a>
       
@@ -82,9 +82,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="wire-weaver" class="md-header__button md-logo" aria-label="wire-weaver" data-md-component="logo">
+    <a href="../.." title="wire_weaver" class="md-header__button md-logo" aria-label="wire_weaver" data-md-component="logo">
       
-  <img src="../../assets/logo.png" alt="logo">
+  <img src="../../assets/logo-white.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -95,13 +95,13 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            wire-weaver
+            wire_weaver
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              Overview
             
           </span>
         </div>
@@ -219,12 +219,12 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="wire-weaver" class="md-nav__button md-logo" aria-label="wire-weaver" data-md-component="logo">
+    <a href="../.." title="wire_weaver" class="md-nav__button md-logo" aria-label="wire_weaver" data-md-component="logo">
       
-  <img src="../../assets/logo.png" alt="logo">
+  <img src="../../assets/logo-white.png" alt="logo">
 
     </a>
-    wire-weaver
+    wire_weaver
   </label>
   
     <div class="md-nav__source">
@@ -253,12 +253,103 @@
   
   
   <span class="md-ellipsis">
-    WireWeaver
+    Introduction
     
   </span>
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    SerDes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            SerDes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/shrink_wrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wire format
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/derive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Derive
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -289,23 +380,21 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -318,8 +407,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             API
           </label>
@@ -329,32 +418,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    API
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
         
   
   
@@ -365,149 +432,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      Methods
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Methods">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#async-and-sync" class="md-nav__link">
-    <span class="md-ellipsis">
-      Async and sync
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#deferred-and-immediate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deferred and Immediate
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#streams" class="md-nav__link">
-    <span class="md-ellipsis">
-      Streams
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#properties" class="md-nav__link">
-    <span class="md-ellipsis">
-      Properties
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Properties">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#getset-and-value-on-change" class="md-nav__link">
-    <span class="md-ellipsis">
-      Get/Set and value on change
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#traits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Traits">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#user-handler-flattening-no_std" class="md-nav__link">
-    <span class="md-ellipsis">
-      User handler flattening (no_std)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-arrays" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource arrays
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Resource arrays">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#array-of-resources-vs-resource-of-array" class="md-nav__link">
-    <span class="md-ellipsis">
-      Array of resources vs resource of array
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#transport-protocols" class="md-nav__link">
-    <span class="md-ellipsis">
-      Transport protocols
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -520,7 +444,30 @@
   
   
     <li class="md-nav__item">
-      <a href="../addressing/" class="md-nav__link">
+      <a href="../../api/detailed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Advanced usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/addressing/" class="md-nav__link">
         
   
   
@@ -543,103 +490,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
+      <a href="../../api/versioning/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Versioning
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    SerDes
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            SerDes
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../wire_format/shrink_wrap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    None
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../wire_format/derive.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    None
     
   </span>
   
@@ -1027,6 +883,146 @@
       
   
   
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Transport protocols
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Transport protocols
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#transport-protocols" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transport protocols
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Usb
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
   
   
     <li class="md-nav__item">
@@ -1084,128 +1080,12 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      Methods
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Methods">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#async-and-sync" class="md-nav__link">
-    <span class="md-ellipsis">
-      Async and sync
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#deferred-and-immediate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deferred and Immediate
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#streams" class="md-nav__link">
-    <span class="md-ellipsis">
-      Streams
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#properties" class="md-nav__link">
-    <span class="md-ellipsis">
-      Properties
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Properties">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#getset-and-value-on-change" class="md-nav__link">
-    <span class="md-ellipsis">
-      Get/Set and value on change
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#traits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Traits">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#user-handler-flattening-no_std" class="md-nav__link">
-    <span class="md-ellipsis">
-      User handler flattening (no_std)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-arrays" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource arrays
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Resource arrays">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#array-of-resources-vs-resource-of-array" class="md-nav__link">
-    <span class="md-ellipsis">
-      Array of resources vs resource of array
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#transport-protocols" class="md-nav__link">
@@ -1235,60 +1115,8 @@
   
 
 
-<h1 id="api">API</h1>
-<p>Define a custom protocol as collections of resources - methods, properties or streams and generate server and client
-side code.
-Multiple levels are supported, each resource is identified via a number path from root, forming a tree. Efficient path
-is used, consisting of UNib32 encoded numbers, taking as little as 4 bits.</p>
-<p>Resources can be arranged into "ww-trait's" and then "implemented" at various points in the API tree. Accessing them is
-possible in the same manner via resource paths, or through their globally unique ID (crate name + version or unique ID +
-version). Many useful "ww-traits" are planned, implementing things like firmware update, event counters, logging, power
-management, etc. That way code to handle them all can be reused greatly between very different projects. UI can also be
-arranged into small reusable blocks.</p>
-<p>Two models are planned: client-server and bus. Client-server model is functional (<code>ww_client_server</code> crate) and
-supported in code generation for both server and client side, std and no_std. Bus model is still in development.</p>
-<h2 id="methods">Methods</h2>
-<h3 id="async-and-sync">Async and sync</h3>
-<h3 id="deferred-and-immediate">Deferred and Immediate</h3>
-<h2 id="streams">Streams</h2>
-<div class="highlight"><pre><span></span><code><span class="k">trait</span><span class="w"> </span><span class="n">Log</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">defmt_bytes</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Stream</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sink</span><span class="p">(</span><span class="n">stream_in</span><span class="p">:</span><span class="w"> </span><span class="nc">Sink</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<h2 id="properties">Properties</h2>
-<h3 id="getset-and-value-on-change">Get/Set and value on change</h3>
-<h2 id="traits">Traits</h2>
-<h4 id="user-handler-flattening-no_std">User handler flattening (no_std)</h4>
-<h2 id="resource-arrays">Resource arrays</h2>
-<p>Any resource can also be an array - method, property, stream and trait implementation:</p>
-<div class="highlight"><pre><span></span><code><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOf</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">run</span><span class="o">&lt;</span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">();</span>
-<span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="kt">u16</span><span class="p">);</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">[]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">motor</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_motor_control</span><span class="p">::</span><span class="n">Motor</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>TODO: size bounds</p>
-<p>Traits inside other traits can also contain arrays, all the indices leading up to them are accumulated and passed as
-Rust array <code>[u32; N]</code> argument into a corresponding user handler.</p>
-<h3 id="array-of-resources-vs-resource-of-array">Array of resources vs resource of array</h3>
-<p>Here, resource led is itself an array, when accessing it - an index will be added to the resource path.
-Each one of three bool's is accessed separately from each other.</p>
-<div class="highlight"><pre><span></span><code><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfResources</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>On the other hand, here led is not an array, but it's type is. All three boolean's are accessed in one go.</p>
-<div class="highlight"><pre><span></span><code><span class="k">trait</span><span class="w"> </span><span class="n">ResourceOfArrays</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">bool</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Both can be used together as well, for example:</p>
-<div class="highlight"><pre><span></span><code><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfArrays</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rgb_led</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
-<span class="p">}</span>
-</code></pre></div>
+  <h1>Overview</h1>
+
 <h2 id="transport-protocols">Transport protocols</h2>
 <p>Several transport protocols are supported:</p>
 <ul>

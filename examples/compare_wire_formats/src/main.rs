@@ -8,12 +8,14 @@ struct Request<'i> {
     pub path_kind: PathKind<'i>,
     pub kind: RequestKind<'i>,
 
+    // Relocate is_some flags here to avoid loosing 7 bits on padding on each Option
     #[flag]
     pub dummy_c: bool,
     #[flag]
     pub dummy_b: bool,
     #[flag]
     pub dummy_a: bool,
+    // As an example use the remaining 5 bits of would-be-padding as well
     pub flags: [bool; 5],
 
     pub dummy_a: Option<u8>,

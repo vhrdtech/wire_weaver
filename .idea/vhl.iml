@@ -66,6 +66,9 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_numeric/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_si/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_gcode/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/compare_wire_formats/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/minimal_derive/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/minimal_shrink_wrap/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

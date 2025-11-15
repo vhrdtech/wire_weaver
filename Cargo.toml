@@ -35,5 +35,5 @@ members = [
     "ww_si",
     "ww_can_bus",
     "ww_log_bare_metal",
-    "ww_dfu",
+    "ww_dfu", "examples/minimal_shrink_wrap", "examples/minimal_derive", "examples/compare_wire_formats",
 ]

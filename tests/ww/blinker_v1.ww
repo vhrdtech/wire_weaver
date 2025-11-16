@@ -1,6 +1,0 @@
-struct Command {
-    #[id = 0]
-    led1_blink_frequency: f32,
-    #[id = 1]
-    led2_blink_frequency: Option<f32>,
-}

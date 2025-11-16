@@ -8,14 +8,6 @@ publish = false
 wire_weaver = { path = "../wire_weaver" }
 hex-literal = "1"
 
-#[[test]]
-#name = "serdes"
-#path = "serdes.rs"
-#
-#[[test]]
-#name = "shrink_wrap_derive"
-#path = "shrink_wrap_derive.rs"
-
 [[test]]
 name = "basic_types"
 path = "basic_types.rs"

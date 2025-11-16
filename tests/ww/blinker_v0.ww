@@ -1,3 +1,0 @@
-struct Command {
-    blink_frequency: f32,
-}

@@ -92,6 +92,10 @@ trait MyDevice {
 Any type supported by the SerDes system works with streams as well. Streams can be used for many things, e.g., sending
 status updates or bytes from USART, frames to be transmitted on CAN bus, etc.
 
+Stream writes are not acknowledged - write message is sent out and no response is awaited by client, server publishes a
+stream update and similarly do not wait for any response from client.
+It is possible though to implement a token-based or some other form of backpressure using sideband channel.
+
 Streams can have a beginning and an end, for example to implement a file IO or firmware update, to deal with small
 chunks
 at a time and yet be able to signal a completion event. It is also possible to send a user defined delimiter, to be
@@ -116,6 +120,8 @@ trait MyDevice {
     property!(rw speed: f32);
 }
 ```
+
+Property write is acknowledged by a server, unless request ID of 0 is used.
 
 Properties have access mode associated with them:
 
@@ -200,8 +206,8 @@ Device API, instead of re-implementing the same things over and over, can the lo
 ```rust
 #[ww_trait]
 trait MyAwesomeDevice {
-    ww_impl!(firmware_update: "firmware_update:0.1.0 :: FirmwareUpdate");
-    ww_impl!(board_info: "board_info:0.1.0 :: BoardInfo");
+    ww_impl!(firmware_update: ww_firmware_update "0.1.0" :: FirmwareUpdate);
+    ww_impl!(board_info: ww_board_info "0.1.0" :: BoardInfo);
     // and some device specific functionality in addition to common things
 }
 ```
@@ -223,7 +229,7 @@ trait ArrayOf {
     fn run<N: u32>();
     stream!(adc[]: u16);
     property!(led[]: bool);
-    ww_impl!(motor[]: ww_motor_control::Motor);
+    ww_impl!(motor[]: ww_motor_control "0.1.0" :: Motor);
 }
 ```
 

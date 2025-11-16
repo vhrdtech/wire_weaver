@@ -346,7 +346,9 @@ impl RequestKind<'_> {
             RequestKind::Write { data } => RequestKindOwned::Write {
                 data: data.to_vec(),
             },
-            RequestKind::StreamSideband { cmd } => RequestKindOwned::StreamSideband { cmd: *cmd },
+            RequestKind::StreamSideband { sideband_cmd } => RequestKindOwned::StreamSideband {
+                sideband_cmd: *sideband_cmd,
+            },
             RequestKind::Subscribe => RequestKindOwned::Subscribe,
             RequestKind::Unsubscribe => RequestKindOwned::Unsubscribe,
             RequestKind::ChangeRate { shaper_config } => RequestKindOwned::ChangeRate {

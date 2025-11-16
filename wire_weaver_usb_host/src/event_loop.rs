@@ -335,7 +335,7 @@ async fn handle_message(
                             let _ = done_tx.send(Ok(Vec::new()));
                         }
                     }
-                    EventKind::StreamUpdate { path, data } => {
+                    EventKind::StreamData { path, data } => {
                         let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {

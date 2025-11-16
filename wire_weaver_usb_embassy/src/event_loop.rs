@@ -1,6 +1,6 @@
 use crate::UsbServer;
 use defmt::{error, info, trace};
-use embassy_futures::select::{Either, Either3, select3};
+use embassy_futures::select::{Either3, select3};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Receiver;
 use embassy_time::{Duration, Instant, Timer};

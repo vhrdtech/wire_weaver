@@ -64,7 +64,7 @@ pub fn impl_server_dispatcher(
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
                 Error as ShrinkWrapError, nib32::UNib32, ElementSize
             };
-            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
+            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
             #additional_use
             #use_external
 
@@ -254,11 +254,9 @@ fn level_matcher(
         ApiItemKind::Property { access, ident, ty } => {
             handle_property(index_chain, cx, ident, ty, *access)
         }
-        ApiItemKind::Stream {
-            ident,
-            ty: _,
-            is_up,
-        } => handle_stream(index_chain, cx, ident, *is_up),
+        ApiItemKind::Stream { ident, ty, is_up } => {
+            handle_stream(index_chain, cx, ident, ty, *is_up)
+        }
         ApiItemKind::ImplTrait { args, .. } => {
             let process_fn_name = Ident::new(
                 format!(
@@ -451,54 +449,79 @@ fn handle_stream(
     index_chain: IndexChain,
     cx: &ApiServerCGContext<'_>,
     ident: &Ident,
+    ty: &Type,
     is_up: bool,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
-    let open = Ident::new(format!("{}_open", ident).as_str(), ident.span());
-    let close = Ident::new(format!("{}_close", ident).as_str(), ident.span());
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
-    let ser_output = |event_kind: TokenStream| {
-        quote! {
-            let event = Event {
-                seq: request.seq,
-                result: r.map(|()| EventKind::#event_kind)
-            };
-            Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::ResponseSerFailed)?)
+    let sideband_fn = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
+    let handle_sideband_cmd = quote! {
+        // user fn returns Option<StreamSidebandEvent>
+        let r = self.#sideband_fn(#maybe_index_chain_call sideband_cmd)#maybe_await;
+        match r {
+            Some(sideband_event) => {
+                let event = Event {
+                    seq: request.seq,
+                    result: Ok(EventKind::StreamSideband { path, sideband_event })
+                };
+                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::ResponseSerFailed)?)
+            }
+            None => {
+                Err(Error::OperationNotImplemented)
+            }
         }
     };
-    let ser_output_open = ser_output(quote! { StreamOpened { path } });
-    let ser_output_close = ser_output(quote! { StreamClosed { path } });
 
     let specific_ops = if is_up {
-        let change_rate = Ident::new(format!("{}_change_rate", ident).as_str(), ident.span());
-        let ser_output = ser_output(quote! { RateChanged });
+        // stream (device out)
         quote! {
-            RequestKind::ChangeRate { shaper_config } => {
-                let r = self.#change_rate(#maybe_index_chain_call shaper_config)#maybe_await;
-                #ser_output
+            RequestKind::ChangeRate { .. } | RequestKind::StreamSideband { .. } => {
+                let sideband_cmd = match &request.kind {
+                    RequestKind::ChangeRate { shaper_config } => StreamSidebandCommand::ChangeRate(*shaper_config),
+                    RequestKind::StreamSideband { sideband_cmd } => *sideband_cmd,
+                    _ => unreachable!()
+                };
+                #handle_sideband_cmd
             }
         }
     } else {
+        // sink (device in)
         let write = Ident::new(format!("{}_write", ident).as_str(), ident.span());
-        let ser_output = ser_output(quote! { Written });
+        let (des_data, arg) = match ty {
+            Type::Tuple(elements) => {
+                if elements.is_empty() {
+                    (quote! {}, quote! { () })
+                } else {
+                    todo!("tuple")
+                }
+            }
+            Type::Vec(inner) => {
+                if matches!(inner.as_ref(), Type::U8) {
+                    (quote! {}, quote! { data })
+                } else {
+                    todo!("vec of other")
+                }
+            }
+            _ => {
+                todo!("other")
+            }
+        };
+        let maybe_comma = maybe_quote(!index_chain.is_empty(), quote! { , });
         quote! {
             RequestKind::Write { data } => {
-                let r = self.#write(#maybe_index_chain_call)#maybe_await;
-                #ser_output
+                #des_data
+                let r = self.#write(#maybe_index_chain_call #maybe_comma #arg)#maybe_await;
+                Ok(&[]) // do not send acknowledgements on stream writes
+            }
+            RequestKind::StreamSideband { sideband_cmd } => {
+                let sideband_cmd = *sideband_cmd;
+                #handle_sideband_cmd
             }
         }
     };
     quote! {
         match &request.kind {
-            RequestKind::OpenStream => {
-                let r = self.#open(#maybe_index_chain_call)#maybe_await;
-                #ser_output_open
-            }
-            RequestKind::CloseStream => {
-                let r = self.#close(#maybe_index_chain_call)#maybe_await;
-                #ser_output_close
-            }
             #specific_ops
             _ => { Err(Error::OperationNotImplemented) }
         }
@@ -620,7 +643,7 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
         if !*is_up {
             continue;
         }
-        let stream_ser_fn = Ident::new(format!("{}_stream_ser", ident).as_str(), Span::call_site());
+        let stream_ser_fn = Ident::new(format!("{}_data_ser", ident).as_str(), Span::call_site());
         let lifetimes = if ty.potential_lifetimes() {
             quote! { 'i, 'a }
         } else {
@@ -652,7 +675,7 @@ fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 let data = #bytes_to_container;
                 let event = Event {
                     seq: 0,
-                    result: Ok(EventKind::StreamUpdate { path: #path, data })
+                    result: Ok(EventKind::StreamData { path: #path, data })
                 };
                 event.ser_shrink_wrap(&mut wr)?;
                 Ok(wr.finish_and_take()?)

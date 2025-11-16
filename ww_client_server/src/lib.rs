@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![doc = include_str!("../README.md")]
 
 pub mod util;
 
@@ -9,13 +10,10 @@ use ww_version::{CompactVersion, FullVersion};
 #[cfg(feature = "std")]
 use ww_version::FullVersionOwned;
 
+/// Version of this protocol itself, exchanged and checked during link setup phase with a remote device.
 pub const FULL_VERSION: FullVersion = full_version!();
 
-/// Represents one operation (call, read, write, etc.) to be performed on a resource.
-/// 3 modes of addressing is supported:
-/// * Explicit - only the number path to a resource is used, smallest size
-/// * CompactVersion - request to a trait resource, for commonly used traits that are used often and have an ID assigned TODO: add git link to global trait list
-/// * FullVersion - request to a trait resource defined in an arbitrary Rust crate, full crate name, and it's version is used as an ID
+/// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
 #[derive_shrink_wrap]
 #[owned = "std"]
 #[derive(Debug)]
@@ -31,6 +29,11 @@ pub struct Request<'i> {
     pub kind: RequestKind<'i>,
 }
 
+/// Path to a resource.
+/// 3 modes of addressing is supported:
+/// * Absolute - only the number path to a resource is used, smallest size
+/// * GlobalCompact - request to a trait resource, for commonly used traits that are used often and have an ID assigned TODO: add git link to global trait list
+/// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and it's version is used as an ID
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[final_structure]
@@ -40,55 +43,68 @@ pub enum PathKind<'i> {
     /// Full path to a resource, regardless whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },
 
-    /// Request is for a trait implemented at root level, path_from_trait is used to identify a resource inside the trait.
-    /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
+    /// Request is for a trait implemented at root level, through a global unique ID (manually assigned for common traits).
     GlobalCompact {
+        /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
         gid: CompactVersion,
+        /// Used to identify a trait resource, starting from trait root.
         path_from_trait: RefVec<'i, UNib32>,
     },
 
-    /// Request is for a trait implemented at root level, path_from_trait is used to identify a resource inside the trait.
+    /// Request is for a trait implemented at root level, through a crates.io name and version (any crate can be used as is).
     /// This kind of request is the biggest, because full crate name is used.
     GlobalFull {
         gid: FullVersion<'i>,
+        /// Used to identify a trait resource, starting from trait root.
         path_from_trait: RefVec<'i, UNib32>,
     },
 }
 
+/// Operation (call, read, write, etc.) to be performed on a resource.
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
 pub enum RequestKind<'i> {
-    /// Call a method using provided arguments. Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
+    /// Call a method with provided arguments.
+    /// Expected to get EventKind::ReturnValue, unless request ID is 0.
     Call {
+        /// Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
         args: RefVec<'i, u8>,
     },
 
     /// Read a property.
+    /// Expected to get EventKind::ReadValue with property bytes.
     Read,
+
+    // Read default value of a property, if available.
     // ReadDefault,
+
+    // Read multiple properties at once, using a list of paths or a glob pattern.
     // ReadMany,
     /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
-    Write {
-        data: RefVec<'i, u8>,
-    },
-    // WriteDefault,
-    // WriteMany,
-    OpenStream,
-    CloseStream,
+    Write { data: RefVec<'i, u8> },
 
+    // Write default value (if available) to a property, without sending any data.
+    // WriteDefault,
+
+    // Write multiple properties at once, using a list of paths or a glob pattern?.
+    // WriteMany,
     /// Subscribe to property changes
     Subscribe,
     /// Unsubscribe from property changes
     Unsubscribe,
 
-    ChangeRate {
-        shaper_config: ShaperConfig,
-    },
+    /// Set a limit on how often property or stream updates are sent. Optional.
+    ChangeRate { shaper_config: ShaperConfig },
 
+    /// Stream sideband channel (open, close, frame sync, etc.). Optional to use.
+    StreamSideband { sideband_cmd: StreamSidebandCommand },
+
+    /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
+    /// Optional, for simplicity can be implemented only at root level, sending all API tree.
     Introspect,
     // Version,
     // Borrow,
@@ -96,55 +112,85 @@ pub enum RequestKind<'i> {
     // Heartbeat,
 }
 
+/// Sideband command for a stream, delivered in the same order with stream data.
+/// Optional, user can choose to send stream updates without using the sideband channel.
+/// This is a separate enum to make generated code more convenient - only one function for user to implement.
+#[derive_shrink_wrap]
+#[ww_repr(u4)]
+#[final_structure]
+#[derive(Debug, Copy, Clone)]
+pub enum StreamSidebandCommand {
+    Open,
+    Close,
+    /// If stream is a sequence of bytes, can be used to delimit frames
+    FrameSync,
+    ChangeRate(ShaperConfig),
+    SizeHint(u32),
+    User(u32),
+}
+
+/// Asynchronous result with a request ID, sent back from server to client, as a response to a Request or on stream or properties updates.
 #[derive_shrink_wrap]
 #[owned = "std"]
 #[derive(Debug)]
 pub struct Event<'i> {
+    /// Same event ID from Request.
+    /// 0 for stream data updates.
     pub seq: u16,
-    // path
+    /// Request can be wrong or unsupported, in which case an error is sent back.
     pub result: Result<EventKind<'i>, Error>,
 }
 
+/// Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
 pub enum EventKind<'i> {
+    /// Sent in response to RequestKind::Call, unless request ID is 0.
     ReturnValue {
+        /// Serialized return value of a method.
+        /// If user-defined type is used, it is serialized directly. If one of the built-in types is used, it is put into a
+        /// struct and that struct is serialized instead.
         data: RefVec<'i, u8>,
     },
 
+    /// Send in response to RequestKind::Read.
     ReadValue {
+        /// Serialized property value.
         data: RefVec<'i, u8>,
     },
+
+    /// Sent in response to RequestKind::Write, only for properties and when request ID is not 0.
     Written,
 
-    StreamOpened {
-        // When subscribing through trait interface, this path is used later to match stream updates to an original request
+    /// Sent by user code whenever stream have more data or whenever applicable.
+    StreamData {
+        /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: Vec<UNib32>,
-    },
-    // If stream is a sequence of bytes, can be used to delimit frames or send other data out of band
-    // StreamDelimiter { path: Vec<nib16>, user_data: u8 },
-    // TODO: Add Option<SizeHint>
-    StreamUpdate {
-        path: Vec<UNib32>,
+        /// Stream data, can be a whole frame or a chunk of a byte stream.
         data: RefVec<'i, u8>,
     },
-    StreamClosed {
+    /// Optionally sent by user in response to RequestKind::StreamSideband or whenever applicable.
+    StreamSideband {
+        /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: Vec<UNib32>,
+        sideband_event: StreamSidebandEvent,
     },
 
+    /// Sent in response to RequestKind::Subscribe for properties. Optional.
     Subscribed {
-        // When subscribing through trait interface, this path is used later to match stream updates to an original request
+        /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: Vec<UNib32>,
     },
-    Unsubscribed {
-        path: Vec<UNib32>,
-    },
+    /// Sent in response to RequestKind::Unsubscribe for properties. Optional.
+    Unsubscribed { path: Vec<UNib32> },
 
+    /// Sent in response to RequestKind::ChangeRata for properties. Optional.
     RateChanged,
 
+    /// Sent in response to RequestKind::Introspect, if supported.
     Introspect {
         // ww_self version?
         ww_self_bytes: RefVec<'i, u8>,
@@ -158,17 +204,32 @@ pub enum EventKind<'i> {
     // Released,
 }
 
+/// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
+/// Optional, user can choose to send stream updates without using the sideband channel.
+#[derive_shrink_wrap]
+#[ww_repr(u4)]
+#[final_structure]
+#[derive(Debug, Copy, Clone)]
+pub enum StreamSidebandEvent {
+    /// Send if stream was successfully opened
+    Opened,
+    /// Send if stream was successfully closed
+    Closed,
+    /// If stream is a sequence of bytes, can be used to delimit frames
+    FrameSync,
+    /// Can be used to indicate total size of the upcoming stream updates
+    SizeHint(u32),
+    /// User event, can be used to indicate errors or other data
+    User(u32),
+}
+
+/// Various errors that can occur during Request processing.
+/// TODO: Add shrink_wrap error here as well for more context
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
 #[self_describing]
 #[derive(Debug)]
 pub enum Error {
-    // Tried to unsubscribe twice from a resource
-    // AlreadyUnsubscribed,
-    // Tried to open a stream twice
-    // StreamIsAlreadyOpen,
-    // Tried to close a stream twice
-    // StreamIsAlreadyClosed,
     /// Sent a RequestKind that doesn't make sense for a particular resource
     OperationNotSupported,
     /// Tried to access a path that doesn't exist
@@ -180,11 +241,13 @@ pub enum Error {
     /// Tried to deserialize UNib32 from the resource path, but got an error
     ArrayIndexDesFailed,
 
-    // Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
-    // SliceGetFailed,
+    /// Failed to deserialize arguments
     ArgsDesFailed,
+    /// Failed to deserialize path
     PathDesFailed,
+    /// Failed to deserialize property value
     PropertyDesFailed,
+    /// Failed to serialize response
     ResponseSerFailed,
     /// Request is good, but requested operation is not yet implemented
     OperationNotImplemented,
@@ -192,8 +255,22 @@ pub enum Error {
     ReadPropertyWithSeqZero,
     /// Returned if only absolute paths are handled (on very resource constrained nodes)
     PathKindNotSupported,
+    // TODO: UserErrorUnit
+    // UserErrorU32
+    // UserErrorStr
+    // UserErrorBytes
+
+    // Tried to unsubscribe twice from a resource
+    // AlreadyUnsubscribed,
+    // Tried to open a stream twice
+    // StreamIsAlreadyOpen,
+    // Tried to close a stream twice
+    // StreamIsAlreadyClosed,
+    // Tried to get a byte slice out of Call, Write args, but shrink wrap returned an error, most likely malformed request.
+    // SliceGetFailed,
 }
 
+/// Optional shaper configuration request.
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[derive(Debug, Copy, Clone)]
@@ -269,8 +346,7 @@ impl RequestKind<'_> {
             RequestKind::Write { data } => RequestKindOwned::Write {
                 data: data.to_vec(),
             },
-            RequestKind::OpenStream => RequestKindOwned::OpenStream,
-            RequestKind::CloseStream => RequestKindOwned::CloseStream,
+            RequestKind::StreamSideband { cmd } => RequestKindOwned::StreamSideband { cmd: *cmd },
             RequestKind::Subscribe => RequestKindOwned::Subscribe,
             RequestKind::Unsubscribe => RequestKindOwned::Unsubscribe,
             RequestKind::ChangeRate { shaper_config } => RequestKindOwned::ChangeRate {

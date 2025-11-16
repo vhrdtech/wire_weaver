@@ -76,4 +76,8 @@ impl IndexChain {
     pub fn increment_length(&mut self) {
         self.len += 1;
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }

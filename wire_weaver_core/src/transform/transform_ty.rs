@@ -52,6 +52,10 @@ pub fn transform_type(
             let ty = transform_type(*type_array.elem, None, path)?;
             Ok(Type::Array(len, Box::new(ty)))
         }
+        syn::Type::Slice(type_slice) => {
+            let inner = transform_type(*type_slice.elem, None, path)?;
+            Ok(Type::Vec(Box::new(inner)))
+        }
         u => Err(format!("{u:?} is not supported")),
     }
 }

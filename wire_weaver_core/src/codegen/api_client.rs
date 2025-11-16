@@ -71,6 +71,7 @@ pub fn client(
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
                 Error as ShrinkWrapError, nib32::UNib32, RefVec
             };
+            use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
             #additional_use
 
             impl super::#client_struct {
@@ -207,20 +208,15 @@ fn level_method(
             ident,
             ty,
         ),
-        ApiItemKind::Stream {
+        ApiItemKind::Stream { ident, ty, is_up } => handle_stream(
+            model,
+            path_mode,
+            full_gid_path,
+            index_chain_push,
             ident,
-            ty: _,
-            is_up: _,
-        } => {
-            let fn_name = Ident::new(format!("{}_stream_path", ident).as_str(), ident.span());
-            let ty = index_chain.return_ty_def();
-            quote! {
-                pub fn #fn_name(&self) #ty {
-                    #index_chain_push
-                    index_chain
-                }
-            }
-        }
+            ty,
+            *is_up,
+        ),
         ApiItemKind::ImplTrait { args, level } => {
             let level_entry_fn_name = &args.resource_name;
             let level = level.as_ref().expect("api level");
@@ -331,25 +327,7 @@ fn handle_property(
     prop_name: &Ident,
     ty: &Type,
 ) -> TokenStream {
-    let mut ser = TokenStream::new();
-    let ty_def = if ty.potential_lifetimes() && !model.no_alloc() {
-        let mut ty_owned = ty.clone();
-        ty_owned.make_owned();
-        ty_owned.arg_pos_def(model.no_alloc())
-    } else {
-        ty.arg_pos_def(model.no_alloc())
-    };
-    ty.buf_write(
-        FieldPath::Value(quote! { #prop_name }),
-        model.no_alloc(),
-        quote! { ? },
-        &mut ser,
-    );
-    let finish_wr = if model.no_alloc() {
-        quote! { wr.finish_and_take()? }
-    } else {
-        quote! { wr.finish()?.to_vec() }
-    };
+    let (ty_def, ser) = ser_write_value(model, prop_name, ty);
     let mut des = TokenStream::new();
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
@@ -371,15 +349,13 @@ fn handle_property(
                 Ident::new(&format!("write_{}_timeout", prop_name), prop_name.span())
             };
             quote! {
-                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def #maybe_timeout_arg) -> Result<(), wire_weaver_client_common::Error> {
-                    let mut wr = BufWriter::new(&mut self.args_scratch);
+                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def, #maybe_timeout_arg) -> Result<(), wire_weaver_client_common::Error> {
                     #ser
-                    let args = #finish_wr;
                     #index_chain_push
                     let path_kind = #path_kind;
                     let _data = self.cmd_tx.send_write_receive_reply(
                         path_kind,
-                        args,
+                        value,
                         #timeout_val
                     ).await?;
                     Ok(())
@@ -407,8 +383,9 @@ fn handle_property(
             } else {
                 Ident::new(&format!("read_{}_timeout", prop_name), prop_name.span())
             };
+            let maybe_comma = maybe_quote(!default_timeout, quote! { , });
             quote! {
-                pub async fn #read_fn_name(&mut self #maybe_timeout_arg) -> Result<#ty_def, wire_weaver_client_common::Error> {
+                pub async fn #read_fn_name(&mut self #maybe_comma #maybe_timeout_arg) -> Result<#ty_def, wire_weaver_client_common::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
                     let bytes = self.cmd_tx.send_read_receive_reply(
@@ -434,6 +411,103 @@ fn handle_property(
     quote! {
         #write_fns
         #read_fns
+    }
+}
+
+fn ser_write_value(model: ClientModel, prop_name: &Ident, ty: &Type) -> (TokenStream, TokenStream) {
+    // unit - use empty slice directly
+    if let Type::Tuple(elements) = ty
+        && elements.is_empty()
+    {
+        return if model.no_alloc() {
+            (quote! { () }, quote! { &[] })
+        } else {
+            (quote! { () }, quote! { Vec::new() })
+        };
+    }
+
+    // byte slice - use directly
+    if let Type::Vec(inner) = ty
+        && matches!(inner.as_ref(), Type::U8)
+    {
+        return if model.no_alloc() {
+            (quote! { &[u8] }, quote! {})
+        } else {
+            (quote! { Vec<u8> }, quote! {})
+        };
+    }
+
+    let mut ser = TokenStream::new();
+    let ty_def = if ty.potential_lifetimes() && !model.no_alloc() {
+        let mut ty_owned = ty.clone();
+        ty_owned.make_owned();
+        ty_owned.arg_pos_def(model.no_alloc())
+    } else {
+        ty.arg_pos_def(model.no_alloc())
+    };
+    ty.buf_write(
+        FieldPath::Value(quote! { #prop_name }),
+        model.no_alloc(),
+        quote! { ? },
+        &mut ser,
+    );
+    let finish_wr = if model.no_alloc() {
+        quote! { wr.finish_and_take()? }
+    } else {
+        quote! { wr.finish()?.to_vec() }
+    };
+    let ser = quote! {
+        let mut wr = BufWriter::new(&mut self.args_scratch);
+        #ser
+        let value = #finish_wr;
+    };
+    (ty_def, ser)
+}
+
+fn handle_stream(
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    full_gid_path: &TokenStream,
+    index_chain_push: TokenStream,
+    ident: &Ident,
+    ty: &Type,
+    is_up: bool,
+) -> TokenStream {
+    let sideband_fn_name = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
+    let (ty_def, ser) = ser_write_value(model, &Ident::new("value", Span::call_site()), ty);
+    let path_kind = path_kind(path_mode, full_gid_path);
+
+    let specific_methods = if is_up {
+        // client in
+        let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
+        quote! {
+            pub fn #subscribe_fn(&self) -> std::sync::mpsc::Receiver<either::Either<#ty_def, StreamSidebandEvent>> {
+                #index_chain_push
+                let path_kind = #path_kind;
+            }
+        }
+    } else {
+        // client out
+        let publish_fn = Ident::new(format!("{}_pub", ident).as_str(), ident.span());
+        quote! {
+            pub fn #publish_fn(&self, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
+                #ser
+                #index_chain_push
+                let path_kind = #path_kind;
+                let _data = self.cmd_tx.send_write_forget(path_kind, value).await?;
+                Ok(())
+            }
+            // TOD: client stream out?
+        }
+    };
+    quote! {
+        #specific_methods
+
+        pub async fn #sideband_fn_name(&self, sideband_cmd: StreamSidebandCommand) -> Result</*StreamSidebandEvent*/ (), wire_weaver_client_common::Error> {
+                #index_chain_push
+                let path_kind = #path_kind;
+
+        }
     }
 }
 

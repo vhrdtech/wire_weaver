@@ -68,20 +68,36 @@ impl CommandSender {
     pub async fn send_write_receive_reply(
         &self,
         path: PathKind<'_>,
-        value: Vec<u8>,
+        value_bytes: Vec<u8>,
         timeout: Duration,
     ) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let (done_tx, done_rx) = oneshot::channel();
         let cmd = Command::SendWrite {
-            value_bytes: value,
             path_kind,
+            value_bytes,
             timeout: Some(timeout),
             done_tx: Some(done_tx),
         };
         let _data = self
             .send_cmd_receive_reply(cmd, timeout, done_rx, "write")
             .await?;
+        Ok(())
+    }
+
+    pub async fn send_write_forget(
+        &self,
+        path: PathKind<'_>,
+        value_bytes: Vec<u8>,
+    ) -> Result<(), Error> {
+        let path_kind = self.to_ww_client_server_path(path)?;
+        let cmd = Command::SendWrite {
+            path_kind,
+            value_bytes,
+            timeout: None,
+            done_tx: None,
+        };
+        self.tx.send(cmd).map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
 

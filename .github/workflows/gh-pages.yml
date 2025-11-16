@@ -2,8 +2,9 @@ name: Publish Documentation
 
 on:
   push:
-    branches:
-      - master
+    paths:
+      - 'mkdocs.yml'
+      - 'docs/**'
 
 permissions:
   contents: write
@@ -29,6 +30,6 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4.6.8
         with:
           branch: gh-pages
-          folder: site 
+          folder: site
           git-config-name: Github Action
           git-config-email: romix.lab@gmail.com

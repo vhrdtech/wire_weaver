@@ -37,7 +37,7 @@ fn tuple_of_bits() {
 
 #[test]
 fn tuple_of_strings() {
-    let mut scratch = [0u8; 8];
+    let mut scratch = [0u8; 9];
 
     let bytes = ("abc", "de").to_ww_bytes(&mut scratch).unwrap();
     assert_eq!(bytes, hex!("61 62 63 64 65 23"));

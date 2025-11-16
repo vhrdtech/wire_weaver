@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use wire_weaver::prelude::*;
 
 #[derive_shrink_wrap]
-struct Request<'i> {
+struct Request {
     pub seq: u16,
-    pub path_kind: PathKind<'i>,
-    pub kind: RequestKind<'i>,
+    pub path_kind: PathKind,
+    pub kind: RequestKind,
 
     // Relocate is_some flags here to avoid loosing 7 bits on padding on each Option
     #[flag]
@@ -22,21 +22,21 @@ struct Request<'i> {
     pub dummy_b: Option<u8>,
     pub dummy_c: Option<u8>,
 
-    pub strs: RefVec<'i, &'i str>,
+    pub strs: Vec<String>,
 }
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-enum PathKind<'i> {
-    Absolute { path: RefVec<'i, UNib32> },
+enum PathKind {
+    Absolute { path: Vec<UNib32> },
     GlobalCompact,
     GlobalFull,
 }
 
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
-enum RequestKind<'i> {
-    Call { args: RefVec<'i, u8> },
+enum RequestKind {
+    Call { args: Vec<u8> },
     Read,
 }
 
@@ -68,20 +68,16 @@ fn main() {
     let req = Request {
         seq: 1234,
         path_kind: PathKind::Absolute {
-            path: RefVec::Slice {
-                slice: &[UNib32(0), UNib32(1), UNib32(2)],
-            },
+            path: vec![UNib32(0), UNib32(1), UNib32(2)],
         },
         kind: RequestKind::Call {
-            args: RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
+            args: vec![0xAA, 0xBB, 0xCC],
         },
         dummy_a: Some(0xCC),
         dummy_b: None,
         dummy_c: None,
         flags: [false, true, false, true, false],
-        strs: RefVec::Slice {
-            slice: &["ab", "c"],
-        },
+        strs: vec!["ab".to_string(), "c".to_string()],
     };
     let mut scratch = [0u8; 128];
     let bytes = req.to_ww_bytes(&mut scratch).unwrap();

@@ -36,13 +36,12 @@ fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
         _ => return Err("Expected enum or struct".into()),
     };
     let generate_owned = take_owned_attr(attrs)?;
+    let no_alloc = has_lifetimes(&item);
 
     let mut ts = TokenStream::new();
     match &item {
         Item::Enum(item_enum) => {
             let ww_item_enum = transform_item_enum(item_enum)?;
-            // TODO: use generics presence as no_alloc indicator as well here?
-            let no_alloc = ww_item_enum.potential_lifetimes();
             ts.append_all(enum_def(&ww_item_enum, no_alloc));
             ts.append_all(enum_serdes(&ww_item_enum, no_alloc));
             if let Some(feature) = &generate_owned {
@@ -53,7 +52,6 @@ fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
         }
         Item::Struct(item_struct) => {
             let ww_item_struct = transform_item_struct(item_struct)?;
-            let no_alloc = ww_item_struct.potential_lifetimes();
             ts.append_all(struct_def(&ww_item_struct, no_alloc));
             ts.append_all(struct_serdes(&ww_item_struct, no_alloc));
             if let Some(feature) = &generate_owned {
@@ -87,4 +85,12 @@ fn shrink_wrap_derive_inner(mut file: File) -> Result<TokenStream, String> {
         _ => {}
     }
     Ok(ts)
+}
+
+fn has_lifetimes(item: &Item) -> bool {
+    match item {
+        Item::Enum(item_enum) => item_enum.generics.lifetimes().next().is_some(),
+        Item::Struct(item_struct) => item_struct.generics.lifetimes().next().is_some(),
+        _ => false,
+    }
 }

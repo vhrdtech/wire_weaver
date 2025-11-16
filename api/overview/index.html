@@ -1346,6 +1346,9 @@ I.e., naming is from the perspective of the device (node) - stream out, sink in.
 </code></pre></div>
 <p>Any type supported by the SerDes system works with streams as well. Streams can be used for many things, e.g., sending
 status updates or bytes from USART, frames to be transmitted on CAN bus, etc.</p>
+<p>Stream writes are not acknowledged - write message is sent out and no response is awaited by client, server publishes a
+stream update and similarly do not wait for any response from client.
+It is possible though to implement a token-based or some other form of backpressure using sideband channel.</p>
 <p>Streams can have a beginning and an end, for example to implement a file IO or firmware update, to deal with small
 chunks
 at a time and yet be able to signal a completion event. It is also possible to send a user defined delimiter, to be
@@ -1364,6 +1367,7 @@ the <a href="../detailed/">detailed page</a>.</p>
 <span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
+<p>Property write is acknowledged by a server, unless request ID of 0 is used.</p>
 <p>Properties have access mode associated with them:</p>
 <ul>
 <li>Const (<code>const</code>) - property is not going to change, observe not available</li>
@@ -1434,8 +1438,8 @@ similar functionality of different devices.</p>
 <p>Device API, instead of re-implementing the same things over and over, can the look like follows:</p>
 <div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
 <span class="k">trait</span><span class="w"> </span><span class="n">MyAwesomeDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">firmware_update</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;firmware_update:0.1.0 :: FirmwareUpdate&quot;</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board_info</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;board_info:0.1.0 :: BoardInfo&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">firmware_update</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_firmware_update</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">FirmwareUpdate</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board_info</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_board_info</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BoardInfo</span><span class="p">);</span>
 <span class="w">    </span><span class="c1">// and some device specific functionality in addition to common things</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -1451,7 +1455,7 @@ the <a href="../addressing/">addressing page</a></p>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">run</span><span class="o">&lt;</span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">();</span>
 <span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="kt">u16</span><span class="p">);</span>
 <span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">[]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">motor</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_motor_control</span><span class="p">::</span><span class="n">Motor</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">motor</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_motor_control</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Motor</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>TODO: size bounds</p>

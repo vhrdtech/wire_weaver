@@ -10,11 +10,13 @@ pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
+    pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{
         ShrinkWrap, derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait,
     };
     pub use ww_version;
+    pub use ww_version::FullVersion;
 }
 
 /// User protocol ID and version. Only major and minor numbers are used and checked.

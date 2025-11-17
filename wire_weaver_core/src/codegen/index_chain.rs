@@ -29,14 +29,14 @@ impl IndexChain {
         }
     }
 
-    pub fn return_ty_def(&self) -> TokenStream {
-        let len = self.len;
-        if len == 0 {
-            quote! {}
-        } else {
-            quote! { -> [UNib32; #len] }
-        }
-    }
+    // pub fn return_ty_def(&self) -> TokenStream {
+    //     let len = self.len;
+    //     if len == 0 {
+    //         quote! {}
+    //     } else {
+    //         quote! { -> [UNib32; #len] }
+    //     }
+    // }
 
     pub fn fun_argument_call(&self) -> TokenStream {
         let len = self.len;

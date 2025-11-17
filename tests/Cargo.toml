@@ -16,5 +16,17 @@ name = "basic_types"
 path = "basic_types.rs"
 
 [[test]]
+name = "methods"
+path = "methods.rs"
+
+[[test]]
 name = "properties"
 path = "properties.rs"
+[[test]]
+name = "streams"
+path = "streams.rs"
+
+[[test]]
+name = "traits"
+path = "traits.rs"
+

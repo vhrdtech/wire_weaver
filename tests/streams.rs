@@ -4,47 +4,48 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::CommandSender;
+use wire_weaver_client_common::{CommandSender, StreamEvent};
 
 #[ww_trait]
-trait Properties {
-    property!(rw plain: u8);
-
-    // changes pub sub
-    // const ro wo
-    // () [u8]
-    // user-defined
-    // arrays
+trait Streams {
+    stream!(plain: u8);
 }
 
 #[derive(Default)]
-struct SharedTestData {
-    plain: u8,
-}
+struct SharedTestData {}
 
 mod no_std_sync_server {
     use super::*;
+    use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 
     pub struct NoStdSyncServer {
         pub data: Arc<RwLock<SharedTestData>>,
     }
 
     impl NoStdSyncServer {
-        fn set_plain(&mut self, value: u8) {
-            self.data.write().unwrap().plain = value;
+        fn plain_sideband(&mut self, _cmd: StreamSidebandCommand) -> Option<StreamSidebandEvent> {
+            println!("sideband: {_cmd:?}");
+            None
         }
 
-        fn get_plain(&mut self) -> u8 {
-            self.data.read().unwrap().plain
+        pub fn send_updates(&mut self) -> Vec<Vec<u8>> {
+            let mut s1 = [0u8; 128];
+            let mut s2 = [0u8; 128];
+            println!("sending updates");
+            vec![
+                api_impl::plain_data_ser(&0xAA, &mut s1, &mut s2)
+                    .unwrap()
+                    .to_vec(),
+            ]
         }
     }
 
     ww_api!(
-        "properties.rs" as tests::Properties for NoStdSyncServer,
+        "streams.rs" as tests::Streams for NoStdSyncServer,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        // debug_to_file = "../target/tests_properties.rs" // uncomment if you want to see the resulting AST and generated code
+        debug_to_file = "../target/tests_streams.rs"
     );
 }
 
@@ -60,7 +61,7 @@ mod std_async_client {
     }
 
     ww_api!(
-        "properties.rs" as tests::Properties for StdAsyncClient,
+        "streams.rs" as tests::Streams for StdAsyncClient,
         client = "async_worker",
         no_alloc = false,
         use_async = true,
@@ -104,9 +105,9 @@ async fn std_async_client_driving_no_std_sync_server() {
                 }
                 notify = notify_rx.recv() => {
                     let Some(_) = notify else { continue };
-                    // for bytes in server.send_updates() {
-                    //     common::send_response(Ok(&bytes), None, &mut state);
-                    // }
+                    for bytes in server.send_updates() {
+                        common::send_response(Ok(&bytes), None, &mut state);
+                    }
                 }
             }
         }
@@ -118,12 +119,12 @@ async fn std_async_client_driving_no_std_sync_server() {
         timeout: Duration::from_millis(100),
     };
 
-    let value = client.root().read_plain().await.unwrap();
-    assert_eq!(value, 0);
-
-    client.root().write_plain(0xAA).await.unwrap();
-    assert_eq!(data.read().unwrap().plain, 0xAA);
-
-    let value = client.root().read_plain().await.unwrap();
-    assert_eq!(value, 0xAA);
+    let mut rx = client
+        .root()
+        .plain_sub()
+        .await
+        .expect("successful stream open");
+    notify_tx.send(()).unwrap();
+    let stream_data = rx.recv().await.unwrap();
+    assert_eq!(stream_data, StreamEvent::Data(vec![0xAA]));
 }

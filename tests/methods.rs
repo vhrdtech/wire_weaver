@@ -7,19 +7,22 @@ use wire_weaver::prelude::*;
 use wire_weaver_client_common::CommandSender;
 
 #[ww_trait]
-trait Properties {
-    property!(rw plain: u8);
+trait Methods {
+    fn no_args();
+    fn one_plain_arg(value: u8);
+    fn plain_return() -> u8;
 
-    // changes pub sub
-    // const ro wo
-    // () [u8]
     // user-defined
-    // arrays
+    // ()
+    // array of methods
+    // evolve args
+    // evolve return from plain to struct
 }
 
 #[derive(Default)]
 struct SharedTestData {
-    plain: u8,
+    no_args_called: bool,
+    one_plain_arg: u8,
 }
 
 mod no_std_sync_server {
@@ -30,17 +33,21 @@ mod no_std_sync_server {
     }
 
     impl NoStdSyncServer {
-        fn set_plain(&mut self, value: u8) {
-            self.data.write().unwrap().plain = value;
+        fn no_args(&mut self) {
+            self.data.write().unwrap().no_args_called = true;
         }
 
-        fn get_plain(&mut self) -> u8 {
-            self.data.read().unwrap().plain
+        fn one_plain_arg(&mut self, value: u8) {
+            self.data.write().unwrap().one_plain_arg = value;
+        }
+
+        fn plain_return(&mut self) -> u8 {
+            0xAA
         }
     }
 
     ww_api!(
-        "properties.rs" as tests::Properties for NoStdSyncServer,
+        "methods.rs" as tests::Methods for NoStdSyncServer,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
@@ -60,7 +67,7 @@ mod std_async_client {
     }
 
     ww_api!(
-        "properties.rs" as tests::Properties for StdAsyncClient,
+        "methods.rs" as tests::Methods for StdAsyncClient,
         client = "async_worker",
         no_alloc = false,
         use_async = true,
@@ -83,7 +90,6 @@ mod std_async_client {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
-    let (notify_tx, mut notify_rx) = mpsc::unbounded_channel::<()>();
     let data = Arc::new(RwLock::new(SharedTestData::default()));
 
     let data_clone = data.clone();
@@ -94,21 +100,10 @@ async fn std_async_client_driving_no_std_sync_server() {
         let mut s2 = [0u8; 512];
         let mut se = [0u8; 128];
 
-        loop {
-            tokio::select! {
-                cmd = cmd_rx.recv() => {
-                    let Some(cmd) = cmd else { return };
-                    let (bytes, done_tx) = common::ser_command(cmd, &mut state, &mut s1);
-                    let r = server.process_request_bytes(&bytes, &mut s1, &mut s2, &mut se);
-                    common::send_response(r, done_tx, &mut state);
-                }
-                notify = notify_rx.recv() => {
-                    let Some(_) = notify else { continue };
-                    // for bytes in server.send_updates() {
-                    //     common::send_response(Ok(&bytes), None, &mut state);
-                    // }
-                }
-            }
+        while let Some(cmd) = cmd_rx.recv().await {
+            let (bytes, done_tx) = common::ser_command(cmd, &mut state, &mut s1);
+            let r = server.process_request_bytes(&bytes, &mut s1, &mut s2, &mut se);
+            common::send_response(r, done_tx, &mut state);
         }
     });
 
@@ -118,12 +113,12 @@ async fn std_async_client_driving_no_std_sync_server() {
         timeout: Duration::from_millis(100),
     };
 
-    let value = client.root().read_plain().await.unwrap();
-    assert_eq!(value, 0);
+    client.root().no_args().await.unwrap();
+    assert!(data.read().unwrap().no_args_called);
 
-    client.root().write_plain(0xAA).await.unwrap();
-    assert_eq!(data.read().unwrap().plain, 0xAA);
+    client.root().one_plain_arg(0xCC).await.unwrap();
+    assert_eq!(data.read().unwrap().one_plain_arg, 0xCC);
 
-    let value = client.root().read_plain().await.unwrap();
+    let value = client.root().plain_return().await.unwrap();
     assert_eq!(value, 0xAA);
 }

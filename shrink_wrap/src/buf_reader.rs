@@ -52,7 +52,7 @@ impl<'i> BufReader<'i> {
     /// but will use an alignment of 1 bit instead.
     pub fn read_u4(&mut self) -> Result<u8, Error> {
         self.align_nibble();
-        if (self.bytes_left() == 0) && self.bit_idx == 7 {
+        if self.nibbles_left() == 0 {
             return Err(Error::OutOfBoundsReadU4);
         }
         if self.bit_idx == 7 {
@@ -322,12 +322,14 @@ impl<'i> BufReader<'i> {
         let left = if self.bit_idx == 7 {
             self.len_bytes - self.byte_idx
         } else {
+            // already read one or more bit or nibble from this byte, do not count it
             self.len_bytes - self.byte_idx - 1
         };
         if left == 0 {
             return 0;
         }
         if self.is_at_bit7_rev {
+            // already read one nibble from the back, do not count this byte
             left - 1
         } else {
             left
@@ -337,7 +339,9 @@ impl<'i> BufReader<'i> {
     /// Returns the number of nibbles left, taking into account that buffer is read from both sides.
     #[inline]
     pub fn nibbles_left(&self) -> usize {
-        self.bytes_left() * 2 + if self.bit_idx == 3 { 1 } else { 0 }
+        self.bytes_left() * 2
+            + if self.bit_idx == 3 { 1 } else { 0 } // already read one nibble from the last byte, but one remains
+            + if self.is_at_bit7_rev { 1 } else { 0 } // already read one nibble from the back, but one remains
     }
 
     fn bits_in_byte_left(&self) -> u8 {
@@ -450,6 +454,20 @@ mod tests {
         assert_eq!(byte, 0x10);
         let b = rd.read_bool().unwrap();
         assert!(b);
+    }
+
+    #[test]
+    fn u4_rev_overlap_nib() {
+        let buf = [0x10, 0xA1];
+        let mut rd = BufReader::new(&buf);
+        let n = rd.read_unib32_rev().unwrap();
+        assert_eq!(n, 1);
+        let mut rd_split = rd.split(n as usize).unwrap();
+        let byte = rd_split.read_u8().unwrap();
+        assert_eq!(byte, 0x10);
+        assert_eq!(rd.nibbles_left(), 1);
+        let nib = rd.read_u4().unwrap();
+        assert_eq!(nib, 0xA);
     }
 
     #[test]

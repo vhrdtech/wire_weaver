@@ -209,7 +209,7 @@ pub enum EventKind<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[final_structure]
-#[derive(Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum StreamSidebandEvent {
     /// Send if stream was successfully opened
     Opened,

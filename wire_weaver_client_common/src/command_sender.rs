@@ -1,4 +1,4 @@
-use crate::{Command, Error};
+use crate::{Command, Error, StreamEvent};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
@@ -96,6 +96,20 @@ impl CommandSender {
             value_bytes,
             timeout: None,
             done_tx: None,
+        };
+        self.tx.send(cmd).map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub async fn send_stream_open(
+        &self,
+        path: PathKind<'_>,
+        stream_data_tx: UnboundedSender<StreamEvent>,
+    ) -> Result<(), Error> {
+        let path_kind = self.to_ww_client_server_path(path)?;
+        let cmd = Command::StreamOpen {
+            path_kind,
+            stream_data_tx,
         };
         self.tx.send(cmd).map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())

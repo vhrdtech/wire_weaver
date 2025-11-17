@@ -11,7 +11,7 @@ use ww_version::FullVersionOwned;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use ww_client_server::PathKindOwned;
+use ww_client_server::{PathKindOwned, StreamSidebandEvent};
 
 pub enum Command {
     /// Try to connect to / open a device with the specified filter.
@@ -53,9 +53,9 @@ pub enum Command {
         timeout: Option<Duration>,
         done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     },
-    Subscribe {
+    StreamOpen {
         path_kind: PathKindOwned,
-        stream_data_tx: mpsc::UnboundedSender<Result<Vec<u8>, Error>>,
+        stream_data_tx: mpsc::UnboundedSender<StreamEvent>,
         // stop_rx: oneshot::Receiver<()>,
     },
     // RecycleBuffer(Vec<u8>),
@@ -165,4 +165,10 @@ pub enum DeviceFilter {
     },
     AnyVhrdTechCanBus,
     AnyVhrdTechIo,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum StreamEvent {
+    Data(Vec<u8>),
+    Sideband(StreamSidebandEvent),
 }

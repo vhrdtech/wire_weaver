@@ -202,7 +202,7 @@ async fn wait_for_connection_and_queue_commands(
                     scratch: [0u8; 2048],
                 }));
             }
-            Command::Subscribe {
+            Command::StreamOpen {
                 path,
                 stream_data_tx,
             } => {
@@ -435,7 +435,7 @@ async fn handle_command(
             };
             serialize_request_send(request, link, state, scratch).await?;
         }
-        Command::Subscribe {
+        Command::StreamOpen {
             path_kind,
             stream_data_tx,
         } => {

@@ -71,6 +71,7 @@ pub fn client(
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
                 Error as ShrinkWrapError, nib32::UNib32, RefVec
             };
+            use wire_weaver_client_common::StreamEvent;
             use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
             #additional_use
 
@@ -481,9 +482,12 @@ fn handle_stream(
         // client in
         let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
         quote! {
-            pub fn #subscribe_fn(&self) -> std::sync::mpsc::Receiver<either::Either<#ty_def, StreamSidebandEvent>> {
+            pub async fn #subscribe_fn(&self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
+                let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+                let _data = self.cmd_tx.send_stream_open(path_kind, tx).await?;
+                Ok(rx)
             }
         }
     } else {
@@ -504,9 +508,10 @@ fn handle_stream(
         #specific_methods
 
         pub async fn #sideband_fn_name(&self, sideband_cmd: StreamSidebandCommand) -> Result</*StreamSidebandEvent*/ (), wire_weaver_client_common::Error> {
-                #index_chain_push
-                let path_kind = #path_kind;
+            #index_chain_push
+            let path_kind = #path_kind;
 
+            Ok(())
         }
     }
 }

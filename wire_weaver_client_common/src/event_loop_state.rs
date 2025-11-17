@@ -6,6 +6,8 @@ use wire_weaver::prelude::UNib32;
 use ww_version::FullVersionOwned;
 
 pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
+
+// TODO: change to StreamEvent
 pub type StreamUpdateSender = mpsc::UnboundedSender<Result<Vec<u8>, Error>>;
 
 pub struct CommonState {
@@ -15,7 +17,7 @@ pub struct CommonState {
     // conn_state: Arc<RwLock<ConnectionInfo>>,
     pub connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     pub response_map: HashMap<SeqTy, (ResponseSender, Instant)>,
-    pub stream_handlers: HashMap<Vec<UNib32>, StreamUpdateSender>,
+    pub stream_handlers: HashMap<Vec<UNib32>, StreamUpdateSender>, // TODO: multiple subscribers
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
     pub last_ping_instant: Option<Instant>,

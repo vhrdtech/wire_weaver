@@ -1,8 +1,8 @@
-use crate::ast::Type;
 use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
 };
 use crate::ast::path::Path;
+use crate::ast::{Docs, Type};
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::ty::FieldPath;
@@ -202,6 +202,7 @@ fn level_method(
             ident,
             args,
             return_type,
+            &item.docs,
         ),
         ApiItemKind::Property { access, ident, ty } => handle_property(
             model,
@@ -250,6 +251,7 @@ fn handle_method(
     ident: &Ident,
     args: &[Argument],
     return_type: &Option<Type>,
+    docs: &Docs,
 ) -> TokenStream {
     let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, model.no_alloc());
     let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
@@ -283,23 +285,31 @@ fn handle_method(
     let path_kind = path_kind(path_mode, full_gid_path);
     let fn_call = |default_timeout: bool| {
         let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
-        let call_fn_name = if default_timeout {
-            ident.clone()
+        let timeout_fn_name = Ident::new(&format!("{}_timeout", ident), ident.span());
+        if default_timeout {
+            let args_idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
+            quote! {
+                #docs
+                #[doc = "NOTE: This method uses `self.timeout` as timeout."]
+                pub async fn #ident(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error> {
+                    self.#timeout_fn_name(#(#args_idents),* self.timeout).await
+                }
+            }
         } else {
-            Ident::new(&format!("{}_timeout", ident), ident.span())
-        };
-        quote! {
-            pub async fn #call_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
-                #args_ser
-                let args_bytes = #args_bytes;
-                #index_chain_push
-                let path_kind = #path_kind;
-                let return_bytes = self.cmd_tx.send_call_receive_reply(
-                    path_kind,
-                    args_bytes,
-                    #timeout_val
-                ).await?;
-                #handle_output
+            quote! {
+                #docs
+                pub async fn #timeout_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
+                    #args_ser
+                    let args_bytes = #args_bytes;
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    let return_bytes = self.cmd_tx.send_call_receive_reply(
+                        path_kind,
+                        args_bytes,
+                        #timeout_val
+                    ).await?;
+                    #handle_output
+                }
             }
         }
     };

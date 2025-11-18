@@ -1,5 +1,7 @@
 use crate::ast::Type;
-use crate::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, PropertyAccess};
+use crate::ast::api::{
+    ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
+};
 use crate::ast::path::Path;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
@@ -162,31 +164,32 @@ fn level_methods(
     path_mode: ClientPathMode,
     full_gid_path: &TokenStream,
 ) -> TokenStream {
-    let handlers = api_level.items.iter().map(|item| {
-        level_method(
-            &item.kind,
-            item.id,
-            index_chain,
-            model,
-            path_mode,
-            full_gid_path,
-        )
-    });
+    let handlers = api_level
+        .items
+        .iter()
+        .map(|item| level_method(&item, index_chain, model, path_mode, full_gid_path));
     quote! {
         #(#handlers)*
     }
 }
 
 fn level_method(
-    kind: &ApiItemKind,
-    id: u32,
+    item: &ApiItem,
     mut index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
     full_gid_path: &TokenStream,
 ) -> TokenStream {
+    let id = item.id;
     let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
-    match kind {
+    let (index_chain_push, maybe_index_arg) =
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            let p = index_chain.push_back(quote! {}, quote! { UNib32(index) });
+            (quote! { #index_chain_push #p }, quote! { , index: u32 })
+        } else {
+            (index_chain_push, quote! {})
+        };
+    match &item.kind {
         ApiItemKind::Method {
             ident,
             args,
@@ -225,8 +228,8 @@ fn level_method(
             let mod_name = level.mod_ident(ext_crate_name.as_ref());
             let client_struct_name = level.client_struct_name(ext_crate_name.as_ref());
             quote! {
-                pub fn #level_entry_fn_name(&mut self) -> #mod_name::#client_struct_name<'_> {
-                    #index_chain_push;
+                pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
+                    #index_chain_push
                     #mod_name::#client_struct_name {
                         index_chain,
                         args_scratch: self.args_scratch,

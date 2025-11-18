@@ -57,6 +57,8 @@ impl IndexChain {
         }
     }
 
+    /// Increments length and generates code that creates new index chain from all previous elements + one new from `expr`:
+    /// `let index_chain: [UNib32; prev_len + 1] = [ <source> index_chain[0], <source> index_chain[1], ..., <expr> ];`
     pub fn push_back(&mut self, source: TokenStream, expr: TokenStream) -> TokenStream {
         let prev_len = self.len;
         self.len += 1;

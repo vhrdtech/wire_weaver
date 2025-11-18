@@ -127,7 +127,7 @@ struct ApiServerCGContext<'i> {
 fn process_request_inner_recursive(
     ident: Ident,
     api_level: &ApiLevel,
-    index_chain: IndexChain,
+    mut index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
 ) -> TokenStream {
@@ -176,6 +176,9 @@ fn process_request_inner_recursive(
             args.trait_name.to_string().to_case(Case::Snake).as_str(),
             Span::call_site(),
         ));
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            index_chain.increment_length();
+        }
         ts.extend(process_request_inner_recursive(
             process_fn_name,
             level,
@@ -208,9 +211,9 @@ fn level_matchers(
         ),
         Multiplicity::Array { .. } => {
             let check_err_on_no_alloc = if cx.no_alloc {
-                quote! { .map_err(|_| Error::ArrayIndexDesFailed)?.0 }
+                quote! { .map_err(|_| Error::ArrayIndexDesFailed)? }
             } else {
-                quote! { .0 }
+                quote! { }
             };
             let maybe_index_chain_push =
                 index_chain.push_back( quote! { }, quote! { path_iter.next().ok_or(Error::ExpectedArrayIndexGotNone)?#check_err_on_no_alloc });
@@ -269,7 +272,7 @@ fn level_matcher(
             let maybe_await = maybe_quote(cx.use_async, quote! { .await });
             let maybe_index_chain_arg = index_chain.fun_argument_call();
             quote! {
-                Ok(self.#process_fn_name(#maybe_index_chain_arg path_iter, request, scratch_event, scratch_args)#maybe_await?)
+                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args)#maybe_await?)
             }
         }
     }

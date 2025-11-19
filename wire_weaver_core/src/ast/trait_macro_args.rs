@@ -2,6 +2,7 @@ use crate::ast::api::{Multiplicity, PropertyAccess};
 use proc_macro2::{Ident, Span};
 use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
+use syn::spanned::Spanned;
 use syn::{LitStr, Token};
 
 /// Used inside `ww_trait!` to define a stream or a sink: `stream!(stream_name: StreamTy);`
@@ -129,10 +130,21 @@ impl Parse for ImplTraitLocation {
             //     .write_errors();
             // }
             let _: Token![as] = input.parse()?;
-            let crate_name = input.parse()?;
+
+            let lookahead = input.lookahead1();
+            let crate_or_mod_name = if lookahead.peek(Token![super]) {
+                let _super: Token![super] = input.parse()?;
+                Ident::new("super", _super.span())
+            } else if lookahead.peek(Token![crate]) {
+                let _crate: Token![crate] = input.parse()?;
+                Ident::new("crate", _crate.span())
+            } else {
+                let crate_name: Ident = input.parse()?;
+                crate_name
+            };
             Ok(ImplTraitLocation::AnotherFile {
                 path: location.value(),
-                part_of_crate: crate_name,
+                part_of_crate: crate_or_mod_name,
             })
         } else {
             Ok(ImplTraitLocation::SameFile)

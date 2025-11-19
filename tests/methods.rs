@@ -11,12 +11,20 @@ trait Methods {
     fn no_args();
     fn one_plain_arg(value: u8);
     fn plain_return() -> u8;
+    fn user_arg(u: UserDefined<'i>);
 
     // user-defined
     // ()
     // array of methods
     // evolve args
     // evolve return from plain to struct
+}
+
+#[derive_shrink_wrap]
+#[owned = "std"]
+struct UserDefined<'i> {
+    a: u8,
+    b: RefVec<'i, u8>,
 }
 
 #[derive(Default)]
@@ -44,14 +52,23 @@ mod no_std_sync_server {
         fn plain_return(&mut self) -> u8 {
             0xAA
         }
+
+        fn user_arg(&mut self, u: UserDefined<'_>) {
+            assert_eq!(u.a, 123);
+            let mut iter = u.b.into_iter();
+            assert_eq!(iter.next(), Some(&1));
+            assert_eq!(iter.next(), Some(&2));
+            assert_eq!(iter.next(), Some(&3));
+            assert_eq!(iter.next(), None);
+        }
     }
 
     ww_api!(
-        "methods.rs" as tests::Methods for NoStdSyncServer,
+        "methods.rs" as super::Methods for NoStdSyncServer,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        // debug_to_file = "../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
+        debug_to_file = "../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
     );
 }
 
@@ -67,10 +84,11 @@ mod std_async_client {
     }
 
     ww_api!(
-        "methods.rs" as tests::Methods for StdAsyncClient,
+        "methods.rs" as crate::Methods for StdAsyncClient,
         client = "async_worker",
         no_alloc = false,
         use_async = true,
+        debug_to_file = "../target/tests_methods_client.rs"
     );
 }
 
@@ -121,4 +139,13 @@ async fn std_async_client_driving_no_std_sync_server() {
 
     let value = client.root().plain_return().await.unwrap();
     assert_eq!(value, 0xAA);
+
+    client
+        .root()
+        .user_arg(UserDefinedOwned {
+            a: 123,
+            b: vec![1, 2, 3],
+        })
+        .await
+        .unwrap();
 }

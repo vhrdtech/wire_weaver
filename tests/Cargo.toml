@@ -11,6 +11,10 @@ wire_weaver_client_common = { path = "../wire_weaver_client_common" }
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "test-util"] }
 hex-literal = "1"
 
+[features]
+default = ["std"]
+std = []
+
 [[test]]
 name = "basic_types"
 path = "basic_types.rs"

@@ -383,10 +383,10 @@ fn handle_property(
             }
         };
         let prop_write_default_timeout = prop_write(true);
-        let prop_write = prop_write(false);
+        // let prop_write = prop_write(false);
         quote! {
             #prop_write_default_timeout
-            #prop_write
+            // #prop_write
         }
     } else {
         quote! {}
@@ -419,10 +419,10 @@ fn handle_property(
             }
         };
         let prop_read_default_timout = prop_read(true);
-        let prop_read = prop_read(false);
+        // let prop_read = prop_read(false);
         quote! {
             #prop_read_default_timout
-            #prop_read
+            // #prop_read
         }
     } else {
         quote! {}

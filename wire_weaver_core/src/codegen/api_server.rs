@@ -126,6 +126,22 @@ struct ApiServerCGContext<'i> {
     property_model: &'i PropertyModel,
 }
 
+impl<'i> ApiServerCGContext<'i> {
+    fn push_suffix(&mut self, suffix: &Ident) {
+        if let Some(prefix) = &self.ident_prefix {
+            self.ident_prefix = Some(Ident::new(
+                format!("{}_{}", prefix, suffix.to_string().to_case(Case::Snake)).as_str(),
+                Span::call_site(),
+            ));
+        } else {
+            self.ident_prefix = Some(Ident::new(
+                suffix.to_string().to_case(Case::Snake).as_str(),
+                Span::call_site(),
+            ));
+        }
+    }
+}
+
 fn process_request_inner_recursive(
     ident: Ident,
     api_level: &ApiLevel,
@@ -174,10 +190,7 @@ fn process_request_inner_recursive(
             Span::call_site(),
         );
         let mut cx = cx.clone();
-        cx.ident_prefix = Some(Ident::new(
-            args.trait_name.to_string().to_case(Case::Snake).as_str(),
-            Span::call_site(),
-        ));
+        cx.push_suffix(&args.trait_name);
         let mut index_chain = index_chain.clone();
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
@@ -358,19 +371,25 @@ fn handle_property(
         &mut des,
     );
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
+    let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let set_property = match property_model_pick {
         PropertyModelKind::GetSet => {
-            let set_property = Ident::new(format!("set_{}", ident).as_str(), Span::call_site());
+            let set_property = Ident::new(
+                format!("set_{}", prefixed_ident).as_str(),
+                Span::call_site(),
+            );
             quote! {
                 self.#set_property(#maybe_index_chain_arg value)#maybe_await;
             }
         }
         PropertyModelKind::ValueOnChanged => {
-            let on_property_changed =
-                Ident::new(format!("on_{}_changed", ident).as_str(), Span::call_site());
+            let on_property_changed = Ident::new(
+                format!("on_{}_changed", prefixed_ident).as_str(),
+                Span::call_site(),
+            );
             quote! {
-                if self.#ident != value {
-                    self.#ident = value;
+                if self.#prefixed_ident != value {
+                    self.#prefixed_ident = value;
                     self.#on_property_changed(#maybe_index_chain_arg)#maybe_await;
                 }
             }
@@ -378,7 +397,10 @@ fn handle_property(
     };
     let get_and_ser_property = match property_model_pick {
         PropertyModelKind::GetSet => {
-            let get_property = Ident::new(format!("get_{}", ident).as_str(), Span::call_site());
+            let get_property = Ident::new(
+                format!("get_{}", prefixed_ident).as_str(),
+                Span::call_site(),
+            );
             let mut ser = TokenStream::new();
             ty.buf_write(
                 FieldPath::Value(quote! { value }),
@@ -395,7 +417,7 @@ fn handle_property(
         PropertyModelKind::ValueOnChanged => {
             let mut ser = TokenStream::new();
             ty.buf_write(
-                FieldPath::Value(quote! { self.#ident #maybe_index_chain_indices }),
+                FieldPath::Value(quote! { self.#prefixed_ident #maybe_index_chain_indices }),
                 cx.no_alloc,
                 quote! { .map_err(|_| Error::ResponseSerFailed)? },
                 &mut ser,

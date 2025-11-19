@@ -36,6 +36,7 @@ trait Peripheral {
 #[ww_trait]
 trait Channel {
     property!(gain: f32);
+    fn run();
 }
 
 #[derive(Default)]
@@ -65,11 +66,11 @@ mod no_std_sync_server {
                 .push(index[0].0);
         }
 
-        fn set_gain(&mut self, index: [UNib32; 2], gain: f32) {
+        fn set_peripheral_channel_gain(&mut self, index: [UNib32; 2], gain: f32) {
             self.data.write().unwrap().set_gain.insert(index, gain);
         }
 
-        fn get_gain(&self, index: [UNib32; 2]) -> f32 {
+        fn get_peripheral_channel_gain(&self, index: [UNib32; 2]) -> f32 {
             self.data
                 .read()
                 .unwrap()
@@ -78,6 +79,8 @@ mod no_std_sync_server {
                 .copied()
                 .unwrap_or(0.0)
         }
+
+        fn peripheral_channel_run(&mut self, _index: [UNib32; 2]) {}
     }
 
     ww_api!(

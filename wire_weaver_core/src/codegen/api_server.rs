@@ -1,3 +1,5 @@
+//! # Implementation details:
+//! * Server's index chain contains only array indices on the way to a resource
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{TokenStreamExt, quote};
@@ -127,7 +129,7 @@ struct ApiServerCGContext<'i> {
 fn process_request_inner_recursive(
     ident: Ident,
     api_level: &ApiLevel,
-    mut index_chain: IndexChain,
+    index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
 ) -> TokenStream {
@@ -176,6 +178,7 @@ fn process_request_inner_recursive(
             args.trait_name.to_string().to_case(Case::Snake).as_str(),
             Span::call_site(),
         ));
+        let mut index_chain = index_chain.clone();
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
         }
@@ -192,7 +195,7 @@ fn process_request_inner_recursive(
 
 fn level_matchers(
     api_level: &ApiLevel,
-    mut index_chain: IndexChain,
+    index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
 ) -> TokenStream {
@@ -215,6 +218,7 @@ fn level_matchers(
             } else {
                 quote! { }
             };
+            let mut index_chain = index_chain.clone();
             let maybe_index_chain_push =
                 index_chain.push_back( quote! { }, quote! { path_iter.next().ok_or(Error::ExpectedArrayIndexGotNone)?#check_err_on_no_alloc });
             let lm = level_matcher(

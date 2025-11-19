@@ -1,5 +1,6 @@
 mod common;
 
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -10,6 +11,7 @@ use wire_weaver_client_common::CommandSender;
 trait Traits {
     ww_impl!(g1: Subgroup);
     ww_impl!(gpio[]: Gpio);
+    ww_impl!(periph[]: Peripheral);
 
     // TODO: print proper error when implementing same trait twice?
     // trait from crates
@@ -26,10 +28,21 @@ trait Gpio {
     fn set_high();
 }
 
+#[ww_trait]
+trait Peripheral {
+    ww_impl!(channel[]: Channel);
+}
+
+#[ww_trait]
+trait Channel {
+    property!(gain: f32);
+}
+
 #[derive(Default)]
 struct SharedTestData {
     subgroup_m1_called: bool,
     gpio_used_indices: Vec<u32>,
+    set_gain: HashMap<[UNib32; 2], f32>,
 }
 
 mod no_std_sync_server {
@@ -50,6 +63,20 @@ mod no_std_sync_server {
                 .unwrap()
                 .gpio_used_indices
                 .push(index[0].0);
+        }
+
+        fn set_gain(&mut self, index: [UNib32; 2], gain: f32) {
+            self.data.write().unwrap().set_gain.insert(index, gain);
+        }
+
+        fn get_gain(&self, index: [UNib32; 2]) -> f32 {
+            self.data
+                .read()
+                .unwrap()
+                .set_gain
+                .get(&index)
+                .copied()
+                .unwrap_or(0.0)
         }
     }
 
@@ -129,4 +156,24 @@ async fn std_async_client_driving_no_std_sync_server() {
 
     client.root().gpio(123).set_high().await.unwrap();
     assert!(data.read().unwrap().gpio_used_indices.contains(&123));
+
+    client
+        .root()
+        .periph(3)
+        .channel(7)
+        .write_gain(10.0)
+        .await
+        .unwrap();
+    assert_eq!(
+        data.read().unwrap().set_gain.get(&[UNib32(3), UNib32(7)]),
+        Some(&10.0)
+    );
+    let value = client
+        .root()
+        .periph(3)
+        .channel(7)
+        .read_gain()
+        .await
+        .unwrap();
+    assert!(value == 10.0);
 }

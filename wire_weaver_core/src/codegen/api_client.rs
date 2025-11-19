@@ -1,3 +1,5 @@
+//! # Implementation details:
+//! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
 use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
 };
@@ -96,7 +98,7 @@ pub fn client(
 
 fn client_structs_recursive(
     api_level: &ApiLevel,
-    mut index_chain: IndexChain,
+    index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     model: ClientModel,
     path_mode: ClientPathMode,
@@ -124,7 +126,11 @@ fn client_structs_recursive(
             continue;
         };
         let level = level.as_ref().expect("empty level");
+        let mut index_chain = index_chain.clone();
         index_chain.increment_length();
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            index_chain.increment_length();
+        }
         child_ts.extend(client_structs_recursive(
             level,
             index_chain,

@@ -172,6 +172,34 @@ impl ApiLevel {
         let full_gid = self.full_gid();
         quote! { #crate_name::#full_gid }
     }
+
+    pub fn make_owned(&mut self) {
+        for item in &mut self.items {
+            match &mut item.kind {
+                ApiItemKind::Method {
+                    args, return_type, ..
+                } => {
+                    for arg in args {
+                        arg.ty.make_owned();
+                    }
+                    if let Some(return_type) = return_type {
+                        return_type.make_owned();
+                    }
+                }
+                ApiItemKind::Property { ty, .. } => {
+                    ty.make_owned();
+                }
+                ApiItemKind::Stream { ty, .. } => {
+                    ty.make_owned();
+                }
+                ApiItemKind::ImplTrait { level, .. } => {
+                    if let Some(level) = level {
+                        level.make_owned();
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn use_ty(parent: &Path, path: &Path, ts: &mut TokenStream) {

@@ -28,13 +28,17 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
-    let level = load_api_level_recursive(
+    let mut level = load_api_level_recursive(
         &args.location,
         args.trait_name.clone(),
         None,
         &manifest_dir,
         &mut cache,
     )?;
+
+    if !args.ext.no_alloc {
+        level.make_owned();
+    }
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {

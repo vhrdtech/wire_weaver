@@ -314,6 +314,9 @@ impl Type {
             Type::Vec(layout) => {
                 layout.make_owned();
             }
+            Type::RefBox(ref_box) => {
+                ref_box.make_owned();
+            }
             _ => {}
         }
     }

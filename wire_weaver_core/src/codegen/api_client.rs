@@ -294,11 +294,12 @@ fn handle_method(
         let timeout_fn_name = Ident::new(&format!("{}_timeout", ident), ident.span());
         if default_timeout {
             let args_idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
+            let maybe_comma = maybe_quote(!args.is_empty(), quote! { , });
             quote! {
                 #docs
                 #[doc = "NOTE: This method uses `self.timeout` as timeout."]
                 pub async fn #ident(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error> {
-                    self.#timeout_fn_name(#(#args_idents),* self.timeout).await
+                    self.#timeout_fn_name(#(#args_idents),* #maybe_comma self.timeout).await
                 }
             }
         } else {

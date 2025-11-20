@@ -96,7 +96,17 @@ pub fn ser_command(command: Command, state: &mut State, scratch: &mut [u8]) -> (
 pub fn send_response(r: Result<&[u8], shrink_wrap::Error>, done_tx: DoneTx, state: &mut State) {
     match r {
         Ok(response_bytes) => {
-            let event = Event::from_ww_bytes(response_bytes).unwrap();
+            if response_bytes.is_empty() {
+                println!("ignoring empty response");
+                return;
+            }
+            let event = match Event::from_ww_bytes(response_bytes) {
+                Ok(event) => event,
+                Err(e) => {
+                    println!("failed to deserialize Event: {response_bytes:02x?}");
+                    panic!("{:?}", e);
+                }
+            };
             println!("response: {response_bytes:02x?} {event:?}");
             match event.result {
                 Ok(event_kind) => match event_kind {

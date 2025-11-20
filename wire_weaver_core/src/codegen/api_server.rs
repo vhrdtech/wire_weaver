@@ -516,31 +516,41 @@ fn handle_stream(
         }
     } else {
         // sink (device in)
+        let other_des = || {
+            let mut ts = quote! {
+                let mut rd = BufReader::new(data);
+            };
+            ty.buf_read(
+                &Ident::new("value", Span::call_site()),
+                true,
+                quote! { .map_err(|_e| Error::ArgsDesFailed)? },
+                &mut ts,
+            );
+            (ts, quote! { value })
+        };
         let write = Ident::new(format!("{}_write", ident).as_str(), ident.span());
         let (des_data, arg) = match ty {
             Type::Tuple(elements) => {
                 if elements.is_empty() {
                     (quote! {}, quote! { () })
                 } else {
-                    todo!("tuple")
+                    other_des()
                 }
             }
             Type::Vec(inner) => {
                 if matches!(inner.as_ref(), Type::U8) {
                     (quote! {}, quote! { data })
                 } else {
-                    todo!("vec of other")
+                    other_des()
                 }
             }
-            _ => {
-                todo!("other")
-            }
+            _ => other_des(),
         };
         let maybe_comma = maybe_quote(!index_chain.is_empty(), quote! { , });
         quote! {
             RequestKind::Write { data } => {
                 #des_data
-                let r = self.#write(#maybe_index_chain_call #maybe_comma #arg)#maybe_await;
+                self.#write(#maybe_index_chain_call #maybe_comma #arg)#maybe_await;
                 Ok(&[]) // do not send acknowledgements on stream writes
             }
             RequestKind::StreamSideband { sideband_cmd } => {

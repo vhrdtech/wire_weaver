@@ -502,11 +502,11 @@ fn handle_stream(
         // client in
         let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
         quote! {
-            pub async fn #subscribe_fn(&self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
+            pub fn #subscribe_fn(&self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-                let _data = self.cmd_tx.send_stream_open(path_kind, tx).await?;
+                let _data = self.cmd_tx.send_stream_open(path_kind, tx)?;
                 Ok(rx)
             }
         }
@@ -514,11 +514,11 @@ fn handle_stream(
         // client out
         let publish_fn = Ident::new(format!("{}_pub", ident).as_str(), ident.span());
         quote! {
-            pub fn #publish_fn(&self, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
+            pub fn #publish_fn(&mut self, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
                 #ser
                 #index_chain_push
                 let path_kind = #path_kind;
-                let _data = self.cmd_tx.send_write_forget(path_kind, value).await?;
+                let _data = self.cmd_tx.send_write_forget(path_kind, value)?;
                 Ok(())
             }
             // TOD: client stream out?

@@ -85,11 +85,7 @@ impl CommandSender {
         Ok(())
     }
 
-    pub async fn send_write_forget(
-        &self,
-        path: PathKind<'_>,
-        value_bytes: Vec<u8>,
-    ) -> Result<(), Error> {
+    pub fn send_write_forget(&self, path: PathKind<'_>, value_bytes: Vec<u8>) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
         let cmd = Command::SendWrite {
             path_kind,
@@ -101,7 +97,7 @@ impl CommandSender {
         Ok(())
     }
 
-    pub async fn send_stream_open(
+    pub fn send_stream_open(
         &self,
         path: PathKind<'_>,
         stream_data_tx: UnboundedSender<StreamEvent>,

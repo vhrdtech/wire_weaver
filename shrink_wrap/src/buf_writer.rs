@@ -27,6 +27,7 @@ pub struct BufWriter<'i> {
 
 impl<'i> BufWriter<'i> {
     /// Create a new BufWriter from the provided mutable slice.
+    /// `buf` does not need to be initialized to zero.
     pub fn new(buf: &'i mut [u8]) -> Self {
         let len_bytes = buf.len();
         Self {

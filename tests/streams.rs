@@ -190,7 +190,11 @@ async fn std_async_client_driving_no_std_sync_server() {
         .expect("successful stream open");
     notify_tx.send(1).unwrap();
     let stream_data = rx2.recv().await.unwrap();
-    assert_eq!(stream_data, StreamEvent::Data(vec![0xAA, 0xBB, 0xCC]));
+    let StreamEvent::Data(data) = stream_data else {
+        panic!("wrong stream event");
+    };
+    let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
+    assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
 
     handle.abort();
 }

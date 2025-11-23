@@ -25,7 +25,7 @@ members = [
     "wire_weaver_client_common",
     "wire_weaver_udp_link",
     #    "wire_weaver_tool",
-    #    "examples/*",
+    "examples/*",
     "tests",
     "ww_client_server",
     "ww_date_time",
@@ -35,5 +35,6 @@ members = [
     "ww_si",
     "ww_can_bus",
     "ww_log_bare_metal",
-    "ww_dfu", "examples/minimal_shrink_wrap", "examples/minimal_derive", "examples/compare_wire_formats",
+    "ww_dfu",
+    "ww_global",
 ]

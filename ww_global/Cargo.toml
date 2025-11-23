@@ -1,0 +1,13 @@
+[package]
+name = "ww_global"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+
+[dependencies]
+shrink_wrap = { path = "../shrink_wrap" }
+
+[build-dependencies]
+serde_json = "1.0"
+convert_case = "0.10"

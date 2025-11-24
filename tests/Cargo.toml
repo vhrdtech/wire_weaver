@@ -34,3 +34,6 @@ path = "streams.rs"
 name = "traits"
 path = "traits.rs"
 
+[[test]]
+name = "stack_vec"
+path = "stack_vec.rs"

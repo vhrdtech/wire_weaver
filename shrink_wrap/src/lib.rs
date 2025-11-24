@@ -17,7 +17,9 @@ pub use traits::{DeserializeShrinkWrap, ElementSize, SerializeShrinkWrap};
 #[cfg(feature = "std")]
 pub mod alloc;
 pub mod nib;
+pub mod stack_vec;
 pub mod un;
+
 pub use nib::Nibble;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

@@ -10,7 +10,7 @@ use wire_weaver::shrink_wrap::ref_vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver_client_common::ww_client_server::PathKindOwned;
 use wire_weaver_client_common::{
-    Command, Error, OnError,
+    Command, Error, OnError, StreamEvent,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
@@ -339,8 +339,8 @@ async fn handle_message(
                         let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let r = data.as_slice().to_vec();
-                            should_drop_handler = tx.send(Ok(r)).is_err();
+                            let data = data.as_slice().to_vec();
+                            should_drop_handler = tx.send(StreamEvent::Data(data)).is_err();
                         }
                         if should_drop_handler {
                             info!(

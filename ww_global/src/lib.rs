@@ -1,3 +1,5 @@
+#![no_std]
+
 use shrink_wrap::UNib32;
 
 pub const WW_LOG_BARE_METAL: UNib32 = UNib32(0);

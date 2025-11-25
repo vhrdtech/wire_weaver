@@ -5,6 +5,8 @@ mod tests {
     use core::future::{Future, ready};
     use std::collections::VecDeque;
     use std::vec::Vec;
+    use wire_weaver::prelude::FullVersion;
+    use wire_weaver::ww_version::Version;
     use worst_executor::block_on;
 
     struct VecSink {
@@ -26,16 +28,6 @@ mod tests {
             self.frames.push_back(data.to_vec());
             Ok(())
         }
-
-        // async fn wait_connection(&mut self) {}
-
-        // async fn rx_from_source(&mut self) -> LinkMgmtCmd {
-        //     unimplemented!()
-        // }
-
-        // fn try_rx_from_source(&mut self) -> Option<LinkMgmtCmd> {
-        //     None
-        // }
     }
 
     impl PacketSource for VecSink {
@@ -50,57 +42,55 @@ mod tests {
             }
         }
 
-        // async fn wait_connection(&mut self) {}
-
-        // fn send_to_sink(&mut self, _msg: LinkMgmtCmd) {}
+        // async fn wait_usb_connection(&mut self) {}
     }
 
-    fn create_frame_builder(buf: &mut [u8]) -> MessageSender<VecSink> {
-        MessageSender::new(
-            buf,
+    fn create_link<'i>(
+        tx_buf: &'i mut [u8],
+        rx_buf: &'i mut [u8],
+    ) -> WireWeaverUsbLink<'i, VecSink, VecSink> {
+        WireWeaverUsbLink::new(
+            FullVersion::new("test", Version::new(0, 0, 0)),
             VecSink::new(),
-            ProtocolInfo {
-                protocol_id: 0,
-                major_version: 0,
-                minor_version: 0,
-            },
+            tx_buf,
+            VecSink::new(),
+            rx_buf,
         )
     }
 
     #[test]
     fn packet_not_sent_automatically() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.send_message(&[1, 2, 3])).unwrap();
-        let (_, sink) = builder.deinit();
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        block_on(link.send_message(&[1, 2, 3])).unwrap();
+        let (_, tx, rx) = link.de_init();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
-        assert_eq!(sink.frames.len(), 0);
+        assert_eq!(tx.frames.len(), 0);
     }
 
     #[test]
     fn message_fits_fully() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.send_message(&[1, 2, 3, 4, 5, 6])).unwrap();
-        let (_, sink) = builder.deinit();
-        assert_eq!(sink.frames.len(), 1);
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        block_on(link.send_message(&[1, 2, 3, 4, 5, 6])).unwrap();
+        let (_, tx, rx) = link.de_init();
+        assert_eq!(tx.frames.len(), 1);
         assert_eq!(
-            sink.frames[0],
+            tx.frames[0],
             vec![(Op::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
 
-        let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = MessageReceiver::new(
-            sink,
-            &mut staging,
-            ProtocolInfo {
-                protocol_id: 0,
-                major_version: 0,
-                minor_version: 0,
-            },
+        let mut link = WireWeaverUsbLink::new(
+            FullVersion::new("test", Version::new(0, 0, 0)),
+            VecSink::new(),
+            &mut tx_buf,
+            tx,
+            &mut rx_buf,
         );
-        let len = block_on(reader.receive_message(&mut receive)).unwrap();
+        let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
         };
@@ -109,18 +99,19 @@ mod tests {
 
     #[test]
     fn split_into_two() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.send_message(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
-        let (_, sink) = builder.deinit();
-        assert_eq!(sink.frames.len(), 2);
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        block_on(link.send_message(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
+        let (_, tx, rx) = link.de_init();
+        assert_eq!(tx.frames.len(), 2);
         assert_eq!(
-            sink.frames[0],
+            tx.frames[0],
             vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         let crc = CRC_KIND.checksum(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
-            sink.frames[1],
+            tx.frames[1],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x02,
@@ -131,18 +122,15 @@ mod tests {
             ]
         );
 
-        let mut staging = [0u8; 8];
         let mut receive = [0u8; 8];
-        let mut reader = MessageReceiver::new(
-            sink,
-            &mut staging,
-            ProtocolInfo {
-                protocol_id: 0,
-                major_version: 0,
-                minor_version: 0,
-            },
+        let mut link = WireWeaverUsbLink::new(
+            FullVersion::new("test", Version::new(0, 0, 0)),
+            VecSink::new(),
+            &mut tx_buf,
+            tx,
+            &mut rx_buf,
         );
-        let len = block_on(reader.receive_message(&mut receive)).unwrap();
+        let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
         };
@@ -151,23 +139,24 @@ mod tests {
 
     #[test]
     fn split_into_three() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
         const PACKET: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-        block_on(builder.send_message(PACKET)).unwrap();
-        let (_, sink) = builder.deinit();
-        assert_eq!(sink.frames.len(), 3);
+        block_on(link.send_message(PACKET)).unwrap();
+        let (_, tx, rx) = link.de_init();
+        assert_eq!(tx.frames.len(), 3);
         assert_eq!(
-            sink.frames[0],
+            tx.frames[0],
             vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         assert_eq!(
-            sink.frames[1],
+            tx.frames[1],
             vec![(Op::MessageContinue as u8) << 4, 0x06, 7, 8, 9, 10, 11, 12]
         );
         let crc = CRC_KIND.checksum(PACKET);
         assert_eq!(
-            sink.frames[2],
+            tx.frames[2],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x02,
@@ -178,18 +167,15 @@ mod tests {
             ]
         );
 
-        let mut staging = [0u8; 16];
-        let mut receive = [0u8; 16];
-        let mut reader = MessageReceiver::new(
-            sink,
-            &mut staging,
-            ProtocolInfo {
-                protocol_id: 0,
-                major_version: 0,
-                minor_version: 0,
-            },
+        let mut receive = [0u8; 8];
+        let mut link = WireWeaverUsbLink::new(
+            FullVersion::new("test", Version::new(0, 0, 0)),
+            VecSink::new(),
+            &mut tx_buf,
+            tx,
+            &mut rx_buf,
         );
-        let len = block_on(reader.receive_message(&mut receive)).unwrap();
+        let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
         };
@@ -201,16 +187,17 @@ mod tests {
 
     #[test]
     fn left_3_write_4() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.send_message(&[1, 2, 3])).unwrap();
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        block_on(link.send_message(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.send_message(&[4, 5, 6, 7])).unwrap();
-        block_on(builder.force_send()).unwrap();
-        let (_, sink) = builder.deinit();
-        assert_eq!(sink.frames.len(), 2);
+        block_on(link.send_message(&[4, 5, 6, 7])).unwrap();
+        block_on(link.force_send()).unwrap();
+        let (_, tx, rx) = link.de_init();
+        assert_eq!(tx.frames.len(), 2);
         assert_eq!(
-            sink.frames[0],
+            tx.frames[0],
             vec![
                 (Op::MessageStartEnd as u8) << 4,
                 0x03,
@@ -224,7 +211,7 @@ mod tests {
         );
         let crc = CRC_KIND.checksum(&[4, 5, 6, 7]);
         assert_eq!(
-            sink.frames[1],
+            tx.frames[1],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x03,
@@ -239,16 +226,17 @@ mod tests {
 
     #[test]
     fn left_3_write_6() {
-        let mut buf = [0u8; 8];
-        let mut builder = create_frame_builder(&mut buf);
-        block_on(builder.send_message(&[1, 2, 3])).unwrap();
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        block_on(link.send_message(&[1, 2, 3])).unwrap();
         // 3 bytes still remain in the buffer
-        block_on(builder.send_message(&[4, 5, 6, 7, 8, 9])).unwrap();
-        block_on(builder.force_send()).unwrap();
-        let (_, sink) = builder.deinit();
-        assert_eq!(sink.frames.len(), 3);
+        block_on(link.send_message(&[4, 5, 6, 7, 8, 9])).unwrap();
+        block_on(link.force_send()).unwrap();
+        let (_, tx, rx) = link.de_init();
+        assert_eq!(tx.frames.len(), 3);
         assert_eq!(
-            sink.frames[0],
+            tx.frames[0],
             vec![
                 (Op::MessageStartEnd as u8) << 4,
                 0x03,
@@ -261,14 +249,14 @@ mod tests {
             ]
         );
         let crc = CRC_KIND.checksum(&[4, 5, 6, 7, 8, 9]);
-        assert_eq!(sink.frames[1].len(), 7);
+        assert_eq!(tx.frames[1].len(), 7);
         assert_eq!(
-            sink.frames[1],
+            tx.frames[1],
             vec![(Op::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
         );
-        assert_eq!(sink.frames[2].len(), 4);
+        assert_eq!(tx.frames[2].len(), 4);
         assert_eq!(
-            sink.frames[2],
+            tx.frames[2],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x00,
@@ -277,20 +265,4 @@ mod tests {
             ]
         );
     }
-
-    // #[test]
-    // fn adhoc() {
-    //     let mut buf = [0u8; 64];
-    //     let mut builder = FrameBuilder::new(&mut buf, VecSink::new());
-    //     block_on(builder.write_packet(&[0, 0, 0, 0, 0, 0, 0, 0])).unwrap();
-    //     block_on(builder.force_send()).unwrap();
-    //     let (_, sink) = builder.deinit();
-    //     println!("{}", sink.frames.len());
-    //
-    //     let mut staging = [0u8; 64];
-    //     let mut receive = [0u8; 2048];
-    //     let mut reader = FrameReader::new(sink, &mut staging);
-    //     let len = block_on(reader.read_packet(&mut receive)).unwrap();
-    //     assert_eq!(&receive[..len], &[0, 0, 0, 0, 0, 0, 0, 0]);
-    // }
 }

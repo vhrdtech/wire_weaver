@@ -6,7 +6,6 @@ mod ww_nusb;
 pub use event_loop::usb_worker;
 pub use nusb::DeviceInfo;
 pub use wire_weaver_client_common;
-pub use wire_weaver_usb_link::ProtocolInfo;
 
 use nusb::Error as NusbError;
 use nusb::transfer::TransferError;
@@ -57,27 +56,6 @@ impl From<LinkError<TransferError, TransferError>> for UsbError {
         UsbError::Link(value)
     }
 }
-
-// impl From<wire_weaver::shrink_wrap::Error> for UsbError {
-//     fn from(value: wire_weaver::shrink_wrap::Error) -> Self {
-//         UsbError::ShrinkWrap(value)
-//     }
-// }
-
-// pub(crate) fn device_info_to_filter(info: &DeviceInfo) -> DeviceFilter {
-//     if let Some(serial) = info.serial_number() {
-//         DeviceFilter::UsbVidPidAndSerial {
-//             vid: info.vendor_id(),
-//             pid: info.product_id(),
-//             serial: serial.to_string(),
-//         }
-//     } else {
-//         DeviceFilter::UsbVidPid {
-//             vid: info.vendor_id(),
-//             pid: info.product_id(),
-//         }
-//     }
-// }
 
 impl Into<String> for UsbError {
     fn into(self) -> String {

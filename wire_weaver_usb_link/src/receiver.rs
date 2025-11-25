@@ -1,7 +1,7 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
 use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
-use shrink_wrap::BufReader;
-use wire_weaver::ww_version::CompactVersion;
+use shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrap};
+use wire_weaver::prelude::FullVersion;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -22,14 +22,11 @@ pub enum MessageKind {
     Ping,
     /// Remote end protocol and maximum message size
     #[cfg(feature = "device")]
-    LinkSetup {
-        versions_matches: bool,
-    },
+    LinkUp,
     #[cfg(feature = "host")]
     DeviceInfo {
         max_message_len: u32,
-        link_version: CompactVersion,
-        // user_protocol: ProtocolInfo,
+        link_version: wire_weaver::ww_version::CompactVersion,
     },
     Disconnect(DisconnectReason),
     /// Device received LinkSetup, versions matched and is ready to receive messages
@@ -61,6 +58,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     .read_packet(self.rx_packet_buf)
                     .await
                     .map_err(Error::SourceError)?;
+                self.rx_start_pos = 0;
                 self.rx_stats.packets_received = self.rx_stats.packets_received.wrapping_add(1);
                 if len == 0 {
                     self.rx_left_bytes = 0;
@@ -68,23 +66,22 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                 }
                 (&self.rx_packet_buf[..len], true)
             };
-            let packet_len = packet.len();
             // println!("rx frame: {:?}", frame);
             let mut rd = BufReader::new(packet);
             while rd.bytes_left() >= 2 {
                 let kind = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
                 let Some(kind) = Op::from_repr(kind) else {
-                    self.rx_left_bytes = 0; // skip whole packet on malformed data
+                    self.continue_with_new_packet(); // skip whole packet on malformed data
                     continue 'next_message;
                 };
-                if self.remote_protocol.is_none()
+                if !self.is_link_up()
                     && kind != Op::GetDeviceInfo
                     && kind != Op::DeviceInfo
                     && kind != Op::LinkSetup
                     && kind != Op::LinkReady
                     && kind != Op::Nop
                 {
-                    self.rx_left_bytes = 0;
+                    self.continue_with_new_packet();
                     return Err(Error::ProtocolsVersionMismatch);
                 }
                 let len11_8 = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
@@ -188,75 +185,55 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     }
                     #[cfg(feature = "host")]
                     Op::DeviceInfo => {
-                        if rd.bytes_left() >= crate::common::VERSIONS_PAYLOAD_LEN {
-                            let max_message_len =
-                                rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
-                            let link_version =
-                                rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
-                            let user_protocol = ProtocolInfo::read(&mut rd)
-                                .map_err(|_| Error::InternalBufOverflow)?;
-                            let client_server_protocol = ProtocolInfo::read(&mut rd)
-                                .map_err(|_| Error::InternalBufOverflow)?;
-                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet_len);
-                            self.remote_protocol = Some(user_protocol);
-                            self.remote_max_message_size = max_message_len;
-                            return Ok(MessageKind::DeviceInfo {
-                                max_message_len,
-                                link_version,
-                                client_server_protocol,
-                                user_protocol,
-                            });
-                        }
+                        let device_info = crate::common::DeviceInfo::des_shrink_wrap(&mut rd)
+                            .map_err(|_| Error::InternalBufOverflow)?;
+                        self.remote_max_message_size = device_info.dev_max_message_len;
+                        self.remote_protocol
+                            .set(|wr| device_info.dev_link_version.ser_shrink_wrap(wr))
+                            .map_err(|_| Error::InternalBufOverflow)?;
+
+                        let max_message_len = device_info.dev_max_message_len;
+                        let link_version = device_info.dev_link_version;
+                        self.continue_with_new_packet();
+                        return Ok(MessageKind::DeviceInfo {
+                            max_message_len,
+                            link_version,
+                        });
                     }
                     #[cfg(feature = "device")]
                     Op::LinkSetup => {
-                        if rd.bytes_left() >= crate::common::VERSIONS_PAYLOAD_LEN {
-                            let remote_max_message_size =
-                                rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
-                            let link_protocol_version =
-                                rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
-                            let remote_user_protocol = ProtocolInfo::read(&mut rd)
+                        let link_setup = crate::common::LinkSetup::des_shrink_wrap(&mut rd)
+                            .map_err(|_| Error::InternalBufOverflow)?;
+                        if self
+                            .user_protocol
+                            .is_protocol_compatible(&link_setup.host_user_version)
+                        {
+                            self.remote_max_message_size = link_setup.host_max_message_len;
+                            self.remote_protocol
+                                .set(|wr| link_setup.host_user_version.ser_shrink_wrap(wr))
                                 .map_err(|_| Error::InternalBufOverflow)?;
-                            let remote_client_server_protocol = ProtocolInfo::read(&mut rd)
-                                .map_err(|_| Error::InternalBufOverflow)?;
-
-                            if link_protocol_version == crate::LINK_PROTOCOL_VERSION
-                                && remote_user_protocol.is_compatible(&self.user_protocol)
-                                && remote_client_server_protocol
-                                    .is_compatible(&self.client_server_protocol)
-                            {
-                                self.remote_protocol = Some(remote_user_protocol);
-                                self.remote_max_message_size = remote_max_message_size;
-                            } else {
-                                self.remote_protocol = None;
-                            }
-
-                            let versions_matches = self.remote_protocol.is_some();
-                            let rd_bytes_left = rd.bytes_left();
-                            self.send_link_setup_result().await?;
-                            self.adjust_read_pos(is_new_frame, rd_bytes_left, packet_len);
-                            return Ok(MessageKind::LinkSetup { versions_matches });
+                        } else {
+                            self.remote_protocol.clear();
                         }
+                        self.send_link_setup_result().await?;
+                        self.continue_with_new_packet();
+                        return Ok(MessageKind::LinkUp);
                     }
                     #[cfg(feature = "host")]
                     Op::LinkReady => {
                         if rd.bytes_left() >= 1 {
                             let versions_matches =
                                 rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
-                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet_len);
+                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                             return Ok(MessageKind::LinkSetupResult { versions_matches });
                         }
                     }
                     Op::Disconnect => {
-                        self.remote_protocol = None;
+                        self.remote_protocol.clear();
                         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
-                        self.rx_left_bytes = 0;
-                        let reason = if rd.bytes_left() >= 1 {
-                            let reason = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
-                            DisconnectReason::from_repr(reason).unwrap_or(DisconnectReason::Unknown)
-                        } else {
-                            DisconnectReason::Unknown
-                        };
+                        let reason = DisconnectReason::des_shrink_wrap(&mut rd)
+                            .map_err(|_| Error::InternalBufOverflow)?;
+                        self.continue_with_new_packet();
                         return Ok(MessageKind::Disconnect(reason));
                     }
                     Op::Ping => {
@@ -286,11 +263,15 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                 self.rx_left_bytes -= read_bytes;
             }
             _ => {
-                // new packet will be awaited in next receive_message() call
-                self.rx_start_pos = 0;
-                self.rx_left_bytes = 0;
+                self.continue_with_new_packet();
             }
         }
+    }
+
+    /// New packet will be awaited in next receive_message() call
+    fn continue_with_new_packet(&mut self) {
+        self.rx_start_pos = 0;
+        self.rx_left_bytes = 0;
     }
 
     #[cfg(feature = "device")]
@@ -301,16 +282,17 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
         &mut self,
         message: &mut [u8],
     ) -> Result<(), Error<T::Error, R::Error>> {
-        while self.remote_protocol.is_none() {
+        while !self.is_link_up() {
             match self.receive_message(message).await {
-                Ok(MessageKind::LinkSetup { versions_matches }) => {
+                Ok(MessageKind::LinkUp) => {
                     #[cfg(feature = "defmt")]
-                    defmt::trace!("LinkSetup received: versions_matches: {}", versions_matches);
-                    if versions_matches {
-                        break;
-                    }
+                    defmt::trace!("LinkUp");
+                    // if versions_matches {
+                    //     break;
+                    // }
+                    break;
                     // wait for another LinkSetup
-                    continue;
+                    // continue;
                 }
                 Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
                 Err(Error::ProtocolsVersionMismatch) => {
@@ -327,8 +309,8 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
     }
 
     /// Returns remote protocol information.
-    pub fn remote_protocol(&self) -> Option<ProtocolInfo> {
-        self.remote_protocol
+    pub fn remote_protocol(&self) -> Result<FullVersion<'_>, shrink_wrap::Error> {
+        self.remote_protocol.get()
     }
 
     /// Returns statistics struct.

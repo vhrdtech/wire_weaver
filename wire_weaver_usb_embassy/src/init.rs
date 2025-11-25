@@ -5,7 +5,7 @@ use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
 use embassy_usb::msos::windows_version;
 use embassy_usb::{Builder, Config, UsbDevice};
-use wire_weaver::{ProtocolInfo, WireWeaverAsyncApiBackend};
+use wire_weaver::{WireWeaverAsyncApiBackend, ww_version::FullVersion};
 use wire_weaver_usb_link::WireWeaverUsbLink;
 
 pub struct UsbServer<'d, D: Driver<'d>, B> {
@@ -81,6 +81,7 @@ pub fn usb_init<
     buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
     state: B,
     timings: UsbTimings,
+    user_protocol: FullVersion<'static>,
     config_mut: C,
 ) -> (
     UsbServer<'d, D, B>,
@@ -120,25 +121,8 @@ pub fn usb_init<
     info!("USB builder built");
     trace!("{}", usb.buffer_usage());
 
-    let user_protocol = ProtocolInfo {
-        protocol_id: 13,
-        major_version: 0,
-        minor_version: 1,
-    };
-    let client_server_protocol = ProtocolInfo {
-        protocol_id: 1,
-        major_version: 0,
-        minor_version: 1,
-    };
     let (tx, rx) = ww.split(); // TODO: do not split?
-    let link = WireWeaverUsbLink::new(
-        client_server_protocol,
-        user_protocol,
-        tx,
-        &mut buffers.tx,
-        rx,
-        &mut buffers.rx,
-    );
+    let link = WireWeaverUsbLink::new(user_protocol, tx, &mut buffers.tx, rx, &mut buffers.rx);
 
     (
         UsbServer {

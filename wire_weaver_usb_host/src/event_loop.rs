@@ -8,27 +8,26 @@ use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::shrink_wrap::ref_vec::RefVec;
 use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
+use wire_weaver::ww_version::FullVersion;
 use wire_weaver_client_common::ww_client_server::PathKindOwned;
 use wire_weaver_client_common::{
-    Command, Error, OnError,
+    Command, Error, OnError, StreamEvent,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
-use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, ProtocolInfo, WireWeaverUsbLink,
-};
+use wire_weaver_usb_link::{DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink};
 
 struct State {
     common: CommonState,
     message_rx: [u8; MAX_MESSAGE_SIZE],
-    user_protocol: ProtocolInfo,
+    user_protocol: FullVersion<'static>,
     conn_state: Arc<RwLock<ConnectionInfo>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
 }
 
 impl State {
-    fn new(conn_state: Arc<RwLock<ConnectionInfo>>, user_protocol: ProtocolInfo) -> Self {
+    fn new(conn_state: Arc<RwLock<ConnectionInfo>>, user_protocol: FullVersion<'static>) -> Self {
         State {
             common: CommonState::default(),
             message_rx: [0u8; MAX_MESSAGE_SIZE],
@@ -49,7 +48,7 @@ impl State {
 pub async fn usb_worker(
     mut cmd_rx: mpsc::UnboundedReceiver<Command>,
     conn_state: Arc<RwLock<ConnectionInfo>>,
-    user_protocol: ProtocolInfo,
+    user_protocol: FullVersion<'static>,
     max_hs_usb_packet_size: usize,
 ) {
     let mut state = State::new(conn_state, user_protocol);
@@ -83,11 +82,6 @@ pub async fn usb_worker(
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
                 Ok(Some((interface, di))) => {
-                    let client_server_protocol = ProtocolInfo {
-                        protocol_id: wire_weaver_client_common::ww::PROTOCOL_GID,
-                        major_version: 0,
-                        minor_version: 1,
-                    };
                     let max_packet_size = match di.speed() {
                         Some(speed) => match speed {
                             Speed::Low => 8,
@@ -105,8 +99,7 @@ pub async fn usb_worker(
                     }
                     debug!("max_packet_size: {}", max_packet_size);
                     link = Some(WireWeaverUsbLink::new(
-                        client_server_protocol,
-                        state.user_protocol,
+                        state.user_protocol.clone(),
                         Sink::new(interface.clone()),
                         &mut tx_buf[..max_packet_size],
                         Source::new(interface),
@@ -339,8 +332,8 @@ async fn handle_message(
                         let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let r = data.as_slice().to_vec();
-                            should_drop_handler = tx.send(Ok(r)).is_err();
+                            let data = data.as_slice().to_vec();
+                            should_drop_handler = tx.send(StreamEvent::Data(data)).is_err();
                         }
                         if should_drop_handler {
                             info!(
@@ -370,12 +363,10 @@ async fn handle_message(
         Ok(MessageKind::DeviceInfo {
             max_message_len,
             link_version,
-            client_server_protocol,
-            user_protocol,
         }) => {
             info!(
-                "Received DeviceInfo: max_message_len: {}, link_version: {}, client_server: {:?}, user_protocol: {:?}",
-                max_message_len, link_version, client_server_protocol, user_protocol
+                "Received DeviceInfo: max_message_len: {}, link_version: {:?}",
+                max_message_len, link_version,
             );
             // only one version is in use right now, so no need to choose between different client server versions or link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)

@@ -1,8 +1,8 @@
 use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
-use cfg_if::cfg_if;
+use shrink_wrap::stack_vec::StackVec;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::{CompactVersion, Version};
+use wire_weaver::ww_version::CompactVersion;
 
 // Packs and unpacks messages to/from one or more USB packets.
 // Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
@@ -16,10 +16,8 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     /// User-defined data types and API, also indirectly points to ww_client_server version
     pub(crate) user_protocol: FullVersion<'static>,
 
-    /// Length of the remote_protocol in use, Some(_) also indicates that remote protocol version is compatible with local one
-    remote_protocol_size: Option<u8>,
-    /// Remote user protocol version bytes (FullVersion).
-    remote_protocol: [u8; 32],
+    /// Remote user protocol version
+    pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
 
     pub(crate) remote_max_message_size: u32,
 
@@ -79,24 +77,17 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Self {
         let tx_writer = BufWriter::new(tx_packet_buf);
 
-        cfg_if! {
-            if #[cfg(test)] {
-                let mut remote_protocol = [0u8; 32];
-                let version = FullVersion::new("test", Version::new(0, 0, 0));
-                let mut wr = BufWriter::new(&mut remote_protocol);
-                version.ser_shrink_wrap(&mut wr).unwrap();
-                let remote_protocol_size = Some(wr.finish_and_take().unwrap().len() as u8);
-            } else {
-                let remote_protocol = [0u8; 32];
-                let remote_protocol_size = None;
-            }
-        }
+        #[cfg(test)]
+        let remote_protocol =
+            StackVec::some(FullVersion::new("test", ww_version::Version::new(0, 0, 0)))
+                .expect("FullVersion in StackVec in test");
+        #[cfg(not(test))]
+        let remote_protocol = StackVec::none();
 
         WireWeaverUsbLink {
             user_protocol,
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             remote_protocol,
-            remote_protocol_size,
 
             tx,
             tx_writer,
@@ -117,14 +108,19 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         self.rx.wait_usb_connection().await;
     }
 
-    /// Marks link as not connected, but does not send anything to the host.
+    /// Marks link as not connected, but does not send anything to the other party.
     pub fn silent_disconnect(&mut self) {
-        self.remote_protocol_size = None;
+        self.remote_protocol.clear();
         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
 
+    #[cfg(feature = "device")]
     pub(crate) fn is_protocol_compatible(&self) -> bool {
-        self.remote_protocol_size.is_some()
+        self.remote_protocol.is_some()
+    }
+
+    pub(crate) fn is_link_up(&self) -> bool {
+        self.remote_protocol.is_some()
     }
 }
 
@@ -171,10 +167,10 @@ pub(crate) enum Op {
     Disconnect = 15,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive_shrink_wrap]
 #[ww_repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DisconnectReason {
     ApplicationCrash,
     RequestByUser,

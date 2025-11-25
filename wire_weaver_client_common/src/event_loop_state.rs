@@ -1,14 +1,14 @@
-use crate::{DEFAULT_REQUEST_TIMEOUT, Error, OnError, SeqTy};
+use crate::{DEFAULT_REQUEST_TIMEOUT, Error, OnError, SeqTy, StreamEvent};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::UNib32;
+use ww_client_server::StreamSidebandEvent;
 use ww_version::FullVersionOwned;
 
 pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
 
-// TODO: change to StreamEvent
-pub type StreamUpdateSender = mpsc::UnboundedSender<Result<Vec<u8>, Error>>;
+pub type StreamUpdateSender = mpsc::UnboundedSender<StreamEvent>;
 
 pub struct CommonState {
     pub exit_on_error: bool,
@@ -80,7 +80,7 @@ impl CommonState {
 
     pub fn cancel_all_streams(&mut self) {
         for (_path, tx) in self.stream_handlers.drain() {
-            let _ = tx.send(Err(Error::Disconnected));
+            let _ = tx.send(StreamEvent::Sideband(StreamSidebandEvent::Closed)); // TODO: is it correct to send Closed here?
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 /// A Vec-like container on the stack, storing `Option<T>` in a serialized form.
 /// `T` must implement SerializeShrinkWrap + DeserializeShrinkWrap.
 /// Allows to conveniently work with a dynamically sized object without allocation and specifying upper size bounds for each dynamic element.
@@ -24,13 +24,13 @@ use std::marker::PhantomData;
 /// Note how only 6 bytes for the total buffer size need to be specified and buffer is distributed between two arrays.
 ///
 /// See
-pub struct StackVec<'i, const N: usize, T> {
+pub struct StackVec<const N: usize, T> {
     data: [u8; N],
     used: usize,
-    _type: PhantomData<&'i T>,
+    _type: PhantomData<T>,
 }
 
-impl<'i, T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>, const N: usize> StackVec<'i, N, T> {
+impl<'i, T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>, const N: usize> StackVec<N, T> {
     pub fn some(value: T) -> Result<Self, Error> {
         let mut buf = [0u8; N];
         let mut wr = BufWriter::new(&mut buf);
@@ -51,15 +51,31 @@ impl<'i, T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>, const N: usize> Sta
         }
     }
 
+    pub fn is_some(&self) -> bool {
+        self.used > 0
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.used == 0
+    }
+
     pub fn get(&'i self) -> Result<T, Error> {
         let mut rd = BufReader::new(&self.data[..self.used]);
         let value = T::des_shrink_wrap(&mut rd)?;
         Ok(value)
     }
 
-    pub fn set(&mut self, value: T) -> Result<(), Error> {
+    // this one does not work, because T will contain a lifetime(e.g., RefVec<'i, u8>) which break real code
+    // pub fn set(&mut self, value: T) -> Result<(), Error> {
+    //     let mut wr = BufWriter::new(&mut self.data);
+    //     value.ser_shrink_wrap(&mut wr)?;
+    //     self.used = wr.finish_and_take()?.len();
+    //     Ok(())
+    // }
+
+    pub fn set<F: Fn(&mut BufWriter) -> Result<(), Error>>(&mut self, f: F) -> Result<(), Error> {
         let mut wr = BufWriter::new(&mut self.data);
-        value.ser_shrink_wrap(&mut wr)?;
+        f(&mut wr)?;
         self.used = wr.finish_and_take()?.len();
         Ok(())
     }
@@ -77,7 +93,7 @@ impl<'i, T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>, const N: usize> Sta
         self.used = 0;
     }
 
-    pub fn bytes(&'i self) -> &'i [u8] {
+    pub fn bytes(&self) -> &[u8] {
         &self.data[..self.used]
     }
 }

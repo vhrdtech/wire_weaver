@@ -44,7 +44,7 @@ fn stack_vec() {
         b: s,
         c: Default::default(),
     };
-    on_stack.set(obj2).unwrap();
+    on_stack.set(|wr| obj2.ser_shrink_wrap(wr)).unwrap();
     assert_eq!(on_stack.get().unwrap().b, s);
 
     // The only caveat here is that buffer usage is higher during serialization (back of the buffer used to temporarily store u16 values),

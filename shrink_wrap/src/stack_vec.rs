@@ -1,5 +1,5 @@
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 /// A Vec-like container on the stack, storing `Option<T>` in a serialized form.
 /// `T` must implement SerializeShrinkWrap + DeserializeShrinkWrap.
 /// Allows to conveniently work with a dynamically sized object without allocation and specifying upper size bounds for each dynamic element.

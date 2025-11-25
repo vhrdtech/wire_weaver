@@ -649,6 +649,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      API model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1166,6 +1181,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      API model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1226,6 +1256,14 @@ API as well.</p>
 <li><code>T</code> to struct of <code>T</code> in return position</li>
 <li><code>T</code> to <code>Vec&lt;T&gt;</code> in return position?</li>
 </ul>
+<h3 id="api-model">API model</h3>
+<p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
+version without breaking compatibility.</p>
+<p>E.g., if user_device_api v0.1.0 depends on ww_client_server v0.4.0 and a new major version of ww_client_server comes
+out (v0.5.0),
+then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add new features
+though,
+and if previous version is doing all that it is supposed to, there might not be a need to upgrade.</p>
 
 
 

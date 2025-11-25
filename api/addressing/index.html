@@ -519,18 +519,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#trait-addressing-fullversion" class="md-nav__link">
+  <a href="#global-trait-addressing-fullversion" class="md-nav__link">
     <span class="md-ellipsis">
-      Trait addressing (FullVersion)
+      Global trait addressing (FullVersion)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#trait-addressing-compactversion" class="md-nav__link">
+  <a href="#global-trait-addressing-compactversion" class="md-nav__link">
     <span class="md-ellipsis">
-      Trait addressing (CompactVersion)
+      Global trait addressing (CompactVersion)
     </span>
   </a>
   
@@ -1112,18 +1112,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#trait-addressing-fullversion" class="md-nav__link">
+  <a href="#global-trait-addressing-fullversion" class="md-nav__link">
     <span class="md-ellipsis">
-      Trait addressing (FullVersion)
+      Global trait addressing (FullVersion)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#trait-addressing-compactversion" class="md-nav__link">
+  <a href="#global-trait-addressing-compactversion" class="md-nav__link">
     <span class="md-ellipsis">
-      Trait addressing (CompactVersion)
+      Global trait addressing (CompactVersion)
     </span>
   </a>
   
@@ -1179,7 +1179,7 @@ inside said trait). Multiple indices are added in the appropriate positions in t
 <p>Using this scheme requires knowing exactly which API and it's exact version that peer implements.
 When this is not possible or not desired (e.g., if addressing multiple nodes at the same time) - trait addressing can be
 used.</p>
-<h2 id="trait-addressing-fullversion">Trait addressing (FullVersion)</h2>
+<h2 id="global-trait-addressing-fullversion">Global trait addressing (FullVersion)</h2>
 <p>There is a possibility to make API calls on "ww-traits", without knowing the exact resource address. For example one
 could
 make a "sleep" call on all devices in a CAN Bus network, that support "PowerManagement" trait. Or "get_fw_version" on
@@ -1189,11 +1189,12 @@ instead.</p>
 <p>Compared to resource addresses that can only take a few bytes, <code>FullVersion</code> is likely
 to take about 8-16 bytes or more and vary with the crate name. This is unfortunate for constrained systems, or if one
 wants to pack many calls into one packet.</p>
-<h2 id="trait-addressing-compactversion">Trait addressing (CompactVersion)</h2>
+<h2 id="global-trait-addressing-compactversion">Global trait addressing (CompactVersion)</h2>
 <p>Solution to this is <code>CompactVersion</code>, which carries globally unique type id and major.minor version components only, all
 UNib32 encoded.
 The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
-manually assigned and tracked via git instead.</p>
+manually assigned and tracked via git instead
+in <a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global registry</a>.</p>
 <h2 id="api-report">API report</h2>
 <p>TODO: export a file describing all levels of API with IDs</p>
 

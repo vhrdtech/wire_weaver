@@ -41,3 +41,14 @@ API as well.
 * Adding argument
 * `T` to struct of `T` in return position
 * `T` to `Vec<T>` in return position?
+
+### API model
+
+API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model
+version without breaking compatibility.
+
+E.g., if user_device_api v0.1.0 depends on ww_client_server v0.4.0 and a new major version of ww_client_server comes
+out (v0.5.0),
+then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add new features
+though,
+and if previous version is doing all that it is supposed to, there might not be a need to upgrade.

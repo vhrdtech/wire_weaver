@@ -29,7 +29,7 @@ Using this scheme requires knowing exactly which API and it's exact version that
 When this is not possible or not desired (e.g., if addressing multiple nodes at the same time) - trait addressing can be
 used.
 
-## Trait addressing (FullVersion)
+## Global trait addressing (FullVersion)
 
 There is a possibility to make API calls on "ww-traits", without knowing the exact resource address. For example one
 could
@@ -42,12 +42,13 @@ Compared to resource addresses that can only take a few bytes, `FullVersion` is 
 to take about 8-16 bytes or more and vary with the crate name. This is unfortunate for constrained systems, or if one
 wants to pack many calls into one packet.
 
-## Trait addressing (CompactVersion)
+## Global trait addressing (CompactVersion)
 
 Solution to this is `CompactVersion`, which carries globally unique type id and major.minor version components only, all
 UNib32 encoded.
 The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
-manually assigned and tracked via git instead.
+manually assigned and tracked via git instead
+in [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 
 ## API report
 

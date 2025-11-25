@@ -1,6 +1,8 @@
-use crate::common::{DisconnectReason, Error, Op, VERSIONS_PAYLOAD_LEN, WireWeaverUsbLink};
-use crate::{CRC_KIND, LINK_PROTOCOL_VERSION, PacketSink, PacketSource};
+use crate::common::{DeviceInfo, DisconnectReason, Error, LinkSetup, Op, WireWeaverUsbLink};
+use crate::{CRC_KIND, PacketSink, PacketSource};
+use shrink_wrap::{SerializeShrinkWrap, UNib32};
 use wire_weaver::MessageSink;
+use wire_weaver::ww_version::CompactVersion;
 
 /// Can be used to monitor how many messages, packets and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -14,6 +16,8 @@ pub struct SenderStats {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     /// Sends NOP and immediately forces a transmission, without waiting for other packets to accumulate.
+    /// If USB data toggle bits are messed up, this will ensure that no useful data packets are lost.
+    /// Windows seem to ignore this, while Linux and Mac do not.
     pub async fn send_nop(&mut self) -> Result<(), Error<T::Error, R::Error>> {
         if self.tx_writer.bytes_left() < 2 {
             self.force_send().await?;
@@ -28,8 +32,6 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     #[cfg(feature = "host")]
     pub async fn send_get_device_info(&mut self) -> Result<(), Error<T::Error, R::Error>> {
-        // If data toggle bits are messed up, this will ensure that no useful data packets are lost.
-        // Windows seem to ignore this, while Linux and Mac do not.
         // -> seem to be fixed with not calling set_alt_setting from host side.
         // -> encountered missing packet anyway, but much much rarer event
         self.send_nop().await?;
@@ -51,10 +53,41 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         &mut self,
         max_message_size: u32,
     ) -> Result<(), Error<T::Error, R::Error>> {
-        // See send_get_versions comment for explanation on why this is sent.
+        // See send_get_device_info comment for explanation on why this is sent.
         self.send_nop().await?;
-        self.send_versions_inner(Op::DeviceInfo, max_message_size)
-            .await?;
+
+        self.tx_writer
+            .write_u4(Op::DeviceInfo as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize DeviceInfo
+
+        let dev_info = DeviceInfo {
+            dev_link_version: CompactVersion {
+                global_type_id: ww_global::WIRE_WEAVER_USB_LINK,
+                major: UNib32(
+                    env!("CARGO_PKG_VERSION_MAJOR")
+                        .parse::<u32>()
+                        .expect("Cargo version"),
+                ),
+                minor: UNib32(
+                    env!("CARGO_PKG_VERSION_MINOR")
+                        .parse::<u32>()
+                        .expect("Cargo version"),
+                ),
+                patch: UNib32(
+                    env!("CARGO_PKG_VERSION_PATCH")
+                        .parse::<u32>()
+                        .expect("Cargo version"),
+                ),
+            },
+            dev_user_version: self.user_protocol.clone(),
+            dev_max_message_len: max_message_size,
+        };
+        dev_info
+            .ser_shrink_wrap(&mut self.tx_writer)
+            .map_err(|_| Error::InternalBufOverflow)?;
+
+        self.force_send().await?;
         Ok(())
     }
 
@@ -64,53 +97,39 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         &mut self,
         max_message_size: u32,
     ) -> Result<(), Error<T::Error, R::Error>> {
-        self.send_versions_inner(Op::LinkSetup, max_message_size)
-            .await?;
+        self.tx_writer
+            .write_u4(Op::LinkSetup as u8)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize LinkSetup
+
+        let link_setup = LinkSetup {
+            host_user_version: self.user_protocol.clone(),
+            host_max_message_len: max_message_size,
+        };
+        link_setup
+            .ser_shrink_wrap(&mut self.tx_writer)
+            .map_err(|_| Error::InternalBufOverflow)?;
+
+        self.force_send().await?;
         Ok(())
     }
 
     #[cfg(feature = "device")]
     pub async fn send_link_setup_result(&mut self) -> Result<(), Error<T::Error, R::Error>> {
-        const PAYLOAD_LEN: usize = 1;
-        if self.tx_writer.bytes_left() < 2 + PAYLOAD_LEN {
-            self.force_send().await?;
+        if self.is_protocol_compatible() {
+            self.tx_writer
+                .write_u4(Op::LinkReady as u8)
+                .map_err(|_| Error::InternalBufOverflow)?;
+        } else {
+            self.tx_writer
+                .write_u4(Op::Disconnect as u8)
+                .map_err(|_| Error::InternalBufOverflow)?;
+            DisconnectReason::IncompatibleVersion
+                .ser_shrink_wrap(&mut self.tx_writer)
+                .map_err(|_| Error::InternalBufOverflow)?;
         }
-        self.tx_writer
-            .write_u4(Op::LinkSetupResult as u8)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(PAYLOAD_LEN as u16)?;
-        let is_protocol_compatible = self.remote_protocol.is_some();
-        self.tx_writer
-            .write_bool(is_protocol_compatible)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.force_send().await?;
-        Ok(())
-    }
 
-    async fn send_versions_inner(
-        &mut self,
-        op: Op,
-        max_message_size: u32,
-    ) -> Result<(), Error<T::Error, R::Error>> {
-        if self.tx_writer.bytes_left() < 2 + VERSIONS_PAYLOAD_LEN {
-            self.force_send().await?;
-        }
-        self.tx_writer
-            .write_u4(op as u8)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(VERSIONS_PAYLOAD_LEN as u16)?;
-        self.tx_writer
-            .write_u32(max_message_size)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.tx_writer
-            .write_u8(LINK_PROTOCOL_VERSION)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.user_protocol
-            .write(&mut self.tx_writer)
-            .map_err(|_| Error::InternalBufOverflow)?;
-        self.client_server_protocol
-            .write(&mut self.tx_writer)
-            .map_err(|_| Error::InternalBufOverflow)?;
+        self.write_len(0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize DisconnectReason
         self.force_send().await?;
         Ok(())
     }
@@ -119,6 +138,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     /// If message fits, nothing will be actually sent to the sink just yet.
     /// If it doesn't fit, one or more packets will be sent immediately to send the whole message,
     /// except possibly the last piece of it.
+    ///
+    /// Maximum message length is limited to the remote buffers length, negotiated during link setup phase.
     ///
     /// [force_send()](Self::force_send) can be called to send all the accumulated messages immediately.
     /// Intended use is to call force_send periodically, so that receiver sees messages no older,
@@ -219,15 +240,15 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         &mut self,
         reason: DisconnectReason,
     ) -> Result<(), Error<T::Error, R::Error>> {
-        if self.tx_writer.bytes_left() < 2 {
+        if self.tx_writer.bytes_left() < 4 {
             self.force_send().await?;
         }
         self.tx_writer
             .write_u4(Op::Disconnect as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
-        self.write_len(1)?;
-        self.tx_writer
-            .write_u8(reason as u8)
+        self.write_len(0)?; // DisconnectReason is variable length and can only be last in packet, ShrinkWrap is used to deserialize it
+        reason
+            .ser_shrink_wrap(&mut self.tx_writer)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.force_send().await?;
         self.silent_disconnect();

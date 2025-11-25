@@ -39,7 +39,7 @@ pub struct FullVersion<'i> {
 }
 
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
-/// Type id is globally unique across all crates.
+/// Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[final_structure]
@@ -47,7 +47,7 @@ pub struct CompactVersion {
     pub global_type_id: UNib32,
     pub major: UNib32,
     pub minor: UNib32,
-    // TODO: Add type id
+    pub patch: UNib32,
 }
 
 impl<'i> Version<'i> {

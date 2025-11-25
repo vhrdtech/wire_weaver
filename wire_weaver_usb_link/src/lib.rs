@@ -30,4 +30,3 @@ pub const PING_INTERVAL_MS: u64 = 1000;
 pub use common::{DisconnectReason, Error, PacketSink, PacketSource, WireWeaverUsbLink};
 pub use receiver::{MessageKind, ReceiverStats};
 pub use sender::SenderStats;
-pub use wire_weaver::ProtocolInfo;

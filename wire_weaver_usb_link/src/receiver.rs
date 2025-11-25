@@ -1,6 +1,7 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
-use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource, ProtocolInfo};
+use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
 use shrink_wrap::BufReader;
+use wire_weaver::ww_version::CompactVersion;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -27,9 +28,8 @@ pub enum MessageKind {
     #[cfg(feature = "host")]
     DeviceInfo {
         max_message_len: u32,
-        link_version: u8,
-        client_server_protocol: ProtocolInfo,
-        user_protocol: ProtocolInfo,
+        link_version: CompactVersion,
+        // user_protocol: ProtocolInfo,
     },
     Disconnect(DisconnectReason),
     /// Device received LinkSetup, versions matched and is ready to receive messages
@@ -81,7 +81,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     && kind != Op::GetDeviceInfo
                     && kind != Op::DeviceInfo
                     && kind != Op::LinkSetup
-                    && kind != Op::LinkSetupResult
+                    && kind != Op::LinkReady
                     && kind != Op::Nop
                 {
                     self.rx_left_bytes = 0;
@@ -239,7 +239,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         }
                     }
                     #[cfg(feature = "host")]
-                    Op::LinkSetupResult => {
+                    Op::LinkReady => {
                         if rd.bytes_left() >= 1 {
                             let versions_matches =
                                 rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;

@@ -373,14 +373,14 @@ async fn handle_message(
                 .await
                 .map_err(|e| Error::Transport(UsbError::Link(e).into()))?;
         }
-        Ok(MessageKind::LinkSetupResult { versions_matches }) => {
-            if !versions_matches {
-                error!("device rejected LinkSetup, exiting");
-                if let Some(tx) = state.common.connected_tx.take() {
-                    _ = tx.send(Err(Error::IncompatibleDeviceProtocol));
-                }
-                return Err(Error::IncompatibleDeviceProtocol);
-            }
+        Ok(MessageKind::LinkUp) => {
+            // if !versions_matches {
+            //     error!("device rejected LinkSetup, exiting");
+            //     if let Some(tx) = state.common.connected_tx.take() {
+            //         _ = tx.send(Err(Error::IncompatibleDeviceProtocol));
+            //     }
+            //     return Err(Error::IncompatibleDeviceProtocol);
+            // }
             info!("LinkSetup complete");
             state.max_protocol_mismatched_messages = 10;
             if let Some(di) = &state.device_info {

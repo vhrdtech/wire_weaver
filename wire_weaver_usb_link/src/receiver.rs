@@ -20,8 +20,7 @@ pub enum MessageKind {
     Data(usize),
     /// Ping from the other end
     Ping,
-    /// Remote end protocol and maximum message size
-    #[cfg(feature = "device")]
+    ///
     LinkUp,
     #[cfg(feature = "host")]
     DeviceInfo {
@@ -29,11 +28,6 @@ pub enum MessageKind {
         link_version: wire_weaver::ww_version::CompactVersion,
     },
     Disconnect(DisconnectReason),
-    /// Device received LinkSetup, versions matched and is ready to receive messages
-    #[cfg(feature = "host")]
-    LinkSetupResult {
-        versions_matches: bool,
-    },
 }
 
 impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
@@ -225,8 +219,9 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                             let versions_matches =
                                 rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
                             self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
-                            return Ok(MessageKind::LinkSetupResult { versions_matches });
                         }
+                        self.continue_with_new_packet();
+                        return Ok(MessageKind::LinkUp);
                     }
                     Op::Disconnect => {
                         self.remote_protocol.clear();

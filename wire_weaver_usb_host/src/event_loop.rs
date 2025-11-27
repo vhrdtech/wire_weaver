@@ -365,8 +365,10 @@ async fn handle_message(
             link_version,
         }) => {
             info!(
-                "Received DeviceInfo: max_message_len: {}, link_version: {:?}",
-                max_message_len, link_version,
+                "Received DeviceInfo: max_message_len: {}, link_version: {:?}, remote_protocol: {:?}",
+                max_message_len,
+                link_version,
+                link.remote_protocol()
             );
             // only one version is in use right now, so no need to choose between different client server versions or link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)

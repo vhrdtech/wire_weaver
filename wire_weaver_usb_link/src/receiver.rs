@@ -183,7 +183,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                             .map_err(|_| Error::InternalBufOverflow)?;
                         self.remote_max_message_size = device_info.dev_max_message_len;
                         self.remote_protocol
-                            .set(|wr| device_info.dev_link_version.ser_shrink_wrap(wr))
+                            .set(|wr| device_info.dev_user_version.ser_shrink_wrap(wr))
                             .map_err(|_| Error::InternalBufOverflow)?;
 
                         let max_message_len = device_info.dev_max_message_len;
@@ -215,11 +215,6 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     }
                     #[cfg(feature = "host")]
                     Op::LinkReady => {
-                        if rd.bytes_left() >= 1 {
-                            let versions_matches =
-                                rd.read_bool().map_err(|_| Error::InternalBufOverflow)?;
-                            self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
-                        }
                         self.continue_with_new_packet();
                         return Ok(MessageKind::LinkUp);
                     }

@@ -1,6 +1,7 @@
 mod connection;
 mod event_loop;
 // pub mod util;
+mod loopback;
 mod ww_nusb;
 
 pub use event_loop::usb_worker;

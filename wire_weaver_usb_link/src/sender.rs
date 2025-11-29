@@ -211,6 +211,30 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         Ok(())
     }
 
+    pub async fn send_loopback(
+        &mut self,
+        repeat: u32,
+        seq: u32,
+        data: &[u8],
+    ) -> Result<(), Error<T::Error, R::Error>> {
+        if self.tx_writer.pos().0 != 0 {
+            self.force_send().await?;
+        }
+        self.write_op_len(Op::Loopback, 0)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.tx_writer
+            .write_u32(repeat)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.tx_writer
+            .write_u32(seq)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.tx_writer
+            .write_raw_slice(data)
+            .map_err(|_| Error::InternalBufOverflow)?;
+        self.force_send().await?;
+        Ok(())
+    }
+
     /// Sends Disconnect message, forces immediate packet transmission and marks link as not connected,
     /// to no accidentally receive data from incompatible host application.
     pub async fn send_disconnect(

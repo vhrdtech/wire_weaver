@@ -18,9 +18,15 @@ pub struct ReceiverStats {
 pub enum MessageKind {
     /// Message data
     Data(usize),
+    /// Loopback data
+    #[cfg(feature = "host")]
+    Loopback {
+        seq: u32,
+        len: usize,
+    },
     /// Ping from the other end
     Ping,
-    ///
+    /// Link is up, versions are compatible, ready to transfer application data
     LinkUp,
     #[cfg(feature = "host")]
     DeviceInfo {
@@ -74,9 +80,11 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     && kind != Op::LinkSetup
                     && kind != Op::LinkReady
                     && kind != Op::Nop
+                    && kind != Op::Ping // could be received during link setup if host did not send Disconnected and reconnected faster than timeout on device
+                    && kind != Op::Loopback
                 {
                     self.continue_with_new_packet();
-                    return Err(Error::ProtocolsVersionMismatch);
+                    return Err(Error::UnexpectedOp(kind));
                 }
                 let len11_8 = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
                 let len7_0 = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
@@ -198,10 +206,12 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     Op::LinkSetup => {
                         let link_setup = crate::common::LinkSetup::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
-                        if self
+                        let protocol_compatible = self
                             .user_protocol
-                            .is_protocol_compatible(&link_setup.host_user_version)
-                        {
+                            .is_protocol_compatible(&link_setup.host_user_version);
+                        // when host app is generic, and it will work with API dynamically by requesting serialized AST from device first
+                        let dynamic_host = link_setup.host_user_version.crate_id.is_empty();
+                        if protocol_compatible || dynamic_host {
                             self.remote_max_message_size = link_setup.host_max_message_len;
                             self.remote_protocol
                                 .set(|wr| link_setup.host_user_version.ser_shrink_wrap(wr))
@@ -229,6 +239,33 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     Op::Ping => {
                         self.adjust_read_pos(is_new_frame, rd.bytes_left(), packet.len());
                         return Ok(MessageKind::Ping);
+                    }
+                    Op::Loopback => {
+                        let _repeat = rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
+                        let seq = rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
+                        let data = rd
+                            .read_raw_slice(rd.bytes_left())
+                            .map_err(|_| Error::InternalBufOverflow)?;
+                        let len = data.len();
+                        message[..len].copy_from_slice(data); // cannot mutably use self otherwise
+                        #[cfg(feature = "device")]
+                        {
+                            let data = &message[..len];
+                            if _repeat == 0 {
+                                self.continue_with_new_packet();
+                            } else {
+                                let mut seq = if _repeat == 1 { seq } else { 0 };
+                                for _ in 0.._repeat {
+                                    self.send_loopback(0, seq, data).await?;
+                                    seq += 1;
+                                }
+                            }
+                            continue 'next_message;
+                        }
+                        #[cfg(feature = "host")]
+                        {
+                            return Ok(MessageKind::Loopback { seq, len });
+                        }
                     }
                     _ => {
                         continue 'next_message;

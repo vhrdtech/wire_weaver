@@ -142,6 +142,13 @@ impl Debug for FullVersionOwned {
 }
 
 #[cfg(feature = "std")]
+impl FullVersionOwned {
+    pub const fn new(crate_id: String, version: VersionOwned) -> Self {
+        FullVersionOwned { crate_id, version }
+    }
+}
+
+#[cfg(feature = "std")]
 impl VersionOwned {
     pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
         VersionOwned {

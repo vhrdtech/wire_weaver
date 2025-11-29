@@ -40,6 +40,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error<T, R> {
     InternalBufOverflow,
+    UnexpectedOp(Op),
     ProtocolsVersionMismatch,
     LinkVersionMismatch,
     Disconnected,
@@ -127,7 +128,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 #[repr(u8)]
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
-pub(crate) enum Op {
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Op {
     /// See [send_nop()](WireWeaverUsbLink::send_nop) docs for explanation as to why this is needed.
     Nop = 0,
 
@@ -145,13 +147,13 @@ pub(crate) enum Op {
     /// Guard against host starting to send before device received LinkSetup to avoid losing messages.
     LinkReady = 4,
 
-    /// 0x1l, 0xll, `data[0..len]` in first packet, note that len is not full message length, but only the length of the piece in current packet
+    /// 0x5l, 0xll, `data[0..len]` in first packet, note that len is not full message length, but only the length of the piece in current packet
     MessageStart = 5,
-    /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
+    /// 0x6l, 0xll, `data[prev..prev+len]` at the start of next packet
     MessageContinue = 6,
-    /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
+    /// 0x7l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
     MessageEnd = 7,
-    /// 0x4l, 0xll, `data[0..len]` in one packet.
+    /// 0x8l, 0xll, `data[0..len]` in one packet.
     MessageStartEnd = 8,
 
     /// Sent periodically when there are no data messages from both host and device sides
@@ -161,6 +163,15 @@ pub(crate) enum Op {
     GetStats = 10,
     /// Sent in response to GetStats from device side
     Stats = 11,
+
+    /// Used to test hardware and software stack by sending lots of data back and forth.
+    /// This command is followed by two u32's in LE and then test data till the end of a packet.
+    /// | repeat | seq | data ... |
+    ///
+    /// repeat:
+    /// * 0 - only count incoming packets, do not answer (used to measure host->device speed)
+    /// * 1 and up - send one or more copies back (1 used to test the link integrity, more than 1 to test device-> host speed).
+    Loopback = 12,
 
     /// Sent from host to device to let it know that driver or application is stopping.
     /// Sent from device to host to let it know that it is rebooting, e.g. to perform fw update.

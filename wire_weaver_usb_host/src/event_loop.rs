@@ -11,7 +11,7 @@ use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, Seri
 use wire_weaver::ww_version::FullVersion;
 use wire_weaver_client_common::ww_client_server::PathKindOwned;
 use wire_weaver_client_common::{
-    Command, Error, OnError, StreamEvent,
+    Command, Error, OnError, StreamEvent, TestProgress,
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
@@ -161,7 +161,7 @@ async fn wait_for_connection_and_queue_commands(
                 };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, user_protocol_version); // TODO: use user protocol version
+                    .on_connect(on_error, connected_tx, user_protocol_version);
                 return Ok(Some((interface, di)));
             }
             Command::StreamOpen {
@@ -192,6 +192,9 @@ async fn wait_for_connection_and_queue_commands(
                 if let Some(tx) = done_tx {
                     let _ = tx.send(Err(Error::Disconnected));
                 }
+            }
+            Command::LoopbackTest { progress_tx, .. } => {
+                _ = progress_tx.send(TestProgress::FatalError("Not connected".into()));
             }
         }
     }
@@ -301,6 +304,7 @@ async fn handle_message(
 ) -> Result<EventLoopSpinResult, Error> {
     match message {
         Ok(MessageKind::Data(len)) => {
+            state.common.last_ping_instant = Some(Instant::now());
             if len == 0 {
                 warn!("got empty event data, ignoring");
                 return Ok(EventLoopSpinResult::Continue);
@@ -370,19 +374,12 @@ async fn handle_message(
                 link_version,
                 link.remote_protocol()
             );
-            // only one version is in use right now, so no need to choose between different client server versions or link versions
+            // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await
                 .map_err(|e| Error::Transport(UsbError::Link(e).into()))?;
         }
         Ok(MessageKind::LinkUp) => {
-            // if !versions_matches {
-            //     error!("device rejected LinkSetup, exiting");
-            //     if let Some(tx) = state.common.connected_tx.take() {
-            //         _ = tx.send(Err(Error::IncompatibleDeviceProtocol));
-            //     }
-            //     return Err(Error::IncompatibleDeviceProtocol);
-            // }
             info!("LinkSetup complete");
             state.max_protocol_mismatched_messages = 10;
             if let Some(di) = &state.device_info {
@@ -395,6 +392,7 @@ async fn handle_message(
             }
             state.common.link_setup_done = true;
         }
+        Ok(MessageKind::Loopback { .. }) => {} // ignore when not testing
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
             if state.max_protocol_mismatched_messages > 0 {
                 warn!(
@@ -499,6 +497,24 @@ async fn handle_command(
                 state.common.stream_handlers.insert(path, stream_data_tx);
             }
             // TODO: is it correct to ignore non absolute paths here?
+        }
+        Command::LoopbackTest {
+            use_prbs,
+            test_duration,
+            measure_tx_speed,
+            measure_rx_speed,
+            progress_tx,
+        } => {
+            crate::loopback::loopback_test(
+                use_prbs,
+                test_duration,
+                measure_tx_speed,
+                measure_rx_speed,
+                progress_tx,
+                link,
+                scratch,
+            )
+            .await;
         }
     }
     Ok(EventLoopSpinResult::Continue)

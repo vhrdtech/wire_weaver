@@ -18,6 +18,7 @@ pub enum Command {
     Connect {
         filter: DeviceFilter,
         user_protocol_version: FullVersionOwned,
+        // TODO: supported_use_protocols: Vec<FullVersion<'static>> and keep only the one in common
         on_error: OnError,
         connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
     },
@@ -34,6 +35,7 @@ pub enum Command {
         disconnected_tx: Option<oneshot::Sender<()>>,
     },
 
+    // TODO: send ww_client_server bytes directly
     SendCall {
         path_kind: PathKindOwned,
         // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
@@ -59,6 +61,13 @@ pub enum Command {
         // stop_rx: oneshot::Receiver<()>,
     },
     // RecycleBuffer(Vec<u8>),
+    LoopbackTest {
+        use_prbs: bool,
+        test_duration: Option<Duration>,
+        measure_tx_speed: bool,
+        measure_rx_speed: bool,
+        progress_tx: mpsc::UnboundedSender<TestProgress>,
+    },
 }
 
 pub type SeqTy = u16;
@@ -171,4 +180,18 @@ pub enum DeviceFilter {
 pub enum StreamEvent {
     Data(Vec<u8>),
     Sideband(StreamSidebandEvent),
+}
+
+#[derive(Debug)]
+pub enum TestProgress {
+    TestStarted(&'static str),
+    Completion(&'static str, f32),
+    TestCompleted(&'static str),
+    FatalError(String),
+    LoopbackReport {
+        tx_count: u64,
+        per_s: f32,
+        lost_count: u64,
+        data_corrupted_count: u64,
+    },
 }

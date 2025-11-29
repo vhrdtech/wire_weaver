@@ -22,7 +22,10 @@ async fn main() -> Result<()> {
         .context(format!("Connecting to USB device with filter: {filter:?}"))?;
 
     match cli.command {
-        Commands::USBLoopback => cmd::usb_loopback::usb_loopback(&mut device).await?,
+        Commands::USBLoopback {
+            duration_sec,
+            packet_size,
+        } => cmd::usb_loopback::usb_loopback(&mut device, duration_sec, packet_size).await?,
     }
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();

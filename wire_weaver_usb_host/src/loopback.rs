@@ -1,85 +1,120 @@
 use crate::ww_nusb::{Sink, Source};
+use rand::RngCore;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use wire_weaver_client_common::TestProgress;
 use wire_weaver_usb_link::{MessageKind, WireWeaverUsbLink};
 
+const PACKET_OVERHEAD: usize = 2 + 4 + 4 + 2 /* why 2 more?? */; // opcode + len + repeat + seq
+
 pub(crate) async fn loopback_test(
-    _use_prbs: bool,
-    test_duration: Option<Duration>,
-    _measure_tx_speed: bool,
-    _measure_rx_speed: bool,
-    progress_tx: mpsc::UnboundedSender<TestProgress>,
+    test_duration: Duration,
+    packet_size: usize,
+    mut progress_tx: mpsc::UnboundedSender<TestProgress>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     scratch: &mut [u8],
 ) {
-    _ = progress_tx.send(TestProgress::TestStarted("loopback"));
-    let test_duration = test_duration.unwrap_or(Duration::from_secs(10));
-    let end_instant = Instant::now() + test_duration;
-    let mut last_progress_sent = None;
-    let mut seq = 0;
-    let mut tx_count = 0;
-    let mut lost_count = 0;
-    let mut data_corrupted_count = 0;
-    loop {
-        let now = Instant::now();
-        if now >= end_instant {
-            break;
+    let test_data_size = packet_size.saturating_sub(PACKET_OVERHEAD);
+    println!("Test data size: {}", test_data_size);
+    let r = round_trip(
+        test_duration,
+        &mut progress_tx,
+        link,
+        scratch,
+        test_data_size,
+    )
+    .await;
+    if r.is_err() {
+        return;
+    }
+    let mut test_data = Vec::with_capacity(test_data_size);
+    test_data.resize(test_data_size, 0xCC);
+    let r = tx_speed(test_duration, &mut progress_tx, link, &test_data).await;
+    if r.is_err() {
+        return;
+    }
+    _ = rx_speed(test_duration, &mut progress_tx, link, &test_data, scratch).await;
+}
+
+struct TestTimer {
+    end_instant: Instant,
+    last_progress_sent: Option<Instant>,
+    test_duration: Duration,
+}
+
+impl TestTimer {
+    fn new(test_duration: Duration) -> TestTimer {
+        Self {
+            end_instant: Instant::now() + test_duration,
+            last_progress_sent: None,
+            test_duration,
         }
-        if let Some(instant) = last_progress_sent {
+    }
+
+    fn update(&mut self) -> (bool, Option<f32>) {
+        let now = Instant::now();
+        if now >= self.end_instant {
+            return (true, None);
+        }
+        if let Some(instant) = self.last_progress_sent {
             if now
                 .checked_duration_since(instant)
                 .unwrap_or(Duration::from_millis(0))
                 >= Duration::from_millis(50)
             {
-                let remaining = end_instant
+                let remaining = self
+                    .end_instant
                     .checked_duration_since(now)
                     .unwrap_or(Duration::from_millis(0))
                     .as_micros() as f32
-                    / test_duration.as_micros() as f32;
-                _ = progress_tx.send(TestProgress::Completion("loopback", 1.0 - remaining));
-                last_progress_sent = Some(Instant::now());
+                    / self.test_duration.as_micros() as f32;
+                self.last_progress_sent = Some(Instant::now());
+                (false, Some(1.0 - remaining))
+            } else {
+                (false, None)
             }
         } else {
-            last_progress_sent = Some(Instant::now());
+            self.last_progress_sent = Some(Instant::now());
+            (false, None)
         }
-        let tx_data = &[1, 2, 3, 4, 5, 6];
-        let r = link.send_loopback(1, seq, tx_data).await;
+    }
+}
+
+async fn round_trip(
+    test_duration: Duration,
+    progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
+    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    scratch: &mut [u8],
+    test_data_size: usize,
+) -> Result<(), ()> {
+    _ = progress_tx.send(TestProgress::TestStarted("loopback"));
+    let mut timer = TestTimer::new(test_duration);
+    let mut seq = 0;
+    let mut tx_count = 0;
+    let mut lost_count = 0;
+    let mut data_corrupted_count = 0;
+    let mut test_data = vec![0; test_data_size];
+    loop {
+        let (should_exit, send_progress) = timer.update();
+        if should_exit {
+            break;
+        }
+        if let Some(progress) = send_progress {
+            _ = progress_tx.send(TestProgress::Completion("loopback", progress));
+        }
+
+        rand::rng().fill_bytes(&mut test_data);
+        let r = link.send_loopback(1, seq, &test_data).await;
         if let Err(e) = r {
             _ = progress_tx.send(TestProgress::FatalError(format!("tx error: {e:?}")));
-            return;
+            return Err(());
         }
         tx_count += 1;
-        let (rx_seq, rx_data) = match link.receive_message(scratch).await {
-            Ok(MessageKind::Loopback { seq, len }) => (seq, &scratch[..len]),
-            Ok(MessageKind::Ping) => match link.receive_message(scratch).await {
-                Ok(MessageKind::Loopback { seq, len }) => (seq, &scratch[..len]),
-                Ok(m) => {
-                    _ = progress_tx.send(TestProgress::FatalError(format!(
-                        "unexpected message: {m:?}"
-                    )));
-                    return;
-                }
-                Err(e) => {
-                    _ = progress_tx.send(TestProgress::FatalError(format!("rx error: {e:?}")));
-                    return;
-                }
-            },
-            Ok(m) => {
-                _ = progress_tx.send(TestProgress::FatalError(format!(
-                    "unexpected message: {m:?}"
-                )));
-                return;
-            }
-            Err(e) => {
-                _ = progress_tx.send(TestProgress::FatalError(format!("rx error: {e:?}")));
-                return;
-            }
-        };
+        let (rx_seq, rx_data) = receive_message(link, progress_tx, scratch).await?;
         if rx_seq != seq {
             lost_count += 1;
         }
-        if tx_data != rx_data {
+        if test_data != rx_data {
             data_corrupted_count += 1;
         }
         seq = seq.wrapping_add(1);
@@ -91,4 +126,120 @@ pub(crate) async fn loopback_test(
         data_corrupted_count,
     });
     _ = progress_tx.send(TestProgress::TestCompleted("loopback"));
+    Ok(())
+}
+
+async fn tx_speed(
+    test_duration: Duration,
+    progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
+    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    test_data: &[u8],
+) -> Result<(), ()> {
+    _ = progress_tx.send(TestProgress::TestStarted("tx_speed"));
+    let mut timer = TestTimer::new(test_duration);
+    let mut tx_count = 0;
+    loop {
+        let (should_exit, send_progress) = timer.update();
+        if should_exit {
+            break;
+        }
+        if let Some(progress) = send_progress {
+            _ = progress_tx.send(TestProgress::Completion("loopback", progress));
+        }
+        let r = link.send_loopback(0, 0, test_data).await;
+        if let Err(e) = r {
+            _ = progress_tx.send(TestProgress::FatalError(format!("tx error: {e:?}")));
+            return Err(());
+        }
+        tx_count += 1;
+    }
+    let per_s = tx_count as f32 / test_duration.as_secs_f32();
+    _ = progress_tx.send(TestProgress::SpeedReport {
+        name: "tx_speed",
+        count: tx_count,
+        per_s,
+        bytes_per_s: per_s * (test_data.len() + PACKET_OVERHEAD) as f32,
+    });
+    _ = progress_tx.send(TestProgress::TestCompleted("tx_speed"));
+    Ok(())
+}
+
+async fn rx_speed(
+    test_duration: Duration,
+    progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
+    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    test_data: &[u8],
+    scratch: &mut [u8],
+) -> Result<(), ()> {
+    _ = progress_tx.send(TestProgress::TestStarted("rx_speed"));
+    let mut timer = TestTimer::new(test_duration);
+    let mut rx_count = 0;
+    const BATCH_SIZE: u32 = 16;
+    loop {
+        let (should_exit, send_progress) = timer.update();
+        if should_exit {
+            break;
+        }
+        if let Some(progress) = send_progress {
+            _ = progress_tx.send(TestProgress::Completion("loopback", progress));
+        }
+        let r = link.send_loopback(BATCH_SIZE, 0, test_data).await;
+        if let Err(e) = r {
+            _ = progress_tx.send(TestProgress::FatalError(format!("tx error: {e:?}")));
+            return Err(());
+        }
+        for expected_seq in 0..BATCH_SIZE {
+            let (rx_seq, rx_data) = receive_message(link, progress_tx, scratch).await?;
+            if rx_seq != expected_seq {
+                _ = progress_tx.send(TestProgress::FatalError(format!(
+                    "rx seq miss: expected: {expected_seq}, got: {rx_seq}"
+                )));
+                return Err(());
+            }
+            if rx_data != test_data {
+                _ = progress_tx.send(TestProgress::FatalError("received wrong data".into()));
+                return Err(());
+            }
+            rx_count += 1;
+        }
+    }
+    let per_s = rx_count as f32 / test_duration.as_secs_f32();
+    _ = progress_tx.send(TestProgress::SpeedReport {
+        name: "rx_speed",
+        count: rx_count,
+        per_s,
+        bytes_per_s: per_s * (test_data.len() + PACKET_OVERHEAD) as f32,
+    });
+    _ = progress_tx.send(TestProgress::TestCompleted("rx_speed"));
+    Ok(())
+}
+
+async fn receive_message<'i>(
+    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
+    scratch: &'i mut [u8],
+) -> Result<(u32, &'i [u8]), ()> {
+    let mut rx_seq_data = None;
+    let mut last_kind = String::new();
+    for _ in 0..2 {
+        match link.receive_message(scratch).await {
+            Ok(MessageKind::Loopback { seq, len }) => {
+                rx_seq_data = Some((seq, &scratch[..len]));
+                break;
+            }
+            Ok(m) => last_kind = format!("{m:?}"),
+            Err(e) => {
+                _ = progress_tx.send(TestProgress::FatalError(format!("rx error: {e:?}")));
+                return Err(());
+            }
+        }
+    }
+    if let Some((rx_seq, rx_data)) = rx_seq_data {
+        Ok((rx_seq, rx_data))
+    } else {
+        _ = progress_tx.send(TestProgress::FatalError(format!(
+            "unexpected message: {last_kind}"
+        )));
+        Err(())
+    }
 }

@@ -62,10 +62,8 @@ pub enum Command {
     },
     // RecycleBuffer(Vec<u8>),
     LoopbackTest {
-        use_prbs: bool,
-        test_duration: Option<Duration>,
-        measure_tx_speed: bool,
-        measure_rx_speed: bool,
+        test_duration: Duration,
+        packet_size: Option<usize>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
 }
@@ -193,5 +191,11 @@ pub enum TestProgress {
         per_s: f32,
         lost_count: u64,
         data_corrupted_count: u64,
+    },
+    SpeedReport {
+        name: &'static str,
+        count: u64,
+        per_s: f32,
+        bytes_per_s: f32,
     },
 }

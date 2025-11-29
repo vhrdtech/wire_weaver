@@ -24,7 +24,15 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     /// Run USB loopback test
-    USBLoopback,
+    USBLoopback {
+        /// How long to run each test (loopback, tx speed, rx speed)
+        #[arg(long, default_value = "10")]
+        duration_sec: u32,
+
+        /// Size of each test packet (number or max, capped to max USB packet size)
+        #[arg(long, default_value = "max")]
+        packet_size: String,
+    },
 
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///

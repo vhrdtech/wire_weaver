@@ -24,6 +24,7 @@ struct State {
     conn_state: Arc<RwLock<ConnectionInfo>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
+    packet_size: usize,
 }
 
 impl State {
@@ -35,6 +36,7 @@ impl State {
             conn_state,
             device_info: None,
             max_protocol_mismatched_messages: 10,
+            packet_size: 0,
         }
     }
 
@@ -97,6 +99,7 @@ pub async fn usb_worker(
                     } else {
                         state.common.packet_accumulation_time = Duration::from_micros(100);
                     }
+                    state.packet_size = max_packet_size;
                     debug!("max_packet_size: {}", max_packet_size);
                     link = Some(WireWeaverUsbLink::new(
                         state.user_protocol.clone(),
@@ -499,22 +502,17 @@ async fn handle_command(
             // TODO: is it correct to ignore non absolute paths here?
         }
         Command::LoopbackTest {
-            use_prbs,
             test_duration,
-            measure_tx_speed,
-            measure_rx_speed,
+            packet_size,
             progress_tx,
         } => {
-            crate::loopback::loopback_test(
-                use_prbs,
-                test_duration,
-                measure_tx_speed,
-                measure_rx_speed,
-                progress_tx,
-                link,
-                scratch,
-            )
-            .await;
+            let packet_size = if let Some(requested) = packet_size {
+                requested.min(state.packet_size)
+            } else {
+                state.packet_size
+            };
+            crate::loopback::loopback_test(test_duration, packet_size, progress_tx, link, scratch)
+                .await;
         }
     }
     Ok(EventLoopSpinResult::Continue)

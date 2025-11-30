@@ -14,7 +14,6 @@ use std::fmt::Debug;
 use tracing::error;
 use wire_weaver_usb_link::Error as LinkError;
 
-const IRQ_MAX_PACKET_SIZE: usize = 1024;
 const MAX_MESSAGE_SIZE: usize = 2048;
 
 #[derive(thiserror::Error, Debug, Clone)]

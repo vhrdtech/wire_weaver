@@ -19,8 +19,8 @@ pub enum MessageKind {
     /// Message data
     Data(usize),
     /// Loopback data
-    #[cfg(feature = "host")]
     Loopback {
+        repeat: u32,
         seq: u32,
         len: usize,
     },
@@ -74,14 +74,14 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     self.continue_with_new_packet(); // skip whole packet on malformed data
                     continue 'next_message;
                 };
+                // Do not process any data before link setup is done
+                // Ping could be received during link setup if host did not send Disconnected and reconnected faster than timeout on device
+                // Disconnect could be received if host app crashed and device's packet with Disconnect did not go through, but then received on new connection
                 if !self.is_link_up()
-                    && kind != Op::GetDeviceInfo
-                    && kind != Op::DeviceInfo
-                    && kind != Op::LinkSetup
-                    && kind != Op::LinkReady
-                    && kind != Op::Nop
-                    && kind != Op::Ping // could be received during link setup if host did not send Disconnected and reconnected faster than timeout on device
-                    && kind != Op::Loopback
+                    && kind == Op::MessageStart
+                    && kind == Op::MessageContinue
+                    && kind == Op::MessageEnd
+                    && kind == Op::MessageStartEnd
                 {
                     self.continue_with_new_packet();
                     return Err(Error::UnexpectedOp(kind));
@@ -241,31 +241,17 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         return Ok(MessageKind::Ping);
                     }
                     Op::Loopback => {
-                        let _repeat = rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
+                        let repeat = rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
                         let seq = rd.read_u32().map_err(|_| Error::InternalBufOverflow)?;
                         let data = rd
                             .read_raw_slice(rd.bytes_left())
                             .map_err(|_| Error::InternalBufOverflow)?;
                         let len = data.len();
-                        message[..len].copy_from_slice(data); // cannot mutably use self otherwise
-                        #[cfg(feature = "device")]
-                        {
-                            let data = &message[..len];
-                            if _repeat == 0 {
-                                self.continue_with_new_packet();
-                            } else {
-                                let mut seq = if _repeat == 1 { seq } else { 0 };
-                                for _ in 0.._repeat {
-                                    self.send_loopback(0, seq, data).await?;
-                                    seq += 1;
-                                }
-                            }
-                            continue 'next_message;
-                        }
-                        #[cfg(feature = "host")]
-                        {
-                            return Ok(MessageKind::Loopback { seq, len });
-                        }
+                        message[..len].copy_from_slice(data);
+                        self.continue_with_new_packet();
+                        // sending multiple packets back here will result in a hard to catch error:
+                        // select in the client code would occasionally drop this future and break loop here
+                        return Ok(MessageKind::Loopback { repeat, seq, len });
                     }
                     _ => {
                         continue 'next_message;

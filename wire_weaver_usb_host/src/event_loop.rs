@@ -1,5 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{ConnectionInfo, ConnectionState, IRQ_MAX_PACKET_SIZE, MAX_MESSAGE_SIZE, UsbError};
+use crate::{ConnectionInfo, ConnectionState, MAX_MESSAGE_SIZE, UsbError};
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::sync::Arc;
@@ -56,8 +56,8 @@ pub async fn usb_worker(
     let mut state = State::new(conn_state, user_protocol);
     state.conn_state.write().await.worker_running = false;
 
-    let mut tx_buf = [0u8; IRQ_MAX_PACKET_SIZE];
-    let mut rx_buf = [0u8; IRQ_MAX_PACKET_SIZE];
+    let mut tx_buf = [0u8; 1024];
+    let mut rx_buf = [0u8; 1024];
     let mut link = None;
 
     loop {
@@ -93,6 +93,7 @@ pub async fn usb_worker(
                         },
                         None => 64,
                     };
+                    // TODO: HS IRQ max is 1024, but bulk max is 512
                     // TODO: tweak to actually hit next USB packet
                     if max_packet_size <= 64 {
                         state.common.packet_accumulation_time = Duration::from_micros(900);
@@ -103,9 +104,9 @@ pub async fn usb_worker(
                     debug!("max_packet_size: {}", max_packet_size);
                     link = Some(WireWeaverUsbLink::new(
                         state.user_protocol.clone(),
-                        Sink::new(interface.clone()),
+                        Sink::new(interface.clone(), max_packet_size),
                         &mut tx_buf[..max_packet_size],
-                        Source::new(interface),
+                        Source::new(interface, max_packet_size),
                         &mut rx_buf[..max_packet_size],
                     ));
                     state.device_info = Some(di);

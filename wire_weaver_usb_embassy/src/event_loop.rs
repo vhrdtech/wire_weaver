@@ -1,5 +1,5 @@
 use crate::UsbServer;
-use defmt::{error, info, trace};
+use defmt::{debug, error, info};
 use embassy_futures::select::{Either3, select3};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Receiver;
@@ -109,7 +109,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                 .unwrap_or(Duration::from_ticks(0));
             if till_force_send < IGNORE_TIMER_DURATION {
                 packet_started_instant = None;
-                trace!("sending accumulated packet");
+                debug!("sending accumulated packet");
                 link.force_send().await?;
                 next_ping_instant = Instant::now() + timings.ww_ping_period;
                 None
@@ -123,7 +123,7 @@ async fn api_loop<'d, D: Driver<'d>>(
             .checked_duration_since(Instant::now())
             .unwrap_or(Duration::from_ticks(0));
         let till_ping = if till_ping < IGNORE_TIMER_DURATION {
-            trace!("sending ping");
+            debug!("sending ping");
             link.send_ping().await?;
             next_ping_instant = Instant::now() + timings.ww_ping_period;
             timings.ww_ping_period
@@ -141,10 +141,10 @@ async fn api_loop<'d, D: Driver<'d>>(
                 // timer timeout
                 if packet_started_instant.is_some() {
                     packet_started_instant = None;
-                    trace!("sending accumulated packet");
+                    debug!("sending accumulated packet");
                     link.force_send().await?;
                 } else {
-                    trace!("sending ping");
+                    debug!("sending ping");
                     link.send_ping().await?;
                 }
                 next_ping_instant = Instant::now() + timings.ww_ping_period;
@@ -153,7 +153,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                 // message from host
                 MessageKind::Data(len) => {
                     let message = &rx_message_buf[..len];
-                    trace!("message: {:02x}", message);
+                    debug!("message: {:02x}", message);
                     match backend
                         .process_bytes(
                             message,
@@ -189,7 +189,19 @@ async fn api_loop<'d, D: Driver<'d>>(
                     return Ok(());
                 }
                 MessageKind::Ping => {
-                    trace!("ping from host");
+                    debug!("ping from host");
+                }
+                MessageKind::Loopback { repeat, seq, len } => {
+                    let data = &rx_message_buf[..len];
+                    if repeat == 0 {
+                        continue;
+                    } else {
+                        let mut seq = if repeat == 1 { seq } else { 0 };
+                        for _ in 0..repeat {
+                            link.send_loopback(0, seq, data).await?;
+                            seq += 1;
+                        }
+                    }
                 }
                 _ /* MessageKind::LinkSetup { .. } */ => {} // not used at this stage
             },

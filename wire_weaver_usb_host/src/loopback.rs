@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use wire_weaver_client_common::TestProgress;
 use wire_weaver_usb_link::{MessageKind, WireWeaverUsbLink};
 
-const PACKET_OVERHEAD: usize = 2 + 4 + 4 + 2 /* why 2 more?? */; // opcode + len + repeat + seq
+const PACKET_OVERHEAD: usize = 2 + 4 + 4; // (opcode + len) + repeat + seq
 
 pub(crate) async fn loopback_test(
     test_duration: Duration,
@@ -222,14 +222,18 @@ async fn receive_message<'i>(
     let mut rx_seq_data = None;
     let mut last_kind = String::new();
     for _ in 0..2 {
-        match link.receive_message(scratch).await {
-            Ok(MessageKind::Loopback { seq, len }) => {
+        match tokio::time::timeout(Duration::from_secs(1), link.receive_message(scratch)).await {
+            Ok(Ok(MessageKind::Loopback { seq, len, .. })) => {
                 rx_seq_data = Some((seq, &scratch[..len]));
                 break;
             }
-            Ok(m) => last_kind = format!("{m:?}"),
-            Err(e) => {
+            Ok(Ok(m)) => last_kind = format!("{m:?}"),
+            Ok(Err(e)) => {
                 _ = progress_tx.send(TestProgress::FatalError(format!("rx error: {e:?}")));
+                return Err(());
+            }
+            Err(_timeout) => {
+                _ = progress_tx.send(TestProgress::FatalError("rx timeout".into()));
                 return Err(());
             }
         }

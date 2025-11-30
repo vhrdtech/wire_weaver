@@ -17,9 +17,9 @@ async fn main() -> Result<()> {
         vid: 0xc0de,
         pid: 0xcafe,
     };
-    let mut device = connect_usb_dyn_api(filter.clone())
-        .await
-        .context(format!("Connecting to USB device with filter: {filter:?}"))?;
+    let mut device = connect_usb_dyn_api(filter.clone()).await.context(format!(
+        "Connecting to USB device with filter: {filter:02x?}"
+    ))?;
 
     match cli.command {
         Commands::USBLoopback {

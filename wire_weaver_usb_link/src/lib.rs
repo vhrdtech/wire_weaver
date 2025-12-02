@@ -17,7 +17,7 @@ const CRC_KIND: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC);
 /// potentially received.
 const MIN_MESSAGE_SIZE: usize = 64;
 
-pub const PING_INTERVAL_MS: u64 = 1000;
+pub const PING_INTERVAL_MS: u64 = 3000;
 
 // Some features are host and device specific to reduce confusion.
 // Disabled to include all crates in one workspace

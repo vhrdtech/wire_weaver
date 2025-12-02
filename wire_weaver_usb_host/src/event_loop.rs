@@ -15,7 +15,9 @@ use wire_weaver_client_common::{
     event_loop_state::CommonState,
     ww_client_server::{Event, EventKind, Request, RequestKind},
 };
-use wire_weaver_usb_link::{DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink};
+use wire_weaver_usb_link::{
+    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, WireWeaverUsbLink,
+};
 
 struct State {
     common: CommonState,
@@ -220,18 +222,52 @@ async fn process_commands_and_endpoints(
         .map_err(|e| Error::Transport(format!("{:?}", e)))?;
     let mut scratch = [0u8; MAX_MESSAGE_SIZE];
     let mut link_setup_retries = 5;
+    let ping_period = Duration::from_millis(PING_INTERVAL_MS);
+    const TIMER_IGNORE_PERIOD: Duration = Duration::from_micros(10);
+    let mut next_tx_ping_instant = Instant::now() + ping_period;
     loop {
         let duration = if state.common.link_setup_done {
-            if let Some(instant) = state.common.packet_started_instant {
-                let dt_since_packet_start = Instant::now() - instant;
-                state
+            let now = Instant::now();
+            let till_force_send = if let Some(instant) = state.common.packet_started_instant {
+                let dt_since_packet_start = now
+                    .checked_duration_since(instant)
+                    .unwrap_or(Duration::from_millis(0));
+                let till_force_send = state
                     .common
                     .packet_accumulation_time
                     .checked_sub(dt_since_packet_start)
-                    .unwrap_or(Duration::from_secs(0))
+                    .unwrap_or(Duration::from_millis(0));
+                if till_force_send < TIMER_IGNORE_PERIOD {
+                    state.common.packet_started_instant = None;
+                    debug!("sending accumulated packet (timer ignore)");
+                    link.force_send()
+                        .await
+                        .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+                    next_tx_ping_instant = now + ping_period;
+                    None
+                } else {
+                    Some(till_force_send)
+                }
             } else {
-                Duration::from_millis(wire_weaver_usb_link::PING_INTERVAL_MS)
-            }
+                None
+            };
+            let till_ping = next_tx_ping_instant
+                .checked_duration_since(now)
+                .unwrap_or(Duration::from_millis(0));
+            let till_ping = if till_ping < TIMER_IGNORE_PERIOD {
+                debug!("sending ping (timer ignore)");
+                link.send_ping()
+                    .await
+                    .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+                next_tx_ping_instant = now + ping_period;
+                ping_period
+            } else {
+                till_ping
+            };
+            let till_min = till_force_send
+                .map(|f| f.min(till_ping))
+                .unwrap_or(till_ping);
+            till_min
         } else {
             // resend GetDeviceInfo, might not be needed as packets should not get silently lost (apart from the very first), but just in case
             Duration::from_millis(50)
@@ -270,24 +306,24 @@ async fn process_commands_and_endpoints(
                         return Err(Error::LinkSetupTimeout);
                     }
                 } else {
-                    if let Some(last) = &state.common.last_ping_instant {
+                    if let Some(last) = &state.common.last_rx_ping_instant {
                         let dt = Instant::now() - *last;
                         if dt > Duration::from_secs(10) {
-                            warn!("No ping from device for 10 seconds, exiting");
+                            warn!("no ping from device for 10 seconds, exiting");
                             return Ok(EventLoopResult::Disconnect);
                         }
                     }
                     if let Some(instant) = state.common.packet_started_instant {
-                        trace!("Sending accumulated packet {}us", (Instant::now() - instant).as_micros());
+                        trace!("sending accumulated packet {}us", (Instant::now() - instant).as_micros());
                         state.common.packet_started_instant = None;
                         link.force_send().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     } else {
-                        trace!("Sending ping");
+                        trace!("sending ping");
                         link.send_ping().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     }
+                    next_tx_ping_instant = Instant::now() + ping_period;
                 }
                 state.common.prune_timed_out_requests();
-                // TODO: send accumulated message or Ping
             }
         }
     }
@@ -307,7 +343,7 @@ async fn handle_message(
 ) -> Result<EventLoopSpinResult, Error> {
     match message {
         Ok(MessageKind::Data(len)) => {
-            state.common.last_ping_instant = Some(Instant::now());
+            state.common.last_rx_ping_instant = Some(Instant::now());
             if len == 0 {
                 warn!("got empty event data, ignoring");
                 return Ok(EventLoopSpinResult::Continue);
@@ -374,7 +410,7 @@ async fn handle_message(
         }
         Ok(MessageKind::Ping) => {
             trace!("Ping");
-            state.common.last_ping_instant = Some(Instant::now());
+            state.common.last_rx_ping_instant = Some(Instant::now());
         }
         Ok(MessageKind::DeviceInfo {
             max_message_len,
@@ -466,7 +502,11 @@ async fn handle_command(
             done_tx,
         } => {
             trace!("sending call to {path_kind:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
+            let seq = if done_tx.is_some() {
+                state.common.register_prune_next_seq(timeout, done_tx)
+            } else {
+                0
+            };
             let request = Request {
                 seq,
                 path_kind: path_kind.as_ref(),
@@ -483,7 +523,11 @@ async fn handle_command(
             done_tx,
         } => {
             trace!("sending write to {path_kind:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
+            let seq = if done_tx.is_some() {
+                state.common.register_prune_next_seq(timeout, done_tx)
+            } else {
+                0
+            };
             let request = Request {
                 seq,
                 path_kind: path_kind.as_ref(),
@@ -549,7 +593,7 @@ async fn serialize_request_send(
         .map_err(|e| Error::Transport(format!("{:?}", e)))?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
     if link.is_tx_queue_empty() {
         state.common.packet_started_instant = None;
-    } else {
+    } else if state.common.packet_started_instant.is_none() {
         state.common.packet_started_instant = Some(Instant::now());
     }
     Ok(())

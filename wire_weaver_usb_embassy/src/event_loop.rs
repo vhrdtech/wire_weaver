@@ -6,7 +6,9 @@ use embassy_sync::channel::Receiver;
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::driver::{Driver, EndpointError};
 use wire_weaver::WireWeaverAsyncApiBackend;
-use wire_weaver_usb_link::{DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink};
+use wire_weaver_usb_link::{
+    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, WireWeaverUsbLink,
+};
 
 // TODO: tune ignore timer duration
 const IGNORE_TIMER_DURATION: Duration = Duration::from_micros(10);
@@ -25,7 +27,7 @@ impl UsbTimings {
         Self {
             packet_accumulation_time: Duration::from_millis(1),
             packet_send_timeout: Duration::from_millis(500),
-            ww_ping_period: Duration::from_millis(3000),
+            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
         }
     }
 
@@ -33,7 +35,7 @@ impl UsbTimings {
         Self {
             packet_accumulation_time: Duration::from_micros(125),
             packet_send_timeout: Duration::from_millis(500),
-            ww_ping_period: Duration::from_millis(3000),
+            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
         }
     }
 }
@@ -99,8 +101,9 @@ async fn api_loop<'d, D: Driver<'d>>(
     let mut packet_started_instant: Option<Instant> = None;
     let mut next_ping_instant = Instant::now() + timings.ww_ping_period;
     loop {
+        let now = Instant::now();
         let till_force_send = if let Some(instant) = packet_started_instant {
-            let dt_since_packet_start = Instant::now()
+            let dt_since_packet_start = now
                 .checked_duration_since(instant)
                 .unwrap_or(Duration::from_ticks(0));
             let till_force_send = timings
@@ -111,7 +114,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                 packet_started_instant = None;
                 debug!("sending accumulated packet");
                 link.force_send().await?;
-                next_ping_instant = Instant::now() + timings.ww_ping_period;
+                next_ping_instant = now + timings.ww_ping_period;
                 None
             } else {
                 Some(till_force_send)
@@ -120,12 +123,12 @@ async fn api_loop<'d, D: Driver<'d>>(
             None
         };
         let till_ping = next_ping_instant
-            .checked_duration_since(Instant::now())
+            .checked_duration_since(now)
             .unwrap_or(Duration::from_ticks(0));
         let till_ping = if till_ping < IGNORE_TIMER_DURATION {
             debug!("sending ping");
             link.send_ping().await?;
-            next_ping_instant = Instant::now() + timings.ww_ping_period;
+            next_ping_instant = now + timings.ww_ping_period;
             timings.ww_ping_period
         } else {
             till_ping

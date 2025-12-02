@@ -360,9 +360,11 @@ async fn handle_message(
             // tx_events.send(Event::Received(packet.to_vec())).await.unwrap();
         }
         Ok(MessageKind::Disconnect(reason)) => {
-            return if !state.common.link_setup_done {
+            return if !state.common.link_setup_done
+                && reason != DisconnectReason::IncompatibleVersion
+            {
                 warn!(
-                    "Received Disconnect({reason:?}) from remote device, ignoring once, must be from old session"
+                    "Received Disconnect({reason:?}) from remote device, ignoring, must be from old session"
                 );
                 Ok(EventLoopSpinResult::Continue)
             } else {

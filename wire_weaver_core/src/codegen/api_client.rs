@@ -321,11 +321,30 @@ fn handle_method(
         }
     };
 
+    let fn_call_forget = if return_type.is_none() {
+        let forget_fn_name = Ident::new(&format!("{}_forget", ident), ident.span());
+        quote! {
+            #docs
+            #[doc = "NOTE: This method does not wait for the answer from remote device."]
+            pub async fn #forget_fn_name(&mut self, #args_list) -> Result<(), wire_weaver_client_common::Error> {
+                #args_ser
+                let args_bytes = #args_bytes;
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd_tx.send_call_forget(path_kind, args_bytes).await?;
+                Ok(())
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let fn_call_default_timeout = fn_call(true);
     let fn_call = fn_call(false);
     quote! {
         #fn_call_default_timeout
         #fn_call
+        #fn_call_forget
     }
 }
 

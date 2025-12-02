@@ -114,7 +114,11 @@ pub fn usb_init<
     builder.msos_descriptor(windows_version::WIN8_1, 2);
 
     // Create class on the builder.
-    let ww = WireWeaverClass::new(&mut builder, 64, timings.packet_send_timeout);
+    let ww = WireWeaverClass::new(
+        &mut builder,
+        MAX_USB_PACKET_LEN as u16,
+        timings.packet_send_timeout,
+    );
 
     // Build the builder.
     let usb = builder.build();

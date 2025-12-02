@@ -16,7 +16,6 @@ pub async fn connect_usb_dyn_api(filter: DeviceFilter) -> Result<mpsc::Unbounded
             cmd_rx,
             conn_state,
             FullVersion::new("", Version::new(0, 1, 0)),
-            64,
         )
         .await;
     });

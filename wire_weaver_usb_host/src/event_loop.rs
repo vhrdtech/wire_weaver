@@ -24,7 +24,7 @@ struct State {
     conn_state: Arc<RwLock<ConnectionInfo>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
-    packet_size: usize,
+    irq_packet_size: usize,
 }
 
 impl State {
@@ -36,7 +36,7 @@ impl State {
             conn_state,
             device_info: None,
             max_protocol_mismatched_messages: 10,
-            packet_size: 0,
+            irq_packet_size: 0,
         }
     }
 
@@ -51,7 +51,6 @@ pub async fn usb_worker(
     mut cmd_rx: mpsc::UnboundedReceiver<Command>,
     conn_state: Arc<RwLock<ConnectionInfo>>,
     user_protocol: FullVersion<'static>,
-    max_hs_usb_packet_size: usize,
 ) {
     let mut state = State::new(conn_state, user_protocol);
     state.conn_state.write().await.worker_running = false;
@@ -84,30 +83,30 @@ pub async fn usb_worker(
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
                 Ok(Some((interface, di))) => {
-                    let max_packet_size = match di.speed() {
+                    let max_irq_packet_size = match di.speed() {
                         Some(speed) => match speed {
                             Speed::Low => 8,
                             Speed::Full => 64,
-                            Speed::High | Speed::Super | Speed::SuperPlus => max_hs_usb_packet_size,
+                            Speed::High | Speed::Super | Speed::SuperPlus => 1024,
                             _ => 64,
                         },
                         None => 64,
                     };
                     // TODO: HS IRQ max is 1024, but bulk max is 512
                     // TODO: tweak to actually hit next USB packet
-                    if max_packet_size <= 64 {
+                    if max_irq_packet_size <= 64 {
                         state.common.packet_accumulation_time = Duration::from_micros(900);
                     } else {
                         state.common.packet_accumulation_time = Duration::from_micros(100);
                     }
-                    state.packet_size = max_packet_size;
-                    debug!("max_packet_size: {}", max_packet_size);
+                    state.irq_packet_size = max_irq_packet_size;
+                    debug!("max_packet_size: {}", max_irq_packet_size);
                     link = Some(WireWeaverUsbLink::new(
                         state.user_protocol.clone(),
-                        Sink::new(interface.clone(), max_packet_size),
-                        &mut tx_buf[..max_packet_size],
-                        Source::new(interface, max_packet_size),
-                        &mut rx_buf[..max_packet_size],
+                        Sink::new(&interface, max_irq_packet_size).unwrap(),
+                        &mut tx_buf[..max_irq_packet_size],
+                        Source::new(&interface, max_irq_packet_size).unwrap(),
+                        &mut rx_buf[..max_irq_packet_size],
                     ));
                     state.device_info = Some(di);
                 }
@@ -219,7 +218,7 @@ async fn process_commands_and_endpoints(
     link.send_get_device_info()
         .await
         .map_err(|e| Error::Transport(format!("{:?}", e)))?;
-    let mut scratch = [0u8; 512];
+    let mut scratch = [0u8; MAX_MESSAGE_SIZE];
     let mut link_setup_retries = 5;
     loop {
         let duration = if state.common.link_setup_done {
@@ -273,8 +272,8 @@ async fn process_commands_and_endpoints(
                 } else {
                     if let Some(last) = &state.common.last_ping_instant {
                         let dt = Instant::now() - *last;
-                        if dt > Duration::from_secs(5) {
-                            warn!("No ping from device for 5 seconds, exiting");
+                        if dt > Duration::from_secs(10) {
+                            warn!("No ping from device for 10 seconds, exiting");
                             return Ok(EventLoopResult::Disconnect);
                         }
                     }
@@ -361,8 +360,15 @@ async fn handle_message(
             // tx_events.send(Event::Received(packet.to_vec())).await.unwrap();
         }
         Ok(MessageKind::Disconnect(reason)) => {
-            info!("Received Disconnect({reason:?}) from remote device, exiting");
-            return Ok(EventLoopSpinResult::DisconnectFromDevice);
+            return if !state.common.link_setup_done {
+                warn!(
+                    "Received Disconnect({reason:?}) from remote device, ignoring once, must be from old session"
+                );
+                Ok(EventLoopSpinResult::Continue)
+            } else {
+                info!("Received Disconnect({reason:?}) from remote device, exiting");
+                Ok(EventLoopSpinResult::DisconnectFromDevice)
+            };
         }
         Ok(MessageKind::Ping) => {
             trace!("Ping");
@@ -430,6 +436,9 @@ async fn handle_command(
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+            // wait for Disconnect op to be actually sent out
+            // link.tx_mut().flush().await
+            tokio::time::sleep(Duration::from_millis(3)).await;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
@@ -440,6 +449,9 @@ async fn handle_command(
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+            // wait for Disconnect op to be actually sent out
+            // link.tx_mut().flush().await - does not seem to be working, submitted transfer still get cancelled in-flight
+            tokio::time::sleep(Duration::from_millis(3)).await;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
             }
@@ -508,9 +520,9 @@ async fn handle_command(
             progress_tx,
         } => {
             let packet_size = if let Some(requested) = packet_size {
-                requested.min(state.packet_size)
+                requested.min(state.irq_packet_size)
             } else {
-                state.packet_size
+                state.irq_packet_size
             };
             crate::loopback::loopback_test(test_duration, packet_size, progress_tx, link, scratch)
                 .await;

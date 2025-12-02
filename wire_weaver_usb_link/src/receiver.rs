@@ -8,6 +8,7 @@ use wire_weaver::prelude::FullVersion;
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ReceiverStats {
     pub packets_received: u32,
+    pub malformed_packets: u32,
     pub messages_received: u32,
     pub bytes_received: u64,
     pub receive_errors: u32,
@@ -71,6 +72,8 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
             while rd.bytes_left() >= 2 {
                 let kind = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
                 let Some(kind) = Op::from_repr(kind) else {
+                    self.rx_stats.malformed_packets =
+                        self.rx_stats.malformed_packets.wrapping_add(1);
                     self.continue_with_new_packet(); // skip whole packet on malformed data
                     continue 'next_message;
                 };

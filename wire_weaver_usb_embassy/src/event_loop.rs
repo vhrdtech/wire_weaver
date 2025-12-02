@@ -24,7 +24,7 @@ impl UsbTimings {
     pub fn default_fs() -> Self {
         Self {
             packet_accumulation_time: Duration::from_millis(1),
-            packet_send_timeout: Duration::from_millis(100),
+            packet_send_timeout: Duration::from_millis(500),
             ww_ping_period: Duration::from_millis(3000),
         }
     }
@@ -32,7 +32,7 @@ impl UsbTimings {
     pub fn default_hs() -> Self {
         Self {
             packet_accumulation_time: Duration::from_micros(125),
-            packet_send_timeout: Duration::from_millis(100),
+            packet_send_timeout: Duration::from_millis(500),
             ww_ping_period: Duration::from_millis(3000),
         }
     }

@@ -174,7 +174,7 @@ async fn rx_speed(
     _ = progress_tx.send(TestProgress::TestStarted("rx_speed"));
     let mut timer = TestTimer::new(test_duration);
     let mut rx_count = 0;
-    const BATCH_SIZE: u32 = 16;
+    const BATCH_SIZE: u32 = 256;
     loop {
         let (should_exit, send_progress) = timer.update();
         if should_exit {
@@ -221,7 +221,7 @@ async fn receive_message<'i>(
 ) -> Result<(u32, &'i [u8]), ()> {
     let mut rx_seq_data = None;
     let mut last_kind = String::new();
-    for _ in 0..2 {
+    for _ in 0..3 {
         match tokio::time::timeout(Duration::from_secs(1), link.receive_message(scratch)).await {
             Ok(Ok(MessageKind::Loopback { seq, len, .. })) => {
                 rx_seq_data = Some((seq, &scratch[..len]));

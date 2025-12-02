@@ -123,6 +123,16 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub(crate) fn is_link_up(&self) -> bool {
         self.remote_protocol.is_some()
     }
+
+    // /// Get a mutable reference to tx
+    // pub fn tx_mut(&mut self) -> &mut T {
+    //     &mut self.tx
+    // }
+    //
+    // /// Get a mutable reference to rx
+    // pub fn rx_mut(&mut self) -> &mut R {
+    //     &mut self.rx
+    // }
 }
 
 #[repr(u8)]

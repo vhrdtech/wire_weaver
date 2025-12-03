@@ -1,7 +1,5 @@
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
-use shrink_wrap::ref_vec::RefVec;
-use shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use std::net::IpAddr;
 use std::time::Duration;
 use tokio::net::TcpStream;
@@ -10,9 +8,8 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
-use wire_weaver_client_common::ww_client_server::{Event, EventKind, RequestKind};
-use wire_weaver_client_common::ww_client_server::{PathKindOwned, Request};
-use wire_weaver_client_common::{Command, DeviceFilter, Error, StreamEvent};
+use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
+use wire_weaver_client_common::{Command, DeviceFilter, Error};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -38,6 +35,8 @@ pub enum WsError {
     LinkSetupError,
     #[error("Transport specific error: {}", .0)]
     Transport(String),
+    #[error("Internal error {}", .0)]
+    Internal(String),
     #[error("")]
     ExitRequested,
 }
@@ -59,15 +58,18 @@ struct Link {
     rx: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
-pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
+pub async fn ws_worker(
+    mut cmd_rx: mpsc::UnboundedReceiver<Command>,
+    mut to_dispatcher: mpsc::UnboundedSender<DispatcherMessage>,
+) {
     debug!("ws worker started");
     let mut state = State::default();
     let mut link = None;
-    let mut scratch = [0u8; 2048];
     loop {
         match &mut link {
             Some(l) => {
-                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut scratch).await
+                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut to_dispatcher)
+                    .await
                 {
                     Ok(r) => {
                         info!("loop (inner) exited with {:?}", r);
@@ -81,7 +83,6 @@ pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
                     break;
                 } else {
                     info!("will try to reconnect");
-                    state.common.cancel_all_requests();
                     state.common.on_disconnect();
                     link = None;
                     continue;
@@ -99,8 +100,6 @@ pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
             },
         }
     }
-    state.common.cancel_all_streams();
-    state.common.cancel_all_requests();
     debug!("ws worker exited");
 }
 
@@ -115,7 +114,7 @@ async fn process_commands_and_endpoints(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut Link,
     state: &mut State,
-    scratch: &mut [u8],
+    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
 ) -> Result<EventLoopResult, WsError> {
     link.tx.send(Message::Text("versions?".into())).await?;
     let mut link_setup_retries = 5;
@@ -129,7 +128,7 @@ async fn process_commands_and_endpoints(
         tokio::select! {
             message = link.rx.next() => {
                 match message {
-                    Some(Ok(message)) => match handle_message(message, &mut link.tx, state).await? {
+                    Some(Ok(message)) => match handle_message(message, &mut link.tx, state, to_dispatcher).await? {
                         EventLoopSpinResult::Continue => {}
                         EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                         EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -150,7 +149,7 @@ async fn process_commands_and_endpoints(
                     link.tx.send(Message::Close(None)).await?;
                     return Ok(EventLoopResult::Exit);
                 };
-                match handle_command(cmd, &mut link.tx, state, scratch).await? {
+                match handle_command(cmd, &mut link.tx).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -168,7 +167,6 @@ async fn process_commands_and_endpoints(
                         return Err(WsError::LinkSetupTimeout);
                     }
                 }
-                state.common.prune_timed_out_requests();
                 // TODO: send accumulated message or Ping
             }
         }
@@ -209,15 +207,6 @@ async fn wait_for_connection_and_queue_commands(
                     rx,
                 }));
             }
-            Command::StreamOpen {
-                path_kind,
-                stream_data_tx,
-            } => {
-                if let PathKindOwned::Absolute { path } = path_kind {
-                    state.common.stream_handlers.insert(path, stream_data_tx);
-                }
-                // TODO: register stream handler when using traits, absolute path will only be known when device replies
-            }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
@@ -231,12 +220,8 @@ async fn wait_for_connection_and_queue_commands(
                 state.common.exit_on_error = true;
                 return Err(WsError::ExitRequested);
             }
-            Command::SendCall { done_tx, .. }
-            | Command::SendRead { done_tx, .. }
-            | Command::SendWrite { done_tx, .. } => {
-                if let Some(tx) = done_tx {
-                    let _ = tx.send(Err(Error::Disconnected));
-                }
+            Command::SendMessage { .. } => {
+                warn!("ignoring send message while disconnected");
             }
             Command::LoopbackTest { .. } => {}
         }
@@ -254,6 +239,7 @@ async fn handle_message(
     message: Message,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     state: &mut State,
+    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
 ) -> Result<EventLoopSpinResult, WsError> {
     match message {
         Message::Binary(data) => {
@@ -261,51 +247,9 @@ async fn handle_message(
                 warn!("got empty event data, ignoring");
                 return Ok(EventLoopSpinResult::Continue);
             }
-            let mut rd = BufReader::new(&data);
-            let event = match Event::des_shrink_wrap(&mut rd) {
-                Ok(e) => e,
-                Err(e) => {
-                    warn!("event deserialization failed: {e:?}, ignoring");
-                    return Ok(EventLoopSpinResult::Continue);
-                }
-            };
-            let data: &[u8] = &data;
-            trace!("event: {:02x?} {event:?}", data);
-            match event.result {
-                Ok(event_kind) => match event_kind {
-                    EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
-                        if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                            let r = data.as_slice().to_vec();
-                            let _ = done_tx.send(Ok(r));
-                        }
-                    }
-                    EventKind::Written => {
-                        if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                            let _ = done_tx.send(Ok(Vec::new()));
-                        }
-                    }
-                    EventKind::StreamData { path, data } => {
-                        let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
-                        let mut should_drop_handler = false;
-                        if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let data = data.as_slice().to_vec();
-                            should_drop_handler = tx.send(StreamEvent::Data(data)).is_err();
-                        }
-                        if should_drop_handler {
-                            info!(
-                                "Dropping stream handler with path: {path:?}, because rx end was dropped"
-                            );
-                            state.common.stream_handlers.remove(&path);
-                        }
-                    }
-                    _ => {}
-                },
-                Err(e) => {
-                    if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                        let _ = done_tx.send(Err(Error::RemoteError(e)));
-                    }
-                }
-            }
+            to_dispatcher
+                .send(DispatcherMessage::MessageBytes(data.into()))
+                .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
         }
         Message::Close(_close_frame) => {
             info!("Received Disconnect from remote device, exiting");
@@ -357,8 +301,6 @@ async fn handle_message(
 async fn handle_command(
     cmd: Command,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    state: &mut State,
-    scratch: &mut [u8],
 ) -> Result<EventLoopSpinResult, WsError> {
     match cmd {
         Command::Connect { .. } => {
@@ -380,95 +322,13 @@ async fn handle_command(
             }
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
-        Command::SendCall {
-            args_bytes,
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending call to {path_kind:?}");
-            let seq = if done_tx.is_some() {
-                state.common.register_prune_next_seq(timeout, done_tx)
-            } else {
-                0
-            };
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Call {
-                    args: RefVec::new_bytes(&args_bytes),
-                },
-            };
-            serialize_request_send(request, tx, state, scratch).await?;
-        }
-        Command::SendWrite {
-            value_bytes,
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending write to {path_kind:?}");
-            let seq = if done_tx.is_some() {
-                state.common.register_prune_next_seq(timeout, done_tx)
-            } else {
-                0
-            };
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Write {
-                    data: RefVec::new_bytes(&value_bytes),
-                },
-            };
-            serialize_request_send(request, tx, state, scratch).await?;
-        }
-        Command::SendRead {
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending read to {path_kind:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Read,
-            };
-            serialize_request_send(request, tx, state, scratch).await?;
-        }
-        Command::StreamOpen {
-            path_kind,
-            stream_data_tx,
-        } => {
-            if let PathKindOwned::Absolute { path } = path_kind {
-                state.common.stream_handlers.insert(path, stream_data_tx);
-            }
-            // TODO: is it correct to ignore non absolute paths here?
+        Command::SendMessage { bytes } => {
+            tx.send(Message::Binary(bytes.into())).await?;
+            // TODO: check in WireShark whether messages batch together or else force send on timer
         }
         Command::LoopbackTest { .. } => {
             todo!()
         }
     }
     Ok(EventLoopSpinResult::Continue)
-}
-
-async fn serialize_request_send(
-    request: Request<'_>,
-    tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    _state: &mut State,
-    scratch: &mut [u8],
-) -> Result<(), WsError> {
-    let mut wr = BufWriter::new(scratch);
-    request.ser_shrink_wrap(&mut wr)?;
-    let request_bytes = wr.finish_and_take()?.to_vec();
-
-    trace!("Sending request: {:02x?}", request_bytes);
-    tx.send(Message::Binary(request_bytes.into())).await?;
-    // if link.is_tx_queue_empty() {
-    //     state.common.packet_started_instant = None;
-    // } else {
-    //     state.common.packet_started_instant = Some(Instant::now());
-    // }
-    // link.force_send().await?; // TODO: check in WireShark whether messages batch together or else force send on timer
-    Ok(())
 }

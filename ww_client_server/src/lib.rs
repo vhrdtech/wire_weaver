@@ -38,7 +38,7 @@ pub struct Request<'i> {
 #[ww_repr(u4)]
 #[final_structure]
 #[owned = "std"]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PathKind<'i> {
     /// Full path to a resource, regardless whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },

@@ -6,7 +6,7 @@ description = "Client-server API model host side common data types (USB, WebSock
 edition.workspace = true
 
 [dependencies]
-tokio = { version = "1", features = ["sync", "time"] }
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 thiserror = "2.0"
 tracing = "0.1"
 wire_weaver = { path = "../wire_weaver" }

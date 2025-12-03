@@ -1,5 +1,6 @@
 pub mod command_sender;
 pub mod event_loop_state;
+pub mod rx_dispatcher;
 pub mod ww;
 
 // TODO: remove
@@ -11,8 +12,10 @@ use ww_version::FullVersionOwned;
 
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use ww_client_server::{PathKindOwned, StreamSidebandEvent};
+use ww_client_server::StreamSidebandEvent;
 
+/// Command for the transport event loop host (USB host, WebSocket client, UDP client).
+/// Generated client code uses [CommandSender](CommandSender), which sends out Command's.
 pub enum Command {
     /// Try to connect to / open a device with the specified filter.
     Connect {
@@ -35,32 +38,11 @@ pub enum Command {
         disconnected_tx: Option<oneshot::Sender<()>>,
     },
 
-    // TODO: send ww_client_server bytes directly
-    SendCall {
-        path_kind: PathKindOwned,
-        // WireWeaver client_server serialized Request, this shifts serializing onto caller and allows to reuse Vec
-        args_bytes: Vec<u8>,
-        timeout: Option<Duration>,
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
-    },
-    SendWrite {
-        path_kind: PathKindOwned,
-        value_bytes: Vec<u8>,
-        timeout: Option<Duration>,
-        // Vec is always empty here, but allows for common code
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
-    },
-    SendRead {
-        path_kind: PathKindOwned,
-        timeout: Option<Duration>,
-        done_tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
-    },
-    StreamOpen {
-        path_kind: PathKindOwned,
-        stream_data_tx: mpsc::UnboundedSender<StreamEvent>,
-        // stop_rx: oneshot::Receiver<()>,
+    SendMessage {
+        bytes: Vec<u8>,
     },
     // RecycleBuffer(Vec<u8>),
+    // GetStats,
     LoopbackTest {
         test_duration: Duration,
         packet_size: Option<usize>,
@@ -75,6 +57,8 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 pub enum Error {
     #[error("Called a method that required event loop to be running")]
     EventLoopNotRunning,
+    #[error("RX dispatcher exited due to previous error, cannot operate without it")]
+    RxDispatcherNotRunning,
     #[error("No devices found to connect to")]
     DeviceNotFound,
     #[error("Timeout")]
@@ -101,6 +85,8 @@ pub enum Error {
     Transport(String),
     #[error("User error {}", .0)]
     User(String),
+    #[error("User error {}", .0)]
+    Other(String),
 }
 
 impl From<wire_weaver::shrink_wrap::Error> for Error {
@@ -174,10 +160,12 @@ pub enum DeviceFilter {
     AnyVhrdTechIo,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum StreamEvent {
     Data(Vec<u8>),
     Sideband(StreamSidebandEvent),
+    Connected,
+    Disconnected,
 }
 
 #[derive(Debug)]

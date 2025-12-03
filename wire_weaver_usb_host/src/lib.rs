@@ -8,11 +8,9 @@ pub use event_loop::usb_worker;
 pub use nusb::DeviceInfo;
 pub use wire_weaver_client_common;
 
-use nusb::Error as NusbError;
 use nusb::transfer::TransferError;
 use std::fmt::Debug;
 use tracing::error;
-use wire_weaver_usb_link::Error as LinkError;
 
 const MAX_MESSAGE_SIZE: usize = 2048;
 
@@ -26,33 +24,14 @@ pub enum UsbError {
     WatcherReturnedNone,
 }
 
-#[derive(Default)]
-pub enum ConnectionState {
-    #[default]
-    Disconnected,
-    Connected {
-        device_info: DeviceInfo,
-    },
-    Error {
-        error_string: String,
-    },
-}
-
-/// Shared struct containing connection information along with statistics.
-#[derive(Default)]
-pub struct ConnectionInfo {
-    pub state: ConnectionState, // outstanding streams, requests, etc
-    pub worker_running: bool,
-}
-
-impl From<NusbError> for UsbError {
-    fn from(value: NusbError) -> Self {
+impl From<nusb::Error> for UsbError {
+    fn from(value: nusb::Error) -> Self {
         UsbError::Nusb(format!("{:?}", value))
     }
 }
 
-impl From<LinkError<TransferError, TransferError>> for UsbError {
-    fn from(value: LinkError<TransferError, TransferError>) -> Self {
+impl From<wire_weaver_usb_link::Error<TransferError, TransferError>> for UsbError {
+    fn from(value: wire_weaver_usb_link::Error<TransferError, TransferError>) -> Self {
         UsbError::Link(value)
     }
 }

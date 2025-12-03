@@ -116,7 +116,7 @@ async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
         } else if let Some(buf) = submit_rx.recv().await {
             ep.submit(buf);
         } else {
-            debug!("submit channel closed, exiting");
+            debug!("{marker}: submit channel closed, exiting");
             break;
         }
     }

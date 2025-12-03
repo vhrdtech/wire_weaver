@@ -1,19 +1,14 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{ConnectionInfo, ConnectionState, MAX_MESSAGE_SIZE, UsbError};
+use crate::{MAX_MESSAGE_SIZE, UsbError};
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver::shrink_wrap::ref_vec::RefVec;
-use wire_weaver::shrink_wrap::{BufReader, BufWriter, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver::ww_version::FullVersion;
-use wire_weaver_client_common::ww_client_server::PathKindOwned;
+use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{
-    Command, Error, OnError, StreamEvent, TestProgress,
-    event_loop_state::CommonState,
-    ww_client_server::{Event, EventKind, Request, RequestKind},
+    Command, Error, OnError, TestProgress, event_loop_state::CommonState,
 };
 use wire_weaver_usb_link::{
     DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, WireWeaverUsbLink,
@@ -23,19 +18,17 @@ struct State {
     common: CommonState,
     message_rx: [u8; MAX_MESSAGE_SIZE],
     user_protocol: FullVersion<'static>,
-    conn_state: Arc<RwLock<ConnectionInfo>>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
     irq_packet_size: usize,
 }
 
 impl State {
-    fn new(conn_state: Arc<RwLock<ConnectionInfo>>, user_protocol: FullVersion<'static>) -> Self {
+    fn new(user_protocol: FullVersion<'static>) -> Self {
         State {
             common: CommonState::default(),
             message_rx: [0u8; MAX_MESSAGE_SIZE],
             user_protocol,
-            conn_state,
             device_info: None,
             max_protocol_mismatched_messages: 10,
             irq_packet_size: 0,
@@ -51,11 +44,10 @@ impl State {
 
 pub async fn usb_worker(
     mut cmd_rx: mpsc::UnboundedReceiver<Command>,
-    conn_state: Arc<RwLock<ConnectionInfo>>,
+    mut to_dispatcher: mpsc::UnboundedSender<DispatcherMessage>,
     user_protocol: FullVersion<'static>,
 ) {
-    let mut state = State::new(conn_state, user_protocol);
-    state.conn_state.write().await.worker_running = false;
+    let mut state = State::new(user_protocol);
 
     let mut tx_buf = [0u8; 1024];
     let mut rx_buf = [0u8; 1024];
@@ -64,7 +56,9 @@ pub async fn usb_worker(
     loop {
         match &mut link {
             Some(l) => {
-                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state).await {
+                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut to_dispatcher)
+                    .await
+                {
                     Ok(r) => {
                         info!("usb event loop (inner) exited with {:?}", r);
                         if r == EventLoopResult::Exit {
@@ -77,7 +71,6 @@ pub async fn usb_worker(
                     break;
                 } else {
                     info!("will try to reconnect");
-                    state.common.cancel_all_requests();
                     state.on_disconnect();
                     link = None;
                     continue;
@@ -123,9 +116,6 @@ pub async fn usb_worker(
             },
         }
     }
-    state.common.cancel_all_streams();
-    state.common.cancel_all_requests();
-    state.conn_state.write().await.worker_running = false;
     debug!("usb worker exited");
 }
 
@@ -146,13 +136,9 @@ async fn wait_for_connection_and_queue_commands(
                 connected_tx,
                 user_protocol_version,
             } => {
-                // TODO: process commands with timeout expired before connected?
                 let (interface, di) = match crate::connection::connect(filter, on_error).await {
                     Ok(i_di) => i_di,
                     Err(e) => {
-                        state.conn_state.write().await.state = ConnectionState::Error {
-                            error_string: format!("{:?}", e),
-                        };
                         // TODO: drop requests if any
                         return if on_error == OnError::KeepRetrying {
                             Ok(None)
@@ -169,15 +155,6 @@ async fn wait_for_connection_and_queue_commands(
                     .on_connect(on_error, connected_tx, user_protocol_version);
                 return Ok(Some((interface, di)));
             }
-            Command::StreamOpen {
-                path_kind,
-                stream_data_tx,
-            } => {
-                if let PathKindOwned::Absolute { path } = path_kind {
-                    state.common.stream_handlers.insert(path, stream_data_tx);
-                }
-                // TODO: register stream handler when using traits, absolute path will only be known when device replies
-            }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
@@ -191,12 +168,8 @@ async fn wait_for_connection_and_queue_commands(
                 state.common.exit_on_error = true;
                 return Err(());
             }
-            Command::SendCall { done_tx, .. }
-            | Command::SendRead { done_tx, .. }
-            | Command::SendWrite { done_tx, .. } => {
-                if let Some(tx) = done_tx {
-                    let _ = tx.send(Err(Error::Disconnected));
-                }
+            Command::SendMessage { .. } => {
+                warn!("ignoring send message while disconnected");
             }
             Command::LoopbackTest { progress_tx, .. } => {
                 _ = progress_tx.send(TestProgress::FatalError("Not connected".into()));
@@ -216,6 +189,7 @@ async fn process_commands_and_endpoints(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
+    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
 ) -> Result<EventLoopResult, Error> {
     link.send_get_device_info()
         .await
@@ -264,10 +238,9 @@ async fn process_commands_and_endpoints(
             } else {
                 till_ping
             };
-            let till_min = till_force_send
+            till_force_send
                 .map(|f| f.min(till_ping))
-                .unwrap_or(till_ping);
-            till_min
+                .unwrap_or(till_ping)
         } else {
             // resend GetDeviceInfo, might not be needed as packets should not get silently lost (apart from the very first), but just in case
             Duration::from_millis(50)
@@ -275,7 +248,7 @@ async fn process_commands_and_endpoints(
         let timer = tokio::time::sleep(duration);
         tokio::select! {
             message = link.receive_message(&mut state.message_rx) => {
-                match handle_message(message, link, state).await? {
+                match handle_message(message, link, state, to_dispatcher).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -284,7 +257,7 @@ async fn process_commands_and_endpoints(
             }
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
-                    info!("usb event loop: all CanBus instances were dropped, exiting");
+                    info!("all cmd tx instances were dropped, exiting");
                     link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     return Ok(EventLoopResult::Exit);
                 };
@@ -302,7 +275,7 @@ async fn process_commands_and_endpoints(
                         link.send_get_device_info().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                         link_setup_retries -= 1;
                     } else {
-                        error!("usb worker exiting, because link setup failed after several retries");
+                        error!("exiting, because link setup failed after several retries");
                         return Err(Error::LinkSetupTimeout);
                     }
                 } else {
@@ -323,7 +296,6 @@ async fn process_commands_and_endpoints(
                     }
                     next_tx_ping_instant = Instant::now() + ping_period;
                 }
-                state.common.prune_timed_out_requests();
             }
         }
     }
@@ -340,6 +312,7 @@ async fn handle_message(
     message: Result<MessageKind, LinkError<TransferError, TransferError>>,
     link: &mut WireWeaverUsbLink<'_, Sink, Source>,
     state: &mut State,
+    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
 ) -> Result<EventLoopSpinResult, Error> {
     match message {
         Ok(MessageKind::Data(len)) => {
@@ -348,52 +321,10 @@ async fn handle_message(
                 warn!("got empty event data, ignoring");
                 return Ok(EventLoopSpinResult::Continue);
             }
-            let packet = &state.message_rx[..len];
-            let mut rd = BufReader::new(packet);
-            let event = match Event::des_shrink_wrap(&mut rd) {
-                Ok(e) => e,
-                Err(e) => {
-                    warn!("event deserialization failed: {e:?}, ignoring");
-                    return Ok(EventLoopSpinResult::Continue);
-                }
-            };
-            trace!("event: {event:?}");
-            match event.result {
-                Ok(event_kind) => match event_kind {
-                    EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
-                        if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                            let r = data.as_slice().to_vec();
-                            let _ = done_tx.send(Ok(r));
-                        }
-                    }
-                    EventKind::Written => {
-                        if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                            let _ = done_tx.send(Ok(Vec::new()));
-                        }
-                    }
-                    EventKind::StreamData { path, data } => {
-                        let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
-                        let mut should_drop_handler = false;
-                        if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let data = data.as_slice().to_vec();
-                            should_drop_handler = tx.send(StreamEvent::Data(data)).is_err();
-                        }
-                        if should_drop_handler {
-                            info!(
-                                "Dropping stream handler with path: {path:?}, because rx end was dropped"
-                            );
-                            state.common.stream_handlers.remove(&path);
-                        }
-                    }
-                    _ => {}
-                },
-                Err(e) => {
-                    if let Some((done_tx, _)) = state.common.response_map.remove(&event.seq) {
-                        let _ = done_tx.send(Err(Error::RemoteError(e)));
-                    }
-                }
-            }
-            // tx_events.send(Event::Received(packet.to_vec())).await.unwrap();
+            let message = &state.message_rx[..len];
+            to_dispatcher
+                .send(DispatcherMessage::MessageBytes(message.to_vec()))
+                .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
         }
         Ok(MessageKind::Disconnect(reason)) => {
             return if !state.common.link_setup_done
@@ -405,6 +336,9 @@ async fn handle_message(
                 Ok(EventLoopSpinResult::Continue)
             } else {
                 info!("Received Disconnect({reason:?}) from remote device, exiting");
+                to_dispatcher
+                    .send(DispatcherMessage::Disconnected)
+                    .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
                 Ok(EventLoopSpinResult::DisconnectFromDevice)
             };
         }
@@ -430,11 +364,9 @@ async fn handle_message(
         Ok(MessageKind::LinkUp) => {
             info!("LinkSetup complete");
             state.max_protocol_mismatched_messages = 10;
-            if let Some(di) = &state.device_info {
-                state.conn_state.write().await.state = ConnectionState::Connected {
-                    device_info: di.clone(),
-                };
-            }
+            to_dispatcher
+                .send(DispatcherMessage::Connected)
+                .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
             if let Some(tx) = state.common.connected_tx.take() {
                 _ = tx.send(Ok(()));
             }
@@ -495,70 +427,15 @@ async fn handle_command(
             }
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
-        Command::SendCall {
-            args_bytes,
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending call to {path_kind:?}");
-            let seq = if done_tx.is_some() {
-                state.common.register_prune_next_seq(timeout, done_tx)
-            } else {
-                0
-            };
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Call {
-                    args: RefVec::new_bytes(&args_bytes),
-                },
-            };
-            serialize_request_send(request, link, state, scratch).await?;
-        }
-        Command::SendWrite {
-            value_bytes,
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending write to {path_kind:?}");
-            let seq = if done_tx.is_some() {
-                state.common.register_prune_next_seq(timeout, done_tx)
-            } else {
-                0
-            };
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Write {
-                    data: RefVec::new_bytes(&value_bytes),
-                },
-            };
-            serialize_request_send(request, link, state, scratch).await?;
-        }
-        Command::SendRead {
-            path_kind,
-            timeout,
-            done_tx,
-        } => {
-            trace!("sending read to {path_kind:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = Request {
-                seq,
-                path_kind: path_kind.as_ref(),
-                kind: RequestKind::Read,
-            };
-            serialize_request_send(request, link, state, scratch).await?;
-        }
-        Command::StreamOpen {
-            path_kind,
-            stream_data_tx,
-        } => {
-            if let PathKindOwned::Absolute { path } = path_kind {
-                state.common.stream_handlers.insert(path, stream_data_tx);
+        Command::SendMessage { bytes } => {
+            link.send_message(&bytes)
+                .await
+                .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+            if link.is_tx_queue_empty() {
+                state.common.packet_started_instant = None;
+            } else if state.common.packet_started_instant.is_none() {
+                state.common.packet_started_instant = Some(Instant::now());
             }
-            // TODO: is it correct to ignore non absolute paths here?
         }
         Command::LoopbackTest {
             test_duration,
@@ -575,26 +452,4 @@ async fn handle_command(
         }
     }
     Ok(EventLoopSpinResult::Continue)
-}
-
-// TODO: forward error back to caller instead of exiting from event loop
-async fn serialize_request_send(
-    request: Request<'_>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
-    state: &mut State,
-    scratch: &mut [u8],
-) -> Result<(), Error> {
-    let mut wr = BufWriter::new(scratch);
-    request.ser_shrink_wrap(&mut wr)?;
-    let request_bytes = wr.finish_and_take()?.to_vec();
-
-    link.send_message(&request_bytes)
-        .await
-        .map_err(|e| Error::Transport(format!("{:?}", e)))?; // TODO: Is there a need to guard with timeout here, can device get stuck and not receive?
-    if link.is_tx_queue_empty() {
-        state.common.packet_started_instant = None;
-    } else if state.common.packet_started_instant.is_none() {
-        state.common.packet_started_instant = Some(Instant::now());
-    }
-    Ok(())
 }

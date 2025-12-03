@@ -521,7 +521,7 @@ fn handle_stream(
         // client in
         let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
         quote! {
-            pub fn #subscribe_fn(&self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
+            pub fn #subscribe_fn(&mut self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();

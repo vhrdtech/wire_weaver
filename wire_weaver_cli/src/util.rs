@@ -1,35 +1,29 @@
 use anyhow::Result;
-use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc, oneshot};
+use tokio::sync::mpsc;
+use wire_weaver_usb_host::usb_worker;
 use wire_weaver_usb_host::wire_weaver_client_common::ww_version::{
     FullVersion, FullVersionOwned, Version, VersionOwned,
 };
-use wire_weaver_usb_host::wire_weaver_client_common::{Command, DeviceFilter, OnError};
-use wire_weaver_usb_host::{ConnectionInfo, usb_worker};
+use wire_weaver_usb_host::wire_weaver_client_common::{CommandSender, DeviceFilter, OnError};
 
-pub async fn connect_usb_dyn_api(filter: DeviceFilter) -> Result<mpsc::UnboundedSender<Command>> {
-    let (connected_tx, connected_rx) = oneshot::channel();
-    let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
-    let conn_state = Arc::new(RwLock::new(ConnectionInfo::default()));
+pub async fn connect_usb_dyn_api(filter: DeviceFilter) -> Result<CommandSender> {
+    let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+    let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
+    let mut cmd_tx = CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
     tokio::spawn(async move {
         usb_worker(
-            cmd_rx,
-            conn_state,
+            transport_cmd_rx,
+            dispatcher_msg_tx,
             FullVersion::new("", Version::new(0, 1, 0)),
         )
         .await;
     });
     cmd_tx
-        .send(Command::Connect {
+        .connect(
             filter,
-            user_protocol_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)),
-            on_error: OnError::ExitImmediately,
-            connected_tx: Some(connected_tx),
-        })
-        .map_err(|_| anyhow::anyhow!("event loop not running"))?;
-    let connection_result = connected_rx
-        .await
-        .map_err(|_| anyhow::anyhow!("event loop not running"))?;
-    connection_result?;
+            FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)),
+            OnError::ExitImmediately,
+        )
+        .await?;
     Ok(cmd_tx)
 }

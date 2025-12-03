@@ -70,6 +70,7 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/minimal_derive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/minimal_shrink_wrap/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_global/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_cli/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

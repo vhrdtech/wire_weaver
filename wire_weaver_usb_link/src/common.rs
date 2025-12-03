@@ -1,7 +1,8 @@
 use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
-use shrink_wrap::BufWriter;
+use shrink_wrap::stack_vec::StackVec;
 use strum_macros::FromRepr;
-use wire_weaver::{ProtocolInfo, ww_repr};
+use wire_weaver::prelude::*;
+use wire_weaver::ww_version::CompactVersion;
 
 // Packs and unpacks messages to/from one or more USB packets.
 // Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
@@ -12,9 +13,12 @@ use wire_weaver::{ProtocolInfo, ww_repr};
 // this link version and buffer sizes are exchanged.
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
-    pub(crate) user_protocol: ProtocolInfo,
-    pub(crate) client_server_protocol: ProtocolInfo,
-    pub(crate) remote_protocol: Option<ProtocolInfo>,
+    /// User-defined data types and API, also indirectly points to ww_client_server version
+    pub(crate) user_protocol: FullVersion<'static>,
+
+    /// Remote user protocol version
+    pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
+
     pub(crate) remote_max_message_size: u32,
 
     // Sender
@@ -24,6 +28,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
 
     // Receiver
     pub(crate) rx: R,
+    /// Used to hold up to one USB packet (64..=1024B)
     pub(crate) rx_packet_buf: &'i mut [u8],
     pub(crate) rx_start_pos: usize,
     pub(crate) rx_left_bytes: usize,
@@ -35,6 +40,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error<T, R> {
     InternalBufOverflow,
+    UnexpectedOp(Op),
     ProtocolsVersionMismatch,
     LinkVersionMismatch,
     Disconnected,
@@ -64,8 +70,7 @@ pub trait PacketSource {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
-        client_server_protocol: ProtocolInfo,
-        user_protocol: ProtocolInfo,
+        user_protocol: FullVersion<'static>,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -74,16 +79,13 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         let tx_writer = BufWriter::new(tx_packet_buf);
 
         #[cfg(test)]
-        let remote_protocol = Some(ProtocolInfo {
-            protocol_id: 0,
-            major_version: 0,
-            minor_version: 0,
-        });
+        let remote_protocol =
+            StackVec::some(FullVersion::new("test", ww_version::Version::new(0, 0, 0)))
+                .expect("FullVersion in StackVec in test");
         #[cfg(not(test))]
-        let remote_protocol = None;
+        let remote_protocol = StackVec::none();
 
         WireWeaverUsbLink {
-            client_server_protocol,
             user_protocol,
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             remote_protocol,
@@ -107,55 +109,111 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         self.rx.wait_usb_connection().await;
     }
 
-    /// Marks link as not connected, but does not send anything to the host.
+    /// Marks link as not connected, but does not send anything to the other party.
     pub fn silent_disconnect(&mut self) {
-        self.remote_protocol = None;
+        self.remote_protocol.clear();
         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
-}
 
-pub(crate) const VERSIONS_PAYLOAD_LEN: usize = 4 + 1 + ProtocolInfo::size_bytes() * 2;
+    #[cfg(feature = "device")]
+    pub(crate) fn is_protocol_compatible(&self) -> bool {
+        self.remote_protocol.is_some()
+    }
+
+    pub(crate) fn is_link_up(&self) -> bool {
+        self.remote_protocol.is_some()
+    }
+
+    // /// Get a mutable reference to tx
+    // pub fn tx_mut(&mut self) -> &mut T {
+    //     &mut self.tx
+    // }
+    //
+    // /// Get a mutable reference to rx
+    // pub fn rx_mut(&mut self) -> &mut R {
+    //     &mut self.rx
+    // }
+}
 
 #[repr(u8)]
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
-pub(crate) enum Op {
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Op {
+    /// See [send_nop()](WireWeaverUsbLink::send_nop) docs for explanation as to why this is needed.
     Nop = 0,
 
-    /// 0x1l, 0xll, `data[0..len]` in first packet
-    MessageStart = 1,
-    /// 0x2l, 0xll, `data[prev..prev+len]` at the start of next packet
-    MessageContinue = 2,
-    /// 0x3l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
-    MessageEnd = 3,
-    /// 0x4l, 0xll, `data[0..len]` in one packet.
-    MessageStartEnd = 4,
+    /// Sent from host to device to get device info.
+    GetDeviceInfo = 1,
+    /// Sent from device to host in response to GetDeviceInfo.
+    /// Sent in one packet with [DeviceInfo](DeviceInfo) struct following, since link is not up yet and ShrinkWrap uses buffer till its end.
+    DeviceInfo = 2,
 
-    /// Sent from host to device to get link version, WireWeaver client server protocol version and
-    /// user protocol global ID and version
-    GetDeviceInfo = 5,
-    /// Sent from device to host in response to GetDeviceInfo
-    DeviceInfo = 6,
-
-    /// Sent from host to device with its link, client server and user versions
-    LinkSetup = 7,
-    /// Sent from device to host to let it know that it received LinkSetup.
+    /// Sent from host to device with its link, client server and user versions.
+    /// Sent in one packet with [LinkSetup](LinkSetup) struct following, since link is not up yet and ShrinkWrap uses buffer till its end.
+    LinkSetup = 3,
+    /// Sent from device to host to let it know that it received LinkSetup and that protocol version is compatibly.
+    /// Otherwise, Disconnect with DisconnectReason::IncompatibleVersion is sent.
     /// Guard against host starting to send before device received LinkSetup to avoid losing messages.
-    LinkSetupResult = 8,
+    LinkReady = 4,
 
+    /// 0x5l, 0xll, `data[0..len]` in first packet, note that len is not full message length, but only the length of the piece in current packet
+    MessageStart = 5,
+    /// 0x6l, 0xll, `data[prev..prev+len]` at the start of next packet
+    MessageContinue = 6,
+    /// 0x7l, 0xll, `data[prev..prev+len]`, CRC (2 bytes) at the start of next packet
+    MessageEnd = 7,
+    /// 0x8l, 0xll, `data[0..len]` in one packet.
+    MessageStartEnd = 8,
+
+    /// Sent periodically when there are no data messages from both host and device sides
     Ping = 9,
+
+    /// Sent from host to device, if requested by user
+    GetStats = 10,
+    /// Sent in response to GetStats from device side
+    Stats = 11,
+
+    /// Used to test hardware and software stack by sending lots of data back and forth.
+    /// This command is followed by two u32's in LE and then test data till the end of a packet.
+    /// | repeat | seq | data ... |
+    ///
+    /// repeat:
+    /// * 0 - only count incoming packets, do not answer (used to measure host->device speed)
+    /// * 1 and up - send one or more copies back (1 used to test the link integrity, more than 1 to test device-> host speed).
+    Loopback = 12,
 
     /// Sent from host to device to let it know that driver or application is stopping.
     /// Sent from device to host to let it know that it is rebooting, e.g. to perform fw update.
-    Disconnect = 10,
+    Disconnect = 15,
 }
 
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive_shrink_wrap]
+#[ww_repr(u8)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum DisconnectReason {
     ApplicationCrash,
     RequestByUser,
-    Other,
+    IncompatibleVersion,
+    Other(u8),
     Unknown,
+}
+
+#[derive_shrink_wrap]
+struct DeviceInfo<'i> {
+    /// This crate major and minor version on the device side
+    dev_link_version: CompactVersion,
+    /// User API and data types version on the device side
+    dev_user_version: FullVersion<'i>,
+    /// Maximum length message that device can process
+    dev_max_message_len: u32,
+}
+
+#[derive_shrink_wrap]
+struct LinkSetup<'i> {
+    /// User API and data types version on the host side
+    host_user_version: FullVersion<'i>,
+    /// Maximum length message that host can process
+    host_max_message_len: u32,
 }

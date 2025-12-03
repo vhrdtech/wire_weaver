@@ -13,7 +13,9 @@ pub(crate) async fn connect(
     let wait_started = Instant::now();
     loop {
         // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux
-        let devices = nusb::list_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
+        let devices = nusb::list_devices()
+            .await
+            .map_err(|e| Error::Transport(format!("{}", e)))?;
         let mut di = None;
         for d in devices {
             if apply_filter(&d, &filter)? {
@@ -33,8 +35,11 @@ pub(crate) async fn connect(
         };
         trace!("connecting to USB device: {di:?}");
         let interface = {
-            let dev = di.open().map_err(|e| Error::Transport(format!("{}", e)))?;
-            dev.claim_interface(0)
+            let dev = di
+                .open()
+                .await
+                .map_err(|e| Error::Transport(format!("{}", e)))?;
+            dev.claim_interface(0).await
         };
         match interface {
             Ok(interface) => {
@@ -69,7 +74,9 @@ pub(crate) async fn connect(
 
 async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceInfo, Error> {
     let mut watch = nusb::watch_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
-    let devices = nusb::list_devices().map_err(|e| Error::Transport(format!("{}", e)))?;
+    let devices = nusb::list_devices()
+        .await
+        .map_err(|e| Error::Transport(format!("{}", e)))?;
     for d in devices {
         if apply_filter(&d, filter)? {
             return Ok(d);

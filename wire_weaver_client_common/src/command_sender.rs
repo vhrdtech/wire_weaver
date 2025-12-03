@@ -65,6 +65,18 @@ impl CommandSender {
         Ok(data)
     }
 
+    pub async fn send_call_forget(&self, path: PathKind<'_>, args: Vec<u8>) -> Result<(), Error> {
+        let path_kind = self.to_ww_client_server_path(path)?;
+        let cmd = Command::SendCall {
+            args_bytes: args,
+            path_kind,
+            timeout: None,
+            done_tx: None,
+        };
+        self.tx.send(cmd).map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
     pub async fn send_write_receive_reply(
         &self,
         path: PathKind<'_>,

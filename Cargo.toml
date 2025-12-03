@@ -37,4 +37,5 @@ members = [
     "ww_log_bare_metal",
     "ww_dfu",
     "ww_global",
+    "wire_weaver_cli",
 ]

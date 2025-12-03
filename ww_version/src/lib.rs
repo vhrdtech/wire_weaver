@@ -12,6 +12,7 @@ pub use semver;
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[owned = "std"]
 #[final_structure]
 pub struct Version<'i> {
@@ -30,6 +31,7 @@ pub struct Version<'i> {
 
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[owned = "std"]
 #[final_structure]
 pub struct FullVersion<'i> {
@@ -39,15 +41,16 @@ pub struct FullVersion<'i> {
 }
 
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
-/// Type id is globally unique across all crates.
+/// Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[final_structure]
 pub struct CompactVersion {
     pub global_type_id: UNib32,
     pub major: UNib32,
     pub minor: UNib32,
-    // TODO: Add type id
+    pub patch: UNib32,
 }
 
 impl<'i> Version<'i> {
@@ -76,11 +79,32 @@ impl<'i> Version<'i> {
             build,
         }
     }
+
+    pub fn is_protocol_compatible(&self, other: &Self) -> bool {
+        if self.major.0 >= 1 && other.major.0 >= 1 {
+            self.major == other.major
+        } else {
+            if self.major != other.major {
+                return false;
+            }
+            if self.minor != other.minor {
+                return false;
+            }
+            true
+        }
+    }
 }
 
 impl<'i> FullVersion<'i> {
     pub const fn new(crate_id: &'i str, version: Version<'i>) -> Self {
         FullVersion { crate_id, version }
+    }
+
+    pub fn is_protocol_compatible(&self, other: &Self) -> bool {
+        if self.crate_id != other.crate_id {
+            return false;
+        }
+        self.version.is_protocol_compatible(&other.version)
     }
 }
 
@@ -114,6 +138,13 @@ impl Debug for VersionOwned {
 impl Debug for FullVersionOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{} {:?}", self.crate_id, self.version)
+    }
+}
+
+#[cfg(feature = "std")]
+impl FullVersionOwned {
+    pub const fn new(crate_id: String, version: VersionOwned) -> Self {
+        FullVersionOwned { crate_id, version }
     }
 }
 

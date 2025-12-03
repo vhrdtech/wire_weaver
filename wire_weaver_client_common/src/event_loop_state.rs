@@ -20,7 +20,7 @@ pub struct CommonState {
     pub stream_handlers: HashMap<Vec<UNib32>, StreamUpdateSender>, // TODO: multiple subscribers
     pub link_setup_done: bool,
     pub packet_started_instant: Option<Instant>,
-    pub last_ping_instant: Option<Instant>,
+    pub last_rx_ping_instant: Option<Instant>,
     pub packet_accumulation_time: Duration,
     pub user_protocol_version: Option<FullVersionOwned>,
 }
@@ -35,7 +35,7 @@ impl Default for CommonState {
             stream_handlers: Default::default(),
             link_setup_done: false,
             packet_started_instant: None,
-            last_ping_instant: None,
+            last_rx_ping_instant: None,
             packet_accumulation_time: Duration::from_millis(1),
             user_protocol_version: None,
         }
@@ -80,7 +80,7 @@ impl CommonState {
 
     pub fn cancel_all_streams(&mut self) {
         for (_path, tx) in self.stream_handlers.drain() {
-            let _ = tx.send(StreamEvent::Sideband(StreamSidebandEvent::Closed)); // TODO: correct to send Closed here?
+            let _ = tx.send(StreamEvent::Sideband(StreamSidebandEvent::Closed)); // TODO: is it correct to send Closed here?
         }
     }
 

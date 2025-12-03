@@ -10,13 +10,13 @@ mod tests {
     use worst_executor::block_on;
 
     struct VecSink {
-        frames: VecDeque<Vec<u8>>,
+        packets: VecDeque<Vec<u8>>,
     }
 
     impl VecSink {
         fn new() -> Self {
             Self {
-                frames: VecDeque::new(),
+                packets: VecDeque::new(),
             }
         }
     }
@@ -25,7 +25,7 @@ mod tests {
         type Error = ();
 
         async fn write_packet(&mut self, data: &[u8]) -> Result<(), ()> {
-            self.frames.push_back(data.to_vec());
+            self.packets.push_back(data.to_vec());
             Ok(())
         }
     }
@@ -34,10 +34,12 @@ mod tests {
         type Error = ();
 
         fn read_packet(&mut self, data: &mut [u8]) -> impl Future<Output = Result<usize, ()>> {
-            if let Some(frame) = self.frames.pop_front() {
+            if let Some(frame) = self.packets.pop_front() {
                 data[..frame.len()].copy_from_slice(frame.as_slice());
+                println!("read out {}: {:02x?}", frame.len(), frame);
                 ready(Ok(frame.len()))
             } else {
+                println!("read out empty");
                 ready(Ok(0))
             }
         }
@@ -64,9 +66,9 @@ mod tests {
         let mut rx_buf = [0u8; 8];
         let mut link = create_link(&mut tx_buf, &mut rx_buf);
         block_on(link.send_message(&[1, 2, 3])).unwrap();
-        let (_, tx, rx) = link.de_init();
+        let (_, tx, _rx) = link.de_init();
         // 3 bytes still remain in the buffer, unless force_send() is called, packet will not be sent
-        assert_eq!(tx.frames.len(), 0);
+        assert_eq!(tx.packets.len(), 0);
     }
 
     #[test]
@@ -75,10 +77,10 @@ mod tests {
         let mut rx_buf = [0u8; 8];
         let mut link = create_link(&mut tx_buf, &mut rx_buf);
         block_on(link.send_message(&[1, 2, 3, 4, 5, 6])).unwrap();
-        let (_, tx, rx) = link.de_init();
-        assert_eq!(tx.frames.len(), 1);
+        let (_, tx, _rx) = link.de_init();
+        assert_eq!(tx.packets.len(), 1);
         assert_eq!(
-            tx.frames[0],
+            tx.packets[0],
             vec![(Op::MessageStartEnd as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
 
@@ -103,15 +105,15 @@ mod tests {
         let mut rx_buf = [0u8; 8];
         let mut link = create_link(&mut tx_buf, &mut rx_buf);
         block_on(link.send_message(&[1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
-        let (_, tx, rx) = link.de_init();
-        assert_eq!(tx.frames.len(), 2);
+        let (_, tx, _rx) = link.de_init();
+        assert_eq!(tx.packets.len(), 2);
         assert_eq!(
-            tx.frames[0],
+            tx.packets[0],
             vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         let crc = CRC_KIND.checksum(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
-            tx.frames[1],
+            tx.packets[1],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x02,
@@ -142,21 +144,21 @@ mod tests {
         let mut tx_buf = [0u8; 8];
         let mut rx_buf = [0u8; 8];
         let mut link = create_link(&mut tx_buf, &mut rx_buf);
-        const PACKET: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-        block_on(link.send_message(PACKET)).unwrap();
-        let (_, tx, rx) = link.de_init();
-        assert_eq!(tx.frames.len(), 3);
+        const MESSAGE: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        block_on(link.send_message(MESSAGE)).unwrap();
+        let (_, tx, _rx) = link.de_init();
+        assert_eq!(tx.packets.len(), 3);
         assert_eq!(
-            tx.frames[0],
+            tx.packets[0],
             vec![(Op::MessageStart as u8) << 4, 0x06, 1, 2, 3, 4, 5, 6]
         );
         assert_eq!(
-            tx.frames[1],
+            tx.packets[1],
             vec![(Op::MessageContinue as u8) << 4, 0x06, 7, 8, 9, 10, 11, 12]
         );
-        let crc = CRC_KIND.checksum(PACKET);
+        let crc = CRC_KIND.checksum(MESSAGE);
         assert_eq!(
-            tx.frames[2],
+            tx.packets[2],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x02,
@@ -167,7 +169,7 @@ mod tests {
             ]
         );
 
-        let mut receive = [0u8; 8];
+        let mut receive = [0u8; 14];
         let mut link = WireWeaverUsbLink::new(
             FullVersion::new("test", Version::new(0, 0, 0)),
             VecSink::new(),
@@ -194,10 +196,10 @@ mod tests {
         // 3 bytes still remain in the buffer
         block_on(link.send_message(&[4, 5, 6, 7])).unwrap();
         block_on(link.force_send()).unwrap();
-        let (_, tx, rx) = link.de_init();
-        assert_eq!(tx.frames.len(), 2);
+        let (_, tx, _rx) = link.de_init();
+        assert_eq!(tx.packets.len(), 2);
         assert_eq!(
-            tx.frames[0],
+            tx.packets[0],
             vec![
                 (Op::MessageStartEnd as u8) << 4,
                 0x03,
@@ -211,7 +213,7 @@ mod tests {
         );
         let crc = CRC_KIND.checksum(&[4, 5, 6, 7]);
         assert_eq!(
-            tx.frames[1],
+            tx.packets[1],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x03,
@@ -233,10 +235,10 @@ mod tests {
         // 3 bytes still remain in the buffer
         block_on(link.send_message(&[4, 5, 6, 7, 8, 9])).unwrap();
         block_on(link.force_send()).unwrap();
-        let (_, tx, rx) = link.de_init();
-        assert_eq!(tx.frames.len(), 3);
+        let (_, tx, _rx) = link.de_init();
+        assert_eq!(tx.packets.len(), 3);
         assert_eq!(
-            tx.frames[0],
+            tx.packets[0],
             vec![
                 (Op::MessageStartEnd as u8) << 4,
                 0x03,
@@ -249,14 +251,14 @@ mod tests {
             ]
         );
         let crc = CRC_KIND.checksum(&[4, 5, 6, 7, 8, 9]);
-        assert_eq!(tx.frames[1].len(), 7);
+        assert_eq!(tx.packets[1].len(), 7);
         assert_eq!(
-            tx.frames[1],
+            tx.packets[1],
             vec![(Op::MessageContinue as u8) << 4, 0x05, 5, 6, 7, 8, 9]
         );
-        assert_eq!(tx.frames[2].len(), 4);
+        assert_eq!(tx.packets[2].len(), 4);
         assert_eq!(
-            tx.frames[2],
+            tx.packets[2],
             vec![
                 (Op::MessageEnd as u8) << 4,
                 0x00,

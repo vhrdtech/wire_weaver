@@ -47,7 +47,7 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 /// TODO: emit unit constant to check for name collisions
 ///
 /// Example:
-/// ```
+/// ```ignore
 /// use wire_weaver_derive::ww_trait;
 ///
 /// #[ww_trait]

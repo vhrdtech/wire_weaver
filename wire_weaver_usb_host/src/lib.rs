@@ -1,6 +1,5 @@
 mod connection;
 mod event_loop;
-// pub mod util;
 mod loopback;
 mod ww_nusb;
 
@@ -10,7 +9,6 @@ pub use wire_weaver_client_common;
 
 use nusb::transfer::TransferError;
 use std::fmt::Debug;
-use tracing::error;
 
 const MAX_MESSAGE_SIZE: usize = 2048;
 

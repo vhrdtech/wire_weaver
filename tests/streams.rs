@@ -1,10 +1,10 @@
-mod common;
-
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::{CommandSender, StreamEvent};
+use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
+use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError, StreamEvent};
 
 #[ww_trait]
 trait Streams {
@@ -133,40 +133,68 @@ mod std_async_client {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
-    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
+    let (transport_cmd_tx, mut transport_cmd_rx) = mpsc::unbounded_channel();
     let (notify_tx, mut notify_rx) = mpsc::unbounded_channel::<usize>();
+    let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
+    dispatcher_msg_tx
+        .send(DispatcherMessage::Connected)
+        .unwrap();
     let data = Arc::new(RwLock::new(SharedTestData::default()));
 
     let data_clone = data.clone();
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
-        let mut state = common::State::default();
         let mut s1 = [0u8; 512];
         let mut s2 = [0u8; 512];
         let mut se = [0u8; 128];
 
         loop {
             tokio::select! {
-                cmd = cmd_rx.recv() => {
-                    let Some(cmd) = cmd else { break };
-                    let (bytes, done_tx) = common::ser_command(cmd, &mut state, &mut s1);
-                    let r = server.process_request_bytes(&bytes, &mut s1, &mut s2, &mut se);
-                    common::send_response(r, done_tx, &mut state);
-                }
+                cmd = transport_cmd_rx.recv() => {
+                    let Some(cmd) = cmd else {
+                        break;
+                    };
+                    let bytes = match cmd {
+                        Command::Connect { connected_tx, .. } => {
+                            if let Some(tx) = connected_tx {
+                                tx.send(Ok(())).unwrap();
+                            }
+                            continue;
+                        }
+                        Command::SendMessage { bytes } => bytes,
+                        _ => continue,
+                    };
+                    let r = server
+                        .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
+                        .expect("process_request");
+                    dispatcher_msg_tx
+                        .send(DispatcherMessage::MessageBytes(r.to_vec()))
+                        .expect("send_message");
+                    }
                 notify = notify_rx.recv() => {
                     let Some(n) = notify else { break };
                     for bytes in server.send_updates(n) {
-                        common::send_response(Ok(&bytes), None, &mut state);
+                        dispatcher_msg_tx
+                            .send(DispatcherMessage::MessageBytes(bytes))
+                            .expect("send_message");
                     }
                 }
             }
         }
-        println!("async: exiting");
     });
 
+    let mut cmd_tx = CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
+    cmd_tx
+        .connect(
+            DeviceFilter::AnyVhrdTechCanBus,
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 1, 0)),
+            OnError::ExitImmediately,
+        )
+        .await
+        .expect("connect");
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
-        cmd_tx: CommandSender::new(cmd_tx),
+        cmd_tx,
         timeout: Duration::from_millis(100),
     };
 
@@ -175,6 +203,8 @@ async fn std_async_client_driving_no_std_sync_server() {
         .plain_stream_sub()
         .expect("successful stream open");
     notify_tx.send(0).unwrap();
+    let connected = rx.recv().await.unwrap();
+    assert_eq!(connected, StreamEvent::Connected);
     let stream_data = rx.recv().await.unwrap();
     assert_eq!(stream_data, StreamEvent::Data(vec![0xAA]));
 
@@ -189,12 +219,12 @@ async fn std_async_client_driving_no_std_sync_server() {
         .vec_stream_sub()
         .expect("successful stream open");
     notify_tx.send(1).unwrap();
+    let connected = rx2.recv().await.unwrap();
+    assert_eq!(connected, StreamEvent::Connected);
     let stream_data = rx2.recv().await.unwrap();
     let StreamEvent::Data(data) = stream_data else {
         panic!("wrong stream event");
     };
     let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
     assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
-
-    handle.abort();
 }

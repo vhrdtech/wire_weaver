@@ -10,11 +10,9 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
-use wire_weaver_client_common::{Command, Error};
-use wire_weaver_client_common::{
-    ww_client_server,
-    ww_client_server::{Event, EventKind, RequestKind},
-};
+use wire_weaver_client_common::ww_client_server::{Event, EventKind, RequestKind};
+use wire_weaver_client_common::ww_client_server::{PathKindOwned, Request};
+use wire_weaver_client_common::{Command, DeviceFilter, Error, StreamEvent};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -38,6 +36,8 @@ pub enum WsError {
     IncompatibleDeviceProtocol,
     #[error("Link setup error")]
     LinkSetupError,
+    #[error("Transport specific error: {}", .0)]
+    Transport(String),
     #[error("")]
     ExitRequested,
 }
@@ -191,26 +191,32 @@ async fn wait_for_connection_and_queue_commands(
                 connected_tx,
                 user_protocol_version,
             } => {
+                let DeviceFilter::WebSocket { addr, port, path } = filter else {
+                    return Err(WsError::Transport(format!(
+                        "{filter:?} is not supported for WebSocket"
+                    )));
+                };
                 state
                     .common
                     .on_connect(on_error, connected_tx, user_protocol_version); // TODO: use user protocol version
-                let (ws, _response) = tokio_tungstenite::connect_async(format!(
-                    "ws://{}:{}/{}",
-                    filter.addr, filter.port, filter.path
-                ))
-                .await?;
+                let (ws, _response) =
+                    tokio_tungstenite::connect_async(format!("ws://{}:{}/{}", addr, port, path))
+                        .await?;
                 let (tx, rx) = ws.split();
                 return Ok(Some(Link {
-                    _target: filter,
+                    _target: WsTarget { addr, port, path },
                     tx,
                     rx,
                 }));
             }
             Command::StreamOpen {
-                path,
+                path_kind,
                 stream_data_tx,
             } => {
-                state.common.stream_handlers.insert(path, stream_data_tx);
+                if let PathKindOwned::Absolute { path } = path_kind {
+                    state.common.stream_handlers.insert(path, stream_data_tx);
+                }
+                // TODO: register stream handler when using traits, absolute path will only be known when device replies
             }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
@@ -232,6 +238,7 @@ async fn wait_for_connection_and_queue_commands(
                     let _ = tx.send(Err(Error::Disconnected));
                 }
             }
+            Command::LoopbackTest { .. } => {}
         }
     }
 }
@@ -278,11 +285,11 @@ async fn handle_message(
                         }
                     }
                     EventKind::StreamData { path, data } => {
-                        let path = path.iter().map(|p| p.unwrap().0).collect::<Vec<_>>();
+                        let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                         let mut should_drop_handler = false;
                         if let Some(tx) = state.common.stream_handlers.get_mut(&path) {
-                            let r = data.as_slice().to_vec();
-                            should_drop_handler = tx.send(Ok(r)).is_err();
+                            let data = data.as_slice().to_vec();
+                            should_drop_handler = tx.send(StreamEvent::Data(data)).is_err();
                         }
                         if should_drop_handler {
                             info!(
@@ -379,11 +386,15 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending call to {path:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = ww_client_server::Request {
+            trace!("sending call to {path_kind:?}");
+            let seq = if done_tx.is_some() {
+                state.common.register_prune_next_seq(timeout, done_tx)
+            } else {
+                0
+            };
+            let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Call {
                     args: RefVec::new_bytes(&args_bytes),
                 },
@@ -396,11 +407,15 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending write to {path:?}");
-            let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = ww_client_server::Request {
+            trace!("sending write to {path_kind:?}");
+            let seq = if done_tx.is_some() {
+                state.common.register_prune_next_seq(timeout, done_tx)
+            } else {
+                0
+            };
+            let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Write {
                     data: RefVec::new_bytes(&value_bytes),
                 },
@@ -412,11 +427,11 @@ async fn handle_command(
             timeout,
             done_tx,
         } => {
-            trace!("sending read to {path:?}");
+            trace!("sending read to {path_kind:?}");
             let seq = state.common.register_prune_next_seq(timeout, done_tx);
-            let request = ww_client_server::Request {
+            let request = Request {
                 seq,
-                path: RefVec::Slice { slice: &path },
+                path_kind: path_kind.as_ref(),
                 kind: RequestKind::Read,
             };
             serialize_request_send(request, tx, state, scratch).await?;
@@ -425,14 +440,20 @@ async fn handle_command(
             path_kind,
             stream_data_tx,
         } => {
-            state.common.stream_handlers.insert(path, stream_data_tx);
+            if let PathKindOwned::Absolute { path } = path_kind {
+                state.common.stream_handlers.insert(path, stream_data_tx);
+            }
+            // TODO: is it correct to ignore non absolute paths here?
+        }
+        Command::LoopbackTest { .. } => {
+            todo!()
         }
     }
     Ok(EventLoopSpinResult::Continue)
 }
 
 async fn serialize_request_send(
-    request: ww_client_server::Request<'_>,
+    request: Request<'_>,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     _state: &mut State,
     scratch: &mut [u8],

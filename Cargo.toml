@@ -19,7 +19,7 @@ members = [
     "wire_weaver_derive",
     "shrink_wrap",
     "wire_weaver_usb_host",
-    "wire_weaver_usb_embassy",
+    # "wire_weaver_usb_embassy", no_std crate, excluded to be able to run cargo test
     "wire_weaver_usb_link",
     "wire_weaver_net_host",
     "wire_weaver_client_common",

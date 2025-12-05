@@ -1,9 +1,12 @@
 #[cfg(test)]
-mod tests {
+mod link_tests {
     use crate::common::Op;
     use crate::*;
     use core::future::{Future, ready};
     use std::collections::VecDeque;
+    use std::pin::pin;
+    use std::ptr::null;
+    use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
     use std::vec::Vec;
     use wire_weaver::prelude::FullVersion;
     use wire_weaver::ww_version::Version;
@@ -265,6 +268,88 @@ mod tests {
                 (crc & 0xFF) as u8,
                 (crc >> 8) as u8
             ]
+        );
+    }
+
+    #[test]
+    fn receive_is_cancel_safe() {
+        let mut tx_buf = [0u8; 8];
+        let mut rx_buf = [0u8; 8];
+        let mut link = create_link(&mut tx_buf, &mut rx_buf);
+        const MESSAGE: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        block_on(link.send_message(MESSAGE)).unwrap();
+        let (_, mut tx_all, _rx) = link.de_init();
+
+        struct AsyncPacketSource {
+            rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+        }
+
+        impl PacketSource for AsyncPacketSource {
+            type Error = ();
+
+            async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+                let bytes = self.rx.recv().await.unwrap();
+                let len = bytes.len();
+                data[..bytes.len()].copy_from_slice(&bytes);
+                Ok(len)
+            }
+        }
+
+        let (tx, rx) = tokio::sync::mpsc::channel(8);
+        let rx = AsyncPacketSource { rx };
+
+        let mut link = WireWeaverUsbLink::new(
+            FullVersion::new("test", Version::new(0, 0, 0)),
+            VecSink::new(),
+            &mut tx_buf,
+            rx,
+            &mut rx_buf,
+        );
+
+        static WAKER: Waker = {
+            const RAW_WAKER: RawWaker = RawWaker::new(
+                null(),
+                &RawWakerVTable::new(|_| RAW_WAKER, |_| (), |_| (), |_| ()),
+            );
+            unsafe { Waker::from_raw(RAW_WAKER) }
+        };
+
+        let mut receive = [0u8; 14];
+        {
+            let fut = link.receive_message(&mut receive);
+            let mut fut = pin!(fut);
+
+            block_on(tx.send(tx_all.packets.pop_front().unwrap())).unwrap();
+            assert!(matches!(
+                fut.as_mut().poll(&mut Context::from_waker(&WAKER)),
+                Poll::Pending
+            ));
+
+            block_on(tx.send(tx_all.packets.pop_front().unwrap())).unwrap();
+            assert!(matches!(
+                fut.as_mut().poll(&mut Context::from_waker(&WAKER)),
+                Poll::Pending
+            ));
+        }
+        let len = {
+            let fut = link.receive_message(&mut receive);
+            let mut fut = pin!(fut);
+
+            block_on(tx.send(tx_all.packets.pop_front().unwrap())).unwrap();
+            let Poll::Ready(kind) = fut.as_mut().poll(&mut Context::from_waker(&WAKER)) else {
+                panic!("expected ready")
+            };
+
+            let kind = kind.unwrap();
+            let MessageKind::Data(len) = kind else {
+                panic!("Expected data packet");
+            };
+            len
+        };
+
+        assert_eq!(
+            &receive[..len],
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         );
     }
 }

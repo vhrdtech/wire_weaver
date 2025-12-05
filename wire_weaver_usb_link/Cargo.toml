@@ -18,4 +18,5 @@ host = []
 device = []
 
 [dev-dependencies]
-worst-executor = "0.1.1"
+worst-executor = { version = "0.1.1", git = "https://github.com/romixlab/worst-executor.git" }
+tokio = { version = "1.48", features = ["sync"] }

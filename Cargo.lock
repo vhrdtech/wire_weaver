@@ -671,6 +671,9 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 [[package]]
 name = "minimal_derive"
 version = "0.4.0"
+dependencies = [
+ "wire_weaver",
+]
 
 [[package]]
 name = "minimal_shrink_wrap"
@@ -1685,6 +1688,7 @@ dependencies = [
  "defmt",
  "shrink_wrap",
  "strum_macros",
+ "tokio",
  "wire_weaver",
  "worst-executor",
  "ww_global",
@@ -1699,8 +1703,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 [[package]]
 name = "worst-executor"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0fb0d7b56e9e819f926be834092f00e4a6e14b84f9170221333d43cf49bcd40"
+source = "git+https://github.com/romixlab/worst-executor.git#2801c55646239a6a82d1274a4186c2b23adf34f7"
 
 [[package]]
 name = "ww"

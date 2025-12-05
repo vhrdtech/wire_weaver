@@ -34,6 +34,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     pub(crate) rx_left_bytes: usize,
     pub(crate) rx_stats: ReceiverStats,
     pub(crate) rx_in_fragmented_message: bool,
+    pub(crate) staging_idx: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +101,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             rx_left_bytes: 0,
             rx_stats: Default::default(),
             rx_in_fragmented_message: false,
+            staging_idx: 0,
         }
     }
 
@@ -133,6 +135,10 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     // pub fn rx_mut(&mut self) -> &mut R {
     //     &mut self.rx
     // }
+
+    pub fn user_protocol(&self) -> FullVersion<'static> {
+        self.user_protocol.clone()
+    }
 }
 
 #[repr(u8)]

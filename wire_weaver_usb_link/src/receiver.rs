@@ -1,6 +1,6 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
 use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
-use shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrap};
+use shrink_wrap::{BufReader, DeserializeShrinkWrap};
 use wire_weaver::prelude::FullVersion;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
@@ -42,11 +42,16 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
     /// If one or more packets are needed to reassemble a message, waits for all of them
     /// to arrive. If packet contained multiple messages, this function returns immediately with the
     /// next one.
+    ///
+    /// # Cancel safety
+    ///
+    /// This method is cancel safe when link is established, so can be used in select.
+    ///
+    /// When link is not established, it is NOT cancel safe, dropping the future returned, will result in link setup packets not sent.
     pub async fn receive_message(
         &mut self,
         message: &mut [u8],
     ) -> Result<MessageKind, Error<T::Error, R::Error>> {
-        let mut staging_idx = 0;
         'next_message: loop {
             let (packet, is_new_frame) = if self.rx_left_bytes > 0 {
                 (
@@ -98,13 +103,13 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let Ok(message_piece) = rd.read_raw_slice(len) else {
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
-                            staging_idx = 0;
+                            self.staging_idx = 0;
                             self.rx_in_fragmented_message = false;
                             continue 'next_message;
                         };
                         if kind == Op::MessageStart {
                             self.rx_in_fragmented_message = true;
-                            staging_idx = 0;
+                            self.staging_idx = 0;
                         } else if !self.rx_in_fragmented_message {
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
@@ -118,19 +123,20 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                                 continue;
                             }
                         }
-                        let staging_bytes_left = message.len() - staging_idx;
+                        let staging_bytes_left = message.len() - self.staging_idx;
                         if message_piece.len() <= staging_bytes_left {
-                            message[staging_idx..(staging_idx + message_piece.len())]
+                            message[self.staging_idx..(self.staging_idx + message_piece.len())]
                                 .copy_from_slice(message_piece);
-                            staging_idx += message_piece.len();
+                            self.staging_idx += message_piece.len();
                             if kind == Op::MessageEnd {
                                 let Ok(crc_received) = rd.read_u16() else {
                                     self.rx_stats.receive_errors =
                                         self.rx_stats.receive_errors.wrapping_add(1);
-                                    staging_idx = 0;
+                                    self.staging_idx = 0;
                                     continue 'next_message;
                                 };
-                                let crc_calculated = CRC_KIND.checksum(&message[..staging_idx]);
+                                let crc_calculated =
+                                    CRC_KIND.checksum(&message[..self.staging_idx]);
                                 if crc_received == crc_calculated {
                                     self.rx_in_fragmented_message = false;
 
@@ -142,19 +148,19 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                                     self.rx_stats.bytes_received = self
                                         .rx_stats
                                         .bytes_received
-                                        .wrapping_add(staging_idx as u64);
+                                        .wrapping_add(self.staging_idx as u64);
                                     self.rx_stats.messages_received =
                                         self.rx_stats.messages_received.wrapping_add(1);
-                                    return Ok(MessageKind::Data(staging_idx));
+                                    return Ok(MessageKind::Data(self.staging_idx));
                                 } else {
                                     self.rx_stats.receive_errors =
                                         self.rx_stats.receive_errors.wrapping_add(1);
-                                    staging_idx = 0;
+                                    self.staging_idx = 0;
                                     continue; // try to receive other packets if any, previous frames might be lost leading to crc error
                                 }
                             }
                         } else {
-                            staging_idx = 0;
+                            self.staging_idx = 0;
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
                             self.rx_in_fragmented_message = false;
@@ -178,7 +184,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         } else {
                             self.rx_stats.receive_errors =
                                 self.rx_stats.receive_errors.wrapping_add(1);
-                            staging_idx = 0;
+                            self.staging_idx = 0;
                             self.rx_in_fragmented_message = false;
                             continue 'next_message;
                         }
@@ -190,6 +196,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     }
                     #[cfg(feature = "host")]
                     Op::DeviceInfo => {
+                        use shrink_wrap::SerializeShrinkWrap;
                         let device_info = crate::common::DeviceInfo::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
                         self.remote_max_message_size = device_info.dev_max_message_len;

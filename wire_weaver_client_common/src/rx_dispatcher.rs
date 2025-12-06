@@ -2,7 +2,7 @@ use crate::{DEFAULT_REQUEST_TIMEOUT, Error, SeqTy, StreamEvent};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UNib32};
 use ww_client_server::{EventKind, PathKindOwned};
 
@@ -17,6 +17,7 @@ pub enum DispatcherMessage {
     Disconnected,
 }
 
+#[derive(Debug)]
 pub enum DispatcherCommand {
     RegisterSeqSource {
         seq_tx: mpsc::Sender<SeqTy>,
@@ -90,6 +91,7 @@ struct DispatcherState {
 
 impl DispatcherState {
     fn handle_cmd(&mut self, cmd: DispatcherCommand) {
+        trace!("cmd: {:?}", cmd);
         match cmd {
             DispatcherCommand::RegisterSeqSource { seq_tx: seq_rx } => {
                 self.seq_receivers.push(seq_rx);
@@ -154,7 +156,7 @@ impl DispatcherState {
     fn prune_next_timeout(&mut self) -> Duration {
         let now = Instant::now();
         let mut min: Option<Duration> = None;
-        self.response_map.retain(|_, (done_tx, prune_at)| {
+        self.response_map.retain(|seq, (done_tx, prune_at)| {
             let till_prune = prune_at
                 .checked_duration_since(now)
                 .unwrap_or(Duration::from_millis(0));
@@ -162,6 +164,7 @@ impl DispatcherState {
                 if let Some(tx) = done_tx.take() {
                     _ = tx.send(Err(Error::Timeout));
                 }
+                trace!("pruned {seq:?}");
                 return false;
             }
             if let Some(prev_min) = &min {
@@ -211,18 +214,29 @@ impl DispatcherState {
                 return;
             }
         };
+        trace!("received event: {:?}", event);
         self.seq_allocated.remove(&event.seq);
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
                     if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
                         let return_or_value_bytes = data.as_slice().to_vec();
-                        let _ = done_tx.send(Ok(return_or_value_bytes));
+                        let r = done_tx.send(Ok(return_or_value_bytes));
+                        if r.is_err() {
+                            warn!("failed to send done notification: {:?}", &event.seq);
+                        }
+                    } else {
+                        warn!("unknown seq: {:?}", &event.seq);
                     }
                 }
                 EventKind::Written => {
                     if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
-                        let _ = done_tx.send(Ok(Vec::new()));
+                        let r = done_tx.send(Ok(Vec::new()));
+                        if r.is_err() {
+                            warn!("failed to send written notification: {:?}", &event.seq);
+                        }
+                    } else {
+                        warn!("unknown seq: {:?}", &event.seq);
                     }
                 }
                 EventKind::StreamData { path, data } => {
@@ -230,7 +244,11 @@ impl DispatcherState {
                     if let Some(listeners) = self.stream_handlers.get_mut(&path) {
                         listeners.retain(|tx| {
                             let data = data.as_slice().to_vec();
-                            tx.send(StreamEvent::Data(data)).is_ok()
+                            let keep = tx.send(StreamEvent::Data(data)).is_ok();
+                            if !keep {
+                                debug!("dropped subscriber for stream at {:?}", path);
+                            }
+                            keep
                         });
                         if listeners.is_empty() {
                             self.stream_handlers.remove(&path);
@@ -242,12 +260,15 @@ impl DispatcherState {
             Err(e) => {
                 if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
                     let _ = done_tx.send(Err(Error::RemoteError(e)));
+                } else {
+                    warn!("unknown seq {:?} for remote err {e:?}", &event.seq);
                 }
             }
         }
     }
 
     fn cancel_all_requests(&mut self) {
+        trace!("canceling all requests");
         for (_, (mut done_tx, _)) in self.response_map.drain() {
             if let Some(done_tx) = done_tx.take() {
                 _ = done_tx.send(Err(Error::Disconnected));
@@ -265,8 +286,15 @@ impl DispatcherState {
 
     fn notify_streams(&mut self) {
         let event = self.is_connected_as_stream_event();
-        for listeners in self.stream_handlers.values_mut() {
-            listeners.retain(|tx| tx.send(event.clone()).is_ok());
+        trace!("notifying all streams: {event:?}");
+        for (path, listeners) in &mut self.stream_handlers {
+            listeners.retain(|tx| {
+                let keep = tx.send(event.clone()).is_ok();
+                if !keep {
+                    debug!("dropped subscriber for stream at {:?}", path);
+                }
+                keep
+            });
         }
     }
 
@@ -290,7 +318,7 @@ impl DispatcherState {
                     iterations_left -= 1;
                 }
 
-                debug!("allocated seq: {}", potential_seq);
+                trace!("allocated seq: {}", potential_seq);
                 if seq_tx.try_send(potential_seq).is_err() {
                     break 'inner;
                 }

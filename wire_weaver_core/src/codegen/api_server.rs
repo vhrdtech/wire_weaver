@@ -1,10 +1,5 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
-use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{TokenStreamExt, quote};
-use syn::{Lit, LitInt};
-
 use crate::ast::Type;
 use crate::ast::api::{
     ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
@@ -16,6 +11,10 @@ use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{add_prefix, maybe_quote};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{TokenStreamExt, quote};
+use syn::{Lit, LitInt};
 
 pub fn impl_server_dispatcher(
     api_level: &ApiLevel,
@@ -33,8 +32,9 @@ pub fn impl_server_dispatcher(
     );
     let maybe_async = maybe_quote(use_async, quote! { async });
     let maybe_await = maybe_quote(use_async, quote! { .await });
+    let mut error_seq = ErrorSeq::default();
     let deferred_return_methods =
-        deferred_method_return_ser_methods(api_level, no_alloc, method_model);
+        deferred_method_return_ser_methods(api_level, no_alloc, method_model, &mut error_seq);
     let external_crate_name = match &api_level.source_location {
         ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
         ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
@@ -52,11 +52,13 @@ pub fn impl_server_dispatcher(
         IndexChain::new(),
         Some(external_crate_name),
         &cx,
+        &mut error_seq,
     );
     let mod_doc = &api_level.docs;
     let args_structs = args_structs_recursive(api_level, Some(external_crate_name), no_alloc);
     let use_external =
         api_level.use_external_types(Path::new_ident(external_crate_name.clone()), no_alloc);
+    let es = error_seq.next_err();
     quote! {
         #mod_doc
         mod api_impl {
@@ -66,7 +68,7 @@ pub fn impl_server_dispatcher(
                 DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
                 Error as ShrinkWrapError, nib32::UNib32, ElementSize
             };
-            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
+            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
             #additional_use
             #use_external
 
@@ -88,7 +90,7 @@ pub fn impl_server_dispatcher(
                     // TODO: handle trait paths on server side
                     let PathKind::Absolute { path } = &request.path_kind else {
                         let mut wr = BufWriter::new(scratch_err);
-                        let event = Event { seq: request.seq, result: Err(Error::PathKindNotSupported) };
+                        let event = Event { seq: request.seq, result: Err(Error::new(#es, ErrorKind::PathKindNotSupported)) };
                         event.ser_shrink_wrap(&mut wr)?;
                         return Ok(wr.finish_and_take()?);
                     };
@@ -148,11 +150,13 @@ fn process_request_inner_recursive(
     index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
-    let level_matchers = level_matchers(api_level, index_chain, ext_crate_name, cx);
+    let level_matchers = level_matchers(api_level, index_chain, ext_crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
+    let es = error_seq.next_err();
     let mut ts = quote! {
         #maybe_async fn #ident<'a>(
             &mut self,
@@ -169,7 +173,7 @@ fn process_request_inner_recursive(
                     match request.kind {
                         // RequestKind::Version => { Err(Error::OperationNotImplemented) },
                         // RequestKind::Introspect { Err(Error::OperationNotImplemented) },
-                        _ => { Err(Error::OperationNotSupported) },
+                        _ => { Err(Error::not_supported(#es)) },
                     }
                 }
             }
@@ -191,7 +195,7 @@ fn process_request_inner_recursive(
         );
         let mut cx = cx.clone();
         cx.push_suffix(&args.trait_name);
-        let mut index_chain = index_chain.clone();
+        let mut index_chain = index_chain;
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
         }
@@ -201,6 +205,7 @@ fn process_request_inner_recursive(
             index_chain,
             args.location.crate_name().as_ref(),
             &cx,
+            error_seq,
         ));
     }
     ts
@@ -211,6 +216,7 @@ fn level_matchers(
     index_chain: IndexChain,
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
@@ -218,27 +224,36 @@ fn level_matchers(
             Span::call_site(),
         ))
     });
+    let es0 = error_seq.next_err();
+    let es1 = error_seq.next_err();
     let handlers = api_level.items.iter().map(|item| match item.multiplicity {
         Multiplicity::Flat => level_matcher(
             &item.kind,
             index_chain,
             api_level.mod_ident(ext_crate_name),
             cx,
+            error_seq,
         ),
         Multiplicity::Array { .. } => {
             let check_err_on_no_alloc = if cx.no_alloc {
-                quote! { .map_err(|_| Error::ArrayIndexDesFailed)? }
+                let es = error_seq.next_err();
+                quote! { .map_err(|_| Error::new(#es, ErrorKind::ArrayIndexDesFailed))? }
             } else {
                 quote! { }
             };
-            let mut index_chain = index_chain.clone();
+            let es = error_seq.next_err();
+            let mut index_chain = index_chain;
             let maybe_index_chain_push =
-                index_chain.push_back( quote! { }, quote! { path_iter.next().ok_or(Error::ExpectedArrayIndexGotNone)?#check_err_on_no_alloc });
+                index_chain.push_back(
+                    quote! { },
+                    quote! { path_iter.next().ok_or(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))?#check_err_on_no_alloc }
+                );
             let lm = level_matcher(
                 &item.kind,
                 index_chain,
                 api_level.mod_ident(ext_crate_name),
                 cx,
+                error_seq,
             );
             quote! {
                 #maybe_index_chain_push
@@ -247,14 +262,14 @@ fn level_matchers(
         }
     });
     let check_err_on_no_alloc = if cx.no_alloc {
-        quote! { .map_err(|_| Error::PathDesFailed)?.0 }
+        quote! { .map_err(|_| Error::new(#es0, ErrorKind::PathDesFailed))?.0 }
     } else {
         quote! { .0 }
     };
     quote! {
         Some(id) => match id #check_err_on_no_alloc {
             #(#ids => { #handlers } ),*
-            _ => { Err(Error::BadPath) }
+            _ => { Err(Error::bad_path(#es1)) }
         }
     }
 }
@@ -264,18 +279,27 @@ fn level_matcher(
     index_chain: IndexChain,
     mod_ident: Ident,
     cx: &ApiServerCGContext<'_>,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     match kind {
         ApiItemKind::Method {
             ident,
             args,
             return_type,
-        } => handle_method(index_chain, &mod_ident, cx, ident, args, return_type),
+        } => handle_method(
+            index_chain,
+            &mod_ident,
+            cx,
+            ident,
+            args,
+            return_type,
+            error_seq,
+        ),
         ApiItemKind::Property { access, ident, ty } => {
-            handle_property(index_chain, cx, ident, ty, *access)
+            handle_property(index_chain, cx, ident, ty, *access, error_seq)
         }
         ApiItemKind::Stream { ident, ty, is_up } => {
-            handle_stream(index_chain, cx, ident, ty, *is_up)
+            handle_stream(index_chain, cx, ident, ty, *is_up, error_seq)
         }
         ApiItemKind::ImplTrait { args, .. } => {
             let process_fn_name = Ident::new(
@@ -302,20 +326,26 @@ fn handle_method(
     ident: &Ident,
     args: &[Argument],
     return_type: &Option<Type>,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_let_output = maybe_quote(return_type.is_some(), quote! { let output = });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
 
-    let (args_des, args_list) = des_args(mod_ident, ident, args, cx.no_alloc);
+    let (args_des, args_list) = des_args(mod_ident, ident, args, cx.no_alloc, error_seq);
     let is_args = if args.is_empty() {
         quote! { .. }
     } else {
         quote! { args }
     };
 
-    let ser_output_or_unit =
-        ser_method_output(mod_ident, ident, return_type, quote! { request.seq });
+    let ser_output_or_unit = ser_method_output(
+        mod_ident,
+        ident,
+        return_type,
+        quote! { request.seq },
+        error_seq,
+    );
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let call_and_handle_deferred = match cx.method_model.pick(ident.to_string().as_str()).unwrap() {
         MethodModelKind::Immediate => quote! {
@@ -337,6 +367,8 @@ fn handle_method(
         },
     };
 
+    let es0 = error_seq.next_err();
+    let es1 = error_seq.next_err();
     quote! {
         match &request.kind {
             RequestKind::Call { #is_args } => {
@@ -344,10 +376,10 @@ fn handle_method(
                 #call_and_handle_deferred
             }
             RequestKind::Introspect => {
-                Err(Error::OperationNotImplemented)
+                Err(Error::new(#es0, ErrorKind::OperationNotImplemented))
             }
             _ => {
-                Err(Error::OperationNotSupported)
+                Err(Error::not_supported(#es1))
             }
         }
     }
@@ -359,15 +391,17 @@ fn handle_property(
     ident: &Ident,
     ty: &Type,
     access: PropertyAccess,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
     let mut des = TokenStream::new();
+    let es = error_seq.next_err();
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
         cx.no_alloc,
-        quote! { .map_err(|_| Error::PropertyDesFailed)? },
+        quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
         &mut des,
     );
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
@@ -402,10 +436,11 @@ fn handle_property(
                 Span::call_site(),
             );
             let mut ser = TokenStream::new();
+            let es = error_seq.next_err();
             ty.buf_write(
                 FieldPath::Value(quote! { value }),
                 cx.no_alloc,
-                quote! { .map_err(|_| Error::ResponseSerFailed)? },
+                quote! { .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))? },
                 &mut ser,
             );
             quote! {
@@ -416,10 +451,11 @@ fn handle_property(
         }
         PropertyModelKind::ValueOnChanged => {
             let mut ser = TokenStream::new();
+            let es = error_seq.next_err();
             ty.buf_write(
                 FieldPath::Value(quote! { self.#prefixed_ident #maybe_index_chain_indices }),
                 cx.no_alloc,
-                quote! { .map_err(|_| Error::ResponseSerFailed)? },
+                quote! { .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))? },
                 &mut ser,
             );
             quote! {
@@ -428,6 +464,7 @@ fn handle_property(
             }
         }
     };
+    let es = error_seq.next_err();
     let write = quote! {
         RequestKind::Write { data } => {
             let data = data.as_slice();
@@ -437,7 +474,7 @@ fn handle_property(
             if request.seq == 0 {
                 Ok(&[])
             } else {
-                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::ResponseSerFailed)?)
+                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
             }
         }
     };
@@ -448,14 +485,16 @@ fn handle_property(
         ),
         write,
     );
+    let es0 = error_seq.next_err();
+    let es1 = error_seq.next_err();
     let read = quote! {
         RequestKind::Read => {
             #get_and_ser_property
-            let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
+            let output_bytes = wr.finish_and_take().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
             let kind = EventKind::ReadValue {
                     data: RefVec::Slice { slice: output_bytes }
                 };
-            Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::ResponseSerFailed)?)
+            Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?)
         }
     };
     let maybe_read = maybe_quote(
@@ -465,11 +504,12 @@ fn handle_property(
         ),
         read,
     );
+    let es = error_seq.next_err();
     quote! {
         match &request.kind {
             #maybe_write
             #maybe_read
-            _ => { Err(Error::OperationNotSupported) }
+            _ => { Err(Error::not_supported(#es)) }
         }
     }
 }
@@ -480,11 +520,14 @@ fn handle_stream(
     ident: &Ident,
     ty: &Type,
     is_up: bool,
+    err_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
     let sideband_fn = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
+    let es0 = err_seq.next_err();
+    let es1 = err_seq.next_err();
     let handle_sideband_cmd = quote! {
         // user fn returns Option<StreamSidebandEvent>
         let r = self.#sideband_fn(#maybe_index_chain_call sideband_cmd)#maybe_await;
@@ -494,10 +537,10 @@ fn handle_stream(
                     seq: request.seq,
                     result: Ok(EventKind::StreamSideband { path, sideband_event })
                 };
-                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::ResponseSerFailed)?)
+                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?)
             }
             None => {
-                Err(Error::OperationNotImplemented)
+                Err(Error::new(#es1, ErrorKind::OperationNotImplemented))
             }
         }
     };
@@ -516,14 +559,15 @@ fn handle_stream(
         }
     } else {
         // sink (device in)
-        let other_des = || {
+        let mut other_des = || {
             let mut ts = quote! {
                 let mut rd = BufReader::new(data);
             };
+            let es = err_seq.next_err();
             ty.buf_read(
                 &Ident::new("value", Span::call_site()),
                 true,
-                quote! { .map_err(|_e| Error::ArgsDesFailed)? },
+                quote! { .map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))? },
                 &mut ts,
             );
             (ts, quote! { value })
@@ -559,10 +603,11 @@ fn handle_stream(
             }
         }
     };
+    let es = err_seq.next_err();
     quote! {
         match &request.kind {
             #specific_ops
-            _ => { Err(Error::OperationNotImplemented) }
+            _ => { Err(Error::new(#es, ErrorKind::OperationNotImplemented)) }
         }
     }
 }
@@ -608,10 +653,12 @@ fn ser_method_output(
     ident: &Ident,
     return_type: &Option<Type>,
     seq_path: TokenStream,
+    erros_seq: &mut ErrorSeq,
 ) -> TokenStream {
     if let Some(ty) = return_type {
+        let es = erros_seq.next_err();
         let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
-            quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::ResponseSerFailed)?; }
+            quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
         } else {
             let output_struct_name = Ident::new(
                 format!("{}_output", ident).to_case(Case::Pascal).as_str(),
@@ -621,13 +668,16 @@ fn ser_method_output(
                 let output = #mod_ident::#output_struct_name {
                     output
                 };
-                output.ser_shrink_wrap(&mut wr).map_err(|_| Error::ResponseSerFailed)?;
+                output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
             }
         };
+        let es0 = erros_seq.next_err();
+        let es1 = erros_seq.next_err();
+        let es2 = erros_seq.next_err();
         quote! {
             let mut wr = BufWriter::new(scratch_args);
             #ser_output
-            let output_bytes = wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?;
+            let output_bytes = wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es0))?;
 
             let mut event_wr = BufWriter::new(scratch_event);
             let event = Event {
@@ -636,12 +686,13 @@ fn ser_method_output(
                     data: RefVec::Slice { slice: output_bytes }
                 })
             };
-            event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::ResponseSerFailed)?;
-            Ok(event_wr.finish_and_take().map_err(|_| Error::ResponseSerFailed)?)
+            event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::response_ser_failed(#es1))?;
+            Ok(event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))?)
         }
     } else {
+        let es = erros_seq.next_err();
         quote! {
-            Ok(ser_unit_return_event(scratch_event, request.seq).map_err(|_| Error::ResponseSerFailed)?)
+            Ok(ser_unit_return_event(scratch_event, request.seq).map_err(|_| Error::response_ser_failed(#es))?)
         }
     }
 }
@@ -651,6 +702,7 @@ fn des_args(
     method_ident: &Ident,
     args: &[Argument],
     _no_alloc: bool,
+    error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
     let args_struct_ident = Ident::new(
         format!("{}_args", method_ident)
@@ -661,11 +713,12 @@ fn des_args(
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
+        let es = error_seq.next_err();
         let args_des = quote! {
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
-            let args = #mod_ident::#args_struct_ident::des_shrink_wrap(&mut rd).map_err(|_e| Error::ArgsDesFailed)?;
+            let args = #mod_ident::#args_struct_ident::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
         };
         let idents = args.iter().map(|arg| &arg.ident);
         let args_list = quote! { #(args.#idents),* };
@@ -728,6 +781,7 @@ fn deferred_method_return_ser_methods(
     api_level: &ApiLevel,
     no_alloc: bool,
     method_model: &MethodModel,
+    error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
     let return_ty = if no_alloc {
@@ -754,6 +808,7 @@ fn deferred_method_return_ser_methods(
             ident,
             return_type,
             quote! { seq },
+            error_seq,
         );
         let maybe_output = match return_type {
             Some(ty) => {
@@ -769,4 +824,16 @@ fn deferred_method_return_ser_methods(
         });
     }
     ts
+}
+
+#[derive(Default)]
+struct ErrorSeq(u32);
+
+impl ErrorSeq {
+    fn next_err(&mut self) -> TokenStream {
+        let seq = self.0;
+        let ts = quote! { #seq };
+        self.0 += 1;
+        ts
+    }
 }

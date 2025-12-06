@@ -223,13 +223,22 @@ pub enum StreamSidebandEvent {
     User(u32),
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug)]
+pub struct Error {
+    /// Unique error ID for each error in generated code. Can be used to map an error back to source code.
+    err_seq: u32,
+    /// Actual error kind.
+    kind: ErrorKind,
+}
+
 /// Various errors that can occur during Request processing.
 /// TODO: Add shrink_wrap error here as well for more context
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
 #[self_describing]
 #[derive(Debug)]
-pub enum Error {
+pub enum ErrorKind {
     /// Sent a RequestKind that doesn't make sense for a particular resource
     OperationNotSupported,
     /// Tried to access a path that doesn't exist
@@ -284,6 +293,33 @@ impl PathKind<'_> {
     pub fn absolute(indices: &[UNib32]) -> PathKind<'_> {
         PathKind::Absolute {
             path: RefVec::Slice { slice: indices },
+        }
+    }
+}
+
+impl Error {
+    pub fn new(err_seq: u32, kind: ErrorKind) -> Error {
+        Self { err_seq, kind }
+    }
+
+    pub fn not_supported(err_seq: u32) -> Self {
+        Self {
+            err_seq,
+            kind: ErrorKind::OperationNotSupported,
+        }
+    }
+
+    pub fn bad_path(err_seq: u32) -> Self {
+        Self {
+            err_seq,
+            kind: ErrorKind::BadPath,
+        }
+    }
+
+    pub fn response_ser_failed(err_seq: u32) -> Self {
+        Self {
+            err_seq,
+            kind: ErrorKind::ResponseSerFailed,
         }
     }
 }

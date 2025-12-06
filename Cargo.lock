@@ -1189,6 +1189,7 @@ version = "0.1.0"
 dependencies = [
  "hex-literal",
  "tokio",
+ "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client_common",
  "ww_client_server",

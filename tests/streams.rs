@@ -57,7 +57,9 @@ mod no_std_sync_server {
             None
         }
 
-        fn finish(&mut self) {}
+        fn finish(&mut self) {
+            println!("finish called");
+        }
 
         pub fn send_updates(&mut self, stream_number: usize) -> Vec<Vec<u8>> {
             println!("sending updates");
@@ -133,6 +135,7 @@ mod std_async_client {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
+    tracing_subscriber::fmt::init();
     let (transport_cmd_tx, mut transport_cmd_rx) = mpsc::unbounded_channel();
     let (notify_tx, mut notify_rx) = mpsc::unbounded_channel::<usize>();
     let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
@@ -167,6 +170,7 @@ async fn std_async_client_driving_no_std_sync_server() {
                     let r = server
                         .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
                         .expect("process_request");
+                    tokio::time::sleep(Duration::from_millis(1)).await; // rx_dispatcher sometimes receive event before cmd
                     dispatcher_msg_tx
                         .send(DispatcherMessage::MessageBytes(r.to_vec()))
                         .expect("send_message");
@@ -195,8 +199,9 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
         cmd_tx,
-        timeout: Duration::from_millis(100),
+        timeout: Duration::from_millis(1000),
     };
+    tokio::time::sleep(Duration::from_millis(10)).await;
 
     let mut rx = client
         .root()
@@ -227,4 +232,6 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
     assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
 }

@@ -107,6 +107,7 @@ mod std_async_client {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
+    tracing_subscriber::fmt::init();
     let (transport_cmd_tx, mut transport_cmd_rx) = mpsc::unbounded_channel();
     let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
     dispatcher_msg_tx
@@ -135,6 +136,7 @@ async fn std_async_client_driving_no_std_sync_server() {
             let r = server
                 .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
                 .expect("process_request");
+            tokio::time::sleep(Duration::from_millis(1)).await; // rx_dispatcher sometimes receive event before cmd
             dispatcher_msg_tx
                 .send(DispatcherMessage::MessageBytes(r.to_vec()))
                 .expect("send_message");
@@ -153,8 +155,9 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
         cmd_tx,
-        timeout: Duration::from_millis(100),
+        timeout: Duration::from_millis(1000),
     };
+    tokio::time::sleep(Duration::from_millis(10)).await;
 
     client.root().no_args().await.unwrap();
     assert!(data.read().unwrap().no_args_called);

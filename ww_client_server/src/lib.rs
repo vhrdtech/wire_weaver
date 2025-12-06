@@ -280,6 +280,14 @@ pub enum ShaperConfig {
     MaxRate { events_per_s: u32 },
 }
 
+impl PathKind<'_> {
+    pub fn absolute(indices: &[UNib32]) -> PathKind<'_> {
+        PathKind::Absolute {
+            path: RefVec::Slice { slice: indices },
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 impl PathKind<'_> {
     pub fn make_owned(&self) -> Result<PathKindOwned, shrink_wrap::Error> {

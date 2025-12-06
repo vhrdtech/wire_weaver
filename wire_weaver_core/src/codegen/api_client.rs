@@ -126,7 +126,7 @@ fn client_structs_recursive(
             continue;
         };
         let level = level.as_ref().expect("empty level");
-        let mut index_chain = index_chain.clone();
+        let mut index_chain = index_chain;
         index_chain.increment_length();
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
@@ -173,7 +173,7 @@ fn level_methods(
     let handlers = api_level
         .items
         .iter()
-        .map(|item| level_method(&item, index_chain, model, path_mode, full_gid_path));
+        .map(|item| level_method(item, index_chain, model, path_mode, full_gid_path));
     quote! {
         #(#handlers)*
     }
@@ -259,7 +259,7 @@ fn handle_method(
     return_type: &Option<Type>,
     docs: &Docs,
 ) -> TokenStream {
-    let (args_ser, args_list, _args_names, args_bytes) = ser_args(ident, args, model.no_alloc());
+    let (args_ser, args_list, _args_names) = ser_args(ident, args, model.no_alloc());
     let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
         let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
             quote! {} // User type directly returned from method
@@ -307,7 +307,6 @@ fn handle_method(
                 #docs
                 pub async fn #timeout_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
                     #args_ser
-                    let args_bytes = #args_bytes;
                     #index_chain_push
                     let path_kind = #path_kind;
                     let return_bytes = self.cmd_tx.send_call_receive_reply(
@@ -328,7 +327,6 @@ fn handle_method(
             #[doc = "NOTE: This method does not wait for the answer from remote device."]
             pub async fn #forget_fn_name(&mut self, #args_list) -> Result<(), wire_weaver_client_common::Error> {
                 #args_ser
-                let args_bytes = #args_bytes;
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd_tx.send_call_forget(path_kind, args_bytes).await?;
@@ -559,7 +557,7 @@ fn ser_args(
     method_ident: &Ident,
     args: &[Argument],
     no_alloc: bool,
-) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
+) -> (TokenStream, TokenStream, TokenStream) {
     let args_struct_ident = Ident::new(
         format!("{}_args", method_ident)
             .to_case(Case::Pascal)
@@ -569,29 +567,20 @@ fn ser_args(
     if args.is_empty() {
         if no_alloc {
             (
+                quote! { let args_bytes = &[]; }, // TODO: &[0x00] when no arguments to allow adding them later, as Option?
                 quote! {},
                 quote! {},
-                quote! {},
-                // 0 when no arguments to allow adding them later, as Option
-                quote! { &[0x00] },
             )
         } else {
-            (quote! {}, quote! {}, quote! {}, quote! { vec![] })
+            (quote! { let args_bytes = vec![]; }, quote! {}, quote! {})
         }
     } else {
         let idents = args.iter().map(|arg| &arg.ident);
 
-        let finish_wr = if no_alloc {
-            quote! { wr.finish_and_take()? }
-        } else {
-            quote! { wr.finish()?.to_vec() }
-        };
-
+        let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
         let args_ser = quote! {
             let args = #args_struct_ident { #(#idents),* };
-            let mut wr = BufWriter::new(&mut self.args_scratch);
-            args.ser_shrink_wrap(&mut wr)?;
-            let args_bytes = #finish_wr;
+            let args_bytes = args.to_ww_bytes(&mut self.args_scratch)? #maybe_to_vec;
         };
         let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
         let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
@@ -600,7 +589,7 @@ fn ser_args(
             args_list.extend(quote! { , });
         }
         let args_names = quote! { #(#idents),* };
-        (args_ser, args_list, args_names, quote! { args_bytes })
+        (args_ser, args_list, args_names)
     }
 }
 
@@ -640,7 +629,7 @@ fn cmd_tx_disconnect_methods() -> TokenStream {
 fn path_kind(path_mode: ClientPathMode, full_gid_path: &TokenStream) -> TokenStream {
     match path_mode {
         ClientPathMode::Absolute => {
-            quote! { PathKind::Absolute { path: RefVec::Slice { slice: &index_chain } } }
+            quote! { PathKind::absolute(&index_chain) }
         }
         ClientPathMode::GlobalTrait => quote! {
             PathKind::GlobalFull {

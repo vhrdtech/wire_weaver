@@ -15,6 +15,7 @@ use ww_version::{CompactVersion, FullVersionOwned};
 /// Replies are received through one-shot channels created on the fly when requests are sent.
 pub struct CommandSender {
     transport_cmd_tx: mpsc::UnboundedSender<Command>,
+    // TODO: in tests this can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
     dispatcher_cmd_tx: mpsc::UnboundedSender<DispatcherCommand>,
     seq_rx: mpsc::Receiver<SeqTy>,
     // TODO: CommandSender outstanding request limit?
@@ -81,6 +82,25 @@ impl CommandSender {
         Ok(())
     }
 
+    fn send_request(
+        &mut self,
+        seq: SeqTy,
+        path_kind: PathKindOwned,
+        kind: RequestKindOwned,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind,
+            kind,
+        };
+        let req = req.to_ww_bytes(&mut self.scratch)?; // TODO: recycle Vec (serialize via BufWriter with Vec flavor)
+        let cmd = Command::SendMessage {
+            bytes: req.to_vec(),
+        };
+        self.send(cmd)?;
+        Ok(())
+    }
+
     /// Sends call request to remote device, awaits response and returns it.
     pub async fn send_call_receive_reply(
         &mut self,
@@ -103,20 +123,10 @@ impl CommandSender {
             .map_err(|_| Error::RxDispatcherNotRunning)?;
 
         // send call command to remote device
-        let req = ww_client_server::RequestOwned {
-            seq,
-            path_kind,
-            kind: RequestKindOwned::Call { args },
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?; // TODO: recycle Vec (serialize via BufWriter with Vec flavor)
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
+        self.send_request(seq, path_kind, RequestKindOwned::Call { args })?;
 
         // await return value from remote device (routed through rx dispatcher)
-        let data = self
-            .send_cmd_receive_reply(cmd, timeout, done_rx, "call")
-            .await?;
+        let data = self.receive_reply(timeout, done_rx, "call").await?;
         Ok(data)
     }
 
@@ -128,18 +138,7 @@ impl CommandSender {
         args: Vec<u8>,
     ) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
-        let req = ww_client_server::RequestOwned {
-            seq: 0,
-            path_kind,
-            kind: RequestKindOwned::Call { args },
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?;
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
-        self.transport_cmd_tx
-            .send(cmd)
-            .map_err(|_| Error::EventLoopNotRunning)?;
+        self.send_request(0, path_kind, RequestKindOwned::Call { args })?;
         Ok(())
     }
 
@@ -160,18 +159,14 @@ impl CommandSender {
                 timeout: Some(timeout),
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
-        let req = ww_client_server::RequestOwned {
+
+        // send write command to remote device
+        self.send_request(
             seq,
             path_kind,
-            kind: RequestKindOwned::Write { data: value_bytes },
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?;
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
-        let _data = self
-            .send_cmd_receive_reply(cmd, timeout, done_rx, "write")
-            .await?;
+            RequestKindOwned::Write { data: value_bytes },
+        )?;
+        let _data = self.receive_reply(timeout, done_rx, "write").await?;
         Ok(())
     }
 
@@ -183,18 +178,7 @@ impl CommandSender {
         value_bytes: Vec<u8>,
     ) -> Result<(), Error> {
         let path_kind = self.to_ww_client_server_path(path)?;
-        let req = ww_client_server::RequestOwned {
-            seq: 0,
-            path_kind,
-            kind: RequestKindOwned::Write { data: value_bytes },
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?;
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
-        self.transport_cmd_tx
-            .send(cmd)
-            .map_err(|_| Error::EventLoopNotRunning)?;
+        self.send_request(0, path_kind, RequestKindOwned::Write { data: value_bytes })?;
         Ok(())
     }
 
@@ -215,20 +199,13 @@ impl CommandSender {
             .map_err(|_| Error::RxDispatcherNotRunning)?;
 
         // send sideband command to remote device
-        let req = ww_client_server::RequestOwned {
-            seq: 0,
+        self.send_request(
+            0,
             path_kind,
-            kind: RequestKindOwned::StreamSideband {
+            RequestKindOwned::StreamSideband {
                 sideband_cmd: StreamSidebandCommand::Open,
             },
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?;
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
-        self.transport_cmd_tx
-            .send(cmd)
-            .map_err(|_| Error::EventLoopNotRunning)?;
+        )?;
         Ok(())
     }
 
@@ -253,34 +230,20 @@ impl CommandSender {
             .map_err(|_| Error::RxDispatcherNotRunning)?;
 
         // send read command to remote device
-        let req = ww_client_server::RequestOwned {
-            seq,
-            path_kind,
-            kind: RequestKindOwned::Read,
-        };
-        let req = req.to_ww_bytes(&mut self.scratch)?;
-        let cmd = Command::SendMessage {
-            bytes: req.to_vec(),
-        };
+        self.send_request(seq, path_kind, RequestKindOwned::Read)?;
 
         // await response from remote device (through rx dispatcher)
-        let data = self
-            .send_cmd_receive_reply(cmd, timeout, done_rx, "read")
-            .await?;
+        let data = self.receive_reply(timeout, done_rx, "read").await?;
 
         Ok(data)
     }
 
-    async fn send_cmd_receive_reply(
+    async fn receive_reply(
         &self,
-        cmd: Command,
         timeout: Duration,
         done_rx: oneshot::Receiver<Result<Vec<u8>, Error>>,
         desc: &'static str,
     ) -> Result<Vec<u8>, Error> {
-        self.transport_cmd_tx
-            .send(cmd)
-            .map_err(|_| Error::EventLoopNotRunning)?;
         let rx_or_timeout = tokio::time::timeout(timeout, done_rx).await;
         trace!("got {desc} response: {:02x?}", rx_or_timeout);
         let rx_or_recv_err = rx_or_timeout.map_err(|_| Error::Timeout)?;
@@ -289,11 +252,19 @@ impl CommandSender {
         Ok(data)
     }
 
-    async fn next_seq(&mut self) -> Result<SeqTy, Error> {
+    pub async fn next_seq(&mut self) -> Result<SeqTy, Error> {
         let seq = self
             .seq_rx
             .recv()
             .await
+            .ok_or(Error::RxDispatcherNotRunning)?;
+        Ok(seq)
+    }
+
+    pub fn next_seq_blocking(&mut self) -> Result<SeqTy, Error> {
+        let seq = self
+            .seq_rx
+            .blocking_recv()
             .ok_or(Error::RxDispatcherNotRunning)?;
         Ok(seq)
     }

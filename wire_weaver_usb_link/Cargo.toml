@@ -14,7 +14,7 @@ shrink_wrap = { path = "../shrink_wrap", default-features = false }
 ww_global = { path = "../ww_global" }
 
 [features]
-host = []
+host = ["wire_weaver/std"]
 device = []
 
 [dev-dependencies]

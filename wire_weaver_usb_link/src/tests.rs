@@ -8,8 +8,7 @@ mod link_tests {
     use std::ptr::null;
     use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
     use std::vec::Vec;
-    use wire_weaver::prelude::FullVersion;
-    use wire_weaver::ww_version::Version;
+    use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
     use worst_executor::block_on;
 
     struct VecSink {
@@ -55,7 +54,7 @@ mod link_tests {
         rx_buf: &'i mut [u8],
     ) -> WireWeaverUsbLink<'i, VecSink, VecSink> {
         WireWeaverUsbLink::new(
-            FullVersion::new("test", Version::new(0, 0, 0)),
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             tx_buf,
             VecSink::new(),
@@ -89,7 +88,7 @@ mod link_tests {
 
         let mut receive = [0u8; 8];
         let mut link = WireWeaverUsbLink::new(
-            FullVersion::new("test", Version::new(0, 0, 0)),
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
@@ -129,7 +128,7 @@ mod link_tests {
 
         let mut receive = [0u8; 8];
         let mut link = WireWeaverUsbLink::new(
-            FullVersion::new("test", Version::new(0, 0, 0)),
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
@@ -174,7 +173,7 @@ mod link_tests {
 
         let mut receive = [0u8; 14];
         let mut link = WireWeaverUsbLink::new(
-            FullVersion::new("test", Version::new(0, 0, 0)),
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
@@ -299,7 +298,7 @@ mod link_tests {
         let rx = AsyncPacketSource { rx };
 
         let mut link = WireWeaverUsbLink::new(
-            FullVersion::new("test", Version::new(0, 0, 0)),
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             rx,

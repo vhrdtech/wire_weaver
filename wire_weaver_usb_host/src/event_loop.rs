@@ -5,7 +5,7 @@ use nusb::{DeviceInfo, Interface, Speed};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver::ww_version::FullVersion;
+use wire_weaver::ww_version::FullVersionOwned;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{
     Command, Error, OnError, TestProgress, event_loop_state::CommonState,
@@ -17,18 +17,16 @@ use wire_weaver_usb_link::{
 struct State {
     common: CommonState,
     message_rx: [u8; MAX_MESSAGE_SIZE],
-    user_protocol: FullVersion<'static>,
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
     irq_packet_size: usize,
 }
 
 impl State {
-    fn new(user_protocol: FullVersion<'static>) -> Self {
+    fn new() -> Self {
         State {
             common: CommonState::default(),
             message_rx: [0u8; MAX_MESSAGE_SIZE],
-            user_protocol,
             device_info: None,
             max_protocol_mismatched_messages: 10,
             irq_packet_size: 0,
@@ -45,9 +43,8 @@ impl State {
 pub async fn usb_worker(
     mut cmd_rx: mpsc::UnboundedReceiver<Command>,
     mut to_dispatcher: mpsc::UnboundedSender<DispatcherMessage>,
-    user_protocol: FullVersion<'static>,
 ) {
-    let mut state = State::new(user_protocol);
+    let mut state = State::new();
 
     let mut tx_buf = [0u8; 1024];
     let mut rx_buf = [0u8; 1024];
@@ -77,7 +74,7 @@ pub async fn usb_worker(
                 }
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
-                Ok(Some((interface, di))) => {
+                Ok(Some((interface, di, user_protocol))) => {
                     let max_irq_packet_size = match di.speed() {
                         Some(speed) => match speed {
                             Speed::Low => 8,
@@ -97,7 +94,7 @@ pub async fn usb_worker(
                     state.irq_packet_size = max_irq_packet_size;
                     debug!("max_packet_size: {}", max_irq_packet_size);
                     link = Some(WireWeaverUsbLink::new(
-                        state.user_protocol.clone(),
+                        user_protocol,
                         Sink::new(&interface, max_irq_packet_size).unwrap(),
                         &mut tx_buf[..max_irq_packet_size],
                         Source::new(&interface, max_irq_packet_size).unwrap(),
@@ -122,7 +119,7 @@ pub async fn usb_worker(
 async fn wait_for_connection_and_queue_commands(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
-) -> Result<Option<(Interface, DeviceInfo)>, ()> {
+) -> Result<Option<(Interface, DeviceInfo, FullVersionOwned)>, ()> {
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             // all senders have been dropped
@@ -152,8 +149,8 @@ async fn wait_for_connection_and_queue_commands(
                 };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, user_protocol_version);
-                return Ok(Some((interface, di)));
+                    .on_connect(on_error, connected_tx, user_protocol_version.clone());
+                return Ok(Some((interface, di, user_protocol_version)));
             }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {

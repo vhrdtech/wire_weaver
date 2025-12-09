@@ -14,7 +14,10 @@ use wire_weaver::ww_version::CompactVersion;
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
     /// User-defined data types and API, also indirectly points to ww_client_server version
+    #[cfg(feature = "device")]
     pub(crate) user_protocol: FullVersion<'static>,
+    #[cfg(feature = "host")]
+    pub(crate) user_protocol: ww_version::FullVersionOwned,
 
     /// Remote user protocol version
     pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
@@ -71,7 +74,8 @@ pub trait PacketSource {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
-        user_protocol: FullVersion<'static>,
+        #[cfg(feature = "device")] user_protocol: FullVersion<'static>,
+        #[cfg(feature = "host")] user_protocol: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -136,7 +140,13 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     //     &mut self.rx
     // }
 
+    #[cfg(feature = "device")]
     pub fn user_protocol(&self) -> FullVersion<'static> {
+        self.user_protocol.clone()
+    }
+
+    #[cfg(feature = "host")]
+    pub fn user_protocol(&self) -> ww_version::FullVersionOwned {
         self.user_protocol.clone()
     }
 }

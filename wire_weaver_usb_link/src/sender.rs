@@ -90,8 +90,18 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Result<(), Error<T::Error, R::Error>> {
         self.write_op_len(Op::LinkSetup, 0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize LinkSetup
 
+        let v = &self.user_protocol;
         let link_setup = crate::common::LinkSetup {
-            host_user_version: self.user_protocol.clone(),
+            host_user_version: wire_weaver::ww_version::FullVersion {
+                crate_id: v.crate_id.as_str(),
+                version: wire_weaver::ww_version::Version {
+                    major: v.version.major,
+                    minor: v.version.minor,
+                    patch: v.version.patch,
+                    pre: v.version.pre.as_deref(),
+                    build: v.version.build.as_deref(),
+                },
+            },
             host_max_message_len: max_message_size,
         };
         link_setup

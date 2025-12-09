@@ -289,31 +289,47 @@ fn handle_method(
     };
 
     let path_kind = path_kind(path_mode, full_gid_path);
-    let fn_call = |default_timeout: bool| {
+    let fn_call = |default_timeout: bool, is_async: bool| {
         let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
-        let timeout_fn_name = Ident::new(&format!("{}_timeout", ident), ident.span());
+        let fn_name = if is_async {
+            ident.clone()
+        } else {
+            Ident::new(&format!("{}_blocking", ident), ident.span())
+        };
+        let timeout_fn_name = if is_async {
+            Ident::new(&format!("{}_timeout", ident), ident.span())
+        } else {
+            Ident::new(&format!("{}_timeout_blocking", ident), ident.span())
+        };
+        let cmd_fn = if is_async {
+            quote! { send_call_receive_reply }
+        } else {
+            quote! { send_call_receive_reply_blocking }
+        };
+        let maybe_async = maybe_quote(is_async, quote! { async });
+        let maybe_await = maybe_quote(is_async, quote! { .await });
         if default_timeout {
             let args_idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
             let maybe_comma = maybe_quote(!args.is_empty(), quote! { , });
             quote! {
                 #docs
                 #[doc = "NOTE: This method uses `self.timeout` as timeout."]
-                pub async fn #ident(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error> {
-                    self.#timeout_fn_name(#(#args_idents),* #maybe_comma self.timeout).await
+                pub #maybe_async fn #fn_name(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error> {
+                    self.#timeout_fn_name(#(#args_idents),* #maybe_comma self.timeout)#maybe_await
                 }
             }
         } else {
             quote! {
                 #docs
-                pub async fn #timeout_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
+                pub #maybe_async fn #timeout_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
                     #args_ser
                     #index_chain_push
                     let path_kind = #path_kind;
-                    let return_bytes = self.cmd_tx.send_call_receive_reply(
+                    let return_bytes = self.cmd_tx.#cmd_fn(
                         path_kind,
                         args_bytes,
                         #timeout_val
-                    ).await?;
+                    )#maybe_await?;
                     #handle_output
                 }
             }
@@ -329,7 +345,7 @@ fn handle_method(
                 #args_ser
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.send_call_forget(path_kind, args_bytes).await?;
+                self.cmd_tx.send_call_forget(path_kind, args_bytes)?;
                 Ok(())
             }
         }
@@ -337,11 +353,15 @@ fn handle_method(
         quote! {}
     };
 
-    let fn_call_default_timeout = fn_call(true);
-    let fn_call = fn_call(false);
+    let fn_call_blocking = fn_call(false, false);
+    let fn_call_async = fn_call(false, true);
+    let fn_call_default_timeout_blocking = fn_call(true, false);
+    let fn_call_default_timeout = fn_call(true, true);
     quote! {
+        #fn_call_blocking
+        #fn_call_async
+        #fn_call_default_timeout_blocking
         #fn_call_default_timeout
-        #fn_call
         #fn_call_forget
     }
 }

@@ -1,6 +1,6 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
 use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
-use shrink_wrap::{BufReader, DeserializeShrinkWrap};
+use shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver::prelude::FullVersion;
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
@@ -196,7 +196,6 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     }
                     #[cfg(feature = "host")]
                     Op::DeviceInfo => {
-                        use shrink_wrap::SerializeShrinkWrap;
                         let device_info = crate::common::DeviceInfo::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
                         self.remote_max_message_size = device_info.dev_max_message_len;

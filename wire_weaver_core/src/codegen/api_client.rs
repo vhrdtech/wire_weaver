@@ -614,7 +614,49 @@ fn ser_args(
 }
 
 fn cmd_tx_disconnect_methods() -> TokenStream {
+    let connect_fn = |is_async: bool| {
+        let maybe_async = maybe_quote(is_async, quote! { async });
+        let maybe_await = maybe_quote(is_async, quote! { .await });
+        let cmd_connect_fn = if is_async {
+            quote! { connect }
+        } else {
+            quote! { connect_blocking }
+        };
+        let connect_fn = if is_async {
+            quote! { connect_raw }
+        } else {
+            quote! { connect_raw_blocking }
+        };
+        quote! {
+            pub #maybe_async fn #connect_fn(
+                filter: wire_weaver_client_common::DeviceFilter,
+                api_version: wire_weaver::ww_version::FullVersion<'static>,
+                on_error: wire_weaver_client_common::OnError,
+                default_timeout: std::time::Duration,
+                scratch: [u8; 4096],
+            ) -> Result<Self, wire_weaver_client_common::Error> {
+                use tokio::sync::mpsc;
+                let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+                let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
+                let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
+                tokio::spawn(async move {
+                    wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
+                });
+                cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
+                Ok(Self {
+                    args_scratch: scratch,
+                    cmd_tx,
+                    timeout: default_timeout,
+                })
+            }
+        }
+    };
+    let connect_async = connect_fn(true);
+    let connect_blocking = connect_fn(false);
     quote! {
+        #connect_async
+        #connect_blocking
+
         pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
             self.cmd_tx
@@ -624,7 +666,16 @@ fn cmd_tx_disconnect_methods() -> TokenStream {
             Ok(())
         }
 
-        pub fn disconnect_and_exit_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub fn disconnect_and_exit_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+            let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
+            self.cmd_tx
+                .send(cmd)
+                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            let _ = done_rx.blocking_recv().map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+            Ok(())
+        }
+
+        pub fn disconnect_and_exit_forget(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             self.cmd_tx
                 .send(wire_weaver_client_common::Command::DisconnectAndExit {
                     disconnected_tx: None,

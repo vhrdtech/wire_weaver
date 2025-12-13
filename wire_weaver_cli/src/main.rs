@@ -26,6 +26,10 @@ async fn main() -> Result<()> {
             duration_sec,
             packet_size,
         } => cmd::usb_loopback::usb_loopback(&mut device, duration_sec, packet_size).await?,
+        #[cfg(target_os = "linux")]
+        Commands::Udev => {
+            todo!()
+        }
     }
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();

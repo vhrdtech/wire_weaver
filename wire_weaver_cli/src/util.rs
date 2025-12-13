@@ -1,9 +1,7 @@
 use anyhow::Result;
 use tokio::sync::mpsc;
 use wire_weaver_usb_host::usb_worker;
-use wire_weaver_usb_host::wire_weaver_client_common::ww_version::{
-    FullVersion, FullVersionOwned, Version, VersionOwned,
-};
+use wire_weaver_usb_host::wire_weaver_client_common::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_usb_host::wire_weaver_client_common::{CommandSender, DeviceFilter, OnError};
 
 pub async fn connect_usb_dyn_api(filter: DeviceFilter) -> Result<CommandSender> {
@@ -11,12 +9,7 @@ pub async fn connect_usb_dyn_api(filter: DeviceFilter) -> Result<CommandSender> 
     let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
     let mut cmd_tx = CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
     tokio::spawn(async move {
-        usb_worker(
-            transport_cmd_rx,
-            dispatcher_msg_tx,
-            FullVersion::new("", Version::new(0, 1, 0)),
-        )
-        .await;
+        usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
     });
     cmd_tx
         .connect(

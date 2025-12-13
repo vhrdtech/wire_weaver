@@ -1,4 +1,5 @@
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
+use std::fmt::{Debug, Formatter};
 
 /// Box-like structure for no alloc use, serializes and deserializes the value as WireWeaver's Unsized.
 /// Can be used to create self-referential structs and enums on no_std and no alloc systems.
@@ -66,5 +67,11 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefBox<'i, 
         // Save the buffer and do nothing, parent deserializer will skip over since RefBox is Unsized.
         // When read is called, actual deserialization will take place.
         Ok(Self::Buf { buf })
+    }
+}
+
+impl<'i, T: Debug> Debug for RefBox<'i, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }

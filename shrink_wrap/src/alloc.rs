@@ -50,3 +50,19 @@ impl<'i> DeserializeShrinkWrap<'i> for String {
         Ok(String::from(rd.read_raw_str()?))
     }
 }
+
+impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Box<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write(self)
+    }
+}
+
+impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Box<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        Ok(Box::new(rd.read()?))
+    }
+}

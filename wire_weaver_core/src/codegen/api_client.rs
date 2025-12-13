@@ -246,6 +246,7 @@ fn level_method(
                 }
             }
         }
+        ApiItemKind::Reserved => quote! {},
     }
 }
 

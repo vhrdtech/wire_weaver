@@ -63,6 +63,7 @@ pub enum ApiItemKind {
         args: ImplTraitMacroArgs,
         level: Option<Box<ApiLevel>>,
     },
+    Reserved,
 }
 
 #[derive(Debug)]
@@ -137,6 +138,7 @@ impl ApiLevel {
                     });
                 }
                 ApiItemKind::ImplTrait { .. } => {}
+                ApiItemKind::Reserved => {}
             }
         }
         ext_types
@@ -197,6 +199,7 @@ impl ApiLevel {
                         level.make_owned();
                     }
                 }
+                ApiItemKind::Reserved => {}
             }
         }
     }

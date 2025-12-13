@@ -142,6 +142,13 @@ pub fn transform_api_level(
                         multiplicity: args.resource_array.multiplicity,
                         kind: ApiItemKind::ImplTrait { args, level: None },
                     });
+                } else if kind == "reserved" {
+                    items.push(ApiItem {
+                        id,
+                        docs,
+                        multiplicity: Multiplicity::Flat,
+                        kind: ApiItemKind::Reserved,
+                    });
                 } else {
                     return Err(format!("Unknown API resource {kind}"));
                 }

@@ -316,6 +316,12 @@ fn level_matcher(
                 Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args)#maybe_await?)
             }
         }
+        ApiItemKind::Reserved => {
+            let es = error_seq.next_err();
+            quote! {
+                Err(Error::new(#es, ErrorKind::BadPath))
+            }
+        }
     }
 }
 

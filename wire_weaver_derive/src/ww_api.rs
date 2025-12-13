@@ -74,9 +74,16 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
     }
 
     if !args.ext.client.is_empty() {
-        let model = match args.ext.client.as_str() {
+        let client = args.ext.client.split(&['+', ' ']).collect::<Vec<_>>();
+        let mut usb_connect = false;
+        let model = match client[0] {
             "raw" => ClientModel::Raw,
-            "async_worker" => ClientModel::AsyncWorker,
+            "async_worker" => {
+                for ext in &client[1..] {
+                    usb_connect = *ext == "usb";
+                }
+                ClientModel::AsyncWorker
+            }
             _ => {
                 return Err(format!(
                     "client supports raw or async_worked modes, got: '{}'",
@@ -94,6 +101,7 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
             model,
             path_mode,
             &args.context_ident,
+            usb_connect,
         );
         codegen_ts.append_all(ts);
     }

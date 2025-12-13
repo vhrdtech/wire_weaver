@@ -44,6 +44,7 @@ pub fn client(
     model: ClientModel,
     path_mode: ClientPathMode,
     client_struct: &Ident,
+    usb_connect: bool,
 ) -> TokenStream {
     let additional_use = if model == ClientModel::AsyncWorker {
         quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
@@ -51,7 +52,7 @@ pub fn client(
         quote! {}
     };
     let hl_init = if model == ClientModel::AsyncWorker {
-        cmd_tx_disconnect_methods()
+        cmd_tx_disconnect_methods(usb_connect)
     } else {
         quote! {}
     };
@@ -614,7 +615,7 @@ fn ser_args(
     }
 }
 
-fn cmd_tx_disconnect_methods() -> TokenStream {
+fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
     let connect_fn = |is_async: bool| {
         let maybe_async = maybe_quote(is_async, quote! { async });
         let maybe_await = maybe_quote(is_async, quote! { .await });
@@ -652,8 +653,11 @@ fn cmd_tx_disconnect_methods() -> TokenStream {
             }
         }
     };
-    let connect_async = connect_fn(true);
-    let connect_blocking = connect_fn(false);
+    let (connect_async, connect_blocking) = if usb_connect {
+        (connect_fn(true), connect_fn(false))
+    } else {
+        (quote! {}, quote! {})
+    };
     quote! {
         #connect_async
         #connect_blocking

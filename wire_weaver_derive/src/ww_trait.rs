@@ -21,6 +21,7 @@ fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
     )
     .map_err(|e| Error::new(Span::call_site(), e))?;
 
+    let trait_name = item_trait.ident.to_string();
     let mut check_types_lifetimes = TokenStream::new();
     for (ty, lifetime) in api_level.external_types() {
         let check_name = if lifetime {
@@ -31,7 +32,10 @@ fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
         let Some(last) = ty.segments.last() else {
             continue;
         };
-        let check_name = Ident::new(format!("_{last}{check_name}",).as_str(), last.span());
+        let check_name = Ident::new(
+            format!("_{trait_name}{last}{check_name}",).as_str(),
+            last.span(),
+        );
         let ty = &ty;
         if lifetime {
             check_types_lifetimes.extend(quote! {

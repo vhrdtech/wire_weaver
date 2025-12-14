@@ -70,8 +70,42 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefBox<'i, 
     }
 }
 
-impl<'i, T: Debug> Debug for RefBox<'i, T> {
+impl<'i, T: Debug + DeserializeShrinkWrap<'i>> Debug for RefBox<'i, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            RefBox::Ref { value } => {
+                write!(f, "RefBox({value:?})")
+            }
+            RefBox::Buf { buf } => {
+                let mut buf = *buf;
+
+                match T::des_shrink_wrap(&mut buf) {
+                    Ok(value) => write!(f, "RefBox({value:?})"),
+                    Err(e) => write!(f, "RefBox(Error: {e:?})"),
+                }
+            }
+        }
+    }
+}
+
+impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq> PartialEq for RefBox<'i, T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RefBox::Ref { value: v1 }, RefBox::Ref { value: v2 }) => v1 == v2,
+            (RefBox::Buf { buf: rd1 }, RefBox::Buf { buf: rd2 }) => {
+                let mut rd1 = *rd1;
+                let v1 = T::des_shrink_wrap(&mut rd1);
+                let mut rd2 = *rd2;
+                let v2 = T::des_shrink_wrap(&mut rd2);
+                v1 == v2
+            }
+            (RefBox::Ref { value }, RefBox::Buf { buf })
+            | (RefBox::Buf { buf }, RefBox::Ref { value }) => {
+                let mut rd = *buf;
+                let other = T::des_shrink_wrap(&mut rd);
+                let Ok(other) = other else { return false };
+                &other == *value
+            }
+        }
     }
 }

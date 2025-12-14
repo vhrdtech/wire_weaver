@@ -55,7 +55,7 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Box<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write(self)
+        T::ser_shrink_wrap(self, wr)
     }
 }
 
@@ -63,6 +63,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Box<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        Ok(Box::new(rd.read()?))
+        let value = T::des_shrink_wrap(rd)?;
+        Ok(Box::new(value))
     }
 }

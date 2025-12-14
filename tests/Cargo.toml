@@ -38,3 +38,7 @@ path = "traits.rs"
 [[test]]
 name = "stack_vec"
 path = "stack_vec.rs"
+
+[[test]]
+name = "shrink_wrap"
+path = "shrink_wrap.rs"

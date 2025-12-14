@@ -4,7 +4,7 @@ use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, ElementSize, Error};
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BufReader<'i> {
     buf: &'i [u8],

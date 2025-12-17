@@ -13,4 +13,4 @@ tokio-tungstenite = "0.27"
 futures-util = "0.3"
 thiserror = "2.0"
 tracing = "0.1"
-shrink_wrap = { path = "../shrink_wrap" }
+shrink_wrap.workspace = true

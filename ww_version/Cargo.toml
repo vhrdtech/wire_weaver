@@ -6,7 +6,7 @@ description.workspace = true
 edition.workspace = true
 
 [dependencies]
-shrink_wrap = { path = "../shrink_wrap", default-features = false }
+shrink_wrap.workspace = true
 wire_weaver_derive = { path = "../wire_weaver_derive" }
 semver = { version = "1", default-features = false, optional = true }
 defmt = { version = "1.0", optional = true }

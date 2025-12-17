@@ -10,7 +10,7 @@ crc = "3.3.0"
 strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
 wire_weaver = { path = "../wire_weaver", default-features = false }
-shrink_wrap = { path = "../shrink_wrap", default-features = false }
+shrink_wrap.workspace = true
 ww_global = { path = "../ww_global" }
 
 [features]

@@ -1099,10 +1099,9 @@ dependencies = [
 
 [[package]]
 name = "shrink_wrap"
-version = "0.4.0"
+version = "0.1.0"
 dependencies = [
  "defmt",
- "hex-literal",
  "paste",
  "tracing",
 ]

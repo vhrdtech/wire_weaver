@@ -6,7 +6,7 @@ description.workspace = true
 edition.workspace = true
 
 [dependencies]
-shrink_wrap = { path = "../shrink_wrap", default-features = false }
+shrink_wrap.workspace = true
 
 [build-dependencies]
 serde_json = "1.0"

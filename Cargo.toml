@@ -10,6 +10,7 @@ quote = "1.0"
 proc-macro2 = "1.0"
 defmt = "1.0"
 strum_macros = "0.27"
+shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
 
 [workspace]
 resolver = "2"
@@ -17,7 +18,6 @@ members = [
     "wire_weaver",
     "wire_weaver_core",
     "wire_weaver_derive",
-    "shrink_wrap",
     "wire_weaver_usb_host",
     # "wire_weaver_usb_embassy", no_std crate, excluded to be able to run cargo test
     "wire_weaver_usb_link",

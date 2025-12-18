@@ -38,6 +38,15 @@ Wire format used (called shrink_wrap) is binary and designed to use bits and nib
 compression.
 See comparison to other formats in [examples/compare_wire_formats](./examples/compare_wire_formats).
 
+## Standard library
+
+Common data types and traits are collected in [ww_stdlib](https://github.com/vhrdtech/ww_stdlib) repository.
+Notable ones are:
+
+* `ww_date_time`
+* `ww_gpio`
+* `ww_can_bus`
+
 ## Quick start
 
 Easiest way to start using WireWeaver is through one of the templates below, which contain firmware for several
@@ -63,6 +72,12 @@ See [Project setup]() page in the docs, which explains how setup projects in mor
 ### Low level wire format use
 
 TODO
+
+## Wire format
+
+wire_weaver uses wire format called [shrink_wrap](https://github.com/romixlab/shrink_wrap) -
+compact zero-copy wire format for microcontrollers using no allocator and supporting dynamic types.
+If you only want to serialize and deserialize some data types, it can be used stand-alone.
 
 ## Crate naming
 

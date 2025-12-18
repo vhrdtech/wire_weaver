@@ -1,19 +1,19 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
-use crate::ast::Type;
 use crate::ast::api::{
     ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
 };
-use crate::ast::path::Path;
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{add_prefix, maybe_quote};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{TokenStreamExt, quote};
+use shrink_wrap_core::ast::Type;
+use shrink_wrap_core::ast::path::Path;
+use shrink_wrap_core::codegen::FieldPath;
 use syn::{Lit, LitInt};
 
 pub fn impl_server_dispatcher(
@@ -659,10 +659,10 @@ fn ser_method_output(
     ident: &Ident,
     return_type: &Option<Type>,
     seq_path: TokenStream,
-    erros_seq: &mut ErrorSeq,
+    errors_seq: &mut ErrorSeq,
 ) -> TokenStream {
     if let Some(ty) = return_type {
-        let es = erros_seq.next_err();
+        let es = errors_seq.next_err();
         let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
             quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
         } else {
@@ -677,9 +677,9 @@ fn ser_method_output(
                 output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
             }
         };
-        let es0 = erros_seq.next_err();
-        let es1 = erros_seq.next_err();
-        let es2 = erros_seq.next_err();
+        let es0 = errors_seq.next_err();
+        let es1 = errors_seq.next_err();
+        let es2 = errors_seq.next_err();
         quote! {
             let mut wr = BufWriter::new(scratch_args);
             #ser_output
@@ -696,7 +696,7 @@ fn ser_method_output(
             Ok(event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))?)
         }
     } else {
-        let es = erros_seq.next_err();
+        let es = errors_seq.next_err();
         quote! {
             Ok(ser_unit_return_event(scratch_event, request.seq).map_err(|_| Error::response_ser_failed(#es))?)
         }

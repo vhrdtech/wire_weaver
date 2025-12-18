@@ -4,7 +4,7 @@
 pub mod util;
 
 use shrink_wrap::prelude::*;
-use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_repr};
+use wire_weaver_derive::full_version;
 use ww_version::{CompactVersion, FullVersion};
 
 #[cfg(feature = "std")]

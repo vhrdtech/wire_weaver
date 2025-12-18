@@ -2,7 +2,6 @@
 
 use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
-use wire_weaver_derive::derive_shrink_wrap;
 
 #[cfg(feature = "semver")]
 pub use semver;

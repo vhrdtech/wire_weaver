@@ -1,9 +1,9 @@
-use crate::ast::path::Path;
 use crate::ast::trait_macro_args::ImplTraitMacroArgs;
-use crate::ast::{Docs, Type};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use shrink_wrap_core::ast::path::Path;
+use shrink_wrap_core::ast::{Docs, Type};
 use std::collections::HashSet;
 use std::path::PathBuf;
 

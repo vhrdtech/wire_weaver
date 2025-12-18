@@ -3,15 +3,15 @@
 use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
 };
-use crate::ast::path::Path;
-use crate::ast::{Docs, Type};
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::ty::FieldPath;
 use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use shrink_wrap_core::ast::path::Path;
+use shrink_wrap_core::ast::{Docs, Type};
+use shrink_wrap_core::codegen::FieldPath;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum ClientModel {
@@ -458,10 +458,10 @@ fn handle_property(
                 }
             }
         };
-        let prop_read_default_timout = prop_read(true);
+        let prop_read_default_timeout = prop_read(true);
         // let prop_read = prop_read(false);
         quote! {
-            #prop_read_default_timout
+            #prop_read_default_timeout
             // #prop_read
         }
     } else {

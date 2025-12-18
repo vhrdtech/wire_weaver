@@ -1,9 +1,0 @@
-[package]
-name = "minimal_derive"
-version.workspace = true
-authors.workspace = true
-description.workspace = true
-edition.workspace = true
-
-[dependencies]
-wire_weaver = { path = "../../wire_weaver" }

@@ -4,16 +4,14 @@ mod test;
 
 pub use shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
-pub use wire_weaver_derive::{derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait};
+pub use wire_weaver_derive::{full_version, ww_api, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
-    pub use wire_weaver_derive::{
-        ShrinkWrap, derive_shrink_wrap, full_version, ww_api, ww_repr, ww_trait,
-    };
+    pub use wire_weaver_derive::{full_version, ww_api, ww_trait};
     pub use ww_version;
     pub use ww_version::FullVersion;
 }

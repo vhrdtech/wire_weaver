@@ -1,10 +1,9 @@
+use crate::ast::api::{ApiItemKind, ApiLevel};
 use convert_case::Casing;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::TokenStreamExt;
-
-use crate::ast::api::{ApiItemKind, ApiLevel};
-use crate::ast::{Docs, Field, ItemStruct, Type};
-use crate::transform::create_flags;
+use shrink_wrap_core::ast::{Docs, Field, ItemStruct, Type};
+use shrink_wrap_core::transform::create_flags;
 
 pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
     let mut defs = TokenStream::new();
@@ -49,8 +48,8 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 cfg: None,
                 size_assumption: None,
             };
-            defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));
-            defs.append_all(super::item_struct::struct_serdes(&item_struct, no_alloc));
+            defs.append_all(item_struct.def_rust(no_alloc));
+            defs.append_all(item_struct.serdes_rust(no_alloc));
         }
     }
     defs
@@ -82,6 +81,6 @@ fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Typ
         size_assumption: None,
     };
     create_flags(&mut item_struct.fields, &[]);
-    defs.append_all(super::item_struct::struct_def(&item_struct, no_alloc));
-    defs.append_all(super::item_struct::struct_serdes(&item_struct, no_alloc));
+    defs.append_all(item_struct.def_rust(no_alloc));
+    defs.append_all(item_struct.serdes_rust(no_alloc));
 }

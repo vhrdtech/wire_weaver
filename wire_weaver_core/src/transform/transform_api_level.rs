@@ -1,12 +1,13 @@
-use super::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_id_attr};
-use super::transform_ty::{transform_return_type, transform_type};
-use super::{FieldPath, FieldPathRoot};
 use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity,
 };
 use crate::ast::trait_macro_args::{ImplTraitMacroArgs, PropertyMacroArgs, StreamMacroArgs};
+use shrink_wrap_core::transform::{
+    FieldPath, FieldPathRoot, collect_docs_attrs, collect_unknown_attributes, take_id_attr,
+    transform_return_type, transform_type,
+};
 use std::ops::Deref;
-use syn::{FnArg, GenericParam, Pat, TraitItem};
+use syn::{Attribute, FnArg, GenericParam, Pat, TraitItem};
 
 pub fn transform_api_level(
     item_trait: &syn::ItemTrait,
@@ -37,17 +38,7 @@ pub fn transform_api_level(
                     })
                 }
                 let mut attrs = trait_item_fn.attrs.clone();
-                let id = match take_id_attr(&mut attrs) {
-                    Some(id) => {
-                        next_id = id + 1;
-                        id
-                    }
-                    None => {
-                        let id = next_id;
-                        next_id += 1;
-                        id
-                    }
-                };
+                let id = take_id_or_increment(&mut next_id, &mut attrs);
                 let docs = collect_docs_attrs(&mut attrs);
                 collect_unknown_attributes(&mut attrs);
                 let multiplicity = if trait_item_fn.sig.generics.params.is_empty() {
@@ -88,17 +79,7 @@ pub fn transform_api_level(
             TraitItem::Type(_) => {}
             TraitItem::Macro(item_macro) => {
                 let mut attrs = item_macro.attrs.clone();
-                let id = match take_id_attr(&mut attrs) {
-                    Some(id) => {
-                        next_id = id + 1;
-                        id
-                    }
-                    None => {
-                        let id = next_id;
-                        next_id += 1;
-                        id
-                    }
-                };
+                let id = take_id_or_increment(&mut next_id, &mut attrs);
                 let kind = item_macro.mac.path.get_ident().unwrap().to_string();
                 let docs = collect_docs_attrs(&mut attrs);
                 // stream and sink from the server perspective
@@ -166,4 +147,18 @@ pub fn transform_api_level(
         items,
         source_location,
     })
+}
+
+fn take_id_or_increment(next_id: &mut u32, mut attrs: &mut Vec<Attribute>) -> u32 {
+    match take_id_attr(&mut attrs) {
+        Some(id) => {
+            *next_id = id + 1;
+            id
+        }
+        None => {
+            let id = *next_id;
+            *next_id += 1;
+            id
+        }
+    }
 }

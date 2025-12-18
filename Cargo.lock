@@ -669,13 +669,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
-name = "minimal_derive"
-version = "0.4.0"
-dependencies = [
- "wire_weaver",
-]
-
-[[package]]
 name = "minimal_shrink_wrap"
 version = "0.4.0"
 dependencies = [
@@ -1103,7 +1096,27 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "paste",
+ "shrink_wrap_derive",
  "tracing",
+]
+
+[[package]]
+name = "shrink_wrap_core"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "shrink_wrap_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "shrink_wrap_core",
+ "syn",
 ]
 
 [[package]]
@@ -1623,6 +1636,7 @@ dependencies = [
  "quote",
  "regex",
  "shrink_wrap",
+ "shrink_wrap_core",
  "syn",
 ]
 
@@ -1809,7 +1823,6 @@ dependencies = [
  "hex-literal",
  "semver",
  "shrink_wrap",
- "wire_weaver_derive",
 ]
 
 [[package]]

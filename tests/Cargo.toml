@@ -17,10 +17,6 @@ default = ["std"]
 std = []
 
 [[test]]
-name = "basic_types"
-path = "basic_types.rs"
-
-[[test]]
 name = "methods"
 path = "methods.rs"
 
@@ -34,11 +30,3 @@ path = "streams.rs"
 [[test]]
 name = "traits"
 path = "traits.rs"
-
-[[test]]
-name = "stack_vec"
-path = "stack_vec.rs"
-
-[[test]]
-name = "shrink_wrap"
-path = "shrink_wrap.rs"

@@ -389,10 +389,9 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Prerequisites">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#structs" class="md-nav__link">
     <span class="md-ellipsis">
       Structs
@@ -400,11 +399,21 @@
   </a>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#zero-copy-and-owned-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zero-copy and owned types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zero-copy and owned types">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#non-evolvable-types" class="md-nav__link">
+  <a href="#type-mapping" class="md-nav__link">
     <span class="md-ellipsis">
-      Non-evolvable types
+      Type mapping
     </span>
   </a>
   
@@ -412,6 +421,15 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-evolvable-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-evolvable types
+    </span>
+  </a>
   
 </li>
       
@@ -1124,10 +1142,9 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Prerequisites">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#structs" class="md-nav__link">
     <span class="md-ellipsis">
       Structs
@@ -1135,11 +1152,21 @@
   </a>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#zero-copy-and-owned-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zero-copy and owned types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zero-copy and owned types">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#non-evolvable-types" class="md-nav__link">
+  <a href="#type-mapping" class="md-nav__link">
     <span class="md-ellipsis">
-      Non-evolvable types
+      Type mapping
     </span>
   </a>
   
@@ -1147,6 +1174,15 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-evolvable-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-evolvable types
+    </span>
+  </a>
   
 </li>
       
@@ -1174,7 +1210,7 @@
 is provided that can create all the code.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <p>All examples below assume that wire_weaver dependency is added in Cargo.toml: <code>wire_weaver = "0.4.0"</code>.</p>
-<h4 id="structs">Structs</h4>
+<h2 id="structs">Structs</h2>
 <p>Simple example on how to automatically get serializing and deserializing code generated for a struct:</p>
 <div class="highlight"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
 
@@ -1215,7 +1251,74 @@ is provided that can create all the code.</p>
 <span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">old_coord</span><span class="p">,</span><span class="w"> </span><span class="n">CoordV1</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="mh">0xAA</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="mh">0xCC</span><span class="w"> </span><span class="p">});</span>
 <span class="p">}</span>
 </code></pre></div>
-<h4 id="non-evolvable-types">Non-evolvable types</h4>
+<h2 id="zero-copy-and-owned-types">Zero-copy and owned types</h2>
+<p>Often there is a need to serialize owned type into a buffer and deserialize it as borrowed type on <code>no_std</code> without
+allocation or vice versa.
+Typing out two definitions, one using borrowed data (<code>RefVec&lt;'i, T&gt;</code>, <code>&amp;'i str</code>, etc.) and one owned would be very
+error-prone.
+Thus, <code>derive_shrink_wrap</code> attribute macro supports <code>#[owned = "feature-name"]</code> argument, that will trigger automatic
+generation of owned type definition and respective serialization and deserialization code.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#[derive_shrink_wrap]</span>
+<span class="cp">#[owned = </span><span class="s">&quot;std&quot;</span><span class="cp">]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">FullVersion</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">crate_id</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">Version</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Will generate <code>FullVersionOwned</code> along with serdes code that matches borrowed variant bit-to-bit.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#[cfg(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">FullVersionOwned</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">crate_id</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">VersionOwned</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Pseudo-code usage example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">fn</span><span class="w"> </span><span class="nf">round_trip</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// on no_std, no allocator</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+
+<span class="w">    </span><span class="c1">// on host, with allocator</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersionOwned</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span><span class="w"> </span><span class="n">v_owned</span><span class="p">);</span>
+
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_owned</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf2</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// again on no_std</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes_from_owned</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">v_ref</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="type-mapping">Type mapping</h3>
+<table>
+<thead>
+<tr>
+<th>Borrowed type</th>
+<th>Owned equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RefVec&lt;'i, u8&gt;</code></td>
+<td><code>Vec&lt;u8&gt;</code></td>
+</tr>
+<tr>
+<td><code>&amp;'i str</code></td>
+<td><code>String</code></td>
+</tr>
+<tr>
+<td><code>RefBox&lt;'i, T&gt;</code></td>
+<td><code>Box&lt;T&gt;</code></td>
+</tr>
+<tr>
+<td><code>UserType&lt;'i&gt;</code></td>
+<td><code>UserTypeOwned</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="non-evolvable-types">Non-evolvable types</h2>
 <p>final_structure, self_describing, sized</p>
 <h1 id="next-step">Next step</h1>
 <p>Check out <a href="../../api/overview/">API overview</a>.</p>

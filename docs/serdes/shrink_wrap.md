@@ -1,5 +1,9 @@
 # Wire format
 
+<p align="center">
+<img src="https://github.com/romixlab/shrink_wrap/blob/main/assets/logo-256.png?raw=true" alt="logo"/>
+</p>
+
 All serializing and deserializing operations are going through a wire format called `shrink_wrap`.
 It is targeting both microcontroller and host usage.
 

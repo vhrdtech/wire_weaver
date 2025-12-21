@@ -60,7 +60,6 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_date_time/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_version/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_self/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_can_bus/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_log_bare_metal/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_numeric/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_si/src" isTestSource="false" />
@@ -70,6 +69,7 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/minimal_shrink_wrap/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_global/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_can_bus/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_dfu/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />

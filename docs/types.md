@@ -17,6 +17,7 @@
         * Byte array: `Vec<u8>`
         * Arbitrary length array (no alloc): `RefVec<'i, T>`
         * Byte array (no alloc): `RefVec<'i, u8>`
+        * Fixed sized array: `[T; N]`
         * TODO: Max bounded
         * TODO: Fixed length array: `[T; N]`
 * `Option<T>` and `Result<T, E>`
@@ -24,6 +25,8 @@
 * User-defined:
     * Struct
     * Enum with or without data variants
+        * U1..=U63 (1-bit aligned) and unib32 discriminants.
+    * Tuple
 
 * Not yet supported or not decided whether to support:
     * Tuple

@@ -1084,6 +1084,7 @@
 <li>Byte array: <code>Vec&lt;u8&gt;</code></li>
 <li>Arbitrary length array (no alloc): <code>RefVec&lt;'i, T&gt;</code></li>
 <li>Byte array (no alloc): <code>RefVec&lt;'i, u8&gt;</code></li>
+<li>Fixed sized array: <code>[T; N]</code></li>
 <li>TODO: Max bounded</li>
 <li>TODO: Fixed length array: <code>[T; N]</code></li>
 </ul>
@@ -1096,7 +1097,11 @@
 <p>User-defined:</p>
 <ul>
 <li>Struct</li>
-<li>Enum with or without data variants</li>
+<li>Enum with or without data variants<ul>
+<li>U1..=U63 (1-bit aligned) and unib32 discriminants.</li>
+</ul>
+</li>
+<li>Tuple</li>
 </ul>
 </li>
 <li>

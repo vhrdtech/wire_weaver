@@ -224,6 +224,7 @@ fn level_method(
             model,
             path_mode,
             full_gid_path,
+            maybe_index_arg,
             index_chain_push,
             ident,
             ty,
@@ -528,6 +529,7 @@ fn handle_stream(
     model: ClientModel,
     path_mode: ClientPathMode,
     full_gid_path: &TokenStream,
+    maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
     ident: &Ident,
     ty: &Type,
@@ -541,7 +543,7 @@ fn handle_stream(
         // client in
         let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
         quote! {
-            pub fn #subscribe_fn(&mut self) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
+            pub fn #subscribe_fn(&mut self #maybe_index_arg) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -553,7 +555,7 @@ fn handle_stream(
         // client out
         let publish_fn = Ident::new(format!("{}_pub", ident).as_str(), ident.span());
         quote! {
-            pub fn #publish_fn(&mut self, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
+            pub fn #publish_fn(&mut self #maybe_index_arg, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
                 #ser
                 #index_chain_push
                 let path_kind = #path_kind;
@@ -566,7 +568,7 @@ fn handle_stream(
     quote! {
         #specific_methods
 
-        pub async fn #sideband_fn_name(&self, sideband_cmd: StreamSidebandCommand) -> Result</*StreamSidebandEvent*/ (), wire_weaver_client_common::Error> {
+        pub async fn #sideband_fn_name(&self #maybe_index_arg, sideband_cmd: StreamSidebandCommand) -> Result</*StreamSidebandEvent*/ (), wire_weaver_client_common::Error> {
             #index_chain_push
             let path_kind = #path_kind;
 

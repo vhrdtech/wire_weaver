@@ -10,9 +10,9 @@ use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{TokenStreamExt, quote};
-use shrink_wrap_core::ast::Type;
+use quote::{quote, TokenStreamExt};
 use shrink_wrap_core::ast::path::Path;
+use shrink_wrap_core::ast::Type;
 use shrink_wrap_core::codegen::FieldPath;
 use syn::{Lit, LitInt};
 
@@ -25,7 +25,7 @@ pub fn impl_server_dispatcher(
     context_ident: &Ident,
     handler_ident: &Ident,
 ) -> TokenStream {
-    let stream_send_methods = stream_ser_methods(api_level, no_alloc);
+    let stream_send_methods = stream_ser_methods(api_level, no_alloc); // move to recursive to get full paths?
     let additional_use = maybe_quote(
         no_alloc,
         quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },

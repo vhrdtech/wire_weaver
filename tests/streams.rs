@@ -11,6 +11,7 @@ trait Streams {
     stream!(plain_stream: u8);
     sink!(plain_sink: u8);
     stream!(vec_stream: [u8]);
+    stream!(array_of_streams[]: [u8]);
     fn finish();
 }
 
@@ -57,6 +58,15 @@ mod no_std_sync_server {
             None
         }
 
+        fn array_of_streams_sideband(
+            &mut self,
+            _idx: [UNib32; 1],
+            _cmd: StreamSidebandCommand,
+        ) -> Option<StreamSidebandEvent> {
+            println!("array_of_streams sideband: {_idx:?} {_cmd:?}");
+            None
+        }
+
         fn finish(&mut self) {
             println!("finish called");
         }
@@ -77,6 +87,18 @@ mod no_std_sync_server {
                 1 => {
                     updates.push(
                         api_impl::vec_stream_data_ser(
+                            &RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
+                            &mut s1,
+                            &mut s2,
+                        )
+                        .unwrap()
+                        .to_vec(),
+                    );
+                }
+                2 => {
+                    updates.push(
+                        api_impl::array_of_streams_data_ser(
+                            0,
                             &RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
                             &mut s1,
                             &mut s2,
@@ -227,6 +249,20 @@ async fn std_async_client_driving_no_std_sync_server() {
     let connected = rx2.recv().await.unwrap();
     assert_eq!(connected, StreamEvent::Connected);
     let stream_data = rx2.recv().await.unwrap();
+    let StreamEvent::Data(data) = stream_data else {
+        panic!("wrong stream event");
+    };
+    let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
+    assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
+
+    let mut rx_arr0 = client
+        .root()
+        .array_of_streams_sub(0)
+        .expect("subscribe to stream array 0");
+    notify_tx.send(2).unwrap();
+    let connected = rx_arr0.recv().await.unwrap();
+    assert_eq!(connected, StreamEvent::Connected);
+    let stream_data = rx_arr0.recv().await.unwrap();
     let StreamEvent::Data(data) = stream_data else {
         panic!("wrong stream event");
     };

@@ -148,15 +148,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-name = "chrono"
-version = "0.4.42"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "clap"
 version = "4.5.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1737,24 +1728,13 @@ dependencies = [
 name = "ww_client_server"
 version = "0.1.0"
 dependencies = [
- "shrink_wrap",
- "wire_weaver_derive",
+ "wire_weaver",
  "ww_version",
 ]
 
 [[package]]
-name = "ww_date_time"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "defmt",
- "hex-literal",
- "wire_weaver",
-]
-
-[[package]]
 name = "ww_global"
-version = "0.4.0"
+version = "0.1.0"
 dependencies = [
  "convert_case 0.10.0",
  "serde_json",
@@ -1762,46 +1742,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_log_bare_metal"
-version = "0.1.0"
-dependencies = [
- "defmt",
- "wire_weaver",
-]
-
-[[package]]
-name = "ww_numeric"
-version = "0.1.0"
-dependencies = [
- "defmt",
- "wire_weaver",
-]
-
-[[package]]
-name = "ww_self"
-version = "0.1.0"
-dependencies = [
- "defmt",
- "wire_weaver",
- "ww_numeric",
- "ww_version",
-]
-
-[[package]]
-name = "ww_si"
-version = "0.1.0"
-dependencies = [
- "defmt",
- "wire_weaver",
- "ww_numeric",
-]
-
-[[package]]
 name = "ww_version"
 version = "0.1.0"
 dependencies = [
  "defmt",
- "hex-literal",
  "semver",
  "shrink_wrap",
 ]

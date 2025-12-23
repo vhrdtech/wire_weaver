@@ -9,4 +9,4 @@ edition.workspace = true
 strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
 wire_weaver = { path = "../wire_weaver" }
-ww_version = { path = "../ww_version", default-features = false }
+ww_version.workspace = true

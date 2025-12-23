@@ -6,7 +6,7 @@ publish = false
 
 [dev-dependencies]
 wire_weaver = { path = "../wire_weaver" }
-ww_client_server = { path = "../ww_client_server" }
+ww_client_server = { path = "../../ww_stdlib/ww_client_server" }
 wire_weaver_client_common = { path = "../wire_weaver_client_common" }
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "test-util"] }
 hex-literal = "1"

@@ -11,6 +11,8 @@ proc-macro2 = "1.0"
 defmt = "1.0"
 strum_macros = "0.27"
 shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
+ww_version = { version = "0.1.0", default-features = false }
+ww_client_server = { version = "0.1.0", default-features = false }
 
 [workspace]
 resolver = "2"
@@ -27,11 +29,9 @@ members = [
     #    "wire_weaver_tool",
     "examples/*",
     "tests",
-    "ww_client_server",
-    "../ww_stdlib/ww_date_time",
-    "../ww_stdlib/ww_self",
-    "../ww_stdlib/ww_si",
-    "../ww_stdlib/ww_log_bare_metal",
-    "ww_global",
     "wire_weaver_cli",
 ]
+
+[patch.crates-io]
+ww_version = { path = "../ww_stdlib/ww_version" }
+ww_client_server = { path = "../ww_stdlib/ww_client_server" }

@@ -57,7 +57,6 @@
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_host/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_client_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_client_common/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_gcode/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/compare_wire_formats/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/minimal_derive/src" isTestSource="false" />
@@ -70,6 +69,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_version/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_date_time/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_si/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />

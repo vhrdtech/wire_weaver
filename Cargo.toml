@@ -29,7 +29,7 @@ members = [
     "tests",
     "ww_client_server",
     "../ww_stdlib/ww_date_time",
-    "ww_self",
+    "../ww_stdlib/ww_self",
     "../ww_stdlib/ww_si",
     "../ww_stdlib/ww_log_bare_metal",
     "ww_global",

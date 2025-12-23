@@ -40,12 +40,19 @@ See comparison to other formats in [examples/compare_wire_formats](./examples/co
 
 ## Standard library
 
-Common data types and traits are collected in [ww_stdlib](https://github.com/vhrdtech/ww_stdlib) repository.
+Common data types and traits are located in the [ww_stdlib](https://github.com/vhrdtech/ww_stdlib) repository.
 Notable ones are:
 
-* `ww_date_time`
-* `ww_gpio`
-* `ww_can_bus`
+* `ww_date_time` - ISO 8601 date and time with optional time zone and nanoseconds, as small as 32 bits. Also NaiveDate
+  and NaiveTime.
+* `ww_version` - SemVer version (including pre and build strings).
+* `ww_numeric` - Various numeric types, including offset-scale and subtypes.
+* `ww_si` - SI units and derived values.
+* `ww_gpio` - GPIO control data types and remote bridging API.
+* `ww_can_bus` - CAN Bus types and bridging API.
+* `ww_dfu` - Firmware update API.
+* `ww_log_bare_metal` - Logging types and API for no_std bare metal targets.
+* `ww_self` - Dynamic access to APIs (API model AST in shrink_wrap format).
 
 ## Quick start
 
@@ -84,3 +91,4 @@ If you only want to serialize and deserialize some data types, it can be used st
 `wire_weaver_` prefix is used on core crates that implement all the functionality.  
 `ww_` prefix is used on crates using WireWeaver to provide standard library types and traits. Use it as well if you
 think that your crate is useful across multiple projects.
+Standard library is in [ww_stdlib](https://github.com/vhrdtech/ww_stdlib) repository, contributions are welcome!

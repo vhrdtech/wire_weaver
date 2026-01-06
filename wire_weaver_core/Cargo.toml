@@ -14,9 +14,9 @@ proc-macro2 = { workspace = true }
 shrink_wrap.workspace = true
 shrink_wrap_core.workspace = true
 convert_case = "0.10"
-pest = "2.7"
-pest_derive = { version = "2.7", features = ["grammar-extras"] }
-regex = "1.11"
+pest = "2.8"
+pest_derive = { version = "2.8", features = ["grammar-extras"] }
+regex = "1.12"
 anyhow = "1"
 ww_self.workspace = true
 

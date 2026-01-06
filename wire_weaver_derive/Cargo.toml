@@ -13,8 +13,8 @@ syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
 wire_weaver_core = { path = "../wire_weaver_core" }
-darling = "0.21"
-pathsearch = "0.2.0"
-subprocess = "0.2.9"
-relative-path = "1.9"
+darling = "0.23"
+pathsearch = "0.2"
+subprocess = "0.2"
+relative-path = "2.0"
 convert_case = "0.10"

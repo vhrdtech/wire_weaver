@@ -12,12 +12,13 @@ proc-macro2 = { workspace = true }
 #strum = "0.26"
 #strum_macros = "0.26"
 shrink_wrap.workspace = true
+shrink_wrap_core.workspace = true
 convert_case = "0.8"
 pest = "2.7"
 pest_derive = { version = "2.7", features = ["grammar-extras"] }
 regex = "1.11"
 anyhow = "1"
-shrink_wrap_core = { path = "../../shrink_wrap/shrink_wrap_core" }
+ww_self.workspace = true
 
 [features]
 default = ["std"]

@@ -53,6 +53,7 @@ pub fn impl_server_dispatcher(
         Some(external_crate_name),
         &cx,
         &mut error_seq,
+        true,
     );
     let mod_doc = &api_level.docs;
     let args_structs = args_structs_recursive(api_level, Some(external_crate_name), no_alloc);
@@ -151,6 +152,7 @@ fn process_request_inner_recursive(
     ext_crate_name: Option<&Ident>,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
+    is_root: bool,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
     let level_matchers = level_matchers(api_level, index_chain, ext_crate_name, cx, error_seq);
@@ -206,6 +208,7 @@ fn process_request_inner_recursive(
             args.location.crate_name().as_ref(),
             &cx,
             error_seq,
+            false,
         ));
     }
     ts

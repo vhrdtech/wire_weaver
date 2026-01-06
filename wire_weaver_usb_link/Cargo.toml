@@ -11,7 +11,7 @@ strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
 wire_weaver = { path = "../wire_weaver", default-features = false }
 shrink_wrap.workspace = true
-ww_global = { path = "../../ww_stdlib/ww_global" }
+ww_global.workspace = true
 
 [features]
 host = ["wire_weaver/std"]

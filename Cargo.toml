@@ -20,6 +20,7 @@ ww_version = { path = "../ww_stdlib/ww_version", default-features = false }
 ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
 #ww_self = { version = "0.1.0" }
 ww_self = { path = "../ww_stdlib/ww_self" }
+ww_global = { path = "../ww_stdlib/ww_global" }
 
 [workspace]
 resolver = "2"

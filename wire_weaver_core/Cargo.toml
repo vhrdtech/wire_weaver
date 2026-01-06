@@ -13,7 +13,7 @@ proc-macro2 = { workspace = true }
 #strum_macros = "0.26"
 shrink_wrap.workspace = true
 shrink_wrap_core.workspace = true
-convert_case = "0.8"
+convert_case = "0.10"
 pest = "2.7"
 pest_derive = { version = "2.7", features = ["grammar-extras"] }
 regex = "1.11"

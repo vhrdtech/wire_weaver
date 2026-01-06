@@ -10,7 +10,7 @@ shrink_wrap.workspace = true
 wire_weaver_derive = { path = "../wire_weaver_derive" }
 defmt = { version = "1.0", optional = true }
 tracing = { version = "0.1", default-features = false, optional = true }
-ww_version = { path = "../../ww_stdlib/ww_version", default-features = false }
+ww_version = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

@@ -229,15 +229,6 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
@@ -1640,7 +1631,7 @@ name = "wire_weaver_core"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "convert_case 0.8.0",
+ "convert_case",
  "pest",
  "pest_derive",
  "proc-macro2",
@@ -1656,7 +1647,7 @@ dependencies = [
 name = "wire_weaver_derive"
 version = "0.4.0"
 dependencies = [
- "convert_case 0.8.0",
+ "convert_case",
  "darling",
  "pathsearch",
  "proc-macro2",
@@ -1757,7 +1748,7 @@ dependencies = [
 name = "ww_global"
 version = "0.1.0"
 dependencies = [
- "convert_case 0.10.0",
+ "convert_case",
  "serde_json",
  "shrink_wrap",
 ]

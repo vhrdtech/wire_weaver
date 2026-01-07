@@ -1,16 +1,19 @@
 [package]
 name = "wire_weaver_usb_host"
+version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 description = "WireWeaver client server protocol on top of USB (host side)"
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?
 tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
 tracing = "0.1"
-wire_weaver = { path = "../wire_weaver" }
-wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["host"] }
-wire_weaver_client_common = { path = "../wire_weaver_client_common" }
+wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
+wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["host"] }
+wire_weaver_client_common = { version = "0.1.0", path = "../wire_weaver_client_common" }
 futures-lite = "2.6"
 thiserror = "2.0"
 rand = "0.9"

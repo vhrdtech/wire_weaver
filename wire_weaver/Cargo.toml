@@ -5,10 +5,12 @@ version.workspace = true
 authors.workspace = true
 description.workspace = true
 license.workspace = true
+repository.workspace = true
+documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [dependencies]
 shrink_wrap = { workspace = true, default-features = false }
-wire_weaver_derive = { path = "../wire_weaver_derive" }
+wire_weaver_derive = { version = "0.4.0", path = "../wire_weaver_derive" }
 defmt = { version = "1.0", optional = true }
 tracing = { version = "0.1", default-features = false, optional = true }
 ww_version = { workspace = true, default-features = false }

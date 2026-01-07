@@ -4,6 +4,9 @@ edition = "2024"
 version.workspace = true
 authors.workspace = true
 description.workspace = true
+repository.workspace = true
+license.workspace = true
+documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [lib]
 proc-macro = true

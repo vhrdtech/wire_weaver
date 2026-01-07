@@ -79,32 +79,31 @@ mod no_std_sync_server {
             match stream_number {
                 0 => {
                     updates.push(
-                        api_impl::plain_stream_data_ser(&0xAA, &mut s1, &mut s2)
+                        api_impl::stream_data_ser()
+                            .plain_stream(&0xAA, &mut s1, &mut s2)
                             .unwrap()
                             .to_vec(),
                     );
                 }
                 1 => {
                     updates.push(
-                        api_impl::vec_stream_data_ser(
-                            &RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
-                            &mut s1,
-                            &mut s2,
-                        )
-                        .unwrap()
-                        .to_vec(),
+                        api_impl::stream_data_ser()
+                            .vec_stream(&RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]), &mut s1, &mut s2)
+                            .unwrap()
+                            .to_vec(),
                     );
                 }
                 2 => {
                     updates.push(
-                        api_impl::array_of_streams_data_ser(
-                            0,
-                            &RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
-                            &mut s1,
-                            &mut s2,
-                        )
-                        .unwrap()
-                        .to_vec(),
+                        api_impl::stream_data_ser()
+                            .array_of_streams(
+                                0,
+                                &RefVec::new_bytes(&[0xAA, 0xBB, 0xCC]),
+                                &mut s1,
+                                &mut s2,
+                            )
+                            .unwrap()
+                            .to_vec(),
                     );
                 }
                 _ => {}

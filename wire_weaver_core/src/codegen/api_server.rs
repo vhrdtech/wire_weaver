@@ -5,14 +5,15 @@ use crate::ast::api::{
 };
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
+use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::util::{add_prefix, maybe_quote};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
-use shrink_wrap_core::ast::path::Path;
+use quote::{TokenStreamExt, quote};
 use shrink_wrap_core::ast::Type;
+use shrink_wrap_core::ast::path::Path;
 use shrink_wrap_core::codegen::FieldPath;
 use syn::{Lit, LitInt};
 
@@ -25,7 +26,6 @@ pub fn impl_server_dispatcher(
     context_ident: &Ident,
     handler_ident: &Ident,
 ) -> TokenStream {
-    let stream_send_methods = stream_ser_methods(api_level, no_alloc); // move to recursive to get full paths?
     let additional_use = maybe_quote(
         no_alloc,
         quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
@@ -53,6 +53,13 @@ pub fn impl_server_dispatcher(
         Some(external_crate_name),
         &cx,
         &mut error_seq,
+        true,
+    );
+    let stream_send_methods = stream_ser_methods_recursive(
+        api_level,
+        IndexChain::new(),
+        Some(external_crate_name),
+        no_alloc,
         true,
     );
     let mod_doc = &api_level.docs;
@@ -93,7 +100,7 @@ pub fn impl_server_dispatcher(
                         let mut wr = BufWriter::new(scratch_err);
                         let event = Event { seq: request.seq, result: Err(Error::new(#es, ErrorKind::PathKindNotSupported)) };
                         event.ser_shrink_wrap(&mut wr)?;
-                        return Ok(wr.finish_and_take()?);
+                        return wr.finish_and_take();
                     };
                     let mut path_iter = path.iter();
                     match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
@@ -105,7 +112,7 @@ pub fn impl_server_dispatcher(
                                 result: Err(e)
                             };
                             event.ser_shrink_wrap(&mut wr)?;
-                            Ok(wr.finish_and_take()?)
+                            wr.finish_and_take()
                         }
                     }
                 }
@@ -733,57 +740,6 @@ fn des_args(
         let args_list = quote! { #(args.#idents),* };
         (args_des, args_list)
     }
-}
-
-fn stream_ser_methods(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
-    let mut ts = TokenStream::new();
-    for item in &api_level.items {
-        let ApiItemKind::Stream { ident, ty, is_up } = &item.kind else {
-            continue;
-        };
-        if !*is_up {
-            continue;
-        }
-        let stream_ser_fn = Ident::new(format!("{}_data_ser", ident).as_str(), Span::call_site());
-        let lifetimes = if ty.potential_lifetimes() {
-            quote! { 'i, 'a }
-        } else {
-            quote! { 'a }
-        };
-        let ty = ty.def(no_alloc);
-
-        let bytes_to_container = if no_alloc {
-            quote! { RefVec::Slice { slice: value_bytes } }
-        } else {
-            quote! { Vec::from(value_bytes) }
-        };
-
-        // TODO: Handle other levels
-        let id = item.id;
-        let path = if no_alloc {
-            quote! { RefVec::Slice { slice: &[UNib32(#id)] } }
-        } else {
-            quote! { vec![UNib32(#id)] }
-        };
-        ts.append_all(quote! {
-            #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
-            pub fn #stream_ser_fn<#lifetimes>(value: &#ty, scratch_value: &mut [u8], scratch_event: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
-                let mut wr = BufWriter::new(scratch_value);
-                value.ser_shrink_wrap(&mut wr)?;
-                let value_bytes = wr.finish_and_take()?;
-
-                let mut wr = BufWriter::new(scratch_event);
-                let data = #bytes_to_container;
-                let event = Event {
-                    seq: 0,
-                    result: Ok(EventKind::StreamData { path: #path, data })
-                };
-                event.ser_shrink_wrap(&mut wr)?;
-                Ok(wr.finish_and_take()?)
-            }
-        });
-    }
-    ts
 }
 
 fn deferred_method_return_ser_methods(

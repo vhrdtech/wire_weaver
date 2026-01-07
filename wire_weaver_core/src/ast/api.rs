@@ -114,6 +114,16 @@ impl ApiLevel {
         )
     }
 
+    pub fn stream_ser_struct_name(&self, ext_crate_name: Option<&Ident>) -> Ident {
+        let mod_name = self.mod_ident(ext_crate_name);
+        Ident::new(
+            format!("{}_stream_serializer", mod_name)
+                .to_case(Case::Pascal)
+                .as_str(),
+            mod_name.span(),
+        )
+    }
+
     pub fn external_types(&self) -> HashSet<(Path, bool)> {
         let mut ext_types = HashSet::new();
         for item in &self.items {

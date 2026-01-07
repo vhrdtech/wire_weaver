@@ -2,8 +2,9 @@
 
 ### 🚀 Features
 
-- Harden USB link implementation.
-- USB init and event loop.
-- send_updates and improved event loop timer handling.
-- USB loopback test.
-- Use nusb queue, update to nusb 0.2.
+- Messages split across multiple USB packets
+- Multiple messages fitting into one USB packet
+- Device information request
+- Link setup with version compatibility checks
+- Ping
+- Loopback

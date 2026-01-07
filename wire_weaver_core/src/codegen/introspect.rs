@@ -5,11 +5,11 @@ use ww_self::*;
 
 /// Collect information about API items and referenced data types.
 /// Serialize into ww_self and create a byte array to be put into device firmware.
-pub fn introspect(api_level: &crate::ast::api::ApiLevel) -> TokenStream {
-    let api_bundle = ApiBundle {
-        root: ApiLevel {
-            docs: "",
-            ident: "test",
+pub fn introspect(_api_level: &crate::ast::api::ApiLevel) -> TokenStream {
+    let api_bundle = ApiBundleOwned {
+        root: ApiLevelOwned {
+            docs: "".to_string(),
+            ident: "test".to_string(),
             items: Default::default(),
         },
         types: Default::default(),

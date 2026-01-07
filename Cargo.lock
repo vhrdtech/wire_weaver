@@ -211,7 +211,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "wire_weaver",
+ "wire_weaver 0.4.0",
 ]
 
 [[package]]
@@ -647,7 +647,7 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 name = "minimal_shrink_wrap"
 version = "0.4.0"
 dependencies = [
- "wire_weaver",
+ "wire_weaver 0.4.0",
 ]
 
 [[package]]
@@ -1177,9 +1177,9 @@ dependencies = [
  "hex-literal",
  "tokio",
  "tracing-subscriber",
- "wire_weaver",
+ "wire_weaver 0.4.0",
  "wire_weaver_client_common",
- "ww_client_server",
+ "ww_client_server 0.1.0",
 ]
 
 [[package]]
@@ -1583,7 +1583,18 @@ dependencies = [
  "defmt",
  "shrink_wrap",
  "tracing",
- "wire_weaver_derive",
+ "wire_weaver_derive 0.4.0",
+ "ww_version",
+]
+
+[[package]]
+name = "wire_weaver"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "788df75c05aba70635a3bf573efa66ac9a0bc0eced82c7c557308a6ce57a6fd7"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ww_version",
 ]
 
@@ -1594,14 +1605,33 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "wire_weaver",
- "ww_client_server",
+ "wire_weaver 0.4.0",
+ "ww_client_server 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ww_version",
 ]
 
 [[package]]
 name = "wire_weaver_core"
 version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "convert_case",
+ "pest",
+ "pest_derive",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "shrink_wrap",
+ "shrink_wrap_core",
+ "syn",
+ "ww_self",
+]
+
+[[package]]
+name = "wire_weaver_core"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "469573c498ceb3ac48e40af367745e72b3c0fd6d8f17b3ce6872814199a9728d"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -1628,7 +1658,24 @@ dependencies = [
  "relative-path",
  "subprocess",
  "syn",
- "wire_weaver_core",
+ "wire_weaver_core 0.4.0",
+]
+
+[[package]]
+name = "wire_weaver_derive"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1afbed004f2db88e8f3dba8954504b37c96ce466aa40f4ef4987291bb8710d"
+dependencies = [
+ "convert_case",
+ "darling",
+ "pathsearch",
+ "proc-macro2",
+ "quote",
+ "relative-path",
+ "subprocess",
+ "syn",
+ "wire_weaver_core 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1651,7 +1698,7 @@ version = "0.4.0"
 dependencies = [
  "defmt",
  "strum_macros",
- "wire_weaver",
+ "wire_weaver 0.4.0",
  "ww_version",
 ]
 
@@ -1665,7 +1712,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "wire_weaver",
+ "wire_weaver 0.4.0",
  "wire_weaver_client_common",
  "wire_weaver_usb_link",
 ]
@@ -1679,7 +1726,7 @@ dependencies = [
  "shrink_wrap",
  "strum_macros",
  "tokio",
- "wire_weaver",
+ "wire_weaver 0.4.0",
  "worst-executor",
  "ww_global",
 ]
@@ -1713,7 +1760,16 @@ dependencies = [
 name = "ww_client_server"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "wire_weaver 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ww_client_server"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4d0a343686e581e08b8628d09e7b8430da362339630b9d9fece9f7eac359252"
+dependencies = [
+ "wire_weaver 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

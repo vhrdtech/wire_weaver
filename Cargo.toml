@@ -15,14 +15,14 @@ strum_macros = "0.27"
 shrink_wrap = { version = "0.1.2", default-features = false }
 shrink_wrap_core = { version = "0.1.1" }
 ww_version = { version = "0.1.1", default-features = false }
-ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
+ww_client_server = { version = "0.1.0", default-features = false }
 ww_self = { version = "0.1.1" }
 ww_global = { version = "0.1.1", default-features = false }
 
 #shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
 #shrink_wrap_core = { path = "../shrink_wrap/shrink_wrap_core" }
 #ww_version = { path = "../ww_stdlib/ww_version", default-features = false }
-#ww_client_server = { version = "0.1.0", default-features = false }
+#ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
 #ww_self = { path = "../ww_stdlib/ww_self" }
 
 [workspace]

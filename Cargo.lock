@@ -1719,7 +1719,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_usb_link"
-version = "0.4.0"
+version = "0.1.0"
 dependencies = [
  "crc",
  "defmt",

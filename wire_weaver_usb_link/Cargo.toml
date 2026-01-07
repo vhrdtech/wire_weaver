@@ -1,15 +1,17 @@
 [package]
 name = "wire_weaver_usb_link"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 description = "Transport layer on top of USB packets, allowing multiple messages per packet"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 crc = "3.3.0"
 strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
-wire_weaver = { path = "../wire_weaver", default-features = false }
+wire_weaver = { version = "0.4.0", path = "../wire_weaver", default-features = false }
 shrink_wrap.workspace = true
 ww_global.workspace = true
 

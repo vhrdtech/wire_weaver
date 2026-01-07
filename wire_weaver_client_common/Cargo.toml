@@ -1,14 +1,16 @@
 [package]
 name = "wire_weaver_client_common"
-version.workspace = true
+version = "0.1.0"
 authors.workspace = true
 description = "Client-server API model host side common data types (USB, WebSocket, UDP event loop state) and helper functions"
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 thiserror = "2.0"
 tracing = "0.1"
-wire_weaver = { path = "../wire_weaver" }
+wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }

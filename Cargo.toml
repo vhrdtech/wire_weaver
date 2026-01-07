@@ -42,3 +42,5 @@ members = [
     "tests",
     "wire_weaver_cli",
 ]
+
+exclude = ["wire_weaver_usb_embassy"]

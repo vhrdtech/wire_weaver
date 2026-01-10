@@ -277,12 +277,9 @@ async fn handle_message(
                     return Err(WsError::IncompatibleDeviceProtocol);
                 }
                 info!("LinkSetup complete");
-                // state.common.max_protocol_mismatched_messages = 10;
-                // if let Some(di) = &state.device_info {
-                //     state.conn_state.write().await.state = ConnectionState::Connected {
-                //         device_info: di.clone(),
-                //     };
-                // }
+                to_dispatcher
+                    .send(DispatcherMessage::Connected)
+                    .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
                 if let Some(tx) = state.common.connected_tx.take() {
                     _ = tx.send(Ok(()));
                 }

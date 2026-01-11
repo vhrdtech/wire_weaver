@@ -1,10 +1,12 @@
 use crate::rx_dispatcher::{DispatcherCommand, DispatcherMessage};
 use crate::{Command, DeviceFilter, Error, OnError, SeqTy, StreamEvent};
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tracing::trace;
-use wire_weaver::prelude::UNib32;
+use wire_weaver::prelude::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
 use ww_version::{CompactVersion, FullVersionOwned};
@@ -17,7 +19,7 @@ pub struct CommandSender {
     transport_cmd_tx: mpsc::UnboundedSender<Command>,
     // TODO: in tests this can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
     dispatcher_cmd_tx: mpsc::UnboundedSender<DispatcherCommand>,
-    seq_rx: mpsc::Receiver<SeqTy>,
+    seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
     // TODO: CommandSender outstanding request limit?
     /// * None for command sender attached to API root, trait addressing will result in an error.
     /// * Some(empty path) for trait implemented at root level (unknown path), trait addressing will be used.
@@ -31,6 +33,25 @@ pub struct CommandSender {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     scratch: [u8; 4096],
+}
+
+#[must_use = "PrepareCall does nothing, unless call(), blocking_call(), call_forget() or call_promise() is used"]
+pub struct PrepareCall<T> {
+    transport_cmd_tx: TransportCommander,
+    dispatcher_cmd_tx: DispatcherCommander,
+    seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+    path_kind: Result<PathKindOwned, Error>,
+    args: Result<Vec<u8>, Error>,
+    timeout: Option<Duration>,
+    _phantom: PhantomData<T>,
+}
+
+struct TransportCommander {
+    cmd_tx: mpsc::UnboundedSender<Command>,
+}
+
+struct DispatcherCommander {
+    cmd_tx: mpsc::UnboundedSender<DispatcherCommand>,
 }
 
 impl CommandSender {
@@ -47,7 +68,7 @@ impl CommandSender {
         Self {
             transport_cmd_tx,
             dispatcher_cmd_tx,
-            seq_rx,
+            seq_rx: Arc::new(RwLock::new(seq_rx)),
             trait_path: None,
             gid_map: HashMap::new(),
             scratch: [0; 4096],
@@ -123,6 +144,27 @@ impl CommandSender {
         };
         self.send(cmd)?;
         Ok(())
+    }
+
+    pub fn prepare_call<'i, T: DeserializeShrinkWrap<'i>>(
+        &mut self,
+        path: PathKind<'_>,
+        args: Result<Vec<u8>, Error>,
+    ) -> PrepareCall<T> {
+        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        PrepareCall {
+            transport_cmd_tx: TransportCommander {
+                cmd_tx: self.transport_cmd_tx.clone(),
+            },
+            dispatcher_cmd_tx: DispatcherCommander {
+                cmd_tx: self.dispatcher_cmd_tx.clone(),
+            },
+            seq_rx: self.seq_rx.clone(),
+            path_kind,
+            args,
+            timeout: None,
+            _phantom: PhantomData,
+        }
     }
 
     /// Sends call request to remote device, awaits response and returns it.
@@ -304,17 +346,14 @@ impl CommandSender {
     }
 
     pub async fn next_seq(&mut self) -> Result<SeqTy, Error> {
-        let seq = self
-            .seq_rx
-            .recv()
-            .await
-            .ok_or(Error::RxDispatcherNotRunning)?;
+        let mut seq_rx = self.seq_rx.write().await;
+        let seq = seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?;
         Ok(seq)
     }
 
     pub fn next_seq_blocking(&mut self) -> Result<SeqTy, Error> {
-        let seq = self
-            .seq_rx
+        let mut seq_rx = self.seq_rx.blocking_write();
+        let seq = seq_rx
             .blocking_recv()
             .ok_or(Error::RxDispatcherNotRunning)?;
         Ok(seq)
@@ -373,4 +412,124 @@ impl CommandSender {
         };
         Ok(path_kind)
     }
+}
+
+impl TransportCommander {
+    fn send_call_request(
+        &self,
+        seq: SeqTy,
+        path_kind: PathKindOwned,
+        args: Vec<u8>,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind,
+            kind: RequestKindOwned::Call { args },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .send(Command::SendMessage {
+                bytes: req.to_vec(),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+}
+
+impl DispatcherCommander {
+    /// Notify rx dispatcher about a new call with seq
+    fn on_call_return(
+        &self,
+        seq: SeqTy,
+        timeout: Option<Duration>,
+    ) -> Result<oneshot::Receiver<Result<Vec<u8>, Error>>, Error> {
+        let (done_tx, done_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(DispatcherCommand::OnCallReturn {
+                seq,
+                done_tx,
+                timeout,
+            })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(done_rx)
+    }
+}
+
+impl<T: DeserializeShrinkWrapOwned> PrepareCall<T> {
+    /// Use provided timeout instead of default one
+    pub fn with_timeout(self, timeout: Duration) -> Self {
+        Self {
+            transport_cmd_tx: self.transport_cmd_tx,
+            dispatcher_cmd_tx: self.dispatcher_cmd_tx,
+            seq_rx: self.seq_rx,
+            path_kind: self.path_kind,
+            args: self.args,
+            timeout: Some(timeout),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Send call request, await response (or timeout) and return it.
+    pub async fn call(self) -> Result<T, Error> {
+        // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
+        let path_kind = self.path_kind?;
+        let args = self.args?;
+
+        // obtain next seq
+        let seq = {
+            let mut seq_rx = self.seq_rx.write().await;
+            seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
+        };
+
+        // notify rx dispatcher & send call to remote device through transport layer
+        let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
+        self.transport_cmd_tx
+            .send_call_request(seq, path_kind, args)?;
+
+        // await return value from remote device (routed through rx dispatcher)
+        let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
+        let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
+        let reply: T = T::from_ww_bytes_owned(&response)?;
+        Ok(reply)
+    }
+
+    /// Send call request, block the thread until response is received (or timeout) and return it.
+    pub fn blocking_call(self) -> Result<T, Error> {
+        let path_kind = self.path_kind?;
+        let args = self.args?;
+
+        // obtain next seq
+        let seq = {
+            let mut seq_rx = self.seq_rx.blocking_write();
+            seq_rx
+                .blocking_recv()
+                .ok_or(Error::RxDispatcherNotRunning)?
+        };
+
+        // notify rx dispatcher & send call to remote device through transport layer
+        let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
+        self.transport_cmd_tx
+            .send_call_request(seq, path_kind, args)?;
+
+        // await return value from remote device (routed through rx dispatcher)
+        let rx_or_recv_err = done_rx
+            .blocking_recv()
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
+        let reply: T = T::from_ww_bytes_owned(&response)?;
+        Ok(reply)
+    }
+
+    /// Send call request with seq = 0 and immediately return without response (remote end won't send it either).
+    pub fn call_forget(self) -> Result<(), Error> {
+        let path_kind = self.path_kind?;
+        let args = self.args?;
+        self.transport_cmd_tx
+            .send_call_request(0, path_kind, args)?;
+        Ok(())
+    }
+
+    /// Send call request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    pub fn call_promise(self) {}
 }

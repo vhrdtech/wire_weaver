@@ -159,13 +159,35 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    client.root().no_args().await.unwrap();
+    // Call as async
+    client.root().no_args().call().await.unwrap();
     assert!(data.read().unwrap().no_args_called);
 
-    client.root().one_plain_arg(0xCC).await.unwrap();
+    // Call forget
+    data.write().unwrap().no_args_called = false;
+    client.root().no_args().call_forget().unwrap();
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert!(data.read().unwrap().no_args_called);
+
+    // Call via Promise
+    data.write().unwrap().no_args_called = false;
+    let mut promise = client.root().no_args().call_promise("marker");
+    tokio::task::spawn_blocking(move || {
+        promise.sync_poll();
+        std::thread::sleep(Duration::from_millis(10));
+        promise.sync_poll();
+        std::thread::sleep(Duration::from_millis(10));
+        assert_eq!(promise.take_ready(), Some(()));
+    })
+    .await
+    .unwrap();
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert!(data.read().unwrap().no_args_called);
+
+    client.root().one_plain_arg(0xCC).call().await.unwrap();
     assert_eq!(data.read().unwrap().one_plain_arg, 0xCC);
 
-    let value = client.root().plain_return().await.unwrap();
+    let value = client.root().plain_return().call().await.unwrap();
     assert_eq!(value, 0xAA);
 
     client
@@ -174,6 +196,7 @@ async fn std_async_client_driving_no_std_sync_server() {
             a: 123,
             b: vec![1, 2, 3],
         })
+        .call()
         .await
         .unwrap();
 }

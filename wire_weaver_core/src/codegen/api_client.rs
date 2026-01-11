@@ -263,109 +263,21 @@ fn handle_method(
     docs: &Docs,
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(ident, args, model.no_alloc());
-    let (output_ty, maybe_dot_output) = if let Some(return_type) = &return_type {
-        let maybe_dot_output = if matches!(return_type, Type::External(_, _)) {
-            quote! {} // User type directly returned from method
-        } else {
-            quote! { .output } // Return type is wrapped in a struct
-        };
-        (return_type.def(model.no_alloc()), maybe_dot_output)
+    let output_ty = if let Some(return_type) = &return_type {
+        return_type.def(model.no_alloc())
     } else {
-        (quote! { () }, quote! {})
-    };
-    let handle_output = if let Some(return_type) = return_type {
-        let ty_def = if matches!(return_type, Type::External(_, _)) {
-            return_type.def(model.no_alloc())
-        } else {
-            let output_struct_name = Ident::new(
-                format!("{}_output", ident).to_case(Case::Pascal).as_str(),
-                ident.span(),
-            );
-            quote! { #output_struct_name }
-        };
-        quote! {
-            let mut rd = BufReader::new(&return_bytes);
-            Ok(#ty_def::des_shrink_wrap(&mut rd)? #maybe_dot_output)
-        }
-    } else {
-        quote! { _ = return_bytes; Ok(()) }
+        quote! { () }
     };
 
     let path_kind = path_kind(path_mode, full_gid_path);
-    let fn_call = |default_timeout: bool, is_async: bool| {
-        let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
-        let fn_name = if is_async {
-            ident.clone()
-        } else {
-            Ident::new(&format!("{}_blocking", ident), ident.span())
-        };
-        let timeout_fn_name = if is_async {
-            Ident::new(&format!("{}_timeout", ident), ident.span())
-        } else {
-            Ident::new(&format!("{}_timeout_blocking", ident), ident.span())
-        };
-        let cmd_fn = if is_async {
-            quote! { send_call_receive_reply }
-        } else {
-            quote! { send_call_receive_reply_blocking }
-        };
-        let maybe_async = maybe_quote(is_async, quote! { async });
-        let maybe_await = maybe_quote(is_async, quote! { .await });
-        if default_timeout {
-            let args_idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
-            let maybe_comma = maybe_quote(!args.is_empty(), quote! { , });
-            quote! {
-                #docs
-                #[doc = "NOTE: This method uses `self.timeout` as timeout."]
-                pub #maybe_async fn #fn_name(&mut self, #args_list) -> Result<#output_ty, wire_weaver_client_common::Error> {
-                    self.#timeout_fn_name(#(#args_idents),* #maybe_comma self.timeout)#maybe_await
-                }
-            }
-        } else {
-            quote! {
-                #docs
-                pub #maybe_async fn #timeout_fn_name(&mut self, #args_list #maybe_timeout_arg) -> Result<#output_ty, wire_weaver_client_common::Error> {
-                    #args_ser
-                    #index_chain_push
-                    let path_kind = #path_kind;
-                    let return_bytes = self.cmd_tx.#cmd_fn(
-                        path_kind,
-                        args_bytes,
-                        #timeout_val
-                    )#maybe_await?;
-                    #handle_output
-                }
-            }
-        }
-    };
-
-    let fn_call_forget = if return_type.is_none() {
-        let forget_fn_name = Ident::new(&format!("{}_forget", ident), ident.span());
-        quote! {
-            #docs
-            #[doc = "NOTE: This method does not wait for the answer from remote device."]
-            pub async fn #forget_fn_name(&mut self, #args_list) -> Result<(), wire_weaver_client_common::Error> {
-                #args_ser
-                #index_chain_push
-                let path_kind = #path_kind;
-                self.cmd_tx.send_call_forget(path_kind, args_bytes)?;
-                Ok(())
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let fn_call_blocking = fn_call(false, false);
-    let fn_call_async = fn_call(false, true);
-    let fn_call_default_timeout_blocking = fn_call(true, false);
-    let fn_call_default_timeout = fn_call(true, true);
     quote! {
-        #fn_call_blocking
-        #fn_call_async
-        #fn_call_default_timeout_blocking
-        #fn_call_default_timeout
-        #fn_call_forget
+        #docs
+        pub fn #ident(&mut self, #args_list) -> wire_weaver_client_common::PrepareCall<#output_ty> {
+            #args_ser
+            #index_chain_push
+            let path_kind = #path_kind;
+            self.cmd_tx.prepare_call(path_kind, args_bytes)
+        }
     }
 }
 
@@ -596,15 +508,19 @@ fn ser_args(
                 quote! {},
             )
         } else {
-            (quote! { let args_bytes = vec![]; }, quote! {}, quote! {})
+            (
+                quote! { let args_bytes = Ok(vec![]); },
+                quote! {},
+                quote! {},
+            )
         }
     } else {
         let idents = args.iter().map(|arg| &arg.ident);
 
-        let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
+        // let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
         let args_ser = quote! {
             let args = #args_struct_ident { #(#idents),* };
-            let args_bytes = args.to_ww_bytes(&mut self.args_scratch)? #maybe_to_vec;
+            let args_bytes = args.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
         };
         let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
         let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));

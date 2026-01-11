@@ -1,8 +1,12 @@
+use crate::command_sender::{DispatcherCommander, TransportCommander};
 use crate::{Error, SeqTy};
 use std::fmt::{Display, Formatter};
-use tokio::sync::oneshot;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::oneshot::error::TryRecvError;
+use tokio::sync::{RwLock, mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
+use ww_client_server::PathKindOwned;
 
 pub struct Promise<T> {
     state: PromiseState<T>,
@@ -11,10 +15,18 @@ pub struct Promise<T> {
 }
 
 #[derive(Default)]
-pub enum PromiseState<T> {
+enum PromiseState<T> {
     #[default]
     None,
-    Waiting(SeqTy, oneshot::Receiver<Result<Vec<u8>, Error>>),
+    WaitingForSeq {
+        path_kind: Option<PathKindOwned>,
+        args: Option<Vec<u8>>,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+    },
+    WaitingForReply(SeqTy, oneshot::Receiver<Result<Vec<u8>, Error>>),
     Done(Option<T>), // Option used here to make Drop and take() work
     Err(Error),
 }
@@ -28,21 +40,32 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
         }
     }
 
-    pub fn waiting(
-        seq: SeqTy,
-        rx: oneshot::Receiver<Result<Vec<u8>, Error>>,
-        marker: &'static str,
-    ) -> Self {
+    pub fn error(error: Error, marker: &'static str) -> Self {
         Self {
-            state: PromiseState::Waiting(seq, rx),
+            state: PromiseState::Err(error),
             marker,
             seen: false,
         }
     }
 
-    pub fn error(error: Error, marker: &'static str) -> Self {
+    pub(crate) fn new(
+        path_kind: PathKindOwned,
+        args: Vec<u8>,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+        marker: &'static str,
+    ) -> Self {
         Self {
-            state: PromiseState::Err(error),
+            state: PromiseState::WaitingForSeq {
+                path_kind: Some(path_kind),
+                args: Some(args),
+                timeout,
+                transport_cmd_tx,
+                dispatcher_cmd_tx,
+                seq_rx,
+            },
             marker,
             seen: false,
         }
@@ -116,7 +139,52 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
     }
 
     pub fn sync_poll(&mut self) {
-        if let PromiseState::Waiting(_seq, rx) = &mut self.state {
+        if let PromiseState::WaitingForSeq {
+            path_kind,
+            args,
+            timeout,
+            transport_cmd_tx,
+            dispatcher_cmd_tx,
+            seq_rx,
+        } = &mut self.state
+        {
+            // obtain next seq
+            let mut seq_rx = seq_rx.blocking_write();
+            let seq = match seq_rx.try_recv() {
+                Ok(seq) => {
+                    drop(seq_rx);
+                    seq
+                }
+                Err(_) => {
+                    drop(seq_rx);
+                    self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
+                    return;
+                }
+            };
+
+            // notify rx dispatcher & send call to remote device through transport layer
+            let done_rx = match dispatcher_cmd_tx.on_call_return(seq, *timeout) {
+                Ok(done_rx) => done_rx,
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return;
+                }
+            };
+            let (Some(path_kind), Some(args)) = (path_kind.take(), args.take()) else {
+                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                return;
+            };
+            match transport_cmd_tx.send_call_request(seq, path_kind, args) {
+                Ok(_) => {
+                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                }
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return;
+                }
+            }
+        }
+        if let PromiseState::WaitingForReply(_seq, rx) = &mut self.state {
             match rx.try_recv() {
                 Ok(response) => match response {
                     Ok(bytes) => match T::from_ww_bytes_owned(&bytes) {
@@ -142,7 +210,7 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
 
 impl<T> Promise<T> {
     pub fn is_waiting(&self) -> bool {
-        matches!(self.state, PromiseState::Waiting(_, _))
+        matches!(self.state, PromiseState::WaitingForReply(_, _))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -151,10 +219,6 @@ impl<T> Promise<T> {
 
     pub fn is_ready(&self) -> bool {
         matches!(self.state, PromiseState::Done(_))
-    }
-
-    pub fn state(&self) -> &PromiseState<T> {
-        &self.state
     }
 
     pub fn marker(&self) -> &str {
@@ -167,7 +231,8 @@ impl<T> Display for Promise<T> {
         write!(f, "Promise('{}')::", self.marker)?;
         match &self.state {
             PromiseState::None => write!(f, "None"),
-            PromiseState::Waiting(seq, _) => write!(f, "Waiting(seq={seq})"),
+            PromiseState::WaitingForSeq { .. } => write!(f, "WaitingForSeq"),
+            PromiseState::WaitingForReply(seq, _) => write!(f, "Waiting(seq={seq})"),
             PromiseState::Done(_) => write!(f, "Done"),
             PromiseState::Err(e) => write!(f, "Err({e:?})"),
         }
@@ -176,7 +241,13 @@ impl<T> Display for Promise<T> {
 
 impl<T> Drop for Promise<T> {
     fn drop(&mut self) {
-        if let PromiseState::Waiting(seq, _) = &self.state {
+        if matches!(self.state, PromiseState::WaitingForSeq { .. }) {
+            tracing::warn!(
+                "Dropping Promise(marker='{}')::WaitingForSeq(T), likely an error",
+                self.marker
+            );
+        }
+        if let PromiseState::WaitingForReply(seq, _) = &self.state {
             tracing::warn!(
                 "Dropping Promise(seq={}, marker='{}')::Waiting(T), likely an error",
                 seq,

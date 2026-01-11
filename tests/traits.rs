@@ -179,13 +179,13 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    client.root().g1().m1().await.unwrap();
+    client.root().g1().m1().call().await.unwrap();
     assert!(data.read().unwrap().subgroup_m1_called);
 
-    client.root().gpio(0).set_high().await.unwrap();
+    client.root().gpio(0).set_high().call().await.unwrap();
     assert!(data.read().unwrap().gpio_used_indices.contains(&0));
 
-    client.root().gpio(123).set_high().await.unwrap();
+    client.root().gpio(123).set_high().call().await.unwrap();
     assert!(data.read().unwrap().gpio_used_indices.contains(&123));
 
     client

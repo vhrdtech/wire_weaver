@@ -237,7 +237,7 @@ async fn std_async_client_driving_no_std_sync_server() {
     client.root().plain_sink_pub(1).unwrap();
     client.root().plain_sink_pub(2).unwrap();
 
-    client.root().finish().await.unwrap();
+    client.root().finish().call().await.unwrap();
     assert_eq!(data.read().unwrap().plain_sink_rx, vec![1, 2]);
 
     let mut rx2 = client

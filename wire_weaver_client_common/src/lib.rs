@@ -1,5 +1,6 @@
 pub mod command_sender;
 pub mod event_loop_state;
+pub mod promise;
 pub mod rx_dispatcher;
 pub mod ww;
 

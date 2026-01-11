@@ -3,7 +3,7 @@
 ![Crates.io Version](https://img.shields.io/crates/v/wire_weaver)
 
 <p align="center">
-<img src="./docs/assets/logo.png" alt="logo" width="200"/>
+<img src="https://github.com/vhrdtech/wire_weaver/blob/master/docs/assets/logo.png?raw=true" alt="logo" width="256"/>
 </p>
 
 > WireWeaver is a wire format and API code generator for resource constrained systems.

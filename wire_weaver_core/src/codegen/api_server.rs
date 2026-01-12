@@ -440,6 +440,7 @@ fn handle_property(
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
         cx.no_alloc,
+        false,
         quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
         &mut des,
     );
@@ -606,6 +607,7 @@ fn handle_stream(
             ty.buf_read(
                 &Ident::new("value", Span::call_site()),
                 true,
+                false,
                 quote! { .map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))? },
                 &mut ts,
             );

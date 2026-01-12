@@ -73,7 +73,7 @@ pub fn client(
     quote! {
         mod api_client {
             use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
+                DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
                 Error as ShrinkWrapError, nib32::UNib32, RefVec
             };
             use wire_weaver_client_common::StreamEvent;
@@ -305,6 +305,7 @@ fn handle_property(
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
         model.no_alloc(),
+        false,
         quote! { ? },
         &mut des,
     );

@@ -18,7 +18,7 @@ pub(crate) async fn connect(
             .map_err(|e| Error::Transport(format!("{}", e)))?;
         let mut di = None;
         for d in devices {
-            if apply_filter(&d, &filter)? {
+            if filter.matches_nusb(&d)? {
                 di = Some(d);
                 break;
             }
@@ -78,7 +78,7 @@ async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceIn
         .await
         .map_err(|e| Error::Transport(format!("{}", e)))?;
     for d in devices {
-        if apply_filter(&d, filter)? {
+        if filter.matches_nusb(&d)? {
             return Ok(d);
         }
     }
@@ -96,7 +96,7 @@ async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceIn
                         return Err(Error::Transport(UsbError::WatcherReturnedNone.into()))
                     };
                     if let HotplugEvent::Connected(di) = hotplug_event {
-                        if apply_filter(&di, filter)? {
+                        if filter.matches_nusb(&di)? {
                             // as per nusb docs, must wait a bit on Windows after getting watched device, otherwise connection fails
                             #[cfg(target_os = "windows")]
                             tokio::time::sleep(std::time::Duration::from_millis(10)).await; // TODO: is 10ms enough on slow Windows VM?
@@ -118,7 +118,7 @@ async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceIn
         OnError::KeepRetrying => {
             while let Some(hotplug_event) = watch.next().await {
                 if let HotplugEvent::Connected(di) = hotplug_event {
-                    if apply_filter(&di, filter)? {
+                    if filter.matches_nusb(&di)? {
                         return Ok(di);
                     }
                 }
@@ -126,51 +126,4 @@ async fn wait_device(filter: &DeviceFilter, timeout: OnError) -> Result<DeviceIn
             Err(Error::Transport(UsbError::WatcherReturnedNone.into()))
         }
     }
-}
-
-fn apply_filter(device_info: &DeviceInfo, filter: &DeviceFilter) -> Result<bool, Error> {
-    let matches = match filter {
-        DeviceFilter::UsbVidPid { vid, pid } => {
-            device_info.vendor_id() == *vid && device_info.product_id() == *pid
-        }
-        DeviceFilter::UsbVidPidAndSerial { vid, pid, serial } => {
-            if device_info.vendor_id() != *vid || device_info.product_id() != *pid {
-                false
-            } else if let Some(s) = device_info.serial_number() {
-                s == serial
-            } else {
-                false
-            }
-        }
-        DeviceFilter::Serial { serial } => {
-            if let Some(s) = device_info.serial_number() {
-                s == serial
-            } else {
-                false
-            }
-        }
-        DeviceFilter::AnyVhrdTechCanBus | DeviceFilter::AnyVhrdTechIo => {
-            let Some(manufacturer) = device_info.manufacturer_string() else {
-                return Ok(false);
-            };
-            let Some(product_string) = device_info.product_string() else {
-                return Ok(false);
-            };
-            if !manufacturer.to_lowercase().contains("vhrd") {
-                return Ok(false);
-            }
-            match filter {
-                DeviceFilter::AnyVhrdTechCanBus => product_string.contains("CAN"),
-                DeviceFilter::AnyVhrdTechIo => product_string.contains("IO"),
-                _ => unreachable!(),
-            }
-        }
-        u => {
-            return Err(Error::Transport(format!(
-                "unsupported filter for USB host: {:?}",
-                u
-            )));
-        }
-    };
-    Ok(matches)
 }

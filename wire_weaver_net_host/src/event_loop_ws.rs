@@ -9,7 +9,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
-use wire_weaver_client_common::{Command, DeviceFilter, Error};
+use wire_weaver_client_common::{Command, Error};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -189,7 +189,7 @@ async fn wait_for_connection_and_queue_commands(
                 connected_tx,
                 user_protocol_version,
             } => {
-                let DeviceFilter::WebSocket { addr, port, path } = filter else {
+                let Some((addr, port, path)) = filter.as_web_socket() else {
                     return Err(WsError::Transport(format!(
                         "{filter:?} is not supported for WebSocket"
                     )));

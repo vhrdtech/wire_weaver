@@ -1,4 +1,5 @@
 pub mod command_sender;
+pub mod device_filter;
 pub mod event_loop_state;
 pub mod promise;
 pub mod rx_dispatcher;
@@ -6,7 +7,7 @@ pub mod ww;
 
 // TODO: remove
 pub use command_sender::{CommandSender, PrepareCall};
-use std::net::IpAddr;
+pub use device_filter::DeviceFilter;
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;
@@ -132,33 +133,6 @@ impl Command {
         };
         (cmd, rx)
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum DeviceFilter {
-    WebSocket {
-        addr: IpAddr,
-        port: u16,
-        path: String,
-    },
-    UDP {
-        addr: IpAddr,
-        port: u16,
-    },
-    UsbVidPid {
-        vid: u16,
-        pid: u16,
-    },
-    UsbVidPidAndSerial {
-        vid: u16,
-        pid: u16,
-        serial: String,
-    },
-    Serial {
-        serial: String,
-    },
-    AnyVhrdTechCanBus,
-    AnyVhrdTechIo,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]

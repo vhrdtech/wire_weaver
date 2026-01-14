@@ -166,7 +166,7 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut cmd_tx = CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
     cmd_tx
         .connect(
-            DeviceFilter::AnyVhrdTechCanBus,
+            DeviceFilter::vhrd_usb_can(),
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 1, 0)),
             OnError::ExitImmediately,
         )

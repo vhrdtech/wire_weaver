@@ -74,7 +74,7 @@ pub fn impl_server_dispatcher(
             #args_structs
 
             use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
+                DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter,
                 Error as ShrinkWrapError, nib32::UNib32, ElementSize
             };
             use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};

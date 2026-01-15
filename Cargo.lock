@@ -1173,7 +1173,7 @@ dependencies = [
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client_common",
- "ww_client_server 0.1.0",
+ "ww_client_server",
 ]
 
 [[package]]
@@ -1590,7 +1590,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
- "ww_client_server 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ww_client_server",
  "ww_version",
 ]
 
@@ -1712,19 +1712,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_client_server"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4d0a343686e581e08b8628d09e7b8430da362339630b9d9fece9f7eac359252"
-dependencies = [
- "wire_weaver",
-]
-
-[[package]]
 name = "ww_global"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df985ee503d08215fb23c25c2ca196ad2c619ca6782f2906a89e5c5e42f8898d"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -1734,8 +1723,6 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbc027857a8916640d0c8feac18d4f3b6b30aa5d9ad1f116ca5555320746b99c"
 dependencies = [
  "shrink_wrap",
 ]
@@ -1743,8 +1730,6 @@ dependencies = [
 [[package]]
 name = "ww_self"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "544ec475007aec57e6f04dedbf1b892e411c4acc58d6989922b0f739b58be13f"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
@@ -1754,8 +1739,6 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1003e2e70565a70a709b5d15b44b730451bc671e69b3ed39c79eec9bfc3178ca"
 dependencies = [
  "defmt",
  "semver",

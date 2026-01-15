@@ -690,28 +690,29 @@ fn args_structs_recursive(
 }
 
 fn ser_method_output(
-    mod_ident: &Ident,
-    ident: &Ident,
+    _mod_ident: &Ident,
+    _ident: &Ident,
     return_type: &Option<Type>,
     seq_path: TokenStream,
     errors_seq: &mut ErrorSeq,
 ) -> TokenStream {
-    if let Some(ty) = return_type {
+    if let Some(_ty) = return_type {
         let es = errors_seq.next_err();
-        let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
-            quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
-        } else {
-            let output_struct_name = Ident::new(
-                format!("{}_output", ident).to_case(Case::Pascal).as_str(),
-                Span::call_site(),
-            );
-            quote! {
-                let output = #mod_ident::#output_struct_name {
-                    output
-                };
-                output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
-            }
-        };
+        let ser_output = quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; };
+        // let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
+        //     quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
+        // } else {
+        //     let output_struct_name = Ident::new(
+        //         format!("{}_output", ident).to_case(Case::Pascal).as_str(),
+        //         Span::call_site(),
+        //     );
+        //     quote! {
+        //         let output = #mod_ident::#output_struct_name {
+        //             output
+        //         };
+        //         output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
+        //     }
+        // };
         let es0 = errors_seq.next_err();
         let es1 = errors_seq.next_err();
         let es2 = errors_seq.next_err();

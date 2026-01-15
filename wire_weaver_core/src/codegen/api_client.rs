@@ -21,14 +21,16 @@ pub enum ClientModel {
     /// Prepare ww_client_server::Request, convert it to RequestOwned and
     /// send through wire_weaver_client_common::CommandSender to a worker thread.
     /// Generates std, async code that allocates.
-    AsyncWorker,
+    FullClient,
+    TraitClient,
 }
 
 impl ClientModel {
     fn no_alloc(&self) -> bool {
         match self {
             ClientModel::Raw => true,
-            ClientModel::AsyncWorker => false,
+            ClientModel::FullClient => false,
+            ClientModel::TraitClient => false,
         }
     }
 }
@@ -46,12 +48,12 @@ pub fn client(
     client_struct: &Ident,
     usb_connect: bool,
 ) -> TokenStream {
-    let additional_use = if model == ClientModel::AsyncWorker {
+    let additional_use = if matches!(model, ClientModel::FullClient | ClientModel::TraitClient) {
         quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
     } else {
         quote! {}
     };
-    let hl_init = if model == ClientModel::AsyncWorker {
+    let hl_init = if model == ClientModel::FullClient {
         cmd_tx_disconnect_methods(usb_connect)
     } else {
         quote! {}

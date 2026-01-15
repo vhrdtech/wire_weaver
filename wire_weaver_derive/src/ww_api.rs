@@ -78,12 +78,13 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
         let mut usb_connect = false;
         let model = match client[0] {
             "raw" => ClientModel::Raw,
-            "async_worker" => {
+            "async_worker" | "full_client" => {
                 for ext in &client[1..] {
                     usb_connect = *ext == "usb";
                 }
-                ClientModel::AsyncWorker
+                ClientModel::FullClient
             }
+            "trait_client" => ClientModel::TraitClient,
             _ => {
                 return Err(format!(
                     "client supports raw or async_worked modes, got: '{}'",

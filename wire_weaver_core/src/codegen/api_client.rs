@@ -299,7 +299,7 @@ fn handle_method(
     let path_kind = path_kind(path_mode, full_gid_path);
     quote! {
         #docs
-        pub fn #ident(&mut self, #args_list) -> wire_weaver_client_common::PrepareCall<#output_ty> {
+        pub fn #ident(&mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;

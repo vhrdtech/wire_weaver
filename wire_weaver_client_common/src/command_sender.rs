@@ -36,8 +36,19 @@ pub struct CommandSender {
     scratch: [u8; 4096],
 }
 
+/// Self-contained struct containing all necessary information needed to perform a call:
+/// * TX ends towards transport and dispatcher event loops
+/// * Serialized method arguments
+/// * Resource path
+/// * Return type as a generic `T` argument
+///
+/// When obtained, user can choose how to actually execute the call:
+/// * async: `call()`
+/// * blocking: `blocking_call()`
+/// * call-ignoring-return value: `call_forget()`
+/// * turn into a `Promise<T>` useful in immediate mode UI
 #[must_use = "PrepareCall does nothing, unless call(), blocking_call(), call_forget() or call_promise() is used"]
-pub struct PrepareCall<T> {
+pub struct PreparedCall<T> {
     transport_cmd_tx: TransportCommander,
     dispatcher_cmd_tx: DispatcherCommander,
     seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
@@ -151,9 +162,9 @@ impl CommandSender {
         &mut self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
-    ) -> PrepareCall<T> {
+    ) -> PreparedCall<T> {
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
-        PrepareCall {
+        PreparedCall {
             transport_cmd_tx: TransportCommander {
                 cmd_tx: self.transport_cmd_tx.clone(),
             },
@@ -389,7 +400,7 @@ impl DispatcherCommander {
     }
 }
 
-impl<T: DeserializeShrinkWrapOwned> PrepareCall<T> {
+impl<T: DeserializeShrinkWrapOwned> PreparedCall<T> {
     /// Use provided timeout instead of default one
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {

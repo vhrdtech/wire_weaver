@@ -6,7 +6,7 @@ pub mod rx_dispatcher;
 pub mod ww;
 
 // TODO: remove
-pub use command_sender::{CommandSender, PrepareCall};
+pub use command_sender::{CommandSender, PreparedCall};
 pub use device_filter::DeviceFilter;
 pub use ww_client_server;
 pub use ww_version;

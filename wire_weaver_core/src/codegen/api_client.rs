@@ -123,7 +123,7 @@ fn client_structs_recursive(
 
     let mut child_ts = TokenStream::new();
     for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
+        let ApiItemKind::ImplTrait { args: _, level } = &item.kind else {
             continue;
         };
         let level = level.as_ref().expect("empty level");
@@ -135,7 +135,7 @@ fn client_structs_recursive(
         child_ts.extend(client_structs_recursive(
             level,
             index_chain,
-            args.location.crate_name().as_ref(),
+            Some(level.source_location.crate_name()),
             model,
             path_mode,
         ));
@@ -233,9 +233,9 @@ fn level_method(
         ApiItemKind::ImplTrait { args, level } => {
             let level_entry_fn_name = &args.resource_name;
             let level = level.as_ref().expect("api level");
-            let ext_crate_name = args.location.crate_name().clone();
-            let mod_name = level.mod_ident(ext_crate_name.as_ref());
-            let client_struct_name = level.client_struct_name(ext_crate_name.as_ref());
+            let ext_crate_name = level.source_location.crate_name().clone();
+            let mod_name = level.mod_ident(Some(&ext_crate_name));
+            let client_struct_name = level.client_struct_name(Some(&ext_crate_name));
             quote! {
                 pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
                     #index_chain_push

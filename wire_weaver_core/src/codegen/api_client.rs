@@ -12,6 +12,7 @@ use quote::quote;
 use shrink_wrap_core::ast::path::Path;
 use shrink_wrap_core::ast::{Docs, Type};
 use shrink_wrap_core::codegen::FieldPath;
+use syn::LitStr;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum ClientModel {
@@ -84,6 +85,7 @@ pub fn client(
                 DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
                 Error as ShrinkWrapError, nib32::UNib32, RefVec
             };
+            use wire_weaver::ww_version;
             use wire_weaver_client_common::StreamEvent;
             use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
             #additional_use
@@ -148,10 +150,32 @@ fn client_structs_recursive(
         ));
     }
 
+    let crate_name = api_level.source_location.crate_name();
+    let crate_name = LitStr::new(&crate_name.to_string(), crate_name.span());
+    let trait_name = LitStr::new(&api_level.name.to_string(), api_level.name.span());
+    let index_chain = if is_at_root.is_some() {
+        quote! { vec![] }
+    } else {
+        quote! { self.index_chain.to_vec() }
+    };
+    let attachment = quote! {
+        pub fn attachment(&self) -> wire_weaver_client_common::Attachment {
+            wire_weaver_client_common::Attachment::new(
+                #index_chain,
+                self.cmd_tx.clone(),
+                self.timeout,
+                // TODO: Populate version in Attachment
+                ww_version::FullVersionOwned::new(#crate_name.into(), ww_version::VersionOwned::new(0, 0, 0)),
+                #trait_name.into()
+            )
+        }
+    };
+
     let impl_new_or_user_struct = if let Some(client_struct) = is_at_root {
         quote! {
             impl super::super::#client_struct {
                 #methods
+                #attachment
             }
         }
     } else {
@@ -165,6 +189,7 @@ fn client_structs_recursive(
 
             impl<'i> #client_struct_name<'i> {
                 #methods
+                #attachment
             }
         }
     };

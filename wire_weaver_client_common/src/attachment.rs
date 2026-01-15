@@ -1,0 +1,61 @@
+use crate::CommandSender;
+use std::time::Duration;
+use wire_weaver::prelude::UNib32;
+use ww_version::FullVersionOwned;
+
+/// Trait attachment point that carries:
+/// * which device it belongs to
+/// * at which resource path
+/// * default timeout carried over client code
+/// * crate name, it's version and trait name
+///
+/// Trait attachments are useful for implementing generic drivers that only know about
+/// a trait and nothing about a device that implements that trait.
+///
+/// For example: `ww_gpio_hl` uses "low-level" `ww_gpio` trait describing IO pins and
+/// exposes a more user-friendly and canonical API with each pin represented by a separate struct.
+pub struct Attachment {
+    index_chain: Vec<UNib32>,
+    cmd_tx: CommandSender,
+    timeout: Duration,
+    source_crate: FullVersionOwned,
+    trait_name: String,
+}
+
+impl Attachment {
+    pub fn new(
+        index_chain: Vec<UNib32>,
+        cmd_tx: CommandSender,
+        timeout: Duration,
+        source_crate: FullVersionOwned,
+        trait_name: String,
+    ) -> Self {
+        Self {
+            index_chain,
+            cmd_tx,
+            timeout,
+            source_crate,
+            trait_name,
+        }
+    }
+
+    pub fn index_chain(&self) -> &[UNib32] {
+        &self.index_chain
+    }
+
+    pub fn cmd_tx(&mut self) -> &mut CommandSender {
+        &mut self.cmd_tx
+    }
+
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn source_crate(&self) -> &FullVersionOwned {
+        &self.source_crate
+    }
+
+    pub fn trait_name(&self) -> &str {
+        &self.trait_name
+    }
+}

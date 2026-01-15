@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod command_sender;
 pub mod device_filter;
 pub mod event_loop_state;
@@ -6,6 +7,7 @@ pub mod rx_dispatcher;
 pub mod ww;
 
 // TODO: remove
+pub use attachment::Attachment;
 pub use command_sender::{CommandSender, PreparedCall};
 pub use device_filter::DeviceFilter;
 pub use ww_client_server;

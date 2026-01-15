@@ -16,6 +16,7 @@ use ww_version::{CompactVersion, FullVersionOwned};
 ///
 /// Commands sent through this channel are received by a worker thread (e.g., USB or WebSocket clients) and forwarded to a connected device.
 /// Replies are received through one-shot channels created on the fly when requests are sent.
+#[derive(Clone)]
 pub struct CommandSender {
     transport_cmd_tx: mpsc::UnboundedSender<Command>,
     // TODO: in tests this can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?

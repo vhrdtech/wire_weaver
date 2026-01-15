@@ -134,12 +134,12 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    let value = client.root().read_plain().await.unwrap();
+    let value = client.read_plain().await.unwrap();
     assert_eq!(value, 0);
 
-    client.root().write_plain(0xAA).await.unwrap();
+    client.write_plain(0xAA).await.unwrap();
     assert_eq!(data.read().unwrap().plain, 0xAA);
 
-    let value = client.root().read_plain().await.unwrap();
+    let value = client.read_plain().await.unwrap();
     assert_eq!(value, 0xAA);
 }

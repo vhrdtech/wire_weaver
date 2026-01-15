@@ -123,13 +123,12 @@ mod no_std_sync_server {
 
 mod std_async_client {
     use super::*;
-    use std::time::Duration;
     use wire_weaver_client_common::CommandSender;
 
     pub struct StdAsyncClient {
         pub args_scratch: [u8; 512],
         pub cmd_tx: CommandSender,
-        pub timeout: Duration,
+        // pub timeout: Duration,
     }
 
     ww_api!(
@@ -220,30 +219,24 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
         cmd_tx,
-        timeout: Duration::from_millis(1000),
+        // timeout: Duration::from_millis(1000),
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    let mut rx = client
-        .root()
-        .plain_stream_sub()
-        .expect("successful stream open");
+    let mut rx = client.plain_stream_sub().expect("successful stream open");
     notify_tx.send(0).unwrap();
     let connected = rx.recv().await.unwrap();
     assert_eq!(connected, StreamEvent::Connected);
     let stream_data = rx.recv().await.unwrap();
     assert_eq!(stream_data, StreamEvent::Data(vec![0xAA]));
 
-    client.root().plain_sink_pub(1).unwrap();
-    client.root().plain_sink_pub(2).unwrap();
+    client.plain_sink_pub(1).unwrap();
+    client.plain_sink_pub(2).unwrap();
 
-    client.root().finish().call().await.unwrap();
+    client.finish().call().await.unwrap();
     assert_eq!(data.read().unwrap().plain_sink_rx, vec![1, 2]);
 
-    let mut rx2 = client
-        .root()
-        .vec_stream_sub()
-        .expect("successful stream open");
+    let mut rx2 = client.vec_stream_sub().expect("successful stream open");
     notify_tx.send(1).unwrap();
     let connected = rx2.recv().await.unwrap();
     assert_eq!(connected, StreamEvent::Connected);
@@ -255,7 +248,6 @@ async fn std_async_client_driving_no_std_sync_server() {
     assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
 
     let mut rx_arr0 = client
-        .root()
         .array_of_streams_sub(0)
         .expect("subscribe to stream array 0");
     notify_tx.send(2).unwrap();

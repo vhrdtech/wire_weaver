@@ -179,32 +179,20 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    client.root().g1().m1().call().await.unwrap();
+    client.g1().m1().call().await.unwrap();
     assert!(data.read().unwrap().subgroup_m1_called);
 
-    client.root().gpio(0).set_high().call().await.unwrap();
+    client.gpio(0).set_high().call().await.unwrap();
     assert!(data.read().unwrap().gpio_used_indices.contains(&0));
 
-    client.root().gpio(123).set_high().call().await.unwrap();
+    client.gpio(123).set_high().call().await.unwrap();
     assert!(data.read().unwrap().gpio_used_indices.contains(&123));
 
-    client
-        .root()
-        .periph(3)
-        .channel(7)
-        .write_gain(10.0)
-        .await
-        .unwrap();
+    client.periph(3).channel(7).write_gain(10.0).await.unwrap();
     assert_eq!(
         data.read().unwrap().set_gain.get(&[UNib32(3), UNib32(7)]),
         Some(&10.0)
     );
-    let value = client
-        .root()
-        .periph(3)
-        .channel(7)
-        .read_gain()
-        .await
-        .unwrap();
+    let value = client.periph(3).channel(7).read_gain().await.unwrap();
     assert!(value == 10.0);
 }

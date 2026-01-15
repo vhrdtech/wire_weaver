@@ -54,7 +54,12 @@ pub fn client(
         quote! {}
     };
     let hl_init = if model == ClientModel::FullClient {
-        cmd_tx_disconnect_methods(usb_connect)
+        let d = cmd_tx_disconnect_methods(usb_connect);
+        quote! {
+            impl super::#client_struct {
+                #d
+            }
+        }
     } else {
         quote! {}
     };
@@ -63,14 +68,15 @@ pub fn client(
         ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
         ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
     };
-    let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
-    let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
+    // let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
+    // let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
     let trait_clients = client_structs_recursive(
         api_level,
         IndexChain::new(),
         Some(ext_crate_name),
         model,
         path_mode,
+        Some(client_struct),
     );
     quote! {
         mod api_client {
@@ -82,17 +88,7 @@ pub fn client(
             use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
             #additional_use
 
-            impl super::#client_struct {
-                pub fn root(&mut self) -> #root_mod_name::#root_client_struct_name<'_> {
-                    #root_mod_name::#root_client_struct_name {
-                        args_scratch: &mut self.args_scratch,
-                        cmd_tx: &mut self.cmd_tx,
-                        timeout: self.timeout,
-                    }
-                }
-
-                #hl_init
-            }
+            #hl_init
 
             #trait_clients
         }
@@ -105,6 +101,7 @@ fn client_structs_recursive(
     ext_crate_name: Option<&Ident>,
     model: ClientModel,
     path_mode: ClientPathMode,
+    is_at_root: Option<&Ident>,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_level, model.no_alloc());
@@ -118,7 +115,14 @@ fn client_structs_recursive(
     );
     let client_struct_name = api_level.client_struct_name(ext_crate_name);
     let full_gid_path = api_level.full_gid_path();
-    let methods = level_methods(api_level, index_chain, model, path_mode, &full_gid_path);
+    let methods = level_methods(
+        api_level,
+        index_chain,
+        model,
+        path_mode,
+        &full_gid_path,
+        is_at_root.is_some(),
+    );
 
     // call before increment_length so that root level does not have it
     let maybe_index_chain_field = index_chain.struct_field_def();
@@ -140,15 +144,18 @@ fn client_structs_recursive(
             Some(level.source_location.crate_name()),
             model,
             path_mode,
+            None,
         ));
     }
 
-    ts.extend(quote! {
-        mod #mod_name {
-            use super::*;
-            #use_external
-            #args_structs
-
+    let impl_new_or_user_struct = if let Some(client_struct) = is_at_root {
+        quote! {
+            impl super::super::#client_struct {
+                #methods
+            }
+        }
+    } else {
+        quote! {
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
                 pub args_scratch: &'i mut [u8],
@@ -159,6 +166,15 @@ fn client_structs_recursive(
             impl<'i> #client_struct_name<'i> {
                 #methods
             }
+        }
+    };
+    ts.extend(quote! {
+        mod #mod_name {
+            use super::*;
+            #use_external
+            #args_structs
+
+            #impl_new_or_user_struct
 
             #child_ts
         }
@@ -172,11 +188,18 @@ fn level_methods(
     model: ClientModel,
     path_mode: ClientPathMode,
     full_gid_path: &TokenStream,
+    is_at_root: bool,
 ) -> TokenStream {
-    let handlers = api_level
-        .items
-        .iter()
-        .map(|item| level_method(item, index_chain, model, path_mode, full_gid_path));
+    let handlers = api_level.items.iter().map(|item| {
+        level_method(
+            item,
+            index_chain,
+            model,
+            path_mode,
+            full_gid_path,
+            is_at_root,
+        )
+    });
     quote! {
         #(#handlers)*
     }
@@ -188,6 +211,7 @@ fn level_method(
     model: ClientModel,
     path_mode: ClientPathMode,
     full_gid_path: &TokenStream,
+    is_at_root: bool,
 ) -> TokenStream {
     let id = item.id;
     let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
@@ -238,13 +262,14 @@ fn level_method(
             let ext_crate_name = level.source_location.crate_name().clone();
             let mod_name = level.mod_ident(Some(&ext_crate_name));
             let client_struct_name = level.client_struct_name(Some(&ext_crate_name));
+            let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {
                 pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
                     #index_chain_push
                     #mod_name::#client_struct_name {
                         index_chain,
-                        args_scratch: self.args_scratch,
-                        cmd_tx: self.cmd_tx,
+                        args_scratch: #maybe_ref_mut self.args_scratch,
+                        cmd_tx: #maybe_ref_mut self.cmd_tx,
                         timeout: self.timeout,
                     }
                 }

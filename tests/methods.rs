@@ -74,13 +74,11 @@ mod no_std_sync_server {
 
 mod std_async_client {
     use super::*;
-    use std::time::Duration;
     use wire_weaver_client_common::CommandSender;
 
     pub struct StdAsyncClient {
         pub args_scratch: [u8; 512],
         pub cmd_tx: CommandSender,
-        pub timeout: Duration,
     }
 
     ww_api!(
@@ -155,23 +153,23 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
         cmd_tx,
-        timeout: Duration::from_millis(1000),
+        // timeout: Duration::from_millis(1000),
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
     // Call as async
-    client.root().no_args().call().await.unwrap();
+    client.no_args().call().await.unwrap();
     assert!(data.read().unwrap().no_args_called);
 
     // Call forget
     data.write().unwrap().no_args_called = false;
-    client.root().no_args().call_forget().unwrap();
+    client.no_args().call_forget().unwrap();
     tokio::time::sleep(Duration::from_millis(10)).await;
     assert!(data.read().unwrap().no_args_called);
 
     // Call via Promise
     data.write().unwrap().no_args_called = false;
-    let mut promise = client.root().no_args().call_promise("marker");
+    let mut promise = client.no_args().call_promise("marker");
     tokio::task::spawn_blocking(move || {
         promise.sync_poll();
         std::thread::sleep(Duration::from_millis(10));
@@ -184,14 +182,13 @@ async fn std_async_client_driving_no_std_sync_server() {
     tokio::time::sleep(Duration::from_millis(10)).await;
     assert!(data.read().unwrap().no_args_called);
 
-    client.root().one_plain_arg(0xCC).call().await.unwrap();
+    client.one_plain_arg(0xCC).call().await.unwrap();
     assert_eq!(data.read().unwrap().one_plain_arg, 0xCC);
 
-    let value = client.root().plain_return().call().await.unwrap();
+    let value = client.plain_return().call().await.unwrap();
     assert_eq!(value, 0xAA);
 
     client
-        .root()
         .user_arg(UserDefinedOwned {
             a: 123,
             b: vec![1, 2, 3],

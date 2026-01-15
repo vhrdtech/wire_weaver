@@ -1,4 +1,3 @@
-use crate::Error;
 use std::net::IpAddr;
 
 #[derive(Clone, Debug)]
@@ -87,7 +86,7 @@ impl DeviceFilter {
     }
 
     #[cfg(feature = "nusb")]
-    pub fn matches_nusb(&self, device_info: &nusb::DeviceInfo) -> Result<bool, Error> {
+    pub fn matches_nusb(&self, device_info: &nusb::DeviceInfo) -> Result<bool, crate::Error> {
         let matches = match &self.kind {
             DeviceFilterKind::UsbVidPid { vid, pid } => {
                 device_info.vendor_id() == *vid && device_info.product_id() == *pid
@@ -145,7 +144,7 @@ impl DeviceFilter {
                 true
             }
             u => {
-                return Err(Error::Transport(format!(
+                return Err(crate::Error::Transport(format!(
                     "unsupported filter for USB host: {:?}",
                     u
                 )));

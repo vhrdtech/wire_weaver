@@ -104,8 +104,8 @@ mod std_async_client {
     }
 
     ww_api!(
-        "traits.rs" as tests::Traits for StdAsyncClient,
-        client = "async_worker",
+        "traits.rs" as crate::Traits for StdAsyncClient,
+        client = "full_client",
         no_alloc = false,
         use_async = true,
         debug_to_file = "../target/tests_traits_client.rs"

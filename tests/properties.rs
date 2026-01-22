@@ -60,8 +60,8 @@ mod std_async_client {
     }
 
     ww_api!(
-        "properties.rs" as tests::Properties for StdAsyncClient,
-        client = "async_worker",
+        "properties.rs" as crate::Properties for StdAsyncClient,
+        client = "full_client",
         no_alloc = false,
         use_async = true,
     );

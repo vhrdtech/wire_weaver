@@ -132,8 +132,8 @@ mod std_async_client {
     }
 
     ww_api!(
-        "streams.rs" as tests::Streams for StdAsyncClient,
-        client = "async_worker",
+        "streams.rs" as crate::Streams for StdAsyncClient,
+        client = "full_client",
         no_alloc = false,
         use_async = true,
         debug_to_file = "../target/tests_streams_client.rs"

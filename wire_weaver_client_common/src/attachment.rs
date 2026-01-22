@@ -1,7 +1,7 @@
 use crate::CommandSender;
 use std::time::Duration;
 use wire_weaver::prelude::UNib32;
-use ww_version::FullVersionOwned;
+use ww_version::FullVersion;
 
 /// Trait attachment point that carries:
 /// * which device it belongs to
@@ -18,8 +18,8 @@ pub struct Attachment {
     index_chain: Vec<UNib32>,
     cmd_tx: CommandSender,
     timeout: Duration,
-    source_crate: FullVersionOwned,
-    trait_name: String,
+    source_crate: FullVersion<'static>,
+    trait_name: &'static str,
 }
 
 impl Attachment {
@@ -27,8 +27,8 @@ impl Attachment {
         index_chain: Vec<UNib32>,
         cmd_tx: CommandSender,
         timeout: Duration,
-        source_crate: FullVersionOwned,
-        trait_name: String,
+        source_crate: FullVersion<'static>,
+        trait_name: &'static str,
     ) -> Self {
         Self {
             index_chain,
@@ -51,7 +51,7 @@ impl Attachment {
         self.timeout
     }
 
-    pub fn source_crate(&self) -> &FullVersionOwned {
+    pub fn source_crate(&self) -> &FullVersion<'static> {
         &self.source_crate
     }
 

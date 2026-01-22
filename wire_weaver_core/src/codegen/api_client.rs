@@ -165,8 +165,8 @@ fn client_structs_recursive(
                 self.cmd_tx.clone(),
                 self.timeout,
                 // TODO: Populate version in Attachment
-                ww_version::FullVersionOwned::new(#crate_name.into(), ww_version::VersionOwned::new(0, 0, 0)),
-                #trait_name.into()
+                ww_version::FullVersion::new(#crate_name, ww_version::Version::new(0, 0, 0)),
+                #trait_name
             )
         }
     };

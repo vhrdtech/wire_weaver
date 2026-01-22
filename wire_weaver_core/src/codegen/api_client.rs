@@ -87,20 +87,18 @@ pub fn client(
         Some(client_struct),
     );
     quote! {
-        mod api_client {
-            use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
-                Error as ShrinkWrapError, nib32::UNib32, RefVec
-            };
-            use wire_weaver::ww_version;
-            use wire_weaver_client_common::StreamEvent;
-            use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
-            #additional_use
+        use wire_weaver::shrink_wrap::{
+            DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
+            Error as ShrinkWrapError, nib32::UNib32, RefVec
+        };
+        use wire_weaver::ww_version;
+        use wire_weaver_client_common::StreamEvent;
+        use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+        #additional_use
 
-            #hl_init
+        #hl_init
 
-            #trait_clients
-        }
+        #trait_clients
     }
 }
 

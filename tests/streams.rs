@@ -131,13 +131,16 @@ mod std_async_client {
         pub timeout: Duration,
     }
 
-    ww_api!(
-        "streams.rs" as crate::Streams for StdAsyncClient,
-        client = "full_client",
-        no_alloc = false,
-        use_async = true,
-        debug_to_file = "../target/tests_streams_client.rs"
-    );
+    mod api_client {
+        use super::*;
+        ww_api!(
+            "streams.rs" as crate::Streams for StdAsyncClient,
+            client = "full_client",
+            no_alloc = false,
+            use_async = true,
+            debug_to_file = "../target/tests_streams_client.rs"
+        );
+    }
 }
 
 // mod no_std_raw_client {

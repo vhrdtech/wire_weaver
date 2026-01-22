@@ -82,13 +82,16 @@ mod std_async_client {
         pub timeout: Duration,
     }
 
-    ww_api!(
-        "methods.rs" as crate::Methods for StdAsyncClient,
-        client = "async_worker",
-        no_alloc = false,
-        use_async = true,
-        debug_to_file = "../target/tests_methods_client.rs"
-    );
+    mod api_client {
+        use super::*;
+        ww_api!(
+            "methods.rs" as crate::Methods for StdAsyncClient,
+            client = "full_client",
+            no_alloc = false,
+            use_async = true,
+            debug_to_file = "../target/tests_methods_client.rs"
+        );
+    }
 }
 
 // mod no_std_raw_client {

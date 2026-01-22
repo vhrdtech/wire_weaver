@@ -59,12 +59,15 @@ mod std_async_client {
         pub timeout: Duration,
     }
 
-    ww_api!(
-        "properties.rs" as crate::Properties for StdAsyncClient,
-        client = "full_client",
-        no_alloc = false,
-        use_async = true,
-    );
+    mod api_client {
+        use super::*;
+        ww_api!(
+            "properties.rs" as crate::Properties for StdAsyncClient,
+            client = "full_client",
+            no_alloc = false,
+            use_async = true,
+        );
+    }
 }
 
 // mod no_std_raw_client {

@@ -160,9 +160,10 @@ fn client_structs_recursive(
     };
     let attachment = quote! {
         pub fn attachment(&self) -> wire_weaver_client_common::Attachment {
+            let mut cmd_tx = self.cmd_tx.clone();
+            cmd_tx.set_base_path(#index_chain);
             wire_weaver_client_common::Attachment::new(
-                #index_chain,
-                self.cmd_tx.clone(),
+                cmd_tx,
                 self.timeout,
                 // TODO: Populate version in Attachment
                 ww_version::FullVersion::new(#crate_name, ww_version::Version::new(0, 0, 0)),

@@ -27,8 +27,8 @@ pub struct CommandSender {
     /// * Some(empty path) for trait implemented at root level (unknown path), trait addressing will be used.
     /// * Some(non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
     ///
-    /// "Some" cases are only for trait clients (ww_impl! macro). API root client (ww_api!) uses absolute addressing.
-    trait_path: Option<Vec<UNib32>>,
+    /// "Some" cases are only for trait clients (client = "trait_client"). API root client (client = "full_client") uses absolute addressing.
+    base_path: Option<Vec<UNib32>>,
 
     /// Mapping from FullVersion (crate name as string + semver) to trait GID of much smaller size.
     /// Optimally, should be requested from a device, so that newly assigned GIDs not yet known to a device are not used.
@@ -82,7 +82,7 @@ impl CommandSender {
             transport_cmd_tx,
             dispatcher_cmd_tx,
             seq_rx: Arc::new(RwLock::new(seq_rx)),
-            trait_path: None,
+            base_path: None,
             gid_map: HashMap::new(),
             scratch: [0; 4096],
         }
@@ -304,8 +304,12 @@ impl CommandSender {
         Ok(seq)
     }
 
+    pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
+        self.base_path = Some(base_path);
+    }
+
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
-        if matches!(path, PathKind::Absolute { .. }) && self.trait_path.is_some() {
+        if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
             ));
@@ -318,7 +322,7 @@ impl CommandSender {
                 gid,
                 path_from_trait,
             } => {
-                if let Some(base) = &self.trait_path {
+                if let Some(base) = &self.base_path {
                     let mut path = base.clone();
                     for n in path_from_trait.iter() {
                         path.push(n?);
@@ -335,7 +339,7 @@ impl CommandSender {
                 gid,
                 path_from_trait,
             } => {
-                if let Some(base) = &self.trait_path {
+                if let Some(base) = &self.base_path {
                     let mut path = base.clone();
                     for n in path_from_trait.iter() {
                         path.push(n?);

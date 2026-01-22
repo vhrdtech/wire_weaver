@@ -1,6 +1,5 @@
 use crate::CommandSender;
 use std::time::Duration;
-use wire_weaver::prelude::UNib32;
 use ww_version::FullVersion;
 
 /// Trait attachment point that carries:
@@ -15,7 +14,6 @@ use ww_version::FullVersion;
 /// For example: `ww_gpio_hl` uses "low-level" `ww_gpio` trait describing IO pins and
 /// exposes a more user-friendly and canonical API with each pin represented by a separate struct.
 pub struct Attachment {
-    index_chain: Vec<UNib32>,
     cmd_tx: CommandSender,
     timeout: Duration,
     source_crate: FullVersion<'static>,
@@ -24,23 +22,17 @@ pub struct Attachment {
 
 impl Attachment {
     pub fn new(
-        index_chain: Vec<UNib32>,
         cmd_tx: CommandSender,
         timeout: Duration,
         source_crate: FullVersion<'static>,
         trait_name: &'static str,
     ) -> Self {
         Self {
-            index_chain,
             cmd_tx,
             timeout,
             source_crate,
             trait_name,
         }
-    }
-
-    pub fn index_chain(&self) -> &[UNib32] {
-        &self.index_chain
     }
 
     pub fn cmd_tx(&mut self) -> &mut CommandSender {

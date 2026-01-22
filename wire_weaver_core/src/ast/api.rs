@@ -179,10 +179,22 @@ impl ApiLevel {
         )
     }
 
-    pub fn full_gid_path(&self) -> TokenStream {
+    pub fn compact_gid(&self) -> Ident {
+        Ident::new(
+            format!("{}_COMPACT_GID", self.name)
+                .to_case(Case::Constant)
+                .as_str(),
+            self.name.span(),
+        )
+    }
+
+    pub fn gid_paths(&self) -> (TokenStream, TokenStream) {
         let crate_name = self.source_location.crate_name();
         let full_gid = self.full_gid();
-        quote! { #crate_name::#full_gid }
+        let compact_gid = self.compact_gid();
+        let full = quote! { #crate_name::#full_gid };
+        let compact = quote! { #crate_name::#compact_gid };
+        (full, compact)
     }
 
     pub fn make_owned(&mut self) {

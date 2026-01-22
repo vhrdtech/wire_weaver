@@ -8,22 +8,20 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use wire_weaver_core::ast::api::{ApiItemKind, ApiLevel, ApiLevelSourceLocation};
 use wire_weaver_core::ast::trait_macro_args::ImplTraitLocation;
-use wire_weaver_core::codegen::api_client::{ClientModel, ClientPathMode};
+use wire_weaver_core::codegen::api_client::ClientModel;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::transform_api_level::transform_api_level;
 
 pub fn ww_api(args: ApiArgs) -> TokenStream {
-    api_inner(args, true)
-        .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
+    api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
 pub fn ww_impl(args: ApiArgs) -> TokenStream {
-    api_inner(args, false)
-        .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
+    api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
+fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     let mut cache = HashMap::new();
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
@@ -92,15 +90,9 @@ fn api_inner(args: ApiArgs, is_root: bool) -> Result<TokenStream, String> {
                 ));
             }
         };
-        let path_mode = if is_root {
-            ClientPathMode::Absolute
-        } else {
-            ClientPathMode::GlobalTrait
-        };
         let ts = wire_weaver_core::codegen::api_client::client(
             &level,
             model,
-            path_mode,
             &args.context_ident,
             usb_connect,
         );

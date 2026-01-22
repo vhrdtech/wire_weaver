@@ -36,16 +36,18 @@ impl ClientModel {
     }
 }
 
+/// Determines which resource path will be used in generated client code
 #[derive(Copy, Clone, PartialEq)]
-pub enum ClientPathMode {
+enum ClientPathMode {
+    /// Absolute paths from user API root
     Absolute,
+    /// Global full or compact paths starting from trait root (when used with client = "trait_client")
     GlobalTrait,
 }
 
 pub fn client(
     api_level: &ApiLevel,
     model: ClientModel,
-    path_mode: ClientPathMode,
     client_struct: &Ident,
     usb_connect: bool,
 ) -> TokenStream {
@@ -63,6 +65,11 @@ pub fn client(
         }
     } else {
         quote! {}
+    };
+    let path_mode = if matches!(model, ClientModel::TraitClient) {
+        ClientPathMode::GlobalTrait
+    } else {
+        ClientPathMode::Absolute
     };
 
     let ext_crate_name = match &api_level.source_location {
@@ -116,13 +123,13 @@ fn client_structs_recursive(
         model.no_alloc(),
     );
     let client_struct_name = api_level.client_struct_name(ext_crate_name);
-    let full_gid_path = api_level.full_gid_path();
+    let gid_paths = api_level.gid_paths();
     let methods = level_methods(
         api_level,
         index_chain,
         model,
         path_mode,
-        &full_gid_path,
+        &gid_paths,
         is_at_root.is_some(),
     );
 
@@ -150,14 +157,13 @@ fn client_structs_recursive(
         ));
     }
 
-    let crate_name = api_level.source_location.crate_name();
-    let crate_name = LitStr::new(&crate_name.to_string(), crate_name.span());
     let trait_name = LitStr::new(&api_level.name.to_string(), api_level.name.span());
     let index_chain = if is_at_root.is_some() {
         quote! { vec![] }
     } else {
         quote! { self.index_chain.to_vec() }
     };
+    let full = &gid_paths.0;
     let attachment = quote! {
         pub fn attachment(&self) -> wire_weaver_client_common::Attachment {
             let mut cmd_tx = self.cmd_tx.clone();
@@ -165,8 +171,7 @@ fn client_structs_recursive(
             wire_weaver_client_common::Attachment::new(
                 cmd_tx,
                 self.timeout,
-                // TODO: Populate version in Attachment
-                ww_version::FullVersion::new(#crate_name, ww_version::Version::new(0, 0, 0)),
+                #full,
                 #trait_name
             )
         }
@@ -213,19 +218,13 @@ fn level_methods(
     index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
-    full_gid_path: &TokenStream,
+    gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
 ) -> TokenStream {
-    let handlers = api_level.items.iter().map(|item| {
-        level_method(
-            item,
-            index_chain,
-            model,
-            path_mode,
-            full_gid_path,
-            is_at_root,
-        )
-    });
+    let handlers = api_level
+        .items
+        .iter()
+        .map(|item| level_method(item, index_chain, model, path_mode, gid_paths, is_at_root));
     quote! {
         #(#handlers)*
     }
@@ -236,7 +235,7 @@ fn level_method(
     mut index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
-    full_gid_path: &TokenStream,
+    gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
 ) -> TokenStream {
     let id = item.id;
@@ -256,7 +255,7 @@ fn level_method(
         } => handle_method(
             model,
             path_mode,
-            full_gid_path,
+            gid_paths,
             index_chain_push,
             ident,
             args,
@@ -266,7 +265,7 @@ fn level_method(
         ApiItemKind::Property { access, ident, ty } => handle_property(
             model,
             path_mode,
-            full_gid_path,
+            gid_paths,
             index_chain_push,
             access,
             ident,
@@ -275,7 +274,7 @@ fn level_method(
         ApiItemKind::Stream { ident, ty, is_up } => handle_stream(
             model,
             path_mode,
-            full_gid_path,
+            gid_paths,
             maybe_index_arg,
             index_chain_push,
             ident,
@@ -308,7 +307,7 @@ fn level_method(
 fn handle_method(
     model: ClientModel,
     path_mode: ClientPathMode,
-    full_gid_path: &TokenStream,
+    gid_paths: &(TokenStream, TokenStream),
     index_chain_push: TokenStream,
     ident: &Ident,
     args: &[Argument],
@@ -322,7 +321,7 @@ fn handle_method(
         quote! { () }
     };
 
-    let path_kind = path_kind(path_mode, full_gid_path);
+    let path_kind = path_kind(path_mode, gid_paths);
     quote! {
         #docs
         pub fn #ident(&mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
@@ -347,7 +346,7 @@ fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
 fn handle_property(
     model: ClientModel,
     path_mode: ClientPathMode,
-    full_gid_path: &TokenStream,
+    gid_paths: &(TokenStream, TokenStream),
     index_chain_push: TokenStream,
     access: &PropertyAccess,
     prop_name: &Ident,
@@ -362,7 +361,7 @@ fn handle_property(
         quote! { ? },
         &mut des,
     );
-    let path_kind = path_kind(path_mode, full_gid_path);
+    let path_kind = path_kind(path_mode, gid_paths);
 
     let write_fns = if matches!(
         access,
@@ -494,7 +493,7 @@ fn ser_write_value(model: ClientModel, prop_name: &Ident, ty: &Type) -> (TokenSt
 fn handle_stream(
     model: ClientModel,
     path_mode: ClientPathMode,
-    full_gid_path: &TokenStream,
+    gid_paths: &(TokenStream, TokenStream),
     maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
     ident: &Ident,
@@ -503,7 +502,7 @@ fn handle_stream(
 ) -> TokenStream {
     let sideband_fn_name = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
     let (ty_def, ser) = ser_write_value(model, &Ident::new("value", Span::call_site()), ty);
-    let path_kind = path_kind(path_mode, full_gid_path);
+    let path_kind = path_kind(path_mode, gid_paths);
 
     let specific_methods = if is_up {
         // client in
@@ -674,16 +673,15 @@ fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
 }
 
 /// Creates ww_client_server::PathKind in user context
-fn path_kind(path_mode: ClientPathMode, full_gid_path: &TokenStream) -> TokenStream {
+fn path_kind(path_mode: ClientPathMode, gid_paths: &(TokenStream, TokenStream)) -> TokenStream {
+    let full = &gid_paths.0;
+    let compact = &gid_paths.1;
     match path_mode {
         ClientPathMode::Absolute => {
             quote! { PathKind::absolute(&index_chain) }
         }
         ClientPathMode::GlobalTrait => quote! {
-            PathKind::GlobalFull {
-                gid: #full_gid_path,
-                path_from_trait: RefVec::Slice { slice: &index_chain },
-            }
+            PathKind::global(#full, #compact, &index_chain)
         },
     }
 }

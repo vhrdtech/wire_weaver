@@ -10,7 +10,7 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or_else(|e| Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
+fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
     let item_trait: ItemTrait = syn::parse2(item)?;
     let api_level = transform_api_level(
         &item_trait,
@@ -59,9 +59,16 @@ fn ww_trait_inner(_attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
             .as_str(),
         item_trait.ident.span(),
     );
+    let compact_gid = Ident::new(
+        format!("{}_COMPACT_GID", item_trait.ident)
+            .to_case(Case::Constant)
+            .as_str(),
+        item_trait.ident.span(),
+    );
     Ok(quote! {
         #(#docs)*
         pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
+        pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#attr);
         #check_types_lifetimes
     })
 }

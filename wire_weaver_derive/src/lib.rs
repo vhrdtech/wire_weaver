@@ -10,7 +10,10 @@ mod ww_trait;
 /// Generate types definitions, serdes and API client or server side code.
 ///
 /// Arguments:
-/// * client = absent or "" - do not generate client code at all; "raw" or "async_worker" - generate client with specified flavor.
+/// * client = absent or "" - do not generate client code at all;
+///     * "full_client" - generate client code starting from API root
+///     * "full_client+usb" - additionally, generate init function code that starts USB event loop
+///     * "trait_client" - generate client code only for one trait
 /// * server = true/false - whether to generate server code or not.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
 /// * use_async - whether to generate async-aware code.
@@ -54,6 +57,13 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 ///     fn compiler_version() -> String;
 /// }
 /// ```
+///
+/// Global IDs:
+/// If trait have a global unique ID in the registry, provide it in parenthesis:
+/// ```ignore
+/// #[ww_trait(123)]
+/// pub trait Abc { }
+/// ```
 #[proc_macro_attribute]
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
@@ -63,4 +73,10 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn full_version(item: TokenStream) -> TokenStream {
     version::full_version(item.into()).into()
+}
+
+/// Create CompactVersion with the crate name and major.minor.patch numbers during compile time.
+#[proc_macro]
+pub fn compact_version(item: TokenStream) -> TokenStream {
+    version::compact_version(item.into()).into()
 }

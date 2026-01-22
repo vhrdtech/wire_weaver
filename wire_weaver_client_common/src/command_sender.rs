@@ -479,11 +479,11 @@ impl<T: DeserializeShrinkWrapOwned> PreparedCall<T> {
     pub fn call_promise(self, marker: &'static str) -> Promise<T> {
         let path_kind = match self.path_kind {
             Ok(p) => p,
-            Err(e) => return Promise::error(e, ""),
+            Err(e) => return Promise::error(e, marker),
         };
         let args = match self.args {
             Ok(a) => a,
-            Err(e) => return Promise::error(e, ""),
+            Err(e) => return Promise::error(e, marker),
         };
 
         Promise::new(

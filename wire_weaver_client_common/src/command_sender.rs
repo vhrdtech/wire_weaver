@@ -160,7 +160,7 @@ impl CommandSender {
     }
 
     pub fn prepare_call<'i, T: DeserializeShrinkWrap<'i>>(
-        &mut self,
+        &self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
     ) -> PreparedCall<T> {

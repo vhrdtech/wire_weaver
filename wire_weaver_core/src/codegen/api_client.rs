@@ -320,9 +320,10 @@ fn handle_method(
     };
 
     let path_kind = path_kind(path_mode, gid_paths);
+    let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
     quote! {
         #docs
-        pub fn #ident(&mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
+        pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;

@@ -308,6 +308,10 @@ impl CommandSender {
         Ok(seq)
     }
 
+    pub fn base_path(&self) -> Option<&Vec<UNib32>> {
+        self.base_path.as_ref()
+    }
+
     pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
         self.base_path = Some(base_path);
     }

@@ -35,6 +35,10 @@ impl Attachment {
         &mut self.cmd_tx
     }
 
+    pub fn cmd_tx_take(self) -> CommandSender {
+        self.cmd_tx
+    }
+
     pub fn source_crate(&self) -> &FullVersion<'static> {
         &self.source_crate
     }

@@ -18,6 +18,11 @@ pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
 pub const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
 
+/// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
+pub const ENDPOINTS_USED: usize = 2;
+
+const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_0: u8 = 0x40 + 0;
+
 /// WireWeaver USB class
 pub struct WireWeaverClass<'d, D: Driver<'d>> {
     _data_if: InterfaceNumber,

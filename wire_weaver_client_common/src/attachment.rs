@@ -1,5 +1,4 @@
 use crate::CommandSender;
-use std::time::Duration;
 use ww_version::FullVersion;
 
 /// Trait attachment point that carries:
@@ -15,7 +14,6 @@ use ww_version::FullVersion;
 /// exposes a more user-friendly and canonical API with each pin represented by a separate struct.
 pub struct Attachment {
     cmd_tx: CommandSender,
-    timeout: Duration,
     source_crate: FullVersion<'static>,
     trait_name: &'static str,
 }
@@ -23,13 +21,11 @@ pub struct Attachment {
 impl Attachment {
     pub fn new(
         cmd_tx: CommandSender,
-        timeout: Duration,
         source_crate: FullVersion<'static>,
         trait_name: &'static str,
     ) -> Self {
         Self {
             cmd_tx,
-            timeout,
             source_crate,
             trait_name,
         }
@@ -37,10 +33,6 @@ impl Attachment {
 
     pub fn cmd_tx(&mut self) -> &mut CommandSender {
         &mut self.cmd_tx
-    }
-
-    pub fn timeout(&self) -> Duration {
-        self.timeout
     }
 
     pub fn source_crate(&self) -> &FullVersion<'static> {

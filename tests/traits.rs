@@ -94,13 +94,11 @@ mod no_std_sync_server {
 
 mod std_async_client {
     use super::*;
-    use std::time::Duration;
     use wire_weaver_client_common::CommandSender;
 
     pub struct StdAsyncClient {
         pub args_scratch: [u8; 512],
         pub cmd_tx: CommandSender,
-        pub timeout: Duration,
     }
 
     mod api_client {
@@ -178,7 +176,6 @@ async fn std_async_client_driving_no_std_sync_server() {
     let mut client = std_async_client::StdAsyncClient {
         args_scratch: [0u8; 512],
         cmd_tx,
-        timeout: Duration::from_millis(1000),
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 

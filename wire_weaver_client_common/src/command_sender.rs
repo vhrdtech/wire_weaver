@@ -35,6 +35,7 @@ pub struct CommandSender {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     scratch: [u8; 4096],
+    timeout: Option<Duration>,
 }
 
 /// Self-contained struct containing all necessary information needed to perform a call:
@@ -85,7 +86,15 @@ impl CommandSender {
             base_path: None,
             gid_map: HashMap::new(),
             scratch: [0; 4096],
+            timeout: None,
         }
+    }
+
+    /// Set timeout that is used by default by this CommandSender.
+    /// Default is None, in which case transport layer will use its own default timeout.
+    /// Individual timeouts for each action are also supported, for example see [PreparedCall::with_timeout].
+    pub fn set_local_timeout(&mut self, timeout: Duration) {
+        self.timeout = Some(timeout);
     }
 
     pub async fn connect(
@@ -175,7 +184,7 @@ impl CommandSender {
             seq_rx: self.seq_rx.clone(),
             path_kind,
             args,
-            timeout: None,
+            timeout: self.timeout,
             _phantom: PhantomData,
         }
     }
@@ -185,7 +194,6 @@ impl CommandSender {
         &mut self,
         path: PathKind<'_>,
         value_bytes: Vec<u8>,
-        timeout: Duration,
     ) -> Result<(), Error> {
         let seq = self.next_seq().await?;
         let path_kind = self.to_ww_client_server_path(path)?;
@@ -194,7 +202,7 @@ impl CommandSender {
             .send(DispatcherCommand::OnWriteComplete {
                 seq,
                 done_tx,
-                timeout: Some(timeout),
+                timeout: self.timeout,
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
 
@@ -204,7 +212,7 @@ impl CommandSender {
             path_kind,
             RequestKindOwned::Write { data: value_bytes },
         )?;
-        let _data = self.receive_reply(timeout, done_rx, "write").await?;
+        let _data = self.receive_reply(done_rx, "write").await?;
         Ok(())
     }
 
@@ -248,11 +256,7 @@ impl CommandSender {
     }
 
     /// Sends read request to remote device, awaits response and returns it.
-    pub async fn send_read_receive_reply(
-        &mut self,
-        path: PathKind<'_>,
-        timeout: Duration,
-    ) -> Result<Vec<u8>, Error> {
+    pub async fn send_read_receive_reply(&mut self, path: PathKind<'_>) -> Result<Vec<u8>, Error> {
         // obtain next seq and correct path
         let seq = self.next_seq().await?;
         let path_kind = self.to_ww_client_server_path(path)?;
@@ -263,7 +267,7 @@ impl CommandSender {
             .send(DispatcherCommand::OnReadValue {
                 seq,
                 done_tx,
-                timeout: Some(timeout),
+                timeout: self.timeout,
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
 
@@ -271,18 +275,18 @@ impl CommandSender {
         self.send_request(seq, path_kind, RequestKindOwned::Read)?;
 
         // await response from remote device (through rx dispatcher)
-        let data = self.receive_reply(timeout, done_rx, "read").await?;
+        let data = self.receive_reply(done_rx, "read").await?;
 
         Ok(data)
     }
 
+    #[deprecated]
     async fn receive_reply(
         &self,
-        timeout: Duration,
         done_rx: oneshot::Receiver<Result<Vec<u8>, Error>>,
         desc: &'static str,
     ) -> Result<Vec<u8>, Error> {
-        let rx_or_timeout = tokio::time::timeout(timeout, done_rx).await;
+        let rx_or_timeout = tokio::time::timeout(Duration::from_millis(100), done_rx).await;
         trace!("got {desc} response: {:02x?}", rx_or_timeout);
         let rx_or_recv_err = rx_or_timeout.map_err(|_| Error::Timeout)?;
         let response = rx_or_recv_err.map_err(|_| Error::EventLoopNotRunning)?;
@@ -406,7 +410,7 @@ impl DispatcherCommander {
 }
 
 impl<T: DeserializeShrinkWrapOwned> PreparedCall<T> {
-    /// Use provided timeout instead of default one
+    /// Use provided timeout instead of default one propagated from CommandSender
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
             transport_cmd_tx: self.transport_cmd_tx,

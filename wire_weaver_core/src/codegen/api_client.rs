@@ -168,7 +168,6 @@ fn client_structs_recursive(
             cmd_tx.set_base_path(#index_chain);
             wire_weaver_client_common::Attachment::new(
                 cmd_tx,
-                self.timeout,
                 #full,
                 #trait_name
             )
@@ -188,7 +187,6 @@ fn client_structs_recursive(
                 #maybe_index_chain_field
                 pub args_scratch: &'i mut [u8],
                 pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender,
-                pub timeout: core::time::Duration,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -293,7 +291,6 @@ fn level_method(
                         index_chain,
                         args_scratch: #maybe_ref_mut self.args_scratch,
                         cmd_tx: #maybe_ref_mut self.cmd_tx,
-                        timeout: self.timeout,
                     }
                 }
             }
@@ -331,17 +328,6 @@ fn handle_method(
         }
     }
 }
-
-fn timeout_arg_val(default_timeout: bool) -> (TokenStream, TokenStream) {
-    let maybe_timeout_arg = maybe_quote(!default_timeout, quote! { timeout: core::time::Duration });
-    let timeout_val = if default_timeout {
-        quote! { self.timeout }
-    } else {
-        quote! { timeout }
-    };
-    (maybe_timeout_arg, timeout_val)
-}
-
 fn handle_property(
     model: ClientModel,
     path_mode: ClientPathMode,
@@ -367,21 +353,19 @@ fn handle_property(
         PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
     ) {
         let prop_write = |default_timeout: bool| {
-            let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
             let write_fn_name = if default_timeout {
                 Ident::new(&format!("write_{}", prop_name), prop_name.span())
             } else {
                 Ident::new(&format!("write_{}_timeout", prop_name), prop_name.span())
             };
             quote! {
-                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def, #maybe_timeout_arg) -> Result<(), wire_weaver_client_common::Error> {
+                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
                     #ser
                     #index_chain_push
                     let path_kind = #path_kind;
                     let _data = self.cmd_tx.send_write_receive_reply(
                         path_kind,
                         value,
-                        #timeout_val
                     ).await?;
                     Ok(())
                 }
@@ -402,7 +386,6 @@ fn handle_property(
         PropertyAccess::Const | PropertyAccess::ReadWrite | PropertyAccess::ReadOnly
     ) {
         let prop_read = |default_timeout: bool| {
-            let (maybe_timeout_arg, timeout_val) = timeout_arg_val(default_timeout);
             let read_fn_name = if default_timeout {
                 Ident::new(&format!("read_{}", prop_name), prop_name.span())
             } else {
@@ -410,12 +393,11 @@ fn handle_property(
             };
             let maybe_comma = maybe_quote(!default_timeout, quote! { , });
             quote! {
-                pub async fn #read_fn_name(&mut self #maybe_comma #maybe_timeout_arg) -> Result<#ty_def, wire_weaver_client_common::Error> {
+                pub async fn #read_fn_name(&mut self #maybe_comma) -> Result<#ty_def, wire_weaver_client_common::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
                     let bytes = self.cmd_tx.send_read_receive_reply(
                         path_kind,
-                        #timeout_val
                     ).await?;
                     let mut rd = BufReader::new(&bytes);
                     #des
@@ -604,13 +586,14 @@ fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
                 filter: wire_weaver_client_common::DeviceFilter,
                 api_version: wire_weaver::ww_version::FullVersion<'static>,
                 on_error: wire_weaver_client_common::OnError,
-                default_timeout: std::time::Duration,
+                local_timeout: Option<std::time::Duration>,
                 scratch: [u8; 4096],
             ) -> Result<Self, wire_weaver_client_common::Error> {
                 use tokio::sync::mpsc;
                 let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
                 let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
                 let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
+                cmd_tx.set_local_timeout(local_timeout);
                 tokio::spawn(async move {
                     wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
                 });
@@ -618,7 +601,6 @@ fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
                 Ok(Self {
                     args_scratch: scratch,
                     cmd_tx,
-                    timeout: default_timeout,
                 })
             }
         }

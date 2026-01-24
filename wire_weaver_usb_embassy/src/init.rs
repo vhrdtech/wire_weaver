@@ -1,5 +1,5 @@
 use crate::{UsbTimings, WireWeaverClass};
-use defmt::{info, trace};
+use defmt::{debug, info};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
@@ -121,7 +121,7 @@ pub fn usb_init<
     // Build the builder.
     let usb = builder.build();
     info!("USB builder built");
-    trace!("{}", usb.buffer_usage());
+    debug!("{}", usb.buffer_usage());
 
     let (tx, rx) = ww.split(); // TODO: do not split?
     let link = WireWeaverUsbLink::new(user_protocol, tx, &mut buffers.tx, rx, &mut buffers.rx);

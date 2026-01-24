@@ -10,8 +10,11 @@ pub use event_loop::UsbTimings;
 pub use init::{UsbBuffers, UsbServer, usb_init};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
+use embassy_usb::msos::windows_version;
 use embassy_usb::types::InterfaceNumber;
 use embassy_usb::{Builder, msos};
+use wire_weaver::full_version;
+use wire_weaver::prelude::FullVersion;
 use wire_weaver_usb_link::{PacketSink, PacketSource};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
@@ -21,7 +24,14 @@ pub const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
 /// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
 pub const ENDPOINTS_USED: usize = 2;
 
-const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_0: u8 = 0x40 + 0;
+const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION: u8 = 0x40 + 0;
+const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE: u8 = 0x40 + 1;
+const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION: u8 = 0x40 + 2;
+
+use wire_weaver::ww_version;
+const SELF_VERSION: FullVersion = full_version!();
+const USB_DEVICE_CLASS_GUID: &str = "{4987DAA6-F852-4B79-A4C8-8C0E0648C845}";
+const DEVICE_INTERFACE_GUIDS: &[&str] = &[USB_DEVICE_CLASS_GUID];
 
 /// WireWeaver USB class
 pub struct WireWeaverClass<'d, D: Driver<'d>> {
@@ -36,8 +46,20 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         builder: &mut Builder<'d, D>,
         max_packet_size: u16,
         write_timeout: Duration,
+        user_protocol: FullVersion<'static>,
     ) -> Self {
         defmt::debug_assert!(builder.control_buf_len() >= 7);
+
+        // Add MSOS headers so that the device automatically gets assigned the WinUSB driver on Windows.
+        //
+        // It seems these always need to be at added at the device level for this to work and for
+        // composite devices they also need to be added on the function level (as shown later).
+        builder.msos_descriptor(windows_version::WIN8_1, 0);
+        builder.msos_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
+        builder.msos_feature(msos::RegistryPropertyFeatureDescriptor::new(
+            "DeviceInterfaceGUIDs",
+            msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
+        ));
 
         let mut func = builder.function(
             USB_CLASS_VENDOR_SPECIFIC,
@@ -45,8 +67,6 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             USB_PROTOCOL_WIRE_WEAVER,
         );
 
-        const USB_DEVICE_CLASS_GUID: &str = "{4987DAA6-F852-4B79-A4C8-8C0E0648C845}";
-        const DEVICE_INTERFACE_GUIDS: &[&str] = &[USB_DEVICE_CLASS_GUID];
         func.msos_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
         func.msos_feature(msos::RegistryPropertyFeatureDescriptor::new(
             "DeviceInterfaceGUIDs",
@@ -66,6 +86,33 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         // TODO: verify that None as endpoint address here is correct, first available endpoint will be used internally
         let read_ep = alt.endpoint_interrupt_out(None, max_packet_size, 1);
         let write_ep = alt.endpoint_interrupt_in(None, max_packet_size, 1);
+
+        let self_version = [
+            b'w',
+            b'w',
+            b'u',
+            b'e',
+            u8::try_from(SELF_VERSION.version.major.0).unwrap_or(255),
+            u8::try_from(SELF_VERSION.version.minor.0).unwrap_or(255),
+            u8::try_from(SELF_VERSION.version.patch.0).unwrap_or(255),
+        ];
+        alt.descriptor(
+            CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION,
+            &self_version,
+        );
+        alt.descriptor(
+            CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE,
+            user_protocol.crate_id.as_bytes(),
+        );
+        let user_version = [
+            u8::try_from(user_protocol.version.major.0).unwrap_or(255),
+            u8::try_from(user_protocol.version.minor.0).unwrap_or(255),
+            u8::try_from(user_protocol.version.patch.0).unwrap_or(255),
+        ];
+        alt.descriptor(
+            CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION,
+            &user_version,
+        );
 
         drop(func);
 

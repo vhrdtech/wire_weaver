@@ -3,7 +3,6 @@ use defmt::{info, trace};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
-use embassy_usb::msos::windows_version;
 use embassy_usb::{Builder, Config, UsbDevice};
 use wire_weaver::{WireWeaverAsyncApiBackend, ww_version::FullVersion};
 use wire_weaver_usb_link::WireWeaverUsbLink;
@@ -20,10 +19,10 @@ pub struct UsbServer<'d, D: Driver<'d>, B> {
 }
 
 pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
-    // buffer_usage can be used to tune these
-    config_descriptor: [u8; 64],
-    bos_descriptor: [u8; 64],
-    msos_descriptor: [u8; 192],
+    // buffer_usage() can be used to tune these
+    config_descriptor: [u8; 96],
+    bos_descriptor: [u8; 40],
+    msos_descriptor: [u8; 330],
     control: [u8; 64],
     /// Used to receive USB packets
     rx: [u8; MAX_USB_PACKET_LEN],
@@ -43,9 +42,9 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
 {
     fn default() -> Self {
         UsbBuffers {
-            config_descriptor: [0u8; 64],
-            bos_descriptor: [0u8; 64],
-            msos_descriptor: [0u8; 192],
+            config_descriptor: [0u8; 96],
+            bos_descriptor: [0u8; 40],
+            msos_descriptor: [0u8; 330],
             control: [0u8; 64],
             rx: [0u8; MAX_USB_PACKET_LEN],
             rx_message: [0u8; MAX_MESSAGE_LEN],
@@ -111,13 +110,12 @@ pub fn usb_init<
         &mut buffers.control,
     );
 
-    builder.msos_descriptor(windows_version::WIN8_1, 2);
-
     // Create class on the builder.
     let ww = WireWeaverClass::new(
         &mut builder,
         MAX_USB_PACKET_LEN as u16,
         timings.packet_send_timeout,
+        user_protocol.clone(),
     );
 
     // Build the builder.

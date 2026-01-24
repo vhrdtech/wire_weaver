@@ -1,6 +1,6 @@
 [package]
 name = "wire_weaver_usb_embassy"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver USB device class using embassy"

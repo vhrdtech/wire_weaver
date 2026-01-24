@@ -586,7 +586,7 @@ fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
                 filter: wire_weaver_client_common::DeviceFilter,
                 api_version: wire_weaver::ww_version::FullVersion<'static>,
                 on_error: wire_weaver_client_common::OnError,
-                local_timeout: Option<std::time::Duration>,
+                local_timeout: std::time::Duration,
                 scratch: [u8; 4096],
             ) -> Result<Self, wire_weaver_client_common::Error> {
                 use tokio::sync::mpsc;

@@ -1,5 +1,6 @@
 use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
 use shrink_wrap::stack_vec::StackVec;
+use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::CompactVersion;

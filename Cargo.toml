@@ -19,19 +19,19 @@ strum_macros = "0.27"
 #ww_self = { version = "0.1.1" }
 #ww_global = { version = "0.1.1", default-features = false }
 
-#shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
-#shrink_wrap_core = { path = "../shrink_wrap/shrink_wrap_core" }
-#ww_version = { path = "../ww_stdlib/ww_version", default-features = false }
-#ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
-#ww_self = { path = "../ww_stdlib/ww_self" }
-#ww_global = { path = "../ww_stdlib/ww_global" }
+shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
+shrink_wrap_core = { path = "../shrink_wrap/shrink_wrap_core" }
+ww_version = { path = "../ww_stdlib/ww_version", default-features = false }
+ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
+ww_self = { path = "../ww_stdlib/ww_self" }
+ww_global = { path = "../ww_stdlib/ww_global" }
 
-shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa", default-features = false }
-shrink_wrap_core = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa" }
-ww_version = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
-ww_client_server = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
-ww_self = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
-ww_global = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
+#shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa", default-features = false }
+#shrink_wrap_core = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa" }
+#ww_version = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
+#ww_client_server = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
+#ww_self = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
+#ww_global = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
 
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }

@@ -311,7 +311,18 @@ fn handle_method(
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(ident, args, model.no_alloc());
     let output_ty = if let Some(return_type) = &return_type {
-        return_type.def(model.no_alloc())
+        if let Type::External(ext_ty, lifetime) = return_type {
+            if *lifetime {
+                let mut ty_owned = ext_ty.clone();
+                ty_owned.make_owned();
+                let ty_owned = &ty_owned;
+                quote! { #ty_owned }
+            } else {
+                return_type.def(model.no_alloc())
+            }
+        } else {
+            return_type.def(model.no_alloc())
+        }
     } else {
         quote! { () }
     };

@@ -12,6 +12,7 @@ trait Methods {
     fn one_plain_arg(value: u8);
     fn plain_return() -> u8;
     fn user_arg(u: UserDefined<'i>);
+    fn user_defined_return() -> UserDefined<'i>;
 
     // user-defined
     // ()
@@ -60,6 +61,13 @@ mod no_std_sync_server {
             assert_eq!(iter.next(), Some(&2));
             assert_eq!(iter.next(), Some(&3));
             assert_eq!(iter.next(), None);
+        }
+
+        fn user_defined_return(&mut self) -> UserDefined<'_> {
+            UserDefined {
+                a: 37,
+                b: RefVec::new_bytes(&[1, 2, 3]),
+            }
         }
     }
 

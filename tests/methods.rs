@@ -71,13 +71,17 @@ mod no_std_sync_server {
         }
     }
 
-    ww_api!(
-        "methods.rs" as super::Methods for NoStdSyncServer,
-        server = true, no_alloc = true, use_async = false,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        debug_to_file = "../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
-    );
+    mod api_impl {
+        use wire_weaver::ww_api;
+
+        ww_api!(
+            "methods.rs" as super::Methods for NoStdSyncServer,
+            server = true, no_alloc = true, use_async = false,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            debug_to_file = "../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
+        );
+    }
 }
 
 mod std_async_client {

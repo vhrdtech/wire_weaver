@@ -36,13 +36,17 @@ trait Channel {
 
 pub struct NoStdSyncServer {}
 
-ww_api!(
-    "array_of_streams.rs" as tests::ArrayOfStreams for NoStdSyncServer,
-    server = true, no_alloc = true, use_async = false,
-    method_model = "_=immediate",
-    property_model = "_=get_set",
-    debug_to_file = "../target/tests_array_of_streams_server.rs"
-);
+mod api_impl {
+    use wire_weaver::ww_api;
+
+    ww_api!(
+        "array_of_streams.rs" as super::ArrayOfStreams for NoStdSyncServer,
+        server = true, no_alloc = true, use_async = false,
+        method_model = "_=immediate",
+        property_model = "_=get_set",
+        debug_to_file = "../target/tests_array_of_streams_server.rs"
+    );
+}
 
 impl NoStdSyncServer {
     fn root_stream_sideband(&mut self, _cmd: StreamSidebandCommand) -> Option<StreamSidebandEvent> {

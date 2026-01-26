@@ -112,13 +112,17 @@ mod no_std_sync_server {
         }
     }
 
-    ww_api!(
-        "streams.rs" as tests::Streams for NoStdSyncServer,
-        server = true, no_alloc = true, use_async = false,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        debug_to_file = "../target/tests_streams_server.rs"
-    );
+    mod api_impl {
+        use wire_weaver::ww_api;
+
+        ww_api!(
+            "streams.rs" as super::Streams for NoStdSyncServer,
+            server = true, no_alloc = true, use_async = false,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            debug_to_file = "../target/tests_streams_server.rs"
+        );
+    }
 }
 
 mod std_async_client {

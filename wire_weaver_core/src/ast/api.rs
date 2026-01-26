@@ -1,6 +1,6 @@
 use crate::ast::trait_macro_args::ImplTraitMacroArgs;
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use shrink_wrap_core::ast::path::Path;
 use shrink_wrap_core::ast::{Docs, Type};
@@ -85,27 +85,20 @@ pub enum PropertyAccess {
 }
 
 impl ApiLevel {
-    pub fn mod_ident(&self, ext_crate_name: Option<&Ident>) -> Ident {
-        if let Some(ext_crate_name) = ext_crate_name {
-            Ident::new(
-                format!(
-                    "{}_{}",
-                    ext_crate_name,
-                    self.name.to_string().to_case(Case::Snake)
-                )
-                .as_str(),
-                ext_crate_name.span(),
+    pub fn mod_ident(&self, crate_name: &Ident) -> Ident {
+        Ident::new(
+            format!(
+                "{}_{}",
+                crate_name,
+                self.name.to_string().to_case(Case::Snake)
             )
-        } else {
-            Ident::new(
-                self.name.to_string().to_case(Case::Snake).as_str(),
-                Span::call_site(),
-            )
-        }
+            .as_str(),
+            crate_name.span(),
+        )
     }
 
-    pub fn client_struct_name(&self, ext_crate_name: Option<&Ident>) -> Ident {
-        let mod_name = self.mod_ident(ext_crate_name);
+    pub fn client_struct_name(&self, crate_name: &Ident) -> Ident {
+        let mod_name = self.mod_ident(crate_name);
         Ident::new(
             format!("{}_client", mod_name)
                 .to_case(Case::Pascal)
@@ -114,8 +107,8 @@ impl ApiLevel {
         )
     }
 
-    pub fn stream_ser_struct_name(&self, ext_crate_name: Option<&Ident>) -> Ident {
-        let mod_name = self.mod_ident(ext_crate_name);
+    pub fn stream_ser_struct_name(&self, crate_name: &Ident) -> Ident {
+        let mod_name = self.mod_ident(crate_name);
         Ident::new(
             format!("{}_stream_serializer", mod_name)
                 .to_case(Case::Pascal)

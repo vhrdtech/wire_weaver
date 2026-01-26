@@ -1,8 +1,6 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
-use crate::ast::api::{
-    ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
-};
+use crate::ast::api::{ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::introspect::introspect;
@@ -36,10 +34,7 @@ pub fn impl_server_dispatcher(
     let mut error_seq = ErrorSeq::default();
     let deferred_return_methods =
         deferred_method_return_ser_methods(api_level, no_alloc, method_model, &mut error_seq);
-    let external_crate_name = match &api_level.source_location {
-        ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
-        ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
-    };
+    let crate_name = api_level.source_location.crate_name();
     let cx = ApiServerCGContext {
         ident_prefix: None,
         no_alloc,
@@ -51,80 +46,70 @@ pub fn impl_server_dispatcher(
         Ident::new("process_request_inner", Span::call_site()),
         api_level,
         IndexChain::new(),
-        Some(external_crate_name),
+        crate_name,
         &cx,
         &mut error_seq,
         true,
     );
-    let stream_send_methods = stream_ser_methods_recursive(
-        api_level,
-        IndexChain::new(),
-        Some(external_crate_name),
-        no_alloc,
-        true,
-    );
-    let mod_doc = &api_level.docs;
-    let args_structs = args_structs_recursive(api_level, Some(external_crate_name), no_alloc);
-    let use_external =
-        api_level.use_external_types(Path::new_ident(external_crate_name.clone()), no_alloc);
+    let stream_send_methods =
+        stream_ser_methods_recursive(api_level, IndexChain::new(), crate_name, no_alloc, true);
+    let args_structs = args_structs_recursive(api_level, crate_name, no_alloc);
+    let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
     let es = error_seq.next_err();
     quote! {
-        #mod_doc
-        mod api_impl {
-            #args_structs
+        #args_structs
 
-            use wire_weaver::shrink_wrap::{
-                DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
-                Error as ShrinkWrapError, nib32::UNib32, ElementSize
-            };
-            use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
-            #additional_use
-            #use_external
+        use wire_weaver::shrink_wrap::{
+            DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
+            Error as ShrinkWrapError, nib32::UNib32, ElementSize
+        };
+        use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
+        #additional_use
+        #use_external
 
-            impl super::#context_ident {
-                /// Returns an Error only if request deserialization or error serialization failed.
-                /// If there are any other errors, they are returned to the remote caller.
-                pub #maybe_async fn #handler_ident<'a>(
-                    &mut self,
-                    bytes: &[u8],
-                    scratch_args: &'a mut [u8],
-                    scratch_event: &'a mut [u8],
-                    scratch_err: &'a mut [u8]
-                ) -> Result<&'a [u8], ShrinkWrapError> {
-                    let mut rd = BufReader::new(bytes);
-                    let request = Request::des_shrink_wrap(&mut rd)?;
-                    // if matches!(request.kind, RequestKind::Read) && request.seq == 0 { // TODO: Move to property read
-                    //     return Ok(ser_err_event(scratch_err, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
-                    // }
-                    // TODO: handle trait paths on server side
-                    let PathKind::Absolute { path } = &request.path_kind else {
+        impl super::#context_ident {
+            /// Returns an Error only if request deserialization or error serialization failed.
+            /// If there are any other errors, they are returned to the remote caller.
+            pub #maybe_async fn #handler_ident<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch_args: &'a mut [u8],
+                scratch_event: &'a mut [u8],
+                scratch_err: &'a mut [u8]
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                let mut rd = BufReader::new(bytes);
+                let request = Request::des_shrink_wrap(&mut rd)?;
+                // if matches!(request.kind, RequestKind::Read) && request.seq == 0 { // TODO: Move to property read
+                //     return Ok(ser_err_event(scratch_err, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
+                // }
+                // TODO: handle trait paths on server side
+                let PathKind::Absolute { path } = &request.path_kind else {
+                    let mut wr = BufWriter::new(scratch_err);
+                    let event = Event { seq: request.seq, result: Err(Error::new(#es, ErrorKind::PathKindNotSupported)) };
+                    event.ser_shrink_wrap(&mut wr)?;
+                    return wr.finish_and_take();
+                };
+                let mut path_iter = path.iter();
+                match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
+                    Ok(response_bytes) => Ok(response_bytes),
+                    Err(e) => {
                         let mut wr = BufWriter::new(scratch_err);
-                        let event = Event { seq: request.seq, result: Err(Error::new(#es, ErrorKind::PathKindNotSupported)) };
+                        let event = Event {
+                            seq: request.seq,
+                            result: Err(e)
+                        };
                         event.ser_shrink_wrap(&mut wr)?;
-                        return wr.finish_and_take();
-                    };
-                    let mut path_iter = path.iter();
-                    match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
-                        Ok(response_bytes) => Ok(response_bytes),
-                        Err(e) => {
-                            let mut wr = BufWriter::new(scratch_err);
-                            let event = Event {
-                                seq: request.seq,
-                                result: Err(e)
-                            };
-                            event.ser_shrink_wrap(&mut wr)?;
-                            wr.finish_and_take()
-                        }
+                        wr.finish_and_take()
                     }
                 }
-
-                #process_request_inner
-
-                #deferred_return_methods
             }
 
-            #stream_send_methods
+            #process_request_inner
+
+            #deferred_return_methods
         }
+
+        #stream_send_methods
     }
 }
 
@@ -157,13 +142,13 @@ fn process_request_inner_recursive(
     ident: Ident,
     api_level: &ApiLevel,
     index_chain: IndexChain,
-    ext_crate_name: Option<&Ident>,
+    crate_name: &Ident,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
     is_root: bool,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
-    let level_matchers = level_matchers(api_level, index_chain, ext_crate_name, cx, error_seq);
+    let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
     let introspect_root = if is_root {
@@ -235,7 +220,7 @@ fn process_request_inner_recursive(
             process_fn_name,
             level,
             index_chain,
-            args.location.crate_name().as_ref(),
+            level.source_location.crate_name(),
             &cx,
             error_seq,
             false,
@@ -247,7 +232,7 @@ fn process_request_inner_recursive(
 fn level_matchers(
     api_level: &ApiLevel,
     index_chain: IndexChain,
-    ext_crate_name: Option<&Ident>,
+    crate_name: &Ident,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
@@ -263,7 +248,7 @@ fn level_matchers(
         Multiplicity::Flat => level_matcher(
             &item.kind,
             index_chain,
-            api_level.mod_ident(ext_crate_name),
+            api_level.mod_ident(crate_name),
             cx,
             error_seq,
         ),
@@ -284,7 +269,7 @@ fn level_matchers(
             let lm = level_matcher(
                 &item.kind,
                 index_chain,
-                api_level.mod_ident(ext_crate_name),
+                api_level.mod_ident(crate_name),
                 cx,
                 error_seq,
             );
@@ -653,21 +638,12 @@ fn handle_stream(
     }
 }
 
-fn args_structs_recursive(
-    api_level: &ApiLevel,
-    ext_crate_name: Option<&Ident>,
-    no_alloc: bool,
-) -> TokenStream {
+fn args_structs_recursive(api_level: &ApiLevel, crate_name: &Ident, no_alloc: bool) -> TokenStream {
     let mut ts = TokenStream::new();
     let args_structs = api_common::args_structs(api_level, no_alloc);
 
-    let mod_name = api_level.mod_ident(ext_crate_name);
-    let use_external = api_level.use_external_types(
-        ext_crate_name
-            .map(|n| Path::new_ident(n.clone()))
-            .unwrap_or(Path::new_path("super::super")),
-        no_alloc,
-    );
+    let mod_name = api_level.mod_ident(crate_name);
+    let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
     ts.extend(quote! {
         mod #mod_name {
             use super::*;
@@ -676,13 +652,13 @@ fn args_structs_recursive(
         }
     });
     for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
+        let ApiItemKind::ImplTrait { args: _, level } = &item.kind else {
             continue;
         };
         let level = level.as_ref().expect("empty level");
         ts.extend(args_structs_recursive(
             level,
-            args.location.crate_name().as_ref(),
+            level.source_location.crate_name(),
             no_alloc,
         ));
     }
@@ -795,7 +771,7 @@ fn deferred_method_return_ser_methods(
             Span::call_site(),
         );
         let ser_output_or_unit = ser_method_output(
-            &api_level.mod_ident(None),
+            &api_level.mod_ident(api_level.source_location.crate_name()),
             ident,
             return_type,
             quote! { seq },

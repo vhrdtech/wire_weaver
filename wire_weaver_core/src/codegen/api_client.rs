@@ -1,8 +1,6 @@
 //! # Implementation details:
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
-use crate::ast::api::{
-    ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity, PropertyAccess,
-};
+use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::util::maybe_quote;
@@ -72,16 +70,13 @@ pub fn client(
         ClientPathMode::Absolute
     };
 
-    let ext_crate_name = match &api_level.source_location {
-        ApiLevelSourceLocation::File { part_of_crate, .. } => part_of_crate,
-        ApiLevelSourceLocation::Crate { crate_name, .. } => crate_name,
-    };
+    let crate_name = api_level.source_location.crate_name();
     // let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
     // let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
     let trait_clients = client_structs_recursive(
         api_level,
         IndexChain::new(),
-        Some(ext_crate_name),
+        crate_name,
         model,
         path_mode,
         Some(client_struct),
@@ -105,7 +100,7 @@ pub fn client(
 fn client_structs_recursive(
     api_level: &ApiLevel,
     index_chain: IndexChain,
-    ext_crate_name: Option<&Ident>,
+    crate_name: &Ident,
     model: ClientModel,
     path_mode: ClientPathMode,
     is_at_root: Option<&Ident>,
@@ -113,14 +108,10 @@ fn client_structs_recursive(
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_level, model.no_alloc());
 
-    let mod_name = api_level.mod_ident(ext_crate_name);
-    let use_external = api_level.use_external_types(
-        ext_crate_name
-            .map(|n| Path::new_ident(n.clone()))
-            .unwrap_or(Path::new_path("super::super")),
-        model.no_alloc(),
-    );
-    let client_struct_name = api_level.client_struct_name(ext_crate_name);
+    let mod_name = api_level.mod_ident(crate_name);
+    let use_external =
+        api_level.use_external_types(Path::new_ident(crate_name.clone()), model.no_alloc());
+    let client_struct_name = api_level.client_struct_name(crate_name);
     let gid_paths = api_level.gid_paths();
     let methods = level_methods(
         api_level,
@@ -148,7 +139,7 @@ fn client_structs_recursive(
         child_ts.extend(client_structs_recursive(
             level,
             index_chain,
-            Some(level.source_location.crate_name()),
+            level.source_location.crate_name(),
             model,
             path_mode,
             None,
@@ -280,9 +271,9 @@ fn level_method(
         ApiItemKind::ImplTrait { args, level } => {
             let level_entry_fn_name = &args.resource_name;
             let level = level.as_ref().expect("api level");
-            let ext_crate_name = level.source_location.crate_name().clone();
-            let mod_name = level.mod_ident(Some(&ext_crate_name));
-            let client_struct_name = level.client_struct_name(Some(&ext_crate_name));
+            let crate_name = level.source_location.crate_name();
+            let mod_name = level.mod_ident(crate_name);
+            let client_struct_name = level.client_struct_name(crate_name);
             let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {
                 pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {

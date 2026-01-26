@@ -11,6 +11,10 @@ impl IndexChain {
         IndexChain { len: 0 }
     }
 
+    pub fn from_len(len: usize) -> Self {
+        IndexChain { len }
+    }
+
     pub fn fun_argument_def(&self) -> TokenStream {
         let len = self.len;
         if len == 0 {

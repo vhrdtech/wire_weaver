@@ -27,7 +27,7 @@ pub enum ClientModel {
 }
 
 impl ClientModel {
-    fn no_alloc(&self) -> bool {
+    pub fn no_alloc(&self) -> bool {
         match self {
             ClientModel::Raw => true,
             ClientModel::FullClient => false,
@@ -38,7 +38,7 @@ impl ClientModel {
 
 /// Determines which resource path will be used in generated client code
 #[derive(Copy, Clone, PartialEq)]
-enum ClientPathMode {
+pub(crate) enum ClientPathMode {
     /// Absolute paths from user API root
     Absolute,
     /// Global full or compact paths starting from trait root (when used with client = "trait_client")

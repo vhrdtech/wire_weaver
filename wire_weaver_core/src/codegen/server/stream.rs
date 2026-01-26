@@ -3,11 +3,12 @@ use crate::codegen::index_chain::IndexChain;
 use crate::codegen::util::maybe_quote;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
+use shrink_wrap_core::ast::Type;
 
 pub(crate) fn stream_ser_methods_recursive(
     level: &ApiLevel,
     index_chain: IndexChain,
-    ext_crate_name: Option<&Ident>,
+    crate_name: &Ident,
     no_alloc: bool,
     is_root: bool,
 ) -> TokenStream {
@@ -29,8 +30,8 @@ pub(crate) fn stream_ser_methods_recursive(
         } = &item.kind
         {
             let child_level = child_level.as_ref().expect("non-empty level");
-            let ext_crate_name = args.location.crate_name().clone();
-            let child_struct_name = child_level.stream_ser_struct_name(ext_crate_name.as_ref());
+            let crate_name = child_level.source_location.crate_name();
+            let child_struct_name = child_level.stream_ser_struct_name(crate_name);
 
             index_chain.increment_length();
             if is_array {
@@ -39,7 +40,7 @@ pub(crate) fn stream_ser_methods_recursive(
             child_ts.extend(stream_ser_methods_recursive(
                 child_level,
                 index_chain,
-                args.location.crate_name().as_ref(),
+                crate_name,
                 no_alloc,
                 false,
             ));
@@ -65,7 +66,7 @@ pub(crate) fn stream_ser_methods_recursive(
         } else {
             quote! { 'a }
         };
-        let ty = ty.def(no_alloc);
+        let ty_def = ty.def(no_alloc);
 
         let bytes_to_container = if no_alloc {
             quote! { RefVec::Slice { slice: value_bytes } }
@@ -73,9 +74,16 @@ pub(crate) fn stream_ser_methods_recursive(
             quote! { Vec::from(value_bytes) }
         };
 
+        let maybe_crate_name =
+            maybe_quote(matches!(ty, Type::External(_, _)), quote! { #crate_name:: });
         methods_ts.extend(quote! {
             #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
-            pub fn #ident<#lifetimes>(&self, #maybe_index_arg value: &#ty, scratch_value: &mut [u8], scratch_event: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
+            pub fn #ident<#lifetimes>(
+                &self,
+                #maybe_index_arg value: & #maybe_crate_name #ty_def,
+                scratch_value: &mut [u8],
+                scratch_event: &'a mut [u8]
+            ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut wr = BufWriter::new(scratch_value);
                 value.ser_shrink_wrap(&mut wr)?;
                 let value_bytes = wr.finish_and_take()?;
@@ -94,7 +102,7 @@ pub(crate) fn stream_ser_methods_recursive(
         });
     }
 
-    let ser_struct_name = level.stream_ser_struct_name(ext_crate_name);
+    let ser_struct_name = level.stream_ser_struct_name(crate_name);
     let root_entry_fn = maybe_quote(
         is_root,
         quote! {

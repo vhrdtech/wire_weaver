@@ -20,16 +20,16 @@ pub enum ClientModel {
     /// Prepare ww_client_server::Request, convert it to RequestOwned and
     /// send through wire_weaver_client_common::CommandSender to a worker thread.
     /// Generates std, async code that allocates.
-    FullClient,
-    TraitClient,
+    StdFullClient,
+    StdTraitClient,
 }
 
 impl ClientModel {
     fn no_alloc(&self) -> bool {
         match self {
             ClientModel::Raw => true,
-            ClientModel::FullClient => false,
-            ClientModel::TraitClient => false,
+            ClientModel::StdFullClient => false,
+            ClientModel::StdTraitClient => false,
         }
     }
 }
@@ -49,12 +49,15 @@ pub fn client(
     client_struct: &Ident,
     usb_connect: bool,
 ) -> TokenStream {
-    let additional_use = if matches!(model, ClientModel::FullClient | ClientModel::TraitClient) {
+    let additional_use = if matches!(
+        model,
+        ClientModel::StdFullClient | ClientModel::StdTraitClient
+    ) {
         quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
     } else {
         quote! {}
     };
-    let hl_init = if model == ClientModel::FullClient {
+    let hl_init = if model == ClientModel::StdFullClient {
         let d = cmd_tx_disconnect_methods(usb_connect);
         quote! {
             impl super::#client_struct {
@@ -64,7 +67,7 @@ pub fn client(
     } else {
         quote! {}
     };
-    let path_mode = if matches!(model, ClientModel::TraitClient) {
+    let path_mode = if matches!(model, ClientModel::StdTraitClient) {
         ClientPathMode::GlobalTrait
     } else {
         ClientPathMode::Absolute
@@ -249,7 +252,12 @@ fn level_method(
             return_type,
             &item.docs,
         ),
-        ApiItemKind::Property { access, ident, ty } => handle_property(
+        ApiItemKind::Property {
+            access,
+            ident,
+            ty,
+            user_result_ty,
+        } => handle_property(
             model,
             path_mode,
             gid_paths,
@@ -257,6 +265,7 @@ fn level_method(
             access,
             ident,
             ty,
+            user_result_ty,
         ),
         ApiItemKind::Stream { ident, ty, is_up } => handle_stream(
             model,
@@ -338,8 +347,8 @@ fn handle_property(
     access: &PropertyAccess,
     prop_name: &Ident,
     ty: &Type,
+    user_result_ty: &Option<Type>,
 ) -> TokenStream {
-    let (ty_def, ser) = ser_write_value(model, prop_name, ty);
     let mut des = TokenStream::new();
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
@@ -349,35 +358,25 @@ fn handle_property(
         &mut des,
     );
     let path_kind = path_kind(path_mode, gid_paths);
+    let ty_def = ty.arg_pos_def2(model.no_alloc());
 
     let write_fns = if matches!(
         access,
         PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
     ) {
-        let prop_write = |default_timeout: bool| {
-            let write_fn_name = if default_timeout {
-                Ident::new(&format!("write_{}", prop_name), prop_name.span())
-            } else {
-                Ident::new(&format!("write_{}_timeout", prop_name), prop_name.span())
-            };
-            quote! {
-                pub async fn #write_fn_name(&mut self, #prop_name: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
-                    #ser
-                    #index_chain_push
-                    let path_kind = #path_kind;
-                    let _data = self.cmd_tx.send_write_receive_reply(
-                        path_kind,
-                        value,
-                    ).await?;
-                    Ok(())
-                }
-            }
+        let write_fn_name = Ident::new(&format!("write_{}", prop_name), prop_name.span());
+        let user_result_ty = if let Some(ty) = user_result_ty {
+            ty.arg_pos_def2(model.no_alloc())
+        } else {
+            quote! { () }
         };
-        let prop_write_default_timeout = prop_write(true);
-        // let prop_write = prop_write(false);
         quote! {
-            #prop_write_default_timeout
-            // #prop_write
+            pub fn #write_fn_name(&mut self, #prop_name: #ty_def) -> wire_weaver_client_common::PreparedWrite<#user_result_ty> {
+                let value = #prop_name.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd_tx.prepare_write(path_kind, value)
+            }
         }
     } else {
         quote! {}
@@ -387,31 +386,13 @@ fn handle_property(
         access,
         PropertyAccess::Const | PropertyAccess::ReadWrite | PropertyAccess::ReadOnly
     ) {
-        let prop_read = |default_timeout: bool| {
-            let read_fn_name = if default_timeout {
-                Ident::new(&format!("read_{}", prop_name), prop_name.span())
-            } else {
-                Ident::new(&format!("read_{}_timeout", prop_name), prop_name.span())
-            };
-            let maybe_comma = maybe_quote(!default_timeout, quote! { , });
-            quote! {
-                pub async fn #read_fn_name(&mut self #maybe_comma) -> Result<#ty_def, wire_weaver_client_common::Error> {
-                    #index_chain_push
-                    let path_kind = #path_kind;
-                    let bytes = self.cmd_tx.send_read_receive_reply(
-                        path_kind,
-                    ).await?;
-                    let mut rd = BufReader::new(&bytes);
-                    #des
-                    Ok(value)
-                }
-            }
-        };
-        let prop_read_default_timeout = prop_read(true);
-        // let prop_read = prop_read(false);
+        let read_fn_name = Ident::new(&format!("read_{}", prop_name), prop_name.span());
         quote! {
-            #prop_read_default_timeout
-            // #prop_read
+            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<#ty_def> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd_tx.prepare_read(path_kind)
+            }
         }
     } else {
         quote! {}

@@ -53,6 +53,7 @@ pub enum ApiItemKind {
         ident: Ident,
         ty: Type,
         access: PropertyAccess,
+        user_result_ty: Option<Type>,
     },
     Stream {
         ident: Ident,

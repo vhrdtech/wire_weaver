@@ -80,9 +80,9 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 for ext in &client[1..] {
                     usb_connect = *ext == "usb";
                 }
-                ClientModel::FullClient
+                ClientModel::StdFullClient
             }
-            "trait_client" => ClientModel::TraitClient,
+            "trait_client" => ClientModel::StdTraitClient,
             _ => {
                 return Err(format!(
                     "client supports raw or async_worked modes, got: '{}'",

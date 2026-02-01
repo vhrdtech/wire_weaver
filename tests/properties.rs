@@ -68,6 +68,7 @@ mod std_async_client {
             client = "full_client",
             no_alloc = false,
             use_async = true,
+            debug_to_file = "../target/tests_properties_client.rs"
         );
     }
 }
@@ -138,12 +139,12 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    let value = client.read_plain().await.unwrap();
+    let value = client.read_plain().read().await.unwrap();
     assert_eq!(value, 0);
 
-    client.write_plain(0xAA).await.unwrap();
+    client.write_plain(0xAA).write().await.unwrap();
     assert_eq!(data.read().unwrap().plain, 0xAA);
 
-    let value = client.read_plain().await.unwrap();
+    let value = client.read_plain().read().await.unwrap();
     assert_eq!(value, 0xAA);
 }

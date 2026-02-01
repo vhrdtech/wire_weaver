@@ -313,9 +313,20 @@ fn level_matcher(
             return_type,
             error_seq,
         ),
-        ApiItemKind::Property { access, ident, ty } => {
-            handle_property(index_chain, cx, ident, ty, *access, error_seq)
-        }
+        ApiItemKind::Property {
+            access,
+            ident,
+            ty,
+            user_result_ty,
+        } => handle_property(
+            index_chain,
+            cx,
+            ident,
+            ty,
+            user_result_ty,
+            *access,
+            error_seq,
+        ),
         ApiItemKind::Stream { ident, ty, is_up } => {
             handle_stream(index_chain, cx, ident, ty, *is_up, error_seq)
         }
@@ -414,6 +425,7 @@ fn handle_property(
     cx: &ApiServerCGContext,
     ident: &Ident,
     ty: &Type,
+    user_result_ty: &Option<Type>,
     access: PropertyAccess,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
@@ -431,6 +443,30 @@ fn handle_property(
     );
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
+    let maybe_let_user_result = maybe_quote(user_result_ty.is_some(), quote! { let user_result = });
+    let (es0, es1, es2, es3) = (
+        error_seq.next_err(),
+        error_seq.next_err(),
+        error_seq.next_err(),
+        error_seq.next_err(),
+    );
+    let maybe_ret_user_result = maybe_quote(
+        user_result_ty.is_some(),
+        quote! {
+            if user_result.is_err() && request.seq != 0 {
+                let mut wr = BufWriter::new(scratch_args);
+                user_result.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                let user_err_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                return Ok(
+                    ser_err_event(
+                        scratch_event,
+                        request.seq,
+                        Error::new(#es2, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
+                    ).map_err(|_| Error::new(#es3, ErrorKind::ResponseSerFailed))?
+                );
+            }
+        },
+    );
     let set_property = match property_model_pick {
         PropertyModelKind::GetSet => {
             let set_property = Ident::new(
@@ -438,7 +474,8 @@ fn handle_property(
                 Span::call_site(),
             );
             quote! {
-                self.#set_property(#maybe_index_chain_arg value)#maybe_await;
+                #maybe_let_user_result self.#set_property(#maybe_index_chain_arg value)#maybe_await;
+                #maybe_ret_user_result
             }
         }
         PropertyModelKind::ValueOnChanged => {
@@ -449,7 +486,8 @@ fn handle_property(
             quote! {
                 if self.#prefixed_ident != value {
                     self.#prefixed_ident = value;
-                    self.#on_property_changed(#maybe_index_chain_arg)#maybe_await;
+                    #maybe_let_user_result self.#on_property_changed(#maybe_index_chain_arg)#maybe_await;
+                    #maybe_ret_user_result
                 }
             }
         }

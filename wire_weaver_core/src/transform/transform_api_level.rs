@@ -104,6 +104,11 @@ pub fn transform_api_level(
                         syn::parse2(item_macro.mac.tokens.clone()).unwrap();
                     let path =
                         FieldPath::new(FieldPathRoot::NamedField(property_args.ident.clone())); // TODO: Clarify FieldPath purpose
+                    let user_result_ty = if let Some(ty) = property_args.user_result_ty {
+                        Some(transform_type(ty, None, &path)?)
+                    } else {
+                        None
+                    };
                     items.push(ApiItem {
                         id,
                         docs,
@@ -112,6 +117,7 @@ pub fn transform_api_level(
                             access: property_args.property_access,
                             ident: property_args.ident,
                             ty: transform_type(property_args.ty, None, &path)?,
+                            user_result_ty,
                         },
                     });
                 } else if kind == "ww_impl" {

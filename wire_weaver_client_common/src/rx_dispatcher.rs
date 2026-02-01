@@ -259,7 +259,7 @@ impl DispatcherState {
             },
             Err(e) => {
                 if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
-                    let _ = done_tx.send(Err(Error::RemoteError(e)));
+                    let _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
                 } else {
                     warn!("unknown seq {:?} for remote err {e:?}", &event.seq);
                 }

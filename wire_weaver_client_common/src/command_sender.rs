@@ -1,13 +1,14 @@
-use crate::promise::Promise;
+use crate::prepared_call::PreparedCall;
 use crate::rx_dispatcher::{DispatcherCommand, DispatcherMessage};
-use crate::{Command, DeviceFilter, Error, OnError, SeqTy, StreamEvent};
+use crate::{
+    Command, DeviceFilter, Error, OnError, PreparedRead, PreparedWrite, SeqTy, StreamEvent,
+};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{RwLock, mpsc, oneshot};
-use tracing::trace;
-use wire_weaver::prelude::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, UNib32};
+use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
 use ww_version::{CompactVersion, FullVersionOwned};
@@ -36,28 +37,6 @@ pub struct CommandSender {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     scratch: [u8; 4096],
     timeout: Option<Duration>,
-}
-
-/// Self-contained struct containing all necessary information needed to perform a call:
-/// * TX ends towards transport and dispatcher event loops
-/// * Serialized method arguments
-/// * Resource path
-/// * Return type as a generic `T` argument
-///
-/// When obtained, user can choose how to actually execute the call:
-/// * async: `call()`
-/// * blocking: `blocking_call()`
-/// * call-ignoring-return value: `call_forget()`
-/// * turn into a `Promise<T>` useful in immediate mode UI
-#[must_use = "PrepareCall does nothing, unless call(), blocking_call(), call_forget() or call_promise() is used"]
-pub struct PreparedCall<T> {
-    transport_cmd_tx: TransportCommander,
-    dispatcher_cmd_tx: DispatcherCommander,
-    seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
-    path_kind: Result<PathKindOwned, Error>,
-    args: Result<Vec<u8>, Error>,
-    timeout: Option<Duration>,
-    _phantom: PhantomData<T>,
 }
 
 pub(crate) struct TransportCommander {
@@ -168,7 +147,7 @@ impl CommandSender {
         Ok(())
     }
 
-    pub fn prepare_call<'i, T: DeserializeShrinkWrap<'i>>(
+    pub fn prepare_call<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
@@ -189,31 +168,44 @@ impl CommandSender {
         }
     }
 
-    /// Sends write request to remote device, awaits response and returns.
-    pub async fn send_write_receive_reply(
-        &mut self,
+    pub fn prepare_read<T: DeserializeShrinkWrapOwned>(
+        &self,
         path: PathKind<'_>,
-        value_bytes: Vec<u8>,
-    ) -> Result<(), Error> {
-        let seq = self.next_seq().await?;
-        let path_kind = self.to_ww_client_server_path(path)?;
-        let (done_tx, done_rx) = oneshot::channel();
-        self.dispatcher_cmd_tx
-            .send(DispatcherCommand::OnWriteComplete {
-                seq,
-                done_tx,
-                timeout: self.timeout,
-            })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-
-        // send write command to remote device
-        self.send_request(
-            seq,
+    ) -> PreparedRead<T> {
+        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        PreparedRead {
+            transport_cmd_tx: TransportCommander {
+                cmd_tx: self.transport_cmd_tx.clone(),
+            },
+            dispatcher_cmd_tx: DispatcherCommander {
+                cmd_tx: self.dispatcher_cmd_tx.clone(),
+            },
+            seq_rx: self.seq_rx.clone(),
             path_kind,
-            RequestKindOwned::Write { data: value_bytes },
-        )?;
-        let _data = self.receive_reply(done_rx, "write").await?;
-        Ok(())
+            timeout: self.timeout,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn prepare_write<E: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+        value: Result<Vec<u8>, Error>,
+    ) -> PreparedWrite<E> {
+        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        PreparedWrite {
+            transport_cmd_tx: TransportCommander {
+                cmd_tx: self.transport_cmd_tx.clone(),
+            },
+            dispatcher_cmd_tx: DispatcherCommander {
+                cmd_tx: self.dispatcher_cmd_tx.clone(),
+            },
+            seq_rx: self.seq_rx.clone(),
+            path_kind,
+            value,
+            timeout: self.timeout,
+            _phantom_err: PhantomData,
+        }
     }
 
     /// Sends write request to remote device with seq == 0.
@@ -253,45 +245,6 @@ impl CommandSender {
             },
         )?;
         Ok(())
-    }
-
-    /// Sends read request to remote device, awaits response and returns it.
-    pub async fn send_read_receive_reply(&mut self, path: PathKind<'_>) -> Result<Vec<u8>, Error> {
-        // obtain next seq and correct path
-        let seq = self.next_seq().await?;
-        let path_kind = self.to_ww_client_server_path(path)?;
-
-        // notify rx dispatcher
-        let (done_tx, done_rx) = oneshot::channel();
-        self.dispatcher_cmd_tx
-            .send(DispatcherCommand::OnReadValue {
-                seq,
-                done_tx,
-                timeout: self.timeout,
-            })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-
-        // send read command to remote device
-        self.send_request(seq, path_kind, RequestKindOwned::Read)?;
-
-        // await response from remote device (through rx dispatcher)
-        let data = self.receive_reply(done_rx, "read").await?;
-
-        Ok(data)
-    }
-
-    #[deprecated]
-    async fn receive_reply(
-        &self,
-        done_rx: oneshot::Receiver<Result<Vec<u8>, Error>>,
-        desc: &'static str,
-    ) -> Result<Vec<u8>, Error> {
-        let rx_or_timeout = tokio::time::timeout(Duration::from_millis(100), done_rx).await;
-        trace!("got {desc} response: {:02x?}", rx_or_timeout);
-        let rx_or_recv_err = rx_or_timeout.map_err(|_| Error::Timeout)?;
-        let response = rx_or_recv_err.map_err(|_| Error::EventLoopNotRunning)?;
-        let data = response?;
-        Ok(data)
     }
 
     pub async fn next_seq(&mut self) -> Result<SeqTy, Error> {
@@ -392,10 +345,51 @@ impl TransportCommander {
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
+
+    pub(crate) fn send_read_request(
+        &self,
+        seq: SeqTy,
+        path_kind: PathKindOwned,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind,
+            kind: RequestKindOwned::Read,
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .send(Command::SendMessage {
+                bytes: req.to_vec(),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub(crate) fn send_write_request(
+        &self,
+        seq: SeqTy,
+        path_kind: PathKindOwned,
+        value: Vec<u8>,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind,
+            kind: RequestKindOwned::Write { data: value },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .send(Command::SendMessage {
+                bytes: req.to_vec(),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
 }
 
 impl DispatcherCommander {
-    /// Notify rx dispatcher about a new call with seq
+    /// Notify rx dispatcher about a new call request with seq
     pub(crate) fn on_call_return(
         &self,
         seq: SeqTy,
@@ -411,101 +405,38 @@ impl DispatcherCommander {
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         Ok(done_rx)
     }
-}
 
-impl<T: DeserializeShrinkWrapOwned> PreparedCall<T> {
-    /// Use provided timeout instead of default one propagated from CommandSender
-    pub fn with_timeout(self, timeout: Duration) -> Self {
-        Self {
-            transport_cmd_tx: self.transport_cmd_tx,
-            dispatcher_cmd_tx: self.dispatcher_cmd_tx,
-            seq_rx: self.seq_rx,
-            path_kind: self.path_kind,
-            args: self.args,
-            timeout: Some(timeout),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Send call request, await response (or timeout) and return it.
-    pub async fn call(self) -> Result<T, Error> {
-        // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
-        let path_kind = self.path_kind?;
-        let args = self.args?;
-
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.write().await;
-            seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
-        self.transport_cmd_tx
-            .send_call_request(seq, path_kind, args)?;
-
-        // await return value from remote device (routed through rx dispatcher)
-        let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
-        let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
-        let reply: T = T::from_ww_bytes_owned(&response)?;
-        Ok(reply)
-    }
-
-    /// Send call request, block the thread until response is received (or timeout) and return it.
-    pub fn blocking_call(self) -> Result<T, Error> {
-        let path_kind = self.path_kind?;
-        let args = self.args?;
-
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.blocking_write();
-            seq_rx
-                .blocking_recv()
-                .ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
-        self.transport_cmd_tx
-            .send_call_request(seq, path_kind, args)?;
-
-        // await return value from remote device (routed through rx dispatcher)
-        let rx_or_recv_err = done_rx
-            .blocking_recv()
+    /// Notify rx dispatcher about a new read request with seq
+    pub(crate) fn on_read_return(
+        &self,
+        seq: SeqTy,
+        timeout: Option<Duration>,
+    ) -> Result<oneshot::Receiver<Result<Vec<u8>, Error>>, Error> {
+        let (done_tx, done_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(DispatcherCommand::OnReadValue {
+                seq,
+                done_tx,
+                timeout,
+            })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
-        let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
-        let reply: T = T::from_ww_bytes_owned(&response)?;
-        Ok(reply)
+        Ok(done_rx)
     }
 
-    /// Send call request with seq = 0 and immediately return without response (remote end won't send it either).
-    pub fn call_forget(self) -> Result<(), Error> {
-        let path_kind = self.path_kind?;
-        let args = self.args?;
-        self.transport_cmd_tx
-            .send_call_request(0, path_kind, args)?;
-        Ok(())
-    }
-
-    /// Send call request and return a Promise that can be used to await a result. Useful for immediate mode UI.
-    pub fn call_promise(self, marker: &'static str) -> Promise<T> {
-        let path_kind = match self.path_kind {
-            Ok(p) => p,
-            Err(e) => return Promise::error(e, marker),
-        };
-        let args = match self.args {
-            Ok(a) => a,
-            Err(e) => return Promise::error(e, marker),
-        };
-
-        Promise::new(
-            path_kind,
-            args,
-            self.seq_rx,
-            self.timeout,
-            self.transport_cmd_tx,
-            self.dispatcher_cmd_tx,
-            marker,
-        )
+    /// Notify rx dispatcher about a new write request with seq
+    pub(crate) fn on_write_return(
+        &self,
+        seq: SeqTy,
+        timeout: Option<Duration>,
+    ) -> Result<oneshot::Receiver<Result<Vec<u8>, Error>>, Error> {
+        let (done_tx, done_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(DispatcherCommand::OnWriteComplete {
+                seq,
+                done_tx,
+                timeout,
+            })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(done_rx)
     }
 }

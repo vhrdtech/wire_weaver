@@ -2,14 +2,20 @@ pub mod attachment;
 pub mod command_sender;
 pub mod device_filter;
 pub mod event_loop_state;
+mod prepared_call;
+mod prepared_read;
+mod prepared_write;
 pub mod promise;
 pub mod rx_dispatcher;
 pub mod ww;
 
 // TODO: remove
 pub use attachment::Attachment;
-pub use command_sender::{CommandSender, PreparedCall};
+pub use command_sender::CommandSender;
 pub use device_filter::DeviceFilter;
+pub use prepared_call::PreparedCall;
+pub use prepared_read::PreparedRead;
+pub use prepared_write::PreparedWrite;
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;
@@ -75,8 +81,10 @@ pub enum Error {
     IncompatibleDeviceProtocol,
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
-    #[error("Remote device returned ww_client_server::Error: {:?}", .0)]
-    RemoteError(ww_client_server::Error),
+    #[error("Remote device returned ww_client_server::{:?}", .0)]
+    RemoteError(ww_client_server::ErrorOwned),
+    #[error("Remote device returned {}", .0)]
+    RemoteErrorDes(String),
     // #[error("Failed to deserialize a bytes slice from device response")]
     // ByteSliceReadFailed,
     #[error("All command senders were dropped")]

@@ -21,6 +21,7 @@ pub struct PropertyMacroArgs {
     pub resource_array: ResourceArray,
     _colon: Token![:],
     pub ty: syn::Type,
+    pub user_result_ty: Option<syn::Type>,
 }
 
 impl Parse for StreamMacroArgs {
@@ -50,12 +51,22 @@ impl Parse for PropertyMacroArgs {
             } else {
                 (maybe_ident, PropertyAccess::ReadWrite)
             };
+        let resource_array = input.parse()?;
+        let _colon = input.parse()?;
+        let ty = input.parse()?;
+        let user_result_ty = if input.peek(Token![,]) {
+            let _: Token![,] = input.parse()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
         Ok(PropertyMacroArgs {
             property_access,
             ident,
-            resource_array: input.parse()?,
-            _colon: input.parse()?,
-            ty: input.parse()?,
+            resource_array,
+            _colon,
+            ty,
+            user_result_ty,
         })
     }
 }

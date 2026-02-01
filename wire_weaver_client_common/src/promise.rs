@@ -1,12 +1,12 @@
 use crate::command_sender::{DispatcherCommander, TransportCommander};
 use crate::{Error, SeqTy};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{RwLock, mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
-use ww_client_server::PathKindOwned;
+use ww_client_server::{ErrorKindOwned, PathKindOwned};
 
 pub struct Promise<T> {
     state: PromiseState<T>,
@@ -18,9 +18,24 @@ pub struct Promise<T> {
 enum PromiseState<T> {
     #[default]
     None,
-    WaitingForSeq {
+    WaitingForSeqCall {
         path_kind: Option<PathKindOwned>,
         args: Option<Vec<u8>>,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+    },
+    WaitingForSeqRead {
+        path_kind: Option<PathKindOwned>,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+    },
+    WaitingForSeqWrite {
+        path_kind: Option<PathKindOwned>,
+        value: Option<Vec<u8>>,
         seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
         timeout: Option<Duration>,
         transport_cmd_tx: TransportCommander,
@@ -31,7 +46,25 @@ enum PromiseState<T> {
     Err(Error),
 }
 
-impl<T: DeserializeShrinkWrapOwned> Promise<T> {
+macro_rules! obtain_next_seq_or_return {
+    ($seq:ident, $seq_rx:ident, $self:ident) => {
+        let mut seq_rx = $seq_rx.blocking_write();
+        let $seq = match seq_rx.try_recv() {
+            Ok(seq) => {
+                drop(seq_rx);
+                seq
+            }
+            Err(_) => {
+                drop(seq_rx);
+                $self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
+                return true;
+            }
+        };
+    };
+}
+
+// Debug: only needed to deserialize ww_client_server::ErrorKind::UserBytes into user error
+impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     pub fn empty(marker: &'static str) -> Self {
         Self {
             state: PromiseState::None,
@@ -48,7 +81,7 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
         }
     }
 
-    pub(crate) fn new(
+    pub(crate) fn new_call(
         path_kind: PathKindOwned,
         args: Vec<u8>,
         seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
@@ -58,9 +91,53 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
         marker: &'static str,
     ) -> Self {
         Self {
-            state: PromiseState::WaitingForSeq {
+            state: PromiseState::WaitingForSeqCall {
                 path_kind: Some(path_kind),
                 args: Some(args),
+                timeout,
+                transport_cmd_tx,
+                dispatcher_cmd_tx,
+                seq_rx,
+            },
+            marker,
+            seen: false,
+        }
+    }
+
+    pub(crate) fn new_read(
+        path_kind: PathKindOwned,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+        marker: &'static str,
+    ) -> Self {
+        Self {
+            state: PromiseState::WaitingForSeqRead {
+                path_kind: Some(path_kind),
+                timeout,
+                transport_cmd_tx,
+                dispatcher_cmd_tx,
+                seq_rx,
+            },
+            marker,
+            seen: false,
+        }
+    }
+
+    pub(crate) fn new_write(
+        path_kind: PathKindOwned,
+        value: Vec<u8>,
+        seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+        timeout: Option<Duration>,
+        transport_cmd_tx: TransportCommander,
+        dispatcher_cmd_tx: DispatcherCommander,
+        marker: &'static str,
+    ) -> Self {
+        Self {
+            state: PromiseState::WaitingForSeqWrite {
+                path_kind: Some(path_kind),
+                value: Some(value),
                 timeout,
                 transport_cmd_tx,
                 dispatcher_cmd_tx,
@@ -139,50 +216,26 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
     }
 
     pub fn sync_poll(&mut self) {
-        if let PromiseState::WaitingForSeq {
-            path_kind,
-            args,
-            timeout,
-            transport_cmd_tx,
-            dispatcher_cmd_tx,
-            seq_rx,
-        } = &mut self.state
-        {
-            // obtain next seq
-            let mut seq_rx = seq_rx.blocking_write();
-            let seq = match seq_rx.try_recv() {
-                Ok(seq) => {
-                    drop(seq_rx);
-                    seq
-                }
-                Err(_) => {
-                    drop(seq_rx);
-                    self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
-                    return;
-                }
-            };
-
-            // notify rx dispatcher & send call to remote device through transport layer
-            let done_rx = match dispatcher_cmd_tx.on_call_return(seq, *timeout) {
-                Ok(done_rx) => done_rx,
-                Err(e) => {
-                    self.state = PromiseState::Err(e);
-                    return;
-                }
-            };
-            let (Some(path_kind), Some(args)) = (path_kind.take(), args.take()) else {
-                self.state = PromiseState::Err(Error::Other("internal state error".into()));
-                return;
-            };
-            match transport_cmd_tx.send_call_request(seq, path_kind, args) {
-                Ok(_) => {
-                    self.state = PromiseState::WaitingForReply(seq, done_rx);
-                }
-                Err(e) => {
-                    self.state = PromiseState::Err(e);
+        match &self.state {
+            PromiseState::WaitingForSeqCall { .. } => {
+                let no_more_work = self.send_call();
+                if no_more_work {
                     return;
                 }
             }
+            PromiseState::WaitingForSeqRead { .. } => {
+                let no_more_work = self.send_read();
+                if no_more_work {
+                    return;
+                }
+            }
+            PromiseState::WaitingForSeqWrite { .. } => {
+                let no_more_work = self.send_write();
+                if no_more_work {
+                    return;
+                }
+            }
+            _ => {}
         }
         if let PromiseState::WaitingForReply(_seq, rx) = &mut self.state {
             match rx.try_recv() {
@@ -196,7 +249,26 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
                         }
                     },
                     Err(e) => {
-                        self.state = PromiseState::Err(e);
+                        if let Error::RemoteError(remote) = &e
+                            && let ErrorKindOwned::UserBytes(bytes) = &remote.kind
+                        {
+                            match T::from_ww_bytes_owned(bytes) {
+                                Ok(err) => {
+                                    self.state = PromiseState::Err(Error::RemoteErrorDes(format!(
+                                        "Error {{ err_seq: {}, user error: {:?} }}",
+                                        remote.err_seq, err
+                                    )))
+                                }
+                                Err(e) => {
+                                    self.state = PromiseState::Err(Error::RemoteErrorDes(format!(
+                                        "Error {{ err_seq: {}, failed to deserialize user error: {:?} }}",
+                                        remote.err_seq, e
+                                    )))
+                                }
+                            }
+                        } else {
+                            self.state = PromiseState::Err(e);
+                        }
                     }
                 },
                 Err(TryRecvError::Empty) => {}
@@ -205,6 +277,120 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
                 }
             }
         }
+    }
+
+    // noinspection DuplicatedCode
+    // Extracting methods or macros takes same amount of lines and makes things more confusing.
+    fn send_call(&mut self) -> bool {
+        if let PromiseState::WaitingForSeqCall {
+            path_kind,
+            args,
+            timeout,
+            transport_cmd_tx,
+            dispatcher_cmd_tx,
+            seq_rx,
+        } = &mut self.state
+        {
+            obtain_next_seq_or_return!(seq, seq_rx, self);
+
+            // notify rx dispatcher & send call to remote device through transport layer
+            let done_rx = match dispatcher_cmd_tx.on_call_return(seq, *timeout) {
+                Ok(done_rx) => done_rx,
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            };
+            let (Some(path_kind), Some(args)) = (path_kind.take(), args.take()) else {
+                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                return true;
+            };
+            match transport_cmd_tx.send_call_request(seq, path_kind, args) {
+                Ok(_) => {
+                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                }
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    // noinspection DuplicatedCode
+    fn send_read(&mut self) -> bool {
+        if let PromiseState::WaitingForSeqRead {
+            path_kind,
+            timeout,
+            transport_cmd_tx,
+            dispatcher_cmd_tx,
+            seq_rx,
+        } = &mut self.state
+        {
+            obtain_next_seq_or_return!(seq, seq_rx, self);
+
+            // notify rx dispatcher & send call to remote device through transport layer
+            let done_rx = match dispatcher_cmd_tx.on_read_return(seq, *timeout) {
+                Ok(done_rx) => done_rx,
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            };
+            let Some(path_kind) = path_kind.take() else {
+                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                return true;
+            };
+            match transport_cmd_tx.send_read_request(seq, path_kind) {
+                Ok(_) => {
+                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                }
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    // noinspection DuplicatedCode
+    fn send_write(&mut self) -> bool {
+        if let PromiseState::WaitingForSeqWrite {
+            path_kind,
+            value,
+            timeout,
+            transport_cmd_tx,
+            dispatcher_cmd_tx,
+            seq_rx,
+        } = &mut self.state
+        {
+            obtain_next_seq_or_return!(seq, seq_rx, self);
+
+            // notify rx dispatcher & send call to remote device through transport layer
+            let done_rx = match dispatcher_cmd_tx.on_write_return(seq, *timeout) {
+                Ok(done_rx) => done_rx,
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            };
+            let (Some(path_kind), Some(value)) = (path_kind.take(), value.take()) else {
+                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                return true;
+            };
+            match transport_cmd_tx.send_write_request(seq, path_kind, value) {
+                Ok(_) => {
+                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                }
+                Err(e) => {
+                    self.state = PromiseState::Err(e);
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
@@ -231,7 +417,9 @@ impl<T> Display for Promise<T> {
         write!(f, "Promise('{}')::", self.marker)?;
         match &self.state {
             PromiseState::None => write!(f, "None"),
-            PromiseState::WaitingForSeq { .. } => write!(f, "WaitingForSeq"),
+            PromiseState::WaitingForSeqCall { .. } => write!(f, "WaitingForSeqCall"),
+            PromiseState::WaitingForSeqRead { .. } => write!(f, "WaitingForSeqRead"),
+            PromiseState::WaitingForSeqWrite { .. } => write!(f, "WaitingForSeqWrite"),
             PromiseState::WaitingForReply(seq, _) => write!(f, "Waiting(seq={seq})"),
             PromiseState::Done(_) => write!(f, "Done"),
             PromiseState::Err(e) => write!(f, "Err({e:?})"),
@@ -241,7 +429,7 @@ impl<T> Display for Promise<T> {
 
 impl<T> Drop for Promise<T> {
     fn drop(&mut self) {
-        if matches!(self.state, PromiseState::WaitingForSeq { .. }) {
+        if matches!(self.state, PromiseState::WaitingForSeqCall { .. }) {
             tracing::warn!(
                 "Dropping Promise(marker='{}')::WaitingForSeq(T), likely an error",
                 self.marker

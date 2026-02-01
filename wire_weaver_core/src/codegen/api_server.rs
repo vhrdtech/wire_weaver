@@ -152,7 +152,7 @@ fn process_request_inner_recursive(
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
     let introspect_root = if is_root {
-        let introspect_bytes = introspect(api_level);
+        let introspect_bytes = introspect(api_level, true);
         let es1 = error_seq.next_err();
         let es2 = error_seq.next_err();
         quote! {

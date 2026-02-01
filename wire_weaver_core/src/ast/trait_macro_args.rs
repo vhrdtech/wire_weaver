@@ -106,7 +106,7 @@ impl Parse for ImplTraitMacroArgs {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImplTraitLocation {
     SameFile,
     AnotherFile {

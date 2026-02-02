@@ -15,7 +15,7 @@ pub struct ApiLevel {
     pub items: Vec<ApiItem>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum ApiLevelSourceLocation {
     File {
         path: PathBuf,

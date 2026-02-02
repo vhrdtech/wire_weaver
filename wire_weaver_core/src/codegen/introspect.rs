@@ -1,28 +1,49 @@
 use crate::ast::api;
+use crate::ast::api::ApiLevelSourceLocation;
 use crate::ast::trait_macro_args::{ImplTraitLocation, ImplTraitMacroArgs};
 use proc_macro2::TokenStream;
 use quote::quote;
 use shrink_wrap::{SerializeShrinkWrap, UNib32};
+use std::collections::HashSet;
+use ww_self::TypeOwned;
+use ww_self::visitor::visit_api_bundle_mut;
 
 /// Collect information about API items and referenced data types.
 /// Serialize into ww_self and create a byte array to be put into device firmware.
-pub fn introspect(api_level: &api::ApiLevel, skip_docs: bool) -> TokenStream {
+pub fn introspect(api_level: &api::ApiLevel) -> TokenStream {
     let mut traits: Vec<(TraitKey, ww_self::ApiLevelLocationOwned, Vec<_>)> = vec![];
-    collect_traits(api_level, &mut traits, skip_docs);
+    collect_traits(api_level, &mut traits);
     fix_trait_indices(&mut traits);
     let (trait_keys, traits): (Vec<_>, Vec<_>) = traits.into_iter().map(|(k, v, _)| (k, v)).unzip();
 
-    let api_bundle = ww_self::ApiBundleOwned {
-        root: convert_level(api_level, &trait_keys, None, skip_docs),
-        types: Default::default(),
+    let mut types = TypeWalk::default();
+    collect_types(api_level, &mut types);
+    let (_type_keys, types): (Vec<_>, Vec<_>) = types.types.into_iter().unzip();
+
+    let mut api_bundle = ww_self::ApiBundleOwned {
+        root: convert_level(api_level, &trait_keys, None),
+        types,
         traits,
         ext_crates: Default::default(),
     };
+    visit_api_bundle_mut(&mut api_bundle, &mut DropDocs {});
     let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
     let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
     let len = bytes.len();
     quote! {
         [u8; #len] = [ #(#bytes),* ]
+    }
+}
+
+struct DropDocs {}
+
+impl ww_self::visitor::VisitMut for DropDocs {
+    fn visit_doc(&mut self, doc: &mut String) {
+        *doc = String::new();
+    }
+
+    fn visit_type(&mut self, ty: &mut TypeOwned) {
+        println!("{ty:#?}");
     }
 }
 
@@ -43,6 +64,17 @@ impl TraitKey {
 
 type TraitItemOriginalKeys = Vec<(usize, TraitKey)>;
 
+struct TypeKey {
+    location: ApiLevelSourceLocation,
+    type_name: String,
+}
+
+#[derive(Default)]
+struct TypeWalk {
+    seen_crates: HashSet<ApiLevelSourceLocation>,
+    types: Vec<(TypeKey, ww_self::TypeOwned)>,
+}
+
 fn collect_traits(
     api_level: &api::ApiLevel,
     traits: &mut Vec<(
@@ -50,14 +82,13 @@ fn collect_traits(
         ww_self::ApiLevelLocationOwned,
         TraitItemOriginalKeys,
     )>,
-    skip_docs: bool,
 ) {
     for item in &api_level.items {
         let api::ApiItemKind::ImplTrait { args, level } = &item.kind else {
             continue;
         };
         let level = level.as_ref().expect("");
-        collect_traits(level, traits, skip_docs);
+        collect_traits(level, traits);
 
         let key = TraitKey::from_args(args);
         if traits.iter().any(|(k, _v, _)| k == &key) {
@@ -65,7 +96,7 @@ fn collect_traits(
         }
 
         let mut trait_keys = vec![];
-        let converted_level = convert_level(level, &[], Some(&mut trait_keys), skip_docs);
+        let converted_level = convert_level(level, &[], Some(&mut trait_keys));
         traits.push((
             key,
             // TODO: ww_self: handle global traits
@@ -117,15 +148,9 @@ fn convert_level(
     level: &api::ApiLevel,
     traits: &[TraitKey],
     mut trait_keys: Option<&mut TraitItemOriginalKeys>,
-    skip_docs: bool,
 ) -> ww_self::ApiLevelOwned {
-    let docs = if skip_docs {
-        "".into()
-    } else {
-        level.docs.to_string()
-    };
     ww_self::ApiLevelOwned {
-        docs,
+        docs: level.docs.to_string(),
         ident: level.name.to_string(),
         items: level
             .items
@@ -138,17 +163,13 @@ fn convert_level(
                     let key = TraitKey::from_args(args);
                     trait_keys.push((item_idx, key));
                 }
-                convert_item(i, traits, skip_docs)
+                convert_item(i, traits)
             })
             .collect(),
     }
 }
 
-fn convert_item(
-    item: &api::ApiItem,
-    traits: &[TraitKey],
-    skip_docs: bool,
-) -> ww_self::ApiItemOwned {
+fn convert_item(item: &api::ApiItem, traits: &[TraitKey]) -> ww_self::ApiItemOwned {
     let (kind, ident) = match &item.kind {
         api::ApiItemKind::Method {
             ident,
@@ -193,16 +214,11 @@ fn convert_item(
         }
         api::ApiItemKind::Reserved => (ww_self::ApiItemKindOwned::Reserved, "".into()),
     };
-    let docs = if skip_docs {
-        "".into()
-    } else {
-        item.docs.to_string()
-    };
     ww_self::ApiItemOwned {
         id: UNib32(item.id),
         multiplicity: convert_multiplicity(&item.multiplicity),
         ident,
-        docs,
+        docs: item.docs.to_string(),
         kind,
     }
 }
@@ -288,9 +304,9 @@ fn convert_ty(ty: &shrink_wrap_core::ast::Type) -> ww_self::TypeOwned {
             ww_self::TypeOwned::Tuple(types.iter().map(convert_ty).collect())
         }
         shrink_wrap_core::ast::Type::Vec(ty) => ww_self::TypeOwned::Vec(Box::new(convert_ty(ty))),
-        shrink_wrap_core::ast::Type::External(_path, _) => {
-            ww_self::TypeOwned::OutOfLine { idx: UNib32(0) }
-        } // TODO: ww_self: out of line types
+        shrink_wrap_core::ast::Type::External(_path, _) => ww_self::TypeOwned::OutOfLine {
+            idx: UNib32(65_535),
+        }, // TODO: ww_self: out of line types
         shrink_wrap_core::ast::Type::Option(_ident, ty) => ww_self::TypeOwned::Option {
             is_flag_on_stack: true,
             some_ty: Box::new(convert_ty(ty)),
@@ -320,4 +336,138 @@ fn convert_access(access: api::PropertyAccess) -> ww_self::PropertyAccess {
         api::PropertyAccess::ReadOnly => ww_self::PropertyAccess::ReadOnly,
         api::PropertyAccess::WriteOnly => ww_self::PropertyAccess::WriteOnly,
     }
+}
+
+fn collect_types(level: &api::ApiLevel, types: &mut TypeWalk) {
+    if types.seen_crates.contains(&level.source_location) {
+        return;
+    }
+    types.seen_crates.insert(level.source_location.clone());
+
+    let lib_rs = match &level.source_location {
+        ApiLevelSourceLocation::File { path, .. } => std::fs::read_to_string(path).unwrap(),
+        ApiLevelSourceLocation::Crate { .. } => {
+            todo!()
+        }
+    };
+    let lib_rs = syn::parse_file(&lib_rs).unwrap();
+    for item in lib_rs.items {
+        match item {
+            syn::Item::Struct(item_struct) => {
+                if !item_struct
+                    .attrs
+                    .iter()
+                    .any(|a| a.path().is_ident("derive_shrink_wrap"))
+                {
+                    continue;
+                }
+                let item_struct =
+                    shrink_wrap_core::ast::ItemStruct::from_syn(&item_struct).unwrap();
+                let item_struct = convert_item_struct(&item_struct);
+                let key = TypeKey {
+                    location: level.source_location.clone(),
+                    type_name: item_struct.ident.to_string(),
+                };
+                types
+                    .types
+                    .push((key, ww_self::TypeOwned::Struct(item_struct)));
+            }
+            syn::Item::Enum(item_enum) => {
+                if !item_enum
+                    .attrs
+                    .iter()
+                    .any(|a| a.path().is_ident("derive_shrink_wrap"))
+                {
+                    continue;
+                }
+                let item_enum = shrink_wrap_core::ast::ItemEnum::from_syn(&item_enum).unwrap();
+                let item_enum = convert_item_enum(&item_enum);
+                let key = TypeKey {
+                    location: level.source_location.clone(),
+                    type_name: item_enum.ident.to_string(),
+                };
+                types.types.push((key, ww_self::TypeOwned::Enum(item_enum)));
+            }
+            _ => {}
+        }
+    }
+
+    for item in level.items.iter() {
+        if let api::ApiItemKind::ImplTrait { level, .. } = &item.kind {
+            let level = level.as_ref().expect("");
+            collect_types(level, types);
+        }
+    }
+}
+
+fn convert_item_struct(
+    item_struct: &shrink_wrap_core::ast::ItemStruct,
+) -> ww_self::ItemStructOwned {
+    ww_self::ItemStructOwned {
+        size: convert_size_assumption(item_struct.size_assumption),
+        docs: item_struct.docs.to_string(),
+        ident: item_struct.ident.to_string(),
+        fields: convert_fields(&item_struct.fields),
+    }
+}
+
+fn convert_item_enum(item_enum: &shrink_wrap_core::ast::ItemEnum) -> ww_self::ItemEnumOwned {
+    ww_self::ItemEnumOwned {
+        size: convert_size_assumption(item_enum.size_assumption),
+        docs: item_enum.docs.to_string(),
+        ident: item_enum.ident.to_string(),
+        repr: convert_repr(item_enum.repr),
+        variants: item_enum
+            .variants
+            .iter()
+            .map(|v| ww_self::VariantOwned {
+                docs: v.docs.to_string(),
+                ident: v.ident.to_string(),
+                fields: convert_enum_fields(&v.fields),
+                discriminant: UNib32(v.discriminant),
+            })
+            .collect(),
+    }
+}
+
+fn convert_repr(repr: shrink_wrap_core::ast::Repr) -> ww_self::Repr {
+    match repr {
+        shrink_wrap_core::ast::Repr::U(bits) => ww_self::Repr::U(bits),
+        shrink_wrap_core::ast::Repr::UNib32 => ww_self::Repr::UNib32,
+    }
+}
+
+fn convert_enum_fields(fields: &shrink_wrap_core::ast::item_enum::Fields) -> ww_self::FieldsOwned {
+    use shrink_wrap_core::ast::item_enum::Fields;
+    match fields {
+        Fields::Named(fields) => ww_self::FieldsOwned::Named(convert_fields(fields)),
+        Fields::Unnamed(types) => {
+            ww_self::FieldsOwned::Unnamed(types.iter().map(convert_ty).collect())
+        }
+        Fields::Unit => ww_self::FieldsOwned::Unit,
+    }
+}
+
+fn convert_size_assumption(
+    size_assumption: Option<shrink_wrap_core::ast::ObjectSize>,
+) -> shrink_wrap::ElementSize {
+    use shrink_wrap_core::ast::ObjectSize;
+    match size_assumption {
+        None | Some(ObjectSize::Unsized) => shrink_wrap::ElementSize::Unsized,
+        Some(ObjectSize::SelfDescribing) => shrink_wrap::ElementSize::SelfDescribing,
+        Some(ObjectSize::UnsizedFinalStructure) => shrink_wrap::ElementSize::UnsizedFinalStructure,
+        Some(ObjectSize::Sized { size_bits }) => shrink_wrap::ElementSize::Sized { size_bits },
+    }
+}
+
+fn convert_fields(fields: &[shrink_wrap_core::ast::Field]) -> Vec<ww_self::FieldOwned> {
+    fields
+        .iter()
+        .map(|f| ww_self::FieldOwned {
+            docs: f.docs.to_string(),
+            ident: f.ident.to_string(),
+            ty: Box::new(convert_ty(&f.ty)),
+            default: None, // TODO: ww_self: default value
+        })
+        .collect()
 }

@@ -12,11 +12,10 @@ Size of a type is marked as one of: `Unsized`, `FinalStructure`, `SelfDescribing
 
 By default, user defined struct or enum is `Unsized`. Both can contain variable-size types - vectors,
 strings or other structs and enums. Unsized types support all the evolution options. It is recommended to stick with
-unsized types,
-unless extreme space-saving is required.
+unsized types, unless extreme space-saving is required.
 
-When serializing, size of such objects is counted and written to the resulting byte array. Which is the only overhead,
-giving all the nice backwards and forwards compatibility features.
+When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
+overhead, giving all the nice backwards and forwards compatibility benefits.
 
 * New fields with default capability can be added to the end of structs, enum struct and tuple variants.
     * `Option<T>` - None is read from old data,

@@ -42,6 +42,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
                 fields,
                 cfg: None,
                 size_assumption: None,
+                defmt: None,
             };
             defs.append_all(item_struct.def_rust(no_alloc));
             defs.append_all(item_struct.serdes_rust(no_alloc, true));

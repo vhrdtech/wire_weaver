@@ -185,9 +185,10 @@ impl Parse for ResourceArray {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(syn::token::Bracket) {
-            let (_, _, _inside_brackets) = input.parse_any_delimiter()?;
+            let (_, _, inside_brackets) = input.parse_any_delimiter()?;
+            let index_type = inside_brackets.parse()?;
             Ok(ResourceArray {
-                multiplicity: Multiplicity::Array { size_bound: 0 },
+                multiplicity: Multiplicity::Array { index_type },
             })
         } else {
             Ok(ResourceArray {

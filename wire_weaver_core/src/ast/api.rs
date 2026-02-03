@@ -36,10 +36,13 @@ pub struct ApiItem {
     pub kind: ApiItemKind,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum Multiplicity {
     Flat,
-    Array { size_bound: u32 },
+    Array {
+        /// always Type::External type that must implement TryFrom<u32> and Into<u32>
+        index_type: Option<Ident>,
+    },
 }
 
 #[derive(Debug)]

@@ -211,10 +211,17 @@ fn level_methods(
     gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
 ) -> TokenStream {
-    let handlers = api_level
-        .items
-        .iter()
-        .map(|item| level_method(item, index_chain, model, path_mode, gid_paths, is_at_root));
+    let handlers = api_level.items.iter().map(|item| {
+        level_method(
+            item,
+            index_chain,
+            model,
+            path_mode,
+            gid_paths,
+            is_at_root,
+            api_level.source_location.crate_name(),
+        )
+    });
     quote! {
         #(#handlers)*
     }
@@ -227,16 +234,26 @@ fn level_method(
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
+    api_crate: &Ident,
 ) -> TokenStream {
     let id = item.id;
     let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
-    let (index_chain_push, maybe_index_arg) =
-        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+    let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
+        Multiplicity::Flat => (index_chain_push, quote! {}),
+        Multiplicity::Array { index_type: None } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index) });
             (quote! { #index_chain_push #p }, quote! { , index: u32 })
-        } else {
-            (index_chain_push, quote! {})
-        };
+        }
+        Multiplicity::Array {
+            index_type: Some(ty),
+        } => {
+            let p = index_chain.push_back(quote! {}, quote! { UNib32(index.into()) });
+            (
+                quote! { #index_chain_push #p },
+                quote! { , index: #api_crate::#ty },
+            )
+        }
+    };
     match &item.kind {
         ApiItemKind::Method {
             ident,

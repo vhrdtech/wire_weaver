@@ -60,7 +60,7 @@ pub fn transform_api_level(
                     }
                     // let bound = type_param.bounds.iter().next().unwrap();
 
-                    Multiplicity::Array { size_bound: 0 }
+                    Multiplicity::Array { index_type: None }
                 };
                 items.push(ApiItem {
                     id,
@@ -126,7 +126,7 @@ pub fn transform_api_level(
                     items.push(ApiItem {
                         id,
                         docs,
-                        multiplicity: args.resource_array.multiplicity,
+                        multiplicity: args.resource_array.multiplicity.clone(),
                         kind: ApiItemKind::ImplTrait { args, level: None },
                     });
                 } else if kind == "reserved" {

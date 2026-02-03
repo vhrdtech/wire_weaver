@@ -85,14 +85,10 @@ pub enum Error {
     RemoteError(ww_client_server::ErrorOwned),
     #[error("Remote device returned {}", .0)]
     RemoteErrorDes(String),
-    // #[error("Failed to deserialize a bytes slice from device response")]
-    // ByteSliceReadFailed,
     #[error("All command senders were dropped")]
     CmdTxDropped,
     #[error("Exit command received")]
     ExitRequested,
-    // #[error("IO error {}", .0)]
-    // Io(#[from] std::io::Error),
     #[error("Transport specific error: {}", .0)]
     Transport(String),
     #[error("User error {}", .0)]

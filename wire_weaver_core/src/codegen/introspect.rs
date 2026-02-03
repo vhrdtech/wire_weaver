@@ -227,7 +227,7 @@ fn convert_multiplicity(m: &api::Multiplicity) -> ww_self::Multiplicity {
     match m {
         api::Multiplicity::Flat => ww_self::Multiplicity::Flat,
         // TODO: ww_self: convert multiplicity
-        api::Multiplicity::Array { size_bound: _ } => ww_self::Multiplicity::Array,
+        api::Multiplicity::Array { index_type } => ww_self::Multiplicity::Array,
     }
 }
 

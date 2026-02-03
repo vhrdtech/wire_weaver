@@ -4,9 +4,10 @@ use proc_macro2::{Ident, Span};
 use shrink_wrap_core::ast::Type;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use wire_weaver_core::ast::api::{ApiItem, ApiLevel, Argument, Multiplicity, PropertyAccess};
+use wire_weaver_core::ast::api::{ApiLevel, Argument, PropertyAccess};
 use wire_weaver_core::ast::trait_macro_args::{ImplTraitLocation, ImplTraitMacroArgs};
 use wire_weaver_core::ast::visit::{Visit, visit_api_level};
+use wire_weaver_core::ast::visitors::IdStack;
 use wire_weaver_core::transform::load::load_api_level_recursive;
 
 pub fn tree_printer(
@@ -61,87 +62,7 @@ struct TreePrinter {
     skip_reserved: bool,
 }
 
-#[derive(Default)]
-struct IdStack {
-    /// next id to use on each API level
-    stack: Vec<PathSegment>,
-    current_item: Option<PathSegment>,
-}
-
-#[derive(Copy, Clone)]
-enum PathSegment {
-    Id(u32),
-    Array { id: u32 },
-}
-
-impl PathSegment {
-    fn print(&self) {
-        match self {
-            PathSegment::Id(id) => {
-                print!("{id}");
-            }
-            PathSegment::Array { id } => {
-                print!("{id}/{}", style("[]").red());
-            }
-        }
-    }
-}
-
-impl IdStack {
-    fn print_indent(&self) {
-        for i in 0..self.stack.len() {
-            if i == 0 {
-                print!("  ");
-            } else {
-                print!("|  ");
-            }
-        }
-        for path_segment in &self.stack {
-            path_segment.print();
-            print!("/");
-        }
-        if let Some(current) = self.current_item {
-            current.print();
-        }
-        print!(": ");
-    }
-
-    fn on_api_item(&mut self, item: &ApiItem) {
-        let s = if matches!(item.multiplicity, Multiplicity::Array { .. }) {
-            PathSegment::Array { id: item.id }
-        } else {
-            PathSegment::Id(item.id)
-        };
-        self.current_item = Some(s);
-    }
-
-    fn on_finish_api_item(&mut self, _item: &ApiItem) {
-        self.current_item = None;
-    }
-
-    fn on_visit_impl_trait(&mut self) {
-        if let Some(s) = self.current_item {
-            self.stack.push(s);
-        }
-    }
-    fn on_finish_level(&mut self) {
-        self.stack.pop();
-    }
-}
-
 impl Visit for TreePrinter {
-    fn finish_level(&mut self, _level: &ApiLevel) {
-        self.id_stack.on_finish_level();
-    }
-
-    fn visit_api_item(&mut self, item: &ApiItem) {
-        self.id_stack.on_api_item(item);
-    }
-
-    fn finish_api_item(&mut self, item: &ApiItem) {
-        self.id_stack.on_finish_api_item(item);
-    }
-
     fn visit_method(&mut self, ident: &Ident, _args: &[Argument], _return_type: &Option<Type>) {
         self.id_stack.print_indent();
         println!("{}: {ident}", style("method").blue());
@@ -179,7 +100,6 @@ impl Visit for TreePrinter {
             style(level.source_location.crate_name()).true_color(0x8D, 0x91, 0xDC),
             style(&args.trait_name).true_color(0x8D, 0x91, 0xDC),
         );
-        self.id_stack.on_visit_impl_trait();
     }
 
     fn visit_reserved(&mut self) {
@@ -187,5 +107,9 @@ impl Visit for TreePrinter {
             self.id_stack.print_indent();
             println!("{}", style("reserved").dim());
         }
+    }
+
+    fn hook(&mut self) -> Option<&mut dyn Visit> {
+        Some(&mut self.id_stack)
     }
 }

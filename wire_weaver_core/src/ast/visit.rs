@@ -10,7 +10,7 @@ pub trait Visit {
         let _ = level;
     }
 
-    fn finish_level(&mut self, level: &ApiLevel) {
+    fn after_visit_level(&mut self, level: &ApiLevel) {
         let _ = level;
     }
 
@@ -30,7 +30,7 @@ pub trait Visit {
         let _ = item;
     }
 
-    fn finish_api_item(&mut self, item: &ApiItem) {
+    fn after_visit_api_item(&mut self, item: &ApiItem) {
         let _ = item;
     }
 
@@ -64,6 +64,11 @@ pub trait Visit {
         let _ = level;
     }
 
+    fn after_visit_impl_trait(&mut self, args: &ImplTraitMacroArgs, level: &ApiLevel) {
+        let _ = args;
+        let _ = level;
+    }
+
     fn visit_reserved(&mut self) {}
 
     fn visit_argument(&mut self, arg: &Argument) {
@@ -73,31 +78,44 @@ pub trait Visit {
     fn visit_type(&mut self, ty: &Type) {
         let _ = ty;
     }
+
+    fn hook(&mut self) -> Option<&mut dyn Visit> {
+        None
+    }
+}
+
+macro_rules! visit {
+    ($v:ident.$method:ident($($args:tt)*)) => {
+        $v.$method($($args)*);
+        if let Some(hook) = $v.hook() {
+            hook.$method($($args)*);
+        }
+    };
 }
 
 pub fn visit_api_level(level: &ApiLevel, v: &mut impl Visit) {
-    v.visit_level(level);
-    v.visit_ident(&level.name);
-    v.visit_docs(&level.docs);
-    v.visit_source_location(&level.source_location);
+    visit!(v.visit_level(level));
+    visit!(v.visit_ident(&level.name));
+    visit!(v.visit_docs(&level.docs));
+    visit!(v.visit_source_location(&level.source_location));
     for item in &level.items {
-        v.visit_api_item(item);
-        v.visit_docs(&item.docs);
+        visit!(v.visit_api_item(item));
+        visit!(v.visit_docs(&item.docs));
         match &item.kind {
             ApiItemKind::Method {
                 ident,
                 args,
                 return_type,
             } => {
-                v.visit_method(ident, args, return_type);
-                v.visit_ident(ident);
+                visit!(v.visit_method(ident, args, return_type));
+                visit!(v.visit_ident(ident));
                 for arg in args {
-                    v.visit_argument(arg);
-                    v.visit_ident(&arg.ident);
-                    v.visit_type(&arg.ty);
+                    visit!(v.visit_argument(arg));
+                    visit!(v.visit_ident(&arg.ident));
+                    visit!(v.visit_type(&arg.ty));
                 }
                 if let Some(ty) = return_type {
-                    v.visit_type(ty);
+                    visit!(v.visit_type(ty));
                 }
             }
             ApiItemKind::Property {
@@ -106,28 +124,29 @@ pub fn visit_api_level(level: &ApiLevel, v: &mut impl Visit) {
                 access,
                 user_result_ty,
             } => {
-                v.visit_property(ident, ty, *access, user_result_ty);
-                v.visit_ident(ident);
-                v.visit_type(ty);
+                visit!(v.visit_property(ident, ty, *access, user_result_ty));
+                visit!(v.visit_ident(ident));
+                visit!(v.visit_type(ty));
                 if let Some(ty) = user_result_ty {
-                    v.visit_type(ty);
+                    visit!(v.visit_type(ty));
                 }
             }
             ApiItemKind::Stream { ident, ty, is_up } => {
-                v.visit_stream(ident, ty, *is_up);
-                v.visit_ident(ident);
-                v.visit_type(ty);
+                visit!(v.visit_stream(ident, ty, *is_up));
+                visit!(v.visit_ident(ident));
+                visit!(v.visit_type(ty));
             }
             ApiItemKind::ImplTrait { args, level } => {
                 let level = level.as_ref().expect("");
-                v.visit_impl_trait(args, level);
+                visit!(v.visit_impl_trait(args, level));
+                visit!(v.after_visit_impl_trait(args, level));
                 visit_api_level(level, v);
             }
             ApiItemKind::Reserved => {
-                v.visit_reserved();
+                visit!(v.visit_reserved());
             }
         }
-        v.finish_api_item(item);
+        visit!(v.after_visit_api_item(item));
     }
-    v.finish_level(level);
+    visit!(v.after_visit_level(level));
 }

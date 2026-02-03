@@ -23,6 +23,7 @@ regex = "1.12"
 anyhow = "1"
 ww_self.workspace = true
 relative-path = "2.0"
+console = "0.16"
 
 [features]
 default = ["std"]

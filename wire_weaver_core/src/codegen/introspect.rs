@@ -5,7 +5,6 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use shrink_wrap::{SerializeShrinkWrap, UNib32};
 use std::collections::HashSet;
-use ww_self::TypeOwned;
 use ww_self::visitor::visit_api_bundle_mut;
 
 /// Collect information about API items and referenced data types.
@@ -42,7 +41,7 @@ impl ww_self::visitor::VisitMut for DropDocs {
         *doc = String::new();
     }
 
-    fn visit_type(&mut self, ty: &mut TypeOwned) {
+    fn visit_type(&mut self, ty: &mut ww_self::TypeOwned) {
         println!("{ty:#?}");
     }
 }
@@ -64,6 +63,7 @@ impl TraitKey {
 
 type TraitItemOriginalKeys = Vec<(usize, TraitKey)>;
 
+#[allow(dead_code)]
 struct TypeKey {
     location: ApiLevelSourceLocation,
     type_name: String,

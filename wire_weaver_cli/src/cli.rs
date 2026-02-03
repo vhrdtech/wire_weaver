@@ -1,5 +1,5 @@
+use crate::cmd::api::ApiCommand;
 use clap::{Parser, Subcommand};
-
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -33,6 +33,10 @@ pub(crate) enum Commands {
         #[arg(long, default_value = "max")]
         packet_size: String,
     },
+
+    /// API related tools
+    #[command(subcommand)]
+    Api(ApiCommand),
 
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///

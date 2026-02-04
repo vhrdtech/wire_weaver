@@ -3,8 +3,9 @@ use console::style;
 use proc_macro2::{Ident, Span};
 use shrink_wrap_core::ast::Type;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::path::PathBuf;
-use wire_weaver_core::ast::api::{ApiLevel, Argument, PropertyAccess};
+use wire_weaver_core::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, PropertyAccess};
 use wire_weaver_core::ast::trait_macro_args::{ImplTraitLocation, ImplTraitMacroArgs};
 use wire_weaver_core::ast::visit::{Visit, visit_api_level};
 use wire_weaver_core::ast::visitors::IdStack;
@@ -14,6 +15,7 @@ pub fn tree_printer(
     path: PathBuf,
     name: Option<String>,
     skip_reserved: bool,
+    skip_docs: bool,
 ) -> anyhow::Result<()> {
     // do some gymnastics to point base_dir at crate root (where Cargo.toml is)
     let mut base_dir = path.clone();
@@ -50,6 +52,7 @@ pub fn tree_printer(
         &level,
         &mut TreePrinter {
             skip_reserved,
+            skip_docs,
             ..Default::default()
         },
     );
@@ -60,11 +63,16 @@ pub fn tree_printer(
 struct TreePrinter {
     id_stack: IdStack,
     skip_reserved: bool,
+    skip_docs: bool,
 }
 
 impl Visit for TreePrinter {
+    fn hook(&mut self) -> Option<&mut dyn Visit> {
+        Some(&mut self.id_stack)
+    }
+
     fn visit_method(&mut self, ident: &Ident, _args: &[Argument], _return_type: &Option<Type>) {
-        self.id_stack.print_indent();
+        self.id_stack.print_indent_and_path();
         println!("{}: {ident}", style("method").blue());
     }
 
@@ -75,7 +83,7 @@ impl Visit for TreePrinter {
         _access: PropertyAccess,
         _user_result_ty: &Option<Type>,
     ) {
-        self.id_stack.print_indent();
+        self.id_stack.print_indent_and_path();
         println!(
             "{}: {ident}",
             style("property").true_color(0xC7, 0x7D, 0xBB)
@@ -83,7 +91,7 @@ impl Visit for TreePrinter {
     }
 
     fn visit_stream(&mut self, ident: &Ident, _ty: &Type, is_up: bool) {
-        self.id_stack.print_indent();
+        self.id_stack.print_indent_and_path();
         if is_up {
             println!("{}: {ident}", style("stream").true_color(0xA6, 0xBB, 0x77))
         } else {
@@ -92,7 +100,7 @@ impl Visit for TreePrinter {
     }
 
     fn visit_impl_trait(&mut self, args: &ImplTraitMacroArgs, level: &ApiLevel) {
-        self.id_stack.print_indent();
+        self.id_stack.print_indent_and_path();
         println!(
             "{} {} {}::{}",
             style("impl").true_color(0xCF, 0x8E, 0x6D),
@@ -102,14 +110,41 @@ impl Visit for TreePrinter {
         );
     }
 
+    fn after_visit_impl_trait(&mut self, _args: &ImplTraitMacroArgs, level: &ApiLevel) {
+        if self.skip_docs {
+            return;
+        }
+        if level.docs.is_empty() {
+            return;
+        }
+        self.id_stack.print_indented(|w| {
+            write!(w, "{}", style(level.docs.to_string()).dim());
+        });
+    }
+
     fn visit_reserved(&mut self) {
         if !self.skip_reserved {
-            self.id_stack.print_indent();
+            self.id_stack.print_indent_and_path();
             println!("{}", style("reserved").dim());
         }
     }
 
-    fn hook(&mut self) -> Option<&mut dyn Visit> {
-        Some(&mut self.id_stack)
+    fn after_visit_api_item(&mut self, item: &ApiItem) {
+        if self.skip_docs {
+            return;
+        }
+        if matches!(item.kind, ApiItemKind::ImplTrait { .. }) {
+            // printed in after_visit_impl_trait instead, if printed here - it appears after all child levels
+            return;
+        }
+        if self.skip_reserved && matches!(item.kind, ApiItemKind::Reserved) {
+            return;
+        }
+        if item.docs.is_empty() {
+            return;
+        }
+        self.id_stack.print_indented(|w| {
+            write!(w, "{}", style(item.docs.to_string()).dim());
+        });
     }
 }

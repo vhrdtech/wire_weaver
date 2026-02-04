@@ -38,6 +38,10 @@ impl IdStack {
                 print!("|  ");
             }
         }
+    }
+
+    pub fn print_indent_and_path(&self) {
+        self.print_indent();
         for path_segment in &self.stack {
             path_segment.print();
             print!("/");
@@ -46,6 +50,15 @@ impl IdStack {
             current.print();
         }
         print!(": ");
+    }
+
+    pub fn print_indented<F: Fn(&mut String)>(&self, f: F) {
+        let mut s = String::new();
+        f(&mut s);
+        for line in s.split(['\n', '\r']) {
+            self.print_indent();
+            println!("  {}", line);
+        }
     }
 }
 

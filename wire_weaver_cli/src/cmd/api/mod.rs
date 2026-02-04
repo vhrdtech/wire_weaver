@@ -10,11 +10,18 @@ pub enum ApiCommand {
     Tree {
         /// Path to file which defines ww_trait
         path: PathBuf,
+
         /// Optional trait name if more than one is present
         #[arg(long)]
         name: Option<String>,
-        #[arg(short, long)]
+
+        /// Skip reserved resources
+        #[arg(short('r'), long)]
         skip_reserved: bool,
+
+        /// Do not print documentation for each resource
+        #[arg(short('d'), long)]
+        skip_docs: bool,
     },
 }
 pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
@@ -23,7 +30,8 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             path,
             name,
             skip_reserved,
-        } => tree_printer::tree_printer(path, name, skip_reserved)?,
+            skip_docs,
+        } => tree_printer::tree_printer(path, name, skip_reserved, skip_docs)?,
     }
     Ok(())
 }

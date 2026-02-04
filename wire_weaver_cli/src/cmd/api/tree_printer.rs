@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use console::style;
+use console::{StyledObject, style};
 use proc_macro2::{Ident, Span};
 use shrink_wrap_core::ast::Type;
 use std::collections::HashMap;
@@ -71,31 +71,69 @@ impl Visit for TreePrinter {
         Some(&mut self.id_stack)
     }
 
-    fn visit_method(&mut self, ident: &Ident, _args: &[Argument], _return_type: &Option<Type>) {
+    fn visit_method(&mut self, ident: &Ident, args: &[Argument], return_type: &Option<Type>) {
         self.id_stack.print_indent_and_path();
-        println!("{}: {ident}", style("method").blue());
+        print!("{} {ident}(", style("fn").blue());
+        for (idx, arg) in args.iter().enumerate() {
+            print!(
+                "{}: {}",
+                arg.ident,
+                style(arg.ty.arg_pos_def2(true).to_string()).true_color(0xA6, 0xBB, 0x77)
+            );
+            if idx + 1 < args.len() {
+                print!(", ");
+            }
+        }
+        print!(")");
+        if let Some(ret) = return_type {
+            print!(
+                " -> {}",
+                style(ret.arg_pos_def2(true).to_string()).true_color(0xA6, 0xBB, 0x77)
+            );
+        }
+        println!();
     }
 
     fn visit_property(
         &mut self,
         ident: &Ident,
-        _ty: &Type,
-        _access: PropertyAccess,
-        _user_result_ty: &Option<Type>,
+        ty: &Type,
+        access: PropertyAccess,
+        user_result_ty: &Option<Type>,
     ) {
         self.id_stack.print_indent_and_path();
-        println!(
-            "{}: {ident}",
-            style("property").true_color(0xC7, 0x7D, 0xBB)
+        let access = match access {
+            PropertyAccess::Const => "const",
+            PropertyAccess::ReadOnly => "ro",
+            PropertyAccess::ReadWrite => "rw",
+            PropertyAccess::WriteOnly => "wo",
+        };
+        print!(
+            "{} {} {ident}: {}",
+            style(access).true_color(0xC7, 0x7D, 0xBB),
+            style("property").true_color(0xC7, 0x7D, 0xBB),
+            style_ty(ty),
         );
+        if let Some(ty) = user_result_ty {
+            print!(", on_set_err: Result<(), {}>", style_ty(ty))
+        }
+        println!();
     }
 
-    fn visit_stream(&mut self, ident: &Ident, _ty: &Type, is_up: bool) {
+    fn visit_stream(&mut self, ident: &Ident, ty: &Type, is_up: bool) {
         self.id_stack.print_indent_and_path();
         if is_up {
-            println!("{}: {ident}", style("stream").true_color(0xA6, 0xBB, 0x77))
+            println!(
+                "{} {ident}: {}",
+                style("stream").true_color(0x8C, 0xC8, 0xD4),
+                style_ty(ty)
+            )
         } else {
-            println!("{}: {ident}", style("sink").true_color(0x8C, 0xC8, 0xD4))
+            println!(
+                "{} {ident}: {}",
+                style("sink").true_color(0x8C, 0xC8, 0xD4),
+                style_ty(ty)
+            )
         }
     }
 
@@ -118,7 +156,8 @@ impl Visit for TreePrinter {
             return;
         }
         self.id_stack.print_indented(|w| {
-            write!(w, "{}", style(level.docs.to_string()).dim());
+            write!(w, "{}", style(level.docs.to_string()).dim())?;
+            Ok(())
         });
     }
 
@@ -144,7 +183,12 @@ impl Visit for TreePrinter {
             return;
         }
         self.id_stack.print_indented(|w| {
-            write!(w, "{}", style(item.docs.to_string()).dim());
+            write!(w, "{}", style(item.docs.to_string()).dim())?;
+            Ok(())
         });
     }
+}
+
+fn style_ty(ty: &Type) -> StyledObject<String> {
+    style(ty.arg_pos_def2(false).to_string()).true_color(0xA6, 0xBB, 0x77)
 }

@@ -10,10 +10,13 @@ pub struct IdStack {
     current_item: Option<PathSegment>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 enum PathSegment {
     Id(u32),
-    Array { id: u32 },
+    Array {
+        id: u32,
+        custom_index_ty: Option<String>,
+    },
 }
 
 impl PathSegment {
@@ -22,8 +25,20 @@ impl PathSegment {
             PathSegment::Id(id) => {
                 print!("{id}");
             }
-            PathSegment::Array { id } => {
-                print!("{id}/{}", style("[]").red());
+            PathSegment::Array {
+                id,
+                custom_index_ty,
+            } => {
+                if let Some(custom_index_ty) = custom_index_ty {
+                    print!(
+                        "{id}/{}{}{}",
+                        style("[").red(),
+                        style(custom_index_ty).red(),
+                        style("]").red()
+                    );
+                } else {
+                    print!("{id}/{}", style("[u32]").red());
+                }
             }
         }
     }
@@ -46,15 +61,15 @@ impl IdStack {
             path_segment.print();
             print!("/");
         }
-        if let Some(current) = self.current_item {
+        if let Some(current) = &self.current_item {
             current.print();
         }
         print!(": ");
     }
 
-    pub fn print_indented<F: Fn(&mut String)>(&self, f: F) {
+    pub fn print_indented<F: Fn(&mut String) -> Result<(), std::fmt::Error>>(&self, f: F) {
         let mut s = String::new();
-        f(&mut s);
+        f(&mut s).unwrap();
         for line in s.split(['\n', '\r']) {
             self.print_indent();
             println!("  {}", line);
@@ -64,8 +79,11 @@ impl IdStack {
 
 impl Visit for IdStack {
     fn visit_api_item(&mut self, item: &ApiItem) {
-        let s = if matches!(item.multiplicity, Multiplicity::Array { .. }) {
-            PathSegment::Array { id: item.id }
+        let s = if let Multiplicity::Array { index_type } = &item.multiplicity {
+            PathSegment::Array {
+                id: item.id,
+                custom_index_ty: index_type.as_ref().map(|i| i.to_string()),
+            }
         } else {
             PathSegment::Id(item.id)
         };
@@ -73,8 +91,8 @@ impl Visit for IdStack {
     }
 
     fn after_visit_impl_trait(&mut self, _args: &ImplTraitMacroArgs, _level: &ApiLevel) {
-        if let Some(s) = self.current_item {
-            self.stack.push(s);
+        if let Some(s) = &self.current_item {
+            self.stack.push(s.clone());
         }
     }
 

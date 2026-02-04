@@ -50,10 +50,6 @@ impl IdStack {
 }
 
 impl Visit for IdStack {
-    fn after_visit_level(&mut self, _level: &ApiLevel) {
-        self.stack.pop();
-    }
-
     fn visit_api_item(&mut self, item: &ApiItem) {
         let s = if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             PathSegment::Array { id: item.id }
@@ -63,13 +59,17 @@ impl Visit for IdStack {
         self.current_item = Some(s);
     }
 
-    fn after_visit_api_item(&mut self, _item: &ApiItem) {
-        self.current_item = None;
-    }
-
     fn after_visit_impl_trait(&mut self, _args: &ImplTraitMacroArgs, _level: &ApiLevel) {
         if let Some(s) = self.current_item {
             self.stack.push(s);
         }
+    }
+
+    fn after_visit_api_item(&mut self, _item: &ApiItem) {
+        self.current_item = None;
+    }
+
+    fn after_visit_level(&mut self, _level: &ApiLevel) {
+        self.stack.pop();
     }
 }

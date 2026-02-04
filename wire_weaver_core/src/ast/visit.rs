@@ -6,11 +6,11 @@ use proc_macro2::Ident;
 use shrink_wrap_core::ast::{Docs, Type};
 
 pub trait Visit {
-    fn visit_level(&mut self, level: &ApiLevel) {
-        let _ = level;
+    fn hook(&mut self) -> Option<&mut dyn Visit> {
+        None
     }
 
-    fn after_visit_level(&mut self, level: &ApiLevel) {
+    fn visit_level(&mut self, level: &ApiLevel) {
         let _ = level;
     }
 
@@ -27,10 +27,6 @@ pub trait Visit {
     }
 
     fn visit_api_item(&mut self, item: &ApiItem) {
-        let _ = item;
-    }
-
-    fn after_visit_api_item(&mut self, item: &ApiItem) {
         let _ = item;
     }
 
@@ -71,6 +67,10 @@ pub trait Visit {
 
     fn visit_reserved(&mut self) {}
 
+    fn after_visit_api_item(&mut self, item: &ApiItem) {
+        let _ = item;
+    }
+
     fn visit_argument(&mut self, arg: &Argument) {
         let _ = arg;
     }
@@ -79,8 +79,8 @@ pub trait Visit {
         let _ = ty;
     }
 
-    fn hook(&mut self) -> Option<&mut dyn Visit> {
-        None
+    fn after_visit_level(&mut self, level: &ApiLevel) {
+        let _ = level;
     }
 }
 

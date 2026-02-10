@@ -91,9 +91,9 @@ pub enum Error {
     ExitRequested,
     #[error("Transport specific error: {}", .0)]
     Transport(String),
-    #[error("User error {}", .0)]
+    #[error("User error: '{}'", .0)]
     User(String),
-    #[error("User error {}", .0)]
+    #[error("Other error: '{}'", .0)]
     Other(String),
 }
 

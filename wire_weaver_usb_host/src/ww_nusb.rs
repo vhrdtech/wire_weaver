@@ -1,9 +1,12 @@
 //! Handle packet sending and receiving between nusb and wire_weaver_usb_link
+
 use nusb::transfer::{
     Buffer, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
 };
 use nusb::{Endpoint, Interface};
+use std::time::Duration;
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 use tracing::{debug, error, trace, warn};
 use wire_weaver_usb_link::{PacketSink, PacketSource};
 
@@ -13,6 +16,8 @@ pub(crate) struct Sink {
     completion_rx: mpsc::Receiver<Completion>,
     irq_max_packet_size: usize,
 }
+
+pub(crate) const ERR_WRITE_PACKET_TIMEOUT: u32 = u32::MAX; // TODO: try to replace TransferError with own type to avoid piggy-backing on nusb error
 
 impl Sink {
     pub fn new(interface: &Interface, irq_max_packet_size: usize) -> Result<Self, nusb::Error> {
@@ -42,12 +47,16 @@ impl PacketSink for Sink {
         let mut buf = if let Some(buf) = self.buf_pool.pop() {
             buf
         } else {
-            match self.completion_rx.recv().await {
-                Some(completion) => {
+            match timeout(Duration::from_millis(500), self.completion_rx.recv()).await {
+                Ok(Some(completion)) => {
                     completion.status?; // return early if transfer failed
                     completion.buffer
                 }
-                None => return Err(TransferError::Disconnected),
+                Ok(None) => return Err(TransferError::Disconnected),
+                // If device boots, but then ends up in an endless loop or in HardFault, USB device is still detected by the host,
+                // but no transfers go through. I.e. USB peripheral continues to answer to host requests, so it appears connected.
+                // Ideally device should reset USB its peripheral (or otherwise cause it to stop) in HardFault to drop from the bus.
+                Err(_) => return Err(TransferError::Unknown(ERR_WRITE_PACKET_TIMEOUT)),
             }
         };
         buf.clear();

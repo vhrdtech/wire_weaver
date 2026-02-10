@@ -292,7 +292,14 @@ where
                 if !state.common.link_setup_done {
                     if link_setup_retries > 0 {
                         warn!("resending GetDeviceInfo after no answer received from device");
-                        link.send_get_device_info().await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
+                        let r = link.send_get_device_info().await;
+                        if let Err(wire_weaver_usb_link::Error::SinkError(TransferError::Unknown(code))) = r
+                            && code == crate::ww_nusb::ERR_WRITE_PACKET_TIMEOUT
+                            && let Some(tx) = state.common.connected_tx.take()
+                        {
+                            _ = tx.send(Err(Error::Other("Device is not accepting USB transfers, it might be in an endless loop or in HardFault".into())));
+                        }
+                        r.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                         link_setup_retries -= 1;
                     } else {
                         error!("exiting, because link setup failed after several retries");

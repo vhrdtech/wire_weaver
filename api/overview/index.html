@@ -473,9 +473,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
+  <a href="#methods-rpc" class="md-nav__link">
     <span class="md-ellipsis">
-      Methods
+      Methods (RPC)
     </span>
   </a>
   
@@ -506,30 +506,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Traits">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#traits-for-api-resources-grouping" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits for API resources grouping
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#traits-global-for-extracting-common-functionality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits (global) for extracting common functionality
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -538,21 +514,6 @@
       Resource arrays
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Resource arrays">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#array-of-resources-vs-resource-of-array" class="md-nav__link">
-    <span class="md-ellipsis">
-      Array of resources vs resource of array
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1169,9 +1130,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
+  <a href="#methods-rpc" class="md-nav__link">
     <span class="md-ellipsis">
-      Methods
+      Methods (RPC)
     </span>
   </a>
   
@@ -1202,30 +1163,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Traits">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#traits-for-api-resources-grouping" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits for API resources grouping
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#traits-global-for-extracting-common-functionality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Traits (global) for extracting common functionality
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1234,21 +1171,6 @@
       Resource arrays
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Resource arrays">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#array-of-resources-vs-resource-of-array" class="md-nav__link">
-    <span class="md-ellipsis">
-      Array of resources vs resource of array
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1273,217 +1195,43 @@
 
 <h1 id="high-level-overview">High-level overview</h1>
 <p>API is defined as a collections of user-defined types and resources - methods, properties, streams and traits.
-Intended crate organisation is as follows:</p>
-<p><img alt="API crates diagram" src="../../assets/api_crates.svg" /></p>
-<ul>
-<li><code>my_device_api</code> crate - contains user-defined types and resources, common to firmware and it's driver (server and
-  client).
-  This crate must support <code>no_std</code> and optionally <code>std</code>.</li>
-<li>MCU firmware depends on the API crate, uses common data types and implements a server. WireWeaver generates
-  serdes and dispatch code, while user provides actual implementation.</li>
-<li>Rust driver also depends on the API crate (optionally with std feature). WireWeaver generates serdes and client side
-  code, user can optionally provide a higher-level client implementation on top of the generated one.</li>
-<li>CLI, GUI and other applications depend on the Rust driver crate in order to communicate with the device.</li>
-<li>Python wrapper is also automatically generated and uses Rust driver code.</li>
-</ul>
-<p>Name of the API crate (from Cargo.toml) is assumed to be a globally unique identifier (see <code>ww_version::FullVersion</code>),
-hence it is advised to eventually publish it to crates.io if you are working on an open-source project or ensure to use
-unique enough name for internal use.</p>
-<p>Version of the API crate is used for compatibility checks upon connection to the device. You can use it in your
-code as well, to show proper messages to user when interacting with an older or newer firmware from the perspective of
-the
-driver. Normal <a href="https://semver.org">SemVer rules</a> apply.</p>
+Multiple levels are supported. Common functionality (logging, GPIO, USART, etc.) can be extracted into external crates,
+see <a href="https://github.com/vhrdtech/ww_stdlib">ww_stdlib</a>. Both kind
+of levels can be defined as arrays (e.g., array of GpioPin's).
+Arbitrary user data <a href="../../types/">types</a> are supported as well, backed
+by <a href="https://crates.io/crates/shrink_wrap">ShrinkWrap</a>.</p>
+<p>Generated server code is completely IO-free (sans-IO), all communication with the USB or network is handled separately.
+For example USB driver and event loop is located in a
+<a href="https://crates.io/crates/wire_weaver_usb_embassy">wire_weaver_usb_embassy</a> crate.
+Generated std client code uses <code>tokio</code> and it's channels under the hood. Asynchronous, blocking and promise flavors are
+supported.
+Client generation for no_std is not yet implemented, but planned.</p>
 <p>WireWeaver supports both backwards and forwards compatibility at the wire format level, but you need to ensure to follow
-the <a href="../../evolution/rules/">evolution rules</a> for this to work properly.</p>
-<h2 id="methods">Methods</h2>
-<p>Methods are defined using standard Rust syntax.
-Any number of arguments are supported and they can be of any type (supported by SerDes).</p>
+the <a href="../../evolution/rules/">evolution rules</a> for it to work properly.</p>
+<h2 id="methods-rpc">Methods (RPC)</h2>
 <div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
 <span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_brightness</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">temperature</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f32</span><span class="p">;</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_type</span><span class="p">(</span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">LedState</span><span class="p">);</span>
-<span class="p">}</span>
-
-<span class="cp">#[derive_shrink_wrap]</span>
-<span class="cp">#[ww_repr(unib32)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">LedState</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">Off</span><span class="p">,</span>
-<span class="w">    </span><span class="n">On</span><span class="p">,</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">no_args</span><span class="p">();</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">plain_arg</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">plain_ret</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f32</span><span class="p">;</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_type</span><span class="p">(</span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">State</span><span class="p">);</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_ret</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">UserComplex</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">fallible</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">UserComplex</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">UserError</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>On the server side, this is how generated server code is tied with user provided implementation:</p>
-<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">ServerState</span><span class="w"> </span><span class="p">{}</span>
-
-<span class="k">impl</span><span class="w"> </span><span class="n">ServerState</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_brightness</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// do things</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-
-<span class="n">ww_api</span><span class="o">!</span><span class="p">(</span>
-<span class="w">    </span><span class="s">&quot;../../api/src/lib.rs&quot;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">api</span><span class="p">::</span><span class="n">MyDevice</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ServerState</span><span class="p">,</span>
-<span class="w">    </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="p">);</span>
-</code></pre></div>
-<p><code>ww_api</code> proc-macro invocation will implement <code>process_request_bytes</code> function, which takes in request bytes,
-deserializes and processes them and eventually calls <code>set_brightness</code> on self.</p>
-<p>Note that you can request blocking implementation by setting <code>use_async = false</code>. And there is also a possibility to
-return values later, via a provided request id (for example if executing a method and getting a result takes a long
-time).
-More on that on the <a href="../detailed/">detailed page</a>.</p>
+<p>Any number of arguments are supported. Arguments can be evolved in the same way as structs (e.g., new_arg: <code>Option&lt;T&gt;</code>
+can
+be added to the end).</p>
+<p>Return type can also be added later in a backwards+forwards -compatible way, e.g., an <code>Option&lt;T&gt;</code> or <code>Vec&lt;T&gt;</code>.</p>
+<p>More on <a href="../methods/">methods page</a>.</p>
 <h2 id="streams">Streams</h2>
-<p>Two types of streams are supported - from server to client (<code>stream!</code>) and from client to server (<code>sink!</code>).
-I.e., naming is from the perspective of the device (node) - stream out, sink in.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">byte</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">);</span>
-<span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">word</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
-<span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">slice</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
-<span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">user_defined</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">LedState</span><span class="o">&gt;</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Any type supported by the SerDes system works with streams as well. Streams can be used for many things, e.g., sending
-status updates or bytes from USART, frames to be transmitted on CAN bus, etc.</p>
-<p>Stream writes are not acknowledged - write message is sent out and no response is awaited by client, server publishes a
-stream update and similarly do not wait for any response from client.
-It is possible though to implement a token-based or some other form of backpressure using sideband channel.</p>
-<p>Streams can have a beginning and an end, for example to implement a file IO or firmware update, to deal with small
-chunks
-at a time and yet be able to signal a completion event. It is also possible to send a user defined delimiter, to be
-delivered in order with stream data, that can be used to implement frame synchronisation.</p>
-<p>Another useful property of streams is that they work on object level. For the <code>slice</code> stream in the example above,
-each individual array size is guaranteed to be preserved, even if multiple stream updates are transferred together at
-transport level. Sending <code>[1, 2, 3]</code>, <code>[4]</code>, <code>[5, 6]</code> will result in the same arrays received on the other end, in the
-same order.</p>
-<p>You can subscribe to stream updates, in an asynchronous or blocking manner, see more on
-the <a href="../detailed/">detailed page</a>.</p>
+<p>More on <a href="../streams/">streams page</a>.</p>
 <h2 id="properties">Properties</h2>
-<p>Properties of any type can be defined as follows:</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">button_pressed</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Property write is acknowledged by a server, unless request ID of 0 is used.</p>
-<p>Properties have access mode associated with them:</p>
-<ul>
-<li>Const (<code>const</code>) - property is not going to change, observe not available</li>
-<li>Read only (<code>ro</code>) - property can only be read, can change and be observed for changes</li>
-<li>Write only (<code>wo</code>) - property can only be written</li>
-<li>Read/Write (<code>rw</code>) - property can be read, written and observed for changes</li>
-</ul>
-<p>There are two supported way of implementing properties on the server side:</p>
-<ul>
-<li>get / set - user code provides <code>get_speed</code> and <code>set_speed</code> implementation.</li>
-<li>value / on_changed - generated code directly reads and writes <code>speed</code> field and calls user provided <code>speed_changed</code>
-  implementation.</li>
-</ul>
+<p>More on <a href="../properties/">properties page</a>.</p>
 <h2 id="traits">Traits</h2>
-<p>Traits in WireWeaver are used to define API blocks, as you can see from examples above, entry point for a device API is
-also a trait. They carry similar meaning to Rust traits, in a sense that trait defines some functionality, that server
-"implements" and client code can then interact with.</p>
-<p>But they are not actually traits under the hood, <code>#[ww_trait]</code> macro leaves only some static checks and removes the
-rest.
-Rust syntax is currently used to bypass writing a whole parser from scratch.
-All the magic happens through code generation in the <code>#[ww_api]</code> macro.</p>
-<h3 id="traits-for-api-resources-grouping">Traits for API resources grouping</h3>
-<p>Trait defined in the same file as the API root itself is a way to cleanly group related resources together.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">motor_control</span><span class="p">:</span><span class="w"> </span><span class="nc">MotorControl</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">led_control</span><span class="p">:</span><span class="w"> </span><span class="nc">LedControl</span><span class="p">);</span>
-<span class="p">}</span>
-
-<span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MotorControl</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">turn_on</span><span class="p">();</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">turn_off</span><span class="p">();</span>
-<span class="p">}</span>
-
-<span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MotorControl</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_brightness</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Note that in this case, one additional path index will be used, so in total there will be 4 valid paths here:</p>
-<ol>
-<li>[0, 0] - <code>turn_on</code></li>
-<li>[0, 1] - <code>turn_off</code></li>
-<li>[1, 0] - <code>led_on</code></li>
-<li>[1, 1] - <code>set_brightness</code></li>
-</ol>
-<p>If preserving very small size is of big importance, try not to create too many levels. Also one can put more important
-functionality higher up, in order to leverage variable length encoding (e.g. numbers <code>0..=7</code> take only 4 bits on the
-wire).</p>
-<p>TODO: splitting into multiple files</p>
-<h3 id="traits-global-for-extracting-common-functionality">Traits (global) for extracting common functionality</h3>
-<p>The idea behind global traits is to leverage crates.io to define a set of common traits used across many devices.
-Device can then implement all the traits it needs and on the client side, common code can be used to control
-similar functionality of different devices.</p>
-<p>Traits generic enough to be global and currently planned are:</p>
-<ul>
-<li>FirmwareUpdate</li>
-<li>EmbeddedLog</li>
-<li>BoardInfo</li>
-<li>Counters</li>
-<li>Gpio</li>
-<li>DeviceUserInfo</li>
-<li>RegisterAccess</li>
-<li>CanBus</li>
-</ul>
-<p>Device API, instead of re-implementing the same things over and over, can the look like follows:</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">MyAwesomeDevice</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">firmware_update</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_firmware_update</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">FirmwareUpdate</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board_info</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_board_info</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BoardInfo</span><span class="p">);</span>
-<span class="w">    </span><span class="c1">// and some device specific functionality in addition to common things</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Client code can be written in a completely agnostic way, e.g., only capable of interacting with <code>FirmwareUpdate</code> trait,
-regardless of which exact device it is implemented on or how it is physically connected.</p>
-<p>One can also interact with devices using trait-addressing mode, e.g., calling <code>set_indication_mode(Mode::Night)</code> on all
-devices on a CAN bus, putting all boards with LEDs into night mode. More on that on
-the <a href="../addressing/">addressing page</a></p>
+<p>More on <a href="../traits/">traits page</a>.</p>
 <h2 id="resource-arrays">Resource arrays</h2>
-<p>Any resource can also be an array - method, property, stream and even a trait implementation:</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">ArrayOf</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">run</span><span class="o">&lt;</span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">();</span>
-<span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="kt">u16</span><span class="p">);</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">[]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">motor</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_motor_control</span><span class="w"> </span><span class="s">&quot;0.1.0&quot;</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Motor</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>TODO: size bounds</p>
-<p>Traits inside other traits can also contain arrays, all the indices leading up to them are accumulated and passed as
-Rust array <code>[u32; N]</code> argument into a corresponding user handler.</p>
-<p>That way generated code can be kept efficient and simple, because the whole API tree is essentially flattened and
-simple function calls are used to interface with user provided implementation. At least that is the case for now on
-<code>no_std</code> targets.</p>
-<h3 id="array-of-resources-vs-resource-of-array">Array of resources vs resource of array</h3>
-<p>Here, resource led is itself an array, when accessing it - an index will be added to the resource path.
-Each one of three bool's is accessed separately from each other.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfResources</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>On the other hand, here led is not an array, but its type is. All three boolean's are accessed in one go.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">ResourceOfArrays</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">led</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">bool</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Both can be used together as well, for example:</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#[ww_trait]</span>
-<span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfArrays</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rgb_led</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
-<span class="p">}</span>
-</code></pre></div>
+<p>More on <a href="../arrays/">arrays page</a>.</p>
 
 
 

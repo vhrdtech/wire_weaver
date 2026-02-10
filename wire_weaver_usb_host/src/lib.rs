@@ -3,6 +3,9 @@ mod event_loop;
 mod loopback;
 mod ww_nusb;
 
+#[cfg(feature = "usb-tracing")]
+pub mod tracing;
+
 pub use event_loop::usb_worker;
 pub use nusb::DeviceInfo;
 pub use wire_weaver_client_common;

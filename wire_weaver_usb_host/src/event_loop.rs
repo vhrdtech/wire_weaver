@@ -2,6 +2,7 @@ use crate::ww_nusb::{Sink, Source};
 use crate::{MAX_MESSAGE_SIZE, UsbError};
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
+use std::fmt::Debug;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
@@ -11,7 +12,8 @@ use wire_weaver_client_common::{
     Command, Error, OnError, TestProgress, event_loop_state::CommonState,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, WireWeaverUsbLink,
+    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
+    WireWeaverUsbLink,
 };
 
 struct State {
@@ -93,11 +95,28 @@ pub async fn usb_worker(
                     }
                     state.irq_packet_size = max_irq_packet_size;
                     debug!("max_packet_size: {}", max_irq_packet_size);
+                    let sink = Sink::new(&interface, max_irq_packet_size).unwrap();
+                    let source = Source::new(&interface, max_irq_packet_size).unwrap();
+                    cfg_if::cfg_if! {
+                        if #[cfg(feature = "usb-tracing")] {
+                            use iceoryx2::prelude::*;
+                            let node = NodeBuilder::new().create::<ipc_threadsafe::Service>().unwrap();
+                            let name = format!("WireWeaver/UsbTrace/{}-{:?}", di.bus_id(), di.port_chain());
+                            let service = node.service_builder(&ServiceName::new(format!("{name}/tx").as_str()).unwrap())
+                                .publish_subscribe::<crate::tracing::UsbPacket>().open_or_create().unwrap();
+                            let publisher = service.publisher_builder().create().unwrap();
+                            let sink = crate::tracing::SinkTrace::new(publisher, sink);
+                            let service = node.service_builder(&ServiceName::new(format!("{name}/rx").as_str()).unwrap())
+                                .publish_subscribe::<crate::tracing::UsbPacket>().open_or_create().unwrap();
+                            let publisher = service.publisher_builder().create().unwrap();
+                            let source = crate::tracing::SourceTrace::new(publisher, source);
+                        }
+                    }
                     link = Some(WireWeaverUsbLink::new(
                         user_protocol,
-                        Sink::new(&interface, max_irq_packet_size).unwrap(),
+                        sink,
                         &mut tx_buf[..max_irq_packet_size],
-                        Source::new(&interface, max_irq_packet_size).unwrap(),
+                        source,
                         &mut rx_buf[..max_irq_packet_size],
                     ));
                     state.device_info = Some(di);
@@ -182,12 +201,16 @@ enum EventLoopResult {
     Exit,
 }
 
-async fn process_commands_and_endpoints(
+async fn process_commands_and_endpoints<T, R>(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
     to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
-) -> Result<EventLoopResult, Error> {
+) -> Result<EventLoopResult, Error>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     link.send_get_device_info()
         .await
         .map_err(|e| Error::Transport(format!("{:?}", e)))?;
@@ -305,12 +328,16 @@ enum EventLoopSpinResult {
     DisconnectFromDevice,
 }
 
-async fn handle_message(
+async fn handle_message<T, R>(
     message: Result<MessageKind, LinkError<TransferError, TransferError>>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
     to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
-) -> Result<EventLoopSpinResult, Error> {
+) -> Result<EventLoopSpinResult, Error>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     match message {
         Ok(MessageKind::Data(len)) => {
             state.common.last_rx_ping_instant = Some(Instant::now());
@@ -388,12 +415,16 @@ async fn handle_message(
     Ok(EventLoopSpinResult::Continue)
 }
 
-async fn handle_command(
+async fn handle_command<T, R>(
     cmd: Command,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
     scratch: &mut [u8],
-) -> Result<EventLoopSpinResult, Error> {
+) -> Result<EventLoopSpinResult, Error>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     match cmd {
         Command::Connect { .. } => {
             warn!("Ignoring Connect while already connected");
@@ -417,7 +448,7 @@ async fn handle_command(
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             // wait for Disconnect op to be actually sent out
-            // link.tx_mut().flush().await - does not seem to be working, submitted transfer still get cancelled in-flight
+            // link.tx_mut().flush().await - does not seem to be working, submitted transfer still get canceled in-flight
             tokio::time::sleep(Duration::from_millis(3)).await;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());

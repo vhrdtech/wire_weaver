@@ -1,19 +1,22 @@
-use crate::ww_nusb::{Sink, Source};
-use rand::RngCore;
+use nusb::transfer::TransferError;
+use rand::Rng;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use wire_weaver_client_common::TestProgress;
-use wire_weaver_usb_link::{MessageKind, WireWeaverUsbLink};
+use wire_weaver_usb_link::{MessageKind, PacketSink, PacketSource, WireWeaverUsbLink};
 
 const PACKET_OVERHEAD: usize = 2 + 4 + 4; // (opcode + len) + repeat + seq
 
-pub(crate) async fn loopback_test(
+pub(crate) async fn loopback_test<T, R>(
     test_duration: Duration,
     packet_size: usize,
     mut progress_tx: mpsc::UnboundedSender<TestProgress>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     scratch: &mut [u8],
-) {
+) where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     let test_data_size = packet_size.saturating_sub(PACKET_OVERHEAD);
     println!("Test data size: {}", test_data_size);
     let r = round_trip(
@@ -80,13 +83,17 @@ impl TestTimer {
     }
 }
 
-async fn round_trip(
+async fn round_trip<T, R>(
     test_duration: Duration,
     progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     scratch: &mut [u8],
     test_data_size: usize,
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     _ = progress_tx.send(TestProgress::TestStarted("loopback"));
     let mut timer = TestTimer::new(test_duration);
     let mut seq = 0;
@@ -129,12 +136,16 @@ async fn round_trip(
     Ok(())
 }
 
-async fn tx_speed(
+async fn tx_speed<T, R>(
     test_duration: Duration,
     progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     test_data: &[u8],
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     _ = progress_tx.send(TestProgress::TestStarted("tx_speed"));
     let mut timer = TestTimer::new(test_duration);
     let mut tx_count = 0;
@@ -164,13 +175,17 @@ async fn tx_speed(
     Ok(())
 }
 
-async fn rx_speed(
+async fn rx_speed<T, R>(
     test_duration: Duration,
     progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     test_data: &[u8],
     scratch: &mut [u8],
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     _ = progress_tx.send(TestProgress::TestStarted("rx_speed"));
     let mut timer = TestTimer::new(test_duration);
     let mut rx_count = 0;
@@ -214,11 +229,15 @@ async fn rx_speed(
     Ok(())
 }
 
-async fn receive_message<'i>(
-    link: &mut WireWeaverUsbLink<'_, Sink, Source>,
+async fn receive_message<'i, T, R>(
+    link: &mut WireWeaverUsbLink<'_, T, R>,
     progress_tx: &mut mpsc::UnboundedSender<TestProgress>,
     scratch: &'i mut [u8],
-) -> Result<(u32, &'i [u8]), ()> {
+) -> Result<(u32, &'i [u8]), ()>
+where
+    T: PacketSink<Error = TransferError>,
+    R: PacketSource<Error = TransferError>,
+{
     let mut rx_seq_data = None;
     let mut last_kind = String::new();
     for _ in 0..3 {

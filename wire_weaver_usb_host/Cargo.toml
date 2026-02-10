@@ -16,4 +16,10 @@ wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", fe
 wire_weaver_client_common = { version = "0.1.0", path = "../wire_weaver_client_common", features = ["nusb"] }
 futures-lite = "2.6"
 thiserror = "2.0"
-rand = "0.9"
+rand = "0.10"
+iceoryx2 = { version = "0.8", optional = true }
+iceoryx2-bb-container = { version = "0.8", optional = true }
+cfg-if = "1"
+
+[features]
+usb-tracing = ["dep:iceoryx2", "dep:iceoryx2-bb-container"] # stream all USB packets over iceoryx2 to debugger

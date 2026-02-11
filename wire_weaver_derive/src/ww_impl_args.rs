@@ -33,6 +33,9 @@ pub(crate) struct ImplExtArgs {
 
     #[darling(default)]
     pub(crate) debug_to_file: String,
+
+    #[darling(default)]
+    pub(crate) introspect: bool,
 }
 
 impl Parse for ApiArgs {

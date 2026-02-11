@@ -1,11 +1,12 @@
 use crate::ww_impl_args::ApiArgs;
 use proc_macro2::{Span, TokenStream};
-use quote::TokenStreamExt;
+use quote::{TokenStreamExt, quote};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use wire_weaver_core::codegen::api_client::ClientModel;
+use wire_weaver_core::codegen::introspect::introspect;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::load::load_api_level_recursive;
@@ -113,6 +114,13 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 return Err(format!("Debug file create failed: {path:?} {:?}", e));
             }
         }
+    }
+
+    if args.ext.introspect {
+        let ww_self_bytes_const = introspect(&level);
+        codegen_ts.append_all(quote! {
+            pub const INTROSPECT_BYTES: #ww_self_bytes_const;
+        });
     }
 
     Ok(codegen_ts)

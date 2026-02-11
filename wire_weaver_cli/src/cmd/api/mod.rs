@@ -1,4 +1,6 @@
+mod server_methods;
 mod tree_printer;
+
 use anyhow::Result;
 
 use clap::Subcommand;
@@ -23,6 +25,14 @@ pub enum ApiCommand {
         #[arg(short('d'), long)]
         skip_docs: bool,
     },
+    ServerMethods {
+        /// Path to file which defines ww_trait
+        path: PathBuf,
+
+        /// Optional trait name if more than one is present
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
     match cmd {
@@ -32,6 +42,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             skip_reserved,
             skip_docs,
         } => tree_printer::tree_printer(path, name, skip_reserved, skip_docs)?,
+        ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name)?,
     }
     Ok(())
 }

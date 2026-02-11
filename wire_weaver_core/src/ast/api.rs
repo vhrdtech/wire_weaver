@@ -244,3 +244,15 @@ impl ApiLevelSourceLocation {
         }
     }
 }
+
+impl ApiItem {
+    pub fn ident(&self) -> Option<Ident> {
+        match &self.kind {
+            ApiItemKind::Method { ident, .. }
+            | ApiItemKind::Property { ident, .. }
+            | ApiItemKind::Stream { ident, .. } => Some(ident.clone()),
+            ApiItemKind::ImplTrait { args, .. } => Some(args.resource_name.clone()),
+            ApiItemKind::Reserved => None,
+        }
+    }
+}

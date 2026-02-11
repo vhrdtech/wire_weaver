@@ -16,7 +16,7 @@ proc-macro2 = { workspace = true }
 #strum_macros = "0.26"
 shrink_wrap.workspace = true
 shrink_wrap_core.workspace = true
-convert_case = "0.10"
+convert_case = "0.11"
 pest = "2.8"
 pest_derive = { version = "2.8", features = ["grammar-extras"] }
 regex = "1.12"

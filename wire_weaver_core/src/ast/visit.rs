@@ -86,10 +86,10 @@ pub trait Visit {
 
 macro_rules! visit {
     ($v:ident.$method:ident($($args:tt)*)) => {
-        $v.$method($($args)*);
         if let Some(hook) = $v.hook() {
             hook.$method($($args)*);
         }
+        $v.$method($($args)*);
     };
 }
 

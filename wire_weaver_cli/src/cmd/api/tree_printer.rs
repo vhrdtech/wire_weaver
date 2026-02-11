@@ -1,15 +1,13 @@
-use anyhow::anyhow;
+use crate::util;
 use console::{StyledObject, style};
-use proc_macro2::{Ident, Span};
+use proc_macro2::Ident;
 use shrink_wrap_core::ast::Type;
-use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::PathBuf;
 use wire_weaver_core::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, PropertyAccess};
-use wire_weaver_core::ast::trait_macro_args::{ImplTraitLocation, ImplTraitMacroArgs};
+use wire_weaver_core::ast::trait_macro_args::ImplTraitMacroArgs;
 use wire_weaver_core::ast::visit::{Visit, visit_api_level};
 use wire_weaver_core::ast::visitors::IdStack;
-use wire_weaver_core::transform::load::load_api_level_recursive;
 
 pub fn tree_printer(
     path: PathBuf,
@@ -17,32 +15,7 @@ pub fn tree_printer(
     skip_reserved: bool,
     skip_docs: bool,
 ) -> anyhow::Result<()> {
-    // do some gymnastics to point base_dir at crate root (where Cargo.toml is)
-    let mut base_dir = path.clone();
-    base_dir.pop(); // pop ww.rs
-    base_dir.pop(); // pop src
-
-    let parent = path
-        .parent()
-        .unwrap()
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap(); // likely src folder
-    let file_name = path.file_name().unwrap().to_str().unwrap(); // likely ww.rs or src.rs
-
-    let mut cache = HashMap::new();
-    let level = load_api_level_recursive(
-        &ImplTraitLocation::AnotherFile {
-            path: format!("{parent}/{file_name}"),
-            part_of_crate: Ident::new("crate", Span::call_site()),
-        },
-        name.map(|n| Ident::new(n.as_str(), Span::call_site())),
-        None,
-        base_dir.as_path(),
-        &mut cache,
-    )
-    .map_err(|e| anyhow!(e))?;
+    let level = util::load_level(path, name)?;
     println!(
         "{} {}:",
         style("trait").true_color(0xCF, 0x8E, 0x6D),

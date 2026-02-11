@@ -10,9 +10,14 @@ nav:
   - "types.md"
   - API:
       - "api/overview.md"
-      - "api/detailed.md"
+      - "api/methods.md"
+      - "api/properties.md"
+      - "api/streams.md"
+      - "api/traits.md"
+      - "api/arrays.md"
       - "api/addressing.md"
       - "api/versioning.md"
+      - "api/folder_structure.md"
   - Evolution:
       - "evolution/rules.md"
       - "evolution/checker_tool.md"

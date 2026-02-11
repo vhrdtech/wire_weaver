@@ -32,3 +32,39 @@ same order.
 
 You can subscribe to stream updates, in an asynchronous or blocking manner, see more on
 the [detailed page](detailed.md).
+
+## Sideband channel
+
+In order to facilitate stream open/close operations, frame synchronization and other operations all streams
+in addition to data channel have:
+
+* A sideband command channel
+* A sideband event channel
+
+All sideband data is sent in-order with the payloads (no reordering).
+
+### Sideband commands
+
+The following stream sideband commands are supported:
+
+* Open
+* Close
+* FrameSync
+* ChangeRate(ShaperConfig)
+* SizeHint(u32)
+* User(u32)
+
+All commands are optional, including open and close.
+Depending on the application, it might be beneficial to start a stream automatically without waiting for the command.
+
+See [StreamSidebandCommand](https://github.com/vhrdtech/ww_stdlib/blob/main/ww_client_server/src/lib.rs#:~:text=StreamSidebandCommand)
+
+### Sideband events
+
+The following stream sideband events are supported:
+
+* Opened
+* Closed
+* FrameSync
+* SizeHint(u32)
+* User(u32)

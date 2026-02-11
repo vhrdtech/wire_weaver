@@ -3,7 +3,6 @@
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::introspect::introspect;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::util::{add_prefix, maybe_quote};
 use crate::method_model::{MethodModel, MethodModelKind};
@@ -145,35 +144,12 @@ fn process_request_inner_recursive(
     crate_name: &Ident,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
-    is_root: bool,
+    _is_root: bool,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
     let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
-    let introspect_root = if is_root {
-        let introspect_bytes = introspect(api_level);
-        let es1 = error_seq.next_err();
-        let es2 = error_seq.next_err();
-        quote! {
-            RequestKind::Introspect => {
-                const INTROSPECT_BYTES: #introspect_bytes;
-
-                let mut wr = BufWriter::new(scratch_event);
-                let event = Event {
-                    seq: request.seq,
-                    result: Ok(EventKind::Introspect {
-                        ww_self_bytes: RefVec::Slice { slice: &INTROSPECT_BYTES }
-                    })
-                };
-                event.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es1))?;
-                Ok(wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))?)
-            },
-        }
-    } else {
-        let es = error_seq.next_err();
-        quote! { RequestKind::Introspect => { Err(Error::not_supported(#es)) }, }
-    };
     let es = error_seq.next_err();
     let mut ts = quote! {
         #maybe_async fn #ident<'a>(
@@ -189,7 +165,6 @@ fn process_request_inner_recursive(
                 #level_matchers
                 None => {
                     match request.kind {
-                        #introspect_root
                         _ => { Err(Error::not_supported(#es)) },
                     }
                 }
@@ -402,19 +377,15 @@ fn handle_method(
         },
     };
 
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
+    let es = error_seq.next_err();
     quote! {
         match &request.kind {
             RequestKind::Call { #is_args } => {
                 #args_des
                 #call_and_handle_deferred
             }
-            RequestKind::Introspect => {
-                Err(Error::new(#es0, ErrorKind::OperationNotImplemented))
-            }
             _ => {
-                Err(Error::not_supported(#es1))
+                Err(Error::not_supported(#es))
             }
         }
     }

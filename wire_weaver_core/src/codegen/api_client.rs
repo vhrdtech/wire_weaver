@@ -372,6 +372,7 @@ fn handle_property(
         model.no_alloc(),
         false,
         quote! { ? },
+        &quote! { _ },
         &mut des,
     );
     let path_kind = path_kind(path_mode, gid_paths);

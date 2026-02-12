@@ -224,6 +224,7 @@ fn level_matchers(
             index_chain,
             api_level.mod_ident(crate_name),
             cx,
+            crate_name,
             error_seq,
         ),
         Multiplicity::Array { .. } => {
@@ -245,6 +246,7 @@ fn level_matchers(
                 index_chain,
                 api_level.mod_ident(crate_name),
                 cx,
+                crate_name,
                 error_seq,
             );
             quote! {
@@ -271,6 +273,7 @@ fn level_matcher(
     index_chain: IndexChain,
     mod_ident: Ident,
     cx: &ApiServerCGContext<'_>,
+    crate_name: &Ident,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     match kind {
@@ -285,6 +288,7 @@ fn level_matcher(
             ident,
             args,
             return_type,
+            crate_name,
             error_seq,
         ),
         ApiItemKind::Property {
@@ -299,10 +303,11 @@ fn level_matcher(
             ty,
             user_result_ty,
             *access,
+            crate_name,
             error_seq,
         ),
         ApiItemKind::Stream { ident, ty, is_up } => {
-            handle_stream(index_chain, cx, ident, ty, *is_up, error_seq)
+            handle_stream(index_chain, cx, ident, ty, *is_up, crate_name, error_seq)
         }
         ApiItemKind::ImplTrait { args, .. } => {
             let process_fn_name = Ident::new(
@@ -335,10 +340,19 @@ fn handle_method(
     ident: &Ident,
     args: &[Argument],
     return_type: &Option<Type>,
+    crate_name: &Ident,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
-    let maybe_let_output = maybe_quote(return_type.is_some(), quote! { let output = });
+    let maybe_let_output = if let Some(ty) = return_type {
+        let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
+        quote! {
+            let output: #enforce_ty =
+        }
+    } else {
+        quote! {}
+    };
+    // let maybe_let_output = maybe_quote(return_type.is_some(), quote! { let output = });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
 
     let (args_des, args_list) = des_args(mod_ident, ident, args, cx.no_alloc, error_seq);
@@ -397,6 +411,7 @@ fn handle_property(
     ty: &Type,
     user_result_ty: &Option<Type>,
     access: PropertyAccess,
+    crate_name: &Ident,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
@@ -404,11 +419,13 @@ fn handle_property(
     let maybe_index_chain_indices = index_chain.array_indices();
     let mut des = TokenStream::new();
     let es = error_seq.next_err();
+    let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
     ty.buf_read(
         &Ident::new("value", Span::call_site()),
         cx.no_alloc,
         false,
         quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
+        &enforce_ty,
         &mut des,
     );
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
@@ -477,7 +494,7 @@ fn handle_property(
                 &mut ser,
             );
             quote! {
-                let value = self.#get_property(#maybe_index_chain_arg)#maybe_await;
+                let value: #enforce_ty = self.#get_property(#maybe_index_chain_arg)#maybe_await;
                 let mut wr = BufWriter::new(scratch_args);
                 #ser
             }
@@ -553,6 +570,7 @@ fn handle_stream(
     ident: &Ident,
     ty: &Type,
     is_up: bool,
+    crate_name: &Ident,
     err_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
@@ -597,11 +615,13 @@ fn handle_stream(
                 let mut rd = BufReader::new(data);
             };
             let es = err_seq.next_err();
+            let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
             ty.buf_read(
                 &Ident::new("value", Span::call_site()),
                 true,
                 false,
                 quote! { .map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))? },
+                &enforce_ty,
                 &mut ts,
             );
             (ts, quote! { value })

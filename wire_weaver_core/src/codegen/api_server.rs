@@ -125,14 +125,11 @@ impl<'i> ApiServerCGContext<'i> {
     fn push_suffix(&mut self, suffix: &Ident) {
         if let Some(prefix) = &self.ident_prefix {
             self.ident_prefix = Some(Ident::new(
-                format!("{}_{}", prefix, suffix.to_string().to_case(Case::Snake)).as_str(),
+                format!("{}_{}", prefix, suffix).as_str(),
                 Span::call_site(),
             ));
         } else {
-            self.ident_prefix = Some(Ident::new(
-                suffix.to_string().to_case(Case::Snake).as_str(),
-                Span::call_site(),
-            ));
+            self.ident_prefix = Some(suffix.clone());
         }
     }
 }
@@ -186,7 +183,9 @@ fn process_request_inner_recursive(
             Span::call_site(),
         );
         let mut cx = cx.clone();
-        cx.push_suffix(&args.trait_name);
+        if let Some(ident) = item.ident() {
+            cx.push_suffix(&ident);
+        }
         let mut index_chain = index_chain;
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();

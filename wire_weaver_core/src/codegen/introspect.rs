@@ -227,7 +227,7 @@ fn convert_multiplicity(m: &api::Multiplicity) -> ww_self::Multiplicity {
     match m {
         api::Multiplicity::Flat => ww_self::Multiplicity::Flat,
         // TODO: ww_self: convert multiplicity
-        api::Multiplicity::Array { index_type } => ww_self::Multiplicity::Array,
+        api::Multiplicity::Array { index_type: _ } => ww_self::Multiplicity::Array,
     }
 }
 
@@ -319,6 +319,12 @@ fn convert_ty(ty: &shrink_wrap_core::ast::Type) -> ww_self::TypeOwned {
         },
         shrink_wrap_core::ast::Type::IsOk(_) => ww_self::TypeOwned::Flag,
         shrink_wrap_core::ast::Type::RefBox(_) => ww_self::TypeOwned::Box(Box::new(convert_ty(ty))),
+        shrink_wrap_core::ast::Type::Range(ty) => {
+            ww_self::TypeOwned::Range(Box::new(convert_ty(ty)))
+        }
+        shrink_wrap_core::ast::Type::RangeInclusive(ty) => {
+            ww_self::TypeOwned::RangeInclusive(Box::new(convert_ty(ty)))
+        }
     }
 }
 

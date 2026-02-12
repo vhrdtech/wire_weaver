@@ -111,7 +111,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                     .map_err(|e| e.to_string())?;
             }
             Err(e) => {
-                return Err(format!("Debug file create failed: {path:?} {:?}", e));
+                eprintln!("Debug file create failed: {path:?} {:?}", e);
             }
         }
     }

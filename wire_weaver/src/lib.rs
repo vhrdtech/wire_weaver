@@ -20,6 +20,7 @@ pub trait WireWeaverAsyncApiBackend {
     /// Deserialize request and process it.
     fn process_bytes<'a>(
         &mut self,
+        sink: &mut impl MessageSink,
         data: &[u8],
         scratch_args: &'a mut [u8],
         scratch_event: &'a mut [u8],

@@ -1,13 +1,13 @@
 use crate::UsbServer;
 use defmt::{debug, error, info};
-use embassy_futures::select::{Either3, select3};
+use embassy_futures::select::{select3, Either3};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Receiver;
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::driver::{Driver, EndpointError};
 use wire_weaver::WireWeaverAsyncApiBackend;
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, WireWeaverUsbLink,
+    DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink, PING_INTERVAL_MS,
 };
 
 // TODO: tune ignore timer duration
@@ -159,6 +159,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                     debug!("message: {:02x}", message);
                     match backend
                         .process_bytes(
+                            link,
                             message,
                             scratch_args,
                             scratch_event,

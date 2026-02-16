@@ -74,7 +74,8 @@ pub fn impl_server_dispatcher(
                 bytes: &[u8],
                 scratch_args: &'a mut [u8],
                 scratch_event: &'a mut [u8],
-                scratch_err: &'a mut [u8]
+                scratch_err: &'a mut [u8],
+                msg_tx: &mut impl wire_weaver::MessageSink,
             ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd)?;
@@ -89,7 +90,7 @@ pub fn impl_server_dispatcher(
                     return wr.finish_and_take();
                 };
                 let mut path_iter = path.iter();
-                match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event)#maybe_await {
+                match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event, msg_tx)#maybe_await {
                     Ok(response_bytes) => Ok(response_bytes),
                     Err(e) => {
                         let mut wr = BufWriter::new(scratch_err);
@@ -157,7 +158,8 @@ fn process_request_inner_recursive(
             request: &Request<'_>,
             scratch_args: &'a mut [u8],
             scratch_event: &'a mut [u8],
-        ) -> Result<&'a [u8], Error> {
+            msg_tx: &mut impl wire_weaver::MessageSink,
+        ) -> Result<&'a [u8], Error<'_>> {
             match path_iter.next() {
                 #level_matchers
                 None => {
@@ -321,7 +323,7 @@ fn level_matcher(
             let maybe_await = maybe_quote(cx.use_async, quote! { .await });
             let maybe_index_chain_arg = index_chain.fun_argument_call();
             quote! {
-                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args)#maybe_await?)
+                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args, msg_tx)#maybe_await?)
             }
         }
         ApiItemKind::Reserved => {
@@ -372,7 +374,7 @@ fn handle_method(
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let call_and_handle_deferred = match cx.method_model.pick(ident.to_string().as_str()).unwrap() {
         MethodModelKind::Immediate => quote! {
-            #maybe_let_output self.#ident(#maybe_index_chain_arg #args_list)#maybe_await;
+            #maybe_let_output self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await;
             if request.seq != 0 {
                 #ser_output_or_unit
             } else {
@@ -380,7 +382,7 @@ fn handle_method(
             }
         },
         MethodModelKind::Deferred => quote! {
-            let output = match self.#ident(#maybe_index_chain_arg request.seq, #args_list)#maybe_await {
+            let output = match self.#ident(msg_tx, #maybe_index_chain_arg request.seq, #args_list)#maybe_await {
                 Some(o) => o,
                 None => {
                     return Ok(&[])
@@ -577,21 +579,20 @@ fn handle_stream(
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
     let sideband_fn = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
-    let es0 = err_seq.next_err();
-    let es1 = err_seq.next_err();
+    let es = err_seq.next_err();
     let handle_sideband_cmd = quote! {
         // user fn returns Option<StreamSidebandEvent>
-        let r = self.#sideband_fn(#maybe_index_chain_call sideband_cmd)#maybe_await;
+        let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call sideband_cmd)#maybe_await;
         match r {
             Some(sideband_event) => {
                 let event = Event {
                     seq: request.seq,
                     result: Ok(EventKind::StreamSideband { path, sideband_event })
                 };
-                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?)
+                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
             }
             None => {
-                Err(Error::new(#es1, ErrorKind::OperationNotImplemented))
+                Ok(&[])
             }
         }
     };

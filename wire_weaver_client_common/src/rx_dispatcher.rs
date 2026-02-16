@@ -239,12 +239,21 @@ impl DispatcherState {
                         warn!("unknown seq: {:?}", &event.seq);
                     }
                 }
-                EventKind::StreamData { path, data } => {
+                EventKind::StreamData { ref path, .. }
+                | EventKind::StreamSideband { ref path, .. } => {
+                    let ev = match event_kind {
+                        EventKind::StreamData { data, .. } => {
+                            StreamEvent::Data(data.as_slice().to_vec())
+                        }
+                        EventKind::StreamSideband { sideband_event, .. } => {
+                            StreamEvent::Sideband(sideband_event)
+                        }
+                        _ => unreachable!(),
+                    };
                     let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
                     if let Some(listeners) = self.stream_handlers.get_mut(&path) {
                         listeners.retain(|tx| {
-                            let data = data.as_slice().to_vec();
-                            let keep = tx.send(StreamEvent::Data(data)).is_ok();
+                            let keep = tx.send(ev.clone()).is_ok();
                             if !keep {
                                 debug!("dropped subscriber for stream at {:?}", path);
                             }

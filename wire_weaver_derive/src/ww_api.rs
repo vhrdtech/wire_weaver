@@ -97,6 +97,13 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         codegen_ts.append_all(ts);
     }
 
+    if args.ext.introspect {
+        let ww_self_bytes_const = introspect(&level);
+        codegen_ts.append_all(quote! {
+            pub const INTROSPECT_BYTES: #ww_self_bytes_const;
+        });
+    }
+
     if !args.ext.debug_to_file.is_empty() {
         let path = manifest_dir.join(&args.ext.debug_to_file);
         match File::create(&path) {
@@ -114,13 +121,6 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 eprintln!("Debug file create failed: {path:?} {:?}", e);
             }
         }
-    }
-
-    if args.ext.introspect {
-        let ww_self_bytes_const = introspect(&level);
-        codegen_ts.append_all(quote! {
-            pub const INTROSPECT_BYTES: #ww_self_bytes_const;
-        });
     }
 
     Ok(codegen_ts)

@@ -66,7 +66,6 @@ pub(crate) fn stream_ser_methods_recursive(
         } else {
             quote! { 'a }
         };
-        let ty_def = ty.def(no_alloc);
 
         let bytes_to_container = if no_alloc {
             quote! { RefVec::Slice { slice: value_bytes } }
@@ -74,19 +73,30 @@ pub(crate) fn stream_ser_methods_recursive(
             quote! { Vec::from(value_bytes) }
         };
 
-        let maybe_crate_name =
-            maybe_quote(matches!(ty, Type::External(_, _)), quote! { #crate_name:: });
+        let (value_ty, value_ser) = if ty.is_byte_slice() {
+            (quote! { [u8] }, quote! { let value_bytes = value; })
+        } else {
+            let ty_def = ty.def(no_alloc);
+            let maybe_crate_name =
+                maybe_quote(matches!(ty, Type::External(_, _)), quote! { #crate_name:: });
+            let value_ser = quote! {
+                let mut wr = BufWriter::new(scratch_value);
+                value.ser_shrink_wrap(&mut wr)?;
+                let value_bytes = wr.finish_and_take()?;
+            };
+
+            (quote! { #maybe_crate_name #ty_def }, value_ser)
+        };
         methods_ts.extend(quote! {
             #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
             pub fn #ident<#lifetimes>(
                 &self,
-                #maybe_index_arg value: & #maybe_crate_name #ty_def,
+                #maybe_index_arg
+                value: & #value_ty,
                 scratch_value: &mut [u8],
                 scratch_event: &'a mut [u8]
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                let mut wr = BufWriter::new(scratch_value);
-                value.ser_shrink_wrap(&mut wr)?;
-                let value_bytes = wr.finish_and_take()?;
+                #value_ser
 
                 let mut wr = BufWriter::new(scratch_event);
                 let data = #bytes_to_container;

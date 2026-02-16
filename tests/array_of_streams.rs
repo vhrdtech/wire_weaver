@@ -1,3 +1,4 @@
+use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 
@@ -49,12 +50,17 @@ mod api_impl {
 }
 
 impl NoStdSyncServer {
-    fn root_stream_sideband(&mut self, _cmd: StreamSidebandCommand) -> Option<StreamSidebandEvent> {
+    fn root_stream_sideband(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        _cmd: StreamSidebandCommand,
+    ) -> Option<StreamSidebandEvent> {
         None
     }
 
     fn root_array_of_streams_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 1],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
@@ -63,6 +69,7 @@ impl NoStdSyncServer {
 
     fn subgroup_stream_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
         None
@@ -70,6 +77,7 @@ impl NoStdSyncServer {
 
     fn subgroup_array_of_streams_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 1],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
@@ -78,6 +86,7 @@ impl NoStdSyncServer {
 
     fn gpio_stream_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 1],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
@@ -86,6 +95,7 @@ impl NoStdSyncServer {
 
     fn gpio_array_of_streams_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 2],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
@@ -94,6 +104,7 @@ impl NoStdSyncServer {
 
     fn channel_stream_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 2],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
@@ -102,6 +113,7 @@ impl NoStdSyncServer {
 
     fn channel_array_of_streams_sideband(
         &mut self,
+        _msg_tx: &mut impl MessageSink,
         _index_chain: [UNib32; 3],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {

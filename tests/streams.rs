@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
@@ -31,6 +32,7 @@ mod no_std_sync_server {
     impl NoStdSyncServer {
         fn plain_stream_sideband(
             &mut self,
+            _msg_tx: &mut impl MessageSink,
             _cmd: StreamSidebandCommand,
         ) -> Option<StreamSidebandEvent> {
             println!("plain stream sideband: {_cmd:?}");
@@ -39,6 +41,7 @@ mod no_std_sync_server {
 
         fn plain_sink_sideband(
             &mut self,
+            _msg_tx: &mut impl MessageSink,
             _cmd: StreamSidebandCommand,
         ) -> Option<StreamSidebandEvent> {
             println!("plain sink sideband: {_cmd:?}");
@@ -52,6 +55,7 @@ mod no_std_sync_server {
 
         fn vec_stream_sideband(
             &mut self,
+            _msg_tx: &mut impl MessageSink,
             _cmd: StreamSidebandCommand,
         ) -> Option<StreamSidebandEvent> {
             println!("vec stream sideband: {_cmd:?}");
@@ -60,6 +64,7 @@ mod no_std_sync_server {
 
         fn array_of_streams_sideband(
             &mut self,
+            _msg_tx: &mut impl MessageSink,
             _idx: [UNib32; 1],
             _cmd: StreamSidebandCommand,
         ) -> Option<StreamSidebandEvent> {
@@ -67,7 +72,7 @@ mod no_std_sync_server {
             None
         }
 
-        fn finish(&mut self) {
+        fn finish(&mut self, _msg_tx: &mut impl MessageSink) {
             println!("finish called");
         }
 
@@ -159,6 +164,13 @@ mod std_async_client {
 //     );
 // }
 
+struct DummyTx;
+impl MessageSink for DummyTx {
+    fn send(&mut self, _message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+        core::future::ready(Ok(()))
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
     tracing_subscriber::fmt::init();
@@ -170,6 +182,7 @@ async fn std_async_client_driving_no_std_sync_server() {
         .unwrap();
     let data = Arc::new(RwLock::new(SharedTestData::default()));
 
+    let mut dummy_msg_tx = DummyTx {};
     let data_clone = data.clone();
     tokio::spawn(async move {
         let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
@@ -194,7 +207,7 @@ async fn std_async_client_driving_no_std_sync_server() {
                         _ => continue,
                     };
                     let r = server
-                        .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
+                        .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se, &mut dummy_msg_tx)
                         .expect("process_request");
                     tokio::time::sleep(Duration::from_millis(1)).await; // rx_dispatcher sometimes receive event before cmd
                     dispatcher_msg_tx
@@ -249,8 +262,8 @@ async fn std_async_client_driving_no_std_sync_server() {
     let StreamEvent::Data(data) = stream_data else {
         panic!("wrong stream event");
     };
-    let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
-    assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
+    // &[u8] is sent as is, all other types are serialized
+    assert_eq!(data, &[0xAA, 0xBB, 0xCC]);
 
     let mut rx_arr0 = client
         .array_of_streams_sub(0)
@@ -262,8 +275,7 @@ async fn std_async_client_driving_no_std_sync_server() {
     let StreamEvent::Data(data) = stream_data else {
         panic!("wrong stream event");
     };
-    let value: Vec<u8> = DeserializeShrinkWrap::from_ww_bytes(&data[..]).unwrap();
-    assert_eq!(value, vec![0xAA, 0xBB, 0xCC]);
+    assert_eq!(data, &[0xAA, 0xBB, 0xCC]);
 
     tokio::time::sleep(Duration::from_millis(10)).await;
 }

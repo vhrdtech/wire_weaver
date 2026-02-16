@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::ww_version::{FullVersionOwned, VersionOwned};
@@ -36,25 +37,26 @@ struct SharedTestData {
 
 mod no_std_sync_server {
     use super::*;
+    use wire_weaver::MessageSink;
 
     pub struct NoStdSyncServer {
         pub data: Arc<RwLock<SharedTestData>>,
     }
 
     impl NoStdSyncServer {
-        fn no_args(&mut self) {
+        fn no_args(&mut self, _msg_tx: &mut impl MessageSink) {
             self.data.write().unwrap().no_args_called = true;
         }
 
-        fn one_plain_arg(&mut self, value: u8) {
+        fn one_plain_arg(&mut self, _msg_tx: &mut impl MessageSink, value: u8) {
             self.data.write().unwrap().one_plain_arg = value;
         }
 
-        fn plain_return(&mut self) -> u8 {
+        fn plain_return(&mut self, _msg_tx: &mut impl MessageSink) -> u8 {
             0xAA
         }
 
-        fn user_arg(&mut self, u: UserDefined<'_>) {
+        fn user_arg(&mut self, _msg_tx: &mut impl MessageSink, u: UserDefined<'_>) {
             assert_eq!(u.a, 123);
             let mut iter = u.b.into_iter();
             assert_eq!(iter.next(), Some(&1));
@@ -63,7 +65,7 @@ mod no_std_sync_server {
             assert_eq!(iter.next(), None);
         }
 
-        fn user_defined_return(&mut self) -> UserDefined<'_> {
+        fn user_defined_return(&mut self, _msg_tx: &mut impl MessageSink) -> UserDefined<'_> {
             UserDefined {
                 a: 37,
                 b: RefVec::new_bytes(&[1, 2, 3]),
@@ -118,6 +120,13 @@ mod std_async_client {
 //     );
 // }
 
+struct DummyTx;
+impl MessageSink for DummyTx {
+    fn send(&mut self, _message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+        core::future::ready(Ok(()))
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
     tracing_subscriber::fmt::init();
@@ -128,6 +137,7 @@ async fn std_async_client_driving_no_std_sync_server() {
         .unwrap();
     let data = Arc::new(RwLock::new(SharedTestData::default()));
 
+    let mut dummy_msg_tx = DummyTx {};
     let data_clone = data.clone();
     tokio::spawn(async move {
         let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
@@ -147,7 +157,7 @@ async fn std_async_client_driving_no_std_sync_server() {
                 _ => continue,
             };
             let r = server
-                .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
+                .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se, &mut dummy_msg_tx)
                 .expect("process_request");
             tokio::time::sleep(Duration::from_millis(1)).await; // rx_dispatcher sometimes receive event before cmd
             dispatcher_msg_tx

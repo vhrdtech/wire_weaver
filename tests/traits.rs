@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
@@ -54,11 +55,11 @@ mod no_std_sync_server {
     }
 
     impl NoStdSyncServer {
-        fn g1_m1(&mut self) {
+        fn g1_m1(&mut self, _msg_tx: &mut impl MessageSink) {
             self.data.write().unwrap().subgroup_m1_called = true;
         }
 
-        fn gpio_set_high(&mut self, index: [UNib32; 1]) {
+        fn gpio_set_high(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) {
             self.data
                 .write()
                 .unwrap()
@@ -80,7 +81,7 @@ mod no_std_sync_server {
                 .unwrap_or(0.0)
         }
 
-        fn periph_channel_run(&mut self, _index: [UNib32; 2]) {}
+        fn periph_channel_run(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 2]) {}
     }
 
     mod api_impl {
@@ -130,6 +131,13 @@ mod std_async_client {
 //     );
 // }
 
+struct DummyTx;
+impl MessageSink for DummyTx {
+    fn send(&mut self, _message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+        core::future::ready(Ok(()))
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn std_async_client_driving_no_std_sync_server() {
     tracing_subscriber::fmt::init();
@@ -140,6 +148,7 @@ async fn std_async_client_driving_no_std_sync_server() {
         .unwrap();
     let data = Arc::new(RwLock::new(SharedTestData::default()));
 
+    let mut dummy_msg_tx = DummyTx {};
     let data_clone = data.clone();
     tokio::spawn(async move {
         let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
@@ -159,7 +168,7 @@ async fn std_async_client_driving_no_std_sync_server() {
                 _ => continue,
             };
             let r = server
-                .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se)
+                .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se, &mut dummy_msg_tx)
                 .expect("process_request");
             tokio::time::sleep(Duration::from_millis(1)).await; // rx_dispatcher sometimes receive event before cmd
             dispatcher_msg_tx

@@ -26,6 +26,7 @@ pub fn introspect(api_level: &api::ApiLevel) -> TokenStream {
         ext_crates: Default::default(),
     };
     visit_api_bundle_mut(&mut api_bundle, &mut DropDocs {});
+    // println!("{:#?}", api_bundle);
     let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
     let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
     let len = bytes.len();
@@ -39,10 +40,6 @@ struct DropDocs {}
 impl ww_self::visitor::VisitMut for DropDocs {
     fn visit_doc(&mut self, doc: &mut String) {
         *doc = String::new();
-    }
-
-    fn visit_type(&mut self, ty: &mut ww_self::TypeOwned) {
-        println!("{ty:#?}");
     }
 }
 

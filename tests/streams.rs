@@ -5,7 +5,7 @@ use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
-use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError, StreamEvent};
+use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError, TypedStreamEvent};
 
 #[ww_trait]
 trait Streams {
@@ -241,41 +241,36 @@ async fn std_async_client_driving_no_std_sync_server() {
     };
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    let mut rx = client.plain_stream_sub().expect("successful stream open");
+    let mut rx = client.plain_stream().expect("successful stream open");
     notify_tx.send(0).unwrap();
-    let connected = rx.recv().await.unwrap();
-    assert_eq!(connected, StreamEvent::Connected);
+    let connected = rx.recv_any().await.unwrap();
+    assert_eq!(connected, TypedStreamEvent::Connected);
     let stream_data = rx.recv().await.unwrap();
-    assert_eq!(stream_data, StreamEvent::Data(vec![0xAA]));
+    assert_eq!(stream_data, 0xAA);
 
-    client.plain_sink_pub(1).unwrap();
-    client.plain_sink_pub(2).unwrap();
+    let mut sink = client.plain_sink().unwrap();
+    sink.send(1).unwrap();
+    sink.send(2).unwrap();
 
     client.finish().call().await.unwrap();
     assert_eq!(data.read().unwrap().plain_sink_rx, vec![1, 2]);
 
-    let mut rx2 = client.vec_stream_sub().expect("successful stream open");
+    let mut rx2 = client.vec_stream().expect("successful stream open");
     notify_tx.send(1).unwrap();
-    let connected = rx2.recv().await.unwrap();
-    assert_eq!(connected, StreamEvent::Connected);
+    let connected = rx2.recv_any().await.unwrap();
+    assert!(matches!(connected, TypedStreamEvent::Connected));
     let stream_data = rx2.recv().await.unwrap();
-    let StreamEvent::Data(data) = stream_data else {
-        panic!("wrong stream event");
-    };
     // &[u8] is sent as is, all other types are serialized
-    assert_eq!(data, &[0xAA, 0xBB, 0xCC]);
+    assert_eq!(stream_data.0.as_slice(), &[0xAA, 0xBB, 0xCC]);
 
     let mut rx_arr0 = client
-        .array_of_streams_sub(0)
+        .array_of_streams(0)
         .expect("subscribe to stream array 0");
     notify_tx.send(2).unwrap();
-    let connected = rx_arr0.recv().await.unwrap();
-    assert_eq!(connected, StreamEvent::Connected);
+    let connected = rx_arr0.recv_any().await.unwrap();
+    assert!(matches!(connected, TypedStreamEvent::Connected));
     let stream_data = rx_arr0.recv().await.unwrap();
-    let StreamEvent::Data(data) = stream_data else {
-        panic!("wrong stream event");
-    };
-    assert_eq!(data, &[0xAA, 0xBB, 0xCC]);
+    assert_eq!(stream_data.0.as_slice(), &[0xAA, 0xBB, 0xCC]);
 
     tokio::time::sleep(Duration::from_millis(10)).await;
 }

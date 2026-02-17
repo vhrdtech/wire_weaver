@@ -9,7 +9,6 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use shrink_wrap_core::ast::path::Path;
 use shrink_wrap_core::ast::{Docs, Type};
-use shrink_wrap_core::codegen::FieldPath;
 use syn::LitStr;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -422,56 +421,6 @@ fn handle_property(
     }
 }
 
-fn ser_write_value(model: ClientModel, prop_name: &Ident, ty: &Type) -> (TokenStream, TokenStream) {
-    // unit - use empty slice directly
-    if let Type::Tuple(elements) = ty
-        && elements.is_empty()
-    {
-        return if model.no_alloc() {
-            (quote! { () }, quote! { &[] })
-        } else {
-            (quote! { () }, quote! { Vec::new() })
-        };
-    }
-
-    // byte slice - use directly
-    if let Type::Vec(inner) = ty
-        && matches!(inner.as_ref(), Type::U8)
-    {
-        return if model.no_alloc() {
-            (quote! { &[u8] }, quote! {})
-        } else {
-            (quote! { Vec<u8> }, quote! {})
-        };
-    }
-
-    let mut ser = TokenStream::new();
-    let ty_def = if ty.potential_lifetimes() && !model.no_alloc() {
-        let mut ty_owned = ty.clone();
-        ty_owned.make_owned();
-        ty_owned.arg_pos_def(model.no_alloc())
-    } else {
-        ty.arg_pos_def(model.no_alloc())
-    };
-    ty.buf_write(
-        FieldPath::Value(quote! { #prop_name }),
-        model.no_alloc(),
-        quote! { ? },
-        &mut ser,
-    );
-    let finish_wr = if model.no_alloc() {
-        quote! { wr.finish_and_take()? }
-    } else {
-        quote! { wr.finish()?.to_vec() }
-    };
-    let ser = quote! {
-        let mut wr = BufWriter::new(&mut self.args_scratch);
-        #ser
-        let value = #finish_wr;
-    };
-    (ty_def, ser)
-}
-
 fn handle_stream(
     model: ClientModel,
     path_mode: ClientPathMode,
@@ -482,44 +431,32 @@ fn handle_stream(
     ty: &Type,
     is_up: bool,
 ) -> TokenStream {
-    let sideband_fn_name = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
-    let (ty_def, ser) = ser_write_value(model, &Ident::new("value", Span::call_site()), ty);
+    let ty_def = if ty.is_byte_slice() {
+        quote! { wire_weaver::shrink_wrap::raw_slice::RawSliceOwned }
+    } else {
+        ty.arg_pos_def2(model.no_alloc())
+    };
     let path_kind = path_kind(path_mode, gid_paths);
 
-    let specific_methods = if is_up {
+    if is_up {
         // client in
-        let subscribe_fn = Ident::new(format!("{}_sub", ident).as_str(), ident.span());
         quote! {
-            pub fn #subscribe_fn(&mut self #maybe_index_arg) -> Result<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>, wire_weaver_client_common::Error> {
+            pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-                let _data = self.cmd_tx.send_stream_open(path_kind, tx)?;
-                Ok(rx)
+                let stream = self.cmd_tx.prepare_stream(path_kind)?;
+                Ok(stream)
             }
         }
     } else {
         // client out
-        let publish_fn = Ident::new(format!("{}_pub", ident).as_str(), ident.span());
         quote! {
-            pub fn #publish_fn(&mut self #maybe_index_arg, value: #ty_def) -> Result<(), wire_weaver_client_common::Error> {
-                #ser
+            pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let _data = self.cmd_tx.send_write_forget(path_kind, value)?;
-                Ok(())
+                let sink = self.cmd_tx.prepare_sink(path_kind)?;
+                Ok(sink)
             }
-            // TOD: client stream out?
-        }
-    };
-    quote! {
-        #specific_methods
-
-        pub async fn #sideband_fn_name(&self #maybe_index_arg, sideband_cmd: StreamSidebandCommand) -> Result</*StreamSidebandEvent*/ (), wire_weaver_client_common::Error> {
-            #index_chain_push
-            let path_kind = #path_kind;
-
-            Ok(())
         }
     }
 }

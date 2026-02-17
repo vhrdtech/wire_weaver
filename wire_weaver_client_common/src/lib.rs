@@ -7,6 +7,8 @@ mod prepared_read;
 mod prepared_write;
 pub mod promise;
 pub mod rx_dispatcher;
+mod sink;
+pub mod stream;
 pub mod ww;
 
 // TODO: remove
@@ -16,6 +18,8 @@ pub use device_filter::DeviceFilter;
 pub use prepared_call::PreparedCall;
 pub use prepared_read::PreparedRead;
 pub use prepared_write::PreparedWrite;
+pub use sink::Sink;
+pub use stream::{Stream, StreamError};
 pub use ww_client_server;
 pub use ww_version;
 use ww_version::FullVersionOwned;
@@ -143,9 +147,25 @@ impl Command {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum StreamEvent {
+    /// Data channel from remote device
     Data(Vec<u8>),
+    /// Sideband channel from remote device
     Sideband(StreamSidebandEvent),
+    /// Locally generated event, sent when connection to remote device is up
     Connected,
+    /// Locally generated event, sent when connection to remote device is down
+    Disconnected,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum TypedStreamEvent<T> {
+    /// Data channel from remote device
+    Data(T),
+    /// Sideband channel from remote device
+    Sideband(StreamSidebandEvent),
+    /// Locally generated event, sent when connection to remote device is up
+    Connected,
+    /// Locally generated event, sent when connection to remote device is down
     Disconnected,
 }
 

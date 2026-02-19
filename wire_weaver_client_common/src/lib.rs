@@ -2,6 +2,7 @@ pub mod attachment;
 pub mod command_sender;
 pub mod device_filter;
 pub mod event_loop_state;
+mod introspect;
 mod prepared_call;
 mod prepared_read;
 mod prepared_write;

@@ -1,4 +1,4 @@
-use crate::{DEFAULT_REQUEST_TIMEOUT, Error, SeqTy, StreamEvent};
+use crate::{Error, SeqTy, StreamEvent, DEFAULT_REQUEST_TIMEOUT};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
@@ -43,6 +43,9 @@ pub enum DispatcherCommand {
         stream_event_tx: StreamUpdateSender,
         // stop_rx: oneshot::Receiver<()>,
     },
+    OnIntrospect {
+        bytes_chunk_tx: mpsc::UnboundedSender<Vec<u8>>,
+    },
 }
 
 pub async fn rx_dispatcher(
@@ -83,6 +86,7 @@ struct DispatcherState {
     is_connected: bool,
     response_map: HashMap<SeqTy, (Option<ResponseSender>, Instant)>, // Option to use retain in prune_next_timeout
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
+    introspect_handlers: Vec<mpsc::UnboundedSender<Vec<u8>>>,
 
     last_seq_used: SeqTy,
     seq_allocated: HashSet<SeqTy>,
@@ -123,11 +127,15 @@ impl DispatcherState {
                 stream_event_tx,
             } => {
                 if let PathKindOwned::Absolute { path } = path_kind {
+                    // TODO: send Connected/Disconnected only on actual connect/disconnect, send status here instead
                     _ = stream_event_tx.send(self.is_connected_as_stream_event());
                     let listeners = self.stream_handlers.entry(path).or_default();
                     listeners.push(stream_event_tx);
                 }
                 // TODO: other path kinds
+            }
+            DispatcherCommand::OnIntrospect { bytes_chunk_tx } => {
+                self.introspect_handlers.push(bytes_chunk_tx);
             }
         }
     }
@@ -263,6 +271,15 @@ impl DispatcherState {
                             self.stream_handlers.remove(&path);
                         }
                     }
+                }
+                EventKind::Introspect {
+                    ww_self_bytes_chunk,
+                } => {
+                    let chunk = ww_self_bytes_chunk.clone().to_vec();
+                    self.introspect_handlers.retain(|tx| {
+                        let keep = tx.send(chunk.clone()).is_ok();
+                        keep
+                    });
                 }
                 _ => {}
             },

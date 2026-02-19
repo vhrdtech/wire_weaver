@@ -1,3 +1,4 @@
+use crate::introspect::Introspect;
 use crate::prepared_call::PreparedCall;
 use crate::rx_dispatcher::{DispatcherCommand, DispatcherMessage};
 use crate::stream::Stream;
@@ -6,7 +7,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, RwLock};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
@@ -261,6 +262,28 @@ impl CommandSender {
 
     pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
         self.base_path = Some(base_path);
+    }
+
+    pub fn introspect_blocking(&mut self) -> Result<Introspect, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let seq = self.next_seq_blocking()?;
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind: PathKindOwned::Absolute { path: vec![] },
+            kind: RequestKindOwned::Introspect,
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.transport_cmd_tx
+            .send(Command::SendMessage {
+                bytes: req.to_vec(),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        // notify rx dispatcher
+        self.dispatcher_cmd_tx
+            .send(DispatcherCommand::OnIntrospect { bytes_chunk_tx: tx })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(Introspect::new(rx))
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {

@@ -1,5 +1,5 @@
 use crate::UsbServer;
-use defmt::{debug, error, info};
+use defmt::{debug, error, info, trace};
 use embassy_futures::select::{select3, Either3};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Receiver;
@@ -48,7 +48,7 @@ impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
                 info!("Waiting for USB cable connection...");
                 self.link.wait_usb_connection().await;
                 info!("USB cable is connected");
-                // if host app crashed without sending Disconnect, and then incompatible app tried to send
+                // if a host app crashed without sending Disconnect, and then an incompatible app tried to send
                 // data, this will ensure we ignore it before proper version checks happen
                 self.link.silent_disconnect();
                 match api_loop(
@@ -79,7 +79,7 @@ impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
     }
 }
 
-// NOTE: when host closes USB device, our attempts to send a packet will get stuck and timeout in super::Sender
+// NOTE: when the host closes a USB device, our attempts to send a packet will get stuck and timeout in super::Sender
 async fn api_loop<'d, D: Driver<'d>>(
     backend: &mut impl WireWeaverAsyncApiBackend,
     link: &mut WireWeaverUsbLink<'d, super::Sender<'d, D>, super::Receiver<'d, D>>,
@@ -126,7 +126,7 @@ async fn api_loop<'d, D: Driver<'d>>(
             .checked_duration_since(now)
             .unwrap_or(Duration::from_ticks(0));
         let till_ping = if till_ping < IGNORE_TIMER_DURATION {
-            debug!("sending ping");
+            trace!("sending ping");
             link.send_ping().await?;
             next_ping_instant = now + timings.ww_ping_period;
             timings.ww_ping_period
@@ -144,10 +144,10 @@ async fn api_loop<'d, D: Driver<'d>>(
                 // timer timeout
                 if packet_started_instant.is_some() {
                     packet_started_instant = None;
-                    debug!("sending accumulated packet");
+                    trace!("sending accumulated packet");
                     link.force_send().await?;
                 } else {
-                    debug!("sending ping");
+                    trace!("sending ping");
                     link.send_ping().await?;
                 }
                 next_ping_instant = Instant::now() + timings.ww_ping_period;
@@ -156,7 +156,8 @@ async fn api_loop<'d, D: Driver<'d>>(
                 // message from host
                 MessageKind::Data(len) => {
                     let message = &rx_message_buf[..len];
-                    debug!("message: {:02x}", message);
+                    trace!("message: {:02x}", message);
+                    let packets_sent_prev = link.sender_stats().packets_sent;
                     match backend
                         .process_bytes(
                             link,
@@ -168,11 +169,9 @@ async fn api_loop<'d, D: Driver<'d>>(
                         .await
                     {
                         Ok(event_bytes) => {
-                            if event_bytes.is_empty() {
-                                continue;
+                            if !event_bytes.is_empty() {
+                                link.send_message(event_bytes).await?;
                             }
-                            let packets_sent_prev = link.sender_stats().packets_sent;
-                           link.send_message(event_bytes).await?;
                             if link.is_tx_queue_empty() {
                                 packet_started_instant = None;
                             } else if packet_started_instant.is_none() {
@@ -183,7 +182,8 @@ async fn api_loop<'d, D: Driver<'d>>(
                                 next_ping_instant = Instant::now() + timings.ww_ping_period;
                             }
                         }
-                        Err(_e) => {
+                        Err(e) => {
+                            error!("process_bytes failed: {}", e);
                             // TODO: send error back
                         }
                     }
@@ -193,7 +193,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                     return Ok(());
                 }
                 MessageKind::Ping => {
-                    debug!("ping from host");
+                    trace!("ping from host");
                 }
                 MessageKind::Loopback { repeat, seq, len } => {
                     let data = &rx_message_buf[..len];

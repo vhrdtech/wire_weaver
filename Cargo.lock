@@ -2287,6 +2287,7 @@ dependencies = [
  "tracing",
  "wire_weaver",
  "ww_client_server",
+ "ww_self",
  "ww_version",
 ]
 

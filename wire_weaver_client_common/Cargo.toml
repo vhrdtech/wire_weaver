@@ -14,6 +14,7 @@ tracing = "0.1"
 wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["std"] }
 nusb = { version = "0.2", optional = true }
 
 [features]

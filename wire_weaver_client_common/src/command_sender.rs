@@ -25,13 +25,13 @@ pub struct CommandSender {
     seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
     // TODO: CommandSender outstanding request limit?
     /// * None for command sender attached to API root, trait addressing will result in an error.
-    /// * Some(empty path) for trait implemented at root level (unknown path), trait addressing will be used.
-    /// * Some(non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
+    /// * Some (empty path) for trait implemented at root level (unknown path), trait addressing will be used.
+    /// * Some (non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
     ///
-    /// "Some" cases are only for trait clients (client = "trait_client"). API root client (client = "full_client") uses absolute addressing.
+    /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "full_client"`) uses absolute addressing.
     base_path: Option<Vec<UNib32>>,
 
-    /// Mapping from FullVersion (crate name as string + semver) to trait GID of much smaller size.
+    /// Mapping from FullVersion (crate name as string + semver) to trait GID of a much smaller size.
     /// Optimally, should be requested from a device, so that newly assigned GIDs not yet known to a device are not used.
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
@@ -45,6 +45,8 @@ pub(crate) struct TransportCommander {
 pub(crate) struct DispatcherCommander {
     cmd_tx: mpsc::UnboundedSender<DispatcherCommand>,
 }
+
+pub(crate) type SeqRwLock = Arc<RwLock<mpsc::Receiver<SeqTy>>>;
 
 impl CommandSender {
     pub fn new(
@@ -133,12 +135,8 @@ impl CommandSender {
     ) -> PreparedCall<T> {
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
         PreparedCall {
-            transport_cmd_tx: TransportCommander {
-                cmd_tx: self.transport_cmd_tx.clone(),
-            },
-            dispatcher_cmd_tx: DispatcherCommander {
-                cmd_tx: self.dispatcher_cmd_tx.clone(),
-            },
+            transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
+            dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
             path_kind,
             args,
@@ -153,12 +151,8 @@ impl CommandSender {
     ) -> PreparedRead<T> {
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
         PreparedRead {
-            transport_cmd_tx: TransportCommander {
-                cmd_tx: self.transport_cmd_tx.clone(),
-            },
-            dispatcher_cmd_tx: DispatcherCommander {
-                cmd_tx: self.dispatcher_cmd_tx.clone(),
-            },
+            transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
+            dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
             path_kind,
             timeout: self.timeout,
@@ -173,12 +167,8 @@ impl CommandSender {
     ) -> PreparedWrite<E> {
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
         PreparedWrite {
-            transport_cmd_tx: TransportCommander {
-                cmd_tx: self.transport_cmd_tx.clone(),
-            },
-            dispatcher_cmd_tx: DispatcherCommander {
-                cmd_tx: self.dispatcher_cmd_tx.clone(),
-            },
+            transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
+            dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
             path_kind,
             value,
@@ -201,9 +191,7 @@ impl CommandSender {
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         Ok(Stream {
-            transport_cmd_tx: TransportCommander {
-                cmd_tx: self.transport_cmd_tx.clone(),
-            },
+            transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
             // dispatcher_cmd_tx: DispatcherCommander {
             //     cmd_tx: self.dispatcher_cmd_tx.clone(),
             // },
@@ -228,9 +216,7 @@ impl CommandSender {
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         Ok(Sink {
-            transport_cmd_tx: TransportCommander {
-                cmd_tx: self.transport_cmd_tx.clone(),
-            },
+            transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
             // dispatcher_cmd_tx: DispatcherCommander {
             //     cmd_tx: self.dispatcher_cmd_tx.clone(),
             // },
@@ -240,6 +226,30 @@ impl CommandSender {
             _phantom: PhantomData,
             scratch: [0u8; 1024],
         })
+    }
+
+    pub fn introspect(&self) -> Introspect {
+        Introspect::new(
+            TransportCommander::new(self.transport_cmd_tx.clone()),
+            DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
+            self.seq_rx.clone(),
+        )
+    }
+
+    pub async fn disconnect(&self) {
+        let (tx, rx) = oneshot::channel::<()>();
+        _ = self.transport_cmd_tx.send(Command::DisconnectAndExit {
+            disconnected_tx: Some(tx),
+        });
+        _ = rx.await;
+    }
+
+    pub fn disconnect_blocking(&self) {
+        let (tx, rx) = oneshot::channel::<()>();
+        _ = self.transport_cmd_tx.send(Command::DisconnectAndExit {
+            disconnected_tx: Some(tx),
+        });
+        _ = rx.blocking_recv();
     }
 
     pub async fn next_seq(&mut self) -> Result<SeqTy, Error> {
@@ -262,28 +272,6 @@ impl CommandSender {
 
     pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
         self.base_path = Some(base_path);
-    }
-
-    pub fn introspect_blocking(&mut self) -> Result<Introspect, Error> {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let seq = self.next_seq_blocking()?;
-        let req = ww_client_server::RequestOwned {
-            seq,
-            path_kind: PathKindOwned::Absolute { path: vec![] },
-            kind: RequestKindOwned::Introspect,
-        };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
-        self.transport_cmd_tx
-            .send(Command::SendMessage {
-                bytes: req.to_vec(),
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        // notify rx dispatcher
-        self.dispatcher_cmd_tx
-            .send(DispatcherCommand::OnIntrospect { bytes_chunk_tx: tx })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-        Ok(Introspect::new(rx))
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
@@ -342,6 +330,10 @@ impl CommandSender {
 }
 
 impl TransportCommander {
+    fn new(cmd_tx: mpsc::UnboundedSender<Command>) -> Self {
+        Self { cmd_tx }
+    }
+
     pub(crate) fn send_call_request(
         &self,
         seq: SeqTy,
@@ -424,9 +416,29 @@ impl TransportCommander {
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
+
+    pub(crate) fn send_introspect(&self, seq: SeqTy) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq,
+            path_kind: PathKindOwned::Absolute { path: vec![] },
+            kind: RequestKindOwned::Introspect,
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .send(Command::SendMessage {
+                bytes: req.to_vec(),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
 }
 
 impl DispatcherCommander {
+    fn new(cmd_tx: mpsc::UnboundedSender<DispatcherCommand>) -> Self {
+        Self { cmd_tx }
+    }
+
     /// Notify rx dispatcher about a new call request with seq
     pub(crate) fn on_call_return(
         &self,
@@ -476,5 +488,13 @@ impl DispatcherCommander {
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         Ok(done_rx)
+    }
+
+    pub(crate) fn on_introspect_chunk(&self) -> Result<mpsc::UnboundedReceiver<Vec<u8>>, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.cmd_tx
+            .send(DispatcherCommand::OnIntrospect { bytes_chunk_tx: tx })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(rx)
     }
 }

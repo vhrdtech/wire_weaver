@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 
@@ -13,9 +13,9 @@ use ww_client_server::PathKindOwned;
 /// * TX ends towards transport and dispatcher event loops
 /// * Resource path
 /// * Property type as a generic `T` argument
-/// * Optional write error type as generic `E` argument
+/// * Optional write error type as a generic `E` argument
 ///
-/// When obtained, user can choose how to actually execute the call:
+/// When obtained, the user can choose how to actually execute the call:
 /// * async: `read()`
 /// * blocking: `blocking_read()`
 /// * turn into a `Promise<T>` useful in immediate mode UI
@@ -56,12 +56,12 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
             seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
         };
 
-        // notify rx dispatcher & send call to remote device through transport layer
+        // notify rx dispatcher & send call to a remote device through transport layer
         let done_rx = self.dispatcher_cmd_tx.on_write_return(seq, self.timeout)?;
         self.transport_cmd_tx
             .send_write_request(seq, path_kind, value)?;
 
-        // await return value from remote device (routed through rx dispatcher)
+        // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
         let _empty = rx_or_recv_err?; // timeout is handled by rx dispatcher
         Ok(())
@@ -80,12 +80,12 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
                 .ok_or(Error::RxDispatcherNotRunning)?
         };
 
-        // notify rx dispatcher & send call to remote device through transport layer
+        // notify rx dispatcher & send call to a remote device through transport layer
         let done_rx = self.dispatcher_cmd_tx.on_write_return(seq, self.timeout)?;
         self.transport_cmd_tx
             .send_write_request(seq, path_kind, value)?;
 
-        // await return value from remote device (routed through rx dispatcher)
+        // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -103,6 +103,7 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     }
 
     /// Send write request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    #[must_use = "Promise does nothing, unless it is polled"]
     pub fn write_promise(self, marker: &'static str) -> Promise<E> {
         let path_kind = match self.path_kind {
             Ok(p) => p,

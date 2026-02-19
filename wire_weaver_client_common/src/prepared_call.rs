@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 
@@ -15,7 +15,7 @@ use ww_client_server::PathKindOwned;
 /// * Resource path
 /// * Return type as a generic `T` argument
 ///
-/// When obtained, user can choose how to actually execute the call:
+/// When obtained, the user can choose how to actually execute the call:
 /// * async: `call()`
 /// * blocking: `blocking_call()`
 /// * call-ignoring-return value: `call_forget()`
@@ -32,7 +32,7 @@ pub struct PreparedCall<T> {
 }
 
 impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
-    /// Use provided timeout instead of default one propagated from CommandSender
+    /// Use a provided timeout instead of the default one propagated from CommandSender
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
             transport_cmd_tx: self.transport_cmd_tx,
@@ -45,7 +45,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
         }
     }
 
-    /// Send call request, await response (or timeout) and return it.
+    /// Send a call request, await a response (or timeout) and return it.
     pub async fn call(self) -> Result<T, Error> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         let path_kind = self.path_kind?;
@@ -57,19 +57,19 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
             seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
         };
 
-        // notify rx dispatcher & send call to remote device through transport layer
+        // notify rx dispatcher & send call to a remote device through transport layer
         let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
         self.transport_cmd_tx
             .send_call_request(seq, path_kind, args)?;
 
-        // await return value from remote device (routed through rx dispatcher)
+        // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         let reply: T = T::from_ww_bytes_owned(&response)?;
         Ok(reply)
     }
 
-    /// Send call request, block the thread until response is received (or timeout) and return it.
+    /// Send a call request, block the thread until a response is received (or timeout) and return it.
     pub fn blocking_call(self) -> Result<T, Error> {
         let path_kind = self.path_kind?;
         let args = self.args?;
@@ -82,12 +82,12 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
                 .ok_or(Error::RxDispatcherNotRunning)?
         };
 
-        // notify rx dispatcher & send call to remote device through transport layer
+        // notify rx dispatcher & send call to a remote device through transport layer
         let done_rx = self.dispatcher_cmd_tx.on_call_return(seq, self.timeout)?;
         self.transport_cmd_tx
             .send_call_request(seq, path_kind, args)?;
 
-        // await return value from remote device (routed through rx dispatcher)
+        // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -96,7 +96,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
         Ok(reply)
     }
 
-    /// Send call request with seq = 0 and immediately return without response (remote end won't send it either).
+    /// Send a call request with seq = 0 and immediately return without response (the remote end won't send it either).
     pub fn call_forget(self) -> Result<(), Error> {
         let path_kind = self.path_kind?;
         let args = self.args?;
@@ -105,7 +105,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
         Ok(())
     }
 
-    /// Send call request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    /// Send a call request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    #[must_use = "Promise does nothing, unless it is polled"]
     pub fn call_promise(self, marker: &'static str) -> Promise<T> {
         let path_kind = match self.path_kind {
             Ok(p) => p,

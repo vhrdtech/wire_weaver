@@ -3,15 +3,16 @@
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
+use crate::codegen::introspect::introspect;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::util::{add_prefix, maybe_quote};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{TokenStreamExt, quote};
-use shrink_wrap_core::ast::Type;
+use quote::{quote, TokenStreamExt};
 use shrink_wrap_core::ast::path::Path;
+use shrink_wrap_core::ast::Type;
 use shrink_wrap_core::codegen::FieldPath;
 use syn::{Lit, LitInt};
 
@@ -23,6 +24,7 @@ pub fn impl_server_dispatcher(
     property_model: &PropertyModel,
     context_ident: &Ident,
     handler_ident: &Ident,
+    generate_introspect: bool,
 ) -> TokenStream {
     let additional_use = maybe_quote(
         no_alloc,
@@ -50,8 +52,13 @@ pub fn impl_server_dispatcher(
         &mut error_seq,
         true,
     );
-    let stream_send_methods =
-        stream_ser_methods_recursive(api_level, IndexChain::new(), crate_name, no_alloc, true);
+    let stream_send_methods = stream_ser_methods_recursive(
+        api_level,
+        IndexChain::new(),
+        crate_name,
+        no_alloc,
+        generate_introspect,
+    );
     let args_structs = args_structs_recursive(api_level, crate_name, no_alloc);
     let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
     let es = error_seq.next_err();
@@ -142,11 +149,33 @@ fn process_request_inner_recursive(
     crate_name: &Ident,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
-    _is_root: bool,
+    generate_introspect: bool,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
     let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
+
+    let introspect = if generate_introspect {
+        let ww_self_bytes_const = introspect(api_level);
+        let es0 = error_seq.next_err();
+        let es1 = error_seq.next_err();
+        quote! {
+            RequestKind::Introspect => {
+                pub const WW_SELF_BYTES: #ww_self_bytes_const;
+                for chunk in WW_SELF_BYTES.chunks(128).chain([&[][..]]) { // TODO: auto-determine better chunk size
+                    let event = Event {
+                        seq: request.seq,
+                        result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(chunk) }),
+                    };
+                    let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                    msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                }
+                Ok(&[])
+            }
+        }
+    } else {
+        quote! {}
+    };
 
     let es = error_seq.next_err();
     let mut ts = quote! {
@@ -164,6 +193,7 @@ fn process_request_inner_recursive(
                 #level_matchers
                 None => {
                     match request.kind {
+                        #introspect
                         _ => { Err(Error::not_supported(#es)) },
                     }
                 }

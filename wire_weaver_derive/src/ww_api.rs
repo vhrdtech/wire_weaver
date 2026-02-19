@@ -1,12 +1,11 @@
 use crate::ww_impl_args::ApiArgs;
 use proc_macro2::{Span, TokenStream};
-use quote::{TokenStreamExt, quote};
+use quote::TokenStreamExt;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use wire_weaver_core::codegen::api_client::ClientModel;
-use wire_weaver_core::codegen::introspect::introspect;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::transform::load::load_api_level_recursive;
@@ -65,6 +64,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             &property_model,
             &args.context_ident,
             &syn::Ident::new("process_request_bytes", Span::call_site()),
+            args.ext.introspect,
         );
         codegen_ts.append_all(ts);
     }
@@ -95,13 +95,6 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             usb_connect,
         );
         codegen_ts.append_all(ts);
-    }
-
-    if args.ext.introspect {
-        let ww_self_bytes_const = introspect(&level);
-        codegen_ts.append_all(quote! {
-            pub const INTROSPECT_BYTES: #ww_self_bytes_const;
-        });
     }
 
     if !args.ext.debug_to_file.is_empty() {

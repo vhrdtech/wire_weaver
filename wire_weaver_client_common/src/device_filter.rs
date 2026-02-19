@@ -35,6 +35,10 @@ pub enum DeviceFilterKind {
         pid: u16,
         serial: String,
     },
+    UsbPath {
+        bus_id: String,
+        port_chain: Vec<u8>,
+    },
     Serial {
         serial: String,
     },
@@ -82,6 +86,16 @@ impl DeviceFilter {
             Some((addr, port))
         } else {
             None
+        }
+    }
+
+    #[cfg(feature = "nusb")]
+    pub fn from_nusb(device_info: &nusb::DeviceInfo) -> Self {
+        Self {
+            kind: DeviceFilterKind::UsbPath {
+                bus_id: device_info.bus_id().to_string(),
+                port_chain: device_info.port_chain().to_vec(),
+            },
         }
     }
 
@@ -142,6 +156,9 @@ impl DeviceFilter {
                     }
                 }
                 true
+            }
+            DeviceFilterKind::UsbPath { bus_id, port_chain } => {
+                device_info.bus_id() == bus_id && device_info.port_chain() == port_chain
             }
             u => {
                 return Err(crate::Error::Transport(format!(

@@ -5,6 +5,7 @@ mod ww_nusb;
 
 #[cfg(feature = "usb-tracing")]
 pub mod tracing;
+pub mod util;
 
 pub use event_loop::usb_worker;
 pub use nusb::DeviceInfo;

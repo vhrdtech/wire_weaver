@@ -109,6 +109,8 @@ pub fn load_api_level_recursive(
             }
         }
         Ok(level)
+    } else if let Some(trait_name) = trait_name {
+        Err(format!("ww_trait `{}` not found", trait_name.to_string()))
     } else {
         Err("ww_trait not found".into())
     }

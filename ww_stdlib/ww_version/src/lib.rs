@@ -42,7 +42,7 @@ pub struct FullVersion<'i> {
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
 /// Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 #[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 #[defmt = "defmt"]
 #[final_structure]
 pub struct CompactVersion {
@@ -133,7 +133,17 @@ impl Debug for Version<'_> {
 
 impl Debug for FullVersion<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{} {:?}", self.crate_id, self.version)
+        write!(f, "{}@{:?}", self.crate_id, self.version)
+    }
+}
+
+impl Debug for CompactVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "G{}@{}.{}.{}",
+            self.global_type_id.0, self.major.0, self.minor.0, self.patch.0
+        )
     }
 }
 

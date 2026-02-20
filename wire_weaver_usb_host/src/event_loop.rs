@@ -385,12 +385,14 @@ where
         Ok(MessageKind::DeviceInfo {
             max_message_len,
             link_version,
+            api_model_version,
         }) => {
             info!(
-                "Received DeviceInfo: max_message_len: {}, link_version: {:?}, remote_protocol: {:?}",
+                "Received DeviceInfo: max_message_len: {}, link_version: {:?}, remote_protocol: {:?}, api_model_version: {:?}",
                 max_message_len,
                 link_version,
-                link.remote_protocol()
+                link.remote_protocol(),
+                api_model_version
             );
             state.common.remote_max_message_size = Some(max_message_len as usize);
             state.common.remote_link_version = Some(link_version);

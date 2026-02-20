@@ -1,5 +1,5 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
-use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
+use crate::{PacketSink, PacketSource, CRC_KIND, MIN_MESSAGE_SIZE};
 use shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver::prelude::FullVersion;
 
@@ -33,6 +33,7 @@ pub enum MessageKind {
     DeviceInfo {
         max_message_len: u32,
         link_version: wire_weaver::ww_version::CompactVersion,
+        api_model_version: wire_weaver::ww_version::CompactVersion,
     },
     Disconnect(DisconnectReason),
 }
@@ -205,10 +206,12 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
 
                         let max_message_len = device_info.dev_max_message_len;
                         let link_version = device_info.dev_link_version;
+                        let api_model_version = device_info.api_model_version;
                         self.continue_with_new_packet();
                         return Ok(MessageKind::DeviceInfo {
                             max_message_len,
                             link_version,
+                            api_model_version,
                         });
                     }
                     #[cfg(feature = "device")]

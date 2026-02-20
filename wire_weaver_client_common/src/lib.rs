@@ -22,6 +22,7 @@ pub use prepared_write::PreparedWrite;
 pub use sink::Sink;
 pub use stream::{Stream, StreamError};
 pub use ww_client_server;
+pub use ww_self;
 pub use ww_version;
 use ww_version::FullVersionOwned;
 

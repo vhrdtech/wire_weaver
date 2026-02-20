@@ -99,6 +99,11 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
 
     if !args.ext.debug_to_file.is_empty() {
         let path = manifest_dir.join(&args.ext.debug_to_file);
+        if let Some(p) = path.parent()
+            && !p.exists()
+        {
+            _ = std::fs::create_dir_all(p);
+        }
         match File::create(&path) {
             Ok(mut f) => {
                 let level_debug = format!("{:#?}", &level);

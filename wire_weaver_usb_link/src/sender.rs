@@ -1,5 +1,5 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
-use crate::{CRC_KIND, PacketSink, PacketSource};
+use crate::{PacketSink, PacketSource, CRC_KIND};
 use shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::MessageSink;
 
@@ -71,6 +71,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
                         .expect("Cargo version"),
                 ),
             },
+            api_model_version: self.api_model_version,
             dev_user_version: self.user_protocol.clone(),
             dev_max_message_len: max_message_size,
         };

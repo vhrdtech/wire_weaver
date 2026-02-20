@@ -1,4 +1,5 @@
 {
   "ww_log_bare_metal": 0,
-  "wire_weaver_usb_link": 512
+  "wire_weaver_usb_link": 512,
+  "ww_client_server": 513
 }

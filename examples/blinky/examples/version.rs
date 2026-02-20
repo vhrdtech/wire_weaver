@@ -1,6 +1,5 @@
 use anyhow::Result;
 use blinky::{Blinky, DeviceFilter, OnError};
-use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -9,13 +8,7 @@ async fn main() -> Result<()> {
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
     let mut device = Blinky::connect(filter, OnError::ExitImmediately).await?;
 
-    println!("Turning LED on");
-    device.led_on().call().await?;
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    println!("Turning LED off");
-    device.led_off().call().await?;
+    println!("{:?}", device.info());
 
     device.disconnect_and_exit().await?;
 

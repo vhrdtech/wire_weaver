@@ -157,7 +157,7 @@ impl Debug for VersionOwned {
 #[cfg(feature = "std")]
 impl Debug for FullVersionOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{} {:?}", self.crate_id, self.version)
+        write!(f, "{}@{:?}", self.crate_id, self.version)
     }
 }
 

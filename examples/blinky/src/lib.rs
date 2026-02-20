@@ -1,6 +1,6 @@
 use std::time::Duration;
 use wire_weaver::ww_api;
-use wire_weaver_client_common::{CommandSender, Error};
+use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct Blinky {
@@ -28,6 +28,10 @@ impl Blinky {
             Duration::from_secs(1),
             [0u8; 4096],
         )
+    }
+
+    pub fn info(&self) -> &DeviceInfoBundle {
+        self.cmd_tx.info()
     }
 }
 

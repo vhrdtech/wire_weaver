@@ -1,11 +1,11 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
+use wire_weaver::MessageSink;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::ww_version::{FullVersionOwned, VersionOwned};
-use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError};
+use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, DeviceInfoBundle, OnError};
 
 #[ww_trait]
 trait Methods {
@@ -149,7 +149,7 @@ async fn std_async_client_driving_no_std_sync_server() {
             let bytes = match cmd {
                 Command::Connect { connected_tx, .. } => {
                     if let Some(tx) = connected_tx {
-                        tx.send(Ok(())).unwrap();
+                        tx.send(Ok(DeviceInfoBundle::empty())).unwrap();
                     }
                     continue;
                 }

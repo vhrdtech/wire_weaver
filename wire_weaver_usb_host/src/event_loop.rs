@@ -6,10 +6,10 @@ use std::fmt::Debug;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver::ww_version::FullVersionOwned;
+use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{
-    event_loop_state::CommonState, Command, Error, OnError, TestProgress,
+    event_loop_state::CommonState, Command, DeviceInfoBundle, Error, OnError, TestProgress,
 };
 use wire_weaver_usb_link::{
     DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
@@ -387,15 +387,31 @@ where
             link_version,
             api_model_version,
         }) => {
-            info!(
-                "Received DeviceInfo: max_message_len: {}, link_version: {:?}, remote_protocol: {:?}, api_model_version: {:?}",
-                max_message_len,
-                link_version,
-                link.remote_protocol(),
-                api_model_version
-            );
-            state.common.remote_max_message_size = Some(max_message_len as usize);
-            state.common.remote_link_version = Some(link_version);
+            let info = DeviceInfoBundle {
+                link_version: FullVersionOwned::new(
+                    format!("G{}", link_version.global_type_id.0),
+                    VersionOwned::new(
+                        link_version.major.0,
+                        link_version.minor.0,
+                        link_version.patch.0,
+                    ),
+                ),
+                max_message_size: max_message_len as usize,
+                api_model_version: FullVersionOwned::new(
+                    format!("G{}", api_model_version.global_type_id.0),
+                    VersionOwned::new(
+                        api_model_version.major.0,
+                        api_model_version.minor.0,
+                        api_model_version.patch.0,
+                    ),
+                ),
+                user_api_version: link
+                    .remote_protocol()
+                    .map(|v| v.make_owned())
+                    .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0))),
+            };
+            info!("Connected device: {info:?}");
+            state.common.device_info = Some(info);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await
@@ -408,7 +424,11 @@ where
                 .send(DispatcherMessage::Connected)
                 .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
             if let Some(tx) = state.common.connected_tx.take() {
-                _ = tx.send(Ok(()));
+                _ = tx.send(Ok(state
+                    .common
+                    .device_info
+                    .clone()
+                    .unwrap_or(DeviceInfoBundle::empty())));
             }
             state.common.on_link_up();
         }
@@ -471,7 +491,7 @@ where
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             // wait for Disconnect op to be actually sent out
-            // link.tx_mut().flush().await - does not seem to be working, submitted transfer still get canceled in-flight
+            // link.tx_mut().flush().await - does not seem to be working, submitted transfer still gets canceled in-flight
             tokio::time::sleep(Duration::from_millis(3)).await;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());

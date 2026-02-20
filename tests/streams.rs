@@ -5,7 +5,9 @@ use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver::MessageSink;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
-use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError, TypedStreamEvent};
+use wire_weaver_client_common::{
+    Command, CommandSender, DeviceFilter, DeviceInfoBundle, OnError, TypedStreamEvent,
+};
 
 #[ww_trait]
 trait Streams {
@@ -203,7 +205,7 @@ async fn std_async_client_driving_no_std_sync_server() {
                     let bytes = match cmd {
                         Command::Connect { connected_tx, .. } => {
                             if let Some(tx) = connected_tx {
-                                tx.send(Ok(())).unwrap();
+                                tx.send(Ok(DeviceInfoBundle::empty())).unwrap();
                             }
                             continue;
                         }

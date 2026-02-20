@@ -2,7 +2,10 @@ use crate::introspect::Introspect;
 use crate::prepared_call::PreparedCall;
 use crate::rx_dispatcher::{DispatcherCommand, DispatcherMessage};
 use crate::stream::Stream;
-use crate::{Command, DeviceFilter, Error, OnError, PreparedRead, PreparedWrite, SeqTy, Sink};
+use crate::{
+    Command, DeviceFilter, DeviceInfoBundle, Error, OnError, PreparedRead, PreparedWrite, SeqTy,
+    Sink,
+};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -36,6 +39,7 @@ pub struct CommandSender {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     timeout: Option<Duration>,
+    info: DeviceInfoBundle,
 }
 
 pub(crate) struct TransportCommander {
@@ -66,12 +70,13 @@ impl CommandSender {
             base_path: None,
             gid_map: HashMap::new(),
             timeout: None,
+            info: DeviceInfoBundle::empty(),
         }
     }
 
-    /// Set timeout that is used by default by this CommandSender.
-    /// Default is None, in which case transport layer will use its own default timeout.
-    /// Individual timeouts for each action are also supported, for example see [PreparedCall::with_timeout].
+    /// Set the timeout used by default by this CommandSender.
+    /// Default is None, in which case the transport layer will use its own default timeout.
+    /// Individual timeouts for each action are also supported, for example, see [PreparedCall::with_timeout].
     pub fn set_local_timeout(&mut self, timeout: Duration) {
         self.timeout = Some(timeout);
     }
@@ -84,7 +89,7 @@ impl CommandSender {
     ) -> Result<(), Error> {
         let connected_rx = self.connect_inner(filter, user_protocol_version, on_error)?;
         let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-        connection_result?;
+        self.info = connection_result?;
         Ok(())
     }
 
@@ -98,7 +103,7 @@ impl CommandSender {
         let connection_result = connected_rx
             .blocking_recv()
             .map_err(|_| Error::EventLoopNotRunning)?;
-        connection_result?;
+        self.info = connection_result?;
         Ok(())
     }
 
@@ -107,7 +112,7 @@ impl CommandSender {
         filter: DeviceFilter,
         client_version: FullVersionOwned,
         on_error: OnError,
-    ) -> Result<oneshot::Receiver<Result<(), Error>>, Error> {
+    ) -> Result<oneshot::Receiver<Result<DeviceInfoBundle, Error>>, Error> {
         let (connected_tx, connected_rx) = oneshot::channel();
         self.transport_cmd_tx
             .send(Command::Connect {
@@ -272,6 +277,10 @@ impl CommandSender {
 
     pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
         self.base_path = Some(base_path);
+    }
+
+    pub fn info(&self) -> &DeviceInfoBundle {
+        &self.info
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
@@ -473,7 +482,7 @@ impl DispatcherCommander {
         Ok(done_rx)
     }
 
-    /// Notify rx dispatcher about a new write request with seq
+    /// Notify rx dispatcher about a new 'write' request with seq
     pub(crate) fn on_write_return(
         &self,
         seq: SeqTy,

@@ -486,6 +486,10 @@ impl<T> Promise<T> {
         matches!(self.state, PromiseState::Done(_))
     }
 
+    pub fn is_err(&self) -> bool {
+        matches!(self.state, PromiseState::Err(_))
+    }
+
     pub fn marker(&self) -> &str {
         self.marker
     }

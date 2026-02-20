@@ -10,6 +10,7 @@ pub mod promise;
 pub mod rx_dispatcher;
 mod sink;
 pub mod stream;
+mod tracing;
 pub mod ww;
 
 // TODO: remove
@@ -36,10 +37,14 @@ pub enum Command {
     /// Try to connect to / open a device with the specified filter.
     Connect {
         filter: DeviceFilter,
-        user_protocol_version: FullVersionOwned,
+        client_version: FullVersionOwned,
         // TODO: supported_use_protocols: Vec<FullVersion<'static>> and keep only the one in common
         on_error: OnError,
         connected_tx: Option<oneshot::Sender<Result<(), Error>>>,
+    },
+    /// All incoming messages from a device and all outgoing commands will be sent to this channel.
+    RegisterTracer {
+        trace_event_tx: mpsc::UnboundedSender<tracing::TraceEvent>,
     },
 
     /// Complete outstanding requests (but ignore new ones)? Then close device connection, but keep worker task running.

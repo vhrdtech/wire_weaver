@@ -105,14 +105,14 @@ impl CommandSender {
     fn connect_inner(
         &mut self,
         filter: DeviceFilter,
-        user_protocol_version: FullVersionOwned,
+        client_version: FullVersionOwned,
         on_error: OnError,
     ) -> Result<oneshot::Receiver<Result<(), Error>>, Error> {
         let (connected_tx, connected_rx) = oneshot::channel();
         self.transport_cmd_tx
             .send(Command::Connect {
                 filter,
-                user_protocol_version,
+                client_version,
                 on_error,
                 connected_tx: Some(connected_tx),
             })

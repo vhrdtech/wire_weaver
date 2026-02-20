@@ -119,7 +119,7 @@ async fn process_commands_and_endpoints(
     link.tx.send(Message::Text("versions?".into())).await?;
     let mut link_setup_retries = 5;
     loop {
-        let duration = if state.common.link_setup_done {
+        let duration = if state.common.link_up {
             Duration::from_secs(3)
         } else {
             Duration::from_millis(50)
@@ -149,7 +149,7 @@ async fn process_commands_and_endpoints(
                     link.tx.send(Message::Close(None)).await?;
                     return Ok(EventLoopResult::Exit);
                 };
-                match handle_command(cmd, &mut link.tx).await? {
+                match handle_command(cmd, &mut link.tx, state).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -157,7 +157,7 @@ async fn process_commands_and_endpoints(
                 }
             }
             _ = timer => {
-                if !state.common.link_setup_done {
+                if !state.common.link_up {
                     if link_setup_retries > 0 {
                         warn!("resending GetDeviceInfo after no answer received from device");
                         link.tx.send(Message::Text("versions?".into())).await?;
@@ -187,7 +187,7 @@ async fn wait_for_connection_and_queue_commands(
                 filter,
                 on_error,
                 connected_tx,
-                user_protocol_version,
+                client_version,
             } => {
                 let Some((addr, port, path)) = filter.as_web_socket() else {
                     return Err(WsError::Transport(format!(
@@ -196,7 +196,7 @@ async fn wait_for_connection_and_queue_commands(
                 };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, user_protocol_version); // TODO: use user protocol version
+                    .on_connect(on_error, connected_tx, client_version); // TODO: use user protocol version
                 let (ws, _response) =
                     tokio_tungstenite::connect_async(format!("ws://{}:{}/{}", addr, port, path))
                         .await?;
@@ -206,6 +206,9 @@ async fn wait_for_connection_and_queue_commands(
                     tx,
                     rx,
                 }));
+            }
+            Command::RegisterTracer { trace_event_tx } => {
+                state.common.tracers.push(trace_event_tx);
             }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
@@ -247,6 +250,7 @@ async fn handle_message(
                 warn!("got empty event data, ignoring");
                 return Ok(EventLoopSpinResult::Continue);
             }
+            state.common.trace_event(&data);
             to_dispatcher
                 .send(DispatcherMessage::MessageBytes(data.into()))
                 .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
@@ -283,7 +287,7 @@ async fn handle_message(
                 if let Some(tx) = state.common.connected_tx.take() {
                     _ = tx.send(Ok(()));
                 }
-                state.common.link_setup_done = true;
+                state.common.link_up = true;
             } else {
                 error!("Unexpected sideband message received: {op}");
                 return Err(WsError::LinkSetupError);
@@ -298,13 +302,18 @@ async fn handle_message(
 async fn handle_command(
     cmd: Command,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    state: &mut State,
 ) -> Result<EventLoopSpinResult, WsError> {
     match cmd {
         Command::Connect { .. } => {
             warn!("Ignoring Connect while already connected");
         }
+        Command::RegisterTracer { trace_event_tx } => {
+            state.common.tracers.push(trace_event_tx);
+        }
         Command::DisconnectKeepStreams { disconnected_tx } => {
             info!("Disconnecting on user request (but keeping streams ready for re-use)");
+            state.common.trace_disconnect("client request", true);
             tx.send(Message::Close(None)).await?;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
@@ -313,6 +322,7 @@ async fn handle_command(
         }
         Command::DisconnectAndExit { disconnected_tx } => {
             info!("Disconnecting and stopping event loop on user request");
+            state.common.trace_disconnect("client request", false);
             tx.send(Message::Close(None)).await?;
             if let Some(done_tx) = disconnected_tx {
                 let _ = done_tx.send(());
@@ -320,6 +330,7 @@ async fn handle_command(
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
         Command::SendMessage { bytes } => {
+            state.common.trace_request(&bytes);
             tx.send(Message::Binary(bytes.into())).await?;
             // TODO: check in WireShark whether messages batch together or else force send on timer
         }

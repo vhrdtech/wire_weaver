@@ -1,5 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{MAX_MESSAGE_SIZE, UsbError};
+use crate::{UsbError, MAX_MESSAGE_SIZE};
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface, Speed};
 use std::fmt::Debug;
@@ -9,11 +9,11 @@ use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::FullVersionOwned;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{
-    Command, Error, OnError, TestProgress, event_loop_state::CommonState,
+    event_loop_state::CommonState, Command, Error, OnError, TestProgress,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
-    WireWeaverUsbLink,
+    DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
+    PING_INTERVAL_MS,
 };
 
 struct State {
@@ -150,7 +150,7 @@ async fn wait_for_connection_and_queue_commands(
                 filter,
                 on_error,
                 connected_tx,
-                user_protocol_version,
+                client_version,
             } => {
                 let (interface, di) = match crate::connection::connect(filter, on_error).await {
                     Ok(i_di) => i_di,
@@ -168,8 +168,11 @@ async fn wait_for_connection_and_queue_commands(
                 };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, user_protocol_version.clone());
-                return Ok(Some((interface, di, user_protocol_version)));
+                    .on_connect(on_error, connected_tx, client_version.clone());
+                return Ok(Some((interface, di, client_version)));
+            }
+            Command::RegisterTracer { trace_event_tx } => {
+                state.common.tracers.push(trace_event_tx);
             }
             Command::DisconnectKeepStreams { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
@@ -220,7 +223,7 @@ where
     const TIMER_IGNORE_PERIOD: Duration = Duration::from_micros(10);
     let mut next_tx_ping_instant = Instant::now() + ping_period;
     loop {
-        let duration = if state.common.link_setup_done {
+        let duration = if state.common.link_up {
             let now = Instant::now();
             let till_force_send = if let Some(instant) = state.common.packet_started_instant {
                 let dt_since_packet_start = now
@@ -289,7 +292,7 @@ where
                 }
             }
             _ = timer => {
-                if !state.common.link_setup_done {
+                if !state.common.link_up {
                     if link_setup_retries > 0 {
                         warn!("resending GetDeviceInfo after no answer received from device");
                         let r = link.send_get_device_info().await;
@@ -353,14 +356,16 @@ where
                 return Ok(EventLoopSpinResult::Continue);
             }
             let message = &state.message_rx[..len];
+            state.common.trace_event(message);
             to_dispatcher
                 .send(DispatcherMessage::MessageBytes(message.to_vec()))
                 .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
         }
         Ok(MessageKind::Disconnect(reason)) => {
-            return if !state.common.link_setup_done
-                && reason != DisconnectReason::IncompatibleVersion
-            {
+            state
+                .common
+                .trace_disconnect(format!("remote: {reason:?}").as_str(), false);
+            return if !state.common.link_up && reason != DisconnectReason::IncompatibleVersion {
                 warn!(
                     "Received Disconnect({reason:?}) from remote device, ignoring, must be from old session"
                 );
@@ -387,6 +392,8 @@ where
                 link_version,
                 link.remote_protocol()
             );
+            state.common.remote_max_message_size = Some(max_message_len as usize);
+            state.common.remote_link_version = Some(link_version);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await
@@ -401,10 +408,11 @@ where
             if let Some(tx) = state.common.connected_tx.take() {
                 _ = tx.send(Ok(()));
             }
-            state.common.link_setup_done = true;
+            state.common.on_link_up();
         }
         Ok(MessageKind::Loopback { .. }) => {} // ignore when not testing
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
+            state.common.trace_error(format!("{e:?}"));
             if state.max_protocol_mismatched_messages > 0 {
                 warn!(
                     "Protocols version mismatch, probably old message from previous session or missed packet?"
@@ -415,6 +423,7 @@ where
             }
         }
         Err(e @ LinkError::InternalBufOverflow | e @ LinkError::MessageTooBig) => {
+            state.common.trace_error(format!("{e:?}"));
             warn!("handle_message: ignoring {e:?}");
         }
         Err(e) => return Err(Error::Transport(UsbError::Link(e).into())),
@@ -436,8 +445,12 @@ where
         Command::Connect { .. } => {
             warn!("Ignoring Connect while already connected");
         }
+        Command::RegisterTracer { trace_event_tx } => {
+            state.common.tracers.push(trace_event_tx);
+        }
         Command::DisconnectKeepStreams { disconnected_tx } => {
             info!("Disconnecting on user request (but keeping streams ready for re-use)");
+            state.common.trace_disconnect("client request", true);
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
@@ -451,6 +464,7 @@ where
         }
         Command::DisconnectAndExit { disconnected_tx } => {
             info!("Disconnecting and stopping USB event loop on user request");
+            state.common.trace_disconnect("client request", false);
             link.send_disconnect(DisconnectReason::RequestByUser)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
@@ -463,6 +477,7 @@ where
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
         Command::SendMessage { bytes } => {
+            state.common.trace_request(&bytes);
             link.send_message(&bytes)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;

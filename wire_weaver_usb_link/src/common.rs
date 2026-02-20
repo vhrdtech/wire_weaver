@@ -1,4 +1,4 @@
-use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
+use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
 use shrink_wrap::stack_vec::StackVec;
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
@@ -14,7 +14,7 @@ use wire_weaver::ww_version::CompactVersion;
 // this link version and buffer sizes are exchanged.
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
-    /// User-defined data types and API, also indirectly points to ww_client_server version
+    /// User-defined data types and API, also indirectly points to `ww_client_server` version
     #[cfg(feature = "device")]
     pub(crate) user_protocol: FullVersion<'static>,
     #[cfg(feature = "host")]
@@ -32,7 +32,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
 
     // Receiver
     pub(crate) rx: R,
-    /// Used to hold up to one USB packet (64..=1024B)
+    /// Used to hold up to one USB packet (64 - 1024B)
     pub(crate) rx_packet_buf: &'i mut [u8],
     pub(crate) rx_start_pos: usize,
     pub(crate) rx_left_bytes: usize,
@@ -58,7 +58,6 @@ pub enum Error<T, R> {
 }
 
 /// Interface used by [MessageSender](crate::MessageSender) to send packets to USB bus.
-/// Additionally, if device feature is enabled, [LinkMgmtCmd] are passed from MessageReceiver to MessageSender.
 pub trait PacketSink {
     type Error;
     async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error>;
@@ -152,6 +151,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     }
 }
 
+//noinspection GrazieInspection
 #[repr(u8)]
 #[ww_repr(u4)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
@@ -166,7 +166,7 @@ pub enum Op {
     /// Sent in one packet with [DeviceInfo](DeviceInfo) struct following, since link is not up yet and ShrinkWrap uses buffer till its end.
     DeviceInfo = 2,
 
-    /// Sent from host to device with its link, client server and user versions.
+    /// Sent from host to device with its link, client server, and user versions.
     /// Sent in one packet with [LinkSetup](LinkSetup) struct following, since link is not up yet and ShrinkWrap uses buffer till its end.
     LinkSetup = 3,
     /// Sent from device to host to let it know that it received LinkSetup and that protocol version is compatibly.
@@ -174,7 +174,7 @@ pub enum Op {
     /// Guard against host starting to send before device received LinkSetup to avoid losing messages.
     LinkReady = 4,
 
-    /// 0x5l, 0xll, `data[0..len]` in first packet, note that len is not full message length, but only the length of the piece in current packet
+    /// 0x5l, 0xll, `data[0..len]` in first packet, note that len is not full message length, but only the length of the the piece in current packet
     MessageStart = 5,
     /// 0x6l, 0xll, `data[prev..prev+len]` at the start of next packet
     MessageContinue = 6,
@@ -219,8 +219,10 @@ pub enum DisconnectReason {
 
 #[derive_shrink_wrap]
 struct DeviceInfo<'i> {
-    /// This crate major and minor version on the device side
+    /// This crate version on the device side
     dev_link_version: CompactVersion,
+    /// E.g., ww_client_server version on the device side
+    api_model_version: CompactVersion,
     /// User API and data types version on the device side
     dev_user_version: FullVersion<'i>,
     /// Maximum length message that device can process

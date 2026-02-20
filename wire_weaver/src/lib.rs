@@ -9,6 +9,7 @@ pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
+    pub use crate::{MessageSink, WireWeaverAsyncApiBackend};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_impl, ww_trait};

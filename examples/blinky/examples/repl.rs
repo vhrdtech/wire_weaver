@@ -1,10 +1,10 @@
-use std::time::Duration;
 use anyhow::Result;
-use driver::{OnError, MyDeviceDriver, DeviceFilter, LedState};
+use blinky::{Blinky, DeviceFilter, OnError};
 use clap::Parser;
 use clap_repl::reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory};
 use clap_repl::{ClapEditor, ReadCommandOutput};
 use console::style;
+use std::time::Duration;
 use tracing::{error, info};
 
 #[derive(Parser)]
@@ -20,44 +20,35 @@ enum Command {
     // Arguments can be added like so: MyCommand { x: f32 },
 }
 
-async fn handle_command(device: &mut MyDeviceDriver, cmd: Command) -> Result<()> {
+async fn handle_command(device: &mut Blinky, cmd: Command) -> Result<()> {
     match cmd {
         Command::LedOn => {
-            device
-                .set_led_state(LedState::On).call()
-                .await?;
+            device.led_on().call().await?;
         }
         Command::LedOff => {
-            device
-                .set_led_state(LedState::Off).call()
-                .await?;
+            device.led_off().call().await?;
         }
         Command::Blink { count, delay_ms } => {
             for _ in 0..count {
                 println!("On");
-                device
-                    .set_led_state(LedState::On).call()
-                    .await?;
+                device.led_on().call().await?;
                 tokio::time::sleep(Duration::from_millis(delay_ms as u64)).await;
                 println!("Off");
-                device
-                    .set_led_state(LedState::Off).call()
-                    .await?;
+                device.led_off().call().await?;
                 tokio::time::sleep(Duration::from_millis(delay_ms as u64)).await;
             }
         }
         // Handle additional commands here
 
         // Already handled
-        Command::Connect | Command::Disconnect | Command::Exit => {
-        }
+        Command::Connect | Command::Disconnect | Command::Exit => {}
     }
     Ok(())
 }
 
-async fn connect_to_device() -> Result<MyDeviceDriver> {
+async fn connect_to_device() -> Result<Blinky> {
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let device = MyDeviceDriver::connect(filter, OnError::ExitImmediately).await?;
+    let device = Blinky::connect(filter, OnError::ExitImmediately).await?;
     Ok(device)
 }
 
@@ -80,20 +71,21 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn handle_user_command(device: &mut Option<MyDeviceDriver>, rl: &mut ClapEditor<Command>) -> Result<bool> {
+async fn handle_user_command(
+    device: &mut Option<Blinky>,
+    rl: &mut ClapEditor<Command>,
+) -> Result<bool> {
     match rl.read_command() {
         ReadCommandOutput::Command(c) => match c {
-            Command::Connect => {
-                match connect_to_device().await {
-                    Ok(d) => {
-                        info!("Connected!");
-                        *device = Some(d);
-                    }
-                    Err(e) => {
-                        error!("{}", e);
-                    }
+            Command::Connect => match connect_to_device().await {
+                Ok(d) => {
+                    info!("Connected!");
+                    *device = Some(d);
                 }
-            }
+                Err(e) => {
+                    error!("{}", e);
+                }
+            },
             Command::Disconnect => {
                 if let Some(mut d) = device.take() {
                     let r = d.disconnect_and_exit().await;

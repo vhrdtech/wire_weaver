@@ -4,7 +4,10 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
 use embassy_usb::{Builder, Config, UsbDevice};
-use wire_weaver::{WireWeaverAsyncApiBackend, ww_version::FullVersion};
+use wire_weaver::{
+    ww_version::{CompactVersion, FullVersion},
+    WireWeaverAsyncApiBackend,
+};
 use wire_weaver_usb_link::WireWeaverUsbLink;
 
 pub struct UsbServer<'d, D: Driver<'d>, B> {
@@ -81,6 +84,7 @@ pub fn usb_init<
     state: B,
     timings: UsbTimings,
     user_protocol: FullVersion<'static>,
+    api_model_version: CompactVersion,
     config_mut: C,
 ) -> (
     UsbServer<'d, D, B>,
@@ -124,7 +128,14 @@ pub fn usb_init<
     debug!("{}", usb.buffer_usage());
 
     let (tx, rx) = ww.split(); // TODO: do not split?
-    let link = WireWeaverUsbLink::new(user_protocol, tx, &mut buffers.tx, rx, &mut buffers.rx);
+    let link = WireWeaverUsbLink::new(
+        user_protocol,
+        api_model_version,
+        tx,
+        &mut buffers.tx,
+        rx,
+        &mut buffers.rx,
+    );
 
     (
         UsbServer {

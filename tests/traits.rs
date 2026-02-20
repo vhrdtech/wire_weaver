@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+use wire_weaver::MessageSink;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError};
 
@@ -82,6 +82,18 @@ mod no_std_sync_server {
         }
 
         fn periph_channel_run(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 2]) {}
+
+        fn validate_index_channel(&mut self, _index: [UNib32; 2]) -> Result<(), ()> {
+            Ok(())
+        }
+
+        fn validate_index_gpio(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+            Ok(())
+        }
+
+        fn validate_index_periph(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+            Ok(())
+        }
     }
 
     mod api_impl {

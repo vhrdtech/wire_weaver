@@ -1,5 +1,5 @@
-use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
+use wire_weaver::MessageSink;
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 
 #[ww_trait]
@@ -118,6 +118,34 @@ impl NoStdSyncServer {
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
         None
+    }
+
+    fn validate_index_root_array_of_streams(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_gpio(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_periph(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_channel(&mut self, _index: [UNib32; 2]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_subgroup_array_of_streams(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_gpio_array_of_streams(&mut self, _index: [UNib32; 2]) -> Result<(), ()> {
+        Ok(())
+    }
+
+    fn validate_index_channel_array_of_streams(&mut self, _index: [UNib32; 3]) -> Result<(), ()> {
+        Ok(())
     }
 }
 

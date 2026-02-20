@@ -15,8 +15,8 @@ ww_gpio = { workspace = true, default-features = false }
 
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]
-name = "mcu_gpio"
-path = "src/main.rs"
+name = "ww_gpio"
+path = "src/bin/ww_gpio.rs"
 test = false
 doctest = false
 bench = false

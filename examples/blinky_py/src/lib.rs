@@ -1,10 +1,10 @@
-use driver::{DeviceFilter, LedState, MyDeviceDriver, OnError};
+use blinky::{Blinky, DeviceFilter, OnError};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
 #[pymodule]
-fn blinky(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn blinky_mod(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Device>()?;
     Ok(())
 }
@@ -12,24 +12,24 @@ fn blinky(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[pyclass]
 struct Device {
     runtime: Runtime,
-    drv: Option<MyDeviceDriver>,
+    drv: Option<Blinky>,
 }
 
 #[pymethods]
-impl DriverPy {
+impl Device {
     #[new]
     fn new() -> PyResult<Self> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
             .build()?;
-        Ok(DriverPy { runtime, drv: None })
+        Ok(Device { runtime, drv: None })
     }
 
     pub fn connect(&mut self) -> PyResult<()> {
         let _guard = self.runtime.enter();
         let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-        match MyDeviceDriver::connect_blocking(filter, OnError::ExitImmediately) {
+        match Blinky::connect_blocking(filter, OnError::ExitImmediately) {
             Ok(d) => {
                 self.drv = Some(d);
                 Ok(())
@@ -42,7 +42,7 @@ impl DriverPy {
         let Some(drv) = &mut self.drv else {
             return Err(PyTypeError::new_err("Not connected, use connect() first"));
         };
-        drv.set_led_state(LedState::On)
+        drv.led_on()
             .blocking_call()
             .map_err(|e| PyTypeError::new_err(e.to_string()))?;
         Ok(())
@@ -52,7 +52,7 @@ impl DriverPy {
         let Some(drv) = &mut self.drv else {
             return Err(PyTypeError::new_err("Not connected, use connect() first"));
         };
-        drv.set_led_state(LedState::Off)
+        drv.led_off()
             .blocking_call()
             .map_err(|e| PyTypeError::new_err(e.to_string()))?;
         Ok(())

@@ -75,7 +75,7 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/examples/mcu_qemu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples_mcu/mcu_qemu/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mcu/wire_weaver_usb_embassy/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_board_info/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_can_bus/src" isTestSource="false" />

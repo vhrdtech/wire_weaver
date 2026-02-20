@@ -1,9 +1,9 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use wire_weaver::MessageSink;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+use wire_weaver::MessageSink;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{Command, CommandSender, DeviceFilter, OnError, TypedStreamEvent};
 
@@ -72,6 +72,10 @@ mod no_std_sync_server {
             None
         }
 
+        fn validate_index_array_of_streams(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
+            Ok(())
+        }
+
         fn finish(&mut self, _msg_tx: &mut impl MessageSink) {
             println!("finish called");
         }
@@ -135,7 +139,7 @@ mod std_async_client {
     use wire_weaver_client_common::CommandSender;
 
     pub struct StdAsyncClient {
-        pub args_scratch: [u8; 512],
+        // pub args_scratch: [u8; 512],
         pub cmd_tx: CommandSender,
     }
 
@@ -236,7 +240,7 @@ async fn std_async_client_driving_no_std_sync_server() {
         .await
         .expect("connect");
     let mut client = std_async_client::StdAsyncClient {
-        args_scratch: [0u8; 512],
+        // args_scratch: [0u8; 512],
         cmd_tx,
     };
     tokio::time::sleep(Duration::from_millis(10)).await;

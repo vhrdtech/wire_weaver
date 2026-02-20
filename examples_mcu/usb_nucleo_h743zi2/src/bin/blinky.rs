@@ -2,26 +2,22 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
-mod init;
-
-use api::LedState;
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
 use embassy_stm32::{
-    Config, bind_interrupts,
+    bind_interrupts,
     gpio::{Level, Output, Speed},
     peripherals::USB_OTG_FS,
     usb,
     usb::Driver,
+    Config,
 };
 use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
-use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
-use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -52,22 +48,8 @@ impl WireWeaverAsyncApiBackend for ServerState {
             .await
     }
 
-    async fn send_updates(
-        &mut self,
-        msg_tx: &mut impl MessageSink,
-        scratch_value: &mut [u8],
-        scratch_event: &mut [u8],
-    ) {
-        let message = server_impl::stream_data_ser().usart_rx(
-            &RefVec::new_bytes(&[0, 1, 2, 3, 4]),
-            scratch_value,
-            scratch_event,
-        );
-        _ = msg_tx.send(message.unwrap()).await;
-    }
-
     fn version(&self) -> FullVersion<'_> {
-        api::DEVICE_API_ROOT_FULL_GID
+        blinky_api::BLINKY_API_FULL_GID
     }
 }
 
@@ -77,56 +59,28 @@ struct ServerState {
 
 mod server_impl {
     wire_weaver::ww_api!(
-        "../../api/src/lib.rs" as api::DeviceApiRoot for ServerState,
+        "../../examples/blinky_api/src/lib.rs" as blinky_api::BlinkyApi for ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = true,
-        debug_to_file = "./target/generated_no_std_server.rs" // uncomment if you want to see the resulting AST and generated code
+        debug_to_file = "../target/generated_no_std_server.rs"
     );
 }
 
 impl ServerState {
     async fn led_on(&mut self, _msg_tx: &mut impl MessageSink) {
-        self.led.set_high(); 
+        self.led.set_high();
     }
 
     async fn led_off(&mut self, _msg_tx: &mut impl MessageSink) {
         self.led.set_low();
     }
-    
-    async fn set_led_state(&mut self, _msg_tx: &mut impl MessageSink, state: LedState) {
-        match state {
-            LedState::Off => self.led.set_low(),
-            LedState::On => self.led.set_high(),
-            LedState::Blinking => {}
-        }
-    }
-
-    async fn usart_rx_sideband(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
-        None
-    }
-
-    async fn usart_tx_write(&mut self, data: &[u8]) {
-        info!("tx: {:?}", data);
-    }
-
-    async fn usart_tx_sideband(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
-        None
-    }
 }
 
 #[embassy_executor::main]
 async fn main(spawner: embassy_executor::Spawner) {
-    info!("cannify_micro_g0b1cetxn starting...");
+    info!("blinky on Nucleo H743ZI2 is starting...");
 
     let mut config = Config::default();
     {
@@ -155,7 +109,6 @@ async fn main(spawner: embassy_executor::Spawner) {
         config.rcc.mux.usbsel = mux::Usbsel::HSI48;
     }
     let p = embassy_stm32::init(config);
-    init::reset_bkp_domain();
     info!("RCC and RAM init done");
 
     let led = Output::new(p.PE1, Level::Low, Speed::Low);
@@ -171,7 +124,8 @@ async fn main(spawner: embassy_executor::Spawner) {
         buffers,
         state,
         UsbTimings::default_fs(),
-        api::DEVICE_API_ROOT_FULL_GID,
+        blinky_api::BLINKY_API_FULL_GID,
+        ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
             // optionally set config.manufacturer, config.product, self_powered and max_power

@@ -17,6 +17,8 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     /// User-defined data types and API, also indirectly points to `ww_client_server` version
     #[cfg(feature = "device")]
     pub(crate) user_protocol: FullVersion<'static>,
+    #[cfg(feature = "device")]
+    pub(crate) api_model_version: wire_weaver::ww_version::CompactVersion,
     #[cfg(feature = "host")]
     pub(crate) user_protocol: ww_version::FullVersionOwned,
 
@@ -75,6 +77,7 @@ pub trait PacketSource {
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
         #[cfg(feature = "device")] user_protocol: FullVersion<'static>,
+        #[cfg(feature = "device")] api_model_version: wire_weaver::ww_version::CompactVersion,
         #[cfg(feature = "host")] user_protocol: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
@@ -92,6 +95,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
         WireWeaverUsbLink {
             user_protocol,
+            #[cfg(feature = "device")]
+            api_model_version,
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             remote_protocol,
 

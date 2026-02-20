@@ -50,15 +50,10 @@ pub fn impl_server_dispatcher(
         crate_name,
         &cx,
         &mut error_seq,
-        true,
-    );
-    let stream_send_methods = stream_ser_methods_recursive(
-        api_level,
-        IndexChain::new(),
-        crate_name,
-        no_alloc,
         generate_introspect,
     );
+    let stream_send_methods =
+        stream_ser_methods_recursive(api_level, IndexChain::new(), crate_name, no_alloc, true);
     let args_structs = args_structs_recursive(api_level, crate_name, no_alloc);
     let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
     let es = error_seq.next_err();

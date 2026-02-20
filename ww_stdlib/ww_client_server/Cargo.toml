@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 wire_weaver.workspace = true
+ww_global.workspace = true
 
 [features]
 default = ["std"]

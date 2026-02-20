@@ -1,0 +1,17 @@
+[package]
+name = "ww_self"
+version = "0.1.1"
+authors.workspace = true
+description = "WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+shrink_wrap.workspace = true
+ww_numeric.workspace = true
+ww_version.workspace = true
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std", "ww_numeric/std", "ww_version/std"]

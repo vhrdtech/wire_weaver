@@ -49,7 +49,6 @@
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_derive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_tool/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_embassy/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_usb_link/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_client_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wire_weaver_net_host/src" isTestSource="false" />
@@ -71,6 +70,35 @@
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_si/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/mcu_qemu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/mcu/wire_weaver_usb_embassy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_board_info/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_can_bus/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_client_server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_counters/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_date_time/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_dfu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_firmware_info/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_global/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_gpio/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_gpio_hl/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_i2c/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_indication/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_ll/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_numeric/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_self/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_si/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_spi/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_uart/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_uid/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_user_info/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_version/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

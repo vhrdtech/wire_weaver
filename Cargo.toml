@@ -19,12 +19,22 @@ strum_macros = "0.27"
 #ww_self = { version = "0.1.1" }
 #ww_global = { version = "0.1.1", default-features = false }
 
+wire_weaver = { path = "./wire_weaver", default-features = false }
+wire_weaver_client_common = { path = "./wire_weaver_client_common" }
+wire_weaver_usb_embassy = { path = "./mcu/wire_weaver_usb_embassy" }
+wire_weaver_usb_link = { path = "./wire_weaver_usb_link", default-features = false }
+wire_weaver_usb_host = { path = "./wire_weaver_usb_host" }
 shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
 shrink_wrap_core = { path = "../shrink_wrap/shrink_wrap_core" }
-ww_version = { path = "../ww_stdlib/ww_version", default-features = false }
-ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }
-ww_self = { path = "../ww_stdlib/ww_self" }
-ww_global = { path = "../ww_stdlib/ww_global" }
+ww_version = { path = "./ww_stdlib/ww_version", default-features = false }
+ww_client_server = { path = "./ww_stdlib/ww_client_server", default-features = false }
+ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
+ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
+ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
+ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
+ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
+ww_self = { path = "./ww_stdlib/ww_self" }
+ww_global = { path = "./ww_stdlib/ww_global" }
 
 #shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa", default-features = false }
 #shrink_wrap_core = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa" }
@@ -38,21 +48,19 @@ wire_weaver = { path = "./wire_weaver" }
 wire_weaver_core = { path = "./wire_weaver_core" }
 
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
     "wire_weaver",
     "wire_weaver_core",
     "wire_weaver_derive",
     "wire_weaver_usb_host",
-    # "wire_weaver_usb_embassy", no_std crate, excluded to be able to run cargo test
     "wire_weaver_usb_link",
     "wire_weaver_net_host",
     "wire_weaver_client_common",
     "wire_weaver_udp_link",
+    "ww_stdlib/*",
     #    "wire_weaver_tool",
     "examples/*",
     "tests",
     "wire_weaver_cli",
 ]
-
-exclude = ["wire_weaver_usb_embassy"]

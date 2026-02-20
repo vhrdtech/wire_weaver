@@ -1,0 +1,16 @@
+[package]
+name = "ww_global"
+version = "0.1.1"
+authors.workspace = true
+description = "WireWeaver global type ID registry"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation = "https://vhrdtech.github.io/wire_weaver/api/addressing/"
+
+[dependencies]
+shrink_wrap.workspace = true
+
+[build-dependencies]
+serde_json = "1.0"
+convert_case = "0.10"

@@ -1,0 +1,17 @@
+[package]
+name = "ww_si"
+version = "0.1.0"
+authors.workspace = true
+description = "Statically and dynamically typed SI values"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+shrink_wrap.workspace = true
+ww_numeric = { version = "0.1.0", path = "../ww_numeric", default-features = false }
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std", "ww_numeric/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_numeric/defmt"]

@@ -1,0 +1,15 @@
+[package]
+name = "ww_gpio_hl"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-level wrapper over ww_gpio to control IO on microcontrollers"
+
+[dependencies]
+wire_weaver = { workspace = true }
+ww_gpio = { path = "../ww_gpio" }
+wire_weaver_client_common.workspace = true
+tokio = "1"
+thiserror = "2"

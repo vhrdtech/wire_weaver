@@ -1,0 +1,22 @@
+[package]
+name = "ww_version"
+version = "0.1.1"
+authors.workspace = true
+description = "SemVer for no_std targets based on shrink_wrap wire format"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+shrink_wrap.workspace = true
+semver = { version = "1", default-features = false, optional = true }
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std", "semver/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
+semver = ["dep:semver"]
+
+[dev-dependencies]
+hex-literal = "1"

@@ -1,0 +1,17 @@
+[package]
+name = "ww_board_info"
+version = "0.1.0"
+authors.workspace = true
+description = "PCB/PCBA information (name, revision, etc.) and requesting API"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wire_weaver.workspace = true
+ww_date_time.workspace = true
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_date_time/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt"]

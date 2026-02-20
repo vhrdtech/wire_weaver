@@ -1,0 +1,16 @@
+[package]
+name = "ww_spi"
+version = "0.1.0"
+authors.workspace = true
+description = "SPI data types and remote bridging API"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wire_weaver.workspace = true
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt"]

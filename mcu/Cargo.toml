@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "wire_weaver_usb_embassy",
+]
+
+[workspace.dependencies]
+wire_weaver = { path = "../wire_weaver", default-features = false }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device", "defmt"] }

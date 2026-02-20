@@ -13,5 +13,5 @@ embassy-futures = "0.1"
 embassy-time = "0.5"
 embassy-sync = "0.7"
 defmt = "1.0"
-wire_weaver = { version = "0.4.0", path = "../wire_weaver", default-features = false }
-wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["device", "defmt"] }
+wire_weaver = { workspace = true, default-features = false }
+wire_weaver_usb_link = { workspace = true, features = ["device", "defmt"] }

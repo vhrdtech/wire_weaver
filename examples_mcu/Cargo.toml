@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "usb_nucleo_h743zi2",
+]
+
+[workspace.dependencies]
+wire_weaver_usb_embassy = { path = "../mcu/wire_weaver_usb_embassy" }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device", "defmt"] }
+wire_weaver = { path = "../wire_weaver", default-features = false, features = ["defmt"] }
+ww_client_server = { path = "../ww_stdlib/ww_client_server", default-features = false }

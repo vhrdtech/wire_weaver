@@ -1,0 +1,17 @@
+[package]
+name = "ww_dfu"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Firmware update data types and API"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+wire_weaver = { workspace = true }
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt"]

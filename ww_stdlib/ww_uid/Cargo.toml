@@ -1,0 +1,16 @@
+[package]
+name = "ww_uid"
+version = "0.1.0"
+authors.workspace = true
+description = "Device unique ID data types and requesting API"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wire_weaver.workspace = true
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt"]

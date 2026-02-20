@@ -1,0 +1,13 @@
+[package]
+name = "blinky_py"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "blinky"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.28"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+blinky = { path = "../blinky" }

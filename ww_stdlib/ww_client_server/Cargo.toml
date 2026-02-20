@@ -1,0 +1,15 @@
+[package]
+name = "ww_client_server"
+version = "0.2.0"
+authors.workspace = true
+description = "Client-server API model data types for both no_std and std."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+wire_weaver.workspace = true
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]

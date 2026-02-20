@@ -1,0 +1,17 @@
+[package]
+name = "ww_can_bus"
+version = "0.1.0"
+authors.workspace = true
+description = "CAN Bus types and API"
+edition.workspace = true
+
+[dependencies]
+wire_weaver = { workspace = true }
+ww_version = { path = "../ww_version", default-features = false }
+ww_numeric = { path = "../ww_numeric", default-features = false }
+defmt = { version = "1.0", optional = true }
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_numeric/std"]

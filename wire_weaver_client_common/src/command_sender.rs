@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
-use ww_version::{CompactVersion, FullVersionOwned};
+use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 /// Entry point for an API root or API trait implementation. Inside - wrapper over a channel sender half (currently tokio::mpsc::UnboundedSender).
 ///
@@ -39,7 +39,7 @@ pub struct CommandSender {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     timeout: Option<Duration>,
-    info: DeviceInfoBundle,
+    connected_device: DeviceInfoBundle,
 }
 
 pub(crate) struct TransportCommander {
@@ -70,7 +70,7 @@ impl CommandSender {
             base_path: None,
             gid_map: HashMap::new(),
             timeout: None,
-            info: DeviceInfoBundle::empty(),
+            connected_device: DeviceInfoBundle::empty(),
         }
     }
 
@@ -89,7 +89,7 @@ impl CommandSender {
     ) -> Result<(), Error> {
         let connected_rx = self.connect_inner(filter, user_protocol_version, on_error)?;
         let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-        self.info = connection_result?;
+        self.connected_device = connection_result?;
         Ok(())
     }
 
@@ -103,7 +103,7 @@ impl CommandSender {
         let connection_result = connected_rx
             .blocking_recv()
             .map_err(|_| Error::EventLoopNotRunning)?;
-        self.info = connection_result?;
+        self.connected_device = connection_result?;
         Ok(())
     }
 
@@ -137,9 +137,24 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
+        since: Option<(u32, u32, u32)>,
     ) -> PreparedCall<T> {
-        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        // postpone error return to have a better syntax (one ? instead of two)
+        let (postpone_err, args) = match (self.check_version(since), args) {
+            (Ok(_), Ok(args)) => (Ok(()), args),
+            (Err(e), _) => (Err(e), vec![]),
+            (_, Err(e)) => (Err(e), vec![]),
+        };
+        let (postpone_err, path_kind) = if postpone_err.is_ok() {
+            match self.to_ww_client_server_path(path) {
+                Ok(path_kind) => (Ok(()), path_kind),
+                Err(e) => (Err(e), PathKindOwned::Absolute { path: vec![] }),
+            }
+        } else {
+            (postpone_err, PathKindOwned::Absolute { path: vec![] })
+        };
         PreparedCall {
+            postpone_err,
             transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
             dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
@@ -153,12 +168,15 @@ impl CommandSender {
     pub fn prepare_read<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
+        since: Option<(u32, u32, u32)>,
     ) -> PreparedRead<T> {
+        let version_check = self.check_version(since);
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
         PreparedRead {
             transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
             dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
+            version_check,
             path_kind,
             timeout: self.timeout,
             _phantom: PhantomData,
@@ -169,9 +187,23 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         value: Result<Vec<u8>, Error>,
+        since: Option<(u32, u32, u32)>,
     ) -> PreparedWrite<E> {
-        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        let (postpone_err, value) = match (self.check_version(since), value) {
+            (Ok(_), Ok(value)) => (Ok(()), value),
+            (Err(e), _) => (Err(e), vec![]),
+            (_, Err(e)) => (Err(e), vec![]),
+        };
+        let (postpone_err, path_kind) = if postpone_err.is_ok() {
+            match self.to_ww_client_server_path(path) {
+                Ok(path_kind) => (Ok(()), path_kind),
+                Err(e) => (Err(e), PathKindOwned::Absolute { path: vec![] }),
+            }
+        } else {
+            (postpone_err, PathKindOwned::Absolute { path: vec![] })
+        };
         PreparedWrite {
+            postpone_err,
             transport_cmd_tx: TransportCommander::new(self.transport_cmd_tx.clone()),
             dispatcher_cmd_tx: DispatcherCommander::new(self.dispatcher_cmd_tx.clone()),
             seq_rx: self.seq_rx.clone(),
@@ -185,7 +217,9 @@ impl CommandSender {
     pub fn prepare_stream<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
+        since: Option<(u32, u32, u32)>,
     ) -> Result<Stream<T>, Error> {
+        self.check_version(since)?;
         let path_kind = self.to_ww_client_server_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         // notify rx dispatcher
@@ -210,7 +244,9 @@ impl CommandSender {
     pub fn prepare_sink<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
+        since: Option<(u32, u32, u32)>,
     ) -> Result<Sink<T>, Error> {
+        self.check_version(since)?;
         let path_kind = self.to_ww_client_server_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         // notify rx dispatcher
@@ -280,7 +316,7 @@ impl CommandSender {
     }
 
     pub fn info(&self) -> &DeviceInfoBundle {
-        &self.info
+        &self.connected_device
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
@@ -335,6 +371,30 @@ impl CommandSender {
             }
         };
         Ok(path_kind)
+    }
+
+    fn check_version(&self, since: Option<(u32, u32, u32)>) -> Result<(), Error> {
+        let Some(since) = since else { return Ok(()) };
+        // assuming the protocol name matches, a device will refuse to connect if it is not, host as well checks it and won't try to connect
+        let dev_user_api = &self.connected_device.user_api_version.version;
+        // #[since = ""] only makes sense within compatible protocols, if a user annotated a resource with a different major version, it must be a mistake
+        // this is checked in ww_trait macro
+        let is_compatible = if dev_user_api.major.0 == 0 {
+            dev_user_api.patch.0 >= since.2
+        } else {
+            dev_user_api.minor.0 >= since.1
+        };
+        if is_compatible {
+            Ok(())
+        } else {
+            Err(Error::OlderProtocol(
+                Box::new(self.connected_device.user_api_version.clone()),
+                Box::new(FullVersionOwned::new(
+                    self.connected_device.user_api_version.crate_id.clone(),
+                    VersionOwned::new(since.0, since.1, since.2),
+                )),
+            ))
+        }
     }
 }
 

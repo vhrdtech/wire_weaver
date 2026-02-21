@@ -2,9 +2,10 @@ use crate::ast::api::{
     ApiItem, ApiItemKind, ApiLevel, ApiLevelSourceLocation, Argument, Multiplicity,
 };
 use crate::ast::trait_macro_args::{ImplTraitMacroArgs, PropertyMacroArgs, StreamMacroArgs};
+use shrink_wrap_core::transform::syn_util::take_since_attr;
 use shrink_wrap_core::transform::{
-    FieldPath, FieldPathRoot, collect_docs_attrs, collect_unknown_attributes, take_id_attr,
-    transform_return_type, transform_type,
+    collect_docs_attrs, collect_unknown_attributes, take_id_attr, transform_return_type, transform_type,
+    FieldPath, FieldPathRoot,
 };
 use std::ops::Deref;
 use syn::{Attribute, FnArg, GenericParam, Pat, TraitItem};
@@ -40,6 +41,7 @@ pub fn transform_api_level(
                 let mut attrs = trait_item_fn.attrs.clone();
                 let id = take_id_or_increment(&mut next_id, &mut attrs);
                 let docs = collect_docs_attrs(&mut attrs);
+                let since = take_since_attr(&mut attrs)?;
                 collect_unknown_attributes(&mut attrs);
                 let multiplicity = if trait_item_fn.sig.generics.params.is_empty() {
                     Multiplicity::Flat
@@ -74,6 +76,7 @@ pub fn transform_api_level(
                             &FieldPath::new(FieldPathRoot::Output),
                         )?,
                     },
+                    since,
                 });
             }
             TraitItem::Type(_) => {}
@@ -82,6 +85,7 @@ pub fn transform_api_level(
                 let id = take_id_or_increment(&mut next_id, &mut attrs);
                 let kind = item_macro.mac.path.get_ident().unwrap().to_string();
                 let docs = collect_docs_attrs(&mut attrs);
+                let since = take_since_attr(&mut attrs)?;
                 // stream and sink from the server perspective
                 if kind == "stream" || kind == "sink" {
                     let stream_args: StreamMacroArgs =
@@ -98,6 +102,7 @@ pub fn transform_api_level(
                             ty: transform_type(stream_args.ty, None, &path)?,
                             is_up,
                         },
+                        since,
                     });
                 } else if kind == "property" {
                     let property_args: PropertyMacroArgs =
@@ -119,6 +124,7 @@ pub fn transform_api_level(
                             ty: transform_type(property_args.ty, None, &path)?,
                             user_result_ty,
                         },
+                        since,
                     });
                 } else if kind == "ww_impl" {
                     let args: ImplTraitMacroArgs =
@@ -128,6 +134,7 @@ pub fn transform_api_level(
                         docs,
                         multiplicity: args.resource_array.multiplicity.clone(),
                         kind: ApiItemKind::ImplTrait { args, level: None },
+                        since,
                     });
                 } else if kind == "reserved" {
                     items.push(ApiItem {
@@ -135,6 +142,7 @@ pub fn transform_api_level(
                         docs,
                         multiplicity: Multiplicity::Flat,
                         kind: ApiItemKind::Reserved,
+                        since,
                     });
                 } else {
                     return Err(format!("Unknown API resource {kind}"));
@@ -155,8 +163,8 @@ pub fn transform_api_level(
     })
 }
 
-fn take_id_or_increment(next_id: &mut u32, mut attrs: &mut Vec<Attribute>) -> u32 {
-    match take_id_attr(&mut attrs) {
+fn take_id_or_increment(next_id: &mut u32, attrs: &mut Vec<Attribute>) -> u32 {
+    match take_id_attr(attrs) {
         Some(id) => {
             *next_id = id + 1;
             id

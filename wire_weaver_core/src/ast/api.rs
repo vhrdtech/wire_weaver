@@ -3,7 +3,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use shrink_wrap_core::ast::path::Path;
-use shrink_wrap_core::ast::{Docs, Type};
+use shrink_wrap_core::ast::{Docs, Type, Version};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -34,6 +34,7 @@ pub struct ApiItem {
     pub docs: Docs,
     pub multiplicity: Multiplicity,
     pub kind: ApiItemKind,
+    pub since: Option<Version>,
 }
 
 #[derive(Debug, Clone)]

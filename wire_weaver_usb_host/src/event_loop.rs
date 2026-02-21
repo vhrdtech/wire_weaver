@@ -371,7 +371,13 @@ where
                 );
                 Ok(EventLoopSpinResult::Continue)
             } else {
-                info!("Received Disconnect({reason:?}) from remote device, exiting");
+                if reason == DisconnectReason::IncompatibleVersion
+                    || reason == DisconnectReason::ApplicationCrash
+                {
+                    error!("Received Disconnect({reason:?}), exiting");
+                } else {
+                    info!("Received Disconnect({reason:?}) from remote device, exiting");
+                }
                 to_dispatcher
                     .send(DispatcherMessage::Disconnected)
                     .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
@@ -411,6 +417,11 @@ where
                     .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0))),
             };
             info!("Connected device: {info:?}");
+            if let Some(client_version) = state.common.client_version.as_ref()
+                && !client_version.is_protocol_compatible(&info.user_api_version)
+            {
+                return Err(Error::IncompatibleDeviceProtocol);
+            }
             state.common.device_info = Some(info);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)

@@ -30,6 +30,7 @@ pub use ww_version;
 
 use std::time::Duration;
 use ww_client_server::StreamSidebandEvent;
+use ww_version::FullVersionOwned;
 
 pub type SeqTy = u16;
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
@@ -50,6 +51,8 @@ pub enum Error {
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
     #[error("Tried connecting to a device with incompatible protocol")]
     IncompatibleDeviceProtocol,
+    #[error("Connected device has an older protocol version: {:?}, required for the operation: {:?}", .0, .1)]
+    OlderProtocol(Box<FullVersionOwned>, Box<FullVersionOwned>),
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
     #[error("Remote device returned ww_client_server::{:?}", .0)]

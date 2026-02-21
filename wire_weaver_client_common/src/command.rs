@@ -1,4 +1,4 @@
-use crate::{CommandSender, DeviceFilter, Error, OnError};
+use crate::{DeviceFilter, Error, OnError};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use ww_version::{FullVersionOwned, VersionOwned};

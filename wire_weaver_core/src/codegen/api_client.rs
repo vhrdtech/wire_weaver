@@ -3,12 +3,12 @@
 use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::util::maybe_quote;
+use crate::codegen::util::{maybe_call_since, maybe_quote};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use shrink_wrap_core::ast::path::Path;
-use shrink_wrap_core::ast::{Docs, Type};
+use shrink_wrap_core::ast::{Docs, Type, Version};
 use syn::LitStr;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -267,6 +267,7 @@ fn level_method(
             args,
             return_type,
             &item.docs,
+            &item.since,
         ),
         ApiItemKind::Property {
             access,
@@ -282,6 +283,7 @@ fn level_method(
             ident,
             ty,
             user_result_ty,
+            &item.since,
         ),
         ApiItemKind::Stream { ident, ty, is_up } => handle_stream(
             model,
@@ -292,6 +294,7 @@ fn level_method(
             ident,
             ty,
             *is_up,
+            &item.since,
         ),
         ApiItemKind::ImplTrait { args, level } => {
             let level_entry_fn_name = &args.resource_name;
@@ -324,6 +327,7 @@ fn handle_method(
     args: &[Argument],
     return_type: &Option<Type>,
     docs: &Docs,
+    since: &Option<Version>,
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(ident, args, model.no_alloc());
     let output_ty = if let Some(return_type) = &return_type {
@@ -345,13 +349,14 @@ fn handle_method(
 
     let path_kind = path_kind(path_mode, gid_paths);
     let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
+    let since = maybe_call_since(since);
     quote! {
         #docs
         pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd_tx.prepare_call(path_kind, args_bytes)
+            self.cmd_tx.prepare_call(path_kind, args_bytes, #since)
         }
     }
 }
@@ -364,6 +369,7 @@ fn handle_property(
     prop_name: &Ident,
     ty: &Type,
     user_result_ty: &Option<Type>,
+    since: &Option<Version>,
 ) -> TokenStream {
     let mut des = TokenStream::new();
     ty.buf_read(
@@ -376,6 +382,7 @@ fn handle_property(
     );
     let path_kind = path_kind(path_mode, gid_paths);
     let ty_def = ty.arg_pos_def2(model.no_alloc());
+    let since = maybe_call_since(since);
 
     let write_fns = if matches!(
         access,
@@ -392,7 +399,7 @@ fn handle_property(
                 let value = #prop_name.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_write(path_kind, value)
+                self.cmd_tx.prepare_write(path_kind, value, #since)
             }
         }
     } else {
@@ -408,7 +415,7 @@ fn handle_property(
             pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<#ty_def> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_read(path_kind)
+                self.cmd_tx.prepare_read(path_kind, #since)
             }
         }
     } else {
@@ -430,6 +437,7 @@ fn handle_stream(
     ident: &Ident,
     ty: &Type,
     is_up: bool,
+    since: &Option<Version>,
 ) -> TokenStream {
     let ty_def = if ty.is_byte_slice() {
         quote! { wire_weaver::shrink_wrap::raw_slice::RawSliceOwned }
@@ -437,6 +445,7 @@ fn handle_stream(
         ty.arg_pos_def2(model.no_alloc())
     };
     let path_kind = path_kind(path_mode, gid_paths);
+    let since = maybe_call_since(since);
 
     if is_up {
         // client in
@@ -444,7 +453,7 @@ fn handle_stream(
             pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let stream = self.cmd_tx.prepare_stream(path_kind)?;
+                let stream = self.cmd_tx.prepare_stream(path_kind, #since)?;
                 Ok(stream)
             }
         }
@@ -454,7 +463,7 @@ fn handle_stream(
             pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let sink = self.cmd_tx.prepare_sink(path_kind)?;
+                let sink = self.cmd_tx.prepare_sink(path_kind, #since)?;
                 Ok(sink)
             }
         }

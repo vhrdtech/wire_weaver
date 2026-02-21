@@ -23,6 +23,7 @@ pub struct PreparedRead<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) dispatcher_cmd_tx: DispatcherCommander,
     pub(crate) seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
+    pub(crate) version_check: Result<(), Error>,
     pub(crate) path_kind: Result<PathKindOwned, Error>,
     pub(crate) timeout: Option<Duration>,
     pub(crate) _phantom: PhantomData<T>,
@@ -35,6 +36,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             transport_cmd_tx: self.transport_cmd_tx,
             dispatcher_cmd_tx: self.dispatcher_cmd_tx,
             seq_rx: self.seq_rx,
+            version_check: self.version_check,
             path_kind: self.path_kind,
             timeout: Some(timeout),
             _phantom: PhantomData,
@@ -44,6 +46,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
     /// Send read request, await a response (or timeout) and return it.
     pub async fn read(self) -> Result<T, Error> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
+        self.version_check?;
         let path_kind = self.path_kind?;
 
         // obtain next seq
@@ -65,6 +68,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
 
     /// Send read request, block the thread until the response is received (or timeout) and return it.
     pub fn blocking_read(self) -> Result<T, Error> {
+        self.version_check?;
         let path_kind = self.path_kind?;
 
         // obtain next seq
@@ -95,6 +99,9 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             Ok(p) => p,
             Err(e) => return Promise::error(e, marker),
         };
+        if let Err(e) = self.version_check {
+            return Promise::error(e, marker);
+        }
 
         Promise::new_read(
             path_kind,

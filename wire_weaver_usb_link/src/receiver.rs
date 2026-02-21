@@ -29,6 +29,8 @@ pub enum MessageKind {
     Ping,
     /// Link is up, versions are compatible, ready to transfer application data
     LinkUp,
+    #[cfg(feature = "device")]
+    IncompatibleVersion,
     #[cfg(feature = "host")]
     DeviceInfo {
         max_message_len: u32,
@@ -233,7 +235,11 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         }
                         self.send_link_setup_result().await?;
                         self.continue_with_new_packet();
-                        return Ok(MessageKind::LinkUp);
+                        if protocol_compatible || dynamic_host {
+                            return Ok(MessageKind::LinkUp);
+                        } else {
+                            return Ok(MessageKind::IncompatibleVersion);
+                        }
                     }
                     #[cfg(feature = "host")]
                     Op::LinkReady => {
@@ -319,12 +325,12 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     // wait for another LinkSetup
                     // continue;
                 }
-                Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
-                Err(Error::ProtocolsVersionMismatch) => {
+                Ok(MessageKind::IncompatibleVersion) => {
                     #[cfg(feature = "defmt")]
-                    defmt::warn!("Ignoring data before link setup");
+                    defmt::warn!("Host tried to connect with incompatible API version, refused");
                     continue;
                 }
+                Ok(_) => continue, // shouldn't happen, but exit if setup is actually done
                 Err(e) => return Err(e),
             }
         }

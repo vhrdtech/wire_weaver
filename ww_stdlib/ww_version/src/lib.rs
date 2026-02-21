@@ -166,6 +166,15 @@ impl FullVersionOwned {
     pub const fn new(crate_id: String, version: VersionOwned) -> Self {
         FullVersionOwned { crate_id, version }
     }
+
+    pub fn is_protocol_compatible(&self, other: &Self) -> bool {
+        if self.crate_id != other.crate_id {
+            return false;
+        }
+        self.version
+            .as_ref()
+            .is_protocol_compatible(&other.version.as_ref())
+    }
 }
 
 #[cfg(feature = "std")]

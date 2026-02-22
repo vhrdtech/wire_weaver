@@ -80,6 +80,11 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples_mcu/mcu_qemu/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mcu/wire_weaver_usb_embassy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/shrink_wrap/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/shrink_wrap/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/shrink_wrap/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/shrink_wrap_core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/shrink_wrap/shrink_wrap_derive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_board_info/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_can_bus/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_client_server/src" isTestSource="false" />

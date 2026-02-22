@@ -1,9 +1,9 @@
-use crate::ast::Repr;
 use crate::ast::docs::Docs;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::path::Path;
 use crate::ast::util::Version;
 use crate::ast::value::Value;
+use crate::ast::Repr;
 use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
@@ -241,9 +241,17 @@ pub(crate) fn take_defmt_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<
 }
 
 pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
+    take_derive_inner(attrs, "derive")
+}
+
+pub(crate) fn take_derive_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
+    take_derive_inner(attrs, "derive_owned")
+}
+
+fn take_derive_inner(attrs: &mut Vec<syn::Attribute>, ident: &'static str) -> Vec<Path> {
     let mut derive = vec![];
     for attr in attrs.iter() {
-        if !attr.path().is_ident("derive") {
+        if !attr.path().is_ident(ident) {
             continue;
         }
         let Meta::List(meta_list) = attr.meta.clone() else {
@@ -257,7 +265,7 @@ pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
                 .map(Path::new_path),
         );
     }
-    attrs.retain(|a| !a.path().is_ident("derive"));
+    attrs.retain(|a| !a.path().is_ident(ident));
     derive
 }
 

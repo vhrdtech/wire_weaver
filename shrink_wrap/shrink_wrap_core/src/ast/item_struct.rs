@@ -11,6 +11,7 @@ use syn::LitStr;
 pub struct ItemStruct {
     pub docs: Docs,
     pub derive: Vec<Path>,
+    pub derive_owned: Vec<Path>,
     pub size_assumption: Option<ObjectSize>,
     pub ident: Ident,
     pub fields: Vec<Field>,
@@ -37,6 +38,7 @@ impl ItemStruct {
             f.ty.make_owned();
         }
         owned.defmt = None;
+        owned.derive = core::mem::take(&mut owned.derive_owned);
         owned
     }
 

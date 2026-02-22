@@ -38,6 +38,7 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
             let item_struct = ItemStruct {
                 docs: Docs::empty(),
                 derive: vec![],
+                derive_owned: vec![],
                 ident,
                 fields,
                 cfg: None,

@@ -12,6 +12,7 @@ use syn::LitStr;
 pub struct ItemEnum {
     pub docs: Docs,
     pub derive: Vec<Path>,
+    pub derive_owned: Vec<Path>,
     pub size_assumption: Option<ObjectSize>,
     pub repr: Repr,
     pub explicit_ww_repr: bool,
@@ -58,6 +59,7 @@ impl ItemEnum {
             }
         }
         owned.defmt = None;
+        owned.derive = core::mem::take(&mut owned.derive_owned);
         owned
     }
 

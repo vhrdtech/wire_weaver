@@ -73,6 +73,9 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_api_evolved/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_evolved/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/blinky_evolved/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky_py/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples_mcu/mcu_qemu/src" isTestSource="false" />
@@ -99,6 +102,7 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_uid/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_user_info/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_version/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/xtask/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

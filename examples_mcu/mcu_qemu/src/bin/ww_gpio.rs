@@ -209,6 +209,6 @@ pub mod api_server {
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        debug_to_file = "../../target/generated_mcu_qemu_gpio_server.rs"
+        debug_to_file = "./target/generated_mcu_qemu_gpio_server.rs"
     );
 }

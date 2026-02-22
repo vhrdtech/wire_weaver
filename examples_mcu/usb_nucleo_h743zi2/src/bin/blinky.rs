@@ -64,7 +64,7 @@ mod server_impl {
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = true,
-        debug_to_file = "../target/generated_no_std_server.rs"
+        debug_to_file = "./target/generated_no_std_server.rs"
     );
 }
 

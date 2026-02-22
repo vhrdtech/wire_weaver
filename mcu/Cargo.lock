@@ -678,6 +678,7 @@ dependencies = [
 name = "shrink_wrap"
 version = "0.1.2"
 dependencies = [
+ "defmt",
  "paste",
  "shrink_wrap_derive",
 ]
@@ -917,6 +918,7 @@ dependencies = [
 name = "wire_weaver"
 version = "0.4.0"
 dependencies = [
+ "defmt",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_version",
@@ -1010,6 +1012,7 @@ dependencies = [
 name = "ww_version"
 version = "0.1.1"
 dependencies = [
+ "defmt",
  "semver",
  "shrink_wrap",
 ]

@@ -15,4 +15,6 @@ fn main() {
         writeln!(&mut wr, "pub const {crate_name}: UNib32 = UNib32({gid});").unwrap();
     }
     std::fs::write("src/lib.rs", wr).unwrap();
+
+    println!("cargo:rerun-if-changed=wire_weaver_gid.json");
 }

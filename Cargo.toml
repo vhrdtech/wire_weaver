@@ -63,4 +63,7 @@ members = [
     "examples/*",
     "tests",
     "wire_weaver_cli",
+    "xtask",
 ]
+
+exclude = ["examples_mcu"]

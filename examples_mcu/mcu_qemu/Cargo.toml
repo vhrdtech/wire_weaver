@@ -9,9 +9,9 @@ cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.5"
 panic-semihosting = { version = "0.6", features = ["exit"] }
 
-wire_weaver = { workspace = true, default-features = false }
-ww_client_server = { workspace = true, default-features = false }
-ww_gpio = { workspace = true, default-features = false }
+wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
+ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]

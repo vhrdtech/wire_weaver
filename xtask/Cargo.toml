@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+xshell = "0.2"

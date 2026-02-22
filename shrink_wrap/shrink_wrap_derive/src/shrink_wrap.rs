@@ -38,7 +38,7 @@ fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
     let mut ts = TokenStream::new();
     match &item {
         Item::Enum(item_enum) => {
-            let ww_item_enum = ItemEnum::from_syn(item_enum)?;
+            let ww_item_enum = ItemEnum::from_syn(item_enum, true)?;
             ts.append_all(ww_item_enum.def_rust(no_alloc));
             ts.append_all(ww_item_enum.serdes_rust(no_alloc, false));
             if let Some(feature) = &generate_owned {
@@ -48,7 +48,7 @@ fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
             }
         }
         Item::Struct(item_struct) => {
-            let ww_item_struct = ItemStruct::from_syn(item_struct)?;
+            let ww_item_struct = ItemStruct::from_syn(item_struct, true)?;
             ts.append_all(ww_item_struct.def_rust(no_alloc));
             ts.append_all(ww_item_struct.serdes_rust(no_alloc, false));
             if let Some(feature) = &generate_owned {
@@ -70,12 +70,12 @@ fn shrink_wrap_derive_inner(mut file: File) -> Result<TokenStream, String> {
     let mut ts = TokenStream::new();
     match &item {
         Item::Enum(item_enum) => {
-            let ww_item_enum = ItemEnum::from_syn(item_enum)?;
+            let ww_item_enum = ItemEnum::from_syn(item_enum, true)?;
             let no_alloc = !item_enum.generics.params.is_empty();
             ts.append_all(ww_item_enum.serdes_rust(no_alloc, false));
         }
         Item::Struct(item_struct) => {
-            let ww_item_struct = ItemStruct::from_syn(item_struct)?;
+            let ww_item_struct = ItemStruct::from_syn(item_struct, true)?;
             let no_alloc = !item_struct.generics.params.is_empty();
             ts.append_all(ww_item_struct.serdes_rust(no_alloc, false));
         }

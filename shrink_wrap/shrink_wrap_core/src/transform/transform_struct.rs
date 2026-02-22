@@ -2,13 +2,16 @@ use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::value::Value;
 use crate::ast::{Field, ItemStruct, Type};
 use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr, take_derive_owned_attr, take_serde_attr, take_size_assumption};
+use crate::transform::syn_util::{
+    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
+    take_derive_owned_attr, take_serde_attr, take_size_assumption,
+};
 use crate::transform::util::{
     check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
 };
 
 impl ItemStruct {
-    pub fn from_syn(item_struct: &syn::ItemStruct) -> Result<Self, String> {
+    pub fn from_syn(item_struct: &syn::ItemStruct, add_evolve_docs: bool) -> Result<Self, String> {
         let mut fields = vec![];
         let mut explicit_flags = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
@@ -23,7 +26,9 @@ impl ItemStruct {
         let mut attrs = item_struct.attrs.clone();
         let size_assumption = take_size_assumption(&mut attrs);
         let mut docs = collect_docs_attrs(&mut attrs);
-        add_notes(&mut docs, size_assumption, false);
+        if add_evolve_docs {
+            add_notes(&mut docs, size_assumption, false);
+        }
         let derive = take_derive_attr(&mut attrs);
         let derive_owned = take_derive_owned_attr(&mut attrs);
         let derive_owned = if derive_owned.is_empty() {

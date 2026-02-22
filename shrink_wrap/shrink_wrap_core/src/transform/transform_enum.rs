@@ -2,7 +2,11 @@ use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::ItemEnum;
 use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr, take_derive_owned_attr, take_serde_attr, take_since_attr, take_size_assumption, take_ww_repr_attr};
+use crate::transform::syn_util::{
+    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
+    take_derive_owned_attr, take_serde_attr, take_since_attr, take_size_assumption,
+    take_ww_repr_attr,
+};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
     check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
@@ -10,7 +14,7 @@ use crate::transform::util::{
 use syn::{Expr, Lit};
 
 impl ItemEnum {
-    pub fn from_syn(item_enum: &syn::ItemEnum) -> Result<Self, String> {
+    pub fn from_syn(item_enum: &syn::ItemEnum, add_evolve_docs: bool) -> Result<Self, String> {
         let mut variants = vec![];
         let mut current_discriminant: u32 = 0;
         let mut max_discriminant: u32 = 0;
@@ -48,7 +52,9 @@ impl ItemEnum {
         }
         let size_assumption = take_size_assumption(&mut attrs);
         let mut docs = collect_docs_attrs(&mut attrs);
-        add_notes(&mut docs, size_assumption, true);
+        if add_evolve_docs {
+            add_notes(&mut docs, size_assumption, true);
+        }
         let derive = take_derive_attr(&mut attrs);
         let derive_owned = take_derive_owned_attr(&mut attrs);
         let derive_owned = if derive_owned.is_empty() {

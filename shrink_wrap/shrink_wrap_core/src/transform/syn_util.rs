@@ -197,47 +197,38 @@ pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String
 // }
 
 pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
-    let attr_idx = attrs
-        .iter()
-        .enumerate()
-        .find(|(_, a)| a.path().is_ident("owned"))
-        .map(|(idx, _)| idx);
-    let Some(attr_idx) = attr_idx else {
-        return Ok(None);
-    };
-    let attr = attrs.remove(attr_idx);
-    let Meta::NameValue(named_value) = attr.meta else {
-        return Err("expected #[owned = \"feature_name\"]".into());
-    };
-    let Expr::Lit(expr_lit) = named_value.value else {
-        return Err("expected #[owned = \"feature_name\"]".into());
-    };
-    let Lit::Str(feature) = expr_lit.lit else {
-        return Err("expected #[owned = \"feature_name\"]".into());
-    };
-    Ok(Some(feature))
+    take_attr_inner(attrs, "owned")
 }
 
 pub(crate) fn take_defmt_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
+    take_attr_inner(attrs, "defmt")
+}
+
+pub(crate) fn take_serde_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
+    take_attr_inner(attrs, "serde")
+}
+
+fn take_attr_inner(
+    attrs: &mut Vec<syn::Attribute>,
+    ident: &'static str,
+) -> Result<Option<LitStr>, String> {
     let attr_idx = attrs
         .iter()
         .enumerate()
-        .find(|(_, a)| a.path().is_ident("defmt"))
+        .find(|(_, a)| a.path().is_ident(ident))
         .map(|(idx, _)| idx);
     let Some(attr_idx) = attr_idx else {
         return Ok(None);
     };
     let attr = attrs.remove(attr_idx);
-    let Meta::NameValue(named_value) = attr.meta else {
-        return Err("expected #[defmt = \"feature_name\"]".into());
-    };
-    let Expr::Lit(expr_lit) = named_value.value else {
-        return Err("expected #[defmt = \"feature_name\"]".into());
-    };
-    let Lit::Str(feature) = expr_lit.lit else {
-        return Err("expected #[defmt = \"feature_name\"]".into());
-    };
-    Ok(Some(feature))
+    if let Meta::NameValue(named_value) = attr.meta
+        && let Expr::Lit(expr_lit) = named_value.value
+        && let Lit::Str(feature) = expr_lit.lit
+    {
+        Ok(Some(feature))
+    } else {
+        Err(format!("expected #[{ident} = \"feature_name\"]"))
+    }
 }
 
 pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {

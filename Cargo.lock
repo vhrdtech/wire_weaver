@@ -92,26 +92,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "bincode"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
-dependencies = [
- "bincode_derive",
- "serde",
- "unty",
-]
-
-[[package]]
-name = "bincode_derive"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
-dependencies = [
- "virtue",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -388,7 +368,6 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 name = "compare_wire_formats"
 version = "0.4.0"
 dependencies = [
- "bincode",
  "postcard",
  "rmp-serde",
  "serde",
@@ -1779,6 +1758,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd490c5b18261893f14449cbd28cb9c0b637aebf161cd77900bfdedaff21ec32"
+dependencies = [
+ "bitflags 2.11.0",
+ "once_cell",
+ "serde",
+ "serde_derive",
+ "typeid",
+ "unicode-ident",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1939,6 +1932,7 @@ dependencies = [
  "defmt",
  "hex-literal",
  "paste",
+ "serde",
  "shrink_wrap_derive",
  "tracing",
 ]
@@ -2321,6 +2315,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typeid"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
+
+[[package]]
 name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2369,12 +2369,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
 
 [[package]]
-name = "unty"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
-
-[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2397,12 +2391,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "virtue"
-version = "0.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "vte"
@@ -2873,6 +2861,7 @@ dependencies = [
  "quote",
  "regex",
  "relative-path",
+ "ron",
  "shrink_wrap",
  "shrink_wrap_core",
  "syn",
@@ -3189,6 +3178,7 @@ name = "ww_numeric"
 version = "0.1.1"
 dependencies = [
  "defmt",
+ "serde",
  "shrink_wrap",
 ]
 
@@ -3196,6 +3186,7 @@ dependencies = [
 name = "ww_self"
 version = "0.1.1"
 dependencies = [
+ "serde",
  "shrink_wrap",
  "ww_numeric",
  "ww_version",
@@ -3249,6 +3240,7 @@ dependencies = [
  "defmt",
  "hex-literal",
  "semver",
+ "serde",
  "shrink_wrap",
 ]
 

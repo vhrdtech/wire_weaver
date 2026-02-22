@@ -9,6 +9,8 @@ macro_rules! un {
         paste! {
             #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
             #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            #[cfg_attr(feature = "serde", serde(transparent))]
             #[doc = $bits "-bit unsigned number, backed by u" $base_bits ", serialized as " $bits " bits with alignment of 1 bit."]
             pub struct [<U $bits>]([<u $base_bits>]);
             impl [<U $bits>] {
@@ -170,6 +172,8 @@ macro_rules! signed_un {
         paste! {
             #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
             #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            #[cfg_attr(feature = "serde", serde(transparent))]
             #[doc = $bits "-bit signed number, backed by i" $base_bits ", serialized as " $bits " bits with alignment of 1 bit."]
             pub struct [<I $bits>]([<i $base_bits>]);
             impl [<I $bits>] {
@@ -278,6 +282,7 @@ inx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
 /// Serialized layout: discriminant(U3), bit_count(U3, U4, U5 or U6), value (N-bits).
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum UN {
     UN8 { bit_count: U3, value: u8 },
@@ -288,6 +293,7 @@ pub enum UN {
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum IN {
     IN8 { bit_count: U3, value: i8 },

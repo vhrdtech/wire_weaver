@@ -6,9 +6,11 @@ use crate::{
 };
 
 /// Variable length encoded u32 based on nibbles.
-/// Each nibbles carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
+/// Each nibble carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct UNib32(pub u32);
 
 const ONE_MORE_NIBBLE: u8 = 0b1000;
@@ -48,7 +50,7 @@ impl UNib32 {
             // reversed unib is written left to write, but read from right to left, so "one more nibble" bits must also be reversed
             if len >= 1 && i == 0 {
                 // (len == 1 && i == 0) || (len > 1 && i == 0)
-                // no flag if only one nibble or if last nibble (seen from right to left, so at i == 0)
+                // no flag if only one nibble or if the last nibble (seen from right to left, so at i == 0)
                 wr.write_u4(nib).map_err(|_| Error::OutOfBoundsRevCompact)?;
             } else {
                 wr.write_u4(nib | ONE_MORE_NIBBLE)

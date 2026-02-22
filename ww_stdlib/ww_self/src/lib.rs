@@ -15,6 +15,7 @@ use ww_version::FullVersionOwned;
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct ApiBundle<'i> {
     /// API entry point.
     pub root: ApiLevel<'i>,
@@ -30,6 +31,7 @@ pub struct ApiBundle<'i> {
 #[ww_repr(u2)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum ApiLevelLocation<'i> {
     InLine(ApiLevel<'i>),
     SkippedFullVersion {
@@ -45,6 +47,7 @@ pub enum ApiLevelLocation<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct ApiLevel<'i> {
     pub docs: &'i str,
     pub ident: &'i str,
@@ -55,6 +58,7 @@ pub struct ApiLevel<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct ApiItem<'i> {
     pub id: UNib32,
     pub multiplicity: Multiplicity,
@@ -66,6 +70,7 @@ pub struct ApiItem<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u2)]
 #[derive(Clone, Debug)]
+#[serde = "serde"]
 pub enum Multiplicity {
     Flat,
     Array, // size bound?
@@ -75,6 +80,7 @@ pub enum Multiplicity {
 #[ww_repr(u4)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum ApiItemKind<'i> {
     Method {
         args: RefVec<'i, Argument<'i>>,
@@ -98,6 +104,7 @@ pub enum ApiItemKind<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct Argument<'i> {
     pub ident: &'i str,
     pub ty: Type<'i>,
@@ -106,6 +113,7 @@ pub struct Argument<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u3)]
 #[derive(Clone, Debug)]
+#[serde = "serde"]
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available
     Const,
@@ -121,6 +129,7 @@ pub enum PropertyAccess {
 #[ww_repr(unib32)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum Type<'i> {
     /// 1-bit, alignment of one-bit, same as `UB(UBits(1))` but serialized with only 1 nibble because bool is used very often.
     Bool,
@@ -178,6 +187,7 @@ pub enum Type<'i> {
 
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
+#[serde = "serde"]
 pub struct TypeMeta<'i> {
     pub def: Type<'i>,
     pub source: TypeDefinitionSource,
@@ -186,6 +196,7 @@ pub struct TypeMeta<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u2)]
 #[derive(Clone, Debug)]
+#[serde = "serde"]
 pub enum TypeDefinitionSource {
     /// Type was defined in the same crate as ApiLevel that refers to itl.
     Local,
@@ -202,6 +213,7 @@ pub enum TypeDefinitionSource {
 #[ww_repr(unib32)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum Value<'i> {
     Bool(bool),
     Numeric(NumericBaseType),
@@ -212,6 +224,7 @@ pub enum Value<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct ItemStruct<'i> {
     pub size: ElementSize,
     pub docs: &'i str,
@@ -222,6 +235,7 @@ pub struct ItemStruct<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct Field<'i> {
     pub docs: &'i str,
     pub ident: &'i str,
@@ -232,6 +246,7 @@ pub struct Field<'i> {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct ItemEnum<'i> {
     pub size: ElementSize,
     pub docs: &'i str,
@@ -243,6 +258,7 @@ pub struct ItemEnum<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u4)]
 #[derive(Clone, Debug)]
+#[serde = "serde"]
 pub enum Repr {
     U(u8),
     UNib32,
@@ -251,6 +267,7 @@ pub enum Repr {
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub struct Variant<'i> {
     pub docs: &'i str,
     pub ident: &'i str,
@@ -263,6 +280,7 @@ pub struct Variant<'i> {
 #[ww_repr(u2)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum Fields<'i> {
     Named(RefVec<'i, Field<'i>>),
     Unnamed(RefVec<'i, Type<'i>>),

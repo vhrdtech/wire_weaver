@@ -19,6 +19,7 @@ ww_version = { workspace = true, default-features = false }
 default = ["std"]
 std = ["shrink_wrap/std", "ww_version/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt"]
+serde = ["shrink_wrap/serde"]
 
 defmt-extended = ["dep:defmt", "shrink_wrap/defmt-extended"]
 tracing-extended = ["dep:tracing", "shrink_wrap/tracing-extended"]

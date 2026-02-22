@@ -28,3 +28,13 @@ impl ToTokens for CfgAttrDefmt {
         tokens.extend(quote! { #[cfg_attr(feature = #feature, derive(defmt::Format))] });
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct CfgAttrSerde(pub LitStr);
+
+impl ToTokens for CfgAttrSerde {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let feature = &self.0;
+        tokens.extend(quote! { #[cfg_attr(feature = #feature, derive(serde::Deserialize, serde::Serialize))] });
+    }
+}

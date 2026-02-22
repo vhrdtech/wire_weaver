@@ -2,7 +2,7 @@ use crate::ast::docs::Docs;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::path::Path;
 use crate::ast::ty::Type;
-use crate::ast::util::{Cfg, CfgAttrDefmt, Version};
+use crate::ast::util::{Cfg, CfgAttrDefmt, CfgAttrSerde, Version};
 use crate::ast::value::Value;
 use proc_macro2::{Ident, Span};
 use syn::LitStr;
@@ -17,6 +17,7 @@ pub struct ItemStruct {
     pub fields: Vec<Field>,
     pub cfg: Option<Cfg>,
     pub defmt: Option<CfgAttrDefmt>,
+    pub serde: Option<CfgAttrSerde>,
 }
 
 #[derive(Clone, Debug)]

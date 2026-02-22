@@ -7,6 +7,7 @@ use shrink_wrap::prelude::*;
 #[self_describing]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
+#[serde = "serde"]
 pub enum NumericBaseType {
     /// 4-bits (nibble), alignment of four-bits
     U4,
@@ -75,6 +76,7 @@ pub enum NumericBaseType {
 #[derive(Clone, Debug)]
 #[defmt = "defmt"]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum NumericAnyType<'i> {
     Base(NumericBaseType),
     SubType {
@@ -94,6 +96,7 @@ pub enum NumericAnyType<'i> {
 #[derive(Clone, Debug)]
 #[defmt = "defmt"]
 #[owned = "std"]
+#[serde = "serde"]
 pub enum SubTypeKind<'i> {
     ValidRange {
         start: NumericValue,
@@ -113,6 +116,7 @@ pub enum SubTypeKind<'i> {
 #[self_describing]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[defmt = "defmt"]
+#[serde = "serde"]
 pub enum NumericValue {
     U4(Nibble),
     U8(u8),
@@ -185,6 +189,8 @@ impl NumericValue {
 /// Note that only U1-U64 is supported now, but it's not hard to add numbers up to U128.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct UBits(u8);
 
 impl SerializeShrinkWrap for UBits {
@@ -221,6 +227,8 @@ impl DeserializeShrinkWrapOwned for UBits {
 /// Note that only I2-I64 is supported now, but it's not hard to add numbers up to I128.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct IBits(u8);
 
 impl SerializeShrinkWrap for IBits {

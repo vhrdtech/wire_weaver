@@ -10,6 +10,7 @@ license = "MIT"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 defmt = "1.0"
 strum_macros = "0.27"
 #shrink_wrap = { version = "0.1.2", default-features = false }

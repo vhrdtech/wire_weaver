@@ -11,7 +11,9 @@ repository.workspace = true
 shrink_wrap.workspace = true
 ww_numeric.workspace = true
 ww_version.workspace = true
+serde = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
 std = ["shrink_wrap/std", "ww_numeric/std", "ww_version/std"]
+serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]

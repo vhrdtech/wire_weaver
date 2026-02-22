@@ -1,11 +1,8 @@
 use crate::ast::item_enum::{Fields, Variant};
-use crate::ast::util::CfgAttrDefmt;
+use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::ItemEnum;
 use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_owned_attr, take_since_attr, take_size_assumption, take_ww_repr_attr,
-};
+use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr, take_derive_owned_attr, take_serde_attr, take_since_attr, take_size_assumption, take_ww_repr_attr};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
     check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
@@ -60,6 +57,7 @@ impl ItemEnum {
             derive_owned
         };
         let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
+        let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
         Ok(ItemEnum {
             docs,
@@ -72,6 +70,7 @@ impl ItemEnum {
             size_assumption,
             cfg: None,
             defmt,
+            serde,
         })
     }
 }

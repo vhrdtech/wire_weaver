@@ -1,11 +1,8 @@
-use crate::ast::util::CfgAttrDefmt;
+use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::value::Value;
 use crate::ast::{Field, ItemStruct, Type};
 use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_owned_attr, take_size_assumption,
-};
+use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr, take_derive_owned_attr, take_serde_attr, take_size_assumption};
 use crate::transform::util::{
     check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
 };
@@ -35,6 +32,7 @@ impl ItemStruct {
             derive_owned
         };
         let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
+        let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
         create_flags(&mut fields, &explicit_flags);
         check_flag_order(&fields)?;
@@ -49,6 +47,7 @@ impl ItemStruct {
             fields,
             cfg: None,
             defmt,
+            serde,
         })
     }
 }

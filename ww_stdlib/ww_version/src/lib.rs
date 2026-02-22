@@ -7,11 +7,12 @@ use shrink_wrap::prelude::*;
 pub use semver;
 
 /// SemVer version as defined by <https://semver.org> in ShrinkWrap format.
-/// The minimum size is 2 bytes, when major, minor and patch are less than 8 and pre and build are None.
+/// The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone, Hash)]
 #[defmt = "defmt"]
+#[serde = "serde"]
 #[owned = "std"]
 #[final_structure]
 pub struct Version<'i> {
@@ -31,6 +32,7 @@ pub struct Version<'i> {
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Clone, Hash)]
 #[defmt = "defmt"]
+#[serde = "serde"]
 #[owned = "std"]
 #[final_structure]
 pub struct FullVersion<'i> {
@@ -44,6 +46,7 @@ pub struct FullVersion<'i> {
 #[derive_shrink_wrap]
 #[derive(PartialEq, Eq, Copy, Clone)]
 #[defmt = "defmt"]
+#[serde = "serde"]
 #[final_structure]
 pub struct CompactVersion {
     pub global_type_id: UNib32,

@@ -21,9 +21,10 @@ pest = "2.8"
 pest_derive = { version = "2.8", features = ["grammar-extras"] }
 regex = "1.12"
 anyhow = "1"
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["serde"] }
 relative-path = "2.0"
 console = "0.16"
+ron = "0.12"
 
 [features]
 default = ["std"]

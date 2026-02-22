@@ -5,7 +5,7 @@ use crate::ast::{ItemEnum, Type};
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes_scaffold, strings_to_derive};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{ToTokens, TokenStreamExt, quote};
+use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{Lit, LitInt};
 
 impl ItemEnum {
@@ -20,6 +20,7 @@ impl ItemEnum {
         let docs = &self.docs;
         let cfg = &self.cfg;
         let cfg_attr_defmt = &self.defmt;
+        let cfg_attr_serde = if lifetime.is_empty() { &self.serde } else { &None };
         let assert_size = if let Some(size) = &self.size_assumption {
             size.assert_element_size(&self.ident, &self.cfg)
         } else {
@@ -33,6 +34,7 @@ impl ItemEnum {
             #docs
             #derive
             #cfg_attr_defmt
+            #cfg_attr_serde
             #[repr(#native_repr)]
             // #[ww_repr(#base_ty)]
             pub enum #enum_name #lifetime { #variants }

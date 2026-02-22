@@ -87,6 +87,7 @@ pub trait DeserializeShrinkWrapOwned: Sized {
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ElementSize {
     /// Element size is unknown and stored at the back of the buffer.
     /// Unsized structs and enums can be evolved over time without breaking compatibility.

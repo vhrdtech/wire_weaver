@@ -1,0 +1,17 @@
+[package]
+name = "shrink_wrap_derive"
+edition.workspace = true
+version = "0.1.1"
+authors.workspace = true
+license = "MIT"
+repository.workspace = true
+description = "Macros for generating shrink_wrap serdes code."
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits", "printing"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+shrink_wrap_core = { version = "0.2.0", path = "../shrink_wrap_core" }

@@ -2,10 +2,6 @@
 default:
     @just --list
 
-# Run all checks
-check:
-    bash check.sh
-
 # Serve the documentation localy
 [group: 'docs']
 serve-docs:

@@ -24,8 +24,8 @@ wire_weaver_client_common = { path = "./wire_weaver_client_common" }
 wire_weaver_usb_embassy = { path = "./mcu/wire_weaver_usb_embassy" }
 wire_weaver_usb_link = { path = "./wire_weaver_usb_link", default-features = false }
 wire_weaver_usb_host = { path = "./wire_weaver_usb_host" }
-shrink_wrap = { path = "../shrink_wrap/shrink_wrap", default-features = false }
-shrink_wrap_core = { path = "../shrink_wrap/shrink_wrap_core" }
+shrink_wrap = { path = "./shrink_wrap/shrink_wrap", default-features = false }
+shrink_wrap_core = { path = "./shrink_wrap/shrink_wrap_core" }
 ww_version = { path = "./ww_stdlib/ww_version", default-features = false }
 ww_client_server = { path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
@@ -50,6 +50,7 @@ wire_weaver_core = { path = "./wire_weaver_core" }
 [workspace]
 resolver = "3"
 members = [
+    "shrink_wrap/*",
     "wire_weaver",
     "wire_weaver_core",
     "wire_weaver_derive",

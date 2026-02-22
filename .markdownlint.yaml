@@ -1,0 +1,24 @@
+# MD007/ul-indent : Unordered list indentation : https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/md007.md
+MD007:
+  # Spaces for indent
+  indent: 4
+  # Whether to indent the first level of the list
+  start_indented: false
+  # Spaces for first level indent (when start_indented is set)
+  start_indent: 4
+
+# MD013/line-length : Line length : https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/md013.md
+MD013:
+  # Number of characters
+  line_length: 120
+  # Number of characters for headings
+  heading_line_length: 80
+  # Number of characters for code blocks
+  code_block_line_length: 120
+
+# MD033/no-inline-html : Inline HTML : https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/md033.md
+MD033:
+  # Allowed elements
+  allowed_elements: [ 'p', 'img' ]
+  # Allowed elements in tables
+  table_allowed_elements: [ ]

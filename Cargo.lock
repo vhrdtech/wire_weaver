@@ -1937,6 +1937,7 @@ name = "shrink_wrap"
 version = "0.1.2"
 dependencies = [
  "defmt",
+ "hex-literal",
  "paste",
  "shrink_wrap_derive",
  "tracing",

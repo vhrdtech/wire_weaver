@@ -150,10 +150,10 @@ fn process_request_inner_recursive(
     let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
+    let es0 = error_seq.next_err();
+    let es1 = error_seq.next_err();
     let introspect = if generate_introspect {
         let ww_self_bytes_const = introspect(api_level);
-        let es0 = error_seq.next_err();
-        let es1 = error_seq.next_err();
         quote! {
             RequestKind::Introspect => {
                 pub const WW_SELF_BYTES: #ww_self_bytes_const;
@@ -169,7 +169,17 @@ fn process_request_inner_recursive(
             }
         }
     } else {
-        quote! {}
+        quote! {
+            RequestKind::Introspect => {
+                let event = Event {
+                    seq: request.seq,
+                    result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(&[]) }),
+                };
+                let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                Ok(&[])
+            }
+        }
     };
 
     let es = error_seq.next_err();

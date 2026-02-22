@@ -10,6 +10,18 @@ use ww_self::visitor::visit_api_bundle_mut;
 /// Collect information about API items and referenced data types.
 /// Serialize into ww_self and create a byte array to be put into device firmware.
 pub fn introspect(api_level: &api::ApiLevel) -> TokenStream {
+    let mut api_bundle = core_ast_to_ww_self(api_level);
+    visit_api_bundle_mut(&mut api_bundle, &mut DropDocs {});
+    // println!("{:#?}", api_bundle);
+    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
+    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
+    let len = bytes.len();
+    quote! {
+        [u8; #len] = [ #(#bytes),* ]
+    }
+}
+
+pub fn core_ast_to_ww_self(api_level: &api::ApiLevel) -> ww_self::ApiBundleOwned {
     let mut traits: Vec<(TraitKey, ww_self::ApiLevelLocationOwned, Vec<_>)> = vec![];
     collect_traits(api_level, &mut traits);
     fix_trait_indices(&mut traits);
@@ -19,20 +31,13 @@ pub fn introspect(api_level: &api::ApiLevel) -> TokenStream {
     collect_types(api_level, &mut types);
     let (_type_keys, types): (Vec<_>, Vec<_>) = types.types.into_iter().unzip();
 
-    let mut api_bundle = ww_self::ApiBundleOwned {
+    let api_bundle = ww_self::ApiBundleOwned {
         root: convert_level(api_level, &trait_keys, None),
         types,
         traits,
         ext_crates: Default::default(),
     };
-    visit_api_bundle_mut(&mut api_bundle, &mut DropDocs {});
-    // println!("{:#?}", api_bundle);
-    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
-    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
-    let len = bytes.len();
-    quote! {
-        [u8; #len] = [ #(#bytes),* ]
-    }
+    api_bundle
 }
 
 struct DropDocs {}

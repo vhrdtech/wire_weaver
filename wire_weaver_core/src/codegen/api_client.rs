@@ -57,7 +57,7 @@ pub fn client(
         quote! {}
     };
     let hl_init = if model == ClientModel::StdFullClient {
-        let d = cmd_tx_disconnect_methods(usb_connect);
+        let d = connect_disconnect_methods(usb_connect, api_level);
         quote! {
             impl super::#client_struct {
                 #d
@@ -514,7 +514,8 @@ fn ser_args(
     }
 }
 
-fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
+fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevel) -> TokenStream {
+    let ww_self_bytes_const = crate::codegen::introspect::introspect(api_level);
     let connect_fn = |is_async: bool| {
         let maybe_async = maybe_quote(is_async, quote! { async });
         let maybe_await = maybe_quote(is_async, quote! { .await });
@@ -545,6 +546,8 @@ fn cmd_tx_disconnect_methods(usb_connect: bool) -> TokenStream {
                     wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
                 });
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
+                pub const WW_SELF_BYTES: #ww_self_bytes_const;
+                cmd_tx.set_client_introspect_bytes(&WW_SELF_BYTES);
                 Ok(Self {
                     args_scratch: scratch,
                     cmd_tx,

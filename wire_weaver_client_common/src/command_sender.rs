@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
+use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 /// Entry point for an API root or API trait implementation. Inside - wrapper over a channel sender half (currently tokio::mpsc::UnboundedSender).
@@ -40,6 +41,7 @@ pub struct CommandSender {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     timeout: Option<Duration>,
     connected_device: DeviceInfoBundle,
+    client_api: Option<Result<ApiBundleOwned, wire_weaver::shrink_wrap::Error>>,
 }
 
 pub(crate) struct TransportCommander {
@@ -71,6 +73,7 @@ impl CommandSender {
             gid_map: HashMap::new(),
             timeout: None,
             connected_device: DeviceInfoBundle::empty(),
+            client_api: None,
         }
     }
 
@@ -317,6 +320,10 @@ impl CommandSender {
 
     pub fn info(&self) -> &DeviceInfoBundle {
         &self.connected_device
+    }
+
+    pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8]) {
+        self.client_api = Some(ApiBundleOwned::from_ww_bytes_owned(ww_bytes));
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {

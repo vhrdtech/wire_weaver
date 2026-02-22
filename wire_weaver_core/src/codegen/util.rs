@@ -28,3 +28,15 @@ pub(crate) fn maybe_call_since(since: &Option<Version>) -> TokenStream {
         Some((#major, #minor, #patch))
     }
 }
+
+#[derive(Default)]
+pub(crate) struct ErrorSeq(u32);
+
+impl ErrorSeq {
+    pub(crate) fn next_err(&mut self) -> TokenStream {
+        let seq = self.0;
+        let ts = quote! { #seq };
+        self.0 += 1;
+        ts
+    }
+}

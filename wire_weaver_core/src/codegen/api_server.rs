@@ -3,9 +3,8 @@
 use crate::ast::api::{ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::introspect::introspect;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
-use crate::codegen::util::{add_prefix, maybe_quote};
+use crate::codegen::util::{add_prefix, maybe_quote, ErrorSeq};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
@@ -150,38 +149,12 @@ fn process_request_inner_recursive(
     let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
-    let introspect = if generate_introspect {
-        let ww_self_bytes_const = introspect(api_level);
-        quote! {
-            RequestKind::Introspect => {
-                pub const WW_SELF_BYTES: #ww_self_bytes_const;
-                for chunk in WW_SELF_BYTES.chunks(128).chain([&[][..]]) { // TODO: auto-determine better chunk size
-                    let event = Event {
-                        seq: request.seq,
-                        result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(chunk) }),
-                    };
-                    let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                    msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                }
-                Ok(&[])
-            }
-        }
-    } else {
-        quote! {
-            RequestKind::Introspect => {
-                let event = Event {
-                    seq: request.seq,
-                    result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(&[]) }),
-                };
-                let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                Ok(&[])
-            }
-        }
-    };
-
+    let introspect = super::server::introspect::introspect(
+        api_level,
+        generate_introspect,
+        cx.use_async,
+        error_seq,
+    );
     let es = error_seq.next_err();
     let mut ts = quote! {
         #maybe_async fn #ident<'a>(
@@ -873,16 +846,4 @@ fn deferred_method_return_ser_methods(
         });
     }
     ts
-}
-
-#[derive(Default)]
-struct ErrorSeq(u32);
-
-impl ErrorSeq {
-    fn next_err(&mut self) -> TokenStream {
-        let seq = self.0;
-        let ts = quote! { #seq };
-        self.0 += 1;
-        ts
-    }
 }

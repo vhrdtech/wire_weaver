@@ -55,6 +55,18 @@ pub struct CompactVersion {
     pub patch: UNib32,
 }
 
+/// Version as major.minor.patch triplet, useful when names are not required.
+#[derive_shrink_wrap]
+#[derive(PartialEq, Eq, Copy, Clone)]
+#[defmt = "defmt"]
+#[serde = "serde"]
+#[final_structure]
+pub struct VersionTriplet {
+    pub major: UNib32,
+    pub minor: UNib32,
+    pub patch: UNib32,
+}
+
 impl<'i> Version<'i> {
     pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
         Version {
@@ -121,6 +133,16 @@ impl CompactVersion {
     }
 }
 
+impl VersionTriplet {
+    pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
+        VersionTriplet {
+            major: UNib32(major),
+            minor: UNib32(minor),
+            patch: UNib32(patch),
+        }
+    }
+}
+
 impl Debug for Version<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}.{}.{}", self.major.0, self.minor.0, self.patch.0)?;
@@ -147,6 +169,12 @@ impl Debug for CompactVersion {
             "G{}@{}.{}.{}",
             self.global_type_id.0, self.major.0, self.minor.0, self.patch.0
         )
+    }
+}
+
+impl Debug for VersionTriplet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}.{}.{}", self.major.0, self.minor.0, self.patch.0)
     }
 }
 

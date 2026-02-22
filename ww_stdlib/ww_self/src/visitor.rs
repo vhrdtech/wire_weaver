@@ -92,7 +92,6 @@ fn visit_item(item: &mut ApiItemOwned, v: &mut impl VisitMut) {
         } => visit_property(ty, access, user_result_ty, v),
         ApiItemKindOwned::Stream { ty, is_up } => visit_stream(ty, is_up, v),
         ApiItemKindOwned::Trait { .. } => {}
-        ApiItemKindOwned::Reserved => {}
     }
 }
 

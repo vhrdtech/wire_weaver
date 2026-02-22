@@ -1943,6 +1943,7 @@ version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "sha2",
  "syn",
 ]
 
@@ -2866,6 +2867,7 @@ dependencies = [
  "shrink_wrap_core",
  "syn",
  "ww_self",
+ "ww_version",
 ]
 
 [[package]]

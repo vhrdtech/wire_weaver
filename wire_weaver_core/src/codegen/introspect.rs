@@ -6,6 +6,7 @@ use quote::quote;
 use shrink_wrap::{SerializeShrinkWrap, UNib32};
 use std::collections::HashSet;
 use ww_self::visitor::visit_api_bundle_mut;
+use ww_version::VersionTriplet;
 
 /// Collect information about API items and referenced data types.
 /// Serialize into ww_self and create a byte array to be put into device firmware.
@@ -37,6 +38,7 @@ pub fn core_ast_to_ww_self(api_level: &api::ApiLevel) -> ww_self::ApiBundleOwned
         traits,
         ext_crates: Default::default(),
     };
+    crate::local_registry::cache_api_bundle(&api_level.source_location, &api_bundle);
     api_bundle
 }
 
@@ -158,7 +160,7 @@ fn convert_level(
             .items
             .iter()
             .enumerate()
-            .map(|(item_idx, i)| {
+            .filter_map(|(item_idx, i)| {
                 if let Some(trait_keys) = trait_keys.as_mut()
                     && let api::ApiItemKind::ImplTrait { args, level: _ } = &i.kind
                 {
@@ -171,7 +173,7 @@ fn convert_level(
     }
 }
 
-fn convert_item(item: &api::ApiItem, traits: &[TraitKey]) -> ww_self::ApiItemOwned {
+fn convert_item(item: &api::ApiItem, traits: &[TraitKey]) -> Option<ww_self::ApiItemOwned> {
     let (kind, ident) = match &item.kind {
         api::ApiItemKind::Method {
             ident,
@@ -214,15 +216,18 @@ fn convert_item(item: &api::ApiItem, traits: &[TraitKey]) -> ww_self::ApiItemOwn
                 args.resource_name.to_string(),
             )
         }
-        api::ApiItemKind::Reserved => (ww_self::ApiItemKindOwned::Reserved, "".into()),
+        api::ApiItemKind::Reserved => return None,
     };
-    ww_self::ApiItemOwned {
+    Some(ww_self::ApiItemOwned {
         id: UNib32(item.id),
         multiplicity: convert_multiplicity(&item.multiplicity),
+        since: item
+            .since
+            .map(|v| VersionTriplet::new(v.major, v.minor, v.patch)),
         ident,
         docs: item.docs.to_string(),
         kind,
-    }
+    })
 }
 
 fn convert_multiplicity(m: &api::Multiplicity) -> ww_self::Multiplicity {
@@ -370,7 +375,7 @@ fn collect_types(level: &api::ApiLevel, types: &mut TypeWalk) {
                     continue;
                 }
                 let item_struct =
-                    shrink_wrap_core::ast::ItemStruct::from_syn(&item_struct).unwrap();
+                    shrink_wrap_core::ast::ItemStruct::from_syn(&item_struct, false).unwrap();
                 let item_struct = convert_item_struct(&item_struct);
                 let key = TypeKey {
                     location: level.source_location.clone(),
@@ -388,7 +393,8 @@ fn collect_types(level: &api::ApiLevel, types: &mut TypeWalk) {
                 {
                     continue;
                 }
-                let item_enum = shrink_wrap_core::ast::ItemEnum::from_syn(&item_enum).unwrap();
+                let item_enum =
+                    shrink_wrap_core::ast::ItemEnum::from_syn(&item_enum, false).unwrap();
                 let item_enum = convert_item_enum(&item_enum);
                 let key = TypeKey {
                     location: level.source_location.clone(),

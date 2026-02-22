@@ -5,7 +5,7 @@ pub mod visitor;
 
 use shrink_wrap::prelude::*;
 pub use ww_numeric::{NumericAnyType, NumericBaseType};
-use ww_version::{CompactVersion, FullVersion};
+use ww_version::{CompactVersion, FullVersion, VersionTriplet};
 
 #[cfg(feature = "std")]
 use ww_numeric::NumericAnyTypeOwned;
@@ -62,6 +62,7 @@ pub struct ApiLevel<'i> {
 pub struct ApiItem<'i> {
     pub id: UNib32,
     pub multiplicity: Multiplicity,
+    pub since: Option<VersionTriplet>,
     pub ident: &'i str,
     pub docs: &'i str,
     pub kind: ApiItemKind<'i>,
@@ -98,7 +99,7 @@ pub enum ApiItemKind<'i> {
     Trait {
         idx: UNib32,
     },
-    Reserved,
+    // Reserved, no useful info keeping reserved items after IDs are calculated
 }
 
 #[derive_shrink_wrap]

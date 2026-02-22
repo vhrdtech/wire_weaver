@@ -9,7 +9,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
-use wire_weaver_client_common::{Command, Error};
+use wire_weaver_client_common::{Command, DeviceInfoBundle, Error};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -285,7 +285,7 @@ async fn handle_message(
                     .send(DispatcherMessage::Connected)
                     .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
                 if let Some(tx) = state.common.connected_tx.take() {
-                    _ = tx.send(Ok(()));
+                    _ = tx.send(Ok(DeviceInfoBundle::empty())); // TODO: ws: device info bundle
                 }
                 state.common.link_up = true;
             } else {

@@ -41,7 +41,10 @@ pub struct CommandSender {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     timeout: Option<Duration>,
     connected_device: DeviceInfoBundle,
-    client_api: Option<Result<ApiBundleOwned, wire_weaver::shrink_wrap::Error>>,
+    client_api: Option<(
+        Result<ApiBundleOwned, wire_weaver::shrink_wrap::Error>,
+        Vec<u8>,
+    )>,
 }
 
 pub(crate) struct TransportCommander {
@@ -322,8 +325,19 @@ impl CommandSender {
         &self.connected_device
     }
 
-    pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8]) {
-        self.client_api = Some(ApiBundleOwned::from_ww_bytes_owned(ww_bytes));
+    pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
+        self.client_api = Some((
+            ApiBundleOwned::from_ww_bytes_owned(ww_bytes),
+            api_signature.to_vec(),
+        ));
+    }
+
+    pub fn print_version_report(&self) {
+        let Some((_api_bundle, api_signature)) = &self.client_api else {
+            println!("No client introspect data available");
+            return;
+        };
+        println!("Client api signature: {}", hex::encode(api_signature));
     }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {

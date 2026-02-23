@@ -83,7 +83,8 @@ pub fn usb_init<
     buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
     state: B,
     timings: UsbTimings,
-    user_protocol: FullVersion<'static>,
+    user_api_version: FullVersion<'static>,
+    user_api_signature: &'static [u8],
     api_model_version: CompactVersion,
     config_mut: C,
 ) -> (
@@ -119,7 +120,7 @@ pub fn usb_init<
         &mut builder,
         MAX_USB_PACKET_LEN as u16,
         timings.packet_send_timeout,
-        user_protocol.clone(),
+        user_api_version.clone(),
     );
 
     // Build the builder.
@@ -129,7 +130,8 @@ pub fn usb_init<
 
     let (tx, rx) = ww.split(); // TODO: do not split?
     let link = WireWeaverUsbLink::new(
-        user_protocol,
+        user_api_version,
+        user_api_signature,
         api_model_version,
         tx,
         &mut buffers.tx,

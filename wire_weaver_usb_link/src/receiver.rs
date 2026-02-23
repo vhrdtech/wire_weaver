@@ -1,7 +1,6 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
 use crate::{PacketSink, PacketSource, CRC_KIND, MIN_MESSAGE_SIZE};
-use shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrap};
-use wire_weaver::prelude::FullVersion;
+use shrink_wrap::{BufReader, DeserializeShrinkWrap};
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
 #[derive(Default, Debug, Copy, Clone)]
@@ -36,6 +35,8 @@ pub enum MessageKind {
         max_message_len: u32,
         link_version: wire_weaver::ww_version::CompactVersion,
         api_model_version: wire_weaver::ww_version::CompactVersion,
+        user_api_version: wire_weaver::ww_version::FullVersionOwned,
+        user_api_signature: Vec<u8>,
     },
     Disconnect(DisconnectReason),
 }
@@ -82,12 +83,12 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                 let Some(kind) = Op::from_repr(kind) else {
                     self.rx_stats.malformed_packets =
                         self.rx_stats.malformed_packets.wrapping_add(1);
-                    self.continue_with_new_packet(); // skip whole packet on malformed data
+                    self.continue_with_new_packet(); // skip the whole packet on malformed data
                     continue 'next_message;
                 };
                 // Do not process any data before link setup is done
                 // Ping could be received during link setup if host did not send Disconnected and reconnected faster than timeout on device
-                // Disconnect could be received if host app crashed and device's packet with Disconnect did not go through, but then received on new connection
+                // Disconnect could be received if host app crashed and device's packet with Disconnect did not go through, but then received on a new connection
                 if !self.is_link_up()
                     && kind == Op::MessageStart
                     && kind == Op::MessageContinue
@@ -202,18 +203,23 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let device_info = crate::common::DeviceInfo::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
                         self.remote_max_message_size = device_info.dev_max_message_len;
-                        self.remote_protocol
-                            .set(|wr| device_info.dev_user_version.ser_shrink_wrap(wr))
-                            .map_err(|_| Error::InternalBufOverflow)?;
+                        self.is_link_up = true;
+                        // self.remote_protocol
+                        //     .set(|wr| device_info.dev_user_version.ser_shrink_wrap(wr))
+                        //     .map_err(|_| Error::InternalBufOverflow)?;
 
                         let max_message_len = device_info.dev_max_message_len;
                         let link_version = device_info.dev_link_version;
                         let api_model_version = device_info.api_model_version;
+                        let user_api_version = device_info.user_api_version.make_owned();
+                        let user_api_signature = device_info.user_api_signature.to_vec();
                         self.continue_with_new_packet();
                         return Ok(MessageKind::DeviceInfo {
                             max_message_len,
                             link_version,
                             api_model_version,
+                            user_api_version,
+                            user_api_signature,
                         });
                     }
                     #[cfg(feature = "device")]
@@ -221,17 +227,24 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let link_setup = crate::common::LinkSetup::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
                         let protocol_compatible = self
-                            .user_protocol
+                            .user_api_version
                             .is_protocol_compatible(&link_setup.host_user_version);
-                        // when host app is generic, and it will work with API dynamically by requesting serialized AST from device first
+                        #[cfg(feature = "defmt")]
+                        defmt::info!(
+                            "Host with version: {:?} is connecting...",
+                            link_setup.host_user_version
+                        );
+                        // when a host app is generic, and it will work with API dynamically by requesting serialized AST from a device first
                         let dynamic_host = link_setup.host_user_version.crate_id.is_empty();
                         if protocol_compatible || dynamic_host {
                             self.remote_max_message_size = link_setup.host_max_message_len;
-                            self.remote_protocol
-                                .set(|wr| link_setup.host_user_version.ser_shrink_wrap(wr))
-                                .map_err(|_| Error::InternalBufOverflow)?;
+                            // self.remote_protocol
+                            //     .set(|wr| link_setup.host_user_version.ser_shrink_wrap(wr))
+                            //     .map_err(|_| Error::InternalBufOverflow)?;
+                            self.is_link_up = true;
                         } else {
-                            self.remote_protocol.clear();
+                            // self.remote_protocol.clear();
+                            self.is_link_up = false;
                         }
                         self.send_link_setup_result().await?;
                         self.continue_with_new_packet();
@@ -247,7 +260,8 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         return Ok(MessageKind::LinkUp);
                     }
                     Op::Disconnect => {
-                        self.remote_protocol.clear();
+                        // self.remote_protocol.clear();
+                        self.is_link_up = false;
                         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
                         let reason = DisconnectReason::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
@@ -268,7 +282,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         message[..len].copy_from_slice(data);
                         self.continue_with_new_packet();
                         // sending multiple packets back here will result in a hard to catch error:
-                        // select in the client code would occasionally drop this future and break loop here
+                        // select in the client code would occasionally drop this future and break the loop here
                         return Ok(MessageKind::Loopback { repeat, seq, len });
                     }
                     _ => {
@@ -339,10 +353,10 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
         Ok(())
     }
 
-    /// Returns remote protocol information.
-    pub fn remote_protocol(&self) -> Result<FullVersion<'_>, shrink_wrap::Error> {
-        self.remote_protocol.get()
-    }
+    // /// Returns remote protocol information.
+    // pub fn remote_protocol(&self) -> Result<FullVersion<'_>, shrink_wrap::Error> {
+    //     self.remote_protocol.get()
+    // }
 
     /// Returns statistics struct.
     pub fn receiver_stats(&self) -> &ReceiverStats {

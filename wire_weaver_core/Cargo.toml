@@ -26,6 +26,8 @@ ww_version = { workspace = true, features = ["serde"] }
 relative-path = "2.0"
 console = "0.16"
 ron = "0.12"
+sha2 = "0.10"
+hex = "0.4"
 
 [features]
 default = ["std"]

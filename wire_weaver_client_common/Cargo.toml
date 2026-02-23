@@ -16,6 +16,7 @@ ww_client_server = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["std"] }
 nusb = { version = "0.2", optional = true }
+hex = "0.4"
 
 [features]
 nusb = ["dep:nusb"]

@@ -8,15 +8,16 @@ pub(crate) fn introspect(
     enabled: bool,
     use_async: bool,
     error_seq: &mut ErrorSeq,
-) -> TokenStream {
+) -> (TokenStream, TokenStream) {
+    let (ww_self_bytes_const, api_signature) = crate::codegen::introspect::introspect(api_level);
+    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
     if !use_async {
         // TODO: sync variant of MessageSink
-        return quote! {};
+        return (quote! {}, api_signature);
     }
     let es0 = error_seq.next_err();
     let es1 = error_seq.next_err();
-    if enabled {
-        let ww_self_bytes_const = crate::codegen::introspect::introspect(api_level);
+    let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
                 pub const WW_SELF_BYTES: #ww_self_bytes_const;
@@ -43,5 +44,6 @@ pub(crate) fn introspect(
                 Ok(&[])
             }
         }
-    }
+    };
+    (handle_introspect, api_signature)
 }

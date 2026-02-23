@@ -3,7 +3,7 @@ use crate::{PacketSink, PacketSource, CRC_KIND};
 use shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::MessageSink;
 
-/// Can be used to monitor how many messages, packets and bytes were sent since link setup.
+/// Can be used to monitor how many messages, packets, and bytes were sent since link setup.
 #[derive(Default, Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct SenderStats {
@@ -46,7 +46,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         &mut self,
         max_message_size: u32,
     ) -> Result<(), Error<T::Error, R::Error>> {
-        // See send_get_device_info comment for explanation on why this is sent.
+        // See send_get_device_info() comment for explanation on why this is sent.
         self.send_nop().await?;
 
         self.write_op_len(Op::DeviceInfo, 0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize DeviceInfo
@@ -72,7 +72,10 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
                 ),
             },
             api_model_version: self.api_model_version,
-            dev_user_version: self.user_protocol.clone(),
+            user_api_version: self.user_api_version.clone(),
+            user_api_signature: shrink_wrap::RefVec::Slice {
+                slice: self.user_api_signature,
+            },
             dev_max_message_len: max_message_size,
         };
         dev_info
@@ -91,7 +94,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Result<(), Error<T::Error, R::Error>> {
         self.write_op_len(Op::LinkSetup, 0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize LinkSetup
 
-        let v = &self.user_protocol;
+        let v = &self.user_api_version;
         let link_setup = crate::common::LinkSetup {
             host_user_version: wire_weaver::ww_version::FullVersion {
                 crate_id: v.crate_id.as_str(),

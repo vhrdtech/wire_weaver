@@ -515,7 +515,8 @@ fn ser_args(
 }
 
 fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevel) -> TokenStream {
-    let ww_self_bytes_const = crate::codegen::introspect::introspect(api_level);
+    let (ww_self_bytes_const, api_signature_bytes) =
+        crate::codegen::introspect::introspect(api_level);
     let connect_fn = |is_async: bool| {
         let maybe_async = maybe_quote(is_async, quote! { async });
         let maybe_await = maybe_quote(is_async, quote! { .await });
@@ -547,7 +548,8 @@ fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevel) -> TokenS
                 });
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
                 pub const WW_SELF_BYTES: #ww_self_bytes_const;
-                cmd_tx.set_client_introspect_bytes(&WW_SELF_BYTES);
+                pub const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
+                cmd_tx.set_client_introspect_bytes(&WW_SELF_BYTES, &WW_API_SIGNATURE_BYTES);
                 Ok(Self {
                     args_scratch: scratch,
                     cmd_tx,

@@ -1,5 +1,4 @@
 use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
-use shrink_wrap::stack_vec::StackVec;
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
@@ -16,14 +15,17 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
     /// User-defined data types and API, also indirectly points to `ww_client_server` version
     #[cfg(feature = "device")]
-    pub(crate) user_protocol: FullVersion<'static>,
+    pub(crate) user_api_version: FullVersion<'static>,
+    #[cfg(feature = "device")]
+    pub(crate) user_api_signature: &'static [u8],
     #[cfg(feature = "device")]
     pub(crate) api_model_version: wire_weaver::ww_version::CompactVersion,
     #[cfg(feature = "host")]
-    pub(crate) user_protocol: ww_version::FullVersionOwned,
+    pub(crate) user_api_version: ww_version::FullVersionOwned,
 
-    /// Remote user protocol version
-    pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
+    // /// Remote user protocol version
+    // pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
+    pub(crate) is_link_up: bool,
 
     pub(crate) remote_max_message_size: u32,
 
@@ -76,9 +78,10 @@ pub trait PacketSource {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
-        #[cfg(feature = "device")] user_protocol: FullVersion<'static>,
+        #[cfg(feature = "device")] user_api_version: FullVersion<'static>,
+        #[cfg(feature = "device")] user_api_signature: &'static [u8],
         #[cfg(feature = "device")] api_model_version: wire_weaver::ww_version::CompactVersion,
-        #[cfg(feature = "host")] user_protocol: ww_version::FullVersionOwned,
+        #[cfg(feature = "host")] user_api_version: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -86,19 +89,26 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Self {
         let tx_writer = BufWriter::new(tx_packet_buf);
 
+        // #[cfg(test)]
+        // let remote_protocol =
+        //     StackVec::some(FullVersion::new("test", ww_version::Version::new(0, 0, 0)))
+        //         .expect("FullVersion in StackVec in test");
+        // #[cfg(not(test))]
+        // let remote_protocol = StackVec::none();
         #[cfg(test)]
-        let remote_protocol =
-            StackVec::some(FullVersion::new("test", ww_version::Version::new(0, 0, 0)))
-                .expect("FullVersion in StackVec in test");
+        let is_link_up = true;
         #[cfg(not(test))]
-        let remote_protocol = StackVec::none();
+        let is_link_up = false;
 
         WireWeaverUsbLink {
-            user_protocol,
+            user_api_version,
             #[cfg(feature = "device")]
             api_model_version,
+            #[cfg(feature = "device")]
+            user_api_signature,
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
-            remote_protocol,
+            // remote_protocol,
+            is_link_up,
 
             tx,
             tx_writer,
@@ -122,17 +132,18 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     /// Marks link as not connected, but does not send anything to the other party.
     pub fn silent_disconnect(&mut self) {
-        self.remote_protocol.clear();
+        // self.remote_protocol.clear();
+        self.is_link_up = false;
         self.remote_max_message_size = MIN_MESSAGE_SIZE as u32;
     }
 
     #[cfg(feature = "device")]
     pub(crate) fn is_protocol_compatible(&self) -> bool {
-        self.remote_protocol.is_some()
+        self.is_link_up
     }
 
     pub(crate) fn is_link_up(&self) -> bool {
-        self.remote_protocol.is_some()
+        self.is_link_up
     }
 
     // /// Get a mutable reference to tx
@@ -147,12 +158,12 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     #[cfg(feature = "device")]
     pub fn user_protocol(&self) -> FullVersion<'static> {
-        self.user_protocol.clone()
+        self.user_api_version.clone()
     }
 
     #[cfg(feature = "host")]
     pub fn user_protocol(&self) -> ww_version::FullVersionOwned {
-        self.user_protocol.clone()
+        self.user_api_version.clone()
     }
 }
 
@@ -229,7 +240,9 @@ struct DeviceInfo<'i> {
     /// E.g., ww_client_server version on the device side
     api_model_version: CompactVersion,
     /// User API and data types version on the device side
-    dev_user_version: FullVersion<'i>,
+    user_api_version: FullVersion<'i>,
+    /// First 8 bytes for SHA256 of ww_self bytes without doc comments
+    user_api_signature: RefVec<'i, u8>,
     /// Maximum length message that device can process
     dev_max_message_len: u32,
 }

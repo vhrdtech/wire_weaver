@@ -42,6 +42,12 @@ pub fn impl_server_dispatcher(
         method_model,
         property_model,
     };
+    let (handle_introspect, api_signature) = super::server::introspect::introspect(
+        api_level,
+        generate_introspect,
+        cx.use_async,
+        &mut error_seq,
+    );
     let process_request_inner = process_request_inner_recursive(
         Ident::new("process_request_inner", Span::call_site()),
         api_level,
@@ -49,7 +55,7 @@ pub fn impl_server_dispatcher(
         crate_name,
         &cx,
         &mut error_seq,
-        generate_introspect,
+        Some(handle_introspect),
     );
     let stream_send_methods =
         stream_ser_methods_recursive(api_level, IndexChain::new(), crate_name, no_alloc, true);
@@ -66,6 +72,7 @@ pub fn impl_server_dispatcher(
         use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
         #additional_use
         #use_external
+        #api_signature
 
         impl super::#context_ident {
             /// Returns an Error only if request deserialization or error serialization failed.
@@ -143,18 +150,12 @@ fn process_request_inner_recursive(
     crate_name: &Ident,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
-    generate_introspect: bool,
+    introspect: Option<TokenStream>,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
     let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
-    let introspect = super::server::introspect::introspect(
-        api_level,
-        generate_introspect,
-        cx.use_async,
-        error_seq,
-    );
     let es = error_seq.next_err();
     let mut ts = quote! {
         #maybe_async fn #ident<'a>(
@@ -207,7 +208,7 @@ fn process_request_inner_recursive(
             level.source_location.crate_name(),
             &cx,
             error_seq,
-            false,
+            None,
         ));
     }
     ts

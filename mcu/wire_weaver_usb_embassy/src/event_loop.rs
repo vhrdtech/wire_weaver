@@ -92,8 +92,7 @@ async fn api_loop<'d, D: Driver<'d>>(
     info!("waiting for link setup...");
     link.wait_link_connection(rx_message_buf).await?;
     info!(
-        "link setup done, remote protocol: {}, remote max message size: {}",
-        link.remote_protocol(),
+        "link setup done, remote max message size: {}",
         link.remote_max_message_size()
     );
 

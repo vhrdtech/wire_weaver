@@ -125,6 +125,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         state,
         UsbTimings::default_fs(),
         blinky_api::BLINKY_API_FULL_GID,
+        &server_impl::WW_API_SIGNATURE,
         ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());

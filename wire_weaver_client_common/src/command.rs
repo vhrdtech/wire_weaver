@@ -84,6 +84,8 @@ pub struct DeviceInfoBundle {
     pub api_model_version: FullVersionOwned,
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
+    /// First 8 bytes for SHA256 of ww_self bytes without doc comments
+    pub user_api_signature: Vec<u8>,
 }
 
 impl DeviceInfoBundle {
@@ -93,6 +95,7 @@ impl DeviceInfoBundle {
             max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
+            user_api_signature: vec![],
         }
     }
 }

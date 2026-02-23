@@ -392,6 +392,8 @@ where
             max_message_len,
             link_version,
             api_model_version,
+            user_api_version,
+            user_api_signature,
         }) => {
             let info = DeviceInfoBundle {
                 link_version: FullVersionOwned::new(
@@ -411,10 +413,8 @@ where
                         api_model_version.patch.0,
                     ),
                 ),
-                user_api_version: link
-                    .remote_protocol()
-                    .map(|v| v.make_owned())
-                    .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0))),
+                user_api_version,
+                user_api_signature,
             };
             info!("Connected device: {info:?}");
             if let Some(client_version) = state.common.client_version.as_ref()

@@ -1,4 +1,5 @@
-#![no_std]
+// #![no_std]
+#![cfg_attr(feature = "device", no_std)]
 #![allow(async_fn_in_trait)]
 
 #[cfg(test)]

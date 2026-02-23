@@ -3,6 +3,7 @@ use crate::ast::api::ApiLevelSourceLocation;
 use crate::ast::trait_macro_args::{ImplTraitLocation, ImplTraitMacroArgs};
 use proc_macro2::TokenStream;
 use quote::quote;
+use sha2::Digest;
 use shrink_wrap::{SerializeShrinkWrap, UNib32};
 use std::collections::HashSet;
 use ww_self::visitor::visit_api_bundle_mut;
@@ -10,16 +11,25 @@ use ww_version::VersionTriplet;
 
 /// Collect information about API items and referenced data types.
 /// Serialize into ww_self and create a byte array to be put into device firmware.
-pub fn introspect(api_level: &api::ApiLevel) -> TokenStream {
-    let mut api_bundle = core_ast_to_ww_self(api_level);
-    visit_api_bundle_mut(&mut api_bundle, &mut DropDocs {});
-    // println!("{:#?}", api_bundle);
+pub fn introspect(api_level: &api::ApiLevel) -> (TokenStream, TokenStream) {
+    let api_bundle = core_ast_to_ww_self(api_level);
+
+    let mut api_bundle_no_docs = api_bundle.clone();
+    visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
     let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
-    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
-    let len = bytes.len();
-    quote! {
-        [u8; #len] = [ #(#bytes),* ]
-    }
+    let bytes = api_bundle_no_docs.to_ww_bytes(&mut scratch).unwrap();
+    let bytes_len = bytes.len();
+
+    let sha256 = sha2::Sha256::digest(bytes);
+    let short_hash = &sha256[..8];
+    crate::local_registry::cache_api_bundle(&api_level.source_location, short_hash, &api_bundle);
+
+    (
+        quote! {
+            [u8; #bytes_len] = [ #(#bytes),* ]
+        },
+        quote! { [u8; 8] = [ #(#short_hash),* ]},
+    )
 }
 
 pub fn core_ast_to_ww_self(api_level: &api::ApiLevel) -> ww_self::ApiBundleOwned {
@@ -32,14 +42,12 @@ pub fn core_ast_to_ww_self(api_level: &api::ApiLevel) -> ww_self::ApiBundleOwned
     collect_types(api_level, &mut types);
     let (_type_keys, types): (Vec<_>, Vec<_>) = types.types.into_iter().unzip();
 
-    let api_bundle = ww_self::ApiBundleOwned {
+    ww_self::ApiBundleOwned {
         root: convert_level(api_level, &trait_keys, None),
         types,
         traits,
         ext_crates: Default::default(),
-    };
-    crate::local_registry::cache_api_bundle(&api_level.source_location, &api_bundle);
-    api_bundle
+    }
 }
 
 struct DropDocs {}

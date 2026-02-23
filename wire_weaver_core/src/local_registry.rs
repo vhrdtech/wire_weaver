@@ -20,6 +20,10 @@ fn cache_api_bundle_inner(
     api_bundle: &ApiBundleOwned,
 ) -> anyhow::Result<()> {
     let api_crate_name = source.crate_name();
+    if api_crate_name == "crate" || api_crate_name == "super" {
+        // ignore tests
+        return Ok(());
+    }
     let hash = hex::encode(hash);
     let with_docs = if contains_docs(api_bundle) {
         "+docs"

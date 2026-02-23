@@ -2,6 +2,7 @@
 
 > This is an example project with several binaries for the STM32H725IG MCU with ULPI. This project uses `embassy` and
 > `embassy-usb` so it can easily be adapted to other STM32H7 boards or different families.
+> vhrd.tech boards: B125A, B135A, B135B
 
 ## MCU Info
 

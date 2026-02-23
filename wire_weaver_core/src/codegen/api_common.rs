@@ -15,11 +15,18 @@ pub fn args_structs(api_level: &ApiLevel, no_alloc: bool) -> TokenStream {
 
             let mut fields = vec![];
             for (id, arg) in args.iter().enumerate() {
+                let ty = if arg.ty.potential_lifetimes() && !no_alloc {
+                    let mut ty = arg.ty.clone();
+                    ty.make_owned();
+                    ty
+                } else {
+                    arg.ty.clone()
+                };
                 fields.push(Field {
                     docs: Docs::empty(),
                     id: id as u32,
                     ident: arg.ident.clone(),
-                    ty: arg.ty.clone(),
+                    ty,
                     since: None,
                     default: None,
                 });

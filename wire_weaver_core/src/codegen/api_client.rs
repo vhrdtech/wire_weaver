@@ -504,7 +504,7 @@ fn ser_args(
             let args_bytes = args.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
         };
         let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
-        let tys = args.iter().map(|arg| arg.ty.arg_pos_def(no_alloc));
+        let tys = args.iter().map(|arg| arg.ty.arg_pos_def2(no_alloc));
         let mut args_list = quote! { #(#idents: #tys),* };
         if !args.is_empty() {
             args_list.extend(quote! { , });

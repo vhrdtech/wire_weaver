@@ -33,6 +33,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "all_gpio_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1374,6 +1381,7 @@ dependencies = [
 name = "usb_fdcan_h725ig"
 version = "0.1.0"
 dependencies = [
+ "all_gpio_api",
  "blinky_api",
  "cortex-m",
  "cortex-m-rt",
@@ -1386,10 +1394,13 @@ dependencies = [
  "embassy-usb",
  "panic-probe",
  "static_cell",
+ "stm32-metapac",
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "wire_weaver_usb_link",
  "ww_client_server",
+ "ww_gpio",
+ "ww_si",
 ]
 
 [[package]]
@@ -1584,6 +1595,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_gpio"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.1.1"
 dependencies = [
@@ -1599,6 +1618,14 @@ dependencies = [
  "shrink_wrap",
  "ww_numeric",
  "ww_version",
+]
+
+[[package]]
+name = "ww_si"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+ "ww_numeric",
 ]
 
 [[package]]

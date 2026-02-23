@@ -38,6 +38,14 @@ impl UsbTimings {
             ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
         }
     }
+
+    pub fn default_hs_relaxed() -> Self {
+        Self {
+            packet_accumulation_time: Duration::from_micros(300), // 125μs seem to be to small and results in many small packets
+            packet_send_timeout: Duration::from_millis(500),
+            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
+        }
+    }
 }
 
 impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {

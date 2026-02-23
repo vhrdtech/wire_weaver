@@ -33,6 +33,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "all_gpio_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -869,6 +876,7 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 name = "nucleo_h743zi2"
 version = "0.1.0"
 dependencies = [
+ "all_gpio_api",
  "blinky_api",
  "cortex-m",
  "cortex-m-rt",
@@ -881,11 +889,13 @@ dependencies = [
  "embassy-usb",
  "panic-probe",
  "static_cell",
+ "stm32-metapac",
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "wire_weaver_usb_link",
  "ww_client_server",
  "ww_gpio",
+ "ww_si",
 ]
 
 [[package]]

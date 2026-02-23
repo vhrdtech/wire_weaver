@@ -1,4 +1,5 @@
 use crate::{DeviceFilter, Error, OnError};
+use std::fmt::{Debug, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use ww_version::{FullVersionOwned, VersionOwned};
@@ -84,9 +85,12 @@ pub struct DeviceInfoBundle {
     pub api_model_version: FullVersionOwned,
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
-    /// First 8 bytes for SHA256 of ww_self bytes without doc comments
-    pub user_api_signature: Vec<u8>,
+    pub user_api_signature: UserApiSignature,
 }
+
+/// First 8 bytes for SHA256 of ww_self bytes without doc comments
+#[derive(Clone, Default)]
+pub struct UserApiSignature(pub Vec<u8>);
 
 impl DeviceInfoBundle {
     pub fn empty() -> Self {
@@ -95,7 +99,19 @@ impl DeviceInfoBundle {
             max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            user_api_signature: vec![],
+            user_api_signature: Default::default(),
         }
+    }
+}
+
+impl Debug for UserApiSignature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(&self.0))
+    }
+}
+
+impl From<Vec<u8>> for UserApiSignature {
+    fn from(hash: Vec<u8>) -> Self {
+        UserApiSignature(hash)
     }
 }

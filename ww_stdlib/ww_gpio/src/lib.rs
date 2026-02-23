@@ -50,33 +50,32 @@ trait GpioBank {
 /// Commonly used operations are defined first, to get more compact resource paths.
 #[ww_trait]
 pub trait Gpio {
-    // Kept as separate methods compared to set_output_level intentionally, since these methods are likely to be heavily used, and it's
-    // a bit simpler and more compact on the wire.
-    /// 0. Set the output as high.
-    fn set_high();
-    /// 1. Set the output as low.
-    fn set_low();
-    /// 2. Toggle the output level.
-    fn toggle();
-    /// 3. Set the output level.
+    /// 0. Set the output level.
     ///
     /// If the pin is currently configured as input, this level should only be written to control register, without changing pin mode.
     fn set_output_level(level: Level);
-    /// 4. Get output level.
+
+    /// 1. Toggle the output level.
+    fn toggle();
+
+    /// 2. Get output level.
     ///
     /// If the pin is currently configured as input, this level should be read from an output register, not input one.
     fn output_level() -> Level;
-    /// 5. Get the input level.
+
+    /// 3. Get the input level.
     ///
     /// Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.
     /// If this is the case, current output level must be returned.
     fn input_level() -> Level;
 
-    /// 6. Asynchronous stream of events (rising / falling edge), if enabled by [configure_events]
-    stream!(event: IoPinEvent);
-
-    /// 7. Reserved
+    // 4, 5, 6 Reserved
     reserved!();
+    reserved!();
+    reserved!();
+
+    /// 7. Asynchronous stream of events (rising / falling edge), if enabled by [configure_events]
+    stream!(event: IoPinEvent);
 
     /// Read analog voltage at the pin, if supported by hardware.
     fn voltage() -> Option<Volt>;
@@ -124,6 +123,7 @@ pub enum Mode {
     Input,
     /// Electrically the same as Input, but could lower power consumption by disabling input buffer
     HighZ,
+    Analog,
     Custom(u8),
 }
 

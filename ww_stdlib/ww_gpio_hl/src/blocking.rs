@@ -58,7 +58,7 @@ impl From<ww_gpio::Error> for Error {
 
 impl FlexBlocking {
     /// Create Flex pin and send a request to get its mode right away.
-    /// 
+    ///
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
     pub fn new_get_mode(gpio_pin: Attachment) -> Result<FlexBlocking, Error> {
@@ -73,8 +73,7 @@ impl FlexBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
     pub fn new_ignore_mode(gpio_pin: Attachment) -> Result<FlexBlocking, Error> {
-        if (gpio_pin.trait_name() != "Gpio") || (gpio_pin.source_crate().crate_id != "ww_gpio")
-        {
+        if (gpio_pin.trait_name() != "Gpio") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 gpio_pin.source_crate().crate_id,
@@ -189,14 +188,12 @@ impl FlexBlocking {
     /// Set the output as high.
     /// If the pin is configured as open-drain, then it will be reconfigured to input.
     pub fn set_high(&mut self) -> Result<(), Error> {
-        self.io.set_high().blocking_call()?;
-        Ok(())
+        self.set_level(Level::High)
     }
 
     /// Set the output as low.
     pub fn set_low(&mut self) -> Result<(), Error> {
-        self.io.set_low().blocking_call()?;
-        Ok(())
+        self.set_level(Level::Low)
     }
 
     /// Toggle the output level.
@@ -334,8 +331,7 @@ impl BankBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().attachment()`
     pub fn new(bank: Attachment) -> Result<BankBlocking, Error> {
-        if (bank.trait_name() != "GpioBank") || (bank.source_crate().crate_id != "ww_gpio")
-        {
+        if (bank.trait_name() != "GpioBank") || (bank.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 bank.source_crate().crate_id,

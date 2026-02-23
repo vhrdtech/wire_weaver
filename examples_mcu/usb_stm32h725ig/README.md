@@ -1,12 +1,7 @@
-# Nucleo H743ZI2 examples
+# STM32H725IG examples (USB ULPI / 480Mbps)
 
-> This is an example project with several binaries for the Nucleo H743ZI2 board. This project uses `embassy` and
+> This is an example project with several binaries for the STM32H725IG MCU with ULPI. This project uses `embassy` and
 > `embassy-usb` so it can easily be adapted to other STM32H7 boards or different families.
-
-![Board
-photo](https://www.st.com/bin/ecommerce/api/image.PF264741.en.feature-description-include-personalized-no-cpn-medium.jpg)
-
-## Environment setup
 
 ## MCU Info
 

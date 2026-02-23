@@ -8,11 +8,11 @@ fn main() -> Result<(), anyhow::Error> {
 
     match &args[..] {
         ["check", "all"] => check_all(),
-        // ["test", "host"] => test_host(),
-        // ["test", "host-target"] => test_host_target(),
-        // ["test", "target"] => test_target(),
+        ["check", "host"] => check_host(),
+        ["check", "mcu"] => check_mcu(),
+        ["check", "examples_mcu"] => check_examples_mcu(),
         _ => {
-            println!("USAGE cargo xtask test [all|host|host-target|target]");
+            println!("USAGE cargo xtask check [all|host|mcu|examples_mcu]");
             Ok(())
         }
     }
@@ -39,10 +39,38 @@ fn check_mcu() -> Result<(), anyhow::Error> {
 }
 
 fn check_examples_mcu() -> Result<(), anyhow::Error> {
+    check_mcu_qemu()?;
+    check_nucleo_h732zi2()?;
+    check_stm32g0b1cetxn()?;
+    check_stm32h725ig()?;
+    Ok(())
+}
+
+fn check_mcu_qemu() -> Result<(), anyhow::Error> {
+    let sh = Shell::new()?;
+    sh.change_dir("examples_mcu/mcu_qemu");
+    cmd!(sh, "cargo +nightly check").run()?;
+    Ok(())
+}
+
+fn check_nucleo_h732zi2() -> Result<(), anyhow::Error> {
     let sh = Shell::new()?;
     sh.change_dir("examples_mcu/usb_nucleo_h743zi2");
-    cmd!(sh, "cargo +nightly check").run()?; // for some reason this does not respect rust-toolchain.toml, cargo check in normal shell works
-    sh.change_dir("../../examples_mcu/mcu_qemu");
+    // for some reason this does not respect rust-toolchain.toml, cargo check in normal shell works
+    cmd!(sh, "cargo +nightly check").run()?;
+    Ok(())
+}
+
+fn check_stm32g0b1cetxn() -> Result<(), anyhow::Error> {
+    let sh = Shell::new()?;
+    sh.change_dir("examples_mcu/usb_stm32g0b1cetxn");
+    cmd!(sh, "cargo +nightly check").run()?;
+    Ok(())
+}
+
+fn check_stm32h725ig() -> Result<(), anyhow::Error> {
+    let sh = Shell::new()?;
+    sh.change_dir("examples_mcu/usb_stm32h725ig");
     cmd!(sh, "cargo +nightly check").run()?;
     Ok(())
 }

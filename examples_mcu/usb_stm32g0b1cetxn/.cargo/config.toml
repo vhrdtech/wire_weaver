@@ -1,0 +1,16 @@
+[target.thumbv6m-none-eabi]
+runner = "probe-rs run --chip STM32G0B1CE"
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[env]
+DEFMT_LOG = "debug,cannify_micro_g0b1cetxn=trace,wire_weaver_usb_embassy=trace" # By default, only error level messages are emitted
+#DEFMT_RTT_BUFFER_SIZE = "4096" #avoid loosing output if non-blocking, e.g., during init when a lot of output is generated
+#CNT_RAM_BUFFER_SIZE_WORDS = "64" #Size of the counters buffer in RAM (words, default is 64)
+CNT_BKP_BUFFER_SIZE_WORDS = "0" # Size of the counters buffer in BKPRAM (words, default is 0)
+
+# Minimize build size
+#[unstable]
+#build-std = ["core"]
+#build-std-features = ["panic_immediate_abort"] # for even smaller size

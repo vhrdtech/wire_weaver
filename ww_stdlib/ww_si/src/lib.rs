@@ -757,28 +757,28 @@ impl DeserializeShrinkWrapOwned for INib8P3 {
 #[macro_export]
 macro_rules! quantity {
     ($value:literal s $value_ty:ident) => {
-        ww_si::Second { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Second { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal m $value_ty:ident) => {
-        ww_si::Meter { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Meter { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal g $value_ty:ident) => {
-        ww_si::Gram { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Gram { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal mA $value_ty:ident) => {
-        ww_si::Ampere { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Ampere { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal A $value_ty:ident) => {
-        ww_si::Ampere { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Ampere { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal mV $value_ty:ident) => {
-        ww_si::Volt { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Volt { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal V $value_ty:ident) => {
-        ww_si::Volt { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Volt { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal m/s $value_ty:ident) => {
-        ww_si::Speed { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(relative_path $value $value_ty) }
+        ww_si::Speed { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
 }
 

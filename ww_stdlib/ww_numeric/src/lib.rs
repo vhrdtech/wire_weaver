@@ -266,73 +266,73 @@ macro_rules! value {
     ($value:literal u8) => {
         ww_numeric::NumericValue::U8($value)
     };
-    (relative_path $value:literal u8) => {
-        NumericValue::U8($value)
+    ($add_path:ident $value:literal u8) => {
+        $add_path::ww_numeric::NumericValue::U8($value)
     };
     ($value:literal u16) => {
         ww_numeric::NumericValue::U16($value)
     };
-    (relative_path $value:literal u16) => {
-        NumericValue::U16($value)
+    ($add_path:ident $value:literal u16) => {
+        $add_path::ww_numeric::NumericValue::U16($value)
     };
     ($value:literal u32) => {
         ww_numeric::NumericValue::U32($value)
     };
-    (relative_path $value:literal u32) => {
-        NumericValue::U32($value)
+    ($add_path:ident $value:literal u32) => {
+        $add_path::ww_numeric::NumericValue::U32($value)
     };
     ($value:literal u64) => {
         ww_numeric::NumericValue::U64($value)
     };
-    (relative_path $value:literal u64) => {
-        NumericValue::U64($value)
+    ($add_path:ident $value:literal u64) => {
+        $add_path::ww_numeric::NumericValue::U64($value)
     };
     ($value:literal u128) => {
         ww_numeric::NumericValue::U128($value)
     };
-    (relative_path $value:literal u128) => {
-        NumericValue::U128($value)
+    ($add_path:ident $value:literal u128) => {
+        $add_path::ww_numeric::NumericValue::U128($value)
     };
     ($value:literal i8) => {
         ww_numeric::NumericValue::I8($value)
     };
-    (relative_path $value:literal i8) => {
-        NumericValue::I8($value)
+    ($add_path:ident $value:literal i8) => {
+        $add_path::ww_numeric::NumericValue::I8($value)
     };
     ($value:literal i16) => {
         ww_numeric::NumericValue::I16($value)
     };
-    (relative_path $value:literal i16) => {
-        NumericValue::I16($value)
+    ($add_path:ident $value:literal i16) => {
+        $add_path::ww_numeric::NumericValue::I16($value)
     };
     ($value:literal i32) => {
         ww_numeric::NumericValue::I32($value)
     };
-    (relative_path $value:literal i32) => {
-        NumericValue::I32($value)
+    ($add_path:ident $value:literal i32) => {
+        $add_path::ww_numeric::NumericValue::I32($value)
     };
     ($value:literal i64) => {
         ww_numeric::NumericValue::I64($value)
     };
-    (relative_path $value:literal i64) => {
-        NumericValue::I64($value)
+    ($add_path:ident $value:literal i64) => {
+        $add_path::ww_numeric::NumericValue::I64($value)
     };
     ($value:literal i128) => {
         ww_numeric::NumericValue::I128($value)
     };
-    (relative_path $value:literal i128) => {
-        NumericValue::I128($value)
+    ($add_path:ident $value:literal i128) => {
+        $add_path::ww_numeric::NumericValue::I128($value)
     };
     ($value:literal f32) => {
         ww_numeric::NumericValue::F32($value)
     };
-    (relative_path $value:literal f32) => {
-        NumericValue::F32($value)
+    ($add_path:ident $value:literal f32) => {
+        $add_path::ww_numeric::NumericValue::F32($value)
     };
     ($value:literal f64) => {
         ww_numeric::NumericValue::F64($value)
     };
-    (relative_path $value:literal f64) => {
-        NumericValue::F64($value)
+    ($add_path:ident $value:literal f64) => {
+        $add_path::ww_numeric::NumericValue::F64($value)
     };
 }

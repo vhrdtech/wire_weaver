@@ -395,7 +395,7 @@ where
             user_api_version,
             user_api_signature,
         }) => {
-            let info = DeviceInfoBundle {
+            let connected_device_info = DeviceInfoBundle {
                 link_version: FullVersionOwned::new(
                     format!("G{}", link_version.global_type_id.0),
                     VersionOwned::new(
@@ -414,15 +414,16 @@ where
                     ),
                 ),
                 user_api_version,
-                user_api_signature,
+                user_api_signature: user_api_signature.into(),
             };
-            info!("Connected device: {info:?}");
+            info!("Connected device: {connected_device_info:?}");
             if let Some(client_version) = state.common.client_version.as_ref()
-                && !client_version.is_protocol_compatible(&info.user_api_version)
+                && !client_version.crate_id.is_empty() // dyn connection without code generated API, using introspect data from a device only
+                && !client_version.is_protocol_compatible(&connected_device_info.user_api_version)
             {
                 return Err(Error::IncompatibleDeviceProtocol);
             }
-            state.common.device_info = Some(info);
+            state.common.device_info = Some(connected_device_info);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await

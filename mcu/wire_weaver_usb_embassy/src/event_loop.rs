@@ -1,4 +1,4 @@
-use crate::UsbServer;
+use crate::{UsbServer, UsbTimings};
 use defmt::{debug, error, info, trace};
 use embassy_futures::select::{select3, Either3};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -6,47 +6,10 @@ use embassy_sync::channel::Receiver;
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::driver::{Driver, EndpointError};
 use wire_weaver::WireWeaverAsyncApiBackend;
-use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink, PING_INTERVAL_MS,
-};
+use wire_weaver_usb_link::{DisconnectReason, Error as LinkError, MessageKind, WireWeaverUsbLink};
 
 // TODO: tune ignore timer duration
 const IGNORE_TIMER_DURATION: Duration = Duration::from_micros(10);
-
-pub struct UsbTimings {
-    /// USB packet is not sent immediately to avoid sending a lot of small packets
-    pub packet_accumulation_time: Duration,
-    /// Used to determine if the host driver is stopped and no longer receiving data
-    pub packet_send_timeout: Duration,
-    /// How often to send Ping packets
-    pub ww_ping_period: Duration,
-}
-
-impl UsbTimings {
-    pub fn default_fs() -> Self {
-        Self {
-            packet_accumulation_time: Duration::from_millis(1),
-            packet_send_timeout: Duration::from_millis(500),
-            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
-        }
-    }
-
-    pub fn default_hs() -> Self {
-        Self {
-            packet_accumulation_time: Duration::from_micros(125),
-            packet_send_timeout: Duration::from_millis(500),
-            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
-        }
-    }
-
-    pub fn default_hs_relaxed() -> Self {
-        Self {
-            packet_accumulation_time: Duration::from_micros(300), // 125μs seem to be to small and results in many small packets
-            packet_send_timeout: Duration::from_millis(500),
-            ww_ping_period: Duration::from_millis(PING_INTERVAL_MS),
-        }
-    }
-}
 
 impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
     pub async fn run(&mut self) -> ! {

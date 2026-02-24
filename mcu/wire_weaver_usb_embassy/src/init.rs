@@ -119,6 +119,7 @@ pub fn usb_init<
     let ww = WireWeaverClass::new(
         &mut builder,
         MAX_USB_PACKET_LEN as u16,
+        timings.use_bulk_endpoints,
         timings.packet_send_timeout,
         user_api_version.clone(),
     );

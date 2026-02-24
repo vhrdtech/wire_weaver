@@ -1,7 +1,8 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{UsbError, MAX_MESSAGE_SIZE};
+use crate::{MAX_MESSAGE_SIZE, UsbError};
+use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
-use nusb::{DeviceInfo, Interface, Speed};
+use nusb::{DeviceInfo, Interface};
 use std::fmt::Debug;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
@@ -9,11 +10,11 @@ use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
 use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
 use wire_weaver_client_common::{
-    event_loop_state::CommonState, Command, DeviceInfoBundle, Error, OnError, TestProgress,
+    Command, DeviceInfoBundle, Error, OnError, TestProgress, event_loop_state::CommonState,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
-    PING_INTERVAL_MS,
+    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
+    WireWeaverUsbLink,
 };
 
 struct State {
@@ -21,7 +22,7 @@ struct State {
     message_rx: [u8; MAX_MESSAGE_SIZE],
     device_info: Option<DeviceInfo>,
     max_protocol_mismatched_messages: u32,
-    irq_packet_size: usize,
+    max_packet_size: usize,
 }
 
 impl State {
@@ -31,7 +32,7 @@ impl State {
             message_rx: [0u8; MAX_MESSAGE_SIZE],
             device_info: None,
             max_protocol_mismatched_messages: 10,
-            irq_packet_size: 0,
+            max_packet_size: 0,
         }
     }
 
@@ -76,27 +77,12 @@ pub async fn usb_worker(
                 }
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
-                Ok(Some((interface, di, user_protocol))) => {
-                    let max_irq_packet_size = match di.speed() {
-                        Some(speed) => match speed {
-                            Speed::Low => 8,
-                            Speed::Full => 64,
-                            Speed::High | Speed::Super | Speed::SuperPlus => 1024,
-                            _ => 64,
-                        },
-                        None => 64,
-                    };
-                    // TODO: HS IRQ max is 1024, but bulk max is 512
-                    // TODO: tweak to actually hit next USB packet
-                    if max_irq_packet_size <= 64 {
-                        state.common.packet_accumulation_time = Duration::from_micros(900);
-                    } else {
-                        state.common.packet_accumulation_time = Duration::from_micros(100);
-                    }
-                    state.irq_packet_size = max_irq_packet_size;
-                    debug!("max_packet_size: {}", max_irq_packet_size);
-                    let sink = Sink::new(&interface, max_irq_packet_size).unwrap();
-                    let source = Source::new(&interface, max_irq_packet_size).unwrap();
+                Ok(Some((interface, di, transfer_type, max_packet_size, user_protocol))) => {
+                    state.max_packet_size = max_packet_size;
+                    debug!("max_packet_size: {}", max_packet_size);
+                    let is_bulk = transfer_type == TransferType::Bulk;
+                    let sink = Sink::new(&interface, max_packet_size, is_bulk).unwrap();
+                    let source = Source::new(&interface, max_packet_size, is_bulk).unwrap();
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "usb-tracing")] {
                             use iceoryx2::prelude::*;
@@ -115,9 +101,9 @@ pub async fn usb_worker(
                     link = Some(WireWeaverUsbLink::new(
                         user_protocol,
                         sink,
-                        &mut tx_buf[..max_irq_packet_size],
+                        &mut tx_buf[..max_packet_size],
                         source,
-                        &mut rx_buf[..max_irq_packet_size],
+                        &mut rx_buf[..max_packet_size],
                     ));
                     state.device_info = Some(di);
                 }
@@ -138,7 +124,7 @@ pub async fn usb_worker(
 async fn wait_for_connection_and_queue_commands(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     state: &mut State,
-) -> Result<Option<(Interface, DeviceInfo, FullVersionOwned)>, ()> {
+) -> Result<Option<(Interface, DeviceInfo, TransferType, usize, FullVersionOwned)>, ()> {
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             // all senders have been dropped
@@ -152,24 +138,31 @@ async fn wait_for_connection_and_queue_commands(
                 connected_tx,
                 client_version,
             } => {
-                let (interface, di) = match crate::connection::connect(filter, on_error).await {
-                    Ok(i_di) => i_di,
-                    Err(e) => {
-                        // TODO: drop requests if any
-                        return if on_error == OnError::KeepRetrying {
-                            Ok(None)
-                        } else {
-                            if let Some(tx) = connected_tx {
-                                _ = tx.send(Err(e));
-                            }
-                            Err(())
-                        };
-                    }
-                };
+                let (interface, di, transfer_type, max_packet_size) =
+                    match crate::connection::connect(filter, on_error).await {
+                        Ok(i_di) => i_di,
+                        Err(e) => {
+                            // TODO: drop requests if any
+                            return if on_error == OnError::KeepRetrying {
+                                Ok(None)
+                            } else {
+                                if let Some(tx) = connected_tx {
+                                    _ = tx.send(Err(e));
+                                }
+                                Err(())
+                            };
+                        }
+                    };
                 state
                     .common
                     .on_connect(on_error, connected_tx, client_version.clone());
-                return Ok(Some((interface, di, client_version)));
+                return Ok(Some((
+                    interface,
+                    di,
+                    transfer_type,
+                    max_packet_size,
+                    client_version,
+                )));
             }
             Command::RegisterTracer { trace_event_tx } => {
                 state.common.tracers.push(trace_event_tx);
@@ -533,9 +526,9 @@ where
             progress_tx,
         } => {
             let packet_size = if let Some(requested) = packet_size {
-                requested.min(state.irq_packet_size)
+                requested.min(state.max_packet_size)
             } else {
-                state.irq_packet_size
+                state.max_packet_size
             };
             crate::loopback::loopback_test(test_duration, packet_size, progress_tx, link, scratch)
                 .await;

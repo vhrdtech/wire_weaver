@@ -1,18 +1,19 @@
 #![no_std]
 
+mod config;
 mod event_loop;
 mod init;
 
+pub use config::UsbTimings;
 use defmt::warn;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{select, Either};
 use embassy_time::{Duration, Timer};
-pub use event_loop::UsbTimings;
-pub use init::{UsbBuffers, UsbServer, usb_init};
+pub use init::{usb_init, UsbBuffers, UsbServer};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::msos::windows_version;
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{Builder, msos};
+use embassy_usb::{msos, Builder};
 use wire_weaver::full_version;
 use wire_weaver::prelude::FullVersion;
 use wire_weaver_usb_link::{PacketSink, PacketSource};
@@ -45,6 +46,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
     pub fn new(
         builder: &mut Builder<'d, D>,
         max_packet_size: u16,
+        use_bulk: bool,
         write_timeout: Duration,
         user_protocol: FullVersion<'static>,
     ) -> Self {
@@ -82,10 +84,25 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             USB_PROTOCOL_WIRE_WEAVER,
             None,
         );
-        // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
-        // TODO: verify that None as endpoint address here is correct, first available endpoint will be used internally
-        let read_ep = alt.endpoint_interrupt_out(None, max_packet_size, 1);
-        let write_ep = alt.endpoint_interrupt_in(None, max_packet_size, 1);
+        let (read_ep, write_ep) = if use_bulk {
+            let max_packet_size = if max_packet_size > 512 {
+                warn!("Bulk max packet size is 512, correcting");
+                512
+            } else {
+                max_packet_size
+            };
+            (
+                alt.endpoint_bulk_out(None, max_packet_size),
+                alt.endpoint_bulk_in(None, max_packet_size),
+            )
+        } else {
+            // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
+            // TODO: verify that None as endpoint address here is correct, first available endpoint will be used internally
+            (
+                alt.endpoint_interrupt_out(None, max_packet_size, 1),
+                alt.endpoint_interrupt_in(None, max_packet_size, 1),
+            )
+        };
 
         let self_version = [
             b'w',

@@ -1,5 +1,6 @@
 use crate::UsbError;
 use futures_lite::StreamExt;
+use nusb::descriptors::TransferType;
 use nusb::hotplug::HotplugEvent;
 use nusb::{DeviceInfo, Interface};
 use std::time::Instant;
@@ -9,7 +10,7 @@ use wire_weaver_client_common::{DeviceFilter, Error, OnError};
 pub(crate) async fn connect(
     filter: DeviceFilter,
     mut timeout: OnError,
-) -> Result<(Interface, DeviceInfo), Error> {
+) -> Result<(Interface, DeviceInfo, TransferType, usize), Error> {
     let wait_started = Instant::now();
     loop {
         // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux
@@ -34,16 +35,30 @@ pub(crate) async fn connect(
             }
         };
         trace!("connecting to USB device: {di:?}");
-        let interface = {
-            let dev = di
-                .open()
-                .await
-                .map_err(|e| Error::Transport(format!("{}", e)))?;
-            dev.claim_interface(0).await
-        };
+        let (interface, transfer_type, max_packet_size) =
+            {
+                let dev = di
+                    .open()
+                    .await
+                    .map_err(|e| Error::Transport(format!("{}", e)))?;
+                let active_configuration = dev
+                    .active_configuration()
+                    .map_err(|e| Error::Transport(format!("{}", e)))?;
+                let alt = active_configuration.interface_alt_settings().next().ok_or(
+                    Error::Transport("No interfaces found in active USB configuration".into()),
+                )?;
+                let ep = alt.endpoints().next().ok_or(Error::Transport(
+                    "No endpoints found in active USB configuration".into(),
+                ))?;
+                (
+                    dev.claim_interface(0).await,
+                    ep.transfer_type(),
+                    ep.max_packet_size(),
+                )
+            };
         match interface {
             Ok(interface) => {
-                return Ok((interface, di));
+                return Ok((interface, di, transfer_type, max_packet_size));
             }
             Err(e) => match &mut timeout {
                 OnError::ExitImmediately => {

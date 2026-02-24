@@ -1,7 +1,8 @@
 //! Handle packet sending and receiving between nusb and wire_weaver_usb_link
 
 use nusb::transfer::{
-    Buffer, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
+    Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, EndpointType, In, Interrupt, Out,
+    TransferError,
 };
 use nusb::{Endpoint, Interface};
 use std::time::Duration;
@@ -14,28 +15,46 @@ pub(crate) struct Sink {
     buf_pool: Vec<Buffer>,
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
-    irq_max_packet_size: usize,
+    max_packet_size: usize,
+    marker: &'static str,
 }
 
 pub(crate) const ERR_WRITE_PACKET_TIMEOUT: u32 = u32::MAX; // TODO: try to replace TransferError with own type to avoid piggy-backing on nusb error
 
 impl Sink {
-    pub fn new(interface: &Interface, irq_max_packet_size: usize) -> Result<Self, nusb::Error> {
-        let irq_out = interface.endpoint::<Interrupt, Out>(0x01)?; // TODO: un-hardcode endpoint addresses
+    pub fn new(
+        interface: &Interface,
+        max_packet_size: usize,
+        use_bulk: bool,
+    ) -> Result<Self, nusb::Error> {
+        if use_bulk {
+            Self::new_inner::<Bulk>(interface, max_packet_size, "bulk_out")
+        } else {
+            Self::new_inner::<Interrupt>(interface, max_packet_size, "irq_out")
+        }
+    }
+
+    fn new_inner<EpType: BulkOrInterrupt + 'static>(
+        interface: &Interface,
+        max_packet_size: usize,
+        marker: &'static str,
+    ) -> Result<Self, nusb::Error> {
+        let ep_out = interface.endpoint::<EpType, Out>(0x01)?; // TODO: un-hardcode endpoint addresses
         let (submit_tx, submit_rx) = mpsc::channel(8);
         let (completion_tx, completion_rx) = mpsc::channel(8);
         let buf_pool = vec![
-            irq_out.allocate(irq_max_packet_size),
-            irq_out.allocate(irq_max_packet_size),
+            ep_out.allocate(max_packet_size),
+            ep_out.allocate(max_packet_size),
         ];
         tokio::spawn(async move {
-            endpoint_worker(irq_out, submit_rx, completion_tx, "irq_out").await;
+            endpoint_worker(ep_out, submit_rx, completion_tx, marker).await;
         });
         Ok(Sink {
             buf_pool,
             submit_tx,
             completion_rx,
-            irq_max_packet_size,
+            max_packet_size,
+            marker,
         })
     }
 }
@@ -62,9 +81,10 @@ impl PacketSink for Sink {
         buf.clear();
         if data.len() > buf.capacity() {
             error!(
-                "irq_out: tried transmitting packet with length: {}, max: {}",
+                "{}: tried transmitting packet with length: {}, max: {}",
+                self.marker,
                 data.len(),
-                self.irq_max_packet_size
+                self.max_packet_size
             );
             self.buf_pool.push(buf);
             return Err(TransferError::InvalidArgument);
@@ -72,7 +92,7 @@ impl PacketSink for Sink {
         // theoretically, can use obtained buffer inside a closure, to fill it without copying
         buf.extend_from_slice(data);
         if self.submit_tx.send(buf).await.is_err() {
-            warn!("irq_out: submit channel dropped");
+            warn!("{}: submit channel dropped", self.marker);
             return Err(TransferError::Disconnected);
         }
         trace!("submitted packet: {}: {:02x?}", data.len(), data);
@@ -134,24 +154,42 @@ async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
 pub(crate) struct Source {
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
+    marker: &'static str,
 }
 
 impl Source {
-    pub fn new(interface: &Interface, irq_max_packet_size: usize) -> Result<Self, nusb::Error> {
-        let mut irq_in = interface.endpoint::<Interrupt, In>(0x81)?;
+    pub fn new(
+        interface: &Interface,
+        max_packet_size: usize,
+        use_bulk: bool,
+    ) -> Result<Self, nusb::Error> {
+        if use_bulk {
+            Self::new_inner::<Bulk>(interface, max_packet_size, "bulk_in")
+        } else {
+            Self::new_inner::<Interrupt>(interface, max_packet_size, "irq_in")
+        }
+    }
+
+    fn new_inner<EpType: BulkOrInterrupt + 'static>(
+        interface: &Interface,
+        max_packet_size: usize,
+        marker: &'static str,
+    ) -> Result<Self, nusb::Error> {
+        let mut ep_in = interface.endpoint::<EpType, In>(0x81)?;
         for _ in 0..2 {
-            let mut rx = irq_in.allocate(irq_max_packet_size);
-            rx.set_requested_len(irq_max_packet_size);
-            irq_in.submit(rx);
+            let mut rx = ep_in.allocate(max_packet_size);
+            rx.set_requested_len(max_packet_size);
+            ep_in.submit(rx);
         }
         let (submit_tx, submit_rx) = mpsc::channel(8);
         let (completion_tx, completion_rx) = mpsc::channel(8);
         tokio::spawn(async move {
-            endpoint_worker(irq_in, submit_rx, completion_tx, "irq_in").await;
+            endpoint_worker(ep_in, submit_rx, completion_tx, marker).await;
         });
         Ok(Source {
             submit_tx,
             completion_rx,
+            marker,
         })
     }
 }
@@ -168,7 +206,7 @@ impl PacketSource for Source {
                 data[..len].copy_from_slice(&buf);
                 trace!("received packet: {}: {:02x?}", len, &data[..len]);
                 if self.submit_tx.send(buf).await.is_err() {
-                    warn!("irq_out: submit channel dropped");
+                    warn!("{}: submit channel dropped", self.marker);
                     Err(TransferError::Disconnected)
                 } else {
                     Ok(len)

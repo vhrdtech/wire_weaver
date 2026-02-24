@@ -42,6 +42,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "bitflags"
+version = "2.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -173,7 +182,7 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "548d977b6da32fa1d1fda2876453da1e7df63ad0304c8b3dae4dbe7b96f39b78"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "defmt-macros",
 ]
 
@@ -416,6 +425,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,6 +631,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd490c5b18261893f14449cbd28cb9c0b637aebf161cd77900bfdedaff21ec32"
+dependencies = [
+ "bitflags 2.11.0",
+ "once_cell",
+ "serde",
+ "serde_derive",
+ "typeid",
+ "unicode-ident",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -628,6 +657,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]
@@ -680,6 +710,7 @@ version = "0.1.2"
 dependencies = [
  "defmt",
  "paste",
+ "serde",
  "shrink_wrap_derive",
 ]
 
@@ -689,6 +720,7 @@ version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "sha2",
  "syn 2.0.117",
 ]
 
@@ -787,6 +819,12 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
+
+[[package]]
+name = "typeid"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
 
 [[package]]
 name = "typenum"
@@ -931,16 +969,20 @@ dependencies = [
  "anyhow",
  "console",
  "convert_case 0.11.0",
+ "hex",
  "pest",
  "pest_derive",
  "proc-macro2",
  "quote",
  "regex",
  "relative-path",
+ "ron",
+ "sha2",
  "shrink_wrap",
  "shrink_wrap_core",
  "syn 2.0.117",
  "ww_self",
+ "ww_version",
 ]
 
 [[package]]
@@ -996,6 +1038,7 @@ dependencies = [
 name = "ww_numeric"
 version = "0.1.1"
 dependencies = [
+ "serde",
  "shrink_wrap",
 ]
 
@@ -1003,6 +1046,7 @@ dependencies = [
 name = "ww_self"
 version = "0.1.1"
 dependencies = [
+ "serde",
  "shrink_wrap",
  "ww_numeric",
  "ww_version",
@@ -1014,6 +1058,7 @@ version = "0.1.1"
 dependencies = [
  "defmt",
  "semver",
+ "serde",
  "shrink_wrap",
 ]
 

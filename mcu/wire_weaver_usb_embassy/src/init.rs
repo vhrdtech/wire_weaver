@@ -133,6 +133,7 @@ pub fn usb_init<
         user_api_version,
         user_api_signature,
         api_model_version,
+        timings.packet_accumulation_time.as_micros() as u16,
         tx,
         &mut buffers.tx,
         rx,

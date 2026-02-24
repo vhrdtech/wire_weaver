@@ -77,6 +77,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
                 slice: self.user_api_signature,
             },
             dev_max_message_len: max_message_size,
+            packet_accumulation_time_us: self.packet_accumulation_time_us,
         };
         dev_info
             .ser_shrink_wrap(&mut self.tx_writer)

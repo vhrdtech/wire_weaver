@@ -14,12 +14,12 @@ use wire_weaver_usb_link::{
 const IGNORE_TIMER_DURATION: Duration = Duration::from_micros(10);
 
 pub struct UsbTimings {
-    /// USB packet is not send immediately to avoid sending a lot of small packets
-    packet_accumulation_time: Duration,
-    /// Used to determine if host driver is stopped and no longer receiving data
-    pub(crate) packet_send_timeout: Duration,
+    /// USB packet is not sent immediately to avoid sending a lot of small packets
+    pub packet_accumulation_time: Duration,
+    /// Used to determine if the host driver is stopped and no longer receiving data
+    pub packet_send_timeout: Duration,
     /// How often to send Ping packets
-    ww_ping_period: Duration,
+    pub ww_ping_period: Duration,
 }
 
 impl UsbTimings {

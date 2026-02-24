@@ -20,6 +20,9 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     pub(crate) user_api_signature: &'static [u8],
     #[cfg(feature = "device")]
     pub(crate) api_model_version: wire_weaver::ww_version::CompactVersion,
+    #[cfg(feature = "device")]
+    pub(crate) packet_accumulation_time_us: u16,
+
     #[cfg(feature = "host")]
     pub(crate) user_api_version: ww_version::FullVersionOwned,
 
@@ -81,6 +84,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         #[cfg(feature = "device")] user_api_version: FullVersion<'static>,
         #[cfg(feature = "device")] user_api_signature: &'static [u8],
         #[cfg(feature = "device")] api_model_version: wire_weaver::ww_version::CompactVersion,
+        #[cfg(feature = "device")] packet_accumulation_time_us: u16,
         #[cfg(feature = "host")] user_api_version: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
@@ -102,10 +106,14 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
         WireWeaverUsbLink {
             user_api_version,
+
             #[cfg(feature = "device")]
             api_model_version,
             #[cfg(feature = "device")]
             user_api_signature,
+            #[cfg(feature = "device")]
+            packet_accumulation_time_us,
+
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
             // remote_protocol,
             is_link_up,
@@ -245,6 +253,8 @@ struct DeviceInfo<'i> {
     user_api_signature: RefVec<'i, u8>,
     /// Maximum length message that device can process
     dev_max_message_len: u32,
+    /// Configures host side to use the same value
+    packet_accumulation_time_us: u16,
 }
 
 #[derive_shrink_wrap]

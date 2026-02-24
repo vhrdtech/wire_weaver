@@ -394,6 +394,7 @@ where
             api_model_version,
             user_api_version,
             user_api_signature,
+            packet_accumulation_time_us,
         }) => {
             let connected_device_info = DeviceInfoBundle {
                 link_version: FullVersionOwned::new(
@@ -416,13 +417,18 @@ where
                 user_api_version,
                 user_api_signature: user_api_signature.into(),
             };
-            info!("Connected device: {connected_device_info:?}");
+            info!(
+                "Connected device: {connected_device_info:?}, acc_window = {}us",
+                packet_accumulation_time_us,
+            );
             if let Some(client_version) = state.common.client_version.as_ref()
                 && !client_version.crate_id.is_empty() // dyn connection without code generated API, using introspect data from a device only
                 && !client_version.is_protocol_compatible(&connected_device_info.user_api_version)
             {
                 return Err(Error::IncompatibleDeviceProtocol);
             }
+            state.common.packet_accumulation_time =
+                Duration::from_micros(packet_accumulation_time_us as u64);
             state.common.device_info = Some(connected_device_info);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)

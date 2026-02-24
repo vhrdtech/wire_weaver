@@ -37,6 +37,7 @@ pub enum MessageKind {
         api_model_version: wire_weaver::ww_version::CompactVersion,
         user_api_version: wire_weaver::ww_version::FullVersionOwned,
         user_api_signature: Vec<u8>,
+        packet_accumulation_time_us: u16,
     },
     Disconnect(DisconnectReason),
 }
@@ -213,6 +214,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let api_model_version = device_info.api_model_version;
                         let user_api_version = device_info.user_api_version.make_owned();
                         let user_api_signature = device_info.user_api_signature.to_vec();
+                        let packet_accumulation_time_us = device_info.packet_accumulation_time_us;
                         self.continue_with_new_packet();
                         return Ok(MessageKind::DeviceInfo {
                             max_message_len,
@@ -220,6 +222,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                             api_model_version,
                             user_api_version,
                             user_api_signature,
+                            packet_accumulation_time_us,
                         });
                     }
                     #[cfg(feature = "device")]

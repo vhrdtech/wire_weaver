@@ -2,6 +2,7 @@ use wire_weaver::prelude::*;
 use wire_weaver_client_common::CommandSender;
 
 pub(crate) struct BankClient {
+    #[allow(dead_code)]
     args_scratch: [u8; 64],
     cmd_tx: CommandSender,
 }

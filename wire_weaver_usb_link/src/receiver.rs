@@ -202,7 +202,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     #[cfg(feature = "host")]
                     Op::DeviceInfo => {
                         let device_info = crate::common::DeviceInfo::des_shrink_wrap(&mut rd)
-                            .map_err(|_| Error::InternalBufOverflow)?;
+                            .map_err(|_| Error::LinkVersionMismatch)?;
                         self.remote_max_message_size = device_info.dev_max_message_len;
                         self.is_link_up = true;
                         // self.remote_protocol

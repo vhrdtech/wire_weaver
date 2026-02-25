@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
     .literal(clap::builder::styling::AnsiColor::Yellow.on_default())
     .placeholder(clap::builder::styling::AnsiColor::Blue.on_default()))]
 pub(crate) struct Cli {
-    /// Serial number of a device to use, can use partial serial number if the result is unique, can not be used together with usb_path
+    /// Serial number of a device to use, can use partial serial number if the result is unique, cannot be used together with usb_path
     #[arg(short, long, group = "device-selection")]
     pub(crate) serial: Option<String>,
     // Usb path of a device to use, not to be used with serial number selector
@@ -23,7 +23,7 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
-    /// Run USB loopback test
+    /// Run a USB loopback test
     USBLoopback {
         /// How long to run each test (loopback, tx speed, rx speed)
         #[arg(long, default_value = "10")]
@@ -34,9 +34,11 @@ pub(crate) enum Commands {
         packet_size: String,
     },
 
-    /// API related tools
+    /// API-related tools
     #[command(subcommand)]
     Api(ApiCommand),
+
+    Introspect,
 
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///
@@ -49,4 +51,14 @@ pub(crate) enum Commands {
     #[cfg(target_os = "linux")]
     #[command(verbatim_doc_comment)]
     Udev,
+}
+
+impl Cli {
+    pub fn need_device(&self) -> bool {
+        match &self.command {
+            Commands::USBLoopback { .. } => true,
+            Commands::Api(_) => false,
+            Commands::Introspect => true,
+        }
+    }
 }

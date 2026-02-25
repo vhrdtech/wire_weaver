@@ -1,8 +1,7 @@
 //! Handle packet sending and receiving between nusb and wire_weaver_usb_link
 
 use nusb::transfer::{
-    Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, EndpointType, In, Interrupt, Out,
-    TransferError,
+    Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
 };
 use nusb::{Endpoint, Interface};
 use std::time::Duration;

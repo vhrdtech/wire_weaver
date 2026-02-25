@@ -326,8 +326,26 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     }
 }
 
+#[cfg(not(feature = "defmt"))]
 impl<'i, T: PacketSink, R: PacketSource> MessageSink for WireWeaverUsbLink<'i, T, R> {
     async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
         self.send_message(message).await.map_err(|_| ())
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'i, T, R> MessageSink for WireWeaverUsbLink<'i, T, R>
+where
+    T: PacketSink,
+    <T as PacketSink>::Error: defmt::Format,
+    R: PacketSource,
+    <R as PacketSource>::Error: defmt::Format,
+{
+    async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+        let r = self.send_message(message).await;
+        if r.is_err() {
+            defmt::error!("MessageSink::send() error: {:?}", r);
+        }
+        r.map_err(|_| ())
     }
 }

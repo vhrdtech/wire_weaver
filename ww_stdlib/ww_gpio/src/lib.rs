@@ -88,10 +88,10 @@ pub trait Gpio {
     fn mode() -> Mode;
 
     /// Pull resistors selection. [Error::UnsupportedPull] may be returned on incorrect set call.
-    property!(pull: Pull, Error);
+    property!(rw pull: Pull, Error);
 
     /// Drive strength selection.  [Error::UnsupportedSpeed] may be returned on incorrect set call.
-    property!(speed: Speed, Error);
+    property!(rw speed: Speed, Error);
 
     /// Enable or disable asynchronous events sent through the stream.
     fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;

@@ -28,7 +28,14 @@ mod ww_trait;
 ///   use value_on_changed, so that generated code directly reads and writes to it. Notification method is called when the value is changed.
 ///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
 #[proc_macro]
+#[deprecated = "use ww_codegen instead"]
 pub fn ww_api(args: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
+    ww_api::ww_api(args).into()
+}
+
+#[proc_macro]
+pub fn ww_codegen(args: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
     ww_api::ww_api(args).into()
 }
@@ -66,6 +73,12 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
+    ww_trait::ww_trait(attr.into(), item.into()).into()
+}
+
+/// Define an API entry point, otherwise the same as [ww_trait].
+#[proc_macro_attribute]
+pub fn ww_api_root(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
 }
 

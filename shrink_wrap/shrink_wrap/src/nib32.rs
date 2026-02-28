@@ -125,6 +125,18 @@ impl DeserializeShrinkWrapOwned for UNib32 {
     }
 }
 
+impl Into<u32> for UNib32 {
+    fn into(self) -> u32 {
+        self.0
+    }
+}
+
+impl From<u32> for UNib32 {
+    fn from(num: u32) -> Self {
+        UNib32(num)
+    }
+}
+
 impl Debug for UNib32 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)

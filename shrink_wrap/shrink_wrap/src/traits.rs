@@ -84,7 +84,7 @@ pub trait DeserializeShrinkWrapOwned: Sized {
 /// Only Unsized or UFS objects can contain UFS objects.
 ///
 /// Calculations are done during compile time thanks to const evaluation and static asserts are inserted to ensure correct behavior.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

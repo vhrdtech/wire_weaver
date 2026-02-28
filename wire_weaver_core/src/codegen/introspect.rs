@@ -250,7 +250,7 @@ fn convert_ty(ty: &shrink_wrap_core::ast::Type) -> ww_self::TypeOwned {
     match ty {
         shrink_wrap_core::ast::Type::Bool => ww_self::TypeOwned::Bool,
         shrink_wrap_core::ast::Type::U4 => {
-            ww_self::TypeOwned::NumericBase(ww_self::NumericBaseType::U4)
+            ww_self::TypeOwned::NumericBase(ww_self::NumericBaseType::Nibble)
         }
         shrink_wrap_core::ast::Type::U8 => {
             ww_self::TypeOwned::NumericBase(ww_self::NumericBaseType::U8)

@@ -10,7 +10,7 @@ use shrink_wrap::prelude::*;
 #[serde = "serde"]
 pub enum NumericBaseType {
     /// 4-bits (nibble), alignment of four-bits
-    U4,
+    Nibble,
     /// u8 with alignment of one-byte
     U8,
     /// Little-Endian u16 with alignment of one-byte
@@ -42,10 +42,15 @@ pub enum NumericBaseType {
     /// Little-Endian f64 with alignment of one-byte
     F64,
 
-    /// U1(bool)-U64, alignment of one-bit
+    /// U1(bool)-U64, alignment of one-bit. Number of bits are known and not serialized.
     UB(UBits),
-    /// I2-U64, alignment of one-bit
+    /// I2-I64, alignment of one-bit. Number of bits are known and not serialized.
     IB(IBits),
+
+    /// u1-u64, aligned to one-bit. Number of bits are unknown and serialized.
+    UN,
+    /// i2-i64, aligned to one-bit. Number of bits are unknown and serialized.
+    IN,
 
     // TODO: or VLQ in Big Endian?
     ULeb32,
@@ -73,7 +78,7 @@ pub enum NumericBaseType {
 /// Any of the base numeric types plus derived types: subtype, shift-scale.
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[defmt = "defmt"]
 #[owned = "std"]
 #[serde = "serde"]
@@ -93,7 +98,7 @@ pub enum NumericAnyType<'i> {
 
 #[derive_shrink_wrap]
 #[ww_repr(unib32)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[defmt = "defmt"]
 #[owned = "std"]
 #[serde = "serde"]
@@ -144,7 +149,7 @@ impl NumericValue {
     pub fn ty(&self) -> NumericBaseType {
         use NumericBaseType::*;
         match self {
-            NumericValue::U4(_) => U4,
+            NumericValue::U4(_) => Nibble,
             NumericValue::U8(_) => U8,
             NumericValue::U16(_) => U16,
             NumericValue::U32(_) => U32,
@@ -191,7 +196,7 @@ impl NumericValue {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct UBits(u8);
+pub struct UBits(pub u8);
 
 impl SerializeShrinkWrap for UBits {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 7 };
@@ -229,7 +234,7 @@ impl DeserializeShrinkWrapOwned for UBits {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct IBits(u8);
+pub struct IBits(pub u8);
 
 impl SerializeShrinkWrap for IBits {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 7 };

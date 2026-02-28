@@ -2,7 +2,7 @@
 name = "ww_self"
 version = "0.1.1"
 authors.workspace = true
-description = "WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection"
+description = "WireWeaver AST describing API and data types, can also be serialized using ShrinkWrap for introspection"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

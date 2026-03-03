@@ -7,9 +7,12 @@ use defmt::*;
 use defmt_rtt as _;
 use embassy_stm32::time::mhz;
 use embassy_stm32::{
-    bind_interrupts,
+    bind_interrupts, dma,
     gpio::{Level, Output, Speed},
+    peripherals,
     peripherals::USB_OTG_HS,
+    usart,
+    usart::{Config as UsartConfig, Uart},
     usb,
     usb::Driver,
     Config,
@@ -25,6 +28,9 @@ use ww_uart::{BaudRate, Capabilities, Mode, Parity, StopBits};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
+    UART7 => usart::InterruptHandler<peripherals::UART7>;
+    // DMA1_STREAM0 => dma::InterruptHandler<peripherals::DMA1_CH0>;
+    // DMA1_STREAM1 => dma::InterruptHandler<peripherals::DMA1_CH1>;
 });
 
 const MAX_USB_PACKET_LEN: usize = 512; // 64 for FullSpeed, 512 (Bulk) 1024 (Irq) for HighSpeed
@@ -242,13 +248,17 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     // let led_b125 = Output::new(p.PF5, Level::Low, Speed::Low);
     // let led_b135 = Output::new(p.PC6, Level::Low, Speed::Low);
+
+    let config = UsartConfig::default();
+    let mut uart7 = Uart::new(p.UART7, p.PB3, p.PB4, Irqs, p.DMA1_CH0, p.DMA1_CH1, config).unwrap();
+    // let mut uart7 = Uart::new_blocking(p.UART7, p.PB3, p.PB4, config).unwrap();
     let state = ServerState {
         uart_baud_rate: [BaudRate::Baud115200; 2],
         uart_mode: [Mode::HighZ; 2],
         uart_stop_bits: [StopBits::Stop1; 2],
         uart_parity: [Parity::None; 2],
         uart_prevent_back_feed: [false; 2],
-        uart_reference_voltage: [ww_si::quantity!(3.3 V f32); 2],
+        uart_reference_voltage: [ww_si::quantity!(3300 mV u16); 2],
     };
 
     let _ulpi_rst_n = Output::new(p.PH3, Level::High, Speed::Low); // do not drop

@@ -483,30 +483,13 @@ fn handle_property(
             }
         },
     );
-    let set_property = match property_model_pick {
-        PropertyModelKind::GetSet => {
-            let set_property = Ident::new(
-                format!("set_{}", prefixed_ident).as_str(),
-                Span::call_site(),
-            );
-            quote! {
-                #maybe_let_user_result self.#set_property(#maybe_index_chain_arg value)#maybe_await;
-                #maybe_ret_user_result
-            }
-        }
-        PropertyModelKind::ValueOnChanged => {
-            let on_property_changed = Ident::new(
-                format!("on_{}_changed", prefixed_ident).as_str(),
-                Span::call_site(),
-            );
-            quote! {
-                if self.#prefixed_ident != value {
-                    self.#prefixed_ident = value;
-                    #maybe_let_user_result self.#on_property_changed(#maybe_index_chain_arg)#maybe_await;
-                    #maybe_ret_user_result
-                }
-            }
-        }
+    let set_property = Ident::new(
+        format!("set_{}", prefixed_ident).as_str(),
+        Span::call_site(),
+    );
+    let set_property = quote! {
+        #maybe_let_user_result self.#set_property(#maybe_index_chain_arg value)#maybe_await;
+        #maybe_ret_user_result
     };
     let get_and_ser_property = match property_model_pick {
         PropertyModelKind::GetSet => {
@@ -672,11 +655,11 @@ fn handle_stream(
             }
             _ => other_des(),
         };
-        let maybe_comma = maybe_quote(!index_chain.is_empty(), quote! { , });
+        // let maybe_comma = maybe_quote(!index_chain.is_empty(), quote! { , });
         quote! {
             RequestKind::Write { data } => {
                 #des_data
-                self.#write(#maybe_index_chain_call #maybe_comma #arg)#maybe_await;
+                self.#write(#maybe_index_chain_call #arg)#maybe_await;
                 Ok(&[]) // do not send acknowledgements on stream writes
             }
             RequestKind::StreamSideband { sideband_cmd } => {

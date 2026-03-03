@@ -2,10 +2,10 @@ use crate::command_sender::TransportCommander;
 use crate::{Error, StreamEvent, TypedStreamEvent};
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{error::TryRecvError, UnboundedReceiver};
+use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
-use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
 use ww_client_server::{PathKindOwned, StreamSidebandCommand, StreamSidebandEvent};
 
 /// Stream of typed values from host to device.
@@ -73,6 +73,24 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
         };
         let data = T::from_ww_bytes_owned(bytes)?;
         Ok(data)
+    }
+
+    /// Try to receive one data event and deserialize it.
+    /// Returns an error if any kind of sideband event is received instead.
+    ///
+    /// See [Self::recv] for an asynchronous variant of this method.
+    pub fn try_recv(&mut self) -> Result<Option<T>, StreamError> {
+        match self.rx.try_recv() {
+            Ok(ev) => {
+                let StreamEvent::Data(bytes) = &ev else {
+                    return Err(StreamError::UnexpectedEvent(ev));
+                };
+                let data = T::from_ww_bytes_owned(bytes)?;
+                Ok(Some(data))
+            }
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => Err(StreamError::Closed),
+        }
     }
 
     /// Receive one event of any kind (data or sideband), deserialize if data is received.

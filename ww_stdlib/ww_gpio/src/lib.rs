@@ -188,6 +188,7 @@ pub struct IoPinEnabledEvents<'i> {
     pub rising: bool,
     pub falling: bool,
     pub custom: RefVec<'i, u8>,
+    // TODO: add GPIO filter configuration
 }
 
 /// List or range of available pins that can be requested by a client. Two options are supported:

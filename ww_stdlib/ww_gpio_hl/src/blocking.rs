@@ -1,6 +1,9 @@
 use crate::ww::{BankClient, GpioClient};
-use wire_weaver_client_common::Attachment;
-use ww_gpio::{AvailablePinsOwned, BankCapabilitiesOwned, Level, Mode, Pull};
+use wire_weaver_client_common::{Attachment, Stream};
+use ww_gpio::{
+    AvailablePinsOwned, BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
+    Pull,
+};
 
 /// GPIO configured as Push-Pull output.
 /// Blocking flavor.
@@ -27,6 +30,9 @@ pub struct OpenDrainOutputBlocking {
 /// Blocking flavor.
 pub struct FlexBlocking {
     io: GpioClient,
+    event_rx: Option<Stream<IoPinEvent>>,
+    rising_enabled: bool,
+    falling_enabled: bool,
     mode: Option<Mode>,
     index: u32,
 }
@@ -44,6 +50,8 @@ pub enum Error {
     Client(#[from] wire_weaver_client_common::Error),
     #[error("ww_gpio error: '{:?}'", .0)]
     Gpio(ww_gpio::Error),
+    #[error(transparent)]
+    Stream(#[from] wire_weaver_client_common::StreamError),
     #[error("expected ww_gpio::Gpio trait, got: '{}'", .0)]
     IncompatibleTrait(String),
     #[error("internal: '{}'", .0)]
@@ -90,6 +98,9 @@ impl FlexBlocking {
         };
         Ok(FlexBlocking {
             io: GpioClient::new(cmd_tx),
+            event_rx: None,
+            rising_enabled: false,
+            falling_enabled: false,
             mode: None,
             index,
         })
@@ -235,6 +246,95 @@ impl FlexBlocking {
     /// Enable or disable pull-up or pull-down resistor.
     pub fn set_pull(&mut self, pull: Pull) -> Result<(), Error> {
         self.io.write_pull(pull).blocking_write()?;
+        Ok(())
+    }
+
+    /// Enable rising or falling or both interrupts for this pin.
+    pub fn enable_interrupts(&mut self, rising: bool, falling: bool) -> Result<(), Error> {
+        self.io
+            .configure_events(IoPinEnabledEventsOwned {
+                rising,
+                falling,
+                custom: vec![],
+            })
+            .blocking_call()??;
+        self.rising_enabled = rising;
+        self.falling_enabled = falling;
+        Ok(())
+    }
+
+    /// Disable all interrupts for this pin and drop the event stream channel if existed.
+    /// Recommended to call this if interrupts no longer are used on this pin, so that a remote device does not send unnecessary data.
+    pub fn disable_interrupts(&mut self) -> Result<(), Error> {
+        self.io
+            .configure_events(IoPinEnabledEventsOwned {
+                rising: false,
+                falling: false,
+                custom: vec![],
+            })
+            .blocking_call()??;
+        self.rising_enabled = false;
+        self.falling_enabled = false;
+        self.event_rx = None;
+        Ok(())
+    }
+
+    /// Enable falling edge interrupt for this pin and subscribe to the event stream (if not already).
+    /// Then wait for the falling edge event and return.
+    ///
+    /// Note that this method leaves interrupts enabled. If called again and there were
+    /// interrupts already received through the channel, they will be ignored.
+    pub fn wait_for_falling_edge(&mut self) -> Result<(), Error> {
+        self.wait_for_edge(Some(IoPinEvent::FallingEdge))
+    }
+
+    pub fn wait_for_rising_edge(&mut self) -> Result<(), Error> {
+        self.wait_for_edge(Some(IoPinEvent::RisingEdge))
+    }
+
+    pub fn wait_for_any_edge(&mut self) -> Result<(), Error> {
+        self.wait_for_edge(None)
+    }
+
+    pub fn wait_for_edge(&mut self, break_on: Option<IoPinEvent>) -> Result<(), Error> {
+        match break_on {
+            Some(IoPinEvent::RisingEdge) => {
+                if !self.rising_enabled {
+                    self.enable_interrupts(true, false)?;
+                }
+            }
+            Some(IoPinEvent::FallingEdge) => {
+                if !self.falling_enabled {
+                    self.enable_interrupts(false, true)?;
+                }
+            }
+            None => {
+                if !self.rising_enabled || !self.falling_enabled {
+                    self.enable_interrupts(true, true)?;
+                }
+            }
+            _ => {}
+        }
+        if self.event_rx.is_none() {
+            self.event_rx = Some(self.io.event()?);
+        }
+        let Some(event_rx) = self.event_rx.as_mut() else {
+            return Err(Error::Internal("event_rx is None".into()));
+        };
+        let mut count = 0;
+        while let Ok(Some(_)) = event_rx.try_recv() {
+            count += 1;
+        }
+        println!("there were {count} pin interrupts while not listening");
+        loop {
+            let event = event_rx.recv_blocking()?;
+            if let Some(break_on) = break_on
+                && event == break_on
+            {
+                break;
+            }
+            println!("waiting for {break_on:?}, got: {event:?}");
+        }
         Ok(())
     }
 }

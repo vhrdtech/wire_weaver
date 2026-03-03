@@ -56,7 +56,7 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            let indices = (0..len).map(|i| quote! { index_chain[#i] });
+            let indices = (0..len).map(|i| quote! { index_chain[#i].0 as usize });
             quote! { [ #(#indices),* ] }
         }
     }

@@ -3,7 +3,7 @@
 ![Crates.io Version](https://img.shields.io/crates/v/wire_weaver)
 
 <p align="center">
-<img src="./docs/assets/logo.png" alt="logo" width="200"/>
+<img src="./docs/assets/logo-shrinkwrap-256.png" alt="logo"/>
 </p>
 
 > WireWeaver is an API code generator for microcontrollers, supporting user-defined types, methods, properties, streams,

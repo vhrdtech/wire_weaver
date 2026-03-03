@@ -4,9 +4,10 @@
 * Discrete numbers:
     * Signed (one-byte alignment): `i8`, `i16`, `i32`, `i64`, `i128`
     * Unsigned (one-byte alignment): `u8`, `u16`, `u32`, `u64`, `u128`
-    * Unsigned (four-bit alignment): `u4`
-    * Signed and unsigned (one-bit alignment): `iN` and `uN` (`U1`, `U2`, `U3`, ... `U64`, `I2` ... `I64`)
-* Nibble-based variable length u32: `UNib32` (1 to 11 nibbles)
+    * Unsigned (four-bit alignment): `nib`
+    * Signed and unsigned (one-bit alignment): `u1`, `u2`, `u3`, ... `ub64`, `i2` ... `ib64`
+        * `u8` is byte-aligned, while `ub8` is bit-aligned
+* Nibble-based variable length u32: `unib32` (1 to 11 nibbles, four-bit alignment)
 * Floating point numbers: `f32`, `f64`
 * Textual:
     * UTF-8 string `String`
@@ -24,12 +25,14 @@
 * `RefBox<T>` for self-referential types.
 * User-defined:
     * Struct
-    * Enum with or without data variants
-        * U1..=U63 (1-bit aligned) and unib32 discriminants.
+    * Enum with or without data variants, multiple discriminant options:
+        * Bit-aligned: `u1`, `u2`, ...
+        * Nibble-aligned: `nib`
+        * Byte-aligned: `u8`, `u16`, `u32`
+        * Variable length `unib32`.
     * Tuple
 
 * Not yet supported or not decided whether to support:
-    * Tuple
     * Unicode character: `char` (4B)
     * ASCII character `c_char` (1B) (ASCII) and string: `c_str`
     * Map

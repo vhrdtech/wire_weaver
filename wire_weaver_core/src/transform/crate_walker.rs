@@ -195,6 +195,7 @@ impl Scratch {
 
 impl ManifestContext {
     fn load(crate_path: &Path) -> Result<Rc<Self>> {
+        let crate_path = crate_path.canonicalize()?;
         //println!("loading manifest for {}", crate_path.display());
         let mut cargo_toml_path = crate_path.to_path_buf();
         cargo_toml_path.push("Cargo.toml");
@@ -223,7 +224,7 @@ impl ManifestContext {
             let possible_cargo_toml = possible_path.join("Cargo.toml");
             //println!("trying {possible_cargo_toml:?}");
             if possible_cargo_toml.exists() {
-                return Ok(scratch.get_or_load_manifest(possible_path)?);
+                return scratch.get_or_load_manifest(possible_path);
             }
         }
         Err(anyhow!("not found"))
@@ -283,7 +284,12 @@ impl ManifestContext {
                     .manifest
                     .workspace
                     .as_ref()
-                    .ok_or(anyhow!("parent Cargo.toml is not a workspace"))?;
+                    .ok_or(anyhow!(
+                        "{} load_dependent({crate_name}): parent Cargo.toml ({}) is not a workspace",
+                        self.crate_path.display(),
+                        manifest.crate_path.display()
+                    ))
+                    .context(self.err_context())?;
                 manifest.load_dependent_inner(&workspace.dependencies, crate_name, scratch)
             }
             Dependency::Detailed(detailed) => {
@@ -311,7 +317,7 @@ impl ManifestContext {
 }
 
 fn load_lib_rs(crate_path: &Path) -> Result<File> {
-    let mut lib_rs_path = crate_path.to_path_buf();
+    let mut lib_rs_path = crate_path.canonicalize()?;
     lib_rs_path.push("src");
     lib_rs_path.push("lib.rs");
     let contents = fs::read_to_string(&lib_rs_path).context(format!(

@@ -3279,6 +3279,7 @@ dependencies = [
 name = "ww_self"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
  "serde",
  "shrink_wrap",
  "ww_numeric",

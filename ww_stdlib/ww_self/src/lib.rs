@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
+mod alloc;
+#[cfg(feature = "std")]
 pub mod visitor;
 
 use shrink_wrap::prelude::*;
@@ -149,7 +151,7 @@ pub struct Argument<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u3)]
 #[sized]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[serde = "serde"]
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available

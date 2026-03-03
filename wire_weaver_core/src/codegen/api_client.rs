@@ -1,15 +1,17 @@
 //! # Implementation details:
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
-use crate::ast::api::{ApiItem, ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::util::{maybe_call_since, maybe_quote};
+use crate::codegen::ty_def::ty_def;
+use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use shrink_wrap_core::ast::path::Path;
-use shrink_wrap_core::ast::{Docs, Type, Version};
 use syn::LitStr;
+use ww_self::{
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
+    PropertyAccess, TypeOwned,
+};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum ClientModel {
@@ -43,7 +45,7 @@ pub(crate) enum ClientPathMode {
 }
 
 pub fn client(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
     model: ClientModel,
     client_struct: &Ident,
     usb_connect: bool,
@@ -56,6 +58,7 @@ pub fn client(
     } else {
         quote! {}
     };
+    let api_level = &api_bundle.root;
     let hl_init = if model == ClientModel::StdFullClient {
         let d = connect_disconnect_methods(usb_connect, api_level);
         quote! {
@@ -72,10 +75,11 @@ pub fn client(
         ClientPathMode::Absolute
     };
 
-    let crate_name = api_level.source_location.crate_name();
+    let crate_name = api_level.crate_name(api_bundle).unwrap();
     // let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
     // let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
     let trait_clients = client_structs_recursive(
+        api_bundle,
         api_level,
         IndexChain::new(),
         crate_name,
@@ -100,9 +104,10 @@ pub fn client(
 }
 
 fn client_structs_recursive(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &Ident,
+    crate_name: &str,
     model: ClientModel,
     path_mode: ClientPathMode,
     is_at_root: Option<&Ident>,
@@ -110,12 +115,43 @@ fn client_structs_recursive(
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_level, model.no_alloc());
 
-    let mod_name = api_level.mod_ident(crate_name);
-    let use_external =
-        api_level.use_external_types(Path::new_ident(crate_name.clone()), model.no_alloc());
-    let client_struct_name = api_level.client_struct_name(crate_name);
-    let gid_paths = api_level.gid_paths();
+    let mod_name = Ident::new(
+        format!(
+            "{}_{}",
+            crate_name,
+            api_level.trait_name.to_case(Case::Snake)
+        )
+        .as_str(),
+        Span::call_site(),
+    );
+    // let use_external =
+    //     api_level.use_external_types(Path::new_ident(crate_name.clone()), model.no_alloc());
+    let client_struct_name = Ident::new(
+        format!("{}_client", mod_name)
+            .to_case(Case::Pascal)
+            .as_str(),
+        mod_name.span(),
+    );
+    // let gid_paths = api_level.gid_paths();
+    let full_gid = Ident::new(
+        format!("{}_FULL_GID", api_level.trait_name)
+            .to_case(Case::Constant)
+            .as_str(),
+        Span::call_site(),
+    );
+    let compact_gid = Ident::new(
+        format!("{}_FULL_GID", api_level.trait_name)
+            .to_case(Case::Constant)
+            .as_str(),
+        Span::call_site(),
+    );
+    let crate_name = Ident::new(crate_name, Span::call_site());
+    let gid_paths = (
+        quote! { #crate_name::#full_gid },
+        quote! { #crate_name::#compact_gid },
+    );
     let methods = level_methods(
+        api_bundle,
         api_level,
         index_chain,
         model,
@@ -129,26 +165,27 @@ fn client_structs_recursive(
 
     let mut child_ts = TokenStream::new();
     for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args: _, level } = &item.kind else {
+        if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
             continue;
-        };
-        let level = level.as_ref().expect("empty level");
+        }
+        let level = item.get_as_level(api_bundle).unwrap();
         let mut index_chain = index_chain;
         index_chain.increment_length();
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
         }
         child_ts.extend(client_structs_recursive(
+            api_bundle,
             level,
             index_chain,
-            level.source_location.crate_name(),
+            level.crate_name(api_bundle).unwrap(),
             model,
             path_mode,
             None,
         ));
     }
 
-    let trait_name = LitStr::new(&api_level.name.to_string(), api_level.name.span());
+    let trait_name = LitStr::new(&api_level.trait_name, Span::call_site());
     let index_chain = if is_at_root.is_some() {
         quote! { vec![] }
     } else {
@@ -191,7 +228,7 @@ fn client_structs_recursive(
     ts.extend(quote! {
         mod #mod_name {
             use super::*;
-            #use_external
+            // #use_external
             #args_structs
 
             #impl_new_or_user_struct
@@ -203,7 +240,8 @@ fn client_structs_recursive(
 }
 
 fn level_methods(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
     index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
@@ -212,13 +250,14 @@ fn level_methods(
 ) -> TokenStream {
     let handlers = api_level.items.iter().map(|item| {
         level_method(
+            api_bundle,
             item,
             index_chain,
             model,
             path_mode,
             gid_paths,
             is_at_root,
-            api_level.source_location.crate_name(),
+            api_level.crate_name(api_bundle).unwrap(),
         )
     });
     quote! {
@@ -227,81 +266,84 @@ fn level_methods(
 }
 
 fn level_method(
-    item: &ApiItem,
+    api_bundle: &ApiBundleOwned,
+    item: &ApiItemOwned,
     mut index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
-    api_crate: &Ident,
+    api_crate: &str,
 ) -> TokenStream {
-    let id = item.id;
+    let id = item.id.0;
     let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
         Multiplicity::Flat => (index_chain_push, quote! {}),
-        Multiplicity::Array { index_type: None } => {
+        Multiplicity::Array {
+            index_type_idx: None,
+        } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index) });
             (quote! { #index_chain_push #p }, quote! { , index: u32 })
         }
         Multiplicity::Array {
-            index_type: Some(ty),
+            index_type_idx: Some(type_idx),
         } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index.into()) });
+            let ty = api_bundle.get_ty(type_idx.0).unwrap().0;
+            let ty = ty_def(api_bundle, ty, false, true).unwrap();
             (
                 quote! { #index_chain_push #p },
                 quote! { , index: #api_crate::#ty },
             )
         }
     };
+    let ident = Ident::new(&item.ident, Span::call_site());
     match &item.kind {
-        ApiItemKind::Method {
-            ident,
-            args,
-            return_type,
-        } => handle_method(
+        ApiItemKindOwned::Method { args, return_ty } => handle_method(
+            api_bundle,
             model,
             path_mode,
             gid_paths,
             index_chain_push,
-            ident,
+            &ident,
             args,
-            return_type,
+            return_ty,
             &item.docs,
-            &item.since,
         ),
-        ApiItemKind::Property {
+        ApiItemKindOwned::Property {
             access,
-            ident,
             ty,
-            user_result_ty,
+            write_err_ty,
         } => handle_property(
+            api_bundle,
             model,
             path_mode,
             gid_paths,
             index_chain_push,
             access,
-            ident,
+            &item.ident,
             ty,
-            user_result_ty,
-            &item.since,
+            write_err_ty,
         ),
-        ApiItemKind::Stream { ident, ty, is_up } => handle_stream(
+        ApiItemKindOwned::Stream { ty, is_up } => handle_stream(
+            api_bundle,
             model,
             path_mode,
             gid_paths,
             maybe_index_arg,
             index_chain_push,
-            ident,
+            &item.ident,
             ty,
             *is_up,
-            &item.since,
         ),
-        ApiItemKind::ImplTrait { args, level } => {
-            let level_entry_fn_name = &args.resource_name;
-            let level = level.as_ref().expect("api level");
-            let crate_name = level.source_location.crate_name();
-            let mod_name = level.mod_ident(crate_name);
-            let client_struct_name = level.client_struct_name(crate_name);
+        ApiItemKindOwned::Trait { .. } => {
+            let level = item.get_as_level(api_bundle).expect("api level");
+            let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
+            let crate_name = level.crate_name(api_bundle).unwrap();
+            // let mod_name = level.mod_ident(crate_name);
+            let mod_name = quote! { todo };
+            // let client_struct_name = level.client_struct_name(crate_name);
+            let client_struct_name = quote! { todo_cs };
             let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {
                 pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
@@ -314,92 +356,69 @@ fn level_method(
                 }
             }
         }
-        ApiItemKind::Reserved => quote! {},
     }
 }
 
 fn handle_method(
+    api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     index_chain_push: TokenStream,
     ident: &Ident,
-    args: &[Argument],
-    return_type: &Option<Type>,
-    docs: &Docs,
-    since: &Option<Version>,
+    args: &[ArgumentOwned],
+    return_type: &Option<TypeOwned>,
+    docs: &[String],
 ) -> TokenStream {
-    let (args_ser, args_list, _args_names) = ser_args(ident, args, model.no_alloc());
+    let (args_ser, args_list, _args_names) = ser_args(api_bundle, ident, args, model.no_alloc());
     let output_ty = if let Some(return_type) = &return_type {
-        if let Type::External(ext_ty, lifetime) = return_type {
-            if *lifetime {
-                let mut ty_owned = ext_ty.clone();
-                ty_owned.make_owned();
-                let ty_owned = &ty_owned;
-                quote! { #ty_owned }
-            } else {
-                return_type.def(model.no_alloc())
-            }
-        } else {
-            return_type.def(model.no_alloc())
-        }
+        ty_def(api_bundle, return_type, model.no_alloc(), true).unwrap()
     } else {
         quote! { () }
     };
 
     let path_kind = path_kind(path_mode, gid_paths);
     let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
-    let since = maybe_call_since(since);
     quote! {
-        #docs
+        // #docs
         pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd_tx.prepare_call(path_kind, args_bytes, #since)
+            self.cmd_tx.prepare_call(path_kind, args_bytes)
         }
     }
 }
 fn handle_property(
+    api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     index_chain_push: TokenStream,
     access: &PropertyAccess,
-    prop_name: &Ident,
-    ty: &Type,
-    user_result_ty: &Option<Type>,
-    since: &Option<Version>,
+    prop_name: &str,
+    ty: &TypeOwned,
+    user_result_ty: &Option<TypeOwned>,
 ) -> TokenStream {
-    let mut des = TokenStream::new();
-    ty.buf_read(
-        &Ident::new("value", Span::call_site()),
-        model.no_alloc(),
-        false,
-        quote! { ? },
-        &quote! { _ },
-        &mut des,
-    );
     let path_kind = path_kind(path_mode, gid_paths);
-    let ty_def = ty.arg_pos_def2(model.no_alloc());
-    let since = maybe_call_since(since);
+    let ty = ty_def(api_bundle, ty, model.no_alloc(), true).unwrap();
 
     let write_fns = if matches!(
         access,
-        PropertyAccess::ReadWrite | PropertyAccess::WriteOnly
+        PropertyAccess::ReadWrite { .. } | PropertyAccess::WriteOnly
     ) {
-        let write_fn_name = Ident::new(&format!("write_{}", prop_name), prop_name.span());
+        let write_fn_name = Ident::new(&format!("write_{}", prop_name), Span::call_site());
         let user_result_ty = if let Some(ty) = user_result_ty {
-            ty.arg_pos_def2(model.no_alloc())
+            ty_def(api_bundle, ty, model.no_alloc(), true).unwrap()
         } else {
             quote! { () }
         };
         quote! {
-            pub fn #write_fn_name(&mut self, #prop_name: #ty_def) -> wire_weaver_client_common::PreparedWrite<#user_result_ty> {
+            pub fn #write_fn_name(&mut self, #prop_name: #ty) -> wire_weaver_client_common::PreparedWrite<#user_result_ty> {
                 let value = #prop_name.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_write(path_kind, value, #since)
+                self.cmd_tx.prepare_write(path_kind, value)
             }
         }
     } else {
@@ -408,14 +427,14 @@ fn handle_property(
 
     let read_fns = if matches!(
         access,
-        PropertyAccess::Const | PropertyAccess::ReadWrite | PropertyAccess::ReadOnly
+        PropertyAccess::Const | PropertyAccess::ReadWrite { .. } | PropertyAccess::ReadOnly { .. }
     ) {
-        let read_fn_name = Ident::new(&format!("read_{}", prop_name), prop_name.span());
+        let read_fn_name = Ident::new(&format!("read_{}", prop_name), Span::call_site());
         quote! {
-            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<#ty_def> {
+            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_read(path_kind, #since)
+                self.cmd_tx.prepare_read(path_kind)
             }
         }
     } else {
@@ -429,23 +448,22 @@ fn handle_property(
 }
 
 fn handle_stream(
+    api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
-    ident: &Ident,
-    ty: &Type,
+    ident: &str,
+    ty: &TypeOwned,
     is_up: bool,
-    since: &Option<Version>,
 ) -> TokenStream {
-    let ty_def = if ty.is_byte_slice() {
+    let ty_def = if ty.is_byte_slice(api_bundle).unwrap() {
         quote! { wire_weaver::shrink_wrap::raw_slice::RawSliceOwned }
     } else {
-        ty.arg_pos_def2(model.no_alloc())
+        ty_def(api_bundle, ty, model.no_alloc(), true).unwrap()
     };
     let path_kind = path_kind(path_mode, gid_paths);
-    let since = maybe_call_since(since);
 
     if is_up {
         // client in
@@ -453,7 +471,7 @@ fn handle_stream(
             pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let stream = self.cmd_tx.prepare_stream(path_kind, #since)?;
+                let stream = self.cmd_tx.prepare_stream(path_kind)?;
                 Ok(stream)
             }
         }
@@ -463,7 +481,7 @@ fn handle_stream(
             pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                let sink = self.cmd_tx.prepare_sink(path_kind, #since)?;
+                let sink = self.cmd_tx.prepare_sink(path_kind)?;
                 Ok(sink)
             }
         }
@@ -471,8 +489,9 @@ fn handle_stream(
 }
 
 fn ser_args(
+    api_bundle: &ApiBundleOwned,
     method_ident: &Ident,
-    args: &[Argument],
+    args: &[ArgumentOwned],
     no_alloc: bool,
 ) -> (TokenStream, TokenStream, TokenStream) {
     let args_struct_ident = Ident::new(
@@ -504,7 +523,11 @@ fn ser_args(
             let args_bytes = args.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
         };
         let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
-        let tys = args.iter().map(|arg| arg.ty.arg_pos_def2(no_alloc));
+        let tys: Result<Vec<TokenStream>, _> = args
+            .iter()
+            .map(|arg| ty_def(api_bundle, &arg.ty, !no_alloc, true))
+            .collect();
+        let tys = tys.unwrap();
         let mut args_list = quote! { #(#idents: #tys),* };
         if !args.is_empty() {
             args_list.extend(quote! { , });
@@ -514,9 +537,9 @@ fn ser_args(
     }
 }
 
-fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevel) -> TokenStream {
-    let (ww_self_bytes_const, api_signature_bytes) =
-        crate::codegen::introspect::introspect(api_level);
+fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevelOwned) -> TokenStream {
+    // let (ww_self_bytes_const, api_signature_bytes) =
+    //     crate::codegen::introspect::introspect(api_level);
     let connect_fn = |is_async: bool| {
         let maybe_async = maybe_quote(is_async, quote! { async });
         let maybe_await = maybe_quote(is_async, quote! { .await });
@@ -547,8 +570,8 @@ fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevel) -> TokenS
                     wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
                 });
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
-                pub const WW_SELF_BYTES: #ww_self_bytes_const;
-                pub const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
+                // pub const WW_SELF_BYTES: #ww_self_bytes_const;
+                // pub const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
                 cmd_tx.set_client_introspect_bytes(&WW_SELF_BYTES, &WW_API_SIGNATURE_BYTES);
                 Ok(Self {
                     args_scratch: scratch,

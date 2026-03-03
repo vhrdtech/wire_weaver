@@ -1,10 +1,10 @@
-use crate::ast::api::ApiLevel;
 use crate::codegen::util::ErrorSeq;
 use proc_macro2::TokenStream;
 use quote::quote;
+use ww_self::ApiLevelOwned;
 
 pub(crate) fn introspect(
-    api_level: &ApiLevel,
+    api_level: &ApiLevelOwned,
     enabled: bool,
     use_async: bool,
     error_seq: &mut ErrorSeq,

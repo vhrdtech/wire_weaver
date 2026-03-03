@@ -1,11 +1,10 @@
-use darling::FromMeta;
 use darling::ast::NestedMeta;
+use darling::FromMeta;
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, Result, Token};
-use wire_weaver_core::ast::trait_macro_args::ImplTraitLocation;
+use syn::{Ident, LitStr, Result, Token};
 
 pub(crate) struct ApiArgs {
-    pub(crate) location: ImplTraitLocation,
+    pub(crate) location: LitStr,
     _colon_colon: Token![::],
     pub(crate) trait_name: Ident,
     _for: Token![for],
@@ -40,13 +39,9 @@ pub(crate) struct ImplExtArgs {
 
 impl Parse for ApiArgs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let location = input.parse()?;
-        if !matches!(location, ImplTraitLocation::SameFile) {
-            let _: Token![::] = input.parse()?;
-        }
         Ok(ApiArgs {
-            location,
-            _colon_colon: Default::default(),
+            location: input.parse()?,
+            _colon_colon: input.parse()?,
             trait_name: input.parse()?,
             _for: input.parse()?,
             context_ident: input.parse()?,

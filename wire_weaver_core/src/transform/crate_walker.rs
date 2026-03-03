@@ -73,7 +73,7 @@ pub(crate) struct Scratch {
 
 /// Scratch space used to hold types and traits
 #[derive(Default)]
-struct ApiBundleScratch {
+pub(crate) struct ApiBundleScratch {
     types: Vec<TypeLocationOwned>,
     pub(crate) traits: Vec<ApiLevelLocationOwned>,
     ext_crates: Vec<FullVersionOwned>,

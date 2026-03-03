@@ -1,14 +1,13 @@
 use crate::ww_impl_args::ApiArgs;
 use proc_macro2::{Span, TokenStream};
 use quote::TokenStreamExt;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use wire_weaver_core::codegen::api_client::ClientModel;
+use wire_weaver_core::load_v2;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
-use wire_weaver_core::transform::load::load_api_level_recursive;
 
 pub fn ww_api(args: ApiArgs) -> TokenStream {
     api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
@@ -19,21 +18,17 @@ pub fn ww_impl(args: ApiArgs) -> TokenStream {
 }
 
 fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
-    let mut cache = HashMap::new();
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
-    let mut level = load_api_level_recursive(
-        &args.location,
-        Some(args.trait_name.clone()),
-        None,
-        &manifest_dir,
-        &mut cache,
-    )?;
-
-    if !args.ext.no_alloc {
-        level.make_owned();
-    }
+    let path = PathBuf::from(args.location.value());
+    let path = if path.is_relative() {
+        manifest_dir.join(path)
+    } else {
+        path
+    };
+    let api_bundle =
+        load_v2(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e}"))?;
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {
@@ -57,7 +52,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     let mut codegen_ts = TokenStream::new();
     if args.ext.server {
         let ts = wire_weaver_core::codegen::api_server::impl_server_dispatcher(
-            &level,
+            &api_bundle,
             args.ext.no_alloc,
             args.ext.use_async,
             &method_model,
@@ -89,7 +84,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             }
         };
         let ts = wire_weaver_core::codegen::api_client::client(
-            &level,
+            &api_bundle,
             model,
             &args.context_ident,
             usb_connect,
@@ -106,11 +101,11 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         }
         match File::create(&path) {
             Ok(mut f) => {
-                let level_debug = format!("{:#?}", &level);
-                for line in level_debug.split('\n') {
-                    f.write_fmt(format_args!("// {line}\n"))
-                        .map_err(|e| e.to_string())?;
-                }
+                // let level_debug = format!("{:#?}", &level);
+                // for line in level_debug.split('\n') {
+                //     f.write_fmt(format_args!("// {line}\n"))
+                //         .map_err(|e| e.to_string())?;
+                // }
                 let ts_formatted = crate::util::format_rust(format!("{codegen_ts}").as_str());
                 f.write_all(ts_formatted.as_bytes())
                     .map_err(|e| e.to_string())?;

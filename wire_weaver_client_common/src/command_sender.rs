@@ -143,9 +143,9 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
-        since: Option<(u32, u32, u32)>,
     ) -> PreparedCall<T> {
         // postpone error return to have a better syntax (one ? instead of two)
+        let since = None; // TODO: fix
         let (postpone_err, args) = match (self.check_version(since), args) {
             (Ok(_), Ok(args)) => (Ok(()), args),
             (Err(e), _) => (Err(e), vec![]),
@@ -174,8 +174,8 @@ impl CommandSender {
     pub fn prepare_read<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
-        since: Option<(u32, u32, u32)>,
     ) -> PreparedRead<T> {
+        let since = None; // TODO: fix
         let version_check = self.check_version(since);
         let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
         PreparedRead {
@@ -193,8 +193,8 @@ impl CommandSender {
         &self,
         path: PathKind<'_>,
         value: Result<Vec<u8>, Error>,
-        since: Option<(u32, u32, u32)>,
     ) -> PreparedWrite<E> {
+        let since = None; // TODO: fix
         let (postpone_err, value) = match (self.check_version(since), value) {
             (Ok(_), Ok(value)) => (Ok(()), value),
             (Err(e), _) => (Err(e), vec![]),
@@ -223,8 +223,8 @@ impl CommandSender {
     pub fn prepare_stream<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
-        since: Option<(u32, u32, u32)>,
     ) -> Result<Stream<T>, Error> {
+        let since = None; // TODO: fix
         self.check_version(since)?;
         let path_kind = self.to_ww_client_server_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
@@ -250,8 +250,8 @@ impl CommandSender {
     pub fn prepare_sink<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
-        since: Option<(u32, u32, u32)>,
     ) -> Result<Sink<T>, Error> {
+        let since = None; // TODO: fix
         self.check_version(since)?;
         let path_kind = self.to_ww_client_server_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();

@@ -103,6 +103,27 @@ pub fn client(
     }
 }
 
+fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
+    Ident::new(
+        format!(
+            "{}_{}",
+            crate_name,
+            api_level.trait_name.to_case(Case::Snake)
+        )
+        .as_str(),
+        Span::call_site(),
+    )
+}
+
+fn client_struct_name(mod_name: &str) -> Ident {
+    Ident::new(
+        format!("{}_client", mod_name)
+            .to_case(Case::Pascal)
+            .as_str(),
+        Span::call_site(),
+    )
+}
+
 fn client_structs_recursive(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
@@ -113,26 +134,10 @@ fn client_structs_recursive(
     is_at_root: Option<&Ident>,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
-    let args_structs = args_structs(api_level, model.no_alloc());
+    let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
 
-    let mod_name = Ident::new(
-        format!(
-            "{}_{}",
-            crate_name,
-            api_level.trait_name.to_case(Case::Snake)
-        )
-        .as_str(),
-        Span::call_site(),
-    );
-    // let use_external =
-    //     api_level.use_external_types(Path::new_ident(crate_name.clone()), model.no_alloc());
-    let client_struct_name = Ident::new(
-        format!("{}_client", mod_name)
-            .to_case(Case::Pascal)
-            .as_str(),
-        mod_name.span(),
-    );
-    // let gid_paths = api_level.gid_paths();
+    let mod_name = mod_name(crate_name, api_level);
+    let client_struct_name = client_struct_name(&mod_name.to_string());
     let full_gid = Ident::new(
         format!("{}_FULL_GID", api_level.trait_name)
             .to_case(Case::Constant)
@@ -140,7 +145,7 @@ fn client_structs_recursive(
         Span::call_site(),
     );
     let compact_gid = Ident::new(
-        format!("{}_FULL_GID", api_level.trait_name)
+        format!("{}_COMPACT_GID", api_level.trait_name)
             .to_case(Case::Constant)
             .as_str(),
         Span::call_site(),
@@ -228,7 +233,6 @@ fn client_structs_recursive(
     ts.extend(quote! {
         mod #mod_name {
             use super::*;
-            // #use_external
             #args_structs
 
             #impl_new_or_user_struct
@@ -321,7 +325,7 @@ fn level_method(
             gid_paths,
             index_chain_push,
             access,
-            &item.ident,
+            &ident,
             ty,
             write_err_ty,
         ),
@@ -332,7 +336,7 @@ fn level_method(
             gid_paths,
             maybe_index_arg,
             index_chain_push,
-            &item.ident,
+            &ident,
             ty,
             *is_up,
         ),
@@ -340,10 +344,8 @@ fn level_method(
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
             let crate_name = level.crate_name(api_bundle).unwrap();
-            // let mod_name = level.mod_ident(crate_name);
-            let mod_name = quote! { todo };
-            // let client_struct_name = level.client_struct_name(crate_name);
-            let client_struct_name = quote! { todo_cs };
+            let mod_name = mod_name(crate_name, level);
+            let client_struct_name = client_struct_name(&mod_name.to_string());
             let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {
                 pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
@@ -372,7 +374,7 @@ fn handle_method(
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(api_bundle, ident, args, model.no_alloc());
     let output_ty = if let Some(return_type) = &return_type {
-        ty_def(api_bundle, return_type, model.no_alloc(), true).unwrap()
+        ty_def(api_bundle, return_type, true, true).unwrap()
     } else {
         quote! { () }
     };
@@ -396,7 +398,7 @@ fn handle_property(
     gid_paths: &(TokenStream, TokenStream),
     index_chain_push: TokenStream,
     access: &PropertyAccess,
-    prop_name: &str,
+    prop_name: &Ident,
     ty: &TypeOwned,
     user_result_ty: &Option<TypeOwned>,
 ) -> TokenStream {
@@ -454,7 +456,7 @@ fn handle_stream(
     gid_paths: &(TokenStream, TokenStream),
     maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
-    ident: &str,
+    ident: &Ident,
     ty: &TypeOwned,
     is_up: bool,
 ) -> TokenStream {
@@ -515,14 +517,16 @@ fn ser_args(
             )
         }
     } else {
-        let idents = args.iter().map(|arg| &arg.ident);
+        let idents = args
+            .iter()
+            .map(|arg| Ident::new(&arg.ident, Span::call_site()))
+            .collect::<Vec<_>>();
 
         // let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
         let args_ser = quote! {
             let args = #args_struct_ident { #(#idents),* };
             let args_bytes = args.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
         };
-        let idents = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
         let tys: Result<Vec<TokenStream>, _> = args
             .iter()
             .map(|arg| ty_def(api_bundle, &arg.ty, !no_alloc, true))

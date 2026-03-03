@@ -706,7 +706,7 @@ fn args_structs_recursive(
     no_alloc: bool,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
-    let args_structs = api_common::args_structs(api_level, no_alloc);
+    let args_structs = api_common::args_structs(api_bundle, api_level, no_alloc);
 
     // let mod_name = api_level.mod_ident(crate_name);
     // let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);

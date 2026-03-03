@@ -28,7 +28,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         path
     };
     let api_bundle =
-        load_v2(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e}"))?;
+        load_v2(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e:?}"))?;
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {

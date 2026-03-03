@@ -73,7 +73,7 @@ impl FlexBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
     pub fn new_ignore_mode(gpio_pin: Attachment) -> Result<FlexBlocking, Error> {
-        if (gpio_pin.trait_name() != "Gpio") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
+        if (gpio_pin.trait_name() != "Pin") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 gpio_pin.source_crate().crate_id,
@@ -331,7 +331,7 @@ impl BankBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().attachment()`
     pub fn new(bank: Attachment) -> Result<BankBlocking, Error> {
-        if (bank.trait_name() != "GpioBank") || (bank.source_crate().crate_id != "ww_gpio") {
+        if (bank.trait_name() != "Bank") || (bank.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 bank.source_crate().crate_id,

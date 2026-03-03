@@ -121,21 +121,22 @@ fn user_ty_def(
         quote! {}
     };
 
-    let ty_name = if alloc {
-        if is_unsized {
+    if alloc {
+        let ty_name = if is_unsized {
             Ident::new(&format!("{ty_name}Owned"), Span::call_site())
         } else {
             Ident::new(ty_name, Span::call_site())
-        }
+        };
+        Ok(quote! { #source_crate::#ty_name })
     } else {
         // no_std
-        Ident::new(ty_name, Span::call_site())
-    };
-    if is_unsized {
-        let l = lifetime(arg_pos);
-        Ok(quote! { #source_crate::#ty_name<#l> })
-    } else {
-        Ok(quote! { #source_crate::#ty_name })
+        let ty_name = Ident::new(ty_name, Span::call_site());
+        if is_unsized {
+            let l = lifetime(arg_pos);
+            Ok(quote! { #source_crate::#ty_name<#l> })
+        } else {
+            Ok(quote! { #source_crate::#ty_name })
+        }
     }
 }
 

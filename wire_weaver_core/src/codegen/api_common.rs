@@ -1,84 +1,39 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-use ww_self::ApiLevelOwned;
+use crate::codegen::ty_def::ty_def;
+use convert_case::Casing;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{quote, TokenStreamExt};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned};
 
-pub fn args_structs(api_level: &ApiLevelOwned, no_alloc: bool) -> TokenStream {
-    quote! {}
+pub fn args_structs(
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
+    _no_alloc: bool,
+) -> TokenStream {
+    let mut defs = TokenStream::new();
+    for item in &api_level.items {
+        if let ApiItemKindOwned::Method { args, .. } = &item.kind {
+            if args.is_empty() {
+                continue;
+            }
+            let fields = args.iter().map(|f| {
+                let ident = Ident::new(&f.ident, Span::call_site());
+                let ty = ty_def(api_bundle, &f.ty, true, false).unwrap();
+                quote! { #ident: #ty }
+            });
+
+            let ident = Ident::new(
+                format!("{}_args", &item.ident)
+                    .to_case(convert_case::Case::Pascal)
+                    .as_str(),
+                Span::call_site(),
+            );
+            defs.append_all(quote! {
+                #[derive_shrink_wrap]
+                struct #ident {
+                    #(#fields),*
+                }
+            });
+        }
+    }
+    defs
 }
-// pub fn args_structs(api_level: &ApiLevelOwned, no_alloc: bool) -> TokenStream {
-//     let mut defs = TokenStream::new();
-//     for item in &api_level.items {
-//         if let ApiItemKindOwned::Method { args, .. } = &item.kind {
-//             // if let Some(ty) = return_type {
-//             //     output_struct(&mut defs, ident, ty, no_alloc);
-//             // }
-//
-//             let mut fields = vec![];
-//             for (id, arg) in args.iter().enumerate() {
-//                 fields.push(Field {
-//                     docs: Docs::empty(),
-//                     id: id as u32,
-//                     ident: arg.ident.clone(),
-//                     ty: arg.ty.clone(),
-//                     since: None,
-//                     default: None,
-//                 });
-//             }
-//             if fields.is_empty() {
-//                 continue;
-//             }
-//             create_flags(&mut fields, &[]);
-//
-//             let ident = Ident::new(
-//                 format!("{}_args", ident)
-//                     .to_case(convert_case::Case::Pascal)
-//                     .as_str(),
-//                 ident.span(),
-//             );
-//             let item_struct = ItemStruct {
-//                 docs: Docs::empty(),
-//                 derive: vec![],
-//                 derive_owned: vec![],
-//                 ident,
-//                 fields,
-//                 cfg: None,
-//                 size_assumption: None,
-//                 defmt: None,
-//                 serde: None,
-//             };
-//             defs.append_all(item_struct.def_rust(no_alloc));
-//             defs.append_all(item_struct.serdes_rust(no_alloc, true));
-//         }
-//     }
-//     defs
-// }
-
-// fn output_struct(defs: &mut TokenStream, method_ident: &Ident, return_type: &Type, no_alloc: bool) {
-//     if matches!(return_type, Type::External(_, _)) {
-//         return;
-//     }
-//     let ident = Ident::new(
-//         format!("{}_output", method_ident)
-//             .to_case(convert_case::Case::Pascal)
-//             .as_str(),
-//         method_ident.span(),
-//     );
-//     let mut item_struct = ItemStruct {
-//         docs: Docs::empty(),
-//         derive: vec![],
-//         ident,
-//         fields: vec![Field {
-//             docs: Docs::empty(),
-//             id: 0,
-//             ident: Ident::new("output", Span::call_site()),
-//             ty: return_type.clone(),
-//             since: None,
-//             default: None,
-//         }],
-//         cfg: None,
-//         size_assumption: None,
-//     };
-//     create_flags(&mut item_struct.fields, &[]);
-//     defs.append_all(item_struct.def_rust(no_alloc));
-//     defs.append_all(item_struct.serdes_rust(no_alloc));
-// }

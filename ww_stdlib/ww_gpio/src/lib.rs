@@ -6,9 +6,9 @@ pub use ww_si::Volt;
 /// A bank of related IO pins.
 /// Each pin in a bank is using the same reference voltage, that can be adjusted if bank supports it.
 #[ww_trait]
-trait GpioBank {
+trait Bank {
     /// 0. Array of individual pins.
-    ww_impl!(pin[]: Gpio);
+    ww_impl!(pin[]: Pin);
 
     // 1-7. Reserved
     reserved!();
@@ -49,7 +49,7 @@ trait GpioBank {
 ///
 /// Commonly used operations are defined first, to get more compact resource paths.
 #[ww_trait]
-pub trait Gpio {
+pub trait Pin {
     /// 0. Set the output level.
     ///
     /// If the pin is currently configured as input, this level should only be written to control register, without changing pin mode.

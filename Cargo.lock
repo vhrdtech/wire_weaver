@@ -3232,6 +3232,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client_common",
  "ww_gpio",
+ "ww_si",
 ]
 
 [[package]]

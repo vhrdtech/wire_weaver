@@ -1182,11 +1182,14 @@
 <li>Discrete numbers:<ul>
 <li>Signed (one-byte alignment): <code>i8</code>, <code>i16</code>, <code>i32</code>, <code>i64</code>, <code>i128</code></li>
 <li>Unsigned (one-byte alignment): <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>u128</code></li>
-<li>Unsigned (four-bit alignment): <code>u4</code></li>
-<li>Signed and unsigned (one-bit alignment): <code>iN</code> and <code>uN</code> (<code>U1</code>, <code>U2</code>, <code>U3</code>, ... <code>U64</code>, <code>I2</code> ... <code>I64</code>)</li>
+<li>Unsigned (four-bit alignment): <code>nib</code></li>
+<li>Signed and unsigned (one-bit alignment): <code>u1</code>, <code>u2</code>, <code>u3</code>, ... <code>ub64</code>, <code>i2</code> ... <code>ib64</code><ul>
+<li><code>u8</code> is byte-aligned, while <code>ub8</code> is bit-aligned</li>
 </ul>
 </li>
-<li>Nibble-based variable length u32: <code>UNib32</code> (1 to 11 nibbles)</li>
+</ul>
+</li>
+<li>Nibble-based variable length u32: <code>unib32</code> (1 to 11 nibbles, four-bit alignment)</li>
 <li>Floating point numbers: <code>f32</code>, <code>f64</code></li>
 <li>Textual:<ul>
 <li>UTF-8 string <code>String</code></li>
@@ -1212,8 +1215,11 @@
 <p>User-defined:</p>
 <ul>
 <li>Struct</li>
-<li>Enum with or without data variants<ul>
-<li>U1..=U63 (1-bit aligned) and unib32 discriminants.</li>
+<li>Enum with or without data variants, multiple discriminant options:<ul>
+<li>Bit-aligned: <code>u1</code>, <code>u2</code>, ...</li>
+<li>Nibble-aligned: <code>nib</code></li>
+<li>Byte-aligned: <code>u8</code>, <code>u16</code>, <code>u32</code></li>
+<li>Variable length <code>unib32</code>.</li>
 </ul>
 </li>
 <li>Tuple</li>
@@ -1222,7 +1228,6 @@
 <li>
 <p>Not yet supported or not decided whether to support:</p>
 <ul>
-<li>Tuple</li>
 <li>Unicode character: <code>char</code> (4B)</li>
 <li>ASCII character <code>c_char</code> (1B) (ASCII) and string: <code>c_str</code></li>
 <li>Map</li>

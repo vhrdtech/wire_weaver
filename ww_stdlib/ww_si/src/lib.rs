@@ -193,7 +193,7 @@ pub struct Quantity<'i> {
 /// Time quantity in seconds with prefix (s, ms, μs, ns, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Second {
     pub prefix: Prefix,
@@ -203,7 +203,7 @@ pub struct Second {
 /// Length quantity in meters with prefix (m, mm, μm, km, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Meter {
     pub prefix: Prefix,
@@ -215,7 +215,7 @@ pub struct Meter {
 ///
 /// Note that gram is expressed with Prefix::Milli (milli-kilo-gram)
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct KiloGram {
     pub prefix: Prefix,
@@ -225,7 +225,7 @@ pub struct KiloGram {
 /// Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Ampere {
     pub prefix: Prefix,
@@ -235,7 +235,7 @@ pub struct Ampere {
 /// Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Kelvin {
     pub prefix: Prefix,
@@ -245,7 +245,7 @@ pub struct Kelvin {
 /// Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Mole {
     pub prefix: Prefix,
@@ -255,7 +255,7 @@ pub struct Mole {
 /// Luminous intensity quantity in candela with prefix (cd, mcd, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Candela {
     pub prefix: Prefix,
@@ -269,7 +269,7 @@ pub struct Candela {
 ///
 /// SI: s−1, 1/s
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Hertz {
     pub prefix: Prefix,
@@ -281,7 +281,7 @@ pub struct Hertz {
 ///
 /// SI: 1, m/m
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Radian {
     pub prefix: Prefix,
@@ -293,7 +293,7 @@ pub struct Radian {
 ///
 /// SI: (π / 180) rad (≈ 17.5 mrad)
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Degree {
     pub prefix: Prefix,
@@ -305,7 +305,7 @@ pub struct Degree {
 ///
 /// SI: 1, m2/m2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Steradian {
     pub prefix: Prefix,
@@ -317,7 +317,7 @@ pub struct Steradian {
 ///
 /// SI: kg⋅m⋅s−2, kg⋅m/s2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Newton {
     pub prefix: Prefix,
@@ -329,7 +329,7 @@ pub struct Newton {
 ///
 /// SI: kg⋅m−1⋅s−2, N/m2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Pascal {
     pub prefix: Prefix,
@@ -341,7 +341,7 @@ pub struct Pascal {
 ///
 /// SI: kg⋅m2⋅s−2, m⋅N, C⋅V, W⋅s
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Joule {
     pub prefix: Prefix,
@@ -353,7 +353,7 @@ pub struct Joule {
 ///
 /// SI: kg⋅m2⋅s−3, J/s, V⋅A
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Watt {
     pub prefix: Prefix,
@@ -365,7 +365,7 @@ pub struct Watt {
 ///
 /// SI: s⋅A, A⋅s, F⋅V
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Coulomb {
     pub prefix: Prefix,
@@ -377,7 +377,7 @@ pub struct Coulomb {
 ///
 /// SI: kg⋅m2⋅s−3⋅A−1, J/C, W/A
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Volt {
     pub prefix: Prefix,
@@ -389,7 +389,7 @@ pub struct Volt {
 ///
 /// SI: kg−1⋅m−2⋅s4⋅A2, C/V, s/Ω
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Farad {
     pub prefix: Prefix,
@@ -401,7 +401,7 @@ pub struct Farad {
 ///
 /// SI: kg⋅m2⋅s−3⋅A−2, V/A, 1/S
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Ohm {
     pub prefix: Prefix,
@@ -413,7 +413,7 @@ pub struct Ohm {
 ///
 /// SI: kg−1⋅m−2⋅s3⋅A2, A/V, 1/Ω
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Siemens {
     pub prefix: Prefix,
@@ -425,7 +425,7 @@ pub struct Siemens {
 ///
 /// SI: kg⋅m2⋅s−2⋅A−1, V⋅s, T⋅m2, J/A
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Weber {
     pub prefix: Prefix,
@@ -437,7 +437,7 @@ pub struct Weber {
 ///
 /// SI: kg⋅s−2⋅A−1, N/(A⋅m), Wb/m2, V⋅s/m2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Tesla {
     pub prefix: Prefix,
@@ -449,7 +449,7 @@ pub struct Tesla {
 ///
 /// SI: kg⋅m2⋅s−2⋅A−2, V⋅s/A, Wb/A, Ω⋅s
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Henry {
     pub prefix: Prefix,
@@ -461,7 +461,7 @@ pub struct Henry {
 ///
 /// SI: K
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct DegreeCelsius {
     pub prefix: Prefix,
@@ -473,7 +473,7 @@ pub struct DegreeCelsius {
 ///
 /// SI: cd, cd⋅sr
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Lumen {
     pub prefix: Prefix,
@@ -485,7 +485,7 @@ pub struct Lumen {
 ///
 /// SI: cd⋅m−2, lm/m2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Lux {
     pub prefix: Prefix,
@@ -497,7 +497,7 @@ pub struct Lux {
 ///
 /// SI: s−1, 1/s
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Becquerel {
     pub prefix: Prefix,
@@ -509,7 +509,7 @@ pub struct Becquerel {
 ///
 /// SI: m2⋅s−2, J/kg
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Gray {
     pub prefix: Prefix,
@@ -521,7 +521,7 @@ pub struct Gray {
 ///
 /// SI: m2⋅s−2, J/kg
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Sievert {
     pub prefix: Prefix,
@@ -533,7 +533,7 @@ pub struct Sievert {
 ///
 /// SI: s−1⋅mol, mol/s
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Katal {
     pub prefix: Prefix,
@@ -544,7 +544,7 @@ pub struct Katal {
 /// Logarithmic ratio quantity
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct DeciBel {
     pub value: NumericValue,
@@ -553,7 +553,7 @@ pub struct DeciBel {
 /// Logarithmic ratio quantity relative to mW
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct DeciBelmW {
     pub value: NumericValue,
@@ -564,7 +564,7 @@ pub struct DeciBelmW {
 ///
 /// SI: 0.001 m3
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Litre {
     pub prefix: Prefix,
@@ -576,7 +576,7 @@ pub struct Litre {
 ///
 /// SI: J, kg⋅m2⋅s−2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct ElectronVolt {
     pub prefix: Prefix,
@@ -589,7 +589,7 @@ pub struct ElectronVolt {
 ///
 /// SI: m⋅s−1
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Speed {
     pub prefix: Prefix,
@@ -601,7 +601,7 @@ pub struct Speed {
 ///
 /// SI: m⋅s−2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Acceleration {
     pub prefix: Prefix,
@@ -613,7 +613,7 @@ pub struct Acceleration {
 ///
 /// SI: m⋅s−3
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Jerk {
     pub prefix: Prefix,
@@ -625,7 +625,7 @@ pub struct Jerk {
 ///
 /// SI: m⋅s−4
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Snap {
     pub prefix: Prefix,
@@ -637,7 +637,7 @@ pub struct Snap {
 ///
 /// SI: m⋅kg⋅s−3
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct Yank {
     pub prefix: Prefix,
@@ -649,7 +649,7 @@ pub struct Yank {
 ///
 /// SI: s−1
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct AngularVelocity {
     pub prefix: Prefix,
@@ -661,7 +661,7 @@ pub struct AngularVelocity {
 ///
 /// SI: s−2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct AngularAcceleration {
     pub prefix: Prefix,
@@ -673,7 +673,7 @@ pub struct AngularAcceleration {
 ///
 /// SI: s−2
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct HertzPerSecond {
     pub prefix: Prefix,
@@ -685,7 +685,7 @@ pub struct HertzPerSecond {
 ///
 /// SI: m3⋅s−1
 #[derive_shrink_wrap]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[final_structure]
 pub struct VolumetricFlow {
     pub prefix: Prefix,

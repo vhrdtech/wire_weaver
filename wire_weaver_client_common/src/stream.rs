@@ -50,47 +50,68 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 
     /// Receive one data event and deserialize it.
-    /// Returns an error if any kind of sideband event is received instead.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv_blocking] for a blocking variant of this method.
     pub async fn recv(&mut self) -> Result<T, StreamError> {
-        let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-        let StreamEvent::Data(bytes) = &ev else {
-            return Err(StreamError::UnexpectedEvent(ev));
+        let bytes = loop {
+            let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
+            if matches!(ev, StreamEvent::Connected) {
+                continue;
+            }
+            let StreamEvent::Data(bytes) = ev else {
+                return Err(StreamError::UnexpectedEvent(ev));
+            };
+            break bytes;
         };
-        let data = T::from_ww_bytes_owned(bytes)?;
+        let data = T::from_ww_bytes_owned(&bytes)?;
         Ok(data)
     }
 
     /// Receive one data event in a blocking manner and deserialize it.
-    /// Returns an error if any kind of sideband event is received instead.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv] for an asynchronous variant of this method.
     pub fn recv_blocking(&mut self) -> Result<T, StreamError> {
-        let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-        let StreamEvent::Data(bytes) = &ev else {
-            return Err(StreamError::UnexpectedEvent(ev));
+        let bytes = loop {
+            let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
+            if matches!(ev, StreamEvent::Connected) {
+                continue;
+            }
+            let StreamEvent::Data(bytes) = ev else {
+                return Err(StreamError::UnexpectedEvent(ev));
+            };
+            break bytes;
         };
-        let data = T::from_ww_bytes_owned(bytes)?;
+        let data = T::from_ww_bytes_owned(&bytes)?;
         Ok(data)
     }
 
     /// Try to receive one data event and deserialize it.
-    /// Returns an error if any kind of sideband event is received instead.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv] for an asynchronous variant of this method.
     pub fn try_recv(&mut self) -> Result<Option<T>, StreamError> {
-        match self.rx.try_recv() {
-            Ok(ev) => {
-                let StreamEvent::Data(bytes) = &ev else {
-                    return Err(StreamError::UnexpectedEvent(ev));
-                };
-                let data = T::from_ww_bytes_owned(bytes)?;
-                Ok(Some(data))
+        let bytes = loop {
+            match self.rx.try_recv() {
+                Ok(ev) => {
+                    if matches!(ev, StreamEvent::Connected) {
+                        continue;
+                    }
+                    let StreamEvent::Data(bytes) = ev else {
+                        return Err(StreamError::UnexpectedEvent(ev));
+                    };
+                    break bytes;
+                }
+                Err(TryRecvError::Empty) => return Ok(None),
+                Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
             }
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(StreamError::Closed),
-        }
+        };
+        let data = T::from_ww_bytes_owned(&bytes)?;
+        Ok(Some(data))
     }
 
     /// Receive one event of any kind (data or sideband), deserialize if data is received.

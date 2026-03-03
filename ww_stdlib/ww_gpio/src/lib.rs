@@ -173,6 +173,7 @@ pub enum Speed {
 #[ww_repr(u2)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
+// TODO: Add optional timestamp?
 pub enum IoPinEvent {
     RisingEdge,
     FallingEdge,

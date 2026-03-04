@@ -24,6 +24,7 @@ embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime
 embassy-sync = { version = "0.7.2", features = ["defmt"] }
 embassy-usb = { version = "0.5", features = ["defmt"] }
 static_cell = "2.1"
+bbqueue = "0.6"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
@@ -40,6 +41,20 @@ ww_si = { path = "../../ww_stdlib/ww_si", default-features = false }
 [[bin]]
 name = "blinky"
 path = "src/bin/blinky.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "all_gpio"
+path = "src/bin/all_gpio.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "uart"
+path = "src/bin/uart.rs"
 test = false
 doctest = false
 bench = false

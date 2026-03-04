@@ -1,0 +1,22 @@
+[package]
+name = "uart"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+uart_api = { path = "../uart_api" }
+ww_uart = { path = "../../ww_stdlib/ww_uart", features = ["std"] }
+wire_weaver = { workspace = true }
+wire_weaver_client_common = { workspace = true }
+wire_weaver_usb_host = { workspace = true }
+ww_client_server = { workspace = true }
+tokio = { version = "1", features = ["sync", "rt"] }
+
+[features]
+usb-tracing = ["wire_weaver_usb_host/usb-tracing"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = "0.3"
+tracing = "0.1"
+anyhow = "1"

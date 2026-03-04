@@ -111,6 +111,8 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/all_gpio/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/all_gpio/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/all_gpio_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/uart/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/uart/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/uart_api/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />

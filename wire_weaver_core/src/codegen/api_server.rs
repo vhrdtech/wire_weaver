@@ -272,50 +272,63 @@ fn level_matchers(
             cx,
             error_seq,
         ),
-        Multiplicity::Array { index_type_idx } => {
+        Multiplicity::Array { .. } => {
             let check_err_on_no_alloc = if cx.no_alloc {
                 let es = error_seq.next_err();
                 quote! { .map_err(|_| Error::new(#es, ErrorKind::ArrayIndexDesFailed))? }
             } else {
-                quote! { }
+                quote! {}
             };
-            let es = error_seq.next_err();
-            let mut index_chain = index_chain;
+            let mut index_chain_with_this_index = index_chain;
             let maybe_index_chain_push =
-                index_chain.push_back(
-                    quote! { },
-                    quote! { path_iter.next().ok_or(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))?#check_err_on_no_alloc }
-                );
+                index_chain_with_this_index.push_back(quote! {}, quote! { index });
             let lm = level_matcher(
                 api_bundle,
                 item,
                 level_name_chain,
-                index_chain,
+                index_chain_with_this_index,
                 mod_ident(api_level, crate_name),
                 cx,
                 error_seq,
             );
-            let maybe_validate_index = if index_type_idx.is_some() {
-                quote! { }
-            } else {
-                let validate_index_fn = Ident::new(
-                    format!(
-                        "validate_index_{}",
-                        item.ident.to_case(Case::Snake)
-                    )
-                        .as_str(),
-                    Span::call_site(),
-                );
-                quote! {
-                    if let Err(_) = self.#validate_index_fn(index_chain) {
-                        return Err(Error::new(#es, ErrorKind::BadIndex));
-                    }
+
+            let valid_indices = Ident::new(
+                format!(
+                    "valid_indices_{level_name_chain}_{}",
+                    item.ident.to_case(Case::Snake)
+                )
+                    .as_str(),
+                Span::call_site(),
+            );
+            let maybe_index_chain_arg = index_chain.fun_argument_call();
+            let es = error_seq.next_err();
+            let validate_index = quote! {
+                if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
+                    return Err(Error::new(#es, ErrorKind::BadIndex));
                 }
             };
+            let es0 = error_seq.next_err();
+            let es1 = error_seq.next_err();
+            let es2 = error_seq.next_err();
             quote! {
-                #maybe_index_chain_push
-                #maybe_validate_index
-                #lm
+                match path_iter.next() {
+                    Some(index) => {
+                        let index = index #check_err_on_no_alloc;
+                        #validate_index
+                        #maybe_index_chain_push
+                        #lm
+                    }
+                    None => {
+                        if let RequestKind::Read /* ValidIndices */ = request.kind {
+                            let indices = self.#valid_indices(#maybe_index_chain_arg);
+                            let indices_bytes = indices.to_ww_bytes(scratch_args).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                            Ok(ser_ok_event(scratch_event, request.seq, EventKind::ReadValue { data: RefVec::new_bytes(indices_bytes) })
+                                .map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?)
+                        } else {
+                            Err(Error::new(#es2, ErrorKind::ExpectedArrayIndexGotNone))
+                        }
+                    }
+                }
             }
         }
     });

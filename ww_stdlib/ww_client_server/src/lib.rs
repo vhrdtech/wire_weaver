@@ -35,10 +35,10 @@ pub struct Request<'i> {
 }
 
 /// Path to a resource.
-/// 3 modes of addressing is supported:
-/// * Absolute - only the number path to a resource is used, smallest size
+/// 3 modes of addressing are supported:
+/// * Absolute - only the number path to a resource is used, the smallest size
 /// * GlobalCompact - request to a trait resource, for commonly used traits that are used often and have an ID assigned
-/// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and it's version is used as an ID
+/// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and its version is used as an ID
 ///
 /// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
 #[derive_shrink_wrap]
@@ -113,6 +113,9 @@ pub enum RequestKind<'i> {
     /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
     /// Optional, for simplicity can be implemented only at root level, sending all API tree.
     Introspect,
+    // Get [ValidIndices] for an array resource.
+    // ValidIndices, -> requested as Read
+
     // Version,
     // Borrow,
     // Release,
@@ -158,12 +161,10 @@ pub enum EventKind<'i> {
     /// Sent in response to RequestKind::Call, unless request ID is 0.
     ReturnValue {
         /// Serialized return value of a method.
-        /// If user-defined type is used, it is serialized directly. If one of the built-in types is used, it is put into a
-        /// struct and that struct is serialized instead.
         data: RefVec<'i, u8>,
     },
 
-    /// Send in response to RequestKind::Read.
+    /// Sent in response to RequestKind::Read.
     ReadValue {
         /// Serialized property value.
         data: RefVec<'i, u8>,
@@ -172,14 +173,14 @@ pub enum EventKind<'i> {
     /// Sent in response to RequestKind::Write, only for properties and when request ID is not 0.
     Written,
 
-    /// Sent by user code whenever stream have more data or whenever applicable.
+    /// Sent by user code whenever a stream has more data or whenever applicable.
     StreamData {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
-        /// Stream data, can be a whole frame or a chunk of a byte stream.
+        /// Stream data can be a whole frame or a chunk of a byte stream.
         data: RefVec<'i, u8>,
     },
-    /// Optionally sent by user in response to RequestKind::StreamSideband or whenever applicable.
+    /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
@@ -199,6 +200,8 @@ pub enum EventKind<'i> {
 
     /// Sent in response to [RequestKind::Introspect] potentially in multiple chunks.
     Introspect { ww_self_bytes_chunk: RefVec<'i, u8> },
+    // Sent in response to [RequestKind::ValidIndices] only for resources that are arrays.
+    // ValidIndices { indices: ValidIndices<'i> }, -> answered as ReadValue
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.

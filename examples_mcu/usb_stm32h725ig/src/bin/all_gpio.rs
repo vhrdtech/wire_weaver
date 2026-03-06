@@ -478,21 +478,12 @@ impl ServerState {
         Err(Error::UnsupportedEventType)
     }
 
-    fn validate_index_port(&mut self, index: [UNib32; 1]) -> Result<(), ()> {
-        let bank_idx = index[0].0 as usize;
-        if bank_idx < self.bank.len() {
-            Ok(())
-        } else {
-            Err(())
-        }
+    fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
+        ValidIndices::Range(0..self.bank.len() as u32)
     }
 
-    fn validate_index_pin(&mut self, index: [UNib32; 2]) -> Result<(), ()> {
-        let pin_idx = index[1].0 as usize;
-        if pin_idx < 16 {
-            Ok(())
-        } else {
-            Err(())
-        }
+    fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_> {
+        let _pin_idx = index[0].0 as usize;
+        ValidIndices::Range(0..16)
     }
 }

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 blinky_api = { path = "../blinky_api" } # on purpose link to blinky_api here to demonstrate how #[since = ""] works
+blinky_api_evolved = { path = "../blinky_api_evolved" }
 wire_weaver = { workspace = true }
 wire_weaver_client_common = { workspace = true }
 wire_weaver_usb_host = { workspace = true }

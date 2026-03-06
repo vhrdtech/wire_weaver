@@ -107,7 +107,7 @@ pub struct ApiItem<'i> {
 #[derive_shrink_wrap]
 #[ww_repr(u2)]
 #[self_describing]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[serde = "serde"]
 pub enum Multiplicity {
     Flat,

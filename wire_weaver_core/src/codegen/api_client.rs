@@ -94,7 +94,7 @@ pub fn client(
             DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib32::UNib32, RefVec
         };
-        use wire_weaver::ww_version;
+        use wire_weaver::{ww_version, ValidIndicesOwned};
         use wire_weaver_client_common::StreamEvent;
         use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
         #additional_use
@@ -272,14 +272,14 @@ fn level_method(
     api_crate: &str,
 ) -> TokenStream {
     let id = item.id.0;
-    let index_chain_push = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
+    let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
-        Multiplicity::Flat => (index_chain_push, quote! {}),
+        Multiplicity::Flat => (index_chain_push_pre.clone(), quote! {}),
         Multiplicity::Array {
             index_type_idx: None,
         } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index) });
-            (quote! { #index_chain_push #p }, quote! { , index: u32 })
+            (quote! { #index_chain_push_pre #p }, quote! { , index: u32 })
         }
         Multiplicity::Array {
             index_type_idx: Some(type_idx),
@@ -288,13 +288,13 @@ fn level_method(
             let ty = api_bundle.get_ty(type_idx.0).unwrap().0;
             let ty = ty_def(api_bundle, ty, false, true).unwrap();
             (
-                quote! { #index_chain_push #p },
+                quote! { #index_chain_push_pre #p },
                 quote! { , index: #api_crate::#ty },
             )
         }
     };
     let ident = Ident::new(&item.ident, Span::call_site());
-    match &item.kind {
+    let lm = match &item.kind {
         ApiItemKindOwned::Method { args, return_ty } => handle_method(
             api_bundle,
             model,
@@ -348,6 +348,20 @@ fn level_method(
                         cmd_tx: #maybe_ref_mut self.cmd_tx,
                     }
                 }
+            }
+        }
+    };
+    if item.multiplicity == Multiplicity::Flat {
+        lm
+    } else {
+        let read_fn_name = Ident::new(&format!("{}_valid_indices", item.ident), Span::call_site());
+        let path_kind = path_kind(path_mode, gid_paths);
+        quote! {
+            #lm
+            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<ValidIndicesOwned> {
+                #index_chain_push_pre
+                let path_kind = #path_kind;
+                self.cmd_tx.prepare_read(path_kind)
             }
         }
     }

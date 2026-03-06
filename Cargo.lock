@@ -198,6 +198,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky_api",
+ "blinky_api_evolved",
  "clap",
  "clap-repl",
  "console 0.16.2",

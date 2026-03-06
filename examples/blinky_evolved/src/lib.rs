@@ -1,9 +1,9 @@
 use std::time::Duration;
-use wire_weaver::ww_api;
 use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct Blinky {
+    #[allow(dead_code)]
     args_scratch: [u8; 4096],
     cmd_tx: CommandSender,
 }
@@ -36,9 +36,8 @@ impl Blinky {
 }
 
 mod api_client {
-    use super::*;
-    ww_api!(
-        "../blinky_api_evolved/src/lib.rs" as blinky_api::BlinkyApi for Blinky,
+    wire_weaver::ww_codegen!(
+        "../blinky_api_evolved" :: BlinkyApi for Blinky,
         client = "async_worker+usb",
         no_alloc = true,
         use_async = true,

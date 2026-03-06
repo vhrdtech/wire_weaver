@@ -160,12 +160,14 @@ impl CrateContext {
             return Ok(crate_cx.clone());
         }
         let lib_rs = load_lib_rs(&manifest.crate_path)?;
-        Ok(Rc::new(Self {
+        let crate_cx = Self {
             // crate_path: manifest.crate_path.to_path_buf(),
             manifest,
             version,
             lib_rs_ast: lib_rs,
-        }))
+        };
+        scratch.root_bundle.find_crate_or_create(&crate_cx); // ensure crate name is in ext_crates
+        Ok(Rc::new(crate_cx))
     }
 
     pub(crate) fn load_dependent_crate(

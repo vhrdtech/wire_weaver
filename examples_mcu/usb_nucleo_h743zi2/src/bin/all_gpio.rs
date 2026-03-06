@@ -60,13 +60,13 @@ struct ServerState {
 }
 
 mod server_impl {
-    wire_weaver::ww_api!(
-        "../../examples/all_gpio_api/src/lib.rs" as all_gpio_api::AllGpioApi for ServerState,
+    wire_weaver::ww_codegen!(
+        "../../examples/all_gpio_api" :: AllGpioApi for ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = true,
-        debug_to_file = "./target/generated_all_gpio.rs"
+        debug_to_file = "./target/generated_all_gpio_server.rs"
     );
 }
 

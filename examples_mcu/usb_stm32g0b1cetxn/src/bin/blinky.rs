@@ -57,12 +57,12 @@ struct ServerState {
 
 mod server_impl {
     wire_weaver::ww_api!(
-        "../../examples/blinky_api/src/lib.rs" as blinky_api::BlinkyApi for ServerState,
+        "../../examples/blinky_api" :: BlinkyApi for ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = true,
-        debug_to_file = "./target/generated_no_std_server.rs"
+        debug_to_file = "./target/generated_blinky_server.rs"
     );
 }
 

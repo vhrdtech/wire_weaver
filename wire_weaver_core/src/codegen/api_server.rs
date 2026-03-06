@@ -229,7 +229,7 @@ fn process_request_inner_recursive(
             api_bundle,
             level,
             index_chain,
-            api_level.crate_name(api_bundle).unwrap(),
+            level.crate_name(api_bundle).unwrap(),
             &cx,
             error_seq,
             None,
@@ -289,7 +289,7 @@ fn level_matchers(
             let lm = level_matcher(
                 api_bundle,
                 item,
-                &level_name_chain,
+                level_name_chain,
                 index_chain,
                 mod_ident(api_level, crate_name),
                 cx,
@@ -718,20 +718,7 @@ fn ser_method_output(
     if let Some(_ty) = return_type {
         let es = errors_seq.next_err();
         let ser_output = quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; };
-        // let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
-        //     quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
-        // } else {
-        //     let output_struct_name = Ident::new(
-        //         format!("{}_output", ident).to_case(Case::Pascal).as_str(),
-        //         Span::call_site(),
-        //     );
-        //     quote! {
-        //         let output = #mod_ident::#output_struct_name {
-        //             output
-        //         };
-        //         output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
-        //     }
-        // };
+
         let es0 = errors_seq.next_err();
         let es1 = errors_seq.next_err();
         let es2 = errors_seq.next_err();

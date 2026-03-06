@@ -3136,6 +3136,7 @@ dependencies = [
  "human-repr",
  "indicatif",
  "proc-macro2",
+ "ron",
  "shrink_wrap_core",
  "syn",
  "tokio",

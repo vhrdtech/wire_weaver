@@ -1,7 +1,6 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::path::PathBuf;
 use syn::{Error, ItemTrait};
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -11,10 +10,10 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
     let item_trait: ItemTrait = syn::parse2(item)?;
-    let trait_name = item_trait.ident.to_string();
-    let crate_path = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
-    );
+    // let trait_name = item_trait.ident.to_string();
+    // let crate_path = PathBuf::from(
+    //     std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
+    // );
     // let api_level = load_v2(&crate_path, Some(trait_name), false)
     //     .map_err(|e| Error::new(Span::call_site(), e))?;
     //

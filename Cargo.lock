@@ -30,6 +30,7 @@ dependencies = [
  "ww_client_server",
  "ww_gpio",
  "ww_self",
+ "ww_si",
 ]
 
 [[package]]

@@ -13,24 +13,13 @@ pub(crate) fn introspect(
 ) -> (TokenStream, TokenStream) {
     // let mut api_bundle_no_docs = api_bundle.clone();
     // visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
-    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
-    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
-    let bytes_len = bytes.len();
-    let ww_self_bytes_const = quote! {
-        [u8; #bytes_len] = [ #(#bytes),* ]
-    };
 
-    // TODO: calculate api signature properly
-    let sha256 = sha2::Sha256::digest(bytes);
-    let short_hash = &sha256[..8];
-    let api_signature = quote! { [u8; 8] = [ #(#short_hash),* ]};
-    crate::local_registry::cache_api_bundle(&api_bundle, short_hash);
-
-    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
+    let (ww_self_bytes_const, api_signature) = introspect_prepare(api_bundle);
     if !use_async {
         // TODO: sync variant of MessageSink
         return (quote! {}, api_signature);
     }
+    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
     let es0 = error_seq.next_err();
     let es1 = error_seq.next_err();
     let handle_introspect = if enabled {
@@ -62,6 +51,23 @@ pub(crate) fn introspect(
         }
     };
     (handle_introspect, api_signature)
+}
+
+pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned) -> (TokenStream, TokenStream) {
+    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
+    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
+    let bytes_len = bytes.len();
+    let ww_self_bytes_const = quote! {
+        [u8; #bytes_len] = [ #(#bytes),* ]
+    };
+
+    // TODO: calculate api signature properly
+    let sha256 = sha2::Sha256::digest(bytes);
+    let short_hash = &sha256[..8];
+    let api_signature = quote! { [u8; 8] = [ #(#short_hash),* ]};
+    crate::local_registry::cache_api_bundle(api_bundle, short_hash);
+
+    (ww_self_bytes_const, api_signature)
 }
 
 // struct DropDocs {}

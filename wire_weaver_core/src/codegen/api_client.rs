@@ -2,6 +2,7 @@
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
+use crate::codegen::server::introspect::introspect_prepare;
 use crate::codegen::ty_def::ty_def;
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
@@ -61,7 +62,7 @@ pub fn client(
     };
     let api_level = &api_bundle.root;
     let hl_init = if model == ClientModel::StdFullClient {
-        let d = connect_disconnect_methods(usb_connect, api_level);
+        let d = connect_disconnect_methods(usb_connect, api_bundle);
         quote! {
             impl super::#client_struct {
                 #d
@@ -222,6 +223,8 @@ fn client_structs_recursive(
     ts.extend(quote! {
         mod #mod_name {
             use super::*;
+
+            use wire_weaver::shrink_wrap::prelude::*;
             #args_structs
 
             #impl_new_or_user_struct
@@ -370,8 +373,9 @@ fn handle_method(
 
     let path_kind = path_kind(path_mode, gid_paths);
     let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
+    let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
-        // #docs
+        #(#docs)*
         pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
@@ -530,9 +534,8 @@ fn ser_args(
     }
 }
 
-fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevelOwned) -> TokenStream {
-    // let (ww_self_bytes_const, api_signature_bytes) =
-    //     crate::codegen::introspect::introspect(api_level);
+fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
+    let (ww_self_bytes_const, api_signature_bytes) = introspect_prepare(api_bundle);
     let connect_fn = |is_async: bool| {
         let maybe_async = maybe_quote(is_async, quote! { async });
         let maybe_await = maybe_quote(is_async, quote! { .await });
@@ -563,9 +566,7 @@ fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevelOwned) -> T
                     wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
                 });
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
-                // pub const WW_SELF_BYTES: #ww_self_bytes_const;
-                // pub const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
-                cmd_tx.set_client_introspect_bytes(&WW_SELF_BYTES, &WW_API_SIGNATURE_BYTES);
+                cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
                 Ok(Self {
                     args_scratch: scratch,
                     cmd_tx,
@@ -581,6 +582,16 @@ fn connect_disconnect_methods(usb_connect: bool, api_level: &ApiLevelOwned) -> T
     quote! {
         #connect_async
         #connect_blocking
+
+        fn introspect_bytes() -> &'static [u8] {
+            const WW_SELF_BYTES: #ww_self_bytes_const;
+            &WW_SELF_BYTES
+        }
+
+        fn api_signature() -> &'static [u8] {
+            const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
+            &WW_API_SIGNATURE_BYTES
+        }
 
         pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();

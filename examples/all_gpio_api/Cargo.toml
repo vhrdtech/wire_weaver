@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 wire_weaver = { workspace = true }
+ww_gpio.workspace = true
 defmt = { version = "1.0", optional = true }
 
 [features]

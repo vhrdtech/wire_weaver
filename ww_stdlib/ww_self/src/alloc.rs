@@ -16,10 +16,16 @@ impl ApiItemOwned {
         let ApiItemKindOwned::Trait { trait_idx } = &self.kind else {
             return Err(anyhow!("ApiItem is not Trait"));
         };
-        let location = bundle.traits.get(trait_idx.0 as usize).ok_or(anyhow!(
-            "Bad ApiBundle: no trait with index: {}",
-            trait_idx.0
-        ))?;
+        bundle.get_trait(trait_idx.0)
+    }
+}
+
+impl ApiBundleOwned {
+    pub fn get_trait(&self, trait_idx: u32) -> Result<&ApiLevelOwned> {
+        let location = self
+            .traits
+            .get(trait_idx as usize)
+            .ok_or(anyhow!("Bad ApiBundle: no trait with index: {}", trait_idx))?;
         let ApiLevelLocationOwned::InLine {
             level,
             crate_idx: _,
@@ -27,14 +33,12 @@ impl ApiItemOwned {
         else {
             return Err(anyhow!(
                 "Not resolved ApiBundle: trait with index: {} is not inlined",
-                trait_idx.0
+                trait_idx
             ));
         };
         Ok(level)
     }
-}
 
-impl ApiBundleOwned {
     pub fn get_ty(&self, type_idx: u32) -> Result<(&TypeOwned, u32)> {
         let location = self
             .types

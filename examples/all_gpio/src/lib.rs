@@ -1,5 +1,4 @@
 use std::time::Duration;
-use wire_weaver::ww_api;
 use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
@@ -36,9 +35,8 @@ impl AllGpio {
 }
 
 mod api_client {
-    use super::*;
-    ww_api!(
-        "../all_gpio_api/src/lib.rs" as all_gpio_api::AllGpioApi for AllGpio,
+    wire_weaver::ww_codegen!(
+        "../all_gpio_api" :: AllGpioApi for AllGpio,
         client = "async_worker+usb",
         no_alloc = true,
         use_async = true,

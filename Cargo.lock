@@ -38,6 +38,7 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "wire_weaver",
+ "ww_gpio",
 ]
 
 [[package]]

@@ -186,7 +186,10 @@ fn convert_api_item_impl(
     idx: u32,
 ) -> Result<ApiItemOwned> {
     let args: StreamAndImplMacroArgs = parse2(item_macro.mac.tokens.clone())
-        .context("parsing ww_impl! arguments")
+        .context(format!(
+            "parsing ww_impl! arguments: '{}'",
+            item_macro.mac.tokens
+        ))
         .context(current_crate.err_context())?;
 
     let len = args.type_or_trait.path.segments.len();

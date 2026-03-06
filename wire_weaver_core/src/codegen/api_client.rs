@@ -3,6 +3,7 @@
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::ty_def::ty_def;
+use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -103,18 +104,6 @@ pub fn client(
     }
 }
 
-fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
-    Ident::new(
-        format!(
-            "{}_{}",
-            crate_name,
-            api_level.trait_name.to_case(Case::Snake)
-        )
-        .as_str(),
-        Span::call_site(),
-    )
-}
-
 fn client_struct_name(mod_name: &str) -> Ident {
     Ident::new(
         format!("{}_client", mod_name)
@@ -136,7 +125,7 @@ fn client_structs_recursive(
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
 
-    let mod_name = mod_name(crate_name, api_level);
+    let mod_name = util::mod_name(crate_name, api_level);
     let client_struct_name = client_struct_name(&mod_name.to_string());
     let full_gid = Ident::new(
         format!("{}_FULL_GID", api_level.trait_name)
@@ -344,7 +333,7 @@ fn level_method(
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
             let crate_name = level.crate_name(api_bundle).unwrap();
-            let mod_name = mod_name(crate_name, level);
+            let mod_name = util::mod_name(crate_name, level);
             let client_struct_name = client_struct_name(&mod_name.to_string());
             let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {

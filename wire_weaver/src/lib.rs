@@ -3,8 +3,9 @@
 mod test;
 
 pub use shrink_wrap;
+pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
-pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_trait};
+pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_codegen, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;
 

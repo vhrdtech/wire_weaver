@@ -1,25 +1,16 @@
-use crate::ast::api::ApiLevelSourceLocation;
 use anyhow::anyhow;
 use ron::ser::{to_string_pretty, PrettyConfig};
 use std::fs;
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned};
 
-pub(crate) fn cache_api_bundle(
-    source: &ApiLevelSourceLocation,
-    hash: &[u8],
-    api_bundle: &ApiBundleOwned,
-) {
-    if let Err(e) = cache_api_bundle_inner(source, hash, api_bundle) {
+pub(crate) fn cache_api_bundle(api_bundle: &ApiBundleOwned, hash: &[u8]) {
+    if let Err(e) = cache_api_bundle_inner(api_bundle, hash) {
         eprintln!("Failed to cache API bundle: {}", e);
     }
 }
 
-fn cache_api_bundle_inner(
-    source: &ApiLevelSourceLocation,
-    hash: &[u8],
-    api_bundle: &ApiBundleOwned,
-) -> anyhow::Result<()> {
-    let api_crate_name = source.crate_name();
+fn cache_api_bundle_inner(api_bundle: &ApiBundleOwned, hash: &[u8]) -> anyhow::Result<()> {
+    let api_crate_name = api_bundle.root.crate_name(api_bundle)?;
     if api_crate_name == "crate" || api_crate_name == "super" {
         // ignore tests
         return Ok(());
@@ -52,7 +43,7 @@ fn contains_docs(api_bundle: &ApiBundleOwned) -> bool {
         }
     }
     for t in &api_bundle.traits {
-        let ApiLevelLocationOwned::InLine(level) = t else {
+        let ApiLevelLocationOwned::InLine { level, .. } = t else {
             continue;
         };
         if !level.docs.is_empty() {

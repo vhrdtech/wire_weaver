@@ -1,15 +1,31 @@
 use crate::codegen::util::ErrorSeq;
 use proc_macro2::TokenStream;
 use quote::quote;
-use ww_self::ApiLevelOwned;
+use sha2::Digest;
+use shrink_wrap::SerializeShrinkWrap;
+use ww_self::ApiBundleOwned;
 
 pub(crate) fn introspect(
-    api_level: &ApiLevelOwned,
+    api_bundle: &ApiBundleOwned,
     enabled: bool,
     use_async: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
-    let (ww_self_bytes_const, api_signature) = crate::codegen::introspect::introspect(api_level);
+    // let mut api_bundle_no_docs = api_bundle.clone();
+    // visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
+    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
+    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
+    let bytes_len = bytes.len();
+    let ww_self_bytes_const = quote! {
+        [u8; #bytes_len] = [ #(#bytes),* ]
+    };
+
+    // TODO: calculate api signature properly
+    let sha256 = sha2::Sha256::digest(bytes);
+    let short_hash = &sha256[..8];
+    let api_signature = quote! { [u8; 8] = [ #(#short_hash),* ]};
+    crate::local_registry::cache_api_bundle(&api_bundle, short_hash);
+
     let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
     if !use_async {
         // TODO: sync variant of MessageSink
@@ -47,3 +63,11 @@ pub(crate) fn introspect(
     };
     (handle_introspect, api_signature)
 }
+
+// struct DropDocs {}
+//
+// impl ww_self::visitor::VisitMut for DropDocs {
+//     fn visit_doc(&mut self, doc: &mut String) {
+//         *doc = String::new();
+//     }
+// }

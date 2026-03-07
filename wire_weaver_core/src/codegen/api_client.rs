@@ -410,7 +410,7 @@ fn handle_property(
     user_result_ty: &Option<TypeOwned>,
 ) -> TokenStream {
     let path_kind = path_kind(path_mode, gid_paths);
-    let ty = ty_def(api_bundle, ty, model.no_alloc(), true).unwrap();
+    let ty = ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap();
 
     let write_fns = if matches!(
         access,
@@ -418,7 +418,7 @@ fn handle_property(
     ) {
         let write_fn_name = Ident::new(&format!("write_{}", prop_name), Span::call_site());
         let user_result_ty = if let Some(ty) = user_result_ty {
-            ty_def(api_bundle, ty, model.no_alloc(), true).unwrap()
+            ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap()
         } else {
             quote! { () }
         };
@@ -470,7 +470,7 @@ fn handle_stream(
     let ty_def = if ty.is_byte_slice(api_bundle).unwrap() {
         quote! { wire_weaver::shrink_wrap::raw_slice::RawSliceOwned }
     } else {
-        ty_def(api_bundle, ty, model.no_alloc(), true).unwrap()
+        ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap()
     };
     let path_kind = path_kind(path_mode, gid_paths);
 

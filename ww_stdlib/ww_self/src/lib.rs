@@ -3,6 +3,8 @@
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
+mod value;
+#[cfg(feature = "std")]
 pub mod visitor;
 
 use shrink_wrap::prelude::*;
@@ -11,6 +13,7 @@ use ww_version::{CompactVersion, FullVersion, VersionTriplet};
 
 #[cfg(feature = "std")]
 use ww_numeric::NumericAnyTypeOwned;
+use ww_numeric::NumericValue;
 #[cfg(feature = "std")]
 use ww_version::FullVersionOwned;
 
@@ -115,7 +118,7 @@ pub enum Multiplicity {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Clone, Debug)]
 #[owned = "std"]
 #[serde = "serde"]
@@ -218,9 +221,35 @@ pub enum Type<'i> {
 #[serde = "serde"]
 pub enum Value<'i> {
     Bool(bool),
-    Numeric(NumericBaseType),
+    Numeric(NumericValue),
     String(&'i str),
-    // TODO: the rest
+    Vec(RefVec<'i, Value<'i>>),
+    Array(RefVec<'i, Value<'i>>),
+    Tuple(RefVec<'i, Value<'i>>),
+    Struct {
+        ident: &str,
+        fields: FieldsValue<'i>,
+    },
+    Enum {
+        ident: &str,
+        variant: (&'i str, FieldsValue<'i>),
+        discriminant: u32,
+    },
+    Option(Option<RefBox<'i, Value<'i>>>),
+    Result(Result<RefBox<'i, Value<'i>>, RefBox<'i, Value<'i>>>),
+    Range(Range<NumericValue>),
+    RangeInclusive(RangeInclusive<NumericValue>),
+}
+
+#[derive_shrink_wrap]
+#[ww_repr(u2)]
+#[derive(Clone, Debug, PartialEq)]
+#[owned = "std"]
+#[serde = "serde"]
+pub enum FieldsValue<'i> {
+    Named(RefVec<'i, (&'i str, Value<'i>)>),
+    Unnamed(RefVec<'i, Value<'i>>),
+    Unit,
 }
 
 #[derive_shrink_wrap]
@@ -266,7 +295,7 @@ pub struct ItemEnum<'i> {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)] // TODO: actually leave u3 or u4 here
+#[ww_repr(u3)]
 #[sized]
 #[derive(Clone, Debug, PartialEq)]
 #[serde = "serde"]

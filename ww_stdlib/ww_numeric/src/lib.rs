@@ -123,7 +123,7 @@ pub enum SubTypeKind<'i> {
 #[defmt = "defmt"]
 #[serde = "serde"]
 pub enum NumericValue {
-    U4(Nibble),
+    Nibble(Nibble),
     U8(u8),
     U16(u16),
     U32(u32),
@@ -149,7 +149,7 @@ impl NumericValue {
     pub fn ty(&self) -> NumericBaseType {
         use NumericBaseType::*;
         match self {
-            NumericValue::U4(_) => Nibble,
+            NumericValue::Nibble(_) => Nibble,
             NumericValue::U8(_) => U8,
             NumericValue::U16(_) => U16,
             NumericValue::U32(_) => U32,
@@ -170,7 +170,7 @@ impl NumericValue {
 
     pub fn as_f32(&self) -> f32 {
         match *self {
-            NumericValue::U4(x) => x.value() as f32,
+            NumericValue::Nibble(x) => x.value() as f32,
             NumericValue::U8(x) => x as f32,
             NumericValue::U16(x) => x as f32,
             NumericValue::U32(x) => x as f32,

@@ -2,7 +2,9 @@
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
 pub mod buf_reader;
+
 pub use buf_reader::BufReader;
+use core::fmt::{Display, Formatter};
 pub mod buf_writer;
 pub use buf_writer::BufWriter;
 pub mod nib32;
@@ -53,6 +55,15 @@ pub enum Error {
     InvalidBitCount,
     SubtypeOutOfRange,
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 // impl Error {
 //     pub fn is_read_eob(&self) -> bool {

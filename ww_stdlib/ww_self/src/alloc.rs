@@ -3,6 +3,7 @@ use crate::{
     FieldsOwned, ItemEnumOwned, ItemStructOwned, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{anyhow, Result};
+use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 
 impl ApiLevelOwned {
@@ -64,6 +65,41 @@ impl ApiBundleOwned {
 
 impl TypeOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
+    pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+        match self {
+            TypeOwned::Bool => Ok(false),
+            TypeOwned::NumericAny(_) => Ok(false),
+            TypeOwned::OutOfLine { type_idx } => {
+                let ty = api_bundle.get_ty(type_idx.0)?;
+                ty.0.is_lifetime(api_bundle)
+            }
+            TypeOwned::Flag => Ok(false),
+            TypeOwned::String => Ok(true),
+            TypeOwned::Vec(_) => Ok(true),
+            TypeOwned::Array { ty, .. } => ty.is_lifetime(api_bundle),
+            TypeOwned::Tuple(types) => {
+                for ty in types {
+                    if ty.is_lifetime(api_bundle)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            TypeOwned::Struct(item_struct) => item_struct.is_lifetime(api_bundle),
+            TypeOwned::Enum(item_enum) => item_enum.is_lifetime(api_bundle),
+            TypeOwned::Option { some_ty } => some_ty.is_lifetime(api_bundle),
+            TypeOwned::Result { ok_ty, err_ty } => {
+                if ok_ty.is_lifetime(api_bundle)? {
+                    return Ok(true);
+                }
+                err_ty.is_lifetime(api_bundle)
+            }
+            TypeOwned::Box(_) => Ok(true),
+            TypeOwned::Range(_) => Ok(false),
+            TypeOwned::RangeInclusive(_) => Ok(false),
+        }
+    }
+
     pub fn is_unsized(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         match self {
             TypeOwned::Bool => Ok(false),
@@ -74,7 +110,7 @@ impl TypeOwned {
             }
             TypeOwned::Flag => Ok(false),
             TypeOwned::String => Ok(true),
-            TypeOwned::Vec(_) => Ok(true),
+            TypeOwned::Vec(_) => Ok(false), // Vec is UnsizedFinalStructure, see shrink_wrap::ElementSize
             TypeOwned::Array { ty, .. } => ty.is_unsized(api_bundle),
             TypeOwned::Tuple(types) => {
                 for ty in types {
@@ -84,8 +120,8 @@ impl TypeOwned {
                 }
                 Ok(false)
             }
-            TypeOwned::Struct(item_struct) => item_struct.is_unsized(api_bundle),
-            TypeOwned::Enum(item_enum) => item_enum.is_unsized(api_bundle),
+            TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
+            TypeOwned::Enum(item_enum) => Ok(item_enum.is_unsized()),
             TypeOwned::Option { some_ty } => some_ty.is_unsized(api_bundle),
             TypeOwned::Result { ok_ty, err_ty } => {
                 if ok_ty.is_unsized(api_bundle)? {
@@ -115,11 +151,11 @@ impl TypeOwned {
 }
 
 impl FieldsOwned {
-    fn is_unsized(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+    fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         match self {
             FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => {
                 for field in fields {
-                    if field.ty.is_unsized(api_bundle)? {
+                    if field.ty.is_lifetime(api_bundle)? {
                         return Ok(true);
                     }
                 }
@@ -132,19 +168,27 @@ impl FieldsOwned {
 
 impl ItemStructOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
-    pub fn is_unsized(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
-        self.fields.is_unsized(api_bundle)
+    pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+        self.fields.is_lifetime(api_bundle)
+    }
+
+    pub fn is_unsized(&self) -> bool {
+        self.size == ElementSize::Unsized
     }
 }
 
 impl ItemEnumOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
-    pub fn is_unsized(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+    pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         for variant in &self.variants {
-            if variant.fields.is_unsized(api_bundle)? {
+            if variant.fields.is_lifetime(api_bundle)? {
                 return Ok(true);
             }
         }
         Ok(false)
+    }
+
+    pub fn is_unsized(&self) -> bool {
+        self.size == ElementSize::Unsized
     }
 }

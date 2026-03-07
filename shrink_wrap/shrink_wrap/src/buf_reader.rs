@@ -1,7 +1,7 @@
-use crate::Error::OutOfBoundsRev;
 use crate::nib32::UNib32;
 use crate::un::read_unx;
-use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error};
+use crate::Error::OutOfBoundsRev;
+use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,23 +47,34 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
-    /// Align to nibble and read one nibble into 4 lower bits of u8.
+    #[deprecated]
+    pub fn read_u4(&mut self) -> Result<u8, Error> {
+        Ok(self.read_nib()?.value())
+    }
+
+    /// Align to nibble and read one [Nibble].
     /// Note that there is a method read_un8(4, val), that will also read 4 bits from the buffer,
     /// but will use an alignment of 1 bit instead.
-    pub fn read_u4(&mut self) -> Result<u8, Error> {
+    pub fn read_nib(&mut self) -> Result<Nibble, Error> {
         self.align_nibble();
         if self.nibbles_in_byte_left() == 0 {
             return Err(Error::OutOfBoundsReadU4);
         }
         if self.bit_idx == 7 {
             self.bit_idx = 3;
-            Ok(self.buf[self.byte_idx] >> 4)
+            Ok(Nibble::new_masked(self.buf[self.byte_idx] >> 4))
         } else {
-            let val = self.buf[self.byte_idx] & 0b1111;
+            let val = Nibble::new_masked(self.buf[self.byte_idx]);
             self.bit_idx = 7;
             self.byte_idx += 1;
             Ok(val)
         }
+    }
+
+    /// Align to nibble and read one nibble into 4 lower bits of u8.
+    /// See also [read_nib](Self::read_nib).
+    pub fn read_nib_value(&mut self) -> Result<u8, Error> {
+        Ok(self.read_nib()?.value())
     }
 
     read_unx!(read_un8, u8, 8);
@@ -506,8 +517,8 @@ mod tests {
         let byte = rd_split.read_u8().unwrap();
         assert_eq!(byte, 0x10);
         assert_eq!(rd.nibbles_left(), 1);
-        let nib = rd.read_u4().unwrap();
-        assert_eq!(nib, 0xA);
+        let nib = rd.read_nib().unwrap();
+        assert_eq!(nib.value(), 0xA);
     }
 
     #[test]
@@ -532,7 +543,7 @@ mod tests {
         // read_u4_rev after read_u4
         let mut rd = rd_seed;
         rd.read_u16().unwrap();
-        rd.read_u4().unwrap();
+        rd.read_nib().unwrap();
         assert_eq!(rd.nibbles_left(), 1);
         assert_eq!(rd.nibbles_in_byte_left(), 1);
         assert_eq!(rd.bits_in_byte_left(), 4);
@@ -556,7 +567,7 @@ mod tests {
         // read_bool meets read_u4_rev
         let mut rd = rd_seed;
         rd.read_u16().unwrap();
-        rd.read_u4().unwrap();
+        rd.read_nib().unwrap();
         rd.read_u4_rev().unwrap();
         assert!(rd.read_bool().is_err());
 

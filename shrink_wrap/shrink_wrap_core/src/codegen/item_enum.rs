@@ -20,7 +20,11 @@ impl ItemEnum {
         let docs = &self.docs;
         let cfg = &self.cfg;
         let cfg_attr_defmt = &self.defmt;
-        let cfg_attr_serde = if lifetime.is_empty() { &self.serde } else { &None };
+        let cfg_attr_serde = if lifetime.is_empty() {
+            &self.serde
+        } else {
+            &None
+        };
         let assert_size = if let Some(size) = &self.size_assumption {
             size.assert_element_size(&self.ident, &self.cfg)
         } else {
@@ -215,10 +219,10 @@ fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
             tokens.append_all(quote! { wr.write_bool(self.discriminant() != 0)?; });
             return;
         }
-        Repr::U(4) => ("write_u4", None),
-        Repr::U(8) => ("write_u8", None),
-        Repr::U(16) => ("write_u16", None),
-        Repr::U(32) => ("write_u32", None),
+        Repr::U8 => ("write_u8", None),
+        Repr::U16 => ("write_u16", None),
+        Repr::U32 => ("write_u32", None),
+        Repr::Nibble => ("write_nib_masked", None),
         Repr::UNib32 => ("write_unib32", None),
         Repr::U(bits) if bits < 8 => ("write_un8", Some(bits)),
         Repr::U(bits) if bits < 16 => ("write_un16", Some(bits)),
@@ -276,7 +280,8 @@ impl ToTokens for CGEnumSer<'_> {
                     let mut ser = quote!();
                     let mut idx_skip_flags = 0;
                     for ty in fields_unnamed {
-                        let field_name = Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
+                        let field_name =
+                            Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
                         let field_path = if matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
                             FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
                         } else {
@@ -316,10 +321,10 @@ impl ToTokens for CGEnumSer<'_> {
 fn read_discriminant(repr: Repr) -> TokenStream {
     let (write_fn, bits) = match repr {
         Repr::U(1) => return quote! { read_bool()? as u8 },
-        Repr::U(4) => ("read_u4", None),
-        Repr::U(8) => ("read_u8", None),
-        Repr::U(16) => ("read_u16", None),
-        Repr::U(32) => ("read_u32", None),
+        Repr::U8 => ("read_u8", None),
+        Repr::U16 => ("read_u16", None),
+        Repr::U32 => ("read_u32", None),
+        Repr::Nibble => ("read_nib_value", None),
         Repr::UNib32 => ("read_unib32", None),
         Repr::U(bits) if bits < 8 => ("read_un8", Some(bits)),
         Repr::U(bits) if bits < 16 => ("read_un16", Some(bits)),
@@ -413,7 +418,8 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                     let mut des_fields = TokenStream::new();
                     let mut idx_skip_flags = 0;
                     for ty in fields_unnamed {
-                        let field_name = Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
+                        let field_name =
+                            Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
                         if !matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
                             idx_skip_flags += 1;
                             field_names.push(field_name.clone());

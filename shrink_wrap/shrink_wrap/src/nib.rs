@@ -52,7 +52,7 @@ impl SerializeShrinkWrap for Nibble {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_u4(self.value())
+        wr.write_nib(*self)
     }
 }
 
@@ -60,7 +60,7 @@ impl<'i> DeserializeShrinkWrap<'i> for Nibble {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        Ok(Nibble(rd.read_u4()?))
+        rd.read_nib()
     }
 }
 
@@ -68,7 +68,7 @@ impl DeserializeShrinkWrapOwned for Nibble {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-        Ok(Nibble(rd.read_u4()?))
+        rd.read_nib()
     }
 }
 

@@ -67,6 +67,7 @@ fn transform_path_segment(
     let ident = path_segment.ident.to_string();
     let ty = match ident.as_str() {
         "bool" => Type::Bool,
+        "nib" | "Nibble" => Type::Nibble,
         "u8" => Type::U8,
         "u16" => Type::U16,
         "u32" => Type::U32,

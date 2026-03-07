@@ -42,7 +42,7 @@ pub struct Request<'i> {
 ///
 /// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug, Clone)]
@@ -69,7 +69,7 @@ pub enum PathKind<'i> {
 
 /// Operation (call, read, write, etc.) to be performed on a resource.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
@@ -126,7 +126,7 @@ pub enum RequestKind<'i> {
 /// Optional, user can choose to send stream updates without using the sideband channel.
 /// This is a separate enum to make generated code more convenient - only one function for user to implement.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[derive(Debug, Copy, Clone)]
 pub enum StreamSidebandCommand {
@@ -153,7 +153,7 @@ pub struct Event<'i> {
 
 /// Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
@@ -207,7 +207,7 @@ pub enum EventKind<'i> {
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
 /// Optional, user can choose to send stream updates without using the sideband channel.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum StreamSidebandEvent {
@@ -271,7 +271,7 @@ pub enum ErrorKind<'i> {
 
 /// Optional shaper configuration request.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Debug, Copy, Clone)]
 pub enum ShaperConfig {
     NoLimit,

@@ -80,7 +80,9 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
             // println!("rx frame: {:?}", frame);
             let mut rd = BufReader::new(packet);
             while rd.bytes_left() >= 2 {
-                let kind = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
+                let kind = rd
+                    .read_nib_value()
+                    .map_err(|_| Error::InternalBufOverflow)?;
                 let Some(kind) = Op::from_repr(kind) else {
                     self.rx_stats.malformed_packets =
                         self.rx_stats.malformed_packets.wrapping_add(1);
@@ -99,7 +101,9 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                     self.continue_with_new_packet();
                     return Err(Error::UnexpectedOp(kind));
                 }
-                let len11_8 = rd.read_u4().map_err(|_| Error::InternalBufOverflow)?;
+                let len11_8 = rd
+                    .read_nib_value()
+                    .map_err(|_| Error::InternalBufOverflow)?;
                 let len7_0 = rd.read_u8().map_err(|_| Error::InternalBufOverflow)?;
                 let len = ((len11_8 as usize) << 8) | len7_0 as usize;
                 match kind {

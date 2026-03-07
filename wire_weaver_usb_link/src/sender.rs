@@ -278,12 +278,12 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     fn write_op_len(&mut self, op: Op, len: u16) -> Result<(), Error<T::Error, R::Error>> {
         self.tx_writer
-            .write_u4(op as u8)
+            .write_nib_masked(op as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
         let len11_8 = (len >> 8) as u8;
         let len7_0 = (len & 0xFF) as u8;
         self.tx_writer
-            .write_u4(len11_8)
+            .write_nib_masked(len11_8)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.tx_writer
             .write_u8(len7_0)

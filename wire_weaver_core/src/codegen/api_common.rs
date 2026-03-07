@@ -30,7 +30,7 @@ pub fn args_structs(
             );
             let is_lifetime = args
                 .iter()
-                .any(|arg| arg.ty.is_unsized(api_bundle).unwrap());
+                .any(|arg| arg.ty.is_lifetime(api_bundle).unwrap());
             let maybe_lifetime = maybe_quote(is_lifetime, quote! { <'i> });
             defs.append_all(quote! {
                 #[derive_shrink_wrap]

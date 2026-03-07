@@ -39,7 +39,7 @@ mod api_client {
     wire_weaver::ww_codegen!(
         "../blinky_api_evolved" :: BlinkyApi for Blinky,
         client = "async_worker+usb",
-        no_alloc = true,
+        no_alloc = false,
         use_async = true,
         debug_to_file = "../../target/generated_blinky_evolved_client.rs"
     );

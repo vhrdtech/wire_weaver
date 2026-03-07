@@ -47,12 +47,12 @@ pub struct Request<'i> {
 #[owned = "std"]
 #[derive(Debug, Clone)]
 pub enum PathKind<'i> {
-    /// Full path to a resource, regardless whether it is in a trait or not.
+    /// Full path to a resource, regardless of whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },
 
     /// Request is for a trait implemented at root level, through a global unique ID (manually assigned for common traits).
     GlobalCompact {
-        /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
+        /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.
         gid: CompactVersion,
         /// Used to identify a trait resource, starting from trait root.
         path_from_trait: RefVec<'i, UNib32>,
@@ -267,6 +267,8 @@ pub enum ErrorKind<'i> {
     PathKindNotSupported,
     /// Forwarded user error in serialized form
     UserBytes(RefVec<'i, u8>),
+    /// Forwarded user error
+    UserStr(&'i str),
 }
 
 /// Optional shaper configuration request.
@@ -355,6 +357,7 @@ impl Error<'_> {
             ErrorKind::ReadPropertyWithSeqZero => ErrorKindOwned::ReadPropertyWithSeqZero,
             ErrorKind::PathKindNotSupported => ErrorKindOwned::PathKindNotSupported,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
+            ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
         };
         ErrorOwned {
             err_seq: self.err_seq,

@@ -274,11 +274,13 @@ impl ToTokens for CGEnumSer<'_> {
                 Fields::Unnamed(fields_unnamed) => {
                     let mut fields_numbers = vec![];
                     let mut ser = quote!();
-                    for (idx, ty) in fields_unnamed.iter().enumerate() {
-                        let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
+                    let mut idx_skip_flags = 0;
+                    for ty in fields_unnamed {
+                        let field_name = Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
                         let field_path = if matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
                             FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
                         } else {
+                            idx_skip_flags += 1;
                             fields_numbers.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
                             FieldPath::Ref(quote!(#field_name))
                         };
@@ -409,9 +411,11 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                 Fields::Unnamed(fields_unnamed) => {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
-                    for (idx, ty) in fields_unnamed.iter().enumerate() {
-                        let field_name = Ident::new(format!("_{idx}").as_str(), Span::call_site());
+                    let mut idx_skip_flags = 0;
+                    for ty in fields_unnamed {
+                        let field_name = Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
                         if !matches!(ty, Type::IsSome(_) | Type::IsOk(_)) {
+                            idx_skip_flags += 1;
                             field_names.push(field_name.clone());
                         }
                         let handle_eob = quote! { ? };

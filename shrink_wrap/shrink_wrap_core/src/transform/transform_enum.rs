@@ -9,7 +9,7 @@ use crate::transform::syn_util::{
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
-    check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
+    check_flag_order, create_flags, create_tuple_flags, transform_field, FieldPath, FieldPathRoot,
 };
 use syn::{Expr, Lit};
 
@@ -128,6 +128,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                 // TODO: explicit flags in unnamed fields?
                 unnamed.push(field.ty);
             }
+            let unnamed = create_tuple_flags(&unnamed);
             Ok(Fields::Unnamed(unnamed))
         }
         syn::Fields::Unit => Ok(Fields::Unit),

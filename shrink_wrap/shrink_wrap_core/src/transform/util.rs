@@ -22,9 +22,9 @@ pub enum FieldSelector {
     NamedField(Ident),
     Tuple(u32),
     Array(usize),
-    ResultIfOk,
-    ResultIfErr,
-    OptionIsSome,
+    // ResultIfOk,
+    // ResultIfErr,
+    // OptionIsSome,
 }
 
 #[derive(Debug)]
@@ -60,11 +60,17 @@ impl FieldPath {
                 Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
             FieldPathRoot::EnumVariant(_enum_variant_name) => {
-                if let Some(FieldSelector::NamedField(ident)) = self.selectors.first() {
-                    let ident = ident.to_string();
-                    Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
-                } else {
-                    Ident::new("_todo_flag", Span::call_site())
+                match self.selectors.first() {
+                    Some(FieldSelector::NamedField(ident)) => {
+                        let ident = ident.to_string();
+                        Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
+                    }
+                    Some(FieldSelector::Tuple(idx)) => {
+                        Ident::new(format!("_{}", idx).as_str(), Span::call_site())
+                    }
+                    _ => {
+                        Ident::new("_todo_flag", Span::call_site())
+                    }
                 }
             }
             FieldPathRoot::Output => Ident::new("_output_flag", Span::call_site()),
@@ -97,6 +103,26 @@ pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
         };
         fields.insert(pos + shift, flag);
     }
+}
+
+pub(crate) fn create_tuple_flags(fields: &[Type]) -> Vec<Type> {
+    let mut fields_plus_flags = vec![];
+    for (idx, ty) in fields.iter().enumerate() {
+        let is_flag_ty = matches!(ty, Type::Result(_, _) | Type::Option(_, _));
+        if is_flag_ty {
+            let flag_ident = Ident::new(format!("_{idx}").as_str(), Span::call_site());
+            let is_result_ty = matches!(ty, Type::Result(_, _));
+            fields_plus_flags.push(if is_result_ty {
+                Type::IsOk(flag_ident)
+            } else {
+                Type::IsSome(flag_ident)
+            });
+            fields_plus_flags.push(ty.clone());
+        } else {
+            fields_plus_flags.push(ty.clone());
+        }
+    }
+    fields_plus_flags
 }
 
 /// Check that using stack for flags will work

@@ -63,7 +63,7 @@ fn ty_def_inner(
         TypeOwned::Struct(item_struct) => user_ty_def(
             crate_idx,
             &item_struct.ident,
-            item_struct.is_unsized(api_bundle)?,
+            item_struct.is_lifetime(api_bundle)?,
             alloc,
             arg_pos,
             api_bundle,
@@ -71,7 +71,7 @@ fn ty_def_inner(
         TypeOwned::Enum(item_enum) => user_ty_def(
             crate_idx,
             &item_enum.ident,
-            item_enum.is_unsized(api_bundle)?,
+            item_enum.is_lifetime(api_bundle)?,
             alloc,
             arg_pos,
             api_bundle,

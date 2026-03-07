@@ -61,7 +61,7 @@ pub(crate) fn stream_ser_methods_recursive(
         if !*is_up {
             continue;
         }
-        let lifetimes = if ty.is_unsized(bundle).unwrap() {
+        let lifetimes = if ty.is_lifetime(bundle).unwrap() {
             quote! { 'i, 'a }
         } else {
             quote! { 'a }

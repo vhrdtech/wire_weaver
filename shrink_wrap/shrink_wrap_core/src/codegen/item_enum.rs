@@ -1,7 +1,8 @@
 use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
-use crate::ast::{ItemEnum, Type};
+use crate::ast::ty::Type;
+use crate::ast::ItemEnum;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes_scaffold, strings_to_derive};
 use proc_macro2::{Ident, Span, TokenStream};

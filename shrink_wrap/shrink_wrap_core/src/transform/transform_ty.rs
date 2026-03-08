@@ -1,5 +1,5 @@
 use crate::ast::path::Path;
-use crate::ast::Type;
+use crate::ast::ty::Type;
 use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};

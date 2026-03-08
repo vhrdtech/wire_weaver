@@ -1,4 +1,4 @@
-use crate::ast::Type;
+use crate::ast::ty::Type;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, TokenStreamExt};
 use std::ops::Deref;

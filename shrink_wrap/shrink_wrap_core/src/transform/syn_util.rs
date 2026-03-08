@@ -1,9 +1,9 @@
 use crate::ast::docs::Docs;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::path::Path;
+use crate::ast::repr::Repr;
 use crate::ast::util::Version;
 use crate::ast::value::Value;
-use crate::ast::Repr;
 use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number

@@ -1,6 +1,8 @@
+use crate::ast::item_struct::Field;
+use crate::ast::ty::Type;
 use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::value::Value;
-use crate::ast::{Field, ItemStruct, Type};
+use crate::ast::ItemStruct;
 use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,

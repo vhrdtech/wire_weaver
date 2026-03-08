@@ -1,5 +1,7 @@
+use crate::ast::item_struct::Field;
 use crate::ast::object_size::ObjectSize;
-use crate::ast::{Field, ItemStruct, Type};
+use crate::ast::ty::Type;
+use crate::ast::ItemStruct;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes_scaffold, strings_to_derive};
 use proc_macro2::TokenStream;

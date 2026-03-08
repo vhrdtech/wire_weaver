@@ -1,5 +1,6 @@
 use crate::ast::docs::Docs;
-use crate::ast::{Field, Type};
+use crate::ast::item_struct::Field;
+use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
     take_id_attr, take_since_attr,
@@ -59,20 +60,16 @@ impl FieldPath {
                 let ident = ident.to_string();
                 Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
             }
-            FieldPathRoot::EnumVariant(_enum_variant_name) => {
-                match self.selectors.first() {
-                    Some(FieldSelector::NamedField(ident)) => {
-                        let ident = ident.to_string();
-                        Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
-                    }
-                    Some(FieldSelector::Tuple(idx)) => {
-                        Ident::new(format!("_{}", idx).as_str(), Span::call_site())
-                    }
-                    _ => {
-                        Ident::new("_todo_flag", Span::call_site())
-                    }
+            FieldPathRoot::EnumVariant(_enum_variant_name) => match self.selectors.first() {
+                Some(FieldSelector::NamedField(ident)) => {
+                    let ident = ident.to_string();
+                    Ident::new(format!("_{ident}_flag").as_str(), Span::call_site())
                 }
-            }
+                Some(FieldSelector::Tuple(idx)) => {
+                    Ident::new(format!("_{}", idx).as_str(), Span::call_site())
+                }
+                _ => Ident::new("_todo_flag", Span::call_site()),
+            },
             FieldPathRoot::Output => Ident::new("_output_flag", Span::call_site()),
         }
     }

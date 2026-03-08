@@ -183,14 +183,6 @@ unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
 }
 
 impl ServerState {
-    async fn port_available(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-    ) -> AvailablePins<'_> {
-        AvailablePins::Range(0..16)
-    }
-
     async fn port_capabilities(
         &mut self,
         _msg_tx: &mut impl MessageSink,

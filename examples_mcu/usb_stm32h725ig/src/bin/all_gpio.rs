@@ -16,9 +16,7 @@ use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
-use ww_gpio::{
-    AvailablePins, BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt,
-};
+use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -185,10 +183,6 @@ unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
 }
 
 impl ServerState {
-    async fn port_count(&mut self, _msg_tx: &mut impl MessageSink) -> u32 {
-        self.bank.len() as u32
-    }
-
     async fn port_available(
         &mut self,
         _msg_tx: &mut impl MessageSink,
@@ -240,7 +234,7 @@ impl ServerState {
         _mode: Mode,
         _initial: Option<Level>,
     ) -> Result<(), Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_mode(
@@ -248,7 +242,7 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
     ) -> Result<Mode, Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_set_speed(
@@ -257,7 +251,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _pull: Speed,
     ) -> Result<(), Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_speed(
@@ -265,7 +259,7 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
     ) -> Result<Speed, Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_name(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) -> &'_ str {

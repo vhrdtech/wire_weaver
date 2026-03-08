@@ -7,10 +7,10 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
     let mut device = AllGpio::connect(filter, OnError::ExitImmediately).await?;
-    let port_count = device.port_count().call().await?;
+    let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 
-    for port in 0..port_count {
+    for port in ports.iter() {
         let port_name = device.port(port).name().call().await?;
         for pin in 0..=15 {
             let mode = device.port(port).pin(pin).mode().call().await?;

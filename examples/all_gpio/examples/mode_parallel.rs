@@ -8,16 +8,16 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
     let mut device = AllGpio::connect(filter, OnError::ExitImmediately).await?;
-    let port_count = device.port_count().call().await?;
+    let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 
     // send multiple call requests in parallel without waiting for each individual one to finish
     // multiple requests will be automatically assembled into one USB packet, thus greatly increasing throughput
-    let port_names = join_all((0..port_count).map(|port| device.port(port).name().call())).await;
+    let port_names = join_all(ports.iter().map(|port| device.port(port).name().call())).await;
     let port_names: Result<Vec<String>, _> = port_names.into_iter().collect();
     let port_names = port_names?;
 
-    for port in 0..port_count {
+    for port in ports.iter() {
         let modes = (0..=15)
             .map(|pin| device.port(port).pin(pin).mode().call())
             .collect::<Vec<_>>();

@@ -17,9 +17,7 @@ use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
-use ww_gpio::{
-    AvailablePins, BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt,
-};
+use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -151,18 +149,6 @@ unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
 }
 
 impl ServerState {
-    async fn port_count(&mut self, _msg_tx: &mut impl MessageSink) -> u32 {
-        self.bank.len() as u32
-    }
-
-    async fn port_available(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-    ) -> AvailablePins<'_> {
-        AvailablePins::Range(0..16)
-    }
-
     async fn port_capabilities(
         &mut self,
         _msg_tx: &mut impl MessageSink,
@@ -206,7 +192,7 @@ impl ServerState {
         _mode: Mode,
         _initial: Option<Level>,
     ) -> Result<(), Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_mode(
@@ -214,7 +200,7 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
     ) -> Result<Mode, Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_set_speed(
@@ -223,7 +209,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _pull: Speed,
     ) -> Result<(), Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_speed(
@@ -231,7 +217,7 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
     ) -> Result<Speed, Error> {
-        defmt::todo!()
+        Err(Error::NotImplemented)
     }
 
     async fn port_name(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) -> &'_ str {
@@ -445,21 +431,12 @@ impl ServerState {
         Err(Error::UnsupportedEventType)
     }
 
-    fn validate_index_port(&mut self, index: [UNib32; 1]) -> Result<(), ()> {
-        let bank_idx = index[0].0 as usize;
-        if bank_idx < self.bank.len() {
-            Ok(())
-        } else {
-            Err(())
-        }
+    fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
+        ValidIndices::Range(0..self.bank.len() as u32)
     }
 
-    fn validate_index_pin(&mut self, index: [UNib32; 2]) -> Result<(), ()> {
-        let pin_idx = index[1].0 as usize;
-        if pin_idx < 16 {
-            Ok(())
-        } else {
-            Err(())
-        }
+    fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_> {
+        let _pin_idx = index[0].0 as usize;
+        ValidIndices::Range(0..16)
     }
 }

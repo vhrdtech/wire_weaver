@@ -1,6 +1,7 @@
 use crate::ww::{BankClient, GpioClient};
+use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client_common::Attachment;
-use ww_gpio::{AvailablePinsOwned, BankCapabilitiesOwned, Level, Mode, Pull};
+use ww_gpio::{BankCapabilitiesOwned, Level, Mode, Pull};
 
 /// GPIO configured as Push-Pull output.
 /// Blocking flavor.
@@ -33,7 +34,7 @@ pub struct FlexBlocking {
 
 pub struct BankBlocking {
     bank: BankClient,
-    available_pins: AvailablePinsOwned,
+    available_pins: ValidIndicesOwned,
     name: Option<String>,
     capabilities: Option<BankCapabilitiesOwned>,
 }
@@ -339,8 +340,8 @@ impl BankBlocking {
             )));
         }
         let cmd_tx = bank.cmd_tx_take();
-        let bank = BankClient::new(cmd_tx);
-        let available_pins = bank.available().blocking_call()?;
+        let mut bank = BankClient::new(cmd_tx);
+        let available_pins = bank.pin_valid_indices().blocking_read()?;
         Ok(BankBlocking {
             bank,
             available_pins,
@@ -350,7 +351,7 @@ impl BankBlocking {
     }
 
     /// Returns available pins on this bank.
-    pub fn available_pins(&self) -> &AvailablePinsOwned {
+    pub fn available_pins(&self) -> &ValidIndicesOwned {
         &self.available_pins
     }
 

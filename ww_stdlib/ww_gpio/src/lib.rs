@@ -4,10 +4,13 @@ use wire_weaver::prelude::*;
 pub use ww_si::Volt;
 
 /// A bank of related IO pins.
-/// Each pin in a bank is using the same reference voltage, that can be adjusted if bank supports it.
+/// Each pin in a bank is using the same reference voltage, that can be adjusted if supported by hardware.
 #[ww_trait]
 trait Bank {
-    /// 0. Array of individual pins.
+    /// Array of individual pins.
+    /// Suggested indexing scheme:
+    /// * Range - useful when a device has sequentially marked IOs (e.g., IO expander)
+    /// * List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)
     ww_impl!(pin[]: Pin);
 
     // 1-7. Reserved
@@ -19,8 +22,6 @@ trait Bank {
     reserved!();
     reserved!();
 
-    /// Range or list of available pins, each pin is identified by an u32 index.
-    fn available() -> AvailablePins<'i>;
     /// Capabilities that each pin of the bank supports.
     fn capabilities() -> BankCapabilities<'i>;
 
@@ -108,13 +109,13 @@ pub trait Pin {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Level {
-    High,
     Low,
+    High,
 }
 
 /// IO pin mode (Push-Pull, Open-Drain, Input, etc.)
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Mode {
@@ -139,6 +140,7 @@ pub enum Error {
     UnsupportedEventType,
     UnsupportedReferenceVoltage,
     DifferentModes,
+    NotImplemented,
     CustomU8(u8),
     CustomU32(u32),
 }
@@ -157,7 +159,7 @@ pub enum Pull {
 
 /// IO pin drive strength configuration
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Speed {
@@ -188,20 +190,6 @@ pub struct IoPinEnabledEvents<'i> {
     pub rising: bool,
     pub falling: bool,
     pub custom: RefVec<'i, u8>,
-}
-
-/// List or range of available pins that can be requested by a client. Two options are supported:
-/// * RangeInclusive - `[start_idx, end_idx]`, useful when a continuous range of pins is logical to use (e.g., IO expander)
-/// * List - array of indices, useful e.g., when exposing only some of the pins of an MCU GPIO bank to avoid confusion
-///   (PB0, PB5 - list of `[0, 5]` instead of confusing 0 and 1 indices)
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[defmt = "defmt"]
-pub enum AvailablePins<'i> {
-    Range(Range<u32>),
-    List(RefVec<'i, u32>),
 }
 
 /// GPIO bank capabilities: supported voltages, modes, custom modes, etc.

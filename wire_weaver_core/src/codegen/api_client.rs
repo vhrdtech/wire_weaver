@@ -3,7 +3,7 @@
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::introspect::introspect_prepare;
-use crate::codegen::ty_def::ty_def;
+use crate::codegen::ty_def::{ty_def, ty_def_by_idx};
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
@@ -253,7 +253,6 @@ fn level_methods(
             path_mode,
             gid_paths,
             is_at_root,
-            api_level.crate_name(api_bundle).unwrap(),
         )
     });
     quote! {
@@ -269,7 +268,6 @@ fn level_method(
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
     is_at_root: bool,
-    api_crate: &str,
 ) -> TokenStream {
     let id = item.id.0;
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
@@ -285,12 +283,8 @@ fn level_method(
             index_type_idx: Some(type_idx),
         } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index.into()) });
-            let ty = api_bundle.get_ty(type_idx.0).unwrap().0;
-            let ty = ty_def(api_bundle, ty, false, true).unwrap();
-            (
-                quote! { #index_chain_push_pre #p },
-                quote! { , index: #api_crate::#ty },
-            )
+            let ty = ty_def_by_idx(api_bundle, type_idx.0, false, true).unwrap();
+            (quote! { #index_chain_push_pre #p }, quote! { , index: #ty })
         }
     };
     let ident = Ident::new(&item.ident, Span::call_site());

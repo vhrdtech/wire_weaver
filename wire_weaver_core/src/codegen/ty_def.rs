@@ -14,6 +14,16 @@ pub(crate) fn ty_def(
     ty_def_inner(api_bundle, ty, alloc, arg_pos, None)
 }
 
+pub(crate) fn ty_def_by_idx(
+    api_bundle: &ApiBundleOwned,
+    type_idx: u32,
+    alloc: bool,
+    arg_pos: bool,
+) -> Result<TokenStream> {
+    let ty = api_bundle.get_ty(type_idx)?;
+    ty_def_inner(api_bundle, &ty.0, alloc, arg_pos, Some(ty.1))
+}
+
 fn ty_def_inner(
     api_bundle: &ApiBundleOwned,
     ty: &TypeOwned,
@@ -108,7 +118,7 @@ fn ty_def_inner(
 fn user_ty_def(
     crate_idx: Option<u32>,
     ty_name: &str,
-    is_unsized: bool,
+    is_lifetime: bool,
     alloc: bool,
     arg_pos: bool,
     api_bundle: &ApiBundleOwned,
@@ -122,7 +132,7 @@ fn user_ty_def(
     };
 
     if alloc {
-        let ty_name = if is_unsized {
+        let ty_name = if is_lifetime {
             Ident::new(&format!("{ty_name}Owned"), Span::call_site())
         } else {
             Ident::new(ty_name, Span::call_site())
@@ -131,7 +141,7 @@ fn user_ty_def(
     } else {
         // no_std
         let ty_name = Ident::new(ty_name, Span::call_site());
-        if is_unsized {
+        if is_lifetime {
             let l = lifetime(arg_pos);
             Ok(quote! { #source_crate::#ty_name<#l> })
         } else {

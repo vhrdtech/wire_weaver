@@ -227,12 +227,11 @@ pub enum Value<'i> {
     Array(RefVec<'i, Value<'i>>),
     Tuple(RefVec<'i, Value<'i>>),
     Struct {
-        ident: &str,
         fields: FieldsValue<'i>,
     },
     Enum {
-        ident: &str,
-        variant: (&'i str, FieldsValue<'i>),
+        variant: &str,
+        fields: FieldsValue<'i>,
     },
     Option(Option<RefBox<'i, Value<'i>>>),
     Result(Result<RefBox<'i, Value<'i>>, RefBox<'i, Value<'i>>>),

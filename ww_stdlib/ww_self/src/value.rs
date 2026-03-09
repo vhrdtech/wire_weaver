@@ -65,15 +65,14 @@ impl ValueOwned {
                 Ok(ValueOwned::Tuple(values))
             }
             TypeOwned::Struct(item_struct) => Ok(ValueOwned::Struct {
-                ident: item_struct.ident.clone(),
                 fields: Self::default_fields_value(&item_struct.fields, api_bundle)?,
             }),
             TypeOwned::Enum(item_enum) => {
                 let variant = item_enum.variants.first().ok_or(anyhow!("Enum is empty"))?;
-                let fields_value = Self::default_fields_value(&variant.fields, api_bundle)?;
+                let fields = Self::default_fields_value(&variant.fields, api_bundle)?;
                 Ok(ValueOwned::Enum {
-                    ident: item_enum.ident.clone(),
-                    variant: (variant.ident.clone(), fields_value),
+                    variant: variant.ident.clone(),
+                    fields,
                 })
             }
             TypeOwned::Option { .. } => Ok(ValueOwned::Option(None)),
@@ -168,10 +167,7 @@ fn from_shrink_wrap_inner(
         }
         TypeOwned::Struct(struct_def) => {
             let fields = process_fields(rd, &struct_def.fields, api_bundle)?;
-            Ok(ValueOwned::Struct {
-                ident: struct_def.ident.clone(),
-                fields,
-            })
+            Ok(ValueOwned::Struct { fields })
         }
         TypeOwned::Enum(enum_def) => {
             let discriminant = match enum_def.repr {
@@ -192,8 +188,8 @@ fn from_shrink_wrap_inner(
             let fields = process_fields(rd, &variant.fields, api_bundle)?;
 
             Ok(ValueOwned::Enum {
-                ident: enum_def.ident.to_string(),
-                variant: (variant.ident.to_string(), fields),
+                variant: variant.ident.to_string(),
+                fields,
             })
         }
         TypeOwned::Option { some_ty } => {
@@ -308,11 +304,11 @@ fn to_shrink_wrap_inner(
         ValueOwned::Array(_) => {}
         ValueOwned::Tuple(_) => {}
         ValueOwned::Struct { .. } => {}
-        ValueOwned::Enum { ident: _, variant } => {
+        ValueOwned::Enum { variant, fields } => {
             let TypeOwned::Enum(item_enum) = ty else {
                 return Err(anyhow::anyhow!("Enum type expected"));
             };
-            let discriminant = item_enum.discriminant(variant.0.as_str())?;
+            let discriminant = item_enum.discriminant(variant.as_str())?;
             match item_enum.repr {
                 Repr::Nibble => {
                     let nib = if discriminant <= 15 {

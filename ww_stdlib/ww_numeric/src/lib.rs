@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "std")]
+mod alloc;
+
 use shrink_wrap::prelude::*;
 
 #[derive_shrink_wrap]

@@ -148,6 +148,160 @@ impl TypeOwned {
             _ => Ok(false),
         }
     }
+
+    pub fn human_name(&self, api_bundle: &ApiBundleOwned) -> Result<String> {
+        match self {
+            TypeOwned::Bool => Ok("bool".to_string()),
+            TypeOwned::NumericAny(numeric) => Ok(numeric.human_name()),
+            TypeOwned::OutOfLine { type_idx } => {
+                let ty = api_bundle.get_ty(type_idx.0)?.0;
+                ty.human_name(api_bundle)
+            }
+            TypeOwned::Flag => Ok("flag".to_string()),
+            TypeOwned::String => Ok("String".to_string()),
+            TypeOwned::Vec(inner) => Ok(format!("Vec<{}>", inner.human_name(api_bundle)?)),
+            TypeOwned::Array { len, ty } => {
+                Ok(format!("[{}; {}]", ty.human_name(api_bundle)?, len.0))
+            }
+            TypeOwned::Tuple(types) => {
+                let mut names = Vec::with_capacity(types.len());
+                for ty in types {
+                    names.push(ty.human_name(api_bundle)?);
+                }
+                Ok(format!("({})", names.join(", ")))
+            }
+            TypeOwned::Struct(item_struct) => Ok(format!(
+                "{}::{}",
+                api_bundle.crate_name(item_struct.crate_idx.0)?,
+                item_struct.ident
+            )),
+            TypeOwned::Enum(item_enum) => Ok(format!(
+                "{}::{}",
+                api_bundle.crate_name(item_enum.crate_idx.0)?,
+                item_enum.ident
+            )),
+            TypeOwned::Option { some_ty } => {
+                Ok(format!("Option<{}>", some_ty.human_name(api_bundle)?))
+            }
+            TypeOwned::Result { ok_ty, err_ty } => Ok(format!(
+                "Result<{}, {}>",
+                ok_ty.human_name(api_bundle)?,
+                err_ty.human_name(api_bundle)?
+            )),
+            TypeOwned::Box(inner) => Ok(format!("Box<{}>", inner.human_name(api_bundle)?)),
+            TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
+            TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+        }
+    }
+
+    pub fn human_definition(
+        &self,
+        api_bundle: &ApiBundleOwned,
+        single_line: bool,
+    ) -> Result<String> {
+        match self {
+            TypeOwned::Bool => Ok("bool".to_string()),
+            TypeOwned::NumericAny(numeric) => Ok(numeric.human_name()),
+            TypeOwned::OutOfLine { type_idx } => {
+                let ty = api_bundle.get_ty(type_idx.0)?.0;
+                ty.human_definition(api_bundle, single_line)
+            }
+            TypeOwned::Flag => Ok("flag".to_string()),
+            TypeOwned::String => Ok("String".to_string()),
+            TypeOwned::Vec(inner) => Ok(format!(
+                "Vec<{}>",
+                inner.human_definition(api_bundle, single_line)?
+            )),
+            TypeOwned::Array { len, ty } => Ok(format!(
+                "[{}; {}]",
+                ty.human_definition(api_bundle, single_line)?,
+                len.0
+            )),
+            TypeOwned::Tuple(types) => {
+                let mut names = Vec::with_capacity(types.len());
+                for ty in types {
+                    names.push(ty.human_definition(api_bundle, single_line)?);
+                }
+                Ok(format!("({})", names.join(", ")))
+            }
+            TypeOwned::Struct(item_struct) => {
+                let mut s = format!(
+                    "struct {}::{} {{",
+                    api_bundle.crate_name(item_struct.crate_idx.0)?,
+                    item_struct.ident
+                );
+                s +=
+                    fields_human_definition(&item_struct.fields, api_bundle, single_line)?.as_str();
+                Ok(s)
+            }
+            TypeOwned::Enum(item_enum) => {
+                let mut s = format!(
+                    "enum {}::{} {{",
+                    api_bundle.crate_name(item_enum.crate_idx.0)?,
+                    item_enum.ident
+                );
+                for (idx, variant) in item_enum.variants.iter().enumerate() {
+                    s += &variant.ident;
+                    s +=
+                        fields_human_definition(&variant.fields, api_bundle, single_line)?.as_str();
+                    if idx + 1 < item_enum.variants.len() {
+                        s += if single_line { ", " } else { ",\n" };
+                    }
+                }
+                s += "}";
+                Ok(s)
+            }
+            TypeOwned::Option { some_ty } => Ok(format!(
+                "Option<{}>",
+                some_ty.human_definition(api_bundle, single_line)?
+            )),
+            TypeOwned::Result { ok_ty, err_ty } => Ok(format!(
+                "Result<{}, {}>",
+                ok_ty.human_definition(api_bundle, single_line)?,
+                err_ty.human_definition(api_bundle, single_line)?
+            )),
+            TypeOwned::Box(inner) => Ok(format!(
+                "Box<{}>",
+                inner.human_definition(api_bundle, single_line)?
+            )),
+            TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
+            TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+        }
+    }
+}
+
+fn fields_human_definition(
+    fields: &FieldsOwned,
+    api_bundle: &ApiBundleOwned,
+    single_line: bool,
+) -> Result<String> {
+    match fields {
+        FieldsOwned::Named(named) => {
+            let mut s = "{".to_string();
+            for (idx, field) in named.iter().enumerate() {
+                s += field.ident.as_deref().unwrap_or("");
+                s += ": ";
+                s += &field.ty.human_definition(api_bundle, single_line)?;
+                if idx + 1 < named.len() {
+                    s += if single_line { ", " } else { ",\n" };
+                }
+            }
+            s += "}";
+            Ok(s)
+        }
+        FieldsOwned::Unnamed(unnamed) => {
+            let mut s = "(".to_string();
+            for (idx, field) in unnamed.iter().enumerate() {
+                s += &field.ty.human_definition(api_bundle, single_line)?;
+                if idx + 1 < unnamed.len() {
+                    s += if single_line { ", " } else { ",\n" };
+                }
+            }
+            s += ")";
+            Ok(s)
+        }
+        FieldsOwned::Unit => Ok("".to_string()),
+    }
 }
 
 impl FieldsOwned {

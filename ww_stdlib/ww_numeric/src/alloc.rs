@@ -1,4 +1,4 @@
-use crate::{NumericAnyTypeOwned, NumericBaseType};
+use crate::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
 impl NumericAnyTypeOwned {
     pub fn human_name(&self) -> String {
@@ -6,6 +6,14 @@ impl NumericAnyTypeOwned {
             NumericAnyTypeOwned::Base(base) => base.name(),
             NumericAnyTypeOwned::SubType { .. } => "SubType(todo)".to_string(),
             NumericAnyTypeOwned::ShiftScale { .. } => "ShiftScale(todo)".to_string(),
+        }
+    }
+
+    pub fn default(&self) -> NumericValue {
+        match self {
+            NumericAnyTypeOwned::Base(base) => base.default(),
+            NumericAnyTypeOwned::SubType { .. } => todo!(),
+            NumericAnyTypeOwned::ShiftScale { .. } => todo!(),
         }
     }
 }

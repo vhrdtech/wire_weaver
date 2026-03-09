@@ -344,3 +344,44 @@ macro_rules! value {
         $add_path::ww_numeric::NumericValue::F64($value)
     };
 }
+
+impl NumericBaseType {
+    pub fn default(&self) -> NumericValue {
+        match self {
+            NumericBaseType::Nibble => NumericValue::Nibble(Nibble::zero()),
+            NumericBaseType::U8 => NumericValue::U8(0),
+            NumericBaseType::U16 => NumericValue::U16(0),
+            NumericBaseType::U32 => NumericValue::U32(0),
+            NumericBaseType::UNib32 => NumericValue::UNib32(0),
+            NumericBaseType::U64 => NumericValue::U64(0),
+            NumericBaseType::I32 => NumericValue::I32(0),
+            NumericBaseType::F32 => NumericValue::F32(0.0),
+            NumericBaseType::U128 => NumericValue::U128(0),
+            NumericBaseType::I8 => NumericValue::I8(0),
+            NumericBaseType::I16 => NumericValue::I16(0),
+            NumericBaseType::I64 => NumericValue::I64(0),
+            NumericBaseType::I128 => NumericValue::I128(0),
+            NumericBaseType::F16 => unimplemented!(),
+            NumericBaseType::F64 => NumericValue::F64(0.0),
+            NumericBaseType::UB(_) => unimplemented!(),
+            NumericBaseType::IB(_) => unimplemented!(),
+            NumericBaseType::UN => NumericValue::UN(UN::UN8 {
+                bit_count: U3::zero(),
+                value: 0,
+            }),
+            NumericBaseType::IN => NumericValue::IN(IN::IN8 {
+                bit_count: U3::zero(),
+                value: 0,
+            }),
+            // NumericBaseType::ULeb32 => {}
+            // NumericBaseType::ULeb64 => {}
+            // NumericBaseType::ULeb128 => {}
+            // NumericBaseType::ILeb32 => {}
+            // NumericBaseType::ILeb64 => {}
+            // NumericBaseType::ILeb128 => {}
+            // NumericBaseType::UQ { .. } => {}
+            // NumericBaseType::IQ { .. } => {}
+            _ => unimplemented!(),
+        }
+    }
+}

@@ -1,6 +1,6 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    FieldsOwned, ItemEnumOwned, ItemStructOwned, TypeLocationOwned, TypeOwned,
+    FieldsOwned, ItemEnumOwned, ItemStructOwned, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{anyhow, Result};
 use shrink_wrap::ElementSize;
@@ -149,6 +149,15 @@ impl TypeOwned {
         }
     }
 
+    pub fn get_in_line<'i>(&'i self, api_bundle: &'i ApiBundleOwned) -> Result<&'i TypeOwned> {
+        if let TypeOwned::OutOfLine { type_idx } = self {
+            let (ty, _) = api_bundle.get_ty(type_idx.0)?;
+            Ok(ty)
+        } else {
+            Ok(self)
+        }
+    }
+
     pub fn human_name(&self, api_bundle: &ApiBundleOwned) -> Result<String> {
         match self {
             TypeOwned::Bool => Ok("bool".to_string()),
@@ -235,8 +244,16 @@ impl TypeOwned {
                 Ok(s)
             }
             TypeOwned::Enum(item_enum) => {
+                let repr = match item_enum.repr {
+                    Repr::Nibble => "nib".to_string(),
+                    Repr::BitAligned(bits) => format!("ub{bits}"),
+                    Repr::UNib32 => "unib32".to_string(),
+                    Repr::ByteAlignedU8 => "u8".to_string(),
+                    Repr::ByteAlignedU16 => "u16".to_string(),
+                    Repr::ByteAlignedU32 => "u32".to_string(),
+                };
                 let mut s = format!(
-                    "enum {}::{} {{",
+                    "enum {repr} {}::{} {{",
                     api_bundle.crate_name(item_enum.crate_idx.0)?,
                     item_enum.ident
                 );
@@ -344,5 +361,24 @@ impl ItemEnumOwned {
 
     pub fn is_unsized(&self) -> bool {
         self.size == ElementSize::Unsized
+    }
+}
+
+impl ItemEnumOwned {
+    pub fn discriminant(&self, variant_name: &str) -> Result<u32> {
+        self.variants
+            .iter()
+            .find_map(|variant| {
+                if variant.ident == variant_name {
+                    Some(variant.discriminant.0)
+                } else {
+                    None
+                }
+            })
+            .ok_or(anyhow!(
+                "Enum {} does not have variant {}",
+                self.ident,
+                variant_name
+            ))
     }
 }

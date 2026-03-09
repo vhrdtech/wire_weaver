@@ -1,16 +1,117 @@
 use crate::{ApiBundleOwned, FieldsOwned, FieldsValueOwned, Repr, TypeOwned, ValueOwned};
 use anyhow::{anyhow, Result};
-use shrink_wrap::{BufReader, Nibble};
+use shrink_wrap::{BufReader, BufWriter, Nibble};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
 impl ValueOwned {
-    pub fn from_shrink_wrap(
+    pub fn des_shrink_wrap_dyn(
         bytes: &[u8],
         ty: &TypeOwned,
         api_bundle: &ApiBundleOwned,
     ) -> Result<Self> {
         let mut rd = BufReader::new(bytes);
         from_shrink_wrap_inner(&mut rd, ty, api_bundle)
+    }
+
+    pub fn ser_shrink_wrap_dyn(
+        &self,
+        ty: &TypeOwned,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Vec<u8>> {
+        let mut buf = [0u8; 8192]; // TODO: Use Vec flavor
+        let mut wr = BufWriter::new(&mut buf);
+        to_shrink_wrap_inner(&mut wr, self, ty, api_bundle)?;
+        Ok(wr.finish_and_take()?.to_vec())
+    }
+
+    pub fn ser_shrink_wrap_vec_dyn<'i>(
+        values: &[ValueOwned],
+        mut types: impl Iterator<Item = &'i TypeOwned>,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Vec<u8>> {
+        let mut buf = [0u8; 8192]; // TODO: Use Vec flavor
+        let mut wr = BufWriter::new(&mut buf);
+        for value in values.iter() {
+            let ty = types
+                .next()
+                .ok_or(anyhow!("values and types must have the same length"))?;
+            to_shrink_wrap_inner(&mut wr, value, ty, api_bundle)?;
+        }
+        Ok(wr.finish_and_take()?.to_vec())
+    }
+
+    pub fn default(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<Self> {
+        match ty {
+            TypeOwned::Bool => Ok(ValueOwned::Bool(false)),
+            TypeOwned::NumericAny(any) => Ok(ValueOwned::Numeric(any.default())),
+            TypeOwned::OutOfLine { type_idx } => {
+                let ty = api_bundle.get_ty(type_idx.0)?;
+                Self::default(ty.0, api_bundle)
+            }
+            TypeOwned::Flag => Err(anyhow!("flag type cannot be created manually")),
+            TypeOwned::String => Ok(ValueOwned::String(String::new())),
+            TypeOwned::Vec(_) => Ok(ValueOwned::Vec(vec![])),
+            TypeOwned::Array { len, ty } => {
+                Ok(ValueOwned::Array(vec![
+                    ValueOwned::default(ty, api_bundle)?;
+                    len.0 as usize
+                ]))
+            }
+            TypeOwned::Tuple(types) => {
+                let mut values = vec![];
+                for ty in types {
+                    values.push(Self::default(ty, api_bundle)?);
+                }
+                Ok(ValueOwned::Tuple(values))
+            }
+            TypeOwned::Struct(item_struct) => Ok(ValueOwned::Struct {
+                ident: item_struct.ident.clone(),
+                fields: Self::default_fields_value(&item_struct.fields, api_bundle)?,
+            }),
+            TypeOwned::Enum(item_enum) => {
+                let variant = item_enum.variants.first().ok_or(anyhow!("Enum is empty"))?;
+                let fields_value = Self::default_fields_value(&variant.fields, api_bundle)?;
+                Ok(ValueOwned::Enum {
+                    ident: item_enum.ident.clone(),
+                    variant: (variant.ident.clone(), fields_value),
+                })
+            }
+            TypeOwned::Option { .. } => Ok(ValueOwned::Option(None)),
+            TypeOwned::Result { ok_ty, .. } => Ok(ValueOwned::Result(Err(Box::new(
+                Self::default(ok_ty, api_bundle)?,
+            )))),
+            TypeOwned::Box(inner) => Ok(Self::default(inner, api_bundle)?),
+            TypeOwned::Range(base) => Ok(ValueOwned::Range(base.default()..base.default())),
+            TypeOwned::RangeInclusive(base) => {
+                Ok(ValueOwned::RangeInclusive(base.default()..=base.default()))
+            }
+        }
+    }
+
+    pub fn default_fields_value(
+        fields: &FieldsOwned,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<FieldsValueOwned> {
+        match fields {
+            FieldsOwned::Named(named) => {
+                let mut named_values = vec![];
+                for field in named {
+                    let name = field.ident.clone().unwrap_or_default();
+                    let value = ValueOwned::default(&field.ty, api_bundle)?;
+                    named_values.push((name, value));
+                }
+                Ok(FieldsValueOwned::Named(named_values))
+            }
+            FieldsOwned::Unnamed(unnamed) => {
+                let mut unnamed_values = vec![];
+                for field in unnamed {
+                    let value = ValueOwned::default(&field.ty, api_bundle)?;
+                    unnamed_values.push(value);
+                }
+                Ok(FieldsValueOwned::Unnamed(unnamed_values))
+            }
+            FieldsOwned::Unit => Ok(FieldsValueOwned::Unit),
+        }
     }
 }
 
@@ -188,4 +289,89 @@ fn from_numeric_any(rd: &mut BufReader, numeric_ty: &NumericAnyTypeOwned) -> Res
         // NumericAnyTypeOwned::ShiftScale { .. } => {}
         u => Err(anyhow::anyhow!("Unsupported numeric type: {:?}", u)),
     }
+}
+
+fn to_shrink_wrap_inner(
+    wr: &mut BufWriter,
+    value: &ValueOwned,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<()> {
+    let ty = ty.get_in_line(api_bundle)?;
+    match value {
+        ValueOwned::Bool(value) => {
+            wr.write_bool(*value)?;
+        }
+        ValueOwned::Numeric(_) => {}
+        ValueOwned::String(_) => {}
+        ValueOwned::Vec(_) => {}
+        ValueOwned::Array(_) => {}
+        ValueOwned::Tuple(_) => {}
+        ValueOwned::Struct { .. } => {}
+        ValueOwned::Enum { ident: _, variant } => {
+            let TypeOwned::Enum(item_enum) = ty else {
+                return Err(anyhow::anyhow!("Enum type expected"));
+            };
+            let discriminant = item_enum.discriminant(variant.0.as_str())?;
+            match item_enum.repr {
+                Repr::Nibble => {
+                    let nib = if discriminant <= 15 {
+                        Nibble::new_masked(discriminant as u8)
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Enum discriminant out of nibble range: {}",
+                            discriminant
+                        ));
+                    };
+                    wr.write_nib(nib)?;
+                }
+                Repr::BitAligned(bits) => {
+                    let max_value = 2u32.pow(bits as u32) - 1;
+                    if discriminant > max_value {
+                        return Err(anyhow::anyhow!(
+                            "Enum discriminant out of u{bits} range: {}",
+                            discriminant
+                        ));
+                    }
+                    wr.write_un32(bits, discriminant)?;
+                }
+                Repr::UNib32 => {
+                    wr.write_unib32(discriminant)?;
+                }
+                Repr::ByteAlignedU8 | Repr::ByteAlignedU16 | Repr::ByteAlignedU32 => {
+                    let max_value = match item_enum.repr {
+                        Repr::ByteAlignedU8 => u8::MAX as u32,
+                        Repr::ByteAlignedU16 => u16::MAX as u32,
+                        Repr::ByteAlignedU32 => u32::MAX,
+                        _ => unreachable!(),
+                    };
+                    if discriminant > max_value {
+                        return Err(anyhow::anyhow!(
+                            "Enum discriminant out range (0..={max_value}): {}",
+                            discriminant
+                        ));
+                    }
+                    match item_enum.repr {
+                        Repr::ByteAlignedU8 => wr.write_u8(discriminant as u8)?,
+                        Repr::ByteAlignedU16 => wr.write_u16(discriminant as u16)?,
+                        Repr::ByteAlignedU32 => wr.write_u32(discriminant)?,
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        }
+        ValueOwned::Option(value) => {
+            let TypeOwned::Option { some_ty } = ty else {
+                return Err(anyhow::anyhow!("Option type expected"));
+            };
+            wr.write_bool(value.is_some())?;
+            if let Some(value) = value {
+                to_shrink_wrap_inner(wr, value, some_ty, api_bundle)?;
+            }
+        }
+        ValueOwned::Result(_) => {}
+        ValueOwned::Range(_) => {}
+        ValueOwned::RangeInclusive(_) => {}
+    }
+    Ok(())
 }

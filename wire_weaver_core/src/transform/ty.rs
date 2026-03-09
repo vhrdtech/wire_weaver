@@ -211,6 +211,7 @@ fn convert_item_enum(
     let ty = TypeOwned::Enum(ItemEnumOwned {
         size,
         repr,
+        crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_enum.attrs),
         ident: ty_name,
         variants,
@@ -233,6 +234,7 @@ fn convert_item_struct(
     let size = get_size_assumption(&item_struct.attrs);
     let ty = TypeOwned::Struct(ItemStructOwned {
         size,
+        crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_struct.attrs),
         ident: ty_name,
         fields,

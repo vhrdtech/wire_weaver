@@ -233,7 +233,6 @@ pub enum Value<'i> {
     Enum {
         ident: &str,
         variant: (&'i str, FieldsValue<'i>),
-        discriminant: u32,
     },
     Option(Option<RefBox<'i, Value<'i>>>),
     Result(Result<RefBox<'i, Value<'i>>, RefBox<'i, Value<'i>>>),
@@ -258,7 +257,7 @@ pub enum FieldsValue<'i> {
 #[serde = "serde"]
 pub struct ItemStruct<'i> {
     pub size: ElementSize,
-    // pub source: TypeDefinitionSource,
+    pub crate_idx: UNib32,
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
     pub fields: Fields<'i>,
@@ -288,7 +287,7 @@ pub struct Field<'i> {
 pub struct ItemEnum<'i> {
     pub size: ElementSize,
     pub repr: Repr,
-    // pub source: TypeDefinitionSource,
+    pub crate_idx: UNib32,
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
     pub variants: RefVec<'i, Variant<'i>>,

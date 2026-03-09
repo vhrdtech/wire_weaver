@@ -93,7 +93,6 @@ fn from_shrink_wrap_inner(
             Ok(ValueOwned::Enum {
                 ident: enum_def.ident.to_string(),
                 variant: (variant.ident.to_string(), fields),
-                discriminant,
             })
         }
         TypeOwned::Option { some_ty } => {

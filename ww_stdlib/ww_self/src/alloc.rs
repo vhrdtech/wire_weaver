@@ -1,14 +1,41 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    FieldsOwned, ItemEnumOwned, ItemStructOwned, Repr, TypeLocationOwned, TypeOwned,
+    FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{anyhow, Result};
 use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
+use ww_version::FullVersionOwned;
 
 impl ApiLevelOwned {
     pub fn crate_name<'i>(&self, bundle: &'i ApiBundleOwned) -> Result<&'i str> {
         bundle.crate_name(self.crate_idx.0)
+    }
+
+    fn get_item<'i>(
+        &'i self,
+        id_chain: &[u32],
+        api_bundle: &'i ApiBundleOwned,
+    ) -> Result<&'i ApiItemOwned> {
+        if let Some(idx) = id_chain.first() {
+            let item = self
+                .items
+                .iter()
+                .find(|i| i.id.0 == *idx)
+                .ok_or(anyhow!("no item with id: {}", idx))?;
+            if id_chain.len() == 1 {
+                Ok(item)
+            } else {
+                if let ApiItemKindOwned::Trait { trait_idx } = &item.kind {
+                    let level = api_bundle.get_trait(trait_idx.0)?;
+                    level.get_item(&id_chain[1..], api_bundle)
+                } else {
+                    Err(anyhow!("cannot index not a trait: {:?}", item))
+                }
+            }
+        } else {
+            Err(anyhow!("internal: empty index_chain"))
+        }
     }
 }
 
@@ -18,6 +45,10 @@ impl ApiItemOwned {
             return Err(anyhow!("ApiItem is not Trait"));
         };
         bundle.get_trait(trait_idx.0)
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self.multiplicity, Multiplicity::Array { .. })
     }
 }
 
@@ -56,10 +87,28 @@ impl ApiBundleOwned {
     }
 
     pub fn crate_name(&self, crate_idx: u32) -> Result<&str> {
+        let version = self.crate_version(crate_idx)?;
+        Ok(version.crate_id.as_str())
+    }
+
+    pub fn crate_version(&self, crate_idx: u32) -> Result<&FullVersionOwned> {
         let Some(version) = self.ext_crates.get(crate_idx as usize) else {
             return Err(anyhow!("Bad ApiBundle: no crate with index: {}", crate_idx));
         };
-        Ok(version.crate_id.as_str())
+        Ok(version)
+    }
+
+    /// Get an API item at the provided path.
+    /// Note that array indices must not be provided, as only the structure exists in this AST, not actual elements.
+    /// I.e., for a resource tree:
+    /// /TraitA[]
+    ///   /item_a
+    /// /TraitB
+    ///   /item_c
+    ///   /TraitC[]/item_d
+    /// item_a path is: `0, 0`, TraitB: `1`, item_c: `1, 1` and item_d: `1, 1, 0`.
+    pub fn get_item(&self, id_chain: &[u32]) -> Result<&ApiItemOwned> {
+        self.root.get_item(id_chain, self)
     }
 }
 
@@ -158,46 +207,67 @@ impl TypeOwned {
         }
     }
 
-    pub fn human_name(&self, api_bundle: &ApiBundleOwned) -> Result<String> {
+    pub fn human_name(&self, show_crate_name: bool, api_bundle: &ApiBundleOwned) -> Result<String> {
         match self {
             TypeOwned::Bool => Ok("bool".to_string()),
             TypeOwned::NumericAny(numeric) => Ok(numeric.human_name()),
             TypeOwned::OutOfLine { type_idx } => {
                 let ty = api_bundle.get_ty(type_idx.0)?.0;
-                ty.human_name(api_bundle)
+                ty.human_name(show_crate_name, api_bundle)
             }
             TypeOwned::Flag => Ok("flag".to_string()),
             TypeOwned::String => Ok("String".to_string()),
-            TypeOwned::Vec(inner) => Ok(format!("Vec<{}>", inner.human_name(api_bundle)?)),
-            TypeOwned::Array { len, ty } => {
-                Ok(format!("[{}; {}]", ty.human_name(api_bundle)?, len.0))
-            }
+            TypeOwned::Vec(inner) => Ok(format!(
+                "Vec<{}>",
+                inner.human_name(show_crate_name, api_bundle)?
+            )),
+            TypeOwned::Array { len, ty } => Ok(format!(
+                "[{}; {}]",
+                ty.human_name(show_crate_name, api_bundle)?,
+                len.0
+            )),
             TypeOwned::Tuple(types) => {
                 let mut names = Vec::with_capacity(types.len());
                 for ty in types {
-                    names.push(ty.human_name(api_bundle)?);
+                    names.push(ty.human_name(show_crate_name, api_bundle)?);
                 }
                 Ok(format!("({})", names.join(", ")))
             }
-            TypeOwned::Struct(item_struct) => Ok(format!(
-                "{}::{}",
-                api_bundle.crate_name(item_struct.crate_idx.0)?,
-                item_struct.ident
-            )),
-            TypeOwned::Enum(item_enum) => Ok(format!(
-                "{}::{}",
-                api_bundle.crate_name(item_enum.crate_idx.0)?,
-                item_enum.ident
-            )),
-            TypeOwned::Option { some_ty } => {
-                Ok(format!("Option<{}>", some_ty.human_name(api_bundle)?))
+            TypeOwned::Struct(item_struct) => {
+                if show_crate_name {
+                    Ok(format!(
+                        "{}::{}",
+                        api_bundle.crate_name(item_struct.crate_idx.0)?,
+                        item_struct.ident
+                    ))
+                } else {
+                    Ok(item_struct.ident.to_string())
+                }
             }
+            TypeOwned::Enum(item_enum) => {
+                if show_crate_name {
+                    Ok(format!(
+                        "{}::{}",
+                        api_bundle.crate_name(item_enum.crate_idx.0)?,
+                        item_enum.ident
+                    ))
+                } else {
+                    Ok(item_enum.ident.to_string())
+                }
+            }
+            TypeOwned::Option { some_ty } => Ok(format!(
+                "Option<{}>",
+                some_ty.human_name(show_crate_name, api_bundle)?
+            )),
             TypeOwned::Result { ok_ty, err_ty } => Ok(format!(
                 "Result<{}, {}>",
-                ok_ty.human_name(api_bundle)?,
-                err_ty.human_name(api_bundle)?
+                ok_ty.human_name(show_crate_name, api_bundle)?,
+                err_ty.human_name(show_crate_name, api_bundle)?
             )),
-            TypeOwned::Box(inner) => Ok(format!("Box<{}>", inner.human_name(api_bundle)?)),
+            TypeOwned::Box(inner) => Ok(format!(
+                "Box<{}>",
+                inner.human_name(show_crate_name, api_bundle)?
+            )),
             TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
             TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
         }

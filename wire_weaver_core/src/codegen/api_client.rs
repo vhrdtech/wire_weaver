@@ -193,8 +193,8 @@ fn client_structs_recursive(
             cmd_tx.set_base_path(#index_chain);
             wire_weaver_client_common::Attachment::new(
                 cmd_tx,
-                #full,
-                #trait_name
+                #full.make_owned(),
+                #trait_name.to_string()
             )
         }
     };

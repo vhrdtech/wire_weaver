@@ -275,6 +275,7 @@ impl DispatcherState {
                 EventKind::Introspect {
                     ww_self_bytes_chunk,
                 } => {
+                    // TODO: use seq_id for introspect events routing as well
                     let chunk = ww_self_bytes_chunk.clone().to_vec();
                     self.introspect_handlers.retain(|tx| {
                         let keep = tx.send(chunk.clone()).is_ok();
@@ -287,6 +288,7 @@ impl DispatcherState {
                 if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
                     let _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
                 } else {
+                    // TODO: route introspect errors back to caller
                     warn!("unknown seq {:?} for remote err {e:?}", &event.seq);
                 }
             }

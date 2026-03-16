@@ -1,18 +1,28 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod test;
+mod valid_indices;
 
 pub use shrink_wrap;
+pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
-pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_trait};
+pub use valid_indices::ValidIndices;
+#[cfg(feature = "std")]
+pub use valid_indices::ValidIndicesOwned;
+pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_codegen, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
+    pub use crate::valid_indices::ValidIndices;
+    #[cfg(feature = "std")]
+    pub use crate::valid_indices::ValidIndicesOwned;
     pub use crate::{MessageSink, WireWeaverAsyncApiBackend};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
-    pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_impl, ww_trait};
+    pub use wire_weaver_derive::{
+        compact_version, full_version, ww_api, ww_api_root, ww_codegen, ww_impl, ww_trait,
+    };
     pub use ww_version;
     pub use ww_version::FullVersion;
 }

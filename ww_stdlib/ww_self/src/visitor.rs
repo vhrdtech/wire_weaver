@@ -1,6 +1,7 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ArgumentOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeOwned,
+    ArgumentOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned,
+    TypeOwned,
 };
 
 pub trait VisitMut {
@@ -8,7 +9,7 @@ pub trait VisitMut {
         let _ = level;
     }
 
-    fn visit_doc(&mut self, doc: &mut String) {
+    fn visit_doc(&mut self, doc: &mut Vec<String>) {
         let _ = doc;
     }
 
@@ -27,13 +28,13 @@ pub trait VisitMut {
 
     fn visit_property(
         &mut self,
-        ty: &mut TypeOwned,
         access: &mut PropertyAccess,
-        user_result_ty: &mut Option<TypeOwned>,
+        ty: &mut TypeOwned,
+        write_result_ty: &mut Option<TypeOwned>,
     ) {
-        let _ = ty;
         let _ = access;
-        let _ = user_result_ty;
+        let _ = ty;
+        let _ = write_result_ty;
     }
 
     fn visit_stream(&mut self, ty: &mut TypeOwned, is_up: &mut bool) {
@@ -56,23 +57,36 @@ pub trait VisitMut {
 
 pub fn visit_api_bundle_mut(api_bundle: &mut ApiBundleOwned, v: &mut impl VisitMut) {
     visit_level(&mut api_bundle.root, v);
-    for ty in &mut api_bundle.types {
-        visit_type(ty, v);
+    for ty_location in &mut api_bundle.types {
+        match ty_location {
+            TypeLocationOwned::InLine { ty, .. } => {
+                visit_type(ty, v);
+            }
+            TypeLocationOwned::SkippedFullVersion { .. } => {
+                todo!()
+            } // TypeLocationOwned::SkippedCompactVersion { .. } => {
+              //     todo!()
+              // }
+        }
     }
     for level_location in &mut api_bundle.traits {
         match level_location {
-            ApiLevelLocationOwned::InLine(level) => {
+            ApiLevelLocationOwned::InLine { level, .. } => {
                 visit_level(level, v);
             }
-            ApiLevelLocationOwned::SkippedFullVersion { .. } => {}
-            ApiLevelLocationOwned::SkippedCompactVersion { .. } => {}
+            ApiLevelLocationOwned::SkippedFullVersion { .. } => {
+                todo!()
+            }
+            ApiLevelLocationOwned::SkippedCompactVersion { .. } => {
+                todo!()
+            }
         }
     }
 }
 
 fn visit_level(level: &mut ApiLevelOwned, v: &mut impl VisitMut) {
     v.visit_level(level);
-    v.visit_ident(&mut level.ident);
+    v.visit_ident(&mut level.trait_name);
     v.visit_doc(&mut level.docs);
     for item in &mut level.items {
         visit_item(item, v);
@@ -86,10 +100,10 @@ fn visit_item(item: &mut ApiItemOwned, v: &mut impl VisitMut) {
     match &mut item.kind {
         ApiItemKindOwned::Method { args, return_ty } => visit_method(args, return_ty, v),
         ApiItemKindOwned::Property {
-            ty,
             access,
-            user_result_ty,
-        } => visit_property(ty, access, user_result_ty, v),
+            ty,
+            write_err_ty,
+        } => visit_property(access, ty, write_err_ty, v),
         ApiItemKindOwned::Stream { ty, is_up } => visit_stream(ty, is_up, v),
         ApiItemKindOwned::Trait { .. } => {}
     }
@@ -111,14 +125,14 @@ fn visit_method(
 }
 
 fn visit_property(
-    ty: &mut TypeOwned,
     access: &mut PropertyAccess,
-    user_result_ty: &mut Option<TypeOwned>,
+    ty: &mut TypeOwned,
+    write_err_ty: &mut Option<TypeOwned>,
     v: &mut impl VisitMut,
 ) {
-    v.visit_property(ty, access, user_result_ty);
+    v.visit_property(access, ty, write_err_ty);
     visit_type(ty, v);
-    if let Some(ty) = user_result_ty {
+    if let Some(ty) = write_err_ty {
         visit_type(ty, v);
     }
 }
@@ -164,11 +178,7 @@ fn visit_item_struct(item_struct: &mut ItemStructOwned, v: &mut impl VisitMut) {
     v.visit_item_struct(item_struct);
     v.visit_ident(&mut item_struct.ident);
     v.visit_doc(&mut item_struct.docs);
-    for field in &mut item_struct.fields {
-        v.visit_ident(&mut field.ident);
-        v.visit_doc(&mut field.docs);
-        visit_type(&mut field.ty, v);
-    }
+    visit_fields(&mut item_struct.fields, v);
 }
 
 fn visit_item_enum(item_enum: &mut ItemEnumOwned, v: &mut impl VisitMut) {
@@ -178,20 +188,21 @@ fn visit_item_enum(item_enum: &mut ItemEnumOwned, v: &mut impl VisitMut) {
     for variant in &mut item_enum.variants {
         v.visit_ident(&mut variant.ident);
         v.visit_doc(&mut variant.docs);
-        match &mut variant.fields {
-            FieldsOwned::Named(fields) => {
-                for field in fields {
-                    v.visit_ident(&mut field.ident);
-                    v.visit_doc(&mut field.docs);
-                    visit_type(&mut field.ty, v);
+        visit_fields(&mut variant.fields, v);
+    }
+}
+
+fn visit_fields(fields: &mut FieldsOwned, v: &mut impl VisitMut) {
+    match fields {
+        FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => {
+            for field in fields {
+                if let Some(ident) = &mut field.ident {
+                    v.visit_ident(ident);
                 }
+                v.visit_doc(&mut field.docs);
+                visit_type(&mut field.ty, v);
             }
-            FieldsOwned::Unnamed(types) => {
-                for ty in types {
-                    visit_type(ty, v);
-                }
-            }
-            FieldsOwned::Unit => {}
         }
+        FieldsOwned::Unit => {}
     }
 }

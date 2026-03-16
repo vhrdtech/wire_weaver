@@ -27,7 +27,7 @@ pub trait Indication {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Mode {
@@ -38,7 +38,7 @@ pub enum Mode {
 
 /// Indicators brightness mode
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Brightness {
@@ -57,7 +57,7 @@ pub enum Brightness {
 /// Alert indicators brightness mode, relative to info indicators.
 /// (alert indicators cannot have brightness lower than info ones)
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum AlertBrightness {
@@ -71,7 +71,7 @@ pub enum AlertBrightness {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[owned = "std"]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

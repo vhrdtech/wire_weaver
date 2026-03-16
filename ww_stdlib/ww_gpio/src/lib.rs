@@ -4,11 +4,14 @@ use wire_weaver::prelude::*;
 pub use ww_si::Volt;
 
 /// A bank of related IO pins.
-/// Each pin in a bank is using the same reference voltage, that can be adjusted if bank supports it.
+/// Each pin in a bank is using the same reference voltage, that can be adjusted if supported by hardware.
 #[ww_trait]
-trait GpioBank {
-    /// 0. Array of individual pins.
-    ww_impl!(pin[]: Gpio);
+trait Bank {
+    /// Array of individual pins.
+    /// Suggested indexing scheme:
+    /// * Range - useful when a device has sequentially marked IOs (e.g., IO expander)
+    /// * List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)
+    ww_impl!(pin[]: Pin);
 
     // 1-7. Reserved
     reserved!();
@@ -19,8 +22,6 @@ trait GpioBank {
     reserved!();
     reserved!();
 
-    /// Range or list of available pins, each pin is identified by an u32 index.
-    fn available() -> AvailablePins<'i>;
     /// Capabilities that each pin of the bank supports.
     fn capabilities() -> BankCapabilities<'i>;
 
@@ -49,7 +50,7 @@ trait GpioBank {
 ///
 /// Commonly used operations are defined first, to get more compact resource paths.
 #[ww_trait]
-pub trait Gpio {
+pub trait Pin {
     /// 0. Set the output level.
     ///
     /// If the pin is currently configured as input, this level should only be written to control register, without changing pin mode.
@@ -88,10 +89,10 @@ pub trait Gpio {
     fn mode() -> Mode;
 
     /// Pull resistors selection. [Error::UnsupportedPull] may be returned on incorrect set call.
-    property!(pull: Pull, Error);
+    property!(rw pull: Pull, Error);
 
     /// Drive strength selection.  [Error::UnsupportedSpeed] may be returned on incorrect set call.
-    property!(speed: Speed, Error);
+    property!(rw speed: Speed, Error);
 
     /// Enable or disable asynchronous events sent through the stream.
     fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
@@ -105,16 +106,18 @@ pub trait Gpio {
 /// Digital output level - High and Low.
 #[derive_shrink_wrap]
 #[ww_repr(u1)]
+#[sized]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Level {
-    High,
     Low,
+    High,
 }
 
 /// IO pin mode (Push-Pull, Open-Drain, Input, etc.)
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
+#[sized]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Mode {
@@ -139,6 +142,7 @@ pub enum Error {
     UnsupportedEventType,
     UnsupportedReferenceVoltage,
     DifferentModes,
+    NotImplemented,
     CustomU8(u8),
     CustomU32(u32),
 }
@@ -146,6 +150,7 @@ pub enum Error {
 /// IO pin pull configuration (pull-up, pull-down, etc.)
 #[derive_shrink_wrap]
 #[ww_repr(u2)]
+#[sized]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Pull {
@@ -157,7 +162,8 @@ pub enum Pull {
 
 /// IO pin drive strength configuration
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
+#[sized]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 pub enum Speed {
@@ -171,6 +177,7 @@ pub enum Speed {
 /// IO pin asynchronous event (interrupt reason), sent via the [Gpio] `event` stream if enabled.
 #[derive_shrink_wrap]
 #[ww_repr(u2)]
+#[sized]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[defmt = "defmt"]
 // TODO: Add optional timestamp?
@@ -190,20 +197,6 @@ pub struct IoPinEnabledEvents<'i> {
     pub falling: bool,
     pub custom: RefVec<'i, u8>,
     // TODO: add GPIO filter configuration
-}
-
-/// List or range of available pins that can be requested by a client. Two options are supported:
-/// * RangeInclusive - `[start_idx, end_idx]`, useful when a continuous range of pins is logical to use (e.g., IO expander)
-/// * List - array of indices, useful e.g., when exposing only some of the pins of an MCU GPIO bank to avoid confusion
-///   (PB0, PB5 - list of `[0, 5]` instead of confusing 0 and 1 indices)
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[defmt = "defmt"]
-pub enum AvailablePins<'i> {
-    Range(Range<u32>),
-    List(RefVec<'i, u32>),
 }
 
 /// GPIO bank capabilities: supported voltages, modes, custom modes, etc.

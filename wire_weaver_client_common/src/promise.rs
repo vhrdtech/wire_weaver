@@ -8,13 +8,24 @@ use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::{ErrorKindOwned, PathKindOwned};
 
 pub struct Promise<T> {
-    state: PromiseState<T>,
+    state: StateInner<T>,
     marker: &'static str,
     seen: bool,
+    // TODO: Add instant
+}
+
+impl<T> Default for Promise<T> {
+    fn default() -> Self {
+        Promise {
+            state: StateInner::None,
+            marker: "",
+            seen: false,
+        }
+    }
 }
 
 #[derive(Default)]
-enum PromiseState<T> {
+enum StateInner<T> {
     #[default]
     None,
     WaitingForSeqCall {
@@ -47,8 +58,16 @@ enum PromiseState<T> {
     },
     WaitingForReply(SeqTy, oneshot::Receiver<Result<Vec<u8>, Error>>),
     WaitingForMultiReply(SeqTy, mpsc::UnboundedReceiver<Vec<u8>>, Vec<u8>),
+    Future(oneshot::Receiver<Result<T, Error>>),
     Done(Option<T>), // Option used here to make Drop and take() work
     Err(Error),
+}
+
+pub enum PromiseState<'i, T> {
+    Empty,
+    Waiting,
+    Done(&'i T),
+    Err(&'i Error),
 }
 
 macro_rules! obtain_next_seq_or_return {
@@ -61,7 +80,7 @@ macro_rules! obtain_next_seq_or_return {
             }
             Err(_) => {
                 drop(seq_rx);
-                $self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
+                $self.state = StateInner::Err(Error::RxDispatcherNotRunning);
                 return true;
             }
         };
@@ -72,7 +91,7 @@ macro_rules! obtain_next_seq_or_return {
 impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     pub fn empty(marker: &'static str) -> Self {
         Self {
-            state: PromiseState::None,
+            state: StateInner::None,
             marker,
             seen: false,
         }
@@ -80,7 +99,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     pub fn error(error: Error, marker: &'static str) -> Self {
         Self {
-            state: PromiseState::Err(error),
+            state: StateInner::Err(error),
             marker,
             seen: false,
         }
@@ -96,7 +115,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         marker: &'static str,
     ) -> Self {
         Self {
-            state: PromiseState::WaitingForSeqCall {
+            state: StateInner::WaitingForSeqCall {
                 path_kind: Some(path_kind),
                 args: Some(args),
                 timeout,
@@ -118,7 +137,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         marker: &'static str,
     ) -> Self {
         Self {
-            state: PromiseState::WaitingForSeqRead {
+            state: StateInner::WaitingForSeqRead {
                 path_kind: Some(path_kind),
                 timeout,
                 transport_cmd_tx,
@@ -140,7 +159,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         marker: &'static str,
     ) -> Self {
         Self {
-            state: PromiseState::WaitingForSeqWrite {
+            state: StateInner::WaitingForSeqWrite {
                 path_kind: Some(path_kind),
                 value: Some(value),
                 timeout,
@@ -160,7 +179,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         marker: &'static str,
     ) -> Self {
         Self {
-            state: PromiseState::WaitingForIntrospect {
+            state: StateInner::WaitingForIntrospect {
                 transport_cmd_tx,
                 dispatcher_cmd_tx,
                 seq_rx,
@@ -174,7 +193,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     /// Note that error is also an option, but this method ignores it.
     pub fn ready(&mut self) -> Option<&T> {
         self.sync_poll();
-        if let PromiseState::Done(response) = &self.state {
+        if let StateInner::Done(response) = &self.state {
             response.as_ref()
         } else {
             None
@@ -183,7 +202,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     pub fn ready_mut(&mut self) -> Option<&mut T> {
         self.sync_poll();
-        if let PromiseState::Done(response) = &mut self.state {
+        if let StateInner::Done(response) = &mut self.state {
             response.as_mut()
         } else {
             None
@@ -192,7 +211,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     pub fn ready_if_unseen(&mut self) -> Option<&T> {
         self.sync_poll();
-        if let PromiseState::Done(response) = &self.state {
+        if let StateInner::Done(response) = &self.state {
             if self.seen {
                 None
             } else {
@@ -206,10 +225,10 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     pub fn take_ready(&mut self) -> Option<T> {
         self.sync_poll();
-        if !matches!(self.state, PromiseState::Done(_)) {
+        if !matches!(self.state, StateInner::Done(_)) {
             return None;
         }
-        if let PromiseState::Done(ref mut response) = core::mem::take(&mut self.state) {
+        if let StateInner::Done(ref mut response) = core::mem::take(&mut self.state) {
             response.take()
             // Some(response)
         } else {
@@ -221,17 +240,18 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         if let Some(r) = self.take_ready() {
             Ok(Some(r))
         } else if let Some(e) = self.peek_error() {
-            self.state = PromiseState::None;
+            let e = format!("{e}");
+            self.state = StateInner::None;
             Err(e)
         } else {
             Ok(None)
         }
     }
 
-    pub fn peek_error(&mut self) -> Option<String> {
-        self.sync_poll();
-        if let PromiseState::Err(e) = &self.state {
-            Some(format!("{e:?}"))
+    pub fn peek_error(&self) -> Option<&Error> {
+        // self.sync_poll();
+        if let StateInner::Err(e) = &self.state {
+            Some(e)
         } else {
             None
         }
@@ -239,25 +259,25 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     pub fn sync_poll(&mut self) {
         match &self.state {
-            PromiseState::WaitingForSeqCall { .. } => {
+            StateInner::WaitingForSeqCall { .. } => {
                 let no_more_work = self.send_call();
                 if no_more_work {
                     return;
                 }
             }
-            PromiseState::WaitingForSeqRead { .. } => {
+            StateInner::WaitingForSeqRead { .. } => {
                 let no_more_work = self.send_read();
                 if no_more_work {
                     return;
                 }
             }
-            PromiseState::WaitingForSeqWrite { .. } => {
+            StateInner::WaitingForSeqWrite { .. } => {
                 let no_more_work = self.send_write();
                 if no_more_work {
                     return;
                 }
             }
-            PromiseState::WaitingForIntrospect { .. } => {
+            StateInner::WaitingForIntrospect { .. } => {
                 let no_more_work = self.send_introspect();
                 if no_more_work {
                     return;
@@ -266,14 +286,14 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             _ => {}
         }
         match &mut self.state {
-            PromiseState::WaitingForReply(_seq, rx) => match rx.try_recv() {
+            StateInner::WaitingForReply(_seq, rx) => match rx.try_recv() {
                 Ok(response) => match response {
                     Ok(bytes) => match T::from_ww_bytes_owned(&bytes) {
                         Ok(reply) => {
-                            self.state = PromiseState::Done(Some(reply));
+                            self.state = StateInner::Done(Some(reply));
                         }
                         Err(e) => {
-                            self.state = PromiseState::Err(e.into());
+                            self.state = StateInner::Err(e.into());
                         }
                     },
                     Err(e) => {
@@ -282,37 +302,37 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                         {
                             match T::from_ww_bytes_owned(bytes) {
                                 Ok(err) => {
-                                    self.state = PromiseState::Err(Error::RemoteErrorDes(format!(
+                                    self.state = StateInner::Err(Error::RemoteErrorDes(format!(
                                         "Error {{ err_seq: {}, user error: {:?} }}",
                                         remote.err_seq, err
                                     )))
                                 }
                                 Err(e) => {
-                                    self.state = PromiseState::Err(Error::RemoteErrorDes(format!(
+                                    self.state = StateInner::Err(Error::RemoteErrorDes(format!(
                                         "Error {{ err_seq: {}, failed to deserialize user error: {:?} }}",
                                         remote.err_seq, e
                                     )))
                                 }
                             }
                         } else {
-                            self.state = PromiseState::Err(e);
+                            self.state = StateInner::Err(e);
                         }
                     }
                 },
                 Err(oneshot::error::TryRecvError::Empty) => {}
                 Err(oneshot::error::TryRecvError::Closed) => {
-                    self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
+                    self.state = StateInner::Err(Error::RxDispatcherNotRunning);
                 }
             },
-            PromiseState::WaitingForMultiReply(_seq, rx, acc) => match rx.try_recv() {
+            StateInner::WaitingForMultiReply(_seq, rx, acc) => match rx.try_recv() {
                 Ok(chunk) => {
                     if chunk.is_empty() {
                         match T::from_ww_bytes_owned(acc) {
                             Ok(reply) => {
-                                self.state = PromiseState::Done(Some(reply));
+                                self.state = StateInner::Done(Some(reply));
                             }
                             Err(e) => {
-                                self.state = PromiseState::Err(e.into());
+                                self.state = StateInner::Err(e.into());
                             }
                         }
                     } else {
@@ -321,9 +341,17 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                 }
                 Err(mpsc::error::TryRecvError::Empty) => {}
                 Err(mpsc::error::TryRecvError::Disconnected) => {
-                    self.state = PromiseState::Err(Error::RxDispatcherNotRunning);
+                    self.state = StateInner::Err(Error::RxDispatcherNotRunning);
                 }
             },
+            StateInner::Future(rx) => {
+                if let Ok(rx) = rx.try_recv() {
+                    match rx {
+                        Ok(val) => self.state = StateInner::Done(Some(val)),
+                        Err(e) => self.state = StateInner::Err(e),
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -331,7 +359,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     // noinspection DuplicatedCode
     // Extracting methods or macros takes same amount of lines and makes things more confusing.
     fn send_call(&mut self) -> bool {
-        if let PromiseState::WaitingForSeqCall {
+        if let StateInner::WaitingForSeqCall {
             path_kind,
             args,
             timeout,
@@ -346,20 +374,20 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             let done_rx = match dispatcher_cmd_tx.on_call_return(seq, *timeout) {
                 Ok(done_rx) => done_rx,
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             };
             let (Some(path_kind), Some(args)) = (path_kind.take(), args.take()) else {
-                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                self.state = StateInner::Err(Error::Other("internal state error".into()));
                 return true;
             };
             match transport_cmd_tx.send_call_request(seq, path_kind, args) {
                 Ok(_) => {
-                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                    self.state = StateInner::WaitingForReply(seq, done_rx);
                 }
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             }
@@ -369,7 +397,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     // noinspection DuplicatedCode
     fn send_read(&mut self) -> bool {
-        if let PromiseState::WaitingForSeqRead {
+        if let StateInner::WaitingForSeqRead {
             path_kind,
             timeout,
             transport_cmd_tx,
@@ -383,20 +411,20 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             let done_rx = match dispatcher_cmd_tx.on_read_return(seq, *timeout) {
                 Ok(done_rx) => done_rx,
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             };
             let Some(path_kind) = path_kind.take() else {
-                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                self.state = StateInner::Err(Error::Other("internal state error".into()));
                 return true;
             };
             match transport_cmd_tx.send_read_request(seq, path_kind) {
                 Ok(_) => {
-                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                    self.state = StateInner::WaitingForReply(seq, done_rx);
                 }
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             }
@@ -406,7 +434,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
 
     // noinspection DuplicatedCode
     fn send_write(&mut self) -> bool {
-        if let PromiseState::WaitingForSeqWrite {
+        if let StateInner::WaitingForSeqWrite {
             path_kind,
             value,
             timeout,
@@ -421,20 +449,20 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             let done_rx = match dispatcher_cmd_tx.on_write_return(seq, *timeout) {
                 Ok(done_rx) => done_rx,
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             };
             let (Some(path_kind), Some(value)) = (path_kind.take(), value.take()) else {
-                self.state = PromiseState::Err(Error::Other("internal state error".into()));
+                self.state = StateInner::Err(Error::Other("internal state error".into()));
                 return true;
             };
             match transport_cmd_tx.send_write_request(seq, path_kind, value) {
                 Ok(_) => {
-                    self.state = PromiseState::WaitingForReply(seq, done_rx);
+                    self.state = StateInner::WaitingForReply(seq, done_rx);
                 }
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             }
@@ -443,7 +471,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     }
 
     fn send_introspect(&mut self) -> bool {
-        if let PromiseState::WaitingForIntrospect {
+        if let StateInner::WaitingForIntrospect {
             transport_cmd_tx,
             dispatcher_cmd_tx,
             seq_rx,
@@ -455,39 +483,57 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             let chunks_rx = match dispatcher_cmd_tx.on_introspect_chunk() {
                 Ok(chunks_rx) => chunks_rx,
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             };
             match transport_cmd_tx.send_introspect(seq) {
                 Ok(_) => {
-                    self.state = PromiseState::WaitingForMultiReply(seq, chunks_rx, vec![]);
+                    self.state = StateInner::WaitingForMultiReply(seq, chunks_rx, vec![]);
                 }
                 Err(e) => {
-                    self.state = PromiseState::Err(e);
+                    self.state = StateInner::Err(e);
                     return true;
                 }
             }
         }
         false
     }
+
+    pub fn state(&self) -> PromiseState<'_, T> {
+        match &self.state {
+            StateInner::None => PromiseState::Empty,
+            StateInner::WaitingForSeqCall { .. }
+            | StateInner::WaitingForSeqRead { .. }
+            | StateInner::WaitingForSeqWrite { .. }
+            | StateInner::WaitingForIntrospect { .. }
+            | StateInner::WaitingForReply(_, _)
+            | StateInner::WaitingForMultiReply(_, _, _) => PromiseState::Waiting,
+            StateInner::Future(_) => PromiseState::Waiting,
+            StateInner::Done(value) => value
+                .as_ref()
+                .map(PromiseState::Done)
+                .unwrap_or(PromiseState::Empty),
+            StateInner::Err(e) => PromiseState::Err(e),
+        }
+    }
 }
 
 impl<T> Promise<T> {
     pub fn is_waiting(&self) -> bool {
-        matches!(self.state, PromiseState::WaitingForReply(_, _))
+        matches!(self.state, StateInner::WaitingForReply(_, _))
     }
 
     pub fn is_empty(&self) -> bool {
-        matches!(self.state, PromiseState::None)
+        matches!(self.state, StateInner::None)
     }
 
     pub fn is_ready(&self) -> bool {
-        matches!(self.state, PromiseState::Done(_))
+        matches!(self.state, StateInner::Done(_))
     }
 
     pub fn is_err(&self) -> bool {
-        matches!(self.state, PromiseState::Err(_))
+        matches!(self.state, StateInner::Err(_))
     }
 
     pub fn marker(&self) -> &str {
@@ -499,28 +545,29 @@ impl<T> Display for Promise<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Promise('{}')::", self.marker)?;
         match &self.state {
-            PromiseState::None => write!(f, "None"),
-            PromiseState::WaitingForSeqCall { .. } => write!(f, "WaitingForSeqCall"),
-            PromiseState::WaitingForSeqRead { .. } => write!(f, "WaitingForSeqRead"),
-            PromiseState::WaitingForSeqWrite { .. } => write!(f, "WaitingForSeqWrite"),
-            PromiseState::WaitingForIntrospect { .. } => write!(f, "WaitingForIntrospect"),
-            PromiseState::WaitingForReply(seq, _) => write!(f, "Waiting(seq={seq})"),
-            PromiseState::WaitingForMultiReply(seq, _, _) => write!(f, "WaitingMulti(seq={seq})"),
-            PromiseState::Done(_) => write!(f, "Done"),
-            PromiseState::Err(e) => write!(f, "Err({e:?})"),
+            StateInner::None => write!(f, "None"),
+            StateInner::WaitingForSeqCall { .. } => write!(f, "WaitingForSeqCall"),
+            StateInner::WaitingForSeqRead { .. } => write!(f, "WaitingForSeqRead"),
+            StateInner::WaitingForSeqWrite { .. } => write!(f, "WaitingForSeqWrite"),
+            StateInner::WaitingForIntrospect { .. } => write!(f, "WaitingForIntrospect"),
+            StateInner::WaitingForReply(seq, _) => write!(f, "Waiting(seq={seq})"),
+            StateInner::WaitingForMultiReply(seq, _, _) => write!(f, "WaitingMulti(seq={seq})"),
+            StateInner::Future(_) => write!(f, "Future"),
+            StateInner::Done(_) => write!(f, "Done"),
+            StateInner::Err(e) => write!(f, "Err({e:?})"),
         }
     }
 }
 
 impl<T> Drop for Promise<T> {
     fn drop(&mut self) {
-        if matches!(self.state, PromiseState::WaitingForSeqCall { .. }) {
+        if matches!(self.state, StateInner::WaitingForSeqCall { .. }) {
             tracing::warn!(
                 "Dropping Promise(marker='{}')::WaitingForSeq(T), likely an error",
                 self.marker
             );
         }
-        if let PromiseState::WaitingForReply(seq, _) = &self.state {
+        if let StateInner::WaitingForReply(seq, _) = &self.state {
             tracing::warn!(
                 "Dropping Promise(seq={}, marker='{}')::Waiting(T), likely an error",
                 seq,

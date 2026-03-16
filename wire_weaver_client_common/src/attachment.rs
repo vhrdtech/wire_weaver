@@ -1,5 +1,5 @@
 use crate::CommandSender;
-use ww_version::FullVersion;
+use ww_version::FullVersionOwned;
 
 /// Trait attachment point that carries:
 /// * which device it belongs to
@@ -14,16 +14,12 @@ use ww_version::FullVersion;
 /// exposes a more user-friendly and canonical API with each pin represented by a separate struct.
 pub struct Attachment {
     cmd_tx: CommandSender,
-    source_crate: FullVersion<'static>,
-    trait_name: &'static str,
+    source_crate: FullVersionOwned,
+    trait_name: String,
 }
 
 impl Attachment {
-    pub fn new(
-        cmd_tx: CommandSender,
-        source_crate: FullVersion<'static>,
-        trait_name: &'static str,
-    ) -> Self {
+    pub fn new(cmd_tx: CommandSender, source_crate: FullVersionOwned, trait_name: String) -> Self {
         Self {
             cmd_tx,
             source_crate,
@@ -39,7 +35,7 @@ impl Attachment {
         self.cmd_tx
     }
 
-    pub fn source_crate(&self) -> &FullVersion<'static> {
+    pub fn source_crate(&self) -> &FullVersionOwned {
         &self.source_crate
     }
 

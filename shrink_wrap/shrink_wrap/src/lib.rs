@@ -2,7 +2,9 @@
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
 pub mod buf_reader;
+
 pub use buf_reader::BufReader;
+use core::fmt::{Display, Formatter};
 pub mod buf_writer;
 pub use buf_writer::BufWriter;
 pub mod nib32;
@@ -12,7 +14,7 @@ pub use ref_box::RefBox;
 pub mod ref_vec;
 pub use ref_vec::{RefVec, RefVecIter};
 pub mod traits;
-pub use shrink_wrap_derive::ww_repr;
+pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
 pub use traits::{
     DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
 };
@@ -54,6 +56,15 @@ pub enum Error {
     SubtypeOutOfRange,
 }
 
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
 // impl Error {
 //     pub fn is_read_eob(&self) -> bool {
 //         use Error::*;
@@ -70,7 +81,6 @@ pub enum Error {
 // }
 
 pub mod prelude {
-    pub use crate::Error as ShrinkWrapError;
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::nib::Nibble;
@@ -82,5 +92,6 @@ pub mod prelude {
         DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
     };
     pub use crate::un::*;
-    pub use shrink_wrap_derive::{ShrinkWrap, derive_shrink_wrap};
+    pub use crate::Error as ShrinkWrapError;
+    pub use shrink_wrap_derive::{derive_shrink_wrap, ShrinkWrap};
 }

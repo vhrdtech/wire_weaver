@@ -70,7 +70,7 @@ pub enum Access {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Clone, Debug)]
 #[sized]
 pub enum Error {

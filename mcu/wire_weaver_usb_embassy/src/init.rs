@@ -115,10 +115,16 @@ pub fn usb_init<
         &mut buffers.control,
     );
 
-    // Create class on the builder.
+    // Create the class on the builder.
+    let max_packet_size = if timings.use_bulk_endpoints && (MAX_USB_PACKET_LEN > 512) {
+        defmt::warn!("Bulk max packet size is 512, correcting");
+        512
+    } else {
+        MAX_USB_PACKET_LEN
+    };
     let ww = WireWeaverClass::new(
         &mut builder,
-        MAX_USB_PACKET_LEN as u16,
+        max_packet_size as u16,
         timings.use_bulk_endpoints,
         timings.packet_send_timeout,
         user_api_version.clone(),
@@ -136,9 +142,9 @@ pub fn usb_init<
         api_model_version,
         timings.packet_accumulation_time.as_micros() as u16,
         tx,
-        &mut buffers.tx,
+        &mut buffers.tx[..max_packet_size],
         rx,
-        &mut buffers.rx,
+        &mut buffers.rx[..max_packet_size],
     );
 
     (

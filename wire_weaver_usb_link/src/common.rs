@@ -177,7 +177,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
 //noinspection GrazieInspection
 #[repr(u8)]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromRepr)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Op {

@@ -1,6 +1,10 @@
 use crate::{BufReader, DeserializeShrinkWrap, ElementSize, Error};
 
-/// Special type that is used in generated code, automatically replacing byte slices in streams.
+/// A Vec<u8> wrapper that consumes all remaining bytes in a buffer when deserializing.
+///
+/// Used in dynamic API calls to represent function return types, property values, etc.
+///
+/// In generated code, byte slices are automatically replaced with this type.
 /// It yields two small optimizations:
 /// * byte slices are sent directly without serialization/deserialization
 /// * slice size is not encoded nor sent over the wire (stream data length is known anyway)
@@ -20,6 +24,7 @@ impl<'i> DeserializeShrinkWrap<'i> for RawSlice<'i> {
 
 /// See [RawSlice] for documentation.
 #[cfg(feature = "std")]
+#[derive(Clone, Debug)]
 pub struct RawSliceOwned(pub Vec<u8>);
 
 #[cfg(feature = "std")]

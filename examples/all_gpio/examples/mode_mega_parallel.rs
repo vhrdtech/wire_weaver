@@ -9,22 +9,22 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
     let mut device = AllGpio::connect(filter, OnError::ExitImmediately).await?;
-    let port_count = device.port_count().call().await?;
+    let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 
     // send multiple call requests in parallel without waiting for each individual one to finish
-    let port_names = join_all((0..port_count).map(|port| device.port(port).name().call())).await;
+    let port_names = join_all(ports.iter().map(|port| device.port(port).name().call())).await;
     let port_names: Result<Vec<String>, _> = port_names.into_iter().collect();
     let port_names = port_names?;
 
-    let modes = (0..16 * port_count)
+    let modes = (0..16 * ports.iter().count() as u32)
         .map(|i| device.port(i / 16).pin(i % 16).mode().call())
         .collect::<Vec<_>>();
     let modes = join_all(modes).await;
     let modes: Result<Vec<Mode>, _> = modes.into_iter().collect();
     let modes = modes?;
 
-    for port in 0..port_count {
+    for port in ports.iter() {
         let port_name = &port_names[port as usize];
         for pin in 0..16 {
             let mode = modes[(port * 16 + pin) as usize];

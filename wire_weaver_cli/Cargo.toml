@@ -17,6 +17,7 @@ anyhow = "1.0"
 indicatif = "0.18"
 console = "0.16"
 human-repr = "1.1"
+ron = "0.12"
 
 wire_weaver_core = { path = "../wire_weaver_core" }
 wire_weaver_usb_host = { path = "../wire_weaver_usb_host" }

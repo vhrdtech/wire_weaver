@@ -55,7 +55,7 @@ impl wire_weaver::MessageSink for DummyTx {
 
 #[ww_trait]
 pub trait McuGpio {
-    ww_impl!(bank_a: "../../../ww_stdlib/ww_gpio/src/lib.rs" as ww_gpio::GpioBank);
+    ww_impl!(bank_a: ww_gpio::GpioBank);
 }
 
 pub struct ServerState {}
@@ -205,7 +205,7 @@ pub mod api_server {
     use super::*;
 
     ww_api!(
-        "src/bin/ww_gpio.rs" as mcu_gpio::McuGpio for ServerState,
+        "src/bin/ww_gpio.rs" :: McuGpio for ServerState,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",

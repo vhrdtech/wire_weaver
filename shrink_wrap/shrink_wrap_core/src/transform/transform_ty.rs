@@ -1,6 +1,6 @@
-use crate::ast::Type;
 use crate::ast::path::Path;
-use crate::transform::util::{FieldPath, FieldSelector};
+use crate::ast::ty::Type;
+use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};
 
@@ -67,6 +67,7 @@ fn transform_path_segment(
     let ident = path_segment.ident.to_string();
     let ty = match ident.as_str() {
         "bool" => Type::Bool,
+        "nib" | "Nibble" => Type::Nibble,
         "u8" => Type::U8,
         "u16" => Type::U16,
         "u32" => Type::U32,
@@ -142,10 +143,10 @@ fn transform_type_result(path_segment: &PathSegment, path: &FieldPath) -> Result
     let (GenericArgument::Type(ok_ty), GenericArgument::Type(err_ty)) = (ok_arg, err_arg) else {
         return Err(format!("expected Result<T, E>, got {arg:?}"));
     };
-    let ok_path = path.clone_and_push(FieldSelector::ResultIfOk);
-    let ok_ty = transform_type(ok_ty.clone(), None, &ok_path)?;
-    let err_path = path.clone_and_push(FieldSelector::ResultIfErr);
-    let err_ty = transform_type(err_ty.clone(), None, &err_path)?;
+    // let ok_path = path.clone_and_push(FieldSelector::ResultIfOk);
+    let ok_ty = transform_type(ok_ty.clone(), None, path)?;
+    // let err_path = path.clone_and_push(FieldSelector::ResultIfErr);
+    let err_ty = transform_type(err_ty.clone(), None, path)?;
     let flag_ident = path.flag_ident();
     Ok(Type::Result(flag_ident, Box::new((ok_ty, err_ty))))
 }
@@ -183,8 +184,8 @@ fn transform_type_option(path_segment: &PathSegment, path: &FieldPath) -> Result
     let GenericArgument::Type(inner_ty) = arg else {
         return Err(format!("expected Option<T>, got {arg:?}"));
     };
-    let path = path.clone_and_push(FieldSelector::OptionIsSome);
-    let inner_ty = transform_type(inner_ty.clone(), None, &path)?;
+    // let path = path.clone_and_push(FieldSelector::OptionIsSome);
+    let inner_ty = transform_type(inner_ty.clone(), None, path)?;
     let flag_ident = path.flag_ident();
     Ok(Type::Option(flag_ident, Box::new(inner_ty)))
 }

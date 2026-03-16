@@ -1,22 +1,24 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
-use crate::ast::api::{ApiItemKind, ApiLevel, Argument, Multiplicity, PropertyAccess};
-use crate::codegen::api_common;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
+use crate::codegen::ty_def::ty_def;
 use crate::codegen::util::{add_prefix, maybe_quote, ErrorSeq};
+use crate::codegen::{api_common, util};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
-use shrink_wrap_core::ast::path::Path;
-use shrink_wrap_core::ast::Type;
-use shrink_wrap_core::codegen::FieldPath;
+use quote::quote;
 use syn::{Lit, LitInt};
+use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
+use ww_self::{
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
+    PropertyAccess, TypeOwned,
+};
 
 pub fn impl_server_dispatcher(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
     no_alloc: bool,
     use_async: bool,
     method_model: &MethodModel,
@@ -32,9 +34,15 @@ pub fn impl_server_dispatcher(
     let maybe_async = maybe_quote(use_async, quote! { async });
     let maybe_await = maybe_quote(use_async, quote! { .await });
     let mut error_seq = ErrorSeq::default();
-    let deferred_return_methods =
-        deferred_method_return_ser_methods(api_level, no_alloc, method_model, &mut error_seq);
-    let crate_name = api_level.source_location.crate_name();
+    let api_level = &api_bundle.root;
+    let deferred_return_methods = deferred_method_return_ser_methods(
+        api_bundle,
+        api_level,
+        no_alloc,
+        method_model,
+        &mut error_seq,
+    );
+    let crate_name = api_level.crate_name(api_bundle).unwrap();
     let cx = ApiServerCGContext {
         ident_prefix: None,
         no_alloc,
@@ -43,13 +51,14 @@ pub fn impl_server_dispatcher(
         property_model,
     };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
-        api_level,
+        api_bundle,
         generate_introspect,
         cx.use_async,
         &mut error_seq,
     );
     let process_request_inner = process_request_inner_recursive(
-        Ident::new("process_request_inner", Span::call_site()),
+        "root".into(),
+        api_bundle,
         api_level,
         IndexChain::new(),
         crate_name,
@@ -57,10 +66,24 @@ pub fn impl_server_dispatcher(
         &mut error_seq,
         Some(handle_introspect),
     );
-    let stream_send_methods =
-        stream_ser_methods_recursive(api_level, IndexChain::new(), crate_name, no_alloc, true);
-    let args_structs = args_structs_recursive(api_level, crate_name, no_alloc);
-    let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
+    let stream_send_methods = stream_ser_methods_recursive(
+        api_bundle,
+        api_level,
+        IndexChain::new(),
+        crate_name,
+        no_alloc,
+        true,
+    );
+    let mut args_structs = TokenStream::new();
+    let mut seen = vec![];
+    args_structs_recursive(
+        api_bundle,
+        api_level,
+        crate_name,
+        no_alloc,
+        &mut seen,
+        &mut args_structs,
+    );
     let es = error_seq.next_err();
     quote! {
         #args_structs
@@ -71,7 +94,6 @@ pub fn impl_server_dispatcher(
         };
         use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
         #additional_use
-        #use_external
         #api_signature
 
         impl super::#context_ident {
@@ -98,7 +120,7 @@ pub fn impl_server_dispatcher(
                     return wr.finish_and_take();
                 };
                 let mut path_iter = path.iter();
-                match self.process_request_inner(path.clone(), &mut path_iter, &request, scratch_args, scratch_event, msg_tx)#maybe_await {
+                match self.process_root(path.clone(), &mut path_iter, &request, scratch_args, scratch_event, msg_tx)#maybe_await {
                     Ok(response_bytes) => Ok(response_bytes),
                     Err(e) => {
                         let mut wr = BufWriter::new(scratch_err);
@@ -123,7 +145,7 @@ pub fn impl_server_dispatcher(
 
 #[derive(Clone)]
 struct ApiServerCGContext<'i> {
-    ident_prefix: Option<Ident>,
+    ident_prefix: Option<String>,
     no_alloc: bool,
     use_async: bool,
     method_model: &'i MethodModel,
@@ -131,34 +153,44 @@ struct ApiServerCGContext<'i> {
 }
 
 impl<'i> ApiServerCGContext<'i> {
-    fn push_suffix(&mut self, suffix: &Ident) {
+    fn push_suffix(&mut self, suffix: &str) {
         if let Some(prefix) = &self.ident_prefix {
-            self.ident_prefix = Some(Ident::new(
-                format!("{}_{}", prefix, suffix).as_str(),
-                Span::call_site(),
-            ));
+            self.ident_prefix = Some(format!("{}_{}", prefix, suffix));
         } else {
-            self.ident_prefix = Some(suffix.clone());
+            self.ident_prefix = Some(suffix.to_string());
         }
     }
 }
 
 fn process_request_inner_recursive(
-    ident: Ident,
-    api_level: &ApiLevel,
+    level_name_chain: String,
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &Ident,
+    crate_name: &str,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
     introspect: Option<TokenStream>,
 ) -> TokenStream {
     let maybe_async = maybe_quote(cx.use_async, quote! { async });
-    let level_matchers = level_matchers(api_level, index_chain, crate_name, cx, error_seq);
+    let level_matchers = level_matchers(
+        api_bundle,
+        api_level,
+        &level_name_chain,
+        index_chain,
+        crate_name,
+        cx,
+        error_seq,
+    );
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
+    let process_fn_name = Ident::new(
+        format!("process_{}", level_name_chain).as_str(),
+        Span::call_site(),
+    );
     let es = error_seq.next_err();
     let mut ts = quote! {
-        #maybe_async fn #ident<'a>(
+        #maybe_async fn #process_fn_name<'a>(
             &mut self,
             #maybe_index_chain_def
             path: RefVec<'_, UNib32>,
@@ -181,31 +213,23 @@ fn process_request_inner_recursive(
     };
 
     for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args, level } = &item.kind else {
+        if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
             continue;
         };
-        let level = level.as_ref().expect("empty level");
-        let process_fn_name = Ident::new(
-            format!(
-                "process_{}",
-                args.trait_name.to_string().to_case(Case::Snake)
-            )
-            .as_str(),
-            Span::call_site(),
-        );
+        let level = item.get_as_level(api_bundle).unwrap();
         let mut cx = cx.clone();
-        if let Some(ident) = item.ident() {
-            cx.push_suffix(&ident);
-        }
+        cx.push_suffix(&item.ident);
         let mut index_chain = index_chain;
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
         }
+        let level_name_chain = format!("{}_{}", level_name_chain, item.ident);
         ts.extend(process_request_inner_recursive(
-            process_fn_name,
+            level_name_chain,
+            api_bundle,
             level,
             index_chain,
-            level.source_location.crate_name(),
+            level.crate_name(api_bundle).unwrap(),
             &cx,
             error_seq,
             None,
@@ -214,16 +238,25 @@ fn process_request_inner_recursive(
     ts
 }
 
+fn mod_ident(level: &ApiLevelOwned, crate_name: &str) -> Ident {
+    Ident::new(
+        format!("{}_{}", crate_name, level.trait_name.to_case(Case::Snake)).as_str(),
+        Span::call_site(),
+    )
+}
+
 fn level_matchers(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
+    level_name_chain: &str,
     index_chain: IndexChain,
-    crate_name: &Ident,
+    crate_name: &str,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let ids = api_level.items.iter().map(|item| {
         Lit::Int(LitInt::new(
-            format!("{}u32", item.id).as_str(),
+            format!("{}u32", item.id.0).as_str(),
             Span::call_site(),
         ))
     });
@@ -231,56 +264,71 @@ fn level_matchers(
     let es1 = error_seq.next_err();
     let handlers = api_level.items.iter().map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
-            &item.kind,
+            api_bundle,
+            item,
+            level_name_chain,
             index_chain,
-            api_level.mod_ident(crate_name),
+            mod_ident(api_level, crate_name),
             cx,
-            crate_name,
             error_seq,
         ),
-        Multiplicity::Array { index_type } => {
+        Multiplicity::Array { .. } => {
             let check_err_on_no_alloc = if cx.no_alloc {
                 let es = error_seq.next_err();
                 quote! { .map_err(|_| Error::new(#es, ErrorKind::ArrayIndexDesFailed))? }
             } else {
-                quote! { }
+                quote! {}
             };
-            let es = error_seq.next_err();
-            let mut index_chain = index_chain;
+            let mut index_chain_with_this_index = index_chain;
             let maybe_index_chain_push =
-                index_chain.push_back(
-                    quote! { },
-                    quote! { path_iter.next().ok_or(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))?#check_err_on_no_alloc }
-                );
+                index_chain_with_this_index.push_back(quote! {}, quote! { index });
             let lm = level_matcher(
-                &item.kind,
-                index_chain,
-                api_level.mod_ident(crate_name),
+                api_bundle,
+                item,
+                level_name_chain,
+                index_chain_with_this_index,
+                mod_ident(api_level, crate_name),
                 cx,
-                crate_name,
                 error_seq,
             );
-            let maybe_validate_index = if index_type.is_some() {
-                quote! { }
-            } else {
-                let validate_index_fn = Ident::new(
-                    format!(
-                        "validate_index_{}",
-                        item.ident().unwrap().to_string().to_case(Case::Snake)
-                    )
-                        .as_str(),
-                    Span::call_site(),
-                );
-                quote! {
-                    if let Err(_) = self.#validate_index_fn(index_chain) {
-                        return Err(Error::new(#es, ErrorKind::BadIndex));
-                    }
+
+            let valid_indices = Ident::new(
+                format!(
+                    "valid_indices_{level_name_chain}_{}",
+                    item.ident.to_case(Case::Snake)
+                )
+                    .as_str(),
+                Span::call_site(),
+            );
+            let maybe_index_chain_arg = index_chain.fun_argument_call();
+            let es = error_seq.next_err();
+            let validate_index = quote! {
+                if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
+                    return Err(Error::new(#es, ErrorKind::BadIndex));
                 }
             };
+            let es0 = error_seq.next_err();
+            let es1 = error_seq.next_err();
+            let es2 = error_seq.next_err();
             quote! {
-                #maybe_index_chain_push
-                #maybe_validate_index
-                #lm
+                match path_iter.next() {
+                    Some(index) => {
+                        let index = index #check_err_on_no_alloc;
+                        #validate_index
+                        #maybe_index_chain_push
+                        #lm
+                    }
+                    None => {
+                        if let RequestKind::Read /* ValidIndices */ = request.kind {
+                            let indices = self.#valid_indices(#maybe_index_chain_arg);
+                            let indices_bytes = indices.to_ww_bytes(scratch_args).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                            Ok(ser_ok_event(scratch_event, request.seq, EventKind::ReadValue { data: RefVec::new_bytes(indices_bytes) })
+                                .map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?)
+                        } else {
+                            Err(Error::new(#es2, ErrorKind::ExpectedArrayIndexGotNone))
+                        }
+                    }
+                }
             }
         }
     });
@@ -298,53 +346,46 @@ fn level_matchers(
 }
 
 fn level_matcher(
-    kind: &ApiItemKind,
+    api_bundle: &ApiBundleOwned,
+    api_item: &ApiItemOwned,
+    level_name_chain: &str,
     index_chain: IndexChain,
     mod_ident: Ident,
     cx: &ApiServerCGContext<'_>,
-    crate_name: &Ident,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
-    match kind {
-        ApiItemKind::Method {
-            ident,
-            args,
-            return_type,
-        } => handle_method(
+    let ident = Ident::new(&api_item.ident, Span::call_site());
+    match &api_item.kind {
+        ApiItemKindOwned::Method { args, return_ty } => handle_method(
+            api_bundle,
             index_chain,
             &mod_ident,
             cx,
-            ident,
+            &ident,
             args,
-            return_type,
-            crate_name,
+            return_ty,
             error_seq,
         ),
-        ApiItemKind::Property {
-            access,
-            ident,
+        ApiItemKindOwned::Property {
             ty,
-            user_result_ty,
+            access,
+            write_err_ty,
         } => handle_property(
+            api_bundle,
             index_chain,
             cx,
-            ident,
+            &ident,
             ty,
-            user_result_ty,
+            write_err_ty,
             *access,
-            crate_name,
             error_seq,
         ),
-        ApiItemKind::Stream { ident, ty, is_up } => {
-            handle_stream(index_chain, cx, ident, ty, *is_up, crate_name, error_seq)
+        ApiItemKindOwned::Stream { ty, is_up } => {
+            handle_stream(api_bundle, index_chain, cx, &ident, ty, *is_up, error_seq)
         }
-        ApiItemKind::ImplTrait { args, .. } => {
+        ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
-                format!(
-                    "process_{}",
-                    args.trait_name.to_string().to_case(Case::Snake)
-                )
-                .as_str(),
+                format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
                 Span::call_site(),
             );
             let maybe_await = maybe_quote(cx.use_async, quote! { .await });
@@ -353,28 +394,22 @@ fn level_matcher(
                 Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args, msg_tx)#maybe_await?)
             }
         }
-        ApiItemKind::Reserved => {
-            let es = error_seq.next_err();
-            quote! {
-                Err(Error::new(#es, ErrorKind::BadPath))
-            }
-        }
     }
 }
 
 fn handle_method(
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     mod_ident: &Ident,
     cx: &ApiServerCGContext,
     ident: &Ident,
-    args: &[Argument],
-    return_type: &Option<Type>,
-    crate_name: &Ident,
+    args: &[ArgumentOwned],
+    return_type: &Option<TypeOwned>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_let_output = if let Some(ty) = return_type {
-        let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
+        let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
         quote! {
             let output: #enforce_ty =
         }
@@ -391,13 +426,7 @@ fn handle_method(
         quote! { args }
     };
 
-    let ser_output_or_unit = ser_method_output(
-        mod_ident,
-        ident,
-        return_type,
-        quote! { request.seq },
-        error_seq,
-    );
+    let ser_output_or_unit = ser_method_output(return_type, quote! { request.seq }, error_seq);
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let call_and_handle_deferred = match cx.method_model.pick(ident.to_string().as_str()).unwrap() {
         MethodModelKind::Immediate => quote! {
@@ -434,29 +463,29 @@ fn handle_method(
 }
 
 fn handle_property(
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     cx: &ApiServerCGContext,
     ident: &Ident,
-    ty: &Type,
-    user_result_ty: &Option<Type>,
+    ty: &TypeOwned,
+    user_result_ty: &Option<TypeOwned>,
     access: PropertyAccess,
-    crate_name: &Ident,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
-    let mut des = TokenStream::new();
-    let es = error_seq.next_err();
-    let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
-    ty.buf_read(
-        &Ident::new("value", Span::call_site()),
-        cx.no_alloc,
-        false,
-        quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
-        &enforce_ty,
-        &mut des,
-    );
+    // let mut des = TokenStream::new();
+    // let es = error_seq.next_err();
+    let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
+    // ty.buf_read(
+    //     &Ident::new("value", Span::call_site()),
+    //     cx.no_alloc,
+    //     false,
+    //     quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
+    //     &enforce_ty,
+    //     &mut des,
+    // );
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let maybe_let_user_result = maybe_quote(user_result_ty.is_some(), quote! { let user_result = });
@@ -497,53 +526,43 @@ fn handle_property(
                 format!("get_{}", prefixed_ident).as_str(),
                 Span::call_site(),
             );
-            let mut ser = TokenStream::new();
             let es = error_seq.next_err();
-            ty.buf_write(
-                FieldPath::Value(quote! { value }),
-                cx.no_alloc,
-                quote! { .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))? },
-                &mut ser,
-            );
             quote! {
                 let value: #enforce_ty = self.#get_property(#maybe_index_chain_arg)#maybe_await;
                 let mut wr = BufWriter::new(scratch_args);
-                #ser
+                value.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         }
         PropertyModelKind::ValueOnChanged => {
-            let mut ser = TokenStream::new();
+            let ser = TokenStream::new();
             let es = error_seq.next_err();
-            ty.buf_write(
-                FieldPath::Value(quote! { self.#prefixed_ident #maybe_index_chain_indices }),
-                cx.no_alloc,
-                quote! { .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))? },
-                &mut ser,
-            );
             quote! {
                 let mut wr = BufWriter::new(scratch_args);
                 #ser
+                self.#prefixed_ident #maybe_index_chain_indices
+                    .ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         }
     };
-    let es = error_seq.next_err();
+    let es0 = error_seq.next_err();
+    let es1 = error_seq.next_err();
     let write = quote! {
         RequestKind::Write { data } => {
             let data = data.as_slice();
             let mut rd = BufReader::new(data);
-            #des
+            let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es0, ErrorKind::PropertyDesFailed))?;
             #set_property
             if request.seq == 0 {
                 Ok(&[])
             } else {
-                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
+                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?)
             }
         }
     };
     let maybe_write = maybe_quote(
         matches!(
             access,
-            PropertyAccess::WriteOnly | PropertyAccess::ReadWrite
+            PropertyAccess::WriteOnly | PropertyAccess::ReadWrite { .. }
         ),
         write,
     );
@@ -562,7 +581,9 @@ fn handle_property(
     let maybe_read = maybe_quote(
         matches!(
             access,
-            PropertyAccess::Const | PropertyAccess::ReadOnly | PropertyAccess::ReadWrite
+            PropertyAccess::Const
+                | PropertyAccess::ReadOnly { .. }
+                | PropertyAccess::ReadWrite { .. }
         ),
         read,
     );
@@ -577,12 +598,12 @@ fn handle_property(
 }
 
 fn handle_stream(
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     cx: &ApiServerCGContext<'_>,
     ident: &Ident,
-    ty: &Type,
+    ty: &TypeOwned,
     is_up: bool,
-    crate_name: &Ident,
     err_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
@@ -622,32 +643,28 @@ fn handle_stream(
     } else {
         // sink (device in)
         let mut other_des = || {
-            let mut ts = quote! {
-                let mut rd = BufReader::new(data);
-            };
             let es = err_seq.next_err();
-            let enforce_ty = ty.prepend_ext_paths(crate_name).arg_pos_def2(true);
-            ty.buf_read(
-                &Ident::new("value", Span::call_site()),
-                true,
-                false,
-                quote! { .map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))? },
-                &enforce_ty,
-                &mut ts,
-            );
+            let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
+            let ts = quote! {
+                let mut rd = BufReader::new(data);
+                let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+            };
             (ts, quote! { value })
         };
         let write = Ident::new(format!("{}_write", ident).as_str(), ident.span());
         let (des_data, arg) = match ty {
-            Type::Tuple(elements) => {
+            TypeOwned::Tuple(elements) => {
                 if elements.is_empty() {
                     (quote! {}, quote! { () })
                 } else {
                     other_des()
                 }
             }
-            Type::Vec(inner) => {
-                if matches!(inner.as_ref(), Type::U8) {
+            TypeOwned::Vec(inner) => {
+                if matches!(
+                    inner.as_ref(),
+                    TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U8))
+                ) {
                     (quote! {}, quote! { data })
                 } else {
                     other_des()
@@ -677,57 +694,44 @@ fn handle_stream(
     }
 }
 
-fn args_structs_recursive(api_level: &ApiLevel, crate_name: &Ident, no_alloc: bool) -> TokenStream {
-    let mut ts = TokenStream::new();
-    let args_structs = api_common::args_structs(api_level, no_alloc);
-
-    let mod_name = api_level.mod_ident(crate_name);
-    let use_external = api_level.use_external_types(Path::new_ident(crate_name.clone()), no_alloc);
-    ts.extend(quote! {
-        mod #mod_name {
-            use super::*;
-            #use_external
-            #args_structs
-        }
-    });
+fn args_structs_recursive(
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
+    crate_name: &str,
+    no_alloc: bool,
+    seen: &mut Vec<Ident>,
+    ts: &mut TokenStream,
+) {
+    let mod_name = util::mod_name(crate_name, api_level);
+    if !seen.contains(&mod_name) {
+        let args_structs = api_common::args_structs(api_bundle, api_level, no_alloc);
+        ts.extend(quote! {
+            mod #mod_name {
+                use wire_weaver::shrink_wrap::prelude::*;
+                #args_structs
+            }
+        });
+        seen.push(mod_name);
+    }
     for item in &api_level.items {
-        let ApiItemKind::ImplTrait { args: _, level } = &item.kind else {
+        let ApiItemKindOwned::Trait { .. } = &item.kind else {
             continue;
         };
-        let level = level.as_ref().expect("empty level");
-        ts.extend(args_structs_recursive(
-            level,
-            level.source_location.crate_name(),
-            no_alloc,
-        ));
+        let level = item.get_as_level(api_bundle).unwrap();
+        let crate_name = level.crate_name(api_bundle).unwrap();
+        args_structs_recursive(api_bundle, level, crate_name, no_alloc, seen, ts);
     }
-    ts
 }
 
 fn ser_method_output(
-    _mod_ident: &Ident,
-    _ident: &Ident,
-    return_type: &Option<Type>,
+    return_type: &Option<TypeOwned>,
     seq_path: TokenStream,
     errors_seq: &mut ErrorSeq,
 ) -> TokenStream {
     if let Some(_ty) = return_type {
         let es = errors_seq.next_err();
         let ser_output = quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; };
-        // let ser_output = if matches!(ty, /*Type::Sized(_, _) |*/ Type::External(_, _)) {
-        //     quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; }
-        // } else {
-        //     let output_struct_name = Ident::new(
-        //         format!("{}_output", ident).to_case(Case::Pascal).as_str(),
-        //         Span::call_site(),
-        //     );
-        //     quote! {
-        //         let output = #mod_ident::#output_struct_name {
-        //             output
-        //         };
-        //         output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?;
-        //     }
-        // };
+
         let es0 = errors_seq.next_err();
         let es1 = errors_seq.next_err();
         let es2 = errors_seq.next_err();
@@ -757,7 +761,7 @@ fn ser_method_output(
 fn des_args(
     mod_ident: &Ident,
     method_ident: &Ident,
-    args: &[Argument],
+    args: &[ArgumentOwned],
     _no_alloc: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
@@ -777,54 +781,48 @@ fn des_args(
             // TODO: Log _e ?
             let args = #mod_ident::#args_struct_ident::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
         };
-        let idents = args.iter().map(|arg| &arg.ident);
+        let idents = args
+            .iter()
+            .map(|arg| Ident::new(&arg.ident, Span::call_site()));
         let args_list = quote! { #(args.#idents),* };
         (args_des, args_list)
     }
 }
 
 fn deferred_method_return_ser_methods(
-    api_level: &ApiLevel,
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
     no_alloc: bool,
     method_model: &MethodModel,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
-    let return_ty = if no_alloc {
+    let byte_return_ty = if no_alloc {
         quote! { &'i [u8] }
     } else {
         quote! { Vec<u8> }
     };
     for item in &api_level.items {
-        let ApiItemKind::Method {
-            ident, return_type, ..
-        } = &item.kind
-        else {
+        let ApiItemKindOwned::Method { return_ty, .. } = &item.kind else {
             continue;
         };
-        if method_model.pick(ident.to_string().as_str()).unwrap() != MethodModelKind::Deferred {
+        if method_model.pick(&item.ident).unwrap() != MethodModelKind::Deferred {
             continue;
         }
         let fn_name = Ident::new(
-            format!("{}_ser_return_event", ident).as_str(),
+            format!("{}_ser_return_event", item.ident).as_str(),
             Span::call_site(),
         );
-        let ser_output_or_unit = ser_method_output(
-            &api_level.mod_ident(api_level.source_location.crate_name()),
-            ident,
-            return_type,
-            quote! { seq },
-            error_seq,
-        );
-        let maybe_output = match return_type {
+        let ser_output_or_unit = ser_method_output(return_ty, quote! { seq }, error_seq);
+        let maybe_output = match return_ty {
             Some(ty) => {
-                let ty = ty.arg_pos_def(no_alloc);
+                let ty = ty_def(api_bundle, ty, !no_alloc, true).unwrap();
                 quote! { , output: #ty }
             }
             None => quote! {},
         };
-        ts.append_all(quote! {
-            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u16 #maybe_output) -> Result<#return_ty, Error> {
+        ts.extend(quote! {
+            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u16 #maybe_output) -> Result<#byte_return_ty, Error> {
                 #ser_output_or_unit
             }
         });

@@ -10,6 +10,7 @@ description = "High-level wrapper over ww_gpio to control IO on microcontrollers
 [dependencies]
 wire_weaver = { workspace = true }
 ww_gpio = { path = "../ww_gpio" }
+ww_si = { path = "../ww_si" }
 wire_weaver_client_common.workspace = true
 tokio = "1"
 thiserror = "2"

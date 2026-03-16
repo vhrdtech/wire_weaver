@@ -1,7 +1,9 @@
-mod server_methods;
-mod tree_printer;
+// mod server_methods;
+// mod tree_printer;
 
-use anyhow::Result;
+mod ast;
+
+use anyhow::{anyhow, Result};
 
 use clap::Subcommand;
 use std::path::PathBuf;
@@ -10,7 +12,7 @@ use std::path::PathBuf;
 pub enum ApiCommand {
     /// Print API tree
     Tree {
-        /// Path to file which defines ww_trait
+        /// Path to crate which defines ww_trait
         path: PathBuf,
 
         /// Optional trait name if more than one is present
@@ -26,7 +28,15 @@ pub enum ApiCommand {
         skip_docs: bool,
     },
     ServerMethods {
-        /// Path to file which defines ww_trait
+        /// Path to crate which defines ww_trait
+        path: PathBuf,
+
+        /// Optional trait name if more than one is present
+        #[arg(long)]
+        name: Option<String>,
+    },
+    Ast {
+        /// Path to crate which defines ww_trait
         path: PathBuf,
 
         /// Optional trait name if more than one is present
@@ -36,13 +46,16 @@ pub enum ApiCommand {
 }
 pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
     match cmd {
-        ApiCommand::Tree {
-            path,
-            name,
-            skip_reserved,
-            skip_docs,
-        } => tree_printer::tree_printer(path, name, skip_reserved, skip_docs)?,
-        ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name)?,
+        // ApiCommand::Tree {
+        //     path,
+        //     name,
+        //     skip_reserved,
+        //     skip_docs,
+        // } => tree_printer::tree_printer(path, name, skip_reserved, skip_docs),
+        // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),
+        ApiCommand::Tree { .. } | ApiCommand::ServerMethods { .. } => {
+            Err(anyhow!("Not implemented yet"))
+        }
+        ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
-    Ok(())
 }

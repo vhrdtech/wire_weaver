@@ -35,7 +35,7 @@ impl UNib32 {
             } else {
                 nib
             };
-            wr.write_u4(nib)?;
+            wr.write_nib_masked(nib)?;
             val >>= 3;
             nibbles_left -= 1;
         }
@@ -51,9 +51,10 @@ impl UNib32 {
             if len >= 1 && i == 0 {
                 // (len == 1 && i == 0) || (len > 1 && i == 0)
                 // no flag if only one nibble or if the last nibble (seen from right to left, so at i == 0)
-                wr.write_u4(nib).map_err(|_| Error::OutOfBoundsRevCompact)?;
+                wr.write_nib_masked(nib)
+                    .map_err(|_| Error::OutOfBoundsRevCompact)?;
             } else {
-                wr.write_u4(nib | ONE_MORE_NIBBLE)
+                wr.write_nib_masked(nib | ONE_MORE_NIBBLE)
                     .map_err(|_| Error::OutOfBoundsRevCompact)?;
             }
             val >>= 3;
@@ -65,7 +66,7 @@ impl UNib32 {
         let mut num = 0;
         let mut offset = 0;
         for i in 0..=10 {
-            let nib = rd.read_u4()?;
+            let nib = rd.read_nib_value()?;
             if i == 10 {
                 // 11th nibble should be the last for u32
                 if nib & ONE_MORE_NIBBLE != 0 {
@@ -125,6 +126,18 @@ impl DeserializeShrinkWrapOwned for UNib32 {
     }
 }
 
+impl Into<u32> for UNib32 {
+    fn into(self) -> u32 {
+        self.0
+    }
+}
+
+impl From<u32> for UNib32 {
+    fn from(num: u32) -> Self {
+        UNib32(num)
+    }
+}
+
 impl Debug for UNib32 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
@@ -145,7 +158,7 @@ mod test {
         let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0x70];
         let mut rd = BufReader::new(&buf);
         assert_eq!(UNib32::read_forward(&mut rd), Ok(UNib32(u32::MAX)));
-        assert_eq!(rd.read_u4(), Ok(0));
+        assert_eq!(rd.read_nib_value(), Ok(0));
         assert_eq!(rd.bytes_left(), 0);
         assert_eq!(rd.nibbles_left(), 0);
     }
@@ -168,7 +181,7 @@ mod test {
     fn write_unib16_reversed() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        wr.write_u4(0).unwrap();
+        wr.write_nib_masked(0).unwrap();
         UNib32(0b1000).write_reversed(&mut wr).unwrap();
         UNib32(0b101010).write_reversed(&mut wr).unwrap();
         UNib32(5).write_reversed(&mut wr).unwrap();

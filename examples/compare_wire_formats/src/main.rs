@@ -27,7 +27,7 @@ struct Request {
 
 #[derive_shrink_wrap]
 #[derive(Serialize)]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 enum PathKind {
     Absolute { path: Vec<UNib32> },
     GlobalCompact,
@@ -36,7 +36,7 @@ enum PathKind {
 
 #[derive_shrink_wrap]
 #[derive(Serialize)]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 enum RequestKind {
     Call { args: Vec<u8> },
     Read,

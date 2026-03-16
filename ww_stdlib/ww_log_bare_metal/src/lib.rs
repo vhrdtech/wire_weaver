@@ -54,7 +54,7 @@ pub struct Message<'i> {
 }
 
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 pub enum Severity {
     Error,
     Warn,

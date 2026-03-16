@@ -1,6 +1,6 @@
-use crate::ast::Type;
+use crate::ast::ty::Type;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{TokenStreamExt, quote};
+use quote::{quote, TokenStreamExt};
 use std::ops::Deref;
 use syn::{Lit, LitInt};
 
@@ -43,7 +43,8 @@ impl Type {
     pub fn def(&self, no_alloc: bool) -> TokenStream {
         match self {
             Type::Bool => quote! { bool },
-            Type::U4 | Type::U8 => quote! { u8 },
+            Type::Nibble => quote! { Nibble },
+            Type::U8 => quote! { u8 },
             Type::U16 => quote! { u16 },
             Type::UNib32 => quote! { UNib32 },
             Type::U32 | Type::ULeb32 => quote! { u32 },
@@ -175,7 +176,7 @@ impl Type {
     ) {
         let write_fn = match self {
             Type::Bool => "write_bool",
-            Type::U4 => "write_u4",
+            Type::Nibble => "write_nib",
             Type::U8 => "write_u8",
             Type::U16 => "write_u16",
             Type::UNib32 => {
@@ -328,7 +329,7 @@ impl Type {
         };
         let read_fn = match self {
             Type::Bool | Type::IsOk(_) | Type::IsSome(_) => "read_bool",
-            Type::U4 => "read_u4",
+            Type::Nibble => "read_nib",
             Type::U8 => "read_u8",
             Type::U16 => "read_u16",
             Type::U32 => "read_u32",

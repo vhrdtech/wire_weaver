@@ -33,18 +33,18 @@ impl GpioClient {
 mod bank_client {
     use super::*;
     ww_impl!(
-        "../ww_gpio/src/lib.rs" as ww_gpio::GpioBank for BankClient,
+        "../ww_gpio" :: Bank for BankClient,
         client = "trait_client",
         no_alloc = false,
         use_async = true,
-        // debug_to_file = "../target/ww_gpio_hl_bank.rs"
+        debug_to_file = "../../target/ww_gpio_hl_bank.rs"
     );
 }
 
 mod gpio_client {
     use super::*;
     ww_impl!(
-        "../ww_gpio/src/lib.rs" as ww_gpio::Gpio for GpioClient,
+        "../ww_gpio" :: Pin for GpioClient,
         client = "trait_client",
         no_alloc = false,
         use_async = true,

@@ -7,7 +7,7 @@ use proc_macro2::Ident;
 pub enum Type {
     Bool,
 
-    U4,
+    Nibble,
     U8,
     U16,
     U32,
@@ -191,7 +191,7 @@ impl Type {
     pub fn element_size(&self) -> Option<ObjectSize> {
         let size_bits = match self {
             Type::Bool => 1,
-            Type::U4 => 4,
+            Type::Nibble => 4,
             Type::U8 => 8,
             Type::U16 => 16,
             Type::U32 => 32,

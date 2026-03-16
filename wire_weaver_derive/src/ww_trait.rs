@@ -2,8 +2,6 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Error, ItemTrait};
-use wire_weaver_core::ast::api::ApiLevelSourceLocation;
-use wire_weaver_core::transform::transform_api_level::transform_api_level;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait_inner(attr, item)
@@ -12,41 +10,38 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
     let item_trait: ItemTrait = syn::parse2(item)?;
-    let api_level = transform_api_level(
-        &item_trait,
-        ApiLevelSourceLocation::File {
-            path: Default::default(),
-            part_of_crate: Ident::new("dummy", Span::call_site()),
-        },
-    )
-    .map_err(|e| Error::new(Span::call_site(), e))?;
-
-    let trait_name = item_trait.ident.to_string();
-    let mut check_types_lifetimes = TokenStream::new();
-    for (ty, lifetime) in api_level.external_types() {
-        let check_name = if lifetime {
-            "ShouldHaveALifetime"
-        } else {
-            "ShouldNotHaveALifetime"
-        };
-        let Some(last) = ty.segments.last() else {
-            continue;
-        };
-        let check_name = Ident::new(
-            format!("_{trait_name}{last}{check_name}",).as_str(),
-            last.span(),
-        );
-        let ty = &ty;
-        if lifetime {
-            check_types_lifetimes.extend(quote! {
-                type #check_name<'i> = #ty<'i>;
-            });
-        } else {
-            check_types_lifetimes.extend(quote! {
-                type #check_name = #ty;
-            });
-        }
-    }
+    // let trait_name = item_trait.ident.to_string();
+    // let crate_path = PathBuf::from(
+    //     std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
+    // );
+    // let api_level = load_v2(&crate_path, Some(trait_name), false)
+    //     .map_err(|e| Error::new(Span::call_site(), e))?;
+    //
+    // let mut check_types_lifetimes = TokenStream::new();
+    // for (ty, lifetime) in api_level.external_types() {
+    //     let check_name = if lifetime {
+    //         "ShouldHaveALifetime"
+    //     } else {
+    //         "ShouldNotHaveALifetime"
+    //     };
+    //     let Some(last) = ty.segments.last() else {
+    //         continue;
+    //     };
+    //     let check_name = Ident::new(
+    //         format!("_{trait_name}{last}{check_name}",).as_str(),
+    //         last.span(),
+    //     );
+    //     let ty = &ty;
+    //     if lifetime {
+    //         check_types_lifetimes.extend(quote! {
+    //             type #check_name<'i> = #ty<'i>;
+    //         });
+    //     } else {
+    //         check_types_lifetimes.extend(quote! {
+    //             type #check_name = #ty;
+    //         });
+    //     }
+    // }
 
     let docs: Vec<_> = item_trait
         .attrs
@@ -69,6 +64,6 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, E
         #(#docs)*
         pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
         pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#attr);
-        #check_types_lifetimes
+        // #check_types_lifetimes
     })
 }

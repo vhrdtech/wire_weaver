@@ -35,24 +35,24 @@ pub struct Request<'i> {
 }
 
 /// Path to a resource.
-/// 3 modes of addressing is supported:
-/// * Absolute - only the number path to a resource is used, smallest size
+/// 3 modes of addressing are supported:
+/// * Absolute - only the number path to a resource is used, the smallest size
 /// * GlobalCompact - request to a trait resource, for commonly used traits that are used often and have an ID assigned
-/// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and it's version is used as an ID
+/// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and its version is used as an ID
 ///
 /// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug, Clone)]
 pub enum PathKind<'i> {
-    /// Full path to a resource, regardless whether it is in a trait or not.
+    /// Full path to a resource, regardless of whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },
 
     /// Request is for a trait implemented at root level, through a global unique ID (manually assigned for common traits).
     GlobalCompact {
-        /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such call if all numbers are <= 7 is 2 bytes.
+        /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.
         gid: CompactVersion,
         /// Used to identify a trait resource, starting from trait root.
         path_from_trait: RefVec<'i, UNib32>,
@@ -69,7 +69,7 @@ pub enum PathKind<'i> {
 
 /// Operation (call, read, write, etc.) to be performed on a resource.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
@@ -113,6 +113,9 @@ pub enum RequestKind<'i> {
     /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
     /// Optional, for simplicity can be implemented only at root level, sending all API tree.
     Introspect,
+    // Get [ValidIndices] for an array resource.
+    // ValidIndices, -> requested as Read
+
     // Version,
     // Borrow,
     // Release,
@@ -123,7 +126,7 @@ pub enum RequestKind<'i> {
 /// Optional, user can choose to send stream updates without using the sideband channel.
 /// This is a separate enum to make generated code more convenient - only one function for user to implement.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[derive(Debug, Copy, Clone)]
 pub enum StreamSidebandCommand {
@@ -150,7 +153,7 @@ pub struct Event<'i> {
 
 /// Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
 #[derive(Debug)]
@@ -158,12 +161,10 @@ pub enum EventKind<'i> {
     /// Sent in response to RequestKind::Call, unless request ID is 0.
     ReturnValue {
         /// Serialized return value of a method.
-        /// If user-defined type is used, it is serialized directly. If one of the built-in types is used, it is put into a
-        /// struct and that struct is serialized instead.
         data: RefVec<'i, u8>,
     },
 
-    /// Send in response to RequestKind::Read.
+    /// Sent in response to RequestKind::Read.
     ReadValue {
         /// Serialized property value.
         data: RefVec<'i, u8>,
@@ -172,14 +173,14 @@ pub enum EventKind<'i> {
     /// Sent in response to RequestKind::Write, only for properties and when request ID is not 0.
     Written,
 
-    /// Sent by user code whenever stream have more data or whenever applicable.
+    /// Sent by user code whenever a stream has more data or whenever applicable.
     StreamData {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
-        /// Stream data, can be a whole frame or a chunk of a byte stream.
+        /// Stream data can be a whole frame or a chunk of a byte stream.
         data: RefVec<'i, u8>,
     },
-    /// Optionally sent by user in response to RequestKind::StreamSideband or whenever applicable.
+    /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
@@ -199,12 +200,14 @@ pub enum EventKind<'i> {
 
     /// Sent in response to [RequestKind::Introspect] potentially in multiple chunks.
     Introspect { ww_self_bytes_chunk: RefVec<'i, u8> },
+    // Sent in response to [RequestKind::ValidIndices] only for resources that are arrays.
+    // ValidIndices { indices: ValidIndices<'i> }, -> answered as ReadValue
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
 /// Optional, user can choose to send stream updates without using the sideband channel.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[final_structure]
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum StreamSidebandEvent {
@@ -264,11 +267,13 @@ pub enum ErrorKind<'i> {
     PathKindNotSupported,
     /// Forwarded user error in serialized form
     UserBytes(RefVec<'i, u8>),
+    /// Forwarded user error
+    UserStr(&'i str),
 }
 
 /// Optional shaper configuration request.
 #[derive_shrink_wrap]
-#[ww_repr(u4)]
+#[ww_repr(nib)]
 #[derive(Debug, Copy, Clone)]
 pub enum ShaperConfig {
     NoLimit,
@@ -352,6 +357,7 @@ impl Error<'_> {
             ErrorKind::ReadPropertyWithSeqZero => ErrorKindOwned::ReadPropertyWithSeqZero,
             ErrorKind::PathKindNotSupported => ErrorKindOwned::PathKindNotSupported,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
+            ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
         };
         ErrorOwned {
             err_seq: self.err_seq,

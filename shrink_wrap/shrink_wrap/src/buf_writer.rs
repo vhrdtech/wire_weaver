@@ -1,6 +1,6 @@
 use crate::nib32::UNib32;
 use crate::un::write_unx;
-use crate::{ElementSize, Error, SerializeShrinkWrap};
+use crate::{ElementSize, Error, Nibble, SerializeShrinkWrap};
 
 /// no_std buffer writer that supports 1 bit, 4 bit, variable length integer and other operations.
 /// No alignment requirements are imposed on the byte buffer provided.
@@ -55,25 +55,36 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// Align to nibble and write one nibble, 4 lower bits are used, and higher bits are ignored.
+    #[deprecated]
+    pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
+        self.write_nib(Nibble::new_masked(val))
+    }
+
+    /// Align to nibble and write one [Nibble], 4 lower bits are used, and higher bits are ignored.
     /// Note that there is a method write_un8(4, val), that will also write 4 bits to the buffer,
     /// but will use an alignment of 1 bit instead.
-    pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
+    pub fn write_nib(&mut self, val: Nibble) -> Result<(), Error> {
         self.align_nibble();
         if self.nibbles_left() == 0 {
             return Err(Error::OutOfBoundsWriteU4);
         }
         if self.bit_idx == 7 {
             self.buf[self.byte_idx] &= 0b0000_1111;
-            self.buf[self.byte_idx] |= val << 4;
+            self.buf[self.byte_idx] |= val.value() << 4;
             self.bit_idx = 3;
         } else {
             self.buf[self.byte_idx] &= 0b1111_0000;
-            self.buf[self.byte_idx] |= val & 0b0000_1111;
+            self.buf[self.byte_idx] |= val.value();
             self.bit_idx = 7;
             self.byte_idx += 1;
         }
         Ok(())
+    }
+
+    /// Align to nibble and write one [Nibble], 4 lower bits are used, and higher bits are ignored.
+    /// See also [write_nib](Self::write_nib)
+    pub fn write_nib_masked(&mut self, val: u8) -> Result<(), Error> {
+        self.write_nib(Nibble::new_masked(val))
     }
 
     write_unx!(write_un8, u8, 8);
@@ -216,7 +227,7 @@ impl<'i> BufWriter<'i> {
     // }
 
     pub fn fill_nibbles(&mut self, val: u8) {
-        if self.write_u4(val).is_err() {
+        if self.write_nib(Nibble::new_masked(val)).is_err() {
             return;
         }
         let val = val & 0b0000_1111;
@@ -335,7 +346,8 @@ impl<'i> BufWriter<'i> {
         }
         if total_nibbles % 2 != 0 {
             // ensure that reading from the back always starts from a valid Vlu16N
-            self.write_u4(0).map_err(|_| Error::OutOfBoundsRevCompact)?;
+            self.write_nib(Nibble::zero())
+                .map_err(|_| Error::OutOfBoundsRevCompact)?;
         }
 
         let mut idx = self.len_bytes;
@@ -440,7 +452,7 @@ pub struct U16RevPos(usize);
 
 #[cfg(test)]
 mod tests {
-    use crate::BufWriter;
+    use crate::{BufWriter, Nibble};
     use hex_literal::hex;
 
     #[test]
@@ -468,7 +480,7 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         wr.write_bool(true).unwrap();
         wr.write_bool(false).unwrap();
-        wr.write_u4(0b1010).unwrap();
+        wr.write_nib(Nibble::new_masked(0b1010)).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0b1000_1010]);
     }
 

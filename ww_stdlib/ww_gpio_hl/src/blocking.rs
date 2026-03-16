@@ -1,9 +1,10 @@
 use crate::ww::{BankClient, GpioClient};
 use wire_weaver_client_common::{Attachment, Stream};
 use ww_gpio::{
-    AvailablePinsOwned, BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
+    BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
     Pull,
 };
+use wire_weaver::ValidIndicesOwned;
 
 /// GPIO configured as Push-Pull output.
 /// Blocking flavor.
@@ -39,7 +40,7 @@ pub struct FlexBlocking {
 
 pub struct BankBlocking {
     bank: BankClient,
-    available_pins: AvailablePinsOwned,
+    available_pins: ValidIndicesOwned,
     name: Option<String>,
     capabilities: Option<BankCapabilitiesOwned>,
 }
@@ -81,7 +82,7 @@ impl FlexBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
     pub fn new_ignore_mode(gpio_pin: Attachment) -> Result<FlexBlocking, Error> {
-        if (gpio_pin.trait_name() != "Gpio") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
+        if (gpio_pin.trait_name() != "Pin") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 gpio_pin.source_crate().crate_id,
@@ -431,7 +432,7 @@ impl BankBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().attachment()`
     pub fn new(bank: Attachment) -> Result<BankBlocking, Error> {
-        if (bank.trait_name() != "GpioBank") || (bank.source_crate().crate_id != "ww_gpio") {
+        if (bank.trait_name() != "Bank") || (bank.source_crate().crate_id != "ww_gpio") {
             return Err(Error::IncompatibleTrait(format!(
                 "{}::{}",
                 bank.source_crate().crate_id,
@@ -439,8 +440,8 @@ impl BankBlocking {
             )));
         }
         let cmd_tx = bank.cmd_tx_take();
-        let bank = BankClient::new(cmd_tx);
-        let available_pins = bank.available().blocking_call()?;
+        let mut bank = BankClient::new(cmd_tx);
+        let available_pins = bank.pin_valid_indices().blocking_read()?;
         Ok(BankBlocking {
             bank,
             available_pins,
@@ -450,7 +451,7 @@ impl BankBlocking {
     }
 
     /// Returns available pins on this bank.
-    pub fn available_pins(&self) -> &AvailablePinsOwned {
+    pub fn available_pins(&self) -> &ValidIndicesOwned {
         &self.available_pins
     }
 

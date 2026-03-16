@@ -30,6 +30,7 @@ dependencies = [
  "ww_client_server",
  "ww_gpio",
  "ww_self",
+ "ww_si",
 ]
 
 [[package]]
@@ -38,6 +39,7 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "wire_weaver",
+ "ww_gpio",
 ]
 
 [[package]]
@@ -196,6 +198,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky_api",
+ "blinky_api_evolved",
  "clap",
  "clap-repl",
  "console 0.16.2",
@@ -244,6 +247,16 @@ name = "bytes"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+
+[[package]]
+name = "cargo_toml"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
+dependencies = [
+ "serde",
+ "toml",
+]
 
 [[package]]
 name = "cc"
@@ -2283,6 +2296,7 @@ version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
+ "indexmap",
  "serde_core",
  "serde_spanned",
  "toml_datetime",
@@ -2953,6 +2967,7 @@ name = "wire_weaver_core"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "cargo_toml",
  "console 0.16.2",
  "convert_case 0.11.0",
  "hex",
@@ -2963,10 +2978,12 @@ dependencies = [
  "regex",
  "relative-path",
  "ron",
+ "semver",
  "sha2",
  "shrink_wrap",
  "shrink_wrap_core",
  "syn",
+ "ww_numeric",
  "ww_self",
  "ww_version",
 ]
@@ -3145,6 +3162,7 @@ dependencies = [
  "human-repr",
  "indicatif",
  "proc-macro2",
+ "ron",
  "shrink_wrap_core",
  "syn",
  "tokio",
@@ -3242,6 +3260,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client_common",
  "ww_gpio",
+ "ww_si",
 ]
 
 [[package]]
@@ -3289,6 +3308,7 @@ dependencies = [
 name = "ww_self"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
  "serde",
  "shrink_wrap",
  "ww_numeric",

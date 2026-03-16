@@ -10,6 +10,7 @@ wire_weaver_client_common = { workspace = true }
 wire_weaver_usb_host = { workspace = true }
 ww_client_server = { workspace = true }
 ww_gpio = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }
 tokio = { version = "1", features = ["sync", "rt"] }
 futures = "0.3"
 

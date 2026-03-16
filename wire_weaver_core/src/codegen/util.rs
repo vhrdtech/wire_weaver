@@ -1,6 +1,7 @@
-use proc_macro2::{Ident, TokenStream};
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use shrink_wrap_core::ast::Version;
+use ww_self::ApiLevelOwned;
 
 pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream {
     if condition {
@@ -10,22 +11,10 @@ pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream 
     }
 }
 
-pub fn add_prefix(prefix: Option<&Ident>, ident: &Ident) -> Ident {
+pub fn add_prefix(prefix: Option<&String>, ident: &Ident) -> Ident {
     match prefix {
         Some(prefix) => Ident::new(format!("{}_{}", prefix, ident).as_str(), ident.span()),
         None => ident.clone(),
-    }
-}
-
-pub(crate) fn maybe_call_since(since: &Option<Version>) -> TokenStream {
-    let Some(version) = since else {
-        return quote! { None };
-    };
-    let major = version.major;
-    let minor = version.minor;
-    let patch = version.patch;
-    quote! {
-        Some((#major, #minor, #patch))
     }
 }
 
@@ -39,4 +28,16 @@ impl ErrorSeq {
         self.0 += 1;
         ts
     }
+}
+
+pub(crate) fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
+    Ident::new(
+        format!(
+            "{}_{}",
+            crate_name,
+            api_level.trait_name.to_case(Case::Snake)
+        )
+        .as_str(),
+        Span::call_site(),
+    )
 }

@@ -1,14 +1,17 @@
-use crate::ast::api::{ApiItemKind, ApiLevel, Multiplicity};
 use crate::codegen::index_chain::IndexChain;
+use crate::codegen::ty_def::ty_def;
+use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
-use proc_macro2::{Ident, TokenStream};
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use shrink_wrap_core::ast::Type;
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
 
 pub(crate) fn stream_ser_methods_recursive(
-    level: &ApiLevel,
+    bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &Ident,
+    crate_name: &str,
     no_alloc: bool,
     is_root: bool,
 ) -> TokenStream {
@@ -21,23 +24,20 @@ pub(crate) fn stream_ser_methods_recursive(
         let mut index_chain = index_chain;
         let id = item.id;
         let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
-        let let_index_chain = let_index_chain(index_chain, id, is_array);
+        let let_index_chain = let_index_chain(index_chain, id.0, is_array);
         let maybe_index_arg = maybe_quote(is_array, quote! { index: u32, });
 
-        if let ApiItemKind::ImplTrait {
-            args,
-            level: child_level,
-        } = &item.kind
-        {
-            let child_level = child_level.as_ref().expect("non-empty level");
-            let crate_name = child_level.source_location.crate_name();
-            let child_struct_name = child_level.stream_ser_struct_name(crate_name);
+        if let ApiItemKindOwned::Trait { trait_idx } = &item.kind {
+            let child_level = bundle.get_trait(trait_idx.0).unwrap();
+            let crate_name = child_level.crate_name(bundle).unwrap();
+            let child_struct_name = stream_ser_struct_name(crate_name, child_level);
 
             index_chain.increment_length();
             if is_array {
                 index_chain.increment_length();
             }
             child_ts.extend(stream_ser_methods_recursive(
+                bundle,
                 child_level,
                 index_chain,
                 crate_name,
@@ -45,7 +45,7 @@ pub(crate) fn stream_ser_methods_recursive(
                 false,
             ));
 
-            let level_entry_fn_name = &args.resource_name;
+            let level_entry_fn_name = Ident::new(item.ident.as_str(), Span::call_site());
             methods_ts.extend(quote! {
                 pub fn #level_entry_fn_name(&self, #maybe_index_arg) -> #child_struct_name {
                     #let_index_chain
@@ -55,13 +55,13 @@ pub(crate) fn stream_ser_methods_recursive(
                 }
             });
         }
-        let ApiItemKind::Stream { ident, ty, is_up } = &item.kind else {
+        let ApiItemKindOwned::Stream { ty, is_up } = &item.kind else {
             continue;
         };
         if !*is_up {
             continue;
         }
-        let lifetimes = if ty.potential_lifetimes() {
+        let lifetimes = if ty.is_lifetime(bundle).unwrap() {
             quote! { 'i, 'a }
         } else {
             quote! { 'a }
@@ -73,20 +73,19 @@ pub(crate) fn stream_ser_methods_recursive(
             quote! { Vec::from(value_bytes) }
         };
 
-        let (value_ty, value_ser) = if ty.is_byte_slice() {
+        let (value_ty, value_ser) = if ty.is_byte_slice(bundle).unwrap() {
             (quote! { [u8] }, quote! { let value_bytes = value; })
         } else {
-            let ty_def = ty.def(no_alloc);
-            let maybe_crate_name =
-                maybe_quote(matches!(ty, Type::External(_, _)), quote! { #crate_name:: });
+            let ty_def = ty_def(bundle, ty, !no_alloc, true).unwrap();
             let value_ser = quote! {
                 let mut wr = BufWriter::new(scratch_value);
                 value.ser_shrink_wrap(&mut wr)?;
                 let value_bytes = wr.finish_and_take()?;
             };
 
-            (quote! { #maybe_crate_name #ty_def }, value_ser)
+            (quote! { #ty_def }, value_ser)
         };
+        let ident = Ident::new(item.ident.as_str(), Span::call_site());
         methods_ts.extend(quote! {
             #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
             pub fn #ident<#lifetimes>(
@@ -112,7 +111,7 @@ pub(crate) fn stream_ser_methods_recursive(
         });
     }
 
-    let ser_struct_name = level.stream_ser_struct_name(crate_name);
+    let ser_struct_name = stream_ser_struct_name(crate_name, level);
     let root_entry_fn = maybe_quote(
         is_root,
         quote! {
@@ -150,4 +149,14 @@ fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> Toke
             quote! { let index_chain = [UNib32(#id), UNib32(index)]; }
         }
     }
+}
+
+fn stream_ser_struct_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
+    let mod_name = util::mod_name(crate_name, api_level);
+    Ident::new(
+        format!("{}_stream_serializer", mod_name)
+            .to_case(Case::Pascal)
+            .as_str(),
+        mod_name.span(),
+    )
 }

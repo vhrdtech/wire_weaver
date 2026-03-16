@@ -278,12 +278,12 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
 
     fn write_op_len(&mut self, op: Op, len: u16) -> Result<(), Error<T::Error, R::Error>> {
         self.tx_writer
-            .write_u4(op as u8)
+            .write_nib_masked(op as u8)
             .map_err(|_| Error::InternalBufOverflow)?;
         let len11_8 = (len >> 8) as u8;
         let len7_0 = (len & 0xFF) as u8;
         self.tx_writer
-            .write_u4(len11_8)
+            .write_nib_masked(len11_8)
             .map_err(|_| Error::InternalBufOverflow)?;
         self.tx_writer
             .write_u8(len7_0)
@@ -326,8 +326,26 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     }
 }
 
+#[cfg(not(feature = "defmt"))]
 impl<'i, T: PacketSink, R: PacketSource> MessageSink for WireWeaverUsbLink<'i, T, R> {
     async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
         self.send_message(message).await.map_err(|_| ())
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'i, T, R> MessageSink for WireWeaverUsbLink<'i, T, R>
+where
+    T: PacketSink,
+    <T as PacketSink>::Error: defmt::Format,
+    R: PacketSource,
+    <R as PacketSource>::Error: defmt::Format,
+{
+    async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+        let r = self.send_message(message).await;
+        if r.is_err() {
+            defmt::error!("MessageSink::send() error: {:?}", r);
+        }
+        r.map_err(|_| ())
     }
 }

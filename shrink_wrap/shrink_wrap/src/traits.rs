@@ -84,7 +84,7 @@ pub trait DeserializeShrinkWrapOwned: Sized {
 /// Only Unsized or UFS objects can contain UFS objects.
 ///
 /// Calculations are done during compile time thanks to const evaluation and static asserts are inserted to ensure correct behavior.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -377,7 +377,8 @@ macro_rules! impl_tuple {
     ($($types:ident),* ; $($indices: literal),*) => {
         paste! {
             impl<$($types: SerializeShrinkWrap),*> SerializeShrinkWrap for ($($types),*) {
-                const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+                // const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+                const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     $(wr.write(&self.$indices)?;)*
@@ -388,7 +389,7 @@ macro_rules! impl_tuple {
             impl<'i, $($types: DeserializeShrinkWrap<'i>),*> DeserializeShrinkWrap<'i>
                 for ($($types),*)
             {
-                const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+                const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
                 fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     $(let [<_ $indices>] = rd.read()?;)*
@@ -399,7 +400,7 @@ macro_rules! impl_tuple {
             impl<$($types: DeserializeShrinkWrapOwned),*> DeserializeShrinkWrapOwned
                 for ($($types),*)
             {
-                const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
+                const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     $(let [<_ $indices>] = rd.read_owned()?;)*
@@ -410,11 +411,11 @@ macro_rules! impl_tuple {
     };
 }
 
-macro_rules! add_recursive {
-    () => {};
-    ($t: ident) => { $t::ELEMENT_SIZE };
-    ($t: ident, $($types: ident),*) => { $t::ELEMENT_SIZE.add(add_recursive!($($types),*)) };
-}
+// macro_rules! add_recursive {
+//     () => {};
+//     ($t: ident) => { $t::ELEMENT_SIZE };
+//     ($t: ident, $($types: ident),*) => { $t::ELEMENT_SIZE.add(add_recursive!($($types),*)) };
+// }
 
 impl_tuple!(A, B; 0, 1);
 impl_tuple!(A, B, C; 0, 1, 2);
@@ -425,7 +426,7 @@ impl_tuple!(A, B, C, D, E, F, G; 0, 1, 2, 3, 4, 5, 6);
 impl_tuple!(A, B, C, D, E, F, G, H; 0, 1, 2, 3, 4, 5, 6, 7);
 
 impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         for elem in self {
@@ -438,7 +439,7 @@ impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
 impl<'i, const N: usize, T: DeserializeShrinkWrap<'i> + Default + Copy> DeserializeShrinkWrap<'i>
     for [T; N]
 {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let mut array: [T; N] = [T::default(); N];
@@ -462,7 +463,7 @@ impl<'i, const N: usize, T: DeserializeShrinkWrap<'i> + Default + Copy> Deserial
 impl<const N: usize, T: DeserializeShrinkWrapOwned + Default + Copy> DeserializeShrinkWrapOwned
     for [T; N]
 {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         let mut array: [T; N] = [T::default(); N];

@@ -1,10 +1,7 @@
 use crate::ww::{BankClient, GpioClient};
-use wire_weaver_client_common::{Attachment, Stream};
-use ww_gpio::{
-    BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
-    Pull,
-};
 use wire_weaver::ValidIndicesOwned;
+use wire_weaver_client_common::{Attachment, Stream};
+use ww_gpio::{BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull};
 
 /// GPIO configured as Push-Pull output.
 /// Blocking flavor.
@@ -332,6 +329,9 @@ impl FlexBlocking {
             if let Some(break_on) = break_on
                 && event == break_on
             {
+                break;
+            }
+            if break_on.is_none() {
                 break;
             }
             println!("waiting for {break_on:?}, got: {event:?}");

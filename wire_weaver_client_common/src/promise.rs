@@ -11,6 +11,17 @@ pub struct Promise<T> {
     state: StateInner<T>,
     marker: &'static str,
     seen: bool,
+    // TODO: Add instant
+}
+
+impl<T> Default for Promise<T> {
+    fn default() -> Self {
+        Promise {
+            state: StateInner::None,
+            marker: "",
+            seen: false,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -47,6 +58,7 @@ enum StateInner<T> {
     },
     WaitingForReply(SeqTy, oneshot::Receiver<Result<Vec<u8>, Error>>),
     WaitingForMultiReply(SeqTy, mpsc::UnboundedReceiver<Vec<u8>>, Vec<u8>),
+    Future(oneshot::Receiver<Result<T, Error>>),
     Done(Option<T>), // Option used here to make Drop and take() work
     Err(Error),
 }
@@ -332,6 +344,14 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                     self.state = StateInner::Err(Error::RxDispatcherNotRunning);
                 }
             },
+            StateInner::Future(rx) => {
+                if let Ok(rx) = rx.try_recv() {
+                    match rx {
+                        Ok(val) => self.state = StateInner::Done(Some(val)),
+                        Err(e) => self.state = StateInner::Err(e),
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -489,6 +509,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             | StateInner::WaitingForIntrospect { .. }
             | StateInner::WaitingForReply(_, _)
             | StateInner::WaitingForMultiReply(_, _, _) => PromiseState::Waiting,
+            StateInner::Future(_) => PromiseState::Waiting,
             StateInner::Done(value) => value
                 .as_ref()
                 .map(PromiseState::Done)
@@ -531,6 +552,7 @@ impl<T> Display for Promise<T> {
             StateInner::WaitingForIntrospect { .. } => write!(f, "WaitingForIntrospect"),
             StateInner::WaitingForReply(seq, _) => write!(f, "Waiting(seq={seq})"),
             StateInner::WaitingForMultiReply(seq, _, _) => write!(f, "WaitingMulti(seq={seq})"),
+            StateInner::Future(_) => write!(f, "Future"),
             StateInner::Done(_) => write!(f, "Done"),
             StateInner::Err(e) => write!(f, "Err({e:?})"),
         }

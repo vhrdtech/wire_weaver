@@ -1,32 +1,34 @@
+use crate::Error;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::CommandSender;
+use wire_weaver_client_common::{Attachment, CommandSender};
 
+#[derive(Clone)]
 pub(crate) struct BankClient {
-    #[allow(dead_code)]
-    args_scratch: [u8; 64],
     cmd_tx: CommandSender,
 }
 
 impl BankClient {
-    pub(crate) fn new(cmd_tx: CommandSender) -> Self {
-        Self {
-            args_scratch: [0u8; 64],
-            cmd_tx,
+    pub(crate) fn new(attachment: Attachment) -> Result<Self, Error> {
+        if (attachment.trait_name() != "Bank") || (attachment.source_crate().crate_id != "ww_gpio")
+        {
+            return Err(Error::IncompatibleTrait(format!(
+                "{}::{}",
+                attachment.source_crate().crate_id,
+                attachment.trait_name()
+            )));
         }
+        let cmd_tx = attachment.cmd_tx_take();
+        Ok(Self { cmd_tx })
     }
 }
 
 pub(crate) struct GpioClient {
-    args_scratch: [u8; 64],
     cmd_tx: CommandSender,
 }
 
 impl GpioClient {
     pub(crate) fn new(cmd_tx: CommandSender) -> Self {
-        Self {
-            args_scratch: [0u8; 64],
-            cmd_tx,
-        }
+        Self { cmd_tx }
     }
 }
 

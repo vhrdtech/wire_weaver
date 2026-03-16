@@ -1,4 +1,5 @@
 use crate::ww::{BankClient, GpioClient};
+use crate::Error;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client_common::{Attachment, Stream};
 use ww_gpio::{BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull};
@@ -40,26 +41,6 @@ pub struct BankBlocking {
     available_pins: ValidIndicesOwned,
     name: Option<String>,
     capabilities: Option<BankCapabilitiesOwned>,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("client error: '{:?}'", .0)]
-    Client(#[from] wire_weaver_client_common::Error),
-    #[error("ww_gpio error: '{:?}'", .0)]
-    Gpio(ww_gpio::Error),
-    #[error(transparent)]
-    Stream(#[from] wire_weaver_client_common::StreamError),
-    #[error("expected ww_gpio::Gpio trait, got: '{}'", .0)]
-    IncompatibleTrait(String),
-    #[error("internal: '{}'", .0)]
-    Internal(String),
-}
-
-impl From<ww_gpio::Error> for Error {
-    fn from(e: ww_gpio::Error) -> Self {
-        Error::Gpio(e)
-    }
 }
 
 impl FlexBlocking {
@@ -427,20 +408,12 @@ impl OpenDrainOutputBlocking {
 }
 
 impl BankBlocking {
-    /// Create blocking Bank client and send a request to get available pins right away.
+    /// Create a blocking Bank client and send a request to get available pins right away.
     ///
-    /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
+    /// Get the correct [Attachment] from a client that implements ww_gpio::Bank:
     /// `my_client.my_gpio_bank().attachment()`
-    pub fn new(bank: Attachment) -> Result<BankBlocking, Error> {
-        if (bank.trait_name() != "Bank") || (bank.source_crate().crate_id != "ww_gpio") {
-            return Err(Error::IncompatibleTrait(format!(
-                "{}::{}",
-                bank.source_crate().crate_id,
-                bank.trait_name()
-            )));
-        }
-        let cmd_tx = bank.cmd_tx_take();
-        let mut bank = BankClient::new(cmd_tx);
+    pub fn new(attachment: Attachment) -> Result<BankBlocking, Error> {
+        let mut bank = BankClient::new(attachment)?;
         let available_pins = bank.pin_valid_indices().blocking_read()?;
         Ok(BankBlocking {
             bank,

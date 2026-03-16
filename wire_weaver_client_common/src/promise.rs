@@ -248,8 +248,15 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    pub fn peek_done(&self) -> Option<&T> {
+        if let StateInner::Done(response) = &self.state {
+            response.as_ref()
+        } else {
+            None
+        }
+    }
+
     pub fn peek_error(&self) -> Option<&Error> {
-        // self.sync_poll();
         if let StateInner::Err(e) = &self.state {
             Some(e)
         } else {

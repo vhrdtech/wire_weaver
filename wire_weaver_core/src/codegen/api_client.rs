@@ -210,8 +210,7 @@ fn client_structs_recursive(
         quote! {
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
-                pub args_scratch: &'i mut [u8],
-                pub cmd_tx: &'i mut wire_weaver_client_common::CommandSender,
+                pub cmd_tx: &'i wire_weaver_client_common::CommandSender,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -332,14 +331,12 @@ fn level_method(
             let crate_name = level.crate_name(api_bundle).unwrap();
             let mod_name = util::mod_name(crate_name, level);
             let client_struct_name = client_struct_name(&mod_name.to_string());
-            let maybe_ref_mut = maybe_quote(is_at_root, quote! { &mut });
             quote! {
-                pub fn #level_entry_fn_name(&mut self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
+                pub fn #level_entry_fn_name(&self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
                     #index_chain_push
                     #mod_name::#client_struct_name {
                         index_chain,
-                        args_scratch: #maybe_ref_mut self.args_scratch,
-                        cmd_tx: #maybe_ref_mut self.cmd_tx,
+                        cmd_tx: &self.cmd_tx,
                     }
                 }
             }
@@ -352,7 +349,7 @@ fn level_method(
         let path_kind = path_kind(path_mode, gid_paths);
         quote! {
             #lm
-            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<ValidIndicesOwned> {
+            pub fn #read_fn_name(&self) -> wire_weaver_client_common::PreparedRead<ValidIndicesOwned> {
                 #index_chain_push_pre
                 let path_kind = #path_kind;
                 self.cmd_tx.prepare_read(path_kind)
@@ -385,6 +382,7 @@ fn handle_method(
     quote! {
         #(#docs)*
         pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
+            let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
@@ -417,8 +415,9 @@ fn handle_property(
             quote! { () }
         };
         quote! {
-            pub fn #write_fn_name(&mut self, #prop_name: #ty) -> wire_weaver_client_common::PreparedWrite<#user_result_ty> {
-                let value = #prop_name.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client_common::PreparedWrite<Result<(), #user_result_ty>> {
+                let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
+                let value = #prop_name.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd_tx.prepare_write(path_kind, value)
@@ -434,7 +433,7 @@ fn handle_property(
     ) {
         let read_fn_name = Ident::new(&format!("read_{}", prop_name), Span::call_site());
         quote! {
-            pub fn #read_fn_name(&mut self) -> wire_weaver_client_common::PreparedRead<#ty> {
+            pub fn #read_fn_name(&self) -> wire_weaver_client_common::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd_tx.prepare_read(path_kind)
@@ -471,7 +470,7 @@ fn handle_stream(
     if is_up {
         // client in
         quote! {
-            pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
+            pub fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 let stream = self.cmd_tx.prepare_stream(path_kind)?;
@@ -481,7 +480,7 @@ fn handle_stream(
     } else {
         // client out
         quote! {
-            pub fn #ident(&mut self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
+            pub fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 let sink = self.cmd_tx.prepare_sink(path_kind)?;
@@ -526,7 +525,7 @@ fn ser_args(
         // let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
         let args_ser = quote! {
             let args = #args_struct_ident { #(#idents),* };
-            let args_bytes = args.to_ww_bytes(&mut self.args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+            let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
         };
         let tys: Result<Vec<TokenStream>, _> = args
             .iter()
@@ -563,7 +562,6 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
                 api_version: wire_weaver::ww_version::FullVersion<'static>,
                 on_error: wire_weaver_client_common::OnError,
                 local_timeout: std::time::Duration,
-                scratch: [u8; 4096],
             ) -> Result<Self, wire_weaver_client_common::Error> {
                 use tokio::sync::mpsc;
                 let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
@@ -576,7 +574,6 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
                 cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
                 Ok(Self {
-                    args_scratch: scratch,
                     cmd_tx,
                 })
             }

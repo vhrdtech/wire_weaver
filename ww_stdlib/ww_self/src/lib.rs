@@ -20,6 +20,9 @@ use ww_version::FullVersionOwned;
 pub const MAGIC: u32 = 0xA91B_14F0;
 pub const VERSION: VersionTriplet = VersionTriplet::new(0, 1, 1); // TODO: Fill properly
 
+// TODO: add doc
+// TODO: add ufs
+
 #[derive_shrink_wrap]
 #[derive(Clone, Debug)]
 #[owned = "std"]
@@ -89,7 +92,7 @@ pub enum TypeLocation<'i> {
 #[serde = "serde"]
 pub struct ApiLevel<'i> {
     pub docs: RefVec<'i, &'i str>,
-    pub crate_idx: UNib32, // TODO: remove and use one in ApiLevelLocation?
+    pub crate_idx: UNib32,
     pub trait_name: &'i str,
     pub items: RefVec<'i, ApiItem<'i>>,
 }

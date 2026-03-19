@@ -1,11 +1,9 @@
-use crate::command_sender::{DispatcherCommander, TransportCommander};
+use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::{Error, SeqTy};
+use crate::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 
@@ -23,11 +21,9 @@ use ww_client_server::PathKindOwned;
 pub struct PreparedWrite<E> {
     pub(crate) postpone_err: Result<(), Error>,
     pub(crate) transport_cmd_tx: TransportCommander,
-    pub(crate) dispatcher_cmd_tx: DispatcherCommander,
-    pub(crate) seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
     pub(crate) path_kind: PathKindOwned,
     pub(crate) value: Vec<u8>,
-    pub(crate) timeout: Option<Duration>,
+    pub(crate) timeout_override: Option<Duration>,
     pub(crate) _phantom_err: PhantomData<E>,
 }
 
@@ -37,11 +33,9 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         Self {
             postpone_err: self.postpone_err,
             transport_cmd_tx: self.transport_cmd_tx,
-            dispatcher_cmd_tx: self.dispatcher_cmd_tx,
-            seq_rx: self.seq_rx,
             path_kind: self.path_kind,
             value: self.value,
-            timeout: Some(timeout),
+            timeout_override: Some(timeout),
             _phantom_err: PhantomData,
         }
     }
@@ -51,16 +45,12 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         self.postpone_err?;
 
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.write().await;
-            seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to a remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_write_return(seq, self.timeout)?;
-        self.transport_cmd_tx
-            .send_write_request(seq, self.path_kind, self.value)?;
+        // send call to a remote device through transport layer
+        let done_rx = self.transport_cmd_tx.send_write_request(
+            self.path_kind,
+            self.value,
+            self.timeout_override,
+        )?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -72,18 +62,12 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     pub fn blocking_write(self) -> Result<(), Error> {
         self.postpone_err?;
 
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.blocking_write();
-            seq_rx
-                .blocking_recv()
-                .ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to a remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_write_return(seq, self.timeout)?;
-        self.transport_cmd_tx
-            .send_write_request(seq, self.path_kind, self.value)?;
+        // send call to a remote device through transport layer
+        let done_rx = self.transport_cmd_tx.send_write_request(
+            self.path_kind,
+            self.value,
+            self.timeout_override,
+        )?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx
@@ -97,7 +81,7 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     pub fn write_forget(self) -> Result<(), Error> {
         self.postpone_err?;
         self.transport_cmd_tx
-            .send_write_request(0, self.path_kind, self.value)?;
+            .send_write_request_forget(self.path_kind, self.value)?;
         Ok(())
     }
 
@@ -111,10 +95,8 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         Promise::new_write(
             self.path_kind,
             self.value,
-            self.seq_rx,
-            self.timeout,
+            self.timeout_override,
             self.transport_cmd_tx,
-            self.dispatcher_cmd_tx,
             marker,
         )
     }

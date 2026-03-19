@@ -3,7 +3,6 @@ use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct AllGpio {
-    args_scratch: [u8; 4096],
     cmd_tx: CommandSender,
 }
 
@@ -14,7 +13,6 @@ impl AllGpio {
             all_gpio_api::ALL_GPIO_API_FULL_GID,
             on_error,
             Duration::from_secs(1),
-            [0u8; 4096],
         )
         .await
     }
@@ -25,7 +23,6 @@ impl AllGpio {
             all_gpio_api::ALL_GPIO_API_FULL_GID,
             on_error,
             Duration::from_secs(1),
-            [0u8; 4096],
         )
     }
 

@@ -44,6 +44,7 @@ pub enum Error {
     #[error("No devices found to connect to")]
     DeviceNotFound,
     #[error("Timeout")]
+    // TODO: add timeout name and duration used?
     Timeout,
     #[error("LinkSetup was not received from device after several retries")]
     LinkSetupTimeout,

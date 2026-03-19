@@ -3043,6 +3043,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client_common",
  "wire_weaver_usb_link",
+ "ww_client_server",
 ]
 
 [[package]]

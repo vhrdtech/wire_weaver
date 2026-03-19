@@ -1,5 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{MAX_MESSAGE_SIZE, UsbError};
+use crate::{UsbError, MAX_MESSAGE_SIZE};
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface};
@@ -8,13 +8,15 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
+use wire_weaver_client_common::rx_dispatcher::{
+    DispatcherCommand, DispatcherMessage, RxDispatcher,
+};
 use wire_weaver_client_common::{
-    Command, DeviceInfoBundle, Error, OnError, TestProgress, event_loop_state::CommonState,
+    event_loop_state::CommonState, Command, DeviceInfoBundle, Error, OnError, TestProgress,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
-    WireWeaverUsbLink,
+    DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
+    PING_INTERVAL_MS,
 };
 
 struct State {
@@ -43,11 +45,9 @@ impl State {
     }
 }
 
-pub async fn usb_worker(
-    mut cmd_rx: mpsc::UnboundedReceiver<Command>,
-    mut to_dispatcher: mpsc::UnboundedSender<DispatcherMessage>,
-) {
+pub async fn usb_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
     let mut state = State::new();
+    let mut rx_dispatcher = RxDispatcher::default();
 
     let mut tx_buf = [0u8; 1024];
     let mut rx_buf = [0u8; 1024];
@@ -56,7 +56,7 @@ pub async fn usb_worker(
     loop {
         match &mut link {
             Some(l) => {
-                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut to_dispatcher)
+                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut rx_dispatcher)
                     .await
                 {
                     Ok(r) => {
@@ -139,7 +139,7 @@ async fn wait_for_connection_and_queue_commands(
                 client_version,
             } => {
                 let (interface, di, transfer_type, max_packet_size) =
-                    match crate::connection::connect(filter, on_error).await {
+                    match crate::connection::connect(&filter, on_error).await {
                         Ok(i_di) => i_di,
                         Err(e) => {
                             // TODO: drop requests if any
@@ -155,13 +155,13 @@ async fn wait_for_connection_and_queue_commands(
                     };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, client_version.clone());
+                    .on_connect(on_error, connected_tx, *client_version.clone());
                 return Ok(Some((
                     interface,
                     di,
                     transfer_type,
                     max_packet_size,
-                    client_version,
+                    *client_version,
                 )));
             }
             Command::RegisterTracer { trace_event_tx } => {
@@ -183,6 +183,10 @@ async fn wait_for_connection_and_queue_commands(
             Command::SendMessage { .. } => {
                 warn!("ignoring send message while disconnected");
             }
+            Command::OnStreamEvent { .. } => {
+                // TODO: do not ignore OnStreamEvent when disconnected
+                warn!("ignoring on stream event while disconnected for now");
+            }
             Command::LoopbackTest { progress_tx, .. } => {
                 _ = progress_tx.send(TestProgress::FatalError("Not connected".into()));
             }
@@ -201,7 +205,7 @@ async fn process_commands_and_endpoints<T, R>(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
-    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
+    rx_dispatcher: &mut RxDispatcher,
 ) -> Result<EventLoopResult, Error>
 where
     T: PacketSink<Error = TransferError>,
@@ -261,10 +265,11 @@ where
             // resend GetDeviceInfo, might not be needed as packets should not get silently lost (apart from the very first), but just in case
             Duration::from_millis(50)
         };
+        // TODO: !!! Call prune as well here
         let timer = tokio::time::sleep(duration);
         tokio::select! {
             message = link.receive_message(&mut state.message_rx) => {
-                match handle_message(message, link, state, to_dispatcher).await? {
+                match handle_message(message, link, state, rx_dispatcher).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -277,7 +282,7 @@ where
                     link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                     return Ok(EventLoopResult::Exit);
                 };
-                match handle_command(cmd, link, state, &mut scratch).await? {
+                match handle_command(cmd, link, state, rx_dispatcher, &mut scratch).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -335,7 +340,7 @@ async fn handle_message<T, R>(
     message: Result<MessageKind, LinkError<TransferError, TransferError>>,
     link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
-    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
+    rx_dispatcher: &mut RxDispatcher,
 ) -> Result<EventLoopSpinResult, Error>
 where
     T: PacketSink<Error = TransferError>,
@@ -350,9 +355,7 @@ where
             }
             let message = &state.message_rx[..len];
             state.common.trace_event(message);
-            to_dispatcher
-                .send(DispatcherMessage::MessageBytes(message.to_vec()))
-                .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
+            rx_dispatcher.handle_msg(DispatcherMessage::MessageBytes(message));
         }
         Ok(MessageKind::Disconnect(reason)) => {
             state
@@ -371,9 +374,7 @@ where
                 } else {
                     info!("Received Disconnect({reason:?}) from remote device, exiting");
                 }
-                to_dispatcher
-                    .send(DispatcherMessage::Disconnected)
-                    .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
+                rx_dispatcher.handle_msg(DispatcherMessage::Disconnected);
                 Ok(EventLoopSpinResult::DisconnectFromDevice)
             };
         }
@@ -431,9 +432,7 @@ where
         Ok(MessageKind::LinkUp) => {
             info!("LinkSetup complete");
             state.max_protocol_mismatched_messages = 10;
-            to_dispatcher
-                .send(DispatcherMessage::Connected)
-                .map_err(|_| Error::Other("rx dispatcher is not running".into()))?;
+            rx_dispatcher.handle_msg(DispatcherMessage::Connected);
             if let Some(tx) = state.common.connected_tx.take() {
                 _ = tx.send(Ok(state
                     .common
@@ -468,6 +467,7 @@ async fn handle_command<T, R>(
     cmd: Command,
     link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
+    rx_dispatcher: &mut RxDispatcher,
     scratch: &mut [u8],
 ) -> Result<EventLoopSpinResult, Error>
 where
@@ -509,7 +509,26 @@ where
             }
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
-        Command::SendMessage { bytes } => {
+        Command::SendMessage {
+            mut bytes,
+            mut done_tx,
+        } => {
+            if let Some((done_tx, timeout)) = done_tx.take() {
+                if let Some(seq) = rx_dispatcher.next_seq() {
+                    // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
+                    // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
+                    // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
+                    ww_client_server::Request::set_seq(&mut bytes, seq);
+                    rx_dispatcher.handle_cmd(DispatcherCommand::OnReturn {
+                        seq,
+                        done_tx,
+                        timeout,
+                    });
+                } else {
+                    // TODO: backpressure when out of request IDs
+                    _ = done_tx.send(Err(Error::Other("No more request IDs available".into())));
+                }
+            }
             state.common.trace_request(&bytes);
             link.send_message(&bytes)
                 .await
@@ -519,6 +538,15 @@ where
             } else if state.common.packet_started_instant.is_none() {
                 state.common.packet_started_instant = Some(Instant::now());
             }
+        }
+        Command::OnStreamEvent {
+            path_kind,
+            stream_event_tx,
+        } => {
+            rx_dispatcher.handle_cmd(DispatcherCommand::OnStreamEvent {
+                path_kind: *path_kind,
+                stream_event_tx,
+            });
         }
         Command::LoopbackTest {
             test_duration,

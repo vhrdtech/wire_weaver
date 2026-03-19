@@ -12,8 +12,6 @@ use ww_client_server::{PathKindOwned, StreamSidebandCommand, StreamSidebandEvent
 /// Also holds a sideband channel.
 pub struct Stream<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
-    // pub(crate) dispatcher_cmd_tx: DispatcherCommander,
-    // pub(crate) seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
     pub(crate) path_kind: PathKindOwned,
     pub(crate) rx: UnboundedReceiver<StreamEvent>,
     pub(crate) _phantom: PhantomData<T>,
@@ -44,8 +42,9 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
 
     /// Send command through sideband channel
     pub fn sideband(&self, sideband_cmd: StreamSidebandCommand) -> Result<(), StreamError> {
+        // TODO: add synchronous mode to stream sideband (wait for response)?
         self.transport_cmd_tx
-            .send_stream_sideband(0, self.path_kind.clone(), sideband_cmd)?;
+            .send_stream_sideband_forget(self.path_kind.clone(), sideband_cmd)?;
         Ok(())
     }
 

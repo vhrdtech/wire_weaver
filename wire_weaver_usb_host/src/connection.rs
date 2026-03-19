@@ -8,7 +8,7 @@ use tracing::{error, trace};
 use wire_weaver_client_common::{DeviceFilter, Error, OnError};
 
 pub(crate) async fn connect(
-    filter: DeviceFilter,
+    filter: &DeviceFilter,
     mut timeout: OnError,
 ) -> Result<(Interface, DeviceInfo, TransferType, usize), Error> {
     let wait_started = Instant::now();

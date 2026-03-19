@@ -1,121 +1,95 @@
-use crate::{Error, SeqTy, StreamEvent, DEFAULT_REQUEST_TIMEOUT};
-use std::collections::{HashMap, HashSet};
+use crate::{Error, SeqTy, StreamEvent};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, trace, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UNib32};
 use ww_client_server::{EventKind, PathKindOwned};
 
-pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
-pub type StreamUpdateSender = mpsc::UnboundedSender<StreamEvent>;
+pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
+pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
+
+pub(crate) type StreamUpdateSender = mpsc::UnboundedSender<StreamEvent>;
+pub(crate) type StreamUpdateReceiver = mpsc::UnboundedReceiver<StreamEvent>;
 
 const IGNORE_TIMER_DURATION: Duration = Duration::from_millis(1);
 
-pub enum DispatcherMessage {
+pub enum DispatcherMessage<'i> {
     Connected,
-    MessageBytes(Vec<u8>),
+    MessageBytes(&'i [u8]),
     Disconnected,
 }
 
 #[derive(Debug)]
 pub enum DispatcherCommand {
-    RegisterSeqSource {
-        seq_tx: mpsc::Sender<SeqTy>,
-    },
-    OnCallReturn {
+    OnReturn {
         seq: SeqTy,
         done_tx: ResponseSender,
-        timeout: Option<Duration>,
-    },
-    OnWriteComplete {
-        seq: SeqTy,
-        // Vec is always empty here, but allows for common code
-        done_tx: ResponseSender,
-        timeout: Option<Duration>,
-    },
-    OnReadValue {
-        seq: SeqTy,
-        done_tx: ResponseSender,
-        timeout: Option<Duration>,
+        timeout: Duration,
     },
     OnStreamEvent {
         path_kind: PathKindOwned,
         stream_event_tx: StreamUpdateSender,
-        // stop_rx: oneshot::Receiver<()>,
-    },
-    OnIntrospect {
-        bytes_chunk_tx: mpsc::UnboundedSender<Vec<u8>>,
     },
 }
 
-pub async fn rx_dispatcher(
-    mut commands: mpsc::UnboundedReceiver<DispatcherCommand>,
-    mut messages: mpsc::UnboundedReceiver<DispatcherMessage>,
-) {
-    debug!("started");
-    let mut state = DispatcherState::default();
-    loop {
-        state.replenish_seq_receivers();
-        let next_timeout = state.prune_next_timeout();
-        let timer = tokio::time::sleep(next_timeout);
-        tokio::select! {
-            cmd = commands.recv() => {
-                let Some(cmd) = cmd else {
-                    debug!("cmd channel closed, exiting");
-                    break;
-                };
-                state.handle_cmd(cmd);
-            }
-            msg = messages.recv() => {
-                let Some(msg) = msg else {
-                    debug!("message channel closed, exiting");
-                    break;
-                };
-                state.handle_msg(msg);
-            }
-            _ = timer => {
-                state.prune_next_timeout();
-            }
-        }
-    }
-    debug!("exited");
-}
+// pub async fn rx_dispatcher(
+//     mut commands: mpsc::UnboundedReceiver<DispatcherCommand>,
+//     mut messages: mpsc::UnboundedReceiver<DispatcherMessage>,
+// ) {
+//     debug!("started");
+//     let mut state = DispatcherState::default();
+//     loop {
+//         let next_timeout = state.prune_next_timeout();
+//         let timer = tokio::time::sleep(next_timeout);
+//         tokio::select! {
+//             cmd = commands.recv() => {
+//                 let Some(cmd) = cmd else {
+//                     debug!("cmd channel closed, exiting");
+//                     break;
+//                 };
+//                 state.handle_cmd(cmd);
+//             }
+//             msg = messages.recv() => {
+//                 let Some(msg) = msg else {
+//                     debug!("message channel closed, exiting");
+//                     break;
+//                 };
+//                 state.handle_msg(msg);
+//             }
+//             _ = timer => {
+//                 state.prune_next_timeout();
+//             }
+//         }
+//     }
+//     debug!("exited");
+// }
 
 #[derive(Default)]
-struct DispatcherState {
+pub struct RxDispatcher {
     is_connected: bool,
-    response_map: HashMap<SeqTy, (Option<ResponseSender>, Instant)>, // Option to use retain in prune_next_timeout
+    response_map: HashMap<SeqTy, (ResponseSenderWrapper, Instant)>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
-    introspect_handlers: Vec<mpsc::UnboundedSender<Vec<u8>>>,
-
-    last_seq_used: SeqTy,
-    seq_allocated: HashSet<SeqTy>,
-    seq_receivers: Vec<mpsc::Sender<SeqTy>>,
+    next_seq: SeqTy,
 }
 
-impl DispatcherState {
-    fn handle_cmd(&mut self, cmd: DispatcherCommand) {
+struct ResponseSenderWrapper(Option<ResponseSender>);
+
+impl ResponseSenderWrapper {
+    fn send(&mut self, r: Result<Vec<u8>, Error>) -> Result<(), ()> {
+        if let Some(tx) = self.0.take() {
+            tx.send(r).map_err(|_| ())
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl RxDispatcher {
+    pub fn handle_cmd(&mut self, cmd: DispatcherCommand) {
         trace!("cmd: {:?}", cmd);
         match cmd {
-            DispatcherCommand::RegisterSeqSource { seq_tx: seq_rx } => {
-                self.seq_receivers.push(seq_rx);
-                self.replenish_seq_receivers();
-            }
-            DispatcherCommand::OnCallReturn {
-                seq,
-                done_tx,
-                timeout,
-            } => {
-                self.respond_later(seq, done_tx, timeout);
-            }
-            DispatcherCommand::OnWriteComplete {
-                seq,
-                done_tx,
-                timeout,
-            } => {
-                self.respond_later(seq, done_tx, timeout);
-            }
-            DispatcherCommand::OnReadValue {
+            DispatcherCommand::OnReturn {
                 seq,
                 done_tx,
                 timeout,
@@ -134,13 +108,25 @@ impl DispatcherState {
                 }
                 // TODO: other path kinds
             }
-            DispatcherCommand::OnIntrospect { bytes_chunk_tx } => {
-                self.introspect_handlers.push(bytes_chunk_tx);
-            }
         }
     }
 
-    fn respond_later(&mut self, seq: SeqTy, done_tx: ResponseSender, timeout: Option<Duration>) {
+    pub fn next_seq(&mut self) -> Option<SeqTy> {
+        for _ in 0..SeqTy::MAX {
+            if self.next_seq == 0 {
+                self.next_seq = 1;
+            }
+            let seq = self.next_seq;
+            self.next_seq = seq.wrapping_add(1);
+            if self.response_map.contains_key(&seq) {
+                continue;
+            }
+            return Some(seq);
+        }
+        None
+    }
+
+    fn respond_later(&mut self, seq: SeqTy, done_tx: ResponseSender, timeout: Duration) {
         if seq == 0 {
             _ = done_tx.send(Err(Error::User(
                 "Requests with seq == 0 will not be answered".into(),
@@ -151,17 +137,18 @@ impl DispatcherState {
             _ = done_tx.send(Err(Error::Disconnected));
             return;
         }
-        let timeout = timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
         let prune_at = Instant::now() + timeout;
-        let replaced = self.response_map.insert(seq, (Some(done_tx), prune_at));
-        if let Some((Some(done_tx), _)) = replaced {
+        let replaced = self
+            .response_map
+            .insert(seq, (ResponseSenderWrapper(Some(done_tx)), prune_at));
+        if let Some((mut done_tx, _)) = replaced {
             _ = done_tx.send(Err(Error::User(
                 "Seq used for this request was used again".into(),
             )));
         }
     }
 
-    fn prune_next_timeout(&mut self) -> Duration {
+    pub fn prune_next_timeout(&mut self) -> Duration {
         let now = Instant::now();
         let mut min: Option<Duration> = None;
         self.response_map.retain(|seq, (done_tx, prune_at)| {
@@ -169,9 +156,7 @@ impl DispatcherState {
                 .checked_duration_since(now)
                 .unwrap_or(Duration::from_millis(0));
             if till_prune < IGNORE_TIMER_DURATION {
-                if let Some(tx) = done_tx.take() {
-                    _ = tx.send(Err(Error::Timeout));
-                }
+                _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
                 return false;
             }
@@ -187,7 +172,7 @@ impl DispatcherState {
         min.unwrap_or(Duration::from_secs(1))
     }
 
-    fn handle_msg(&mut self, msg: DispatcherMessage) {
+    pub fn handle_msg(&mut self, msg: DispatcherMessage) {
         let msg_bytes = match msg {
             DispatcherMessage::Connected | DispatcherMessage::Disconnected => {
                 match msg {
@@ -211,7 +196,7 @@ impl DispatcherState {
             warn!("empty ww_client_server::Event received, ignoring");
             return;
         }
-        let event = match ww_client_server::Event::from_ww_bytes(&msg_bytes) {
+        let event = match ww_client_server::Event::from_ww_bytes(msg_bytes) {
             Ok(event) => event,
             Err(e) => {
                 warn!(
@@ -223,14 +208,12 @@ impl DispatcherState {
             }
         };
         trace!("received event: {:?}", event);
-        self.seq_allocated.remove(&event.seq);
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
-                    if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
+                    if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
                         let return_or_value_bytes = data.as_slice().to_vec();
-                        let r = done_tx.send(Ok(return_or_value_bytes));
-                        if r.is_err() {
+                        if done_tx.send(Ok(return_or_value_bytes)).is_err() {
                             warn!("failed to send done notification: {:?}", &event.seq);
                         }
                     } else {
@@ -238,9 +221,8 @@ impl DispatcherState {
                     }
                 }
                 EventKind::Written => {
-                    if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
-                        let r = done_tx.send(Ok(Vec::new()));
-                        if r.is_err() {
+                    if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
+                        if done_tx.send(Ok(vec![])).is_err() {
                             warn!("failed to send written notification: {:?}", &event.seq);
                         }
                     } else {
@@ -272,23 +254,12 @@ impl DispatcherState {
                         }
                     }
                 }
-                EventKind::Introspect {
-                    ww_self_bytes_chunk,
-                } => {
-                    // TODO: use seq_id for introspect events routing as well
-                    let chunk = ww_self_bytes_chunk.clone().to_vec();
-                    self.introspect_handlers.retain(|tx| {
-                        let keep = tx.send(chunk.clone()).is_ok();
-                        keep
-                    });
-                }
                 _ => {}
             },
             Err(e) => {
-                if let Some((Some(done_tx), _)) = self.response_map.remove(&event.seq) {
-                    let _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
+                if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
+                    _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
                 } else {
-                    // TODO: route introspect errors back to caller
                     warn!("unknown seq {:?} for remote err {e:?}", &event.seq);
                 }
             }
@@ -298,9 +269,7 @@ impl DispatcherState {
     fn cancel_all_requests(&mut self) {
         trace!("canceling all requests");
         for (_, (mut done_tx, _)) in self.response_map.drain() {
-            if let Some(done_tx) = done_tx.take() {
-                _ = done_tx.send(Err(Error::Disconnected));
-            }
+            _ = done_tx.send(Err(Error::Disconnected));
         }
     }
 
@@ -323,36 +292,6 @@ impl DispatcherState {
                 }
                 keep
             });
-        }
-    }
-
-    fn replenish_seq_receivers(&mut self) {
-        for seq_tx in &mut self.seq_receivers {
-            'inner: while seq_tx.capacity() > 0 {
-                let mut potential_seq = self.last_seq_used.wrapping_add(1);
-                if potential_seq == 0 {
-                    potential_seq = 1;
-                }
-
-                let mut iterations_left = SeqTy::MAX as usize;
-                while (self.response_map.contains_key(&potential_seq)
-                    || self.seq_allocated.contains(&potential_seq))
-                    && iterations_left > 0
-                {
-                    potential_seq = potential_seq.wrapping_add(1);
-                    if potential_seq == 0 {
-                        potential_seq = 1;
-                    }
-                    iterations_left -= 1;
-                }
-
-                trace!("allocated seq: {}", potential_seq);
-                if seq_tx.try_send(potential_seq).is_err() {
-                    break 'inner;
-                }
-                self.seq_allocated.insert(potential_seq);
-                self.last_seq_used = potential_seq;
-            }
         }
     }
 }

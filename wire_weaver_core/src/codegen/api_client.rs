@@ -152,7 +152,6 @@ fn client_structs_recursive(
         model,
         path_mode,
         &gid_paths,
-        is_at_root.is_some(),
     );
 
     // call before increment_length so that root level does not have it
@@ -241,19 +240,11 @@ fn level_methods(
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
-    is_at_root: bool,
 ) -> TokenStream {
-    let handlers = api_level.items.iter().map(|item| {
-        level_method(
-            api_bundle,
-            item,
-            index_chain,
-            model,
-            path_mode,
-            gid_paths,
-            is_at_root,
-        )
-    });
+    let handlers = api_level
+        .items
+        .iter()
+        .map(|item| level_method(api_bundle, item, index_chain, model, path_mode, gid_paths));
     quote! {
         #(#handlers)*
     }
@@ -266,7 +257,6 @@ fn level_method(
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &(TokenStream, TokenStream),
-    is_at_root: bool,
 ) -> TokenStream {
     let id = item.id.0;
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
@@ -565,11 +555,10 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
             ) -> Result<Self, wire_weaver_client_common::Error> {
                 use tokio::sync::mpsc;
                 let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
-                let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
-                let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
+                let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx);
                 cmd_tx.set_local_timeout(local_timeout);
                 tokio::spawn(async move {
-                    wire_weaver_usb_host::usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
+                    wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
                 });
                 cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
                 cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());

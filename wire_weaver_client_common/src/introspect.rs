@@ -1,83 +1,55 @@
-use crate::command_sender::{DispatcherCommander, SeqRwLock, TransportCommander};
+use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::Error;
+use crate::{Error, Stream};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
+use ww_client_server::PathKindOwned;
 use ww_self::ApiBundleOwned;
 
 pub struct Introspect {
     transport_cmd_tx: TransportCommander,
-    dispatcher_cmd_tx: DispatcherCommander,
-    seq_rx: SeqRwLock,
 }
 
 impl Introspect {
-    pub(crate) fn new(
-        transport_cmd_tx: TransportCommander,
-        dispatcher_cmd_tx: DispatcherCommander,
-        seq_rx: SeqRwLock,
-    ) -> Self {
-        Introspect {
-            transport_cmd_tx,
-            dispatcher_cmd_tx,
-            seq_rx,
-        }
+    pub(crate) fn new(transport_cmd_tx: TransportCommander) -> Self {
+        Introspect { transport_cmd_tx }
     }
 
     /// Request introspect data from a remote device.
     pub async fn download(self) -> Result<ApiBundleOwned, Error> {
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.write().await;
-            seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
+        // TODO: set introspect download data timeout
+        let rx = self.transport_cmd_tx.send_introspect(None)?;
+        let mut stream = Stream {
+            transport_cmd_tx: self.transport_cmd_tx,
+            path_kind: PathKindOwned::Absolute { path: vec![] },
+            rx,
+            _phantom: Default::default(),
         };
-        // send introspect request
-        self.transport_cmd_tx.send_introspect(seq)?;
-        // notify rx dispatcher
-        let mut rx = self.dispatcher_cmd_tx.on_introspect_chunk()?;
-        // receive chunks
-        let mut ww_self_bytes = vec![];
-        while let Some(chunk) = rx.recv().await {
-            if chunk.is_empty() {
-                break;
-            }
-            ww_self_bytes.extend_from_slice(&chunk);
-        }
+        let ww_self_bytes = stream
+            .recv_all_bytes()
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
         let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
         Ok(api_bundle)
     }
 
     /// Receive all the introspect bytes chunks.
     pub fn download_blocking(self) -> Result<ApiBundleOwned, Error> {
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.blocking_write();
-            seq_rx
-                .blocking_recv()
-                .ok_or(Error::RxDispatcherNotRunning)?
+        let rx = self.transport_cmd_tx.send_introspect(None)?;
+        let mut stream = Stream {
+            transport_cmd_tx: self.transport_cmd_tx,
+            path_kind: PathKindOwned::Absolute { path: vec![] },
+            rx,
+            _phantom: Default::default(),
         };
-        // send introspect request
-        self.transport_cmd_tx.send_introspect(seq)?;
-        // notify rx dispatcher
-        let mut rx = self.dispatcher_cmd_tx.on_introspect_chunk()?;
-        // receive chunks
-        let mut ww_self_bytes = vec![];
-        while let Some(chunk) = rx.blocking_recv() {
-            if chunk.is_empty() {
-                break;
-            }
-            ww_self_bytes.extend_from_slice(&chunk);
-        }
+        let ww_self_bytes = stream
+            .recv_all_bytes_blocking()
+            .map_err(|e| Error::Other(e.to_string()))?;
         let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
         Ok(api_bundle)
     }
 
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn download_promise(self) -> Promise<ApiBundleOwned> {
-        Promise::new_introspect(
-            self.seq_rx,
-            self.transport_cmd_tx,
-            self.dispatcher_cmd_tx,
-            "introspect",
-        )
+        Promise::new_introspect(self.transport_cmd_tx, "introspect")
     }
 }

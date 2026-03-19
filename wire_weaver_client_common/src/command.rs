@@ -1,7 +1,9 @@
+use crate::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::{DeviceFilter, Error, OnError};
 use std::fmt::{Debug, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
+use ww_client_server::PathKindOwned;
 use ww_version::{FullVersionOwned, VersionOwned};
 
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).
@@ -9,8 +11,8 @@ use ww_version::{FullVersionOwned, VersionOwned};
 pub enum Command {
     /// Try to connect to / open a device with the specified filter.
     Connect {
-        filter: DeviceFilter,
-        client_version: FullVersionOwned,
+        filter: Box<DeviceFilter>,
+        client_version: Box<FullVersionOwned>,
         // TODO: supported_use_protocols: Vec<FullVersion<'static>> and keep only the one in common
         on_error: OnError,
         connected_tx: Option<oneshot::Sender<Result<DeviceInfoBundle, Error>>>,
@@ -35,6 +37,13 @@ pub enum Command {
 
     SendMessage {
         bytes: Vec<u8>,
+        /// If None - the message will be sent with seq = 0
+        /// TODO: Timeout per each update or in total for multipart?
+        done_tx: Option<(ResponseSender, Duration)>,
+    },
+    OnStreamEvent {
+        path_kind: Box<PathKindOwned>,
+        stream_event_tx: StreamUpdateSender,
     },
     // RecycleBuffer(Vec<u8>),
     // GetStats,
@@ -44,6 +53,10 @@ pub enum Command {
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
 }
+
+const _: () = {
+    assert!(size_of::<Command>() <= 64); // was 56
+};
 
 #[derive(Debug)]
 pub enum TestProgress {

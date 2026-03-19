@@ -162,9 +162,12 @@ pub enum EventKind<'i> {
     ReturnValue {
         /// Serialized return value of a method.
         data: RefVec<'i, u8>,
+        // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
+        // TODO: add CRC?
     },
 
     /// Sent in response to RequestKind::Read.
+    // TODO: remove and use ReturnValue?
     ReadValue {
         /// Serialized property value.
         data: RefVec<'i, u8>,
@@ -197,11 +200,6 @@ pub enum EventKind<'i> {
 
     /// Sent in response to RequestKind::ChangeRata for properties. Optional.
     RateChanged,
-
-    /// Sent in response to [RequestKind::Introspect] potentially in multiple chunks.
-    Introspect { ww_self_bytes_chunk: RefVec<'i, u8> },
-    // Sent in response to [RequestKind::ValidIndices] only for resources that are arrays.
-    // ValidIndices { indices: ValidIndices<'i> }, -> answered as ReadValue
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
@@ -442,6 +440,14 @@ impl RequestKind<'_> {
             },
             RequestKind::Introspect => RequestKindOwned::Introspect,
         }
+    }
+}
+
+impl Request<'_> {
+    pub fn set_seq(bytes: &mut [u8], seq: u16) {
+        let seq_le = seq.to_le_bytes();
+        bytes[0] = seq_le[0];
+        bytes[1] = seq_le[1];
     }
 }
 

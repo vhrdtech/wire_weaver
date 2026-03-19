@@ -1,11 +1,9 @@
-use crate::command_sender::{DispatcherCommander, TransportCommander};
+use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::{Error, SeqTy};
+use crate::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 
@@ -21,11 +19,9 @@ use ww_client_server::PathKindOwned;
 #[must_use = "PrepareRead does nothing, unless read(), blocking_read() or read_promise() is used"]
 pub struct PreparedRead<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
-    pub(crate) dispatcher_cmd_tx: DispatcherCommander,
-    pub(crate) seq_rx: Arc<RwLock<mpsc::Receiver<SeqTy>>>,
     pub(crate) version_check: Result<(), Error>,
     pub(crate) path_kind: Result<PathKindOwned, Error>,
-    pub(crate) timeout: Option<Duration>,
+    pub(crate) timeout_override: Option<Duration>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -34,11 +30,9 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
             transport_cmd_tx: self.transport_cmd_tx,
-            dispatcher_cmd_tx: self.dispatcher_cmd_tx,
-            seq_rx: self.seq_rx,
             version_check: self.version_check,
             path_kind: self.path_kind,
-            timeout: Some(timeout),
+            timeout_override: Some(timeout),
             _phantom: PhantomData,
         }
     }
@@ -49,15 +43,10 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         self.version_check?;
         let path_kind = self.path_kind?;
 
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.write().await;
-            seq_rx.recv().await.ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to a remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_read_return(seq, self.timeout)?;
-        self.transport_cmd_tx.send_read_request(seq, path_kind)?;
+        // send call to a remote device through transport layer
+        let done_rx = self
+            .transport_cmd_tx
+            .send_read_request(path_kind, self.timeout_override)?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -71,17 +60,10 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         self.version_check?;
         let path_kind = self.path_kind?;
 
-        // obtain next seq
-        let seq = {
-            let mut seq_rx = self.seq_rx.blocking_write();
-            seq_rx
-                .blocking_recv()
-                .ok_or(Error::RxDispatcherNotRunning)?
-        };
-
-        // notify rx dispatcher & send call to a remote device through transport layer
-        let done_rx = self.dispatcher_cmd_tx.on_read_return(seq, self.timeout)?;
-        self.transport_cmd_tx.send_read_request(seq, path_kind)?;
+        // send call to a remote device through transport layer
+        let done_rx = self
+            .transport_cmd_tx
+            .send_read_request(path_kind, self.timeout_override)?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx
@@ -105,10 +87,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
 
         Promise::new_read(
             path_kind,
-            self.seq_rx,
-            self.timeout,
+            self.timeout_override,
             self.transport_cmd_tx,
-            self.dispatcher_cmd_tx,
             marker,
         )
     }

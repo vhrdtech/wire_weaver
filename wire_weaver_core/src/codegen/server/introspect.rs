@@ -26,14 +26,20 @@ pub(crate) fn introspect(
         quote! {
             RequestKind::Introspect => {
                 pub const WW_SELF_BYTES: #ww_self_bytes_const;
-                for chunk in WW_SELF_BYTES.chunks(128).chain([&[][..]]) { // TODO: auto-determine better chunk size
+                for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
                     let event = Event {
                         seq: request.seq,
-                        result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(chunk) }),
+                        result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: RefVec::new_bytes(chunk) }),
                     };
                     let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                     msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
                 }
+                let event = Event {
+                    seq: request.seq,
+                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
+                };
+                let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
                 Ok(&[])
             }
         }
@@ -42,7 +48,7 @@ pub(crate) fn introspect(
             RequestKind::Introspect => {
                 let event = Event {
                     seq: request.seq,
-                    result: Ok(EventKind::Introspect { ww_self_bytes_chunk: RefVec::new_bytes(&[]) }),
+                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
                 };
                 let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                 msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;

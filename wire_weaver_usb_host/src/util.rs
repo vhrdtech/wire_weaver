@@ -35,10 +35,9 @@ pub fn connect_runtime_api_blocking(filter: DeviceFilter) -> Result<CommandSende
 
 fn start_worker() -> CommandSender {
     let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
-    let (dispatcher_msg_tx, dispatcher_msg_rx) = mpsc::unbounded_channel();
-    let cmd_tx = CommandSender::new(transport_cmd_tx, dispatcher_msg_rx);
+    let cmd_tx = CommandSender::new(transport_cmd_tx);
     tokio::spawn(async move {
-        usb_worker(transport_cmd_rx, dispatcher_msg_tx).await;
+        usb_worker(transport_cmd_rx).await;
     });
     cmd_tx
 }

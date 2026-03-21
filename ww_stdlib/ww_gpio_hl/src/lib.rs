@@ -2,6 +2,7 @@ pub mod asynchronous;
 pub mod blocking;
 pub mod promise;
 mod ww;
+pub use ww_gpio;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

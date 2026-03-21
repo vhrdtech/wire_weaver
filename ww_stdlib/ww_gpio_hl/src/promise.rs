@@ -11,6 +11,7 @@ pub struct BankPromise {
     valid_pin_indices: Option<Arc<Vec<u32>>>,
     valid_pin_indices_promise: Promise<ValidIndicesOwned>,
     bank_name: Option<String>,
+    bank_name_promise: Promise<String>,
 }
 
 impl BankPromise {
@@ -26,6 +27,7 @@ impl BankPromise {
             valid_pin_indices: None,
             valid_pin_indices_promise,
             bank_name: None,
+            bank_name_promise: Default::default(),
         })
     }
 
@@ -45,11 +47,13 @@ impl BankPromise {
             valid_pin_indices,
             valid_pin_indices_promise,
             bank_name,
+            bank_name_promise: Default::default(),
         })
     }
 
     pub fn sync_poll(&mut self) {
         self.valid_pin_indices_promise.sync_poll();
+        self.bank_name_promise.sync_poll();
     }
 
     pub fn pin_indices(&self) -> Option<&[u32]> {
@@ -77,6 +81,14 @@ impl BankPromise {
             .collect()
     }
 
+    pub fn bank_name(&self) -> Option<&str> {
+        self.bank_name.as_deref()
+    }
+
+    pub fn request_bank_name(&mut self) {
+        self.bank_name_promise = self.bank.name().call_promise("");
+    }
+
     fn check_idx(&self, pin_idx: u32) -> Result<(), Error> {
         let Some(pin_indices) = self.pin_indices() else {
             return Err(Error::Usage(
@@ -102,13 +114,19 @@ pub struct FlexPromise {
     bank: BankClient,
     pin_idx: u32,
     mode: Promise<Mode>,
+    mode_cached: Option<Mode>,
     set_mode: Promise<()>,
     output_level: Promise<Level>,
+    output_level_cached: Option<Level>,
     set_output_level: Promise<()>,
+    toggle: Promise<()>,
     input_level: Promise<Level>,
+    input_level_cached: Option<Level>,
     speed: Promise<Speed>,
+    speed_cached: Option<Speed>,
     set_speed: Promise<Result<(), ww_gpio::Error>>,
     pull: Promise<Pull>,
+    pull_cached: Option<Pull>,
     set_pull: Promise<Result<(), ww_gpio::Error>>,
 }
 
@@ -140,19 +158,25 @@ impl FlexPromise {
             bank,
             pin_idx,
             mode: Default::default(),
+            mode_cached: None,
             set_mode: Default::default(),
             output_level: Default::default(),
+            output_level_cached: None,
             set_output_level: Default::default(),
+            toggle: Default::default(),
             input_level: Default::default(),
+            input_level_cached: None,
             speed: Default::default(),
+            speed_cached: None,
             set_speed: Default::default(),
             pull: Default::default(),
+            pull_cached: None,
             set_pull: Default::default(),
         }
     }
 
     pub fn mode(&self) -> Option<Mode> {
-        self.mode.peek_done().cloned()
+        self.mode_cached
     }
 
     pub fn mode_promise(&self) -> &Promise<Mode> {
@@ -168,7 +192,7 @@ impl FlexPromise {
     }
 
     pub fn output_level(&self) -> Option<Level> {
-        self.output_level.peek_done().cloned()
+        self.output_level_cached
     }
 
     pub fn output_level_promise(&self) -> &Promise<Level> {
@@ -187,12 +211,16 @@ impl FlexPromise {
             .call_promise("");
     }
 
+    pub fn toggle(&mut self) {
+        self.toggle = self.bank.pin(self.pin_idx).toggle().call_promise("");
+    }
+
     pub fn set_output_level_state(&self) -> PromiseState<'_, ()> {
         self.set_output_level.state()
     }
 
     pub fn input_level(&self) -> Option<Level> {
-        self.input_level.peek_done().cloned()
+        self.input_level_cached
     }
 
     pub fn input_level_promise(&self) -> &Promise<Level> {
@@ -204,7 +232,7 @@ impl FlexPromise {
     }
 
     pub fn speed(&self) -> Option<Speed> {
-        self.speed.peek_done().cloned()
+        self.speed_cached
     }
 
     pub fn speed_promise(&self) -> &Promise<Speed> {
@@ -224,7 +252,7 @@ impl FlexPromise {
     }
 
     pub fn pull(&self) -> Option<Pull> {
-        self.pull.peek_done().cloned()
+        self.pull_cached
     }
 
     pub fn pull_promise(&self) -> &Promise<Pull> {
@@ -253,13 +281,29 @@ impl FlexPromise {
 
     pub fn sync_poll(&mut self) {
         self.mode.sync_poll();
+        if let Some(mode) = self.mode.peek_done() {
+            self.mode_cached = Some(*mode);
+        }
         self.set_mode.sync_poll();
         self.output_level.sync_poll();
+        if let Some(level) = self.output_level.peek_done() {
+            self.output_level_cached = Some(*level);
+        }
         self.set_output_level.sync_poll();
+        self.toggle.sync_poll();
         self.input_level.sync_poll();
+        if let Some(level) = self.input_level.peek_done() {
+            self.input_level_cached = Some(*level);
+        }
         self.speed.sync_poll();
+        if let Some(speed) = self.speed.peek_done() {
+            self.speed_cached = Some(*speed);
+        }
         self.set_speed.sync_poll();
         self.pull.sync_poll();
+        if let Some(pull) = self.pull.peek_done() {
+            self.pull_cached = Some(*pull);
+        }
         self.set_pull.sync_poll();
     }
 }

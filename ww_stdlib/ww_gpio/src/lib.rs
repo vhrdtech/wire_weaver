@@ -217,6 +217,12 @@ pub struct BankCapabilities<'i> {
     pub custom_speed: RefVec<'i, &'i str>,
 }
 
+impl Mode {
+    pub fn is_driving(&self) -> bool {
+        matches!(self, Mode::PushPullOutput | Mode::OpenDrainOutput)
+    }
+}
+
 impl Level {
     pub fn is_high(&self) -> bool {
         matches!(*self, Level::High)

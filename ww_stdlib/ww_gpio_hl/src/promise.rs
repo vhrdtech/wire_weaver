@@ -53,11 +53,24 @@ impl BankPromise {
 
     pub fn sync_poll(&mut self) {
         self.valid_pin_indices_promise.sync_poll();
+        if let Some(valid_pin_indices) = self.valid_pin_indices_promise.take_ready() {
+            self.valid_pin_indices = Some(Arc::new(valid_pin_indices.iter().collect()));
+        }
         self.bank_name_promise.sync_poll();
+        if let Some(bank_name) = self.bank_name_promise.take_ready() {
+            self.bank_name = Some(bank_name);
+        }
     }
 
     pub fn pin_indices(&self) -> Option<&[u32]> {
         self.valid_pin_indices.as_ref().map(|v| v.as_slice())
+    }
+
+    pub fn request_pin_indices(&mut self) {
+        if self.valid_pin_indices_promise.is_waiting() {
+            return;
+        }
+        self.valid_pin_indices_promise = self.bank.pin_valid_indices().read_promise("");
     }
 
     pub fn pin_ref(&self, pin_idx: u32) -> Result<FlexPromiseRef<'_>, Error> {
@@ -86,6 +99,9 @@ impl BankPromise {
     }
 
     pub fn request_bank_name(&mut self) {
+        if self.bank_name_promise.is_waiting() {
+            return;
+        }
         self.bank_name_promise = self.bank.name().call_promise("");
     }
 
@@ -184,6 +200,9 @@ impl FlexPromise {
     }
 
     pub fn request_mode(&mut self) {
+        if self.mode.is_waiting() {
+            return;
+        }
         self.mode = self.bank.pin(self.pin_idx).mode().call_promise("");
     }
 
@@ -200,6 +219,9 @@ impl FlexPromise {
     }
 
     pub fn request_output_level(&mut self) {
+        if self.output_level.is_waiting() {
+            return;
+        }
         self.output_level = self.bank.pin(self.pin_idx).output_level().call_promise("");
     }
 
@@ -228,6 +250,9 @@ impl FlexPromise {
     }
 
     pub fn request_input_level(&mut self) {
+        if self.input_level.is_waiting() {
+            return;
+        }
         self.input_level = self.bank.pin(self.pin_idx).input_level().call_promise("");
     }
 
@@ -248,6 +273,9 @@ impl FlexPromise {
     }
 
     pub fn request_speed(&mut self) {
+        if self.speed.is_waiting() {
+            return;
+        }
         self.speed = self.bank.pin(self.pin_idx).read_speed().read_promise("");
     }
 
@@ -268,6 +296,9 @@ impl FlexPromise {
     }
 
     pub fn request_pull(&mut self) {
+        if self.pull.is_waiting() {
+            return;
+        }
         self.pull = self.bank.pin(self.pin_idx).read_pull().read_promise("");
     }
 

@@ -10,8 +10,8 @@ use std::ops::Deref;
 use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
 use syn::{
-    parse2, FnArg, Item, Pat, PathSegment, ReturnType, Token, TraitItem, TraitItemFn,
-    TraitItemMacro, TypePath,
+    parse2, FnArg, Item, Pat, PathSegment, ReturnType, Token, TraitItem, TraitItemFn, TraitItemMacro,
+    Type, TypePath,
 };
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned,
@@ -129,9 +129,12 @@ fn convert_api_item_stream(
 ) -> Result<ApiItemOwned> {
     let macro_name = if is_up { "ww_stream" } else { "ww_sink" };
     let args: StreamAndImplMacroArgs = parse2(item_macro.mac.tokens.clone())
-        .context(format!("parsing {macro_name}! arguments"))
+        .context(format!(
+            "parsing {macro_name}! arguments: '{}'",
+            item_macro.mac.tokens
+        ))
         .context(current_crate.err_context())?;
-    let ty = convert_ty_path(&args.type_or_trait, current_crate, scratch)?;
+    let ty = convert_ty(&args.type_or_trait, current_crate, scratch)?;
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
     let docs = collect_docs(&item_macro.attrs);
@@ -192,14 +195,20 @@ fn convert_api_item_impl(
         ))
         .context(current_crate.err_context())?;
 
-    let len = args.type_or_trait.path.segments.len();
+    let Type::Path(type_path) = &args.type_or_trait else {
+        return Err(anyhow!(
+            "Expected trait path, got: {:?}",
+            args.type_or_trait
+        ));
+    };
+    let len = type_path.path.segments.len();
     let kind = if len == 1 {
-        let trait_name = &args.type_or_trait.path.segments[0];
+        let trait_name = &type_path.path.segments[0];
         find_and_convert_trait(trait_name, current_crate, scratch)?
     } else if len == 2 {
-        let dep_crate_name = args.type_or_trait.path.segments[0].ident.to_string();
+        let dep_crate_name = type_path.path.segments[0].ident.to_string();
         let dependent_crate = current_crate.load_dependent_crate(&dep_crate_name, scratch)?;
-        let trait_name = &args.type_or_trait.path.segments[1];
+        let trait_name = &type_path.path.segments[1];
         find_and_convert_trait(trait_name, &dependent_crate, scratch)?
     } else {
         return Err(
@@ -257,7 +266,7 @@ fn find_and_convert_trait(
 struct StreamAndImplMacroArgs {
     resource_name: Ident,
     multiplicity: Option<Option<PathSegment>>,
-    type_or_trait: TypePath,
+    type_or_trait: syn::Type,
 }
 
 impl Parse for StreamAndImplMacroArgs {

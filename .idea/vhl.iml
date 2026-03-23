@@ -114,6 +114,17 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/uart/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/uart/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/uart_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/array_of_streams/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/array_of_streams_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/methods/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/methods_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/properties/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/properties_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/streams/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/streams_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/tests_common/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/traits/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/traits_api/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

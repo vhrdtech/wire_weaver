@@ -15,11 +15,11 @@ pub(crate) fn introspect(
     // visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
 
     let (ww_self_bytes_const, api_signature) = introspect_prepare(api_bundle);
+    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
     if !use_async {
         // TODO: sync variant of MessageSink
         return (quote! {}, api_signature);
     }
-    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
     let es0 = error_seq.next_err();
     let es1 = error_seq.next_err();
     let handle_introspect = if enabled {

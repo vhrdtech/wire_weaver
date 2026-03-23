@@ -1,0 +1,13 @@
+[package]
+name = "array_of_streams"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wire_weaver.workspace = true
+ww_client_server.workspace = true
+tests_common = { path = "../tests_common" }
+
+[features]
+default = ["std"]
+std = []

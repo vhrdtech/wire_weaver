@@ -63,7 +63,7 @@ members = [
     "ww_stdlib/*",
     #    "wire_weaver_tool",
     "examples/*",
-    "tests",
+    "tests/*",
     "wire_weaver_cli",
     "xtask",
 ]

@@ -108,6 +108,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "array_of_streams"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "wire_weaver",
+ "ww_client_server",
+]
+
+[[package]]
+name = "array_of_streams_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1387,6 +1403,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "methods"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "methods_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client_common",
+ "ww_client_server",
+]
+
+[[package]]
+name = "methods_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1637,6 +1674,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "properties"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "properties_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client_common",
+ "ww_client_server",
+]
+
+[[package]]
+name = "properties_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]
@@ -2113,6 +2171,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
+name = "streams"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "streams_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client_common",
+ "ww_client_server",
+]
+
+[[package]]
+name = "streams_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "strip-ansi-escapes"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2186,12 +2265,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
-name = "tests"
+name = "tests_common"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
  "tokio",
- "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client_common",
  "ww_client_server",
@@ -2384,6 +2461,27 @@ dependencies = [
  "thread_local",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "traits"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "traits_api",
+ "wire_weaver",
+ "wire_weaver_client_common",
+ "ww_client_server",
+]
+
+[[package]]
+name = "traits_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]

@@ -303,7 +303,12 @@ fn to_shrink_wrap_inner(
         ValueOwned::Vec(_) => {}
         ValueOwned::Array(_) => {}
         ValueOwned::Tuple(_) => {}
-        ValueOwned::Struct { .. } => {}
+        ValueOwned::Struct { fields } => {
+            let TypeOwned::Struct(item_struct) = ty else {
+                return Err(anyhow::anyhow!("Struct type expected"));
+            };
+            to_shrink_wrap_fields(wr, api_bundle, fields, &item_struct.fields)?;
+        }
         ValueOwned::Enum { variant, fields } => {
             let TypeOwned::Enum(item_enum) = ty else {
                 return Err(anyhow::anyhow!("Enum type expected"));
@@ -355,6 +360,12 @@ fn to_shrink_wrap_inner(
                     }
                 }
             }
+            let variant_def = item_enum
+                .variants
+                .iter()
+                .find(|v| v.discriminant.0 == discriminant)
+                .ok_or(anyhow::anyhow!("Enum variant not found"))?;
+            to_shrink_wrap_fields(wr, api_bundle, fields, &variant_def.fields)?;
         }
         ValueOwned::Option(value) => {
             let TypeOwned::Option { some_ty } = ty else {
@@ -368,6 +379,38 @@ fn to_shrink_wrap_inner(
         ValueOwned::Result(_) => {}
         ValueOwned::Range(_) => {}
         ValueOwned::RangeInclusive(_) => {}
+    }
+    Ok(())
+}
+
+fn to_shrink_wrap_fields(
+    wr: &mut BufWriter,
+    api_bundle: &ApiBundleOwned,
+    fields: &FieldsValueOwned,
+    fields_def: &FieldsOwned,
+) -> Result<()> {
+    match fields {
+        FieldsValueOwned::Named(named) => {
+            let FieldsOwned::Named(fields_def) = fields_def else {
+                return Err(anyhow::anyhow!(
+                    "Fields type mismatch between definition and value"
+                ));
+            };
+            for (def, (_name, value)) in fields_def.iter().zip(named) {
+                to_shrink_wrap_inner(wr, value, &def.ty, api_bundle)?;
+            }
+        }
+        FieldsValueOwned::Unnamed(unnamed) => {
+            let FieldsOwned::Unnamed(fields_def) = fields_def else {
+                return Err(anyhow::anyhow!(
+                    "Fields type mismatch between definition and value"
+                ));
+            };
+            for (def, value) in fields_def.iter().zip(unnamed) {
+                to_shrink_wrap_inner(wr, value, &def.ty, api_bundle)?;
+            }
+        }
+        FieldsValueOwned::Unit => {}
     }
     Ok(())
 }

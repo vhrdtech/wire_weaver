@@ -20,6 +20,18 @@ pub(crate) struct Sink {
 
 pub(crate) const ERR_WRITE_PACKET_TIMEOUT: u32 = u32::MAX; // TODO: try to replace TransferError with own type to avoid piggy-backing on nusb error
 
+// In the current implementation rx and tx flows are not completely separate from each other.
+// Hence, the following can happen:
+// 1. Host starts to send a lot of requests in many USB packets, while sending it is not awaiting the incoming packets.
+// 2. Slave starts to process and answer, awaiting on a packet being sent, while not awaiting incoming packets as well.
+// 3. Host tries to send a packet and times out with an error.
+// 4. Host's rx queue gets full.
+// 5. Slave attempt to send a packet also times out.
+// It could be that 3-5 happens in one way or the other.
+// TODO: USB RX and TX need to be completely decoupled.
+const TX_QUEUE_SIZE: usize = 4;
+const RX_QUEUE_SIZE: usize = 64;
+
 impl Sink {
     pub fn new(
         interface: &Interface,
@@ -39,12 +51,12 @@ impl Sink {
         marker: &'static str,
     ) -> Result<Self, nusb::Error> {
         let ep_out = interface.endpoint::<EpType, Out>(0x01)?; // TODO: un-hardcode endpoint addresses
-        let (submit_tx, submit_rx) = mpsc::channel(8);
-        let (completion_tx, completion_rx) = mpsc::channel(8);
-        let buf_pool = vec![
-            ep_out.allocate(max_packet_size),
-            ep_out.allocate(max_packet_size),
-        ];
+        let (submit_tx, submit_rx) = mpsc::channel(TX_QUEUE_SIZE);
+        let (completion_tx, completion_rx) = mpsc::channel(TX_QUEUE_SIZE);
+        let mut buf_pool = Vec::with_capacity(TX_QUEUE_SIZE);
+        for _ in 0..TX_QUEUE_SIZE {
+            buf_pool.push(ep_out.allocate(max_packet_size));
+        }
         tokio::spawn(async move {
             endpoint_worker(ep_out, submit_rx, completion_tx, marker).await;
         });
@@ -175,13 +187,13 @@ impl Source {
         marker: &'static str,
     ) -> Result<Self, nusb::Error> {
         let mut ep_in = interface.endpoint::<EpType, In>(0x81)?;
-        for _ in 0..2 {
+        for _ in 0..RX_QUEUE_SIZE {
             let mut rx = ep_in.allocate(max_packet_size);
             rx.set_requested_len(max_packet_size);
             ep_in.submit(rx);
         }
-        let (submit_tx, submit_rx) = mpsc::channel(8);
-        let (completion_tx, completion_rx) = mpsc::channel(8);
+        let (submit_tx, submit_rx) = mpsc::channel(RX_QUEUE_SIZE);
+        let (completion_tx, completion_rx) = mpsc::channel(RX_QUEUE_SIZE);
         tokio::spawn(async move {
             endpoint_worker(ep_in, submit_rx, completion_tx, marker).await;
         });

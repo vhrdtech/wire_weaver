@@ -146,6 +146,14 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    pub fn new_future(done_rx: oneshot::Receiver<Result<T, Error>>, marker: &'static str) -> Self {
+        Self {
+            state: StateInner::Future(done_rx),
+            marker,
+            seen: false,
+        }
+    }
+
     /// Polls the promise and either returns a reference to the data or [None] if still pending.
     /// Note that error is also an option, but this method ignores it.
     pub fn ready(&mut self) -> Option<&T> {

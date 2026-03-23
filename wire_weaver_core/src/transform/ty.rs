@@ -36,7 +36,10 @@ pub(crate) fn convert_ty(
         }
         Type::Path(type_path) => convert_ty_path(type_path, current_crate, scratch),
         Type::Reference(type_ref) => convert_ty(type_ref.elem.as_ref(), current_crate, scratch),
-        Type::Slice(type_slice) => convert_ty(&type_slice.elem, current_crate, scratch),
+        Type::Slice(type_slice) => {
+            let ty = convert_ty(&type_slice.elem, current_crate, scratch)?;
+            Ok(TypeOwned::Vec(Box::new(ty)))
+        }
         Type::Tuple(type_tuple) => {
             let mut types = vec![];
             for elem in &type_tuple.elems {

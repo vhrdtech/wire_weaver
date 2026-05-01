@@ -3,8 +3,6 @@ use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct Blinky {
-    #[allow(dead_code)]
-    args_scratch: [u8; 4096],
     cmd_tx: CommandSender,
 }
 
@@ -15,7 +13,6 @@ impl Blinky {
             blinky_api::BLINKY_API_FULL_GID,
             on_error,
             Duration::from_secs(1),
-            [0u8; 4096],
         )
         .await
     }
@@ -26,7 +23,6 @@ impl Blinky {
             blinky_api::BLINKY_API_FULL_GID,
             on_error,
             Duration::from_secs(1),
-            [0u8; 4096],
         )
     }
 

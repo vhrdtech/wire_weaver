@@ -12,7 +12,7 @@ quote = "1.0"
 proc-macro2 = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 defmt = "1.0"
-strum_macros = "0.27"
+strum_macros = "0.28"
 #shrink_wrap = { version = "0.1.2", default-features = false }
 #shrink_wrap_core = { version = "0.2.0" }
 #ww_version = { version = "0.1.1", default-features = false }
@@ -33,6 +33,7 @@ ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
 ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
+ww_uart = { path = "./ww_stdlib/ww_uart", default-features = false }
 ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
 ww_self = { path = "./ww_stdlib/ww_self" }
 ww_global = { path = "./ww_stdlib/ww_global" }

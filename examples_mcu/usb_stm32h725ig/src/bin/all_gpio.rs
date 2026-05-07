@@ -202,56 +202,16 @@ impl ServerState {
         }
     }
 
-    async fn port_reference_voltage(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-    ) -> Volt {
+    async fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> Volt {
         ww_si::quantity!(3.3 V f32)
     }
 
-    async fn port_set_reference_voltage(
+    async fn set_port_reference_voltage(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
         _quantity: Volt,
     ) -> Result<(), Error> {
         Err(Error::UnsupportedReferenceVoltage)
-    }
-
-    async fn port_set_mode(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-        _mode: Mode,
-        _initial: Option<Level>,
-    ) -> Result<(), Error> {
-        Err(Error::NotImplemented)
-    }
-
-    async fn port_mode(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-    ) -> Result<Mode, Error> {
-        Err(Error::NotImplemented)
-    }
-
-    async fn port_set_speed(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-        _pull: Speed,
-    ) -> Result<(), Error> {
-        Err(Error::NotImplemented)
-    }
-
-    async fn port_speed(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 1],
-    ) -> Result<Speed, Error> {
-        Err(Error::NotImplemented)
     }
 
     async fn port_name(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) -> &'_ str {
@@ -334,14 +294,6 @@ impl ServerState {
         _index: [UNib32; 2],
         _cmd: StreamSidebandCommand,
     ) -> Option<StreamSidebandEvent> {
-        None
-    }
-
-    async fn port_pin_voltage(
-        &mut self,
-        _msg_tx: &mut impl MessageSink,
-        _index: [UNib32; 2],
-    ) -> Option<Volt> {
         None
     }
 

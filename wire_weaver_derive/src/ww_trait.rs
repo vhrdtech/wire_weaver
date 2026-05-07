@@ -1,22 +1,24 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use std::path::PathBuf;
 use syn::{Error, ItemTrait};
+use wire_weaver_core::load_v2;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait_inner(attr, item)
         .unwrap_or_else(|e| Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
-    let item_trait: ItemTrait = syn::parse2(item)?;
-    // let trait_name = item_trait.ident.to_string();
-    // let crate_path = PathBuf::from(
-    //     std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
-    // );
-    // let api_level = load_v2(&crate_path, Some(trait_name), false)
-    //     .map_err(|e| Error::new(Span::call_site(), e))?;
-    //
+fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, String> {
+    let item_trait: ItemTrait = syn::parse2(item).map_err(|e| format!("{e:?}"))?;
+    let trait_name = item_trait.ident.to_string();
+    let crate_path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
+    );
+    // Parse fully to catch errors early - in API crates, not in dependent ones
+    let _api_level = load_v2(&crate_path, Some(trait_name), false).map_err(|e| format!("{e:?}"))?;
+
     // let mut check_types_lifetimes = TokenStream::new();
     // for (ty, lifetime) in api_level.external_types() {
     //     let check_name = if lifetime {

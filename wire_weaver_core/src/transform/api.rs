@@ -175,6 +175,7 @@ fn convert_api_item_property(
     idx: u32,
 ) -> Result<ApiItemOwned> {
     let args: PropertyMacroArgs = parse2(item_macro.mac.tokens.clone())
+        .context(format!("wrong code snippet: '{}'", item_macro.mac.tokens))
         .context("parsing ww_property! arguments")
         .context(current_crate.err_context())?;
     let ty = convert_ty_path(&args.ty, current_crate, scratch)?;

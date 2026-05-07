@@ -16,23 +16,23 @@ pub trait Uart {
     fn capabilities() -> Capabilities<'i>;
 
     /// Baud rate configuration
-    property!(baud_rate: BaudRate, Error);
+    property!(rw baud_rate: BaudRate, Error);
 
     /// Mode configuration
-    property!(mode: Mode, Error);
+    property!(rw mode: Mode, Error);
 
     /// Stop bits configuration
-    property!(stop_bits: StopBits, Error);
+    property!(rw stop_bits: StopBits, Error);
 
     /// Parity configuration
-    property!(parity: Parity, Error);
+    property!(rw parity: Parity, Error);
 
     /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
     /// Optional, check [Capabilities] if supported.
-    property!(prevent_back_feed: bool, Error);
+    property!(rw prevent_back_feed: bool, Error);
 
     /// Reference voltage configuration, if supported.
-    property!(reference_voltage: Volt, Error);
+    property!(rw reference_voltage: Volt, Error);
 
     /// Manually control pins, only in [Mode::Test]
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;

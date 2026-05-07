@@ -2526,6 +2526,7 @@ dependencies = [
  "wire_weaver_client_common",
  "wire_weaver_usb_host",
  "ww_client_server",
+ "ww_si",
  "ww_uart",
 ]
 
@@ -2535,6 +2536,7 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "wire_weaver",
+ "ww_uart",
 ]
 
 [[package]]

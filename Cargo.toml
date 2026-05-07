@@ -33,6 +33,7 @@ ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
 ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
+ww_uart = { path = "./ww_stdlib/ww_uart", default-features = false }
 ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
 ww_self = { path = "./ww_stdlib/ww_self" }
 ww_global = { path = "./ww_stdlib/ww_global" }

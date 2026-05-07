@@ -3,7 +3,7 @@
 
 mod ast;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use clap::Subcommand;
 use std::path::PathBuf;
@@ -35,6 +35,7 @@ pub enum ApiCommand {
         #[arg(long)]
         name: Option<String>,
     },
+    /// Print AST
     Ast {
         /// Path to crate which defines ww_trait
         path: PathBuf,

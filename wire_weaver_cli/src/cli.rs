@@ -59,6 +59,8 @@ impl Cli {
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect => true,
+            #[cfg(target_os = "linux")]
+            Commands::Udev => false,
         }
     }
 }

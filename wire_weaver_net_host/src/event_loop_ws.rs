@@ -8,8 +8,10 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver_client_common::event_loop_state::CommonState;
-use wire_weaver_client_common::rx_dispatcher::DispatcherMessage;
-use wire_weaver_client_common::{Command, DeviceInfoBundle, Error};
+use wire_weaver_client_common::rx_dispatcher::{
+    DispatcherCommand, DispatcherMessage, RxDispatcher,
+};
+use wire_weaver_client_common::{Command, DeviceInfoBundle, Error, ww_client_server};
 
 pub struct WsTarget {
     pub addr: IpAddr,
@@ -58,17 +60,15 @@ struct Link {
     rx: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
-pub async fn ws_worker(
-    mut cmd_rx: mpsc::UnboundedReceiver<Command>,
-    mut to_dispatcher: mpsc::UnboundedSender<DispatcherMessage>,
-) {
+pub async fn ws_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
     debug!("ws worker started");
     let mut state = State::default();
+    let mut rx_dispatcher = RxDispatcher::default();
     let mut link = None;
     loop {
         match &mut link {
             Some(l) => {
-                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut to_dispatcher)
+                match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut rx_dispatcher)
                     .await
                 {
                     Ok(r) => {
@@ -114,7 +114,7 @@ async fn process_commands_and_endpoints(
     cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
     link: &mut Link,
     state: &mut State,
-    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
+    rx_dispatcher: &mut RxDispatcher,
 ) -> Result<EventLoopResult, WsError> {
     link.tx.send(Message::Text("versions?".into())).await?;
     let mut link_setup_retries = 5;
@@ -128,7 +128,7 @@ async fn process_commands_and_endpoints(
         tokio::select! {
             message = link.rx.next() => {
                 match message {
-                    Some(Ok(message)) => match handle_message(message, &mut link.tx, state, to_dispatcher).await? {
+                    Some(Ok(message)) => match handle_message(message, &mut link.tx, state, rx_dispatcher).await? {
                         EventLoopSpinResult::Continue => {}
                         EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                         EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -149,7 +149,7 @@ async fn process_commands_and_endpoints(
                     link.tx.send(Message::Close(None)).await?;
                     return Ok(EventLoopResult::Exit);
                 };
-                match handle_command(cmd, &mut link.tx, state).await? {
+                match handle_command(cmd, &mut link.tx, state, rx_dispatcher).await? {
                     EventLoopSpinResult::Continue => {}
                     EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
                     EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
@@ -196,7 +196,7 @@ async fn wait_for_connection_and_queue_commands(
                 };
                 state
                     .common
-                    .on_connect(on_error, connected_tx, client_version); // TODO: use user protocol version
+                    .on_connect(on_error, connected_tx, *client_version.clone()); // TODO: use user protocol version
                 let (ws, _response) =
                     tokio_tungstenite::connect_async(format!("ws://{}:{}/{}", addr, port, path))
                         .await?;
@@ -226,6 +226,10 @@ async fn wait_for_connection_and_queue_commands(
             Command::SendMessage { .. } => {
                 warn!("ignoring send message while disconnected");
             }
+            Command::OnStreamEvent { .. } => {
+                // TODO: do not ignore OnStreamEvent when disconnected
+                warn!("ignoring on stream event while disconnected for now");
+            }
             Command::LoopbackTest { .. } => {}
         }
     }
@@ -242,7 +246,7 @@ async fn handle_message(
     message: Message,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     state: &mut State,
-    to_dispatcher: &mut mpsc::UnboundedSender<DispatcherMessage>,
+    rx_dispatcher: &mut RxDispatcher,
 ) -> Result<EventLoopSpinResult, WsError> {
     match message {
         Message::Binary(data) => {
@@ -251,9 +255,7 @@ async fn handle_message(
                 return Ok(EventLoopSpinResult::Continue);
             }
             state.common.trace_event(&data);
-            to_dispatcher
-                .send(DispatcherMessage::MessageBytes(data.into()))
-                .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
+            rx_dispatcher.handle_msg(DispatcherMessage::MessageBytes(&data));
         }
         Message::Close(_close_frame) => {
             info!("Received Disconnect from remote device, exiting");
@@ -281,9 +283,7 @@ async fn handle_message(
                     return Err(WsError::IncompatibleDeviceProtocol);
                 }
                 info!("LinkSetup complete");
-                to_dispatcher
-                    .send(DispatcherMessage::Connected)
-                    .map_err(|_| WsError::Internal("rx dispatcher is not running".into()))?;
+                rx_dispatcher.handle_msg(DispatcherMessage::Connected);
                 if let Some(tx) = state.common.connected_tx.take() {
                     _ = tx.send(Ok(DeviceInfoBundle::empty())); // TODO: ws: device info bundle
                 }
@@ -303,6 +303,7 @@ async fn handle_command(
     cmd: Command,
     tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     state: &mut State,
+    rx_dispatcher: &mut RxDispatcher,
 ) -> Result<EventLoopSpinResult, WsError> {
     match cmd {
         Command::Connect { .. } => {
@@ -329,10 +330,38 @@ async fn handle_command(
             }
             return Ok(EventLoopSpinResult::DisconnectAndExit);
         }
-        Command::SendMessage { bytes } => {
+        Command::SendMessage {
+            mut bytes,
+            mut done_tx,
+        } => {
+            if let Some((done_tx, timeout)) = done_tx.take() {
+                if let Some(seq) = rx_dispatcher.next_seq() {
+                    // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
+                    // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
+                    // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
+                    ww_client_server::Request::set_seq(&mut bytes, seq);
+                    rx_dispatcher.handle_cmd(DispatcherCommand::OnReturn {
+                        seq,
+                        done_tx,
+                        timeout,
+                    });
+                } else {
+                    // TODO: backpressure when out of request IDs
+                    _ = done_tx.send(Err(Error::Other("No more request IDs available".into())));
+                }
+            }
             state.common.trace_request(&bytes);
             tx.send(Message::Binary(bytes.into())).await?;
             // TODO: check in WireShark whether messages batch together or else force send on timer
+        }
+        Command::OnStreamEvent {
+            path_kind,
+            stream_event_tx,
+        } => {
+            rx_dispatcher.handle_cmd(DispatcherCommand::OnStreamEvent {
+                path_kind: *path_kind,
+                stream_event_tx,
+            });
         }
         Command::LoopbackTest { .. } => {
             todo!()

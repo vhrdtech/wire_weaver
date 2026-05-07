@@ -13,34 +13,13 @@ trait Bank {
     /// * List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)
     ww_impl!(pin[]: Pin);
 
-    // 1-7. Reserved
-    reserved!();
-    reserved!();
-    reserved!();
-    reserved!();
-    reserved!();
-    reserved!();
-    reserved!();
+    reserved!(1..=7);
 
     /// Capabilities that each pin of the bank supports.
     fn capabilities() -> BankCapabilities<'i>;
 
-    /// Reference voltage currently in use.
-    fn reference_voltage() -> Volt;
-    /// Set reference voltage to the requested value.
-    fn set_reference_voltage(quantity: Volt) -> Result<(), Error>;
-
-    /// Mode configuration for all pins of the bank.
-    /// If GpioBankCapabilities::individually_configurable_pins is false, this is the only way to reconfigure bank mode.
-    /// If true, then setting mode here must change all pins mode?
-    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), Error>;
-    /// Get current mode of all pins, if individually_configurable_pins is false.
-    /// Returns DifferentModes error if individually_configurable_pins is true and pins have different modes configured.
-    fn mode() -> Result<Mode, Error>;
-    /// Drive strength selection for all pins of the bank.
-    fn set_speed(speed: Speed) -> Result<(), Error>;
-    /// Get current speed of all pins, if individually_configurable_pins is false.
-    fn speed() -> Result<Speed, Error>;
+    /// Reference voltage for all pins of the bank.
+    property!(rw reference_voltage: Volt, Error);
 
     /// User-friendly bank name.
     fn name() -> &'i str;
@@ -70,16 +49,10 @@ pub trait Pin {
     /// If this is the case, current output level must be returned.
     fn input_level() -> Level;
 
-    // 4, 5, 6 Reserved
-    reserved!();
-    reserved!();
-    reserved!();
+    reserved!(4..=6);
 
     /// 7. Asynchronous stream of events (rising / falling edge), if enabled by [configure_events]
     stream!(event: IoPinEvent);
-
-    /// Read analog voltage at the pin, if supported by hardware.
-    fn voltage() -> Option<Volt>;
 
     /// Mode configuration, input, high-z, push-pull, open-drain or custom.
     /// Optionally set the initial level before changing pin mode.
@@ -96,11 +69,6 @@ pub trait Pin {
 
     /// Enable or disable asynchronous events sent through the stream.
     fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
-
-    // fn pulse() -> Result<(), GpioError>;
-    // fn set_duty(duty: ?) -> Result<(), GpioError>;
-    // fn set_frequency(frequency: ?) -> Result<(), GpioError>;
-    // fn set_pwm(frequency, duty)?;
 }
 
 /// Digital output level - High and Low.
@@ -232,24 +200,3 @@ impl Level {
         matches!(*self, Level::Low)
     }
 }
-
-// PWMOutput(PWMConfig?),
-// PWMInput(PWMConfig?),
-// PulseOutput,
-// PulseInput,
-// StepperOutput,
-// UartTx,
-// UartRx,
-// UartRts,
-// UartCts,
-// I2cSda,
-// I2cScl,
-// SpiMosi,
-// SpiMiso,
-// SpiSck,
-// SpiCs,
-// OneWire,
-
-// AnalogOutput,
-// AnalogInput,
-// analog modes? encoder?

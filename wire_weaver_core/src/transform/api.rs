@@ -3,15 +3,15 @@ use super::{
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     util::{collect_docs, get_since_attr},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
 use shrink_wrap::UNib32;
 use std::ops::Deref;
 use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
 use syn::{
-    parse2, FnArg, Item, Pat, PathSegment, ReturnType, Token, TraitItem, TraitItemFn, TraitItemMacro,
-    Type, TypePath,
+    FnArg, Item, LitInt, Pat, PathSegment, ReturnType, Token, TraitItem, TraitItemFn,
+    TraitItemMacro, Type, TypePath, parse2,
 };
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned,
@@ -24,7 +24,8 @@ pub(crate) fn convert_api_items(
     scratch: &mut Scratch,
 ) -> Result<Vec<ApiItemOwned>> {
     let mut items = vec![];
-    for (idx, item) in item_trait.items.iter().enumerate() {
+    let mut idx = 0;
+    for item in &item_trait.items {
         match item {
             TraitItem::Fn(item_fn) => {
                 let api_item_fn = convert_api_item_fn(current_crate, scratch, item_fn, idx as u32)?;
@@ -65,7 +66,24 @@ pub(crate) fn convert_api_items(
                             convert_api_item_impl(current_crate, scratch, item_macro, idx as u32)?;
                         items.push(api_item_impl);
                     }
-                    "reserved" => continue,
+                    "reserved" => {
+                        let args: ReservedMacroArgs = parse2(item_macro.mac.tokens.clone())
+                            .context("parsing reserved! arguments")
+                            .context(current_crate.err_context())?;
+                        let start: usize = args.start.base10_parse()?;
+                        let end: usize = args.end.base10_parse()?;
+                        if idx != start {
+                            return Err(anyhow!("Reserved resource index is not monotonic, expected: {idx} got: {start}")
+                            .context(current_crate.err_context()));
+                        }
+                        if end < start {
+                            return Err(anyhow!(
+                                "Reserved resource index is not monotonic, end must be >= start"
+                            )
+                            .context(current_crate.err_context()));
+                        }
+                        idx += end - start;
+                    }
                     u => {
                         return Err(anyhow!("Unsupported resource kind: {u:?}")
                             .context(current_crate.err_context()));
@@ -77,6 +95,7 @@ pub(crate) fn convert_api_items(
                     .context(current_crate.err_context()));
             }
         }
+        idx += 1;
     }
     Ok(items)
 }
@@ -386,5 +405,19 @@ impl Parse for PropertyMacroArgs {
             ty,
             write_err_ty,
         })
+    }
+}
+
+struct ReservedMacroArgs {
+    start: LitInt,
+    end: LitInt,
+}
+
+impl Parse for ReservedMacroArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let start = input.parse()?;
+        let _: Token![..=] = input.parse()?;
+        let end = input.parse()?;
+        Ok(ReservedMacroArgs { start, end })
     }
 }

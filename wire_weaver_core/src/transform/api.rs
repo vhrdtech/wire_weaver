@@ -178,7 +178,7 @@ fn convert_api_item_property(
         .context(format!("wrong code snippet: '{}'", item_macro.mac.tokens))
         .context("parsing ww_property! arguments")
         .context(current_crate.err_context())?;
-    let ty = convert_ty_path(&args.ty, current_crate, scratch)?;
+    let ty = convert_ty(&args.ty, current_crate, scratch)?;
     let write_err_ty = if let Some(write_err_ty) = &args.write_err_ty {
         Some(convert_ty_path(write_err_ty, current_crate, scratch)?)
     } else {
@@ -286,7 +286,7 @@ fn find_and_convert_trait(
 struct StreamAndImplMacroArgs {
     resource_name: Ident,
     multiplicity: Option<Option<PathSegment>>,
-    type_or_trait: syn::Type,
+    type_or_trait: Type,
 }
 
 impl Parse for StreamAndImplMacroArgs {
@@ -347,7 +347,7 @@ struct PropertyMacroArgs {
     access: PropertyAccess,
     resource_name: Ident,
     multiplicity: Option<Option<PathSegment>>,
-    ty: TypePath,
+    ty: Type,
     write_err_ty: Option<TypePath>,
 }
 

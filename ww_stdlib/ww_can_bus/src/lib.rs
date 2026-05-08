@@ -94,6 +94,11 @@ pub enum CANMode {
     Test,
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(unib32)]
+#[self_describing]
+#[derive(Copy, Clone)]
 pub enum CANError {
     NotInDisabled,
     /// Returned if tried to call any configuration method of an interface group,
@@ -226,6 +231,11 @@ pub struct CANCapabilities {
     pub tt: bool,
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(u2)]
+#[sized]
+#[derive(Copy, Clone)]
 pub enum CANTerminationSwitchResult {
     /// If value was actually just switched in.
     Ok,

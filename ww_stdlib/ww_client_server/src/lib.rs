@@ -80,19 +80,39 @@ pub enum RequestKind<'i> {
         /// Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
         args: RefVec<'i, u8>,
     },
+    /// Call the same method over an array of traits or several methods in one request.
+    MultiCall {
+        /// List of resources to call
+        multi_idx: MultiIndex<'i>,
+        /// Some when calling the same method on an array of traits
+        resource_id: Option<UNib32>,
+        multi_args: MultiArgs<'i>,
+    },
 
     /// Read a property.
     /// Expected to get EventKind::ReadValue with property bytes.
     Read,
+    /// Read the same property over an array of traits or several properties in one request.
+    MultiRead {
+        /// List of properties to read from
+        multi_idx: MultiIndex<'i>,
+        /// Some when reading the same property on an array of traits
+        resource_id: Option<UNib32>,
+    },
 
     // Read the default value of a property, if available.
     // ReadDefault,
-
-    // Read multiple properties at once, using a list of paths or a glob pattern.
-    // ReadMany,
     /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
     Write { data: RefVec<'i, u8> },
+    /// Write multiple properties or streams in one request.
+    MultiWrite {
+        /// List of resources to write to
+        multi_idx: MultiIndex<'i>,
+        /// Some when addressing the same resource on an array of traits
+        resource_id: Option<UNib32>,
+        multi_data: MultiArgs<'i>,
+    },
 
     // Write default value (if available) to a property, without sending any data.
     // WriteDefault,
@@ -120,6 +140,52 @@ pub enum RequestKind<'i> {
     // Borrow,
     // Release,
     // Heartbeat,
+}
+
+/// Index for a multi request. Two kinds of multi requests are possible:
+///
+/// ```
+/// #[ww_trait]
+/// trait GpioBank {
+///     ww_impl!(pin[]: Pin);
+/// }
+///
+/// #[ww_trait]
+/// trait Pin {
+///     fn set_level(is_high: bool);
+///     fn set_mode(mode: Mode);
+/// }
+/// ```
+///
+/// # Same resource in an array
+/// Can make a MultiCall:: request to '/0' (array itself) with MultiIndex::Range(0..10).
+/// To call set_level() on pins 0 to 10 in one request.
+///
+/// # Different resources at one API level
+/// Can make a MultiCall:: request to '0/3' (third pin in the array) with MultiIndex::List(0, 1).
+/// To call set_level(args0) and then set_mode(args1) in one request.
+#[derive_shrink_wrap]
+#[ww_repr(u2)]
+#[derive(Clone, Debug)]
+#[owned = "std"]
+pub enum MultiIndex<'i> {
+    All,
+    Range(Range<u32>),
+    List(RefVec<'i, u32>),
+    Mask32(u32),
+}
+
+/// Serialized arguments / property or stream data for a multi-request.
+/// Same can be used when all arguments are equal (e.g., calling set_mode(Output) for multiple pins).
+///
+/// `Different` reuses a BufReader, while `Same` resets it to the beginning before processing a request.
+#[derive_shrink_wrap]
+#[ww_repr(u1)]
+#[derive(Clone, Debug)]
+#[owned = "std"]
+pub enum MultiArgs<'i> {
+    Same(RefVec<'i, u8>),
+    Different(RefVec<'i, u8>),
 }
 
 /// Sideband command for a stream, delivered in the same order with stream data.
@@ -421,14 +487,39 @@ impl PathKindOwned {
 
 #[cfg(feature = "std")]
 impl RequestKind<'_> {
-    pub fn make_owned(&self) -> RequestKindOwned {
-        match self {
+    pub fn make_owned(&self) -> Result<RequestKindOwned, shrink_wrap::Error> {
+        let req = match self {
             RequestKind::Call { args } => RequestKindOwned::Call {
                 args: args.to_vec(),
             },
+            RequestKind::MultiCall {
+                multi_idx,
+                resource_id,
+                multi_args,
+            } => RequestKindOwned::MultiCall {
+                multi_idx: multi_idx.make_owned()?,
+                resource_id: *resource_id,
+                multi_args: multi_args.make_owned()?,
+            },
             RequestKind::Read => RequestKindOwned::Read,
+            RequestKind::MultiRead {
+                multi_idx,
+                resource_id,
+            } => RequestKindOwned::MultiRead {
+                multi_idx: multi_idx.make_owned()?,
+                resource_id: *resource_id,
+            },
             RequestKind::Write { data } => RequestKindOwned::Write {
                 data: data.to_vec(),
+            },
+            RequestKind::MultiWrite {
+                multi_idx,
+                resource_id,
+                multi_data,
+            } => RequestKindOwned::MultiWrite {
+                multi_idx: multi_idx.make_owned()?,
+                resource_id: *resource_id,
+                multi_data: multi_data.make_owned()?,
             },
             RequestKind::StreamSideband { sideband_cmd } => RequestKindOwned::StreamSideband {
                 sideband_cmd: *sideband_cmd,
@@ -439,7 +530,8 @@ impl RequestKind<'_> {
                 shaper_config: *shaper_config,
             },
             RequestKind::Introspect => RequestKindOwned::Introspect,
-        }
+        };
+        Ok(req)
     }
 }
 
@@ -457,7 +549,31 @@ impl Request<'_> {
         Ok(RequestOwned {
             seq: self.seq,
             path_kind: self.path_kind.make_owned()?,
-            kind: self.kind.make_owned(),
+            kind: self.kind.make_owned()?,
         })
+    }
+}
+
+#[cfg(feature = "std")]
+impl MultiArgs<'_> {
+    pub fn make_owned(&self) -> Result<MultiArgsOwned, shrink_wrap::Error> {
+        match self {
+            MultiArgs::Same(args) => Ok(MultiArgsOwned::Same(args.to_vec())),
+            MultiArgs::Different(args) => Ok(MultiArgsOwned::Different(args.to_vec())),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl MultiIndex<'_> {
+    pub fn make_owned(&self) -> Result<MultiIndexOwned, shrink_wrap::Error> {
+        match self {
+            MultiIndex::All => Ok(MultiIndexOwned::All),
+            MultiIndex::Range(r) => Ok(MultiIndexOwned::Range(r.clone())),
+            MultiIndex::List(list) => Ok(MultiIndexOwned::List(
+                list.iter().collect::<Result<Vec<_>, _>>()?,
+            )),
+            MultiIndex::Mask32(mask) => Ok(MultiIndexOwned::Mask32(*mask)),
+        }
     }
 }

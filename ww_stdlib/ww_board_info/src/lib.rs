@@ -9,15 +9,15 @@ use ww_date_time::DateTime;
 #[ww_trait]
 pub trait BoardInfo {
     /// PCB series name
-    property!(ro name: &'i str);
+    property!(ro name: str);
     /// PCB revision
-    property!(ro revision: &'i str);
+    property!(ro revision: str);
     /// PCB assembly variant
-    property!(ro variant: &'i str);
+    property!(ro variant: str);
     /// PCB assembly BOM variant
-    property!(ro bom_variant: &'i str);
+    property!(ro bom_variant: str);
     /// Serial number
-    property!(ro serial: &'i str);
+    property!(ro serial: str);
     /// Build date, if available
     property!(ro build_date: Option<DateTime>);
 }

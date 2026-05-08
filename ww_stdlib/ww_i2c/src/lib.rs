@@ -99,9 +99,14 @@ pub struct I2cReadEnvelope {
     pub data: Vec<u8>,
 }
 
-pub enum I2cReadKind {
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(u2)]
+#[derive(Clone)]
+#[owned = "std"]
+pub enum I2cReadKind<'i> {
     Plain,
-    RepeatedStart { write: Vec<u8> },
+    RepeatedStart { write: RefVec<'i, u8> },
 }
 
 pub struct I2cCycleSlot {
@@ -113,6 +118,11 @@ pub struct I2cCycleRead {
     pub result: Result<I2cReadEnvelope, I2cError>,
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(unib32)]
+#[self_describing]
+#[derive(Copy, Clone)]
 pub enum I2cError {
     /// Returned by i2c_configure if mode is not supported
     UnsupportedMode,
@@ -141,6 +151,11 @@ pub enum I2cError {
     ZeroLengthTransfer,
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(u3)]
+#[sized]
+#[derive(Copy, Clone)]
 pub enum I2cMode {
     /// Disable I2C controller, disconnect it from IO pins and set IOs as high-Z inputs
     Disabled,

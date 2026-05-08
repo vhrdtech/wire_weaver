@@ -5,19 +5,19 @@ use wire_weaver::prelude::*;
 #[ww_trait]
 pub trait Indication {
     /// Global operation mode.
-    property!(mode: Mode);
+    property!(rw mode: Mode);
 
     /// Brightness control for informational indicators.
-    property!(info_brightness: Brightness);
+    property!(rw info_brightness: Brightness);
 
     /// Brightness control for alert indicators or double use indicators.
-    property!(alert_brightness: AlertBrightness);
+    property!(rw alert_brightness: AlertBrightness);
 
     /// Global animation enable, optional to implement.
-    property!(animation_enable: bool);
+    property!(rw animation_enable: bool);
 
     /// Must automatically leave test mode after 5 seconds.
-    property!(test_mode: TestMode<'i>);
+    property!(rw test_mode: TestMode<'i>);
 
     /// True if some indicators are hard-wired to power.
     const HAS_NOT_CONTROLLABLE: bool;

@@ -23,6 +23,11 @@ pub trait LogDefmt {
     fn reset_counters();
 }
 
+#[derive_shrink_wrap]
+#[derive(Debug, PartialEq, Eq)]
+#[ww_repr(u2)]
+#[sized]
+#[derive(Copy, Clone)]
 pub enum DefmtFormat {
     Raw,
     Rzcobs,

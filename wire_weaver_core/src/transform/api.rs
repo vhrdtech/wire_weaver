@@ -90,6 +90,24 @@ pub(crate) fn convert_api_items(
                     }
                 }
             }
+            TraitItem::Const(trait_item_const) => {
+                let ty = convert_ty(&trait_item_const.ty, current_crate, scratch)?;
+                let since = get_since_attr(&trait_item_const.attrs, current_crate)?;
+                let docs = collect_docs(&trait_item_const.attrs);
+
+                items.push(ApiItemOwned {
+                    id: UNib32(idx as u32),
+                    kind: ApiItemKindOwned::Property {
+                        ty,
+                        access: PropertyAccess::Const,
+                        write_err_ty: None,
+                    },
+                    multiplicity: Multiplicity::Flat,
+                    since,
+                    ident: trait_item_const.ident.to_string(),
+                    docs,
+                });
+            }
             i => {
                 return Err(anyhow!("Unsupported resource kind: {i:?}")
                     .context(current_crate.err_context()));

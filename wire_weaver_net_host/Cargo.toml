@@ -9,7 +9,7 @@ description.workspace = true
 wire_weaver_client_common = { path = "../wire_weaver_client_common" }
 wire_weaver_udp_link = { path = "../wire_weaver_udp_link" }
 tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
-tokio-tungstenite = "0.27"
+tokio-tungstenite = "0.29"
 futures-util = "0.3"
 thiserror = "2.0"
 tracing = "0.1"

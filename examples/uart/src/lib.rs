@@ -35,7 +35,7 @@ mod api_client {
     wire_weaver::ww_codegen!(
         "../uart_api" :: UartBridge for UartBridge,
         client = "async_worker+usb",
-        no_alloc = true,
+        no_alloc = false,
         use_async = true,
         debug_to_file = "../../target/generated_uart_client.rs"
     );

@@ -12,7 +12,7 @@ use ww_version::FullVersionOwned;
 /// Version of this protocol itself, exchanged and checked during the link setup phase with a remote device.
 pub const FULL_VERSION: FullVersion = full_version!();
 pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
-    ww_global::WW_CLIENT_SERVER.0,
+    ww_global::WW_CLIENT_SERVER,
     FULL_VERSION.version.major.0,
     FULL_VERSION.version.minor.0,
     FULL_VERSION.version.patch.0,

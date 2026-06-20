@@ -10,6 +10,12 @@ documentation = "https://vhrdtech.github.io/wire_weaver/api/addressing/"
 
 [dependencies]
 shrink_wrap.workspace = true
+defmt = { version = "1.0", optional = true }
+serde = { workspace = true, optional = true }
+
+[features]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
+serde = ["dep:serde", "shrink_wrap/serde"]
 
 [build-dependencies]
 serde_json = "1.0"

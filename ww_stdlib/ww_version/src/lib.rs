@@ -2,6 +2,7 @@
 
 use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
+pub use ww_global::GlobalTypeId;
 
 #[cfg(feature = "semver")]
 pub use semver;
@@ -51,7 +52,7 @@ pub struct FullVersion<'i> {
 #[serde = "serde"]
 #[final_structure]
 pub struct CompactVersion {
-    pub global_type_id: UNib32,
+    pub gid: GlobalTypeId,
     pub major: UNib32,
     pub minor: UNib32,
     pub patch: UNib32,
@@ -125,9 +126,9 @@ impl<'i> FullVersion<'i> {
 }
 
 impl CompactVersion {
-    pub const fn new(global_type_id: u32, major: u32, minor: u32, patch: u32) -> Self {
+    pub const fn new(gid: GlobalTypeId, major: u32, minor: u32, patch: u32) -> Self {
         CompactVersion {
-            global_type_id: UNib32(global_type_id),
+            gid,
             major: UNib32(major),
             minor: UNib32(minor),
             patch: UNib32(patch),
@@ -169,7 +170,7 @@ impl Debug for CompactVersion {
         write!(
             f,
             "G{}@{}.{}.{}",
-            self.global_type_id.0, self.major.0, self.minor.0, self.patch.0
+            self.gid.id.0, self.major.0, self.minor.0, self.patch.0
         )
     }
 }

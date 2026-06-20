@@ -54,7 +54,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         use wire_weaver::shrink_wrap::UNib32;
         let dev_info = crate::common::DeviceInfo {
             dev_link_version: wire_weaver::ww_version::CompactVersion {
-                global_type_id: ww_global::WIRE_WEAVER_USB_LINK,
+                gid: ww_global::WIRE_WEAVER_USB_LINK,
                 major: UNib32(
                     env!("CARGO_PKG_VERSION_MAJOR")
                         .parse::<u32>()

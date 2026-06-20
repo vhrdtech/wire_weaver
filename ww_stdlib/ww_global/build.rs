@@ -9,10 +9,15 @@ fn main() {
     ids.sort_unstable_by(|a, b| a.1.cmp(&b.1));
     let mut wr = Vec::new();
     write!(&mut wr, "#![no_std]\n\n").unwrap();
-    write!(&mut wr, "use shrink_wrap::UNib32;\n\n").unwrap();
+    write!(&mut wr, "mod gid;\n\n").unwrap();
+    write!(&mut wr, "pub use gid::GlobalTypeId;\n\n").unwrap();
     for (crate_name, gid) in ids {
         let crate_name = crate_name.to_case(Case::Constant);
-        writeln!(&mut wr, "pub const {crate_name}: UNib32 = UNib32({gid});").unwrap();
+        writeln!(
+            &mut wr,
+            "pub const {crate_name}: GlobalTypeId = GlobalTypeId::new({gid});"
+        )
+        .unwrap();
     }
     std::fs::write("src/lib.rs", wr).unwrap();
 

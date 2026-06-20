@@ -1,7 +1,9 @@
 #![no_std]
 
-use shrink_wrap::UNib32;
+mod gid;
 
-pub const WW_LOG_BARE_METAL: UNib32 = UNib32(0);
-pub const WIRE_WEAVER_USB_LINK: UNib32 = UNib32(512);
-pub const WW_CLIENT_SERVER: UNib32 = UNib32(513);
+pub use gid::GlobalTypeId;
+
+pub const WW_LOG_BARE_METAL: GlobalTypeId = GlobalTypeId::new(0);
+pub const WIRE_WEAVER_USB_LINK: GlobalTypeId = GlobalTypeId::new(512);
+pub const WW_CLIENT_SERVER: GlobalTypeId = GlobalTypeId::new(513);

@@ -72,7 +72,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
                 ),
             },
             api_model_version: self.api_model_version,
-            user_api_version: self.user_api_version.clone(),
+            user_api_version: self.user_api_version_dev.clone(),
             user_api_signature: shrink_wrap::RefVec::Slice {
                 slice: self.user_api_signature,
             },
@@ -95,7 +95,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Result<(), Error<T::Error, R::Error>> {
         self.write_op_len(Op::LinkSetup, 0)?; // packet is sent right away and whole buffer is used by ShrinkWrap to deserialize LinkSetup
 
-        let v = &self.user_api_version;
+        let v = &self.user_api_version_host;
         let link_setup = crate::common::LinkSetup {
             host_user_version: wire_weaver::ww_version::FullVersion {
                 crate_id: v.crate_id.as_str(),

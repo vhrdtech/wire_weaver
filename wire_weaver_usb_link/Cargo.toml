@@ -16,6 +16,8 @@ shrink_wrap.workspace = true
 ww_global.workspace = true
 
 [features]
+default = ["std", "device", "host"]
+std = []
 host = ["wire_weaver/std"]
 device = []
 

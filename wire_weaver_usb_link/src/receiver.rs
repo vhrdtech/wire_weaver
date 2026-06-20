@@ -234,7 +234,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let link_setup = crate::common::LinkSetup::des_shrink_wrap(&mut rd)
                             .map_err(|_| Error::InternalBufOverflow)?;
                         let protocol_compatible = self
-                            .user_api_version
+                            .user_api_version_dev
                             .is_protocol_compatible(&link_setup.host_user_version);
                         #[cfg(feature = "defmt")]
                         defmt::info!(

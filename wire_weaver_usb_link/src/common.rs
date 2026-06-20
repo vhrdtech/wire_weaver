@@ -15,7 +15,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
     /// User-defined data types and API, also indirectly points to `ww_client_server` version
     #[cfg(feature = "device")]
-    pub(crate) user_api_version: FullVersion<'static>,
+    pub(crate) user_api_version_dev: FullVersion<'static>,
     #[cfg(feature = "device")]
     pub(crate) user_api_signature: &'static [u8],
     #[cfg(feature = "device")]
@@ -24,7 +24,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     pub(crate) packet_accumulation_time_us: u16,
 
     #[cfg(feature = "host")]
-    pub(crate) user_api_version: ww_version::FullVersionOwned,
+    pub(crate) user_api_version_host: ww_version::FullVersionOwned,
 
     // /// Remote user protocol version
     // pub(crate) remote_protocol: StackVec<32, FullVersion<'static>>,
@@ -81,11 +81,10 @@ pub trait PacketSource {
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     pub fn new(
-        #[cfg(feature = "device")] user_api_version: FullVersion<'static>,
+        user_api_version: FullVersion<'static>,
         #[cfg(feature = "device")] user_api_signature: &'static [u8],
         #[cfg(feature = "device")] api_model_version: wire_weaver::ww_version::CompactVersion,
         #[cfg(feature = "device")] packet_accumulation_time_us: u16,
-        #[cfg(feature = "host")] user_api_version: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -105,7 +104,10 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         let is_link_up = false;
 
         WireWeaverUsbLink {
-            user_api_version,
+            #[cfg(feature = "device")]
+            user_api_version_dev: user_api_version,
+            #[cfg(feature = "host")]
+            user_api_version_host: user_api_version.make_owned(),
 
             #[cfg(feature = "device")]
             api_model_version,
@@ -164,14 +166,14 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     //     &mut self.rx
     // }
 
-    #[cfg(feature = "device")]
-    pub fn user_protocol(&self) -> FullVersion<'static> {
-        self.user_api_version.clone()
-    }
+    // #[cfg(feature = "device")]
+    // pub fn user_protocol(&self) -> FullVersion<'static> {
+    //     self.user_api_version_dev.clone()
+    // }
 
     #[cfg(feature = "host")]
     pub fn user_protocol(&self) -> ww_version::FullVersionOwned {
-        self.user_api_version.clone()
+        self.user_api_version_host.clone()
     }
 }
 

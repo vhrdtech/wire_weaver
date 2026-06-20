@@ -10,7 +10,7 @@ use syn::LitStr;
 #[derive(Clone, Debug)]
 pub struct ItemStruct {
     pub docs: Docs,
-    pub derive: Vec<Path>,
+    pub derive_borrowed: Vec<Path>,
     pub derive_owned: Vec<Path>,
     pub size_assumption: Option<ObjectSize>,
     pub ident: Ident,
@@ -39,7 +39,7 @@ impl ItemStruct {
             f.ty.make_owned();
         }
         owned.defmt = None;
-        owned.derive = core::mem::take(&mut owned.derive_owned);
+        owned.derive_owned = core::mem::take(&mut owned.derive_owned);
         owned
     }
 

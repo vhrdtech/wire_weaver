@@ -6,7 +6,7 @@ use crate::ast::ItemStruct;
 use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_owned_attr, take_serde_attr, take_size_assumption,
+    take_derive_borrowed_attr, take_derive_owned_attr, take_serde_attr, take_size_assumption,
 };
 use crate::transform::util::{
     check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
@@ -31,13 +31,13 @@ impl ItemStruct {
         if add_evolve_docs {
             add_notes(&mut docs, size_assumption, false);
         }
+
         let derive = take_derive_attr(&mut attrs);
-        let derive_owned = take_derive_owned_attr(&mut attrs);
-        let derive_owned = if derive_owned.is_empty() {
-            derive.clone()
-        } else {
-            derive_owned
-        };
+        let mut derive_borrowed = take_derive_borrowed_attr(&mut attrs);
+        let mut derive_owned = take_derive_owned_attr(&mut attrs);
+        derive_borrowed.extend(derive.clone());
+        derive_owned.extend(derive);
+
         let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
         let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
@@ -47,7 +47,7 @@ impl ItemStruct {
         change_is_ok_to_is_some(&mut fields);
         Ok(ItemStruct {
             docs,
-            derive,
+            derive_borrowed,
             derive_owned,
             ident: item_struct.ident.clone(),
             size_assumption,

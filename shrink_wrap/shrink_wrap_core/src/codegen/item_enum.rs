@@ -17,7 +17,11 @@ impl ItemEnum {
             no_alloc,
         };
         let lifetime = enum_lifetime(self, no_alloc);
-        let derive = strings_to_derive(&self.derive);
+        let derive = if no_alloc {
+            strings_to_derive(&self.derive_borrowed)
+        } else {
+            strings_to_derive(&self.derive_owned)
+        };
         let docs = &self.docs;
         let cfg = &self.cfg;
         let cfg_attr_defmt = &self.defmt;

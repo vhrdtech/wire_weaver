@@ -74,13 +74,13 @@ pub(crate) fn take_default_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Optio
                     Ok(Some(Value::I32(lit_int.base10_parse().unwrap())))
                 }
                 u => Err(format!("Not supported lit: {u:?}")), // Lit::Str(_) => {}
-                                                               // Lit::ByteStr(_) => {}
-                                                               // Lit::CStr(_) => {}
-                                                               // Lit::Byte(_) => {}
-                                                               // Lit::Char(_) => {}
-                                                               // Lit::Int(_) => {}
-                                                               // Lit::Bool(_) => {}
-                                                               // Lit::Verbatim(_) => {}
+                // Lit::ByteStr(_) => {}
+                // Lit::CStr(_) => {}
+                // Lit::Byte(_) => {}
+                // Lit::Char(_) => {}
+                // Lit::Int(_) => {}
+                // Lit::Bool(_) => {}
+                // Lit::Verbatim(_) => {}
             }
         }
         Expr::Path(expr_path) => {
@@ -237,6 +237,10 @@ pub(crate) fn take_derive_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
 
 pub(crate) fn take_derive_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
     take_derive_inner(attrs, "derive_owned")
+}
+
+pub(crate) fn take_derive_borrowed_attr(attrs: &mut Vec<syn::Attribute>) -> Vec<Path> {
+    take_derive_inner(attrs, "derive_borrowed")
 }
 
 fn take_derive_inner(attrs: &mut Vec<syn::Attribute>, ident: &'static str) -> Vec<Path> {

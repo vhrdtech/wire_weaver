@@ -4,8 +4,8 @@ use crate::ast::ItemEnum;
 use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_owned_attr, take_serde_attr, take_since_attr, take_size_assumption,
-    take_ww_repr_attr,
+    take_derive_borrowed_attr, take_derive_owned_attr, take_serde_attr, take_since_attr,
+    take_size_assumption, take_ww_repr_attr,
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -55,19 +55,19 @@ impl ItemEnum {
         if add_evolve_docs {
             add_notes(&mut docs, size_assumption, true);
         }
+
         let derive = take_derive_attr(&mut attrs);
-        let derive_owned = take_derive_owned_attr(&mut attrs);
-        let derive_owned = if derive_owned.is_empty() {
-            derive.clone()
-        } else {
-            derive_owned
-        };
+        let mut derive_borrowed = take_derive_borrowed_attr(&mut attrs);
+        let mut derive_owned = take_derive_owned_attr(&mut attrs);
+        derive_borrowed.extend(derive.clone());
+        derive_owned.extend(derive);
+
         let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
         let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
         Ok(ItemEnum {
             docs,
-            derive,
+            derive_borrowed,
             derive_owned,
             ident: item_enum.ident.clone(),
             repr,

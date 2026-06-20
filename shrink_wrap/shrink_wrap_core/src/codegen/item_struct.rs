@@ -19,7 +19,11 @@ impl ItemStruct {
         } else {
             quote!()
         };
-        let derive = strings_to_derive(&self.derive);
+        let derive = if no_alloc {
+            strings_to_derive(&self.derive_borrowed)
+        } else {
+            strings_to_derive(&self.derive_owned)
+        };
         let docs = &self.docs;
         let cfg = &self.cfg;
         let cfg_attr_defmt = &self.defmt;

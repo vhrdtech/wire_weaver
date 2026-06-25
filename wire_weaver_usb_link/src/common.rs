@@ -1,8 +1,9 @@
-use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
+use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::CompactVersion;
+use wire_weaver::ww_version::{CompactVersion, Version};
+use ww_global::GlobalTypeId;
 
 // Packs and unpacks messages to/from one or more USB packets.
 // Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
@@ -14,16 +15,16 @@ use wire_weaver::ww_version::CompactVersion;
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
     /// User-defined data types and API, also indirectly points to `ww_client_server` version
-    #[cfg(feature = "device")]
+    #[cfg(any(feature = "device", test))]
     pub(crate) user_api_version_dev: FullVersion<'static>,
-    #[cfg(feature = "device")]
+    #[cfg(any(feature = "device", test))]
     pub(crate) user_api_signature: &'static [u8],
-    #[cfg(feature = "device")]
-    pub(crate) api_model_version: wire_weaver::ww_version::CompactVersion,
-    #[cfg(feature = "device")]
+    #[cfg(any(feature = "device", test))]
+    pub(crate) api_model_version: CompactVersion,
+    #[cfg(any(feature = "device", test))]
     pub(crate) packet_accumulation_time_us: u16,
 
-    #[cfg(feature = "host")]
+    #[cfg(any(feature = "host", test))]
     pub(crate) user_api_version_host: ww_version::FullVersionOwned,
 
     // /// Remote user protocol version
@@ -80,11 +81,9 @@ pub trait PacketSource {
 }
 
 impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
-    pub fn new(
-        user_api_version: FullVersion<'static>,
-        #[cfg(feature = "device")] user_api_signature: &'static [u8],
-        #[cfg(feature = "device")] api_model_version: wire_weaver::ww_version::CompactVersion,
-        #[cfg(feature = "device")] packet_accumulation_time_us: u16,
+    #[cfg(any(feature = "host", test))]
+    pub fn new_host(
+        user_api_version: ww_version::FullVersionOwned,
         tx: T,
         tx_packet_buf: &'i mut [u8],
         rx: R,
@@ -92,33 +91,20 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     ) -> Self {
         let tx_writer = BufWriter::new(tx_packet_buf);
 
-        // #[cfg(test)]
-        // let remote_protocol =
-        //     StackVec::some(FullVersion::new("test", ww_version::Version::new(0, 0, 0)))
-        //         .expect("FullVersion in StackVec in test");
-        // #[cfg(not(test))]
-        // let remote_protocol = StackVec::none();
-        #[cfg(test)]
-        let is_link_up = true;
-        #[cfg(not(test))]
-        let is_link_up = false;
-
         WireWeaverUsbLink {
-            #[cfg(feature = "device")]
-            user_api_version_dev: user_api_version,
-            #[cfg(feature = "host")]
-            user_api_version_host: user_api_version.make_owned(),
+            user_api_version_host: user_api_version,
 
-            #[cfg(feature = "device")]
-            api_model_version,
-            #[cfg(feature = "device")]
-            user_api_signature,
-            #[cfg(feature = "device")]
-            packet_accumulation_time_us,
+            #[cfg(any(feature = "device", test))]
+            user_api_version_dev: FullVersion::new("", Version::new(0, 0, 0)),
+            #[cfg(any(feature = "device", test))]
+            api_model_version: CompactVersion::new(GlobalTypeId::new(0), 0, 0, 0),
+            #[cfg(any(feature = "device", test))]
+            user_api_signature: b"",
+            #[cfg(any(feature = "device", test))]
+            packet_accumulation_time_us: 0,
 
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
-            // remote_protocol,
-            is_link_up,
+            is_link_up: false,
 
             tx,
             tx_writer,
@@ -134,7 +120,45 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
         }
     }
 
-    #[cfg(feature = "device")]
+    #[cfg(any(feature = "device", test))]
+    pub fn new_device(
+        user_api_version: FullVersion<'static>,
+        user_api_signature: &'static [u8],
+        api_model_version: CompactVersion,
+        packet_accumulation_time_us: u16,
+        tx: T,
+        tx_packet_buf: &'i mut [u8],
+        rx: R,
+        rx_packet_buf: &'i mut [u8],
+    ) -> Self {
+        let tx_writer = BufWriter::new(tx_packet_buf);
+
+        WireWeaverUsbLink {
+            user_api_version_dev: user_api_version,
+            #[cfg(any(feature = "host", test))]
+            user_api_version_host: user_api_version.make_owned(),
+
+            api_model_version,
+            user_api_signature,
+            packet_accumulation_time_us,
+
+            remote_max_message_size: MIN_MESSAGE_SIZE as u32,
+            is_link_up: false,
+
+            tx,
+            tx_writer,
+            tx_stats: Default::default(),
+
+            rx,
+            rx_packet_buf,
+            rx_start_pos: 0,
+            rx_left_bytes: 0,
+            rx_stats: Default::default(),
+            rx_in_fragmented_message: false,
+            staging_idx: 0,
+        }
+    }
+
     /// Device only function. Waits for physical USB cable connection and interface enable.
     pub async fn wait_usb_connection(&mut self) {
         self.rx.wait_usb_connection().await;

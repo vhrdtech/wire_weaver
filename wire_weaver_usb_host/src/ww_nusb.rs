@@ -226,4 +226,6 @@ impl PacketSource for Source {
             None => Err(TransferError::Disconnected),
         }
     }
+
+    async fn wait_usb_connection(&mut self) {}
 }

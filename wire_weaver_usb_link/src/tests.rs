@@ -46,20 +46,22 @@ mod link_tests {
             }
         }
 
-        // async fn wait_usb_connection(&mut self) {}
+        async fn wait_usb_connection(&mut self) {}
     }
 
     fn create_link<'i>(
         tx_buf: &'i mut [u8],
         rx_buf: &'i mut [u8],
     ) -> WireWeaverUsbLink<'i, VecSink, VecSink> {
-        WireWeaverUsbLink::new(
+        let mut link = WireWeaverUsbLink::new_host(
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             tx_buf,
             VecSink::new(),
             rx_buf,
-        )
+        );
+        link.is_link_up = true;
+        link
     }
 
     #[test]
@@ -87,13 +89,14 @@ mod link_tests {
         );
 
         let mut receive = [0u8; 8];
-        let mut link = WireWeaverUsbLink::new(
+        let mut link = WireWeaverUsbLink::new_host(
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
             &mut rx_buf,
         );
+        link.is_link_up = true;
         let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
@@ -127,13 +130,14 @@ mod link_tests {
         );
 
         let mut receive = [0u8; 8];
-        let mut link = WireWeaverUsbLink::new(
+        let mut link = WireWeaverUsbLink::new_host(
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
             &mut rx_buf,
         );
+        link.is_link_up = true;
         let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
@@ -172,13 +176,14 @@ mod link_tests {
         );
 
         let mut receive = [0u8; 14];
-        let mut link = WireWeaverUsbLink::new(
+        let mut link = WireWeaverUsbLink::new_host(
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             tx,
             &mut rx_buf,
         );
+        link.is_link_up = true;
         let len = block_on(link.receive_message(&mut receive)).unwrap();
         let MessageKind::Data(len) = len else {
             panic!("Expected data packet");
@@ -292,18 +297,21 @@ mod link_tests {
                 data[..bytes.len()].copy_from_slice(&bytes);
                 Ok(len)
             }
+
+            async fn wait_usb_connection(&mut self) {}
         }
 
         let (tx, rx) = tokio::sync::mpsc::channel(8);
         let rx = AsyncPacketSource { rx };
 
-        let mut link = WireWeaverUsbLink::new(
+        let mut link = WireWeaverUsbLink::new_host(
             FullVersionOwned::new("test".into(), VersionOwned::new(0, 0, 0)),
             VecSink::new(),
             &mut tx_buf,
             rx,
             &mut rx_buf,
         );
+        link.is_link_up = true;
 
         static WAKER: Waker = {
             const RAW_WAKER: RawWaker = RawWaker::new(

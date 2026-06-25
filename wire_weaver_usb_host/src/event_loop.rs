@@ -1,5 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{UsbError, MAX_MESSAGE_SIZE};
+use crate::{MAX_MESSAGE_SIZE, UsbError};
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface};
@@ -12,11 +12,11 @@ use wire_weaver_client_common::rx_dispatcher::{
     DispatcherCommand, DispatcherMessage, RxDispatcher,
 };
 use wire_weaver_client_common::{
-    event_loop_state::CommonState, Command, DeviceInfoBundle, Error, OnError, TestProgress,
+    Command, DeviceInfoBundle, Error, OnError, TestProgress, event_loop_state::CommonState,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
-    PING_INTERVAL_MS,
+    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
+    WireWeaverUsbLink,
 };
 
 struct State {
@@ -98,7 +98,7 @@ pub async fn usb_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
                             let source = crate::tracing::SourceTrace::new(publisher, source);
                         }
                     }
-                    link = Some(WireWeaverUsbLink::new(
+                    link = Some(WireWeaverUsbLink::new_host(
                         user_protocol,
                         sink,
                         &mut tx_buf[..max_packet_size],
@@ -392,7 +392,7 @@ where
         }) => {
             let connected_device_info = DeviceInfoBundle {
                 link_version: FullVersionOwned::new(
-                    format!("G{}", link_version.global_type_id.0),
+                    format!("G{}", link_version.gid.id.0),
                     VersionOwned::new(
                         link_version.major.0,
                         link_version.minor.0,
@@ -401,7 +401,7 @@ where
                 ),
                 max_message_size: max_message_len as usize,
                 api_model_version: FullVersionOwned::new(
-                    format!("G{}", api_model_version.global_type_id.0),
+                    format!("G{}", api_model_version.gid.id.0),
                     VersionOwned::new(
                         api_model_version.major.0,
                         api_model_version.minor.0,
@@ -442,6 +442,7 @@ where
             }
             state.common.on_link_up();
         }
+        Ok(MessageKind::IncompatibleVersion) => {}
         Ok(MessageKind::Loopback { .. }) => {} // ignore when not testing
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
             state.common.trace_error(format!("{e:?}"));

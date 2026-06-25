@@ -1,9 +1,8 @@
-use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
+use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::{CompactVersion, Version};
-use ww_global::GlobalTypeId;
+use wire_weaver::ww_version::CompactVersion;
 
 // Packs and unpacks messages to/from one or more USB packets.
 // Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
@@ -95,9 +94,9 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             user_api_version_host: user_api_version,
 
             #[cfg(any(feature = "device", test))]
-            user_api_version_dev: FullVersion::new("", Version::new(0, 0, 0)),
+            user_api_version_dev: FullVersion::new("", ww_version::Version::new(0, 0, 0)),
             #[cfg(any(feature = "device", test))]
-            api_model_version: CompactVersion::new(GlobalTypeId::new(0), 0, 0, 0),
+            api_model_version: CompactVersion::new(ww_global::GlobalTypeId::new(0), 0, 0, 0),
             #[cfg(any(feature = "device", test))]
             user_api_signature: b"",
             #[cfg(any(feature = "device", test))]

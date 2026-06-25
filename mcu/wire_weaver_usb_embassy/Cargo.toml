@@ -8,10 +8,10 @@ license = "MIT"
 repository = "https://github.com/vhrdtech/wire_weaver"
 
 [dependencies]
-embassy-usb = { version = "0.5", features = ["defmt"] }
+embassy-usb = { version = "0.6", features = ["defmt"] }
 embassy-futures = "0.1"
 embassy-time = "0.5"
-embassy-sync = "0.7"
+embassy-sync = "0.8"
 defmt = "1.0"
 wire_weaver = { workspace = true, default-features = false }
 wire_weaver_usb_link = { workspace = true, features = ["device", "defmt"] }

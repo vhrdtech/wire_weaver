@@ -7,4 +7,4 @@ members = [
 
 [workspace.dependencies]
 wire_weaver = { path = "../wire_weaver", default-features = false, features = ["defmt"] }
-wire_weaver_usb_link = { path = "../wire_weaver_usb_link", features = ["device", "defmt"] }
+wire_weaver_usb_link = { path = "../wire_weaver_usb_link", default-features = false }

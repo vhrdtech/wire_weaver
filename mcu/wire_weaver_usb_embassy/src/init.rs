@@ -136,7 +136,7 @@ pub fn usb_init<
     debug!("{}", usb.buffer_usage());
 
     let (tx, rx) = ww.split(); // TODO: do not split?
-    let link = WireWeaverUsbLink::new(
+    let link = WireWeaverUsbLink::new_device(
         user_api_version,
         user_api_signature,
         api_model_version,

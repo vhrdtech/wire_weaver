@@ -3,21 +3,23 @@ default:
     @just --list
 
 # cargo check everything
-check:
+check: check-core check-mcu
+
+# cargo check repo root workspace
+check-core:
     cargo check
-    check-mcu
 
 # cargo check mcu workspace
-[working-directory: 'mcu']
+[working-directory('mcu')]
 check-mcu:
     cargo check
 
 # Serve the documentation localy
-[group: 'docs']
+[group('docs')]
 serve-docs:
     @uv run mkdocs serve
 
 # Build the documentation
-[group: 'docs']
+[group('docs')]
 build-docs:
     @uv run mkdocs build

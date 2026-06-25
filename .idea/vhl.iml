@@ -125,6 +125,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tests/tests_common/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests/traits/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests/traits_api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/usb_link/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/wire_weaver_tool/target" />
     </content>

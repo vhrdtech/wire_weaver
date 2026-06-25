@@ -4,9 +4,9 @@ mod tests {
     use std::time::Duration;
     use tests_common::DummyTx;
     use tokio::sync::mpsc;
+    use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver::MessageSink;
     use wire_weaver_client_common::{CommandSender, DeviceFilter, OnError, TypedStreamEvent};
 
     #[derive(Default)]
@@ -65,9 +65,6 @@ mod tests {
                 None
             }
 
-            fn validate_index_array_of_streams(&mut self, _index: [UNib32; 1]) -> Result<(), ()> {
-                Ok(())
-            }
             fn valid_indices_root_array_of_streams(&self) -> ValidIndices<'_> {
                 ValidIndices::Range(0..255)
             }
@@ -198,10 +195,7 @@ mod tests {
             )
             .await
             .expect("connect");
-        let mut client = std_async_client::StdAsyncClient {
-            // args_scratch: [0u8; 512],
-            cmd_tx,
-        };
+        let client = std_async_client::StdAsyncClient { cmd_tx };
         tokio::time::sleep(Duration::from_millis(10)).await;
 
         let mut rx = client.plain_stream().expect("successful stream open");

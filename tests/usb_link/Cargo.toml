@@ -1,0 +1,8 @@
+[package]
+name = "usb_link"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wire_weaver_usb_link = { workspace = true, features = ["std", "host", "device"] }
+ww_version = { workspace = true }

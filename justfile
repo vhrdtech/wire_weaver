@@ -2,6 +2,16 @@
 default:
     @just --list
 
+# cargo check everything
+check:
+    cargo check
+    check-mcu
+
+# cargo check mcu workspace
+[working-directory: 'mcu']
+check-mcu:
+    cargo check
+
 # Serve the documentation localy
 [group: 'docs']
 serve-docs:

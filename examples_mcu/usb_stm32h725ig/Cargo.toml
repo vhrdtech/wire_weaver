@@ -10,27 +10,27 @@ defmt-rtt = "1.0" # consider disable-blocking-mode
 panic-probe = { version = "1.0", features = ["print-defmt"] }
 
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
-embassy-stm32 = { version = "0.5.0", features = ["defmt", "stm32h725ig", "unstable-pac", "exti", "time-driver-tim2"] }
-stm32-metapac = { version = "19", features = ["stm32h725ig"] }
+embassy-stm32 = { version = "0.6", features = ["defmt", "stm32h725ig", "unstable-pac", "exti", "time-driver-tim2"] }
+stm32-metapac = { version = "21", features = ["stm32h725ig"] }
 
-embassy-executor = { version = "0.9.1", features = [
+embassy-executor = { version = "0.10", features = [
     "nightly",
-    "arch-cortex-m",
+    "platform-cortex-m",
     "executor-thread",
     "executor-interrupt",
     "defmt"
 ] }
 embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
-embassy-sync = { version = "0.7.2", features = ["defmt"] }
-embassy-usb = { version = "0.5", features = ["defmt"] }
+embassy-sync = { version = "0.8", features = ["defmt"] }
+embassy-usb = { version = "0.6", features = ["defmt"] }
 static_cell = "2.1"
-bbqueue = "0.6"
+bbqueue = "0.7"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 uart_api = { path = "../../examples/uart_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
-wire_weaver_usb_link = { path = "../../wire_weaver_usb_link", features = ["device", "defmt"] }
+wire_weaver_usb_link = { path = "../../wire_weaver_usb_link", default-features = false, features = ["device", "defmt"] }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }

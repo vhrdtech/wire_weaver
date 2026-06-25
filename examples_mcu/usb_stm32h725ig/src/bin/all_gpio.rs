@@ -160,7 +160,7 @@ async fn main(spawner: embassy_executor::Spawner) {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
         },
     );
-    unwrap!(spawner.spawn(usb_server_task(usb_server)));
+    spawner.spawn(unwrap!(usb_server_task(usb_server)));
 
     info!("init done");
     loop {

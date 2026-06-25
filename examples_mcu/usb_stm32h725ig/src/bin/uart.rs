@@ -39,8 +39,10 @@ bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
     UART7 => usart::InterruptHandler<peripherals::UART7>;
     UART8 => usart::InterruptHandler<peripherals::UART8>;
-    // DMA1_STREAM0 => dma::InterruptHandler<peripherals::DMA1_CH0>;
-    // DMA1_STREAM1 => dma::InterruptHandler<peripherals::DMA1_CH1>;
+    DMA1_STREAM0 => dma::InterruptHandler<peripherals::DMA1_CH0>;
+    DMA1_STREAM1 => dma::InterruptHandler<peripherals::DMA1_CH1>;
+    DMA1_STREAM2 => dma::InterruptHandler<peripherals::DMA1_CH2>;
+    DMA1_STREAM3 => dma::InterruptHandler<peripherals::DMA1_CH3>;
 });
 
 const MAX_USB_PACKET_LEN: usize = 512; // 64 for FullSpeed, 512 (Bulk) 1024 (Irq) for HighSpeed
@@ -67,8 +69,8 @@ struct ServerState {
 }
 
 mod server_impl {
-    wire_weaver::ww_api!(
-        "../../examples/uart_api/src/lib.rs" as uart_api::UartBridge for ServerState,
+    wire_weaver::ww_codegen!(
+        "../../examples/uart_api" :: UartBridge for ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=value_on_changed",
@@ -108,11 +110,8 @@ impl WireWeaverAsyncApiBackend for ServerState {
 }
 
 impl ServerState {
-    fn validate_index_uart(&self, index: [UNib32; 1]) -> Result<(), ()> {
-        if index[0].0 > 1 {
-            return Err(());
-        }
-        Ok(())
+    pub fn valid_indices_root_uart(&mut self) -> ValidIndices<'_> {
+        ValidIndices::Range(0..0)
     }
 
     async fn rx_sideband(
@@ -144,6 +143,9 @@ impl ServerState {
             rg.release();
             if let Ok(stream_data_event) = stream_data_event {
                 let r = sink.send(stream_data_event).await;
+                if r.is_err() {
+                    error!("send_received_bytes error: {:?}", r);
+                }
             }
         }
     }
@@ -195,40 +197,40 @@ impl ServerState {
 
     async fn set_uart_baud_rate(
         &mut self,
-        index: [UNib32; 1],
-        baud_rate: BaudRate,
+        _index: [UNib32; 1],
+        _baud_rate: BaudRate,
     ) -> Result<(), ww_uart::Error> {
         Ok(())
     }
 
     async fn set_uart_mode(
         &mut self,
-        index: [UNib32; 1],
-        mode: Mode,
+        _index: [UNib32; 1],
+        _mode: Mode,
     ) -> Result<(), ww_uart::Error> {
         Ok(())
     }
 
     async fn set_uart_stop_bits(
         &mut self,
-        index: [UNib32; 1],
-        stop_bits: StopBits,
+        _index: [UNib32; 1],
+        _stop_bits: StopBits,
     ) -> Result<(), ww_uart::Error> {
         Ok(())
     }
 
     async fn set_uart_parity(
         &mut self,
-        index: [UNib32; 1],
-        parity: Parity,
+        _index: [UNib32; 1],
+        _parity: Parity,
     ) -> Result<(), ww_uart::Error> {
         Ok(())
     }
 
     async fn set_uart_prevent_back_feed(
         &mut self,
-        index: [UNib32; 1],
-        baud_rate: bool,
+        _index: [UNib32; 1],
+        _baud_rate: bool,
     ) -> Result<(), ww_uart::Error> {
         Err(ww_uart::Error::Unsupported)
     }
@@ -348,7 +350,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     // let led_b135 = Output::new(p.PC6, Level::Low, Speed::Low);
 
     let config = UsartConfig::default();
-    let uart7 = Uart::new(p.UART7, p.PB3, p.PB4, Irqs, p.DMA1_CH0, p.DMA1_CH1, config).unwrap();
+    let uart7 = Uart::new(p.UART7, p.PB3, p.PB4, p.DMA1_CH0, p.DMA1_CH1, Irqs, config).unwrap();
     let (uart7_tx, uart7_rx) = uart7.split();
     static TX_BB_UART7: StaticCell<Texas<TX_BUF_SIZE, MaiNotSpsc>> = StaticCell::new();
     let tx_bb_uart7 = TX_BB_UART7.init(Texas::new());
@@ -358,9 +360,9 @@ async fn main(spawner: embassy_executor::Spawner) {
     let uart8 = Uart::new_half_duplex_on_rx(
         p.UART8,
         p.PE0,
-        Irqs,
         p.DMA1_CH2,
         p.DMA1_CH3,
+        Irqs,
         config,
         HalfDuplexReadback::NoReadback,
     )
@@ -421,16 +423,22 @@ async fn main(spawner: embassy_executor::Spawner) {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
         },
     );
-    unwrap!(spawner.spawn(usb_server_task(usb_server)));
+    spawner.spawn(unwrap!(usb_server_task(usb_server)));
 
-    unwrap!(spawner.spawn(uart_tx_task(tx_bb_uart7.framed_consumer(), uart7_tx)));
-    unwrap!(spawner.spawn(uart_rx_task(
+    spawner.spawn(unwrap!(uart_tx_task(
+        tx_bb_uart7.framed_consumer(),
+        uart7_tx
+    )));
+    spawner.spawn(unwrap!(uart_rx_task(
         uart7_rx,
         rx_bb_uart7.framed_producer(),
         send_updates_tx.clone(),
     )));
-    unwrap!(spawner.spawn(uart_tx_task(tx_bb_uart8.framed_consumer(), uart8_tx)));
-    unwrap!(spawner.spawn(uart_rx_task(
+    spawner.spawn(unwrap!(uart_tx_task(
+        tx_bb_uart8.framed_consumer(),
+        uart8_tx
+    )));
+    spawner.spawn(unwrap!(uart_rx_task(
         uart8_rx,
         rx_bb_uart8.framed_producer(),
         send_updates_tx.clone(),

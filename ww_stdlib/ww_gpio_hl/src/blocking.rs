@@ -55,7 +55,7 @@ impl FlexBlocking {
     }
 
     /// Create Flex pin assuming unknown mode.
-    /// Intended use is to immediately call one of the into_ methods, to save on one remote call.
+    /// The intended use is to immediately call one of the into_ methods to save on one remote call.
     ///
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
@@ -94,7 +94,7 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Consume self, optionally set initial level and put the pin into push-pull output mode, return [PushPullOutputBlocking].
+    /// Consume self, optionally set the initial level and put the pin into push-pull output mode, return [PushPullOutputBlocking].
     pub fn into_output(mut self, initial: Option<Level>) -> Result<PushPullOutputBlocking, Error> {
         self.set_as_output(initial)?;
         Ok(PushPullOutputBlocking { flex: self })
@@ -110,7 +110,7 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Consume self, put the pin into input mode and return [Input].
+    /// Consume self, put the pin into input, mode and return [Input].
     ///
     /// The internal pull-up or pull-down resistor can optionally be enabled according to pull.
     pub fn into_input(mut self, pull: Pull) -> Result<InputBlocking, Error> {
@@ -120,7 +120,7 @@ impl FlexBlocking {
 
     /// Put the pin into input + open-drain output mode.
     ///
-    /// The hardware will drive the line low if you set it to low, and will leave it floating if you set it to high.
+    /// The hardware will drive the line low if you set it to low and will leave it floating if you set it to high.
     /// When set high, input can be read to figure out whether another device is driving the line low.
     ///
     /// The internal pull-up or pull-down resistor can optionally be enabled according to pull.
@@ -133,7 +133,7 @@ impl FlexBlocking {
 
     /// Consume self, put the pin into input + open-drain output mode, return [OpenDrainOutput].
     ///
-    /// The hardware will drive the line low if you set it to low, and will leave it floating if you set it to high.
+    /// The hardware will drive the line low if you set it to low and will leave it floating if you set it to high.
     /// When set high, input can be read to figure out whether another device is driving the line low.
     ///
     /// The internal pull-up or pull-down resistor can optionally be enabled according to pull.
@@ -142,8 +142,8 @@ impl FlexBlocking {
         Ok(OpenDrainOutputBlocking { flex: self })
     }
 
-    /// Change mode of the pin.
-    /// Optionally set the initial level before changing pin mode.
+    /// Change the mode of the pin.
+    /// Optionally, set the initial level before changing pin mode.
     /// This method may fail with [UnsupportedMode](ww_gpio::Error::UnsupportedMode) error.
     fn set_mode(&mut self, mode: Mode, initial: Option<Level>) -> Result<(), Error> {
         self.io.set_mode(mode, initial).blocking_call()??;
@@ -151,12 +151,12 @@ impl FlexBlocking {
     }
 
     /// Returns current pin mode as cached locally.
-    /// None is returned if mode is unknown (created by [Self::new_ignore_mode])
+    /// None is returned if the mode is unknown (created by [Self::new_ignore_mode])
     pub fn mode_cached(&self) -> Option<Mode> {
         self.mode
     }
 
-    /// Returns current pin mode, requested from remote device.
+    /// Returns current pin mode, requested from a remote device.
     /// Locally cached mode is also updated.
     pub fn mode(&mut self) -> Result<Mode, Error> {
         let mode = self.io.mode().blocking_call()?;
@@ -164,7 +164,7 @@ impl FlexBlocking {
         Ok(mode)
     }
 
-    /// Returns GPIO index that this output is using.
+    /// Returns the GPIO index that this output is using.
     pub fn index(&self) -> u32 {
         self.index
     }
@@ -192,7 +192,7 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Get output level, previously set with [set_level](Self::set_level).
+    /// Get the output level, previously set with [set_level](Self::set_level).
     pub fn output_level(&self) -> Result<Level, Error> {
         Ok(self.io.output_level().blocking_call()?)
     }
@@ -277,20 +277,14 @@ impl FlexBlocking {
 
     pub fn wait_for_edge(&mut self, break_on: Option<IoPinEvent>) -> Result<(), Error> {
         match break_on {
-            Some(IoPinEvent::RisingEdge) => {
-                if !self.rising_enabled {
-                    self.enable_interrupts(true, false)?;
-                }
+            Some(IoPinEvent::RisingEdge) if !self.rising_enabled => {
+                self.enable_interrupts(true, false)?;
             }
-            Some(IoPinEvent::FallingEdge) => {
-                if !self.falling_enabled {
-                    self.enable_interrupts(false, true)?;
-                }
+            Some(IoPinEvent::FallingEdge) if !self.falling_enabled => {
+                self.enable_interrupts(false, true)?;
             }
-            None => {
-                if !self.rising_enabled || !self.falling_enabled {
-                    self.enable_interrupts(true, true)?;
-                }
+            None if !self.rising_enabled || !self.falling_enabled => {
+                self.enable_interrupts(true, true)?;
             }
             _ => {}
         }
@@ -413,7 +407,7 @@ impl BankBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::Bank:
     /// `my_client.my_gpio_bank().attachment()`
     pub fn new(attachment: Attachment) -> Result<BankBlocking, Error> {
-        let mut bank = BankClient::new(attachment)?;
+        let bank = BankClient::new(attachment)?;
         let available_pins = bank.pin_valid_indices().blocking_read()?;
         Ok(BankBlocking {
             bank,

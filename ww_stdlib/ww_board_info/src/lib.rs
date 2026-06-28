@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-use ww_date_time::DateTime;
+pub use ww_date_time::DateTime;
 
 /// PCB and PCBA information.
 ///

@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-use ww_numeric::SubTypeKind;
+pub use ww_numeric::SubTypeKind;
 
 /// Represents one or more CAN Bus interfaces with one clock and power source and possibly sharing memory
 /// between interfaces as well. This trait mimics real hardware implementations found on e.g., STM32

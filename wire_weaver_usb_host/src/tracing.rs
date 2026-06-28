@@ -68,4 +68,6 @@ impl<B: PacketSource> PacketSource for SourceTrace<B> {
 
         Ok(len)
     }
+
+    async fn wait_usb_connection(&mut self) {}
 }

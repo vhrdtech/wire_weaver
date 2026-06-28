@@ -75,7 +75,6 @@ pub trait PacketSource {
     type Error;
     async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
 
-    #[cfg(feature = "device")]
     async fn wait_usb_connection(&mut self);
 }
 
@@ -159,6 +158,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     }
 
     /// Device only function. Waits for physical USB cable connection and interface enable.
+    #[cfg(feature = "device")]
     pub async fn wait_usb_connection(&mut self) {
         self.rx.wait_usb_connection().await;
     }

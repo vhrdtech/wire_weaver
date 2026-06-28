@@ -1,5 +1,5 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{MAX_MESSAGE_SIZE, UsbError};
+use crate::{UsbError, MAX_MESSAGE_SIZE};
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
 use nusb::{DeviceInfo, Interface};
@@ -12,11 +12,11 @@ use wire_weaver_client_common::rx_dispatcher::{
     DispatcherCommand, DispatcherMessage, RxDispatcher,
 };
 use wire_weaver_client_common::{
-    Command, DeviceInfoBundle, Error, OnError, TestProgress, event_loop_state::CommonState,
+    event_loop_state::CommonState, Command, DeviceInfoBundle, Error, OnError, TestProgress,
 };
 use wire_weaver_usb_link::{
-    DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
-    WireWeaverUsbLink,
+    DisconnectReason, Error as LinkError, MessageKind, PacketSink, PacketSource, WireWeaverUsbLink,
+    PING_INTERVAL_MS,
 };
 
 struct State {
@@ -442,7 +442,6 @@ where
             }
             state.common.on_link_up();
         }
-        Ok(MessageKind::IncompatibleVersion) => {}
         Ok(MessageKind::Loopback { .. }) => {} // ignore when not testing
         Err(e @ LinkError::ProtocolsVersionMismatch) => {
             state.common.trace_error(format!("{e:?}"));

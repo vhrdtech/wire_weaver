@@ -69,4 +69,4 @@ members = [
     "xtask",
 ]
 
-exclude = ["examples_mcu"]
+exclude = ["examples_mcu", "tests/usb_link"]

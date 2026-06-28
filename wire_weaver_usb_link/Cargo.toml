@@ -16,10 +16,10 @@ shrink_wrap.workspace = true
 ww_global.workspace = true
 
 [features]
-default = ["host"]
 std = []
 host = ["std", "wire_weaver/std"]
 device = []
+defmt = ["dep:defmt", "wire_weaver/defmt"]
 
 [dev-dependencies]
 worst-executor = { version = "0.1.1", git = "https://github.com/romixlab/worst-executor.git" }

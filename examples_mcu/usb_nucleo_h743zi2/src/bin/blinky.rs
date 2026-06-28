@@ -133,7 +133,7 @@ async fn main(spawner: embassy_executor::Spawner) {
             // optionally set config.manufacturer, config.product, self_powered and max_power
         },
     );
-    unwrap!(spawner.spawn(usb_server_task(usb_server)));
+    spawner.spawn(unwrap!(usb_server_task(usb_server)));
 
     info!("init done");
     loop {

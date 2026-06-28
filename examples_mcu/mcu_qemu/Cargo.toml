@@ -12,6 +12,7 @@ panic-semihosting = { version = "0.6", features = ["exit"] }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false }
 
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]

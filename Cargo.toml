@@ -66,7 +66,6 @@ members = [
     "examples/*",
     "tests/*",
     "wire_weaver_cli",
-    "xtask",
 ]
 
-exclude = ["examples_mcu", "tests/usb_link"]
+exclude = ["examples_mcu", "tests/usb_link", "wire_weaver_tool"]

@@ -78,7 +78,7 @@ pub fn gen_server(
     let config: GenServerConfigRaw = config.into();
     let additional_use = maybe_quote(
         config.no_alloc,
-        quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
+        quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
     );
     let maybe_async = maybe_quote(config.use_async, quote! { async });
     let maybe_await = maybe_quote(config.use_async, quote! { .await });
@@ -138,10 +138,12 @@ pub fn gen_server(
     quote! {
         #args_structs
 
+        #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
             Error as ShrinkWrapError, nib32::UNib32, ElementSize
         };
+        #[allow(unused_imports)]
         use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
         #additional_use
         #api_signature

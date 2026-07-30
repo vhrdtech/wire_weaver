@@ -97,7 +97,7 @@ pub fn gen_client(
         config.model,
         ClientModel::StdFullClient | ClientModel::StdTraitClient
     ) {
-        quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
+        quote! { #[allow(unused_imports)] use wire_weaver_client_common::ww_client_server::PathKind; }
     } else {
         quote! {}
     };
@@ -132,12 +132,16 @@ pub fn gen_client(
         Some(&client_struct_path),
     );
     quote! {
+        #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, BufReader, BufWriter, traits::ElementSize,
             Error as ShrinkWrapError, nib32::UNib32, RefVec
         };
+        #[allow(unused_imports)]
         use wire_weaver::{ww_version, ValidIndicesOwned};
+        #[allow(unused_imports)]
         use wire_weaver_client_common::StreamEvent;
+        #[allow(unused_imports)]
         use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
         #additional_use
 

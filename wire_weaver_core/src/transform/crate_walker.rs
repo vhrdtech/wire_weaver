@@ -33,7 +33,7 @@ use ww_version::{FullVersionOwned, VersionOwned};
 /// Limitations:
 /// * Only types and ww_trait's defined in `src/lib.rs` are supported.
 /// * Only crates.io and path dependencies are supported.
-pub fn load_v2(
+pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead

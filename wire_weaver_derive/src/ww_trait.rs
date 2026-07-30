@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::path::PathBuf;
 use syn::{Error, ItemTrait};
-use wire_weaver_core::load_v2;
+use wire_weaver_core::load;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait_inner(attr, item)
@@ -17,7 +17,7 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, S
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
     // Parse fully to catch errors early - in API crates, not in dependent ones
-    let _api_level = load_v2(&crate_path, Some(trait_name), false).map_err(|e| format!("{e:?}"))?;
+    let _api_level = load(&crate_path, Some(trait_name), false).map_err(|e| format!("{e:?}"))?;
 
     // let mut check_types_lifetimes = TokenStream::new();
     // for (ty, lifetime) in api_level.external_types() {

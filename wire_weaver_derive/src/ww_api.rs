@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::GenServerConfigRaw;
-use wire_weaver_core::load_v2;
+use wire_weaver_core::load;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
@@ -30,7 +30,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         path
     };
     let api_bundle =
-        load_v2(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e:?}"))?;
+        load(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e:?}"))?;
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {

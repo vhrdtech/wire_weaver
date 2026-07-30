@@ -84,7 +84,7 @@ pub(crate) enum ClientPathMode {
 }
 
 /// Generates API client code for the given API bundle and configuration.
-/// ApiBundleOwned can be loaded using [crate::load_v2] or [crate::load_dep].
+/// ApiBundleOwned can be loaded using [crate::load] or [crate::load_dep].
 /// Pass a [GenClientConfig] or [GenClientConfigRaw] to configure code generation.
 ///
 /// Alternatively, use [wire_weaver_derive::ww_codegen] proc-macro if you do not want to use build.rs.

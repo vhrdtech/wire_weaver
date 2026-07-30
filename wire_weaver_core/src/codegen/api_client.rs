@@ -15,7 +15,21 @@ use ww_self::{
     PropertyAccess, TypeOwned,
 };
 
+/// API client code generation configuration.
 pub struct GenClientConfig {
+    /// Kind of client to generate.
+    pub model: ClientModel,
+    /// 'impl <client_struct_path> { client methods }' code will be generated.
+    /// Pass e.g., "crate::MyDeviceClient".
+    pub client_struct_path: String,
+    /// Whether to generate init code for USB clients (connect, connect_blocking methods).
+    pub usb_connect: bool,
+}
+
+/// API client code generation configuration.
+/// Same as [GenClientConfig], but with syn::Path instead of String for `client_struct_path`.
+/// More convenient to use from proc-macro context.
+pub struct GenClientConfigRaw {
     /// Kind of client to generate.
     pub model: ClientModel,
     /// 'impl <client_struct_path> { client methods }' code will be generated.
@@ -23,6 +37,16 @@ pub struct GenClientConfig {
     pub client_struct_path: Path,
     /// Whether to generate init code for USB clients (connect, connect_blocking methods).
     pub usb_connect: bool,
+}
+
+impl From<GenClientConfig> for GenClientConfigRaw {
+    fn from(config: GenClientConfig) -> Self {
+        Self {
+            model: config.model,
+            client_struct_path: super::util::str_to_path(&config.client_struct_path),
+            usb_connect: config.usb_connect,
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -59,7 +83,16 @@ pub(crate) enum ClientPathMode {
     GlobalTrait,
 }
 
-pub fn gen_client(api_bundle: &ApiBundleOwned, config: GenClientConfig) -> TokenStream {
+/// Generates API client code for the given API bundle and configuration.
+/// ApiBundleOwned can be loaded using [crate::load_v2] or [crate::load_dep].
+/// Pass a [GenClientConfig] or [GenClientConfigRaw] to configure code generation.
+///
+/// Alternatively, use [wire_weaver_derive::ww_codegen] proc-macro if you do not want to use build.rs.
+pub fn gen_client(
+    api_bundle: &ApiBundleOwned,
+    config: impl Into<GenClientConfigRaw>,
+) -> TokenStream {
+    let config = config.into();
     let additional_use = if matches!(
         config.model,
         ClientModel::StdFullClient | ClientModel::StdTraitClient

@@ -1,5 +1,5 @@
 use super::{api::convert_api_items, util::collect_docs};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use semver::Version;
 use shrink_wrap::UNib32;
@@ -11,7 +11,7 @@ use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
 
-/// Load API definition and all referenced data types.
+/// Load API definition and all referenced data types from a given crate.
 ///
 /// This method will recursively walk (and download if necessary) all the referenced crates:
 /// 1. Load `crate_path/Cargo.toml` and parse into cargo_toml::[Manifest].
@@ -36,13 +36,42 @@ use ww_version::{FullVersionOwned, VersionOwned};
 pub fn load_v2(
     crate_path: &Path,
     trait_name: Option<String>,
-    _offline_mode: bool,
+    _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
-    let entry = CrateContext::load(crate_path, &mut scratch)?;
+    load_inner(crate_path, trait_name, &mut scratch)
+}
+
+/// Load API definition and all referenced data types for a given dependency of 'current crate'.
+/// Intended use is from a build.rs script, where CARGO_MANIFEST_DIR is available and assumed to be 'current crate'.
+pub fn load_dep(
+    dep_name: impl AsRef<str>,
+    trait_name: Option<impl AsRef<str>>,
+) -> Result<ApiBundleOwned> {
+    let mut scratch = Scratch::default();
+    let current_crate_path = std::env::var("CARGO_MANIFEST_DIR").map_err(|_|
+        anyhow!("CARGO_MANIFEST_DIR not set, cannot determine current crate path. Consider calling this method from a build.rs script.")
+    )?;
+    let current_crate_path = PathBuf::from(current_crate_path);
+    let current_crate_manifest = ManifestContext::load(&current_crate_path)?;
+    let dep_manifest =
+        current_crate_manifest.load_dependent_manifest(dep_name.as_ref(), &mut scratch)?;
+    scratch
+        .manifests
+        .insert(current_crate_path, current_crate_manifest);
+    let trait_name = trait_name.map(|t| t.as_ref().to_string());
+    load_inner(&dep_manifest.crate_path, trait_name, &mut scratch)
+}
+
+fn load_inner(
+    crate_path: &Path,
+    trait_name: Option<String>,
+    scratch: &mut Scratch,
+) -> Result<ApiBundleOwned> {
+    let entry = CrateContext::load(crate_path, scratch)?;
     let trait_name = find_trait_if_none(trait_name, &entry.lib_rs_ast)?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-    let items = convert_api_items(item_trait, &entry, &mut scratch)?;
+    let items = convert_api_items(item_trait, &entry, scratch)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
@@ -54,9 +83,9 @@ pub fn load_v2(
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root,
-        types: scratch.root_bundle.types,
-        traits: scratch.root_bundle.traits,
-        ext_crates: scratch.root_bundle.ext_crates,
+        types: scratch.root_bundle.types.clone(),
+        traits: scratch.root_bundle.traits.clone(),
+        ext_crates: scratch.root_bundle.ext_crates.clone(),
     })
 }
 
@@ -257,7 +286,7 @@ impl ManifestContext {
 
     fn load_dependent_manifest(
         &self,
-        crate_name: &String,
+        crate_name: &str,
         scratch: &mut Scratch,
     ) -> Result<Rc<ManifestContext>> {
         self.load_dependent_inner(&self.manifest.dependencies, crate_name, scratch)
@@ -266,7 +295,7 @@ impl ManifestContext {
     fn load_dependent_inner(
         &self,
         deps_set: &DepsSet,
-        crate_name: &String,
+        crate_name: &str,
         scratch: &mut Scratch,
     ) -> Result<Rc<ManifestContext>> {
         let dep = deps_set.get(crate_name).ok_or(
@@ -334,7 +363,7 @@ fn load_lib_rs(crate_path: &Path) -> Result<File> {
 
 fn find_trait_if_none(trait_name: Option<String>, lib_rs: &File) -> Result<String> {
     if let Some(name) = trait_name {
-        return Ok(name);
+        return Ok(name.to_string());
     }
     let mut ww_api_root = vec![];
     let mut ww_trait = vec![];

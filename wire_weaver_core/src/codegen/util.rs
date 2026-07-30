@@ -1,6 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use syn::{Path, PathArguments, PathSegment};
 use ww_self::ApiLevelOwned;
 
 pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream {
@@ -40,4 +41,17 @@ pub(crate) fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
         .as_str(),
         Span::call_site(),
     )
+}
+
+pub(crate) fn str_to_path(path: &str) -> Path {
+    Path {
+        leading_colon: None,
+        segments: path
+            .split("::")
+            .map(|s| PathSegment {
+                ident: Ident::new(s, Span::call_site()),
+                arguments: PathArguments::None,
+            })
+            .collect(),
+    }
 }

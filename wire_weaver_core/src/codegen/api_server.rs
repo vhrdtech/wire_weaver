@@ -17,7 +17,27 @@ use ww_self::{
     PropertyAccess, TypeOwned,
 };
 
+/// API server code generation configuration.
 pub struct GenServerConfig {
+    /// Set to false to generate no_std no-alloc compatible code.
+    pub no_alloc: bool,
+    /// Set to true to expect all user handlers be async fn's.
+    pub use_async: bool,
+    /// Configure which user handlers return immediate response or answer later by using request id.
+    pub method_model: MethodModel,
+    /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
+    pub property_model: PropertyModel,
+    /// Path to the user struct on which server dispatcher method will be implemented (process_request_bytes).
+    /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
+    pub server_struct_path: String,
+    /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
+    pub generate_introspect: bool,
+}
+
+/// API server code generation configuration.
+/// Same as [GenServerConfig], but with syn::Path instead of String for `server_struct_path`.
+/// More convenient to use from proc-macro context where Path is already available.
+pub struct GenServerConfigRaw {
     /// Set to false to generate no_std no-alloc compatible code.
     pub no_alloc: bool,
     /// Set to true to expect all user handlers be async fn's.
@@ -33,7 +53,29 @@ pub struct GenServerConfig {
     pub generate_introspect: bool,
 }
 
-pub fn gen_server(api_bundle: &ApiBundleOwned, config: GenServerConfig) -> TokenStream {
+impl From<GenServerConfig> for GenServerConfigRaw {
+    fn from(config: GenServerConfig) -> Self {
+        Self {
+            no_alloc: config.no_alloc,
+            use_async: config.use_async,
+            method_model: config.method_model,
+            property_model: config.property_model,
+            server_struct_path: super::util::str_to_path(&config.server_struct_path),
+            generate_introspect: config.generate_introspect,
+        }
+    }
+}
+
+/// Generates API server code for the given API bundle and configuration.
+/// ApiBundleOwned can be loaded using [crate::load_v2] or [crate::load_dep].
+/// Pass a [GenServerConfig] or [GenServerConfigRaw] to configure code generation.
+///
+/// Alternatively, use [wire_weaver_derive::ww_codegen] proc-macro if you do not want to use build.rs.
+pub fn gen_server(
+    api_bundle: &ApiBundleOwned,
+    config: impl Into<GenServerConfigRaw>,
+) -> TokenStream {
+    let config: GenServerConfigRaw = config.into();
     let additional_use = maybe_quote(
         config.no_alloc,
         quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },

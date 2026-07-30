@@ -4,10 +4,12 @@ use quote::TokenStreamExt;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
+use wire_weaver_core::codegen::api_server::GenServerConfigRaw;
 use wire_weaver_core::load_v2;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
-use wire_weaver_core::{ClientModel, GenClientConfig, GenServerConfig, gen_client, gen_server};
+use wire_weaver_core::{ClientModel, gen_client, gen_server};
 
 pub fn ww_api(args: ApiArgs) -> TokenStream {
     api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
@@ -53,7 +55,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     if args.ext.server {
         let ts = gen_server(
             &api_bundle,
-            GenServerConfig {
+            GenServerConfigRaw {
                 no_alloc: args.ext.no_alloc,
                 use_async: args.ext.use_async,
                 method_model,
@@ -86,7 +88,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         };
         let ts = gen_client(
             &api_bundle,
-            GenClientConfig {
+            GenClientConfigRaw {
                 model,
                 client_struct_path: args.context_ident.clone(),
                 usb_connect,

@@ -4,9 +4,9 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
     use tokio::sync::mpsc;
+    use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver::MessageSink;
     use wire_weaver_client_common::{
         Command, CommandSender, DeviceFilter, DeviceInfoBundle, OnError,
     };
@@ -74,12 +74,12 @@ mod tests {
 
         mod api_impl {
             wire_weaver::ww_codegen!(
-                "../traits_api" :: Traits for NoStdSyncServer,
+                "../traits_api" :: Traits for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 introspect = false,
-                debug_to_file = "../../target/tests_traits_server.rs"
+                // debug_to_file = "../../target/tests_traits_server.rs"
             );
         }
     }
@@ -93,11 +93,9 @@ mod tests {
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                "../traits_api" :: Traits for StdAsyncClient,
+                "../traits_api" :: Traits for super::StdAsyncClient,
                 client = "full_client",
-                no_alloc = false,
-                use_async = true,
-                debug_to_file = "../../target/tests_traits_client.rs"
+                // debug_to_file = "../../target/tests_traits_client.rs"
             );
         }
     }

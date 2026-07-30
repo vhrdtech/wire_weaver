@@ -1,14 +1,14 @@
-use darling::ast::NestedMeta;
 use darling::FromMeta;
+use darling::ast::NestedMeta;
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, LitStr, Result, Token};
+use syn::{Ident, LitStr, Path, Result, Token};
 
 pub(crate) struct ApiArgs {
     pub(crate) location: LitStr,
     _colon_colon: Token![::],
     pub(crate) trait_name: Ident,
     _for: Token![for],
-    pub(crate) context_ident: Ident,
+    pub(crate) context_ident: Path,
     _comma: Token![,],
     pub(crate) ext: ImplExtArgs,
 }
@@ -21,7 +21,9 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) server: bool,
 
+    #[darling(default)]
     pub(crate) no_alloc: bool,
+    #[darling(default)]
     pub(crate) use_async: bool,
 
     #[darling(default)]

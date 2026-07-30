@@ -33,7 +33,7 @@ impl AllGpio {
 
 mod api_client {
     wire_weaver::ww_codegen!(
-        "../all_gpio_api" :: AllGpioApi for AllGpio,
+        "../all_gpio_api" :: AllGpioApi for crate::AllGpio,
         client = "async_worker+usb",
         no_alloc = false,
         use_async = true,

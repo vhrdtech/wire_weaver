@@ -33,7 +33,7 @@ impl Blinky {
 
 mod api_client {
     wire_weaver::ww_codegen!(
-        "../blinky_api" :: BlinkyApi for Blinky,
+        "../blinky_api" :: BlinkyApi for crate::Blinky,
         client = "async_worker+usb",
         no_alloc = false,
         use_async = true,

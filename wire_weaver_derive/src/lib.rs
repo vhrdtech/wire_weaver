@@ -7,7 +7,17 @@ mod ww_api;
 mod ww_impl_args;
 mod ww_trait;
 
-/// Generate types definitions, serdes and API client or server side code.
+#[proc_macro]
+#[deprecated = "use ww_codegen instead"]
+pub fn ww_api(args: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
+    ww_api::ww_api(args).into()
+}
+
+/// Generate types definitions, serdes and API client or server side code in place (proc-macro).
+///
+/// Optionally, consider using wire_weaver_core::gen_client and gen_server methods inside build.rs instead,
+/// which might be more ergonomical and straight-forward.
 ///
 /// Arguments:
 /// * client = absent or "" - do not generate client code at all;
@@ -27,13 +37,6 @@ mod ww_trait;
 ///   Depending on the application, it might be more convenient to store property directly as a context struct member and
 ///   use value_on_changed, so that generated code directly reads and writes to it. Notification method is called when the value is changed.
 ///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
-#[proc_macro]
-#[deprecated = "use ww_codegen instead"]
-pub fn ww_api(args: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
-    ww_api::ww_api(args).into()
-}
-
 #[proc_macro]
 pub fn ww_codegen(args: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as ww_impl_args::ApiArgs);

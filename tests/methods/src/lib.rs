@@ -57,12 +57,12 @@ mod tests {
 
         mod api_impl {
             wire_weaver::ww_codegen!(
-                "../methods_api" :: Methods for NoStdSyncServer,
+                "../methods_api" :: Methods for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 introspect = false,
-                debug_to_file = "../../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
+                // debug_to_file = "../../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
             );
         }
 
@@ -89,11 +89,9 @@ mod tests {
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                "../methods_api" :: Methods for StdAsyncClient,
+                "../methods_api" :: Methods for super::StdAsyncClient,
                 client = "full_client",
-                no_alloc = false,
-                use_async = true,
-                debug_to_file = "../../target/tests_methods_client.rs"
+                // debug_to_file = "../../target/tests_methods_client.rs"
             );
         }
     }

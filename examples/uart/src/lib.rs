@@ -33,7 +33,7 @@ impl UartBridge {
 
 mod api_client {
     wire_weaver::ww_codegen!(
-        "../uart_api" :: UartBridge for UartBridge,
+        "../uart_api" :: UartBridge for crate::UartBridge,
         client = "async_worker+usb",
         no_alloc = false,
         use_async = true,

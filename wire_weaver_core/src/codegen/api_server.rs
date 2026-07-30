@@ -3,56 +3,63 @@
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::ty_def;
-use crate::codegen::util::{add_prefix, maybe_quote, ErrorSeq};
+use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote};
 use crate::codegen::{api_common, util};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::{Lit, LitInt};
+use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
     PropertyAccess, TypeOwned,
 };
 
-pub fn impl_server_dispatcher(
-    api_bundle: &ApiBundleOwned,
-    no_alloc: bool,
-    use_async: bool,
-    method_model: &MethodModel,
-    property_model: &PropertyModel,
-    context_ident: &Ident,
-    handler_ident: &Ident,
-    generate_introspect: bool,
-) -> TokenStream {
+pub struct GenServerConfig {
+    /// Set to false to generate no_std no-alloc compatible code.
+    pub no_alloc: bool,
+    /// Set to true to expect all user handlers be async fn's.
+    pub use_async: bool,
+    /// Configure which user handlers return immediate response or answer later by using request id.
+    pub method_model: MethodModel,
+    /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
+    pub property_model: PropertyModel,
+    /// Path to the user struct on which server dispatcher method will be implemented (process_request_bytes).
+    /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
+    pub server_struct_path: Path,
+    /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
+    pub generate_introspect: bool,
+}
+
+pub fn gen_server(api_bundle: &ApiBundleOwned, config: GenServerConfig) -> TokenStream {
     let additional_use = maybe_quote(
-        no_alloc,
+        config.no_alloc,
         quote! { use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
     );
-    let maybe_async = maybe_quote(use_async, quote! { async });
-    let maybe_await = maybe_quote(use_async, quote! { .await });
+    let maybe_async = maybe_quote(config.use_async, quote! { async });
+    let maybe_await = maybe_quote(config.use_async, quote! { .await });
     let mut error_seq = ErrorSeq::default();
     let api_level = &api_bundle.root;
     let deferred_return_methods = deferred_method_return_ser_methods(
         api_bundle,
         api_level,
-        no_alloc,
-        method_model,
+        config.no_alloc,
+        &config.method_model,
         &mut error_seq,
     );
     let crate_name = api_level.crate_name(api_bundle).unwrap();
     let cx = ApiServerCGContext {
         ident_prefix: None,
-        no_alloc,
-        use_async,
-        method_model,
-        property_model,
+        no_alloc: config.no_alloc,
+        use_async: config.use_async,
+        method_model: &config.method_model,
+        property_model: &config.property_model,
     };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
-        generate_introspect,
+        config.generate_introspect,
         cx.use_async,
         &mut error_seq,
     );
@@ -71,7 +78,7 @@ pub fn impl_server_dispatcher(
         api_level,
         IndexChain::new(),
         crate_name,
-        no_alloc,
+        config.no_alloc,
         true,
     );
     let mut args_structs = TokenStream::new();
@@ -80,11 +87,12 @@ pub fn impl_server_dispatcher(
         api_bundle,
         api_level,
         crate_name,
-        no_alloc,
+        config.no_alloc,
         &mut seen,
         &mut args_structs,
     );
     let es = error_seq.next_err();
+    let server_struct_path = config.server_struct_path;
     quote! {
         #args_structs
 
@@ -96,10 +104,10 @@ pub fn impl_server_dispatcher(
         #additional_use
         #api_signature
 
-        impl super::#context_ident {
+        impl #server_struct_path {
             /// Returns an Error only if request deserialization or error serialization failed.
             /// If there are any other errors, they are returned to the remote caller.
-            pub #maybe_async fn #handler_ident<'a>(
+            pub #maybe_async fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch_args: &'a mut [u8],

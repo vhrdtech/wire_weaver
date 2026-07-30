@@ -9,21 +9,34 @@ use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::LitStr;
+use syn::{LitStr, Path};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
     PropertyAccess, TypeOwned,
 };
 
+pub struct GenClientConfig {
+    /// Kind of client to generate.
+    pub model: ClientModel,
+    /// 'impl <client_struct_path> { client methods }' code will be generated.
+    /// Pass e.g., "crate::MyDeviceClient".
+    pub client_struct_path: Path,
+    /// Whether to generate init code for USB clients (connect, connect_blocking methods).
+    pub usb_connect: bool,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum ClientModel {
     /// Prepare ww_client_server::Request and return it.
     /// Generates no_std, no_alloc and sync code.
+    /// Currently NOT working.
     Raw,
     /// Prepare ww_client_server::Request, convert it to RequestOwned and
     /// send through wire_weaver_client_common::CommandSender to a worker thread.
-    /// Generates std, async code that allocates.
+    /// Generates std, sync + async code that allocates.
     StdFullClient,
+    /// Similar to StdFullClient, but uses different addressing mode starting from traits, and not API root.
+    /// Useful when generating client code for traits, e.g., for Gpio, regardless of where it actually might be implemented.
     StdTraitClient,
 }
 
@@ -46,14 +59,9 @@ pub(crate) enum ClientPathMode {
     GlobalTrait,
 }
 
-pub fn client(
-    api_bundle: &ApiBundleOwned,
-    model: ClientModel,
-    client_struct: &Ident,
-    usb_connect: bool,
-) -> TokenStream {
+pub fn gen_client(api_bundle: &ApiBundleOwned, config: GenClientConfig) -> TokenStream {
     let additional_use = if matches!(
-        model,
+        config.model,
         ClientModel::StdFullClient | ClientModel::StdTraitClient
     ) {
         quote! { use wire_weaver_client_common::ww_client_server::PathKind; }
@@ -61,17 +69,18 @@ pub fn client(
         quote! {}
     };
     let api_level = &api_bundle.root;
-    let hl_init = if model == ClientModel::StdFullClient {
-        let d = connect_disconnect_methods(usb_connect, api_bundle);
+    let client_struct_path = config.client_struct_path;
+    let hl_init = if config.model == ClientModel::StdFullClient {
+        let d = connect_disconnect_methods(config.usb_connect, api_bundle);
         quote! {
-            impl super::#client_struct {
+            impl #client_struct_path {
                 #d
             }
         }
     } else {
         quote! {}
     };
-    let path_mode = if matches!(model, ClientModel::StdTraitClient) {
+    let path_mode = if matches!(config.model, ClientModel::StdTraitClient) {
         ClientPathMode::GlobalTrait
     } else {
         ClientPathMode::Absolute
@@ -85,9 +94,9 @@ pub fn client(
         api_level,
         IndexChain::new(),
         crate_name,
-        model,
+        config.model,
         path_mode,
-        Some(client_struct),
+        Some(&client_struct_path),
     );
     quote! {
         use wire_weaver::shrink_wrap::{
@@ -121,7 +130,7 @@ fn client_structs_recursive(
     crate_name: &str,
     model: ClientModel,
     path_mode: ClientPathMode,
-    is_at_root: Option<&Ident>,
+    is_at_root: Option<&Path>,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
@@ -198,9 +207,16 @@ fn client_structs_recursive(
         }
     };
 
-    let impl_new_or_user_struct = if let Some(client_struct) = is_at_root {
+    let impl_new_or_user_struct = if let Some(client_struct_path) = is_at_root {
+        let path = if let Some(first) = client_struct_path.segments.first()
+            && first.ident == "super"
+        {
+            quote! { super::#client_struct_path }
+        } else {
+            quote! { #client_struct_path }
+        };
         quote! {
-            impl super::super::#client_struct {
+            impl #path {
                 #methods
                 #attachment
             }

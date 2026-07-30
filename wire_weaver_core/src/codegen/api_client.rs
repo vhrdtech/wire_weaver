@@ -580,51 +580,93 @@ fn ser_args(
     }
 }
 
+fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
+    let maybe_async = maybe_quote(is_async, quote! { async });
+    let maybe_await = maybe_quote(is_async, quote! { .await });
+    let fn_name = if is_async {
+        quote! { connect }
+    } else {
+        quote! { connect_blocking }
+    };
+    let api_crate_name = api_bundle.root.crate_name(api_bundle).unwrap();
+    let trait_name = api_bundle.root.trait_name.to_case(Case::Constant);
+    let full_gid_const = format!("{trait_name}_FULL_GID");
+    let full_gid_const = Ident::new(&full_gid_const, Span::call_site());
+    let api_crate_name = Ident::new(api_crate_name, Span::call_site());
+    let raw_connect_fn = if is_async {
+        quote! { connect_raw }
+    } else {
+        quote! { connect_raw_blocking }
+    };
+    quote! {
+        pub #maybe_async fn #fn_name(
+                filter: wire_weaver_client_common::DeviceFilter,
+                on_error: wire_weaver_client_common::OnError
+        ) -> Result<Self, wire_weaver_client_common::Error> {
+            Self::#raw_connect_fn(
+                filter,
+                #api_crate_name::#full_gid_const,
+                on_error,
+                std::time::Duration::from_secs(1),
+            )
+            #maybe_await
+        }
+    }
+}
+
+fn usb_connect_fn(is_async: bool) -> TokenStream {
+    let maybe_async = maybe_quote(is_async, quote! { async });
+    let maybe_await = maybe_quote(is_async, quote! { .await });
+    let cmd_connect_fn = if is_async {
+        quote! { connect }
+    } else {
+        quote! { connect_blocking }
+    };
+    let connect_fn = if is_async {
+        quote! { connect_raw }
+    } else {
+        quote! { connect_raw_blocking }
+    };
+    quote! {
+        pub #maybe_async fn #connect_fn(
+            filter: wire_weaver_client_common::DeviceFilter,
+            api_version: wire_weaver::ww_version::FullVersion<'static>,
+            on_error: wire_weaver_client_common::OnError,
+            local_timeout: std::time::Duration,
+        ) -> Result<Self, wire_weaver_client_common::Error> {
+            use tokio::sync::mpsc;
+            let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+            let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx);
+            cmd_tx.set_local_timeout(local_timeout);
+            tokio::spawn(async move {
+                wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
+            });
+            cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
+            cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
+            Ok(Self {
+                cmd_tx,
+            })
+        }
+    }
+}
+
 fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
     let (ww_self_bytes_const, api_signature_bytes) = introspect_prepare(api_bundle);
-    let connect_fn = |is_async: bool| {
-        let maybe_async = maybe_quote(is_async, quote! { async });
-        let maybe_await = maybe_quote(is_async, quote! { .await });
-        let cmd_connect_fn = if is_async {
-            quote! { connect }
-        } else {
-            quote! { connect_blocking }
-        };
-        let connect_fn = if is_async {
-            quote! { connect_raw }
-        } else {
-            quote! { connect_raw_blocking }
-        };
-        quote! {
-            pub #maybe_async fn #connect_fn(
-                filter: wire_weaver_client_common::DeviceFilter,
-                api_version: wire_weaver::ww_version::FullVersion<'static>,
-                on_error: wire_weaver_client_common::OnError,
-                local_timeout: std::time::Duration,
-            ) -> Result<Self, wire_weaver_client_common::Error> {
-                use tokio::sync::mpsc;
-                let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
-                let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx);
-                cmd_tx.set_local_timeout(local_timeout);
-                tokio::spawn(async move {
-                    wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
-                });
-                cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
-                cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
-                Ok(Self {
-                    cmd_tx,
-                })
-            }
-        }
+    let (usb_connect_fn_raw, usb_connect_blocking_raw) = if usb_connect {
+        (usb_connect_fn(true), usb_connect_fn(false))
+    } else {
+        (quote! {}, quote! {})
     };
-    let (connect_async, connect_blocking) = if usb_connect {
-        (connect_fn(true), connect_fn(false))
+    let (connect_fn, connect_fn_blocking) = if usb_connect {
+        (connect_fn(true, api_bundle), connect_fn(false, api_bundle))
     } else {
         (quote! {}, quote! {})
     };
     quote! {
-        #connect_async
-        #connect_blocking
+        #connect_fn
+        #connect_fn_blocking
+        #usb_connect_fn_raw
+        #usb_connect_blocking_raw
 
         fn introspect_bytes() -> &'static [u8] {
             const WW_SELF_BYTES: #ww_self_bytes_const;

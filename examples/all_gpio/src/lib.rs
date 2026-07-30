@@ -1,5 +1,4 @@
-use std::time::Duration;
-use wire_weaver_client_common::{CommandSender, DeviceInfoBundle, Error};
+use wire_weaver_client_common::{CommandSender, DeviceInfoBundle};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct AllGpio {
@@ -7,25 +6,6 @@ pub struct AllGpio {
 }
 
 impl AllGpio {
-    pub async fn connect(filter: DeviceFilter, on_error: OnError) -> Result<Self, Error> {
-        AllGpio::connect_raw(
-            filter,
-            all_gpio_api::ALL_GPIO_API_FULL_GID,
-            on_error,
-            Duration::from_secs(1),
-        )
-        .await
-    }
-
-    pub fn connect_blocking(filter: DeviceFilter, on_error: OnError) -> Result<Self, Error> {
-        AllGpio::connect_raw_blocking(
-            filter,
-            all_gpio_api::ALL_GPIO_API_FULL_GID,
-            on_error,
-            Duration::from_secs(1),
-        )
-    }
-
     pub fn info(&self) -> &DeviceInfoBundle {
         self.cmd_tx.info()
     }

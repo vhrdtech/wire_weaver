@@ -29,7 +29,7 @@ pub trait Indication {
 #[derive_shrink_wrap]
 #[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Mode {
     AllOff,
     OnlyEssential,
@@ -40,7 +40,7 @@ pub enum Mode {
 #[derive_shrink_wrap]
 #[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Brightness {
     /// Night mode, non-distracting
     Lowest,
@@ -59,7 +59,7 @@ pub enum Brightness {
 #[derive_shrink_wrap]
 #[ww_repr(nib)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum AlertBrightness {
     /// Highest setting of [Brightness](Brightness)
     Max,
@@ -74,7 +74,7 @@ pub enum AlertBrightness {
 #[ww_repr(nib)]
 #[owned = "std"]
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum TestMode<'name> {
     Off,
     AllOn,

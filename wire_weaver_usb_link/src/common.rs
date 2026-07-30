@@ -1,4 +1,4 @@
-use crate::{ReceiverStats, SenderStats, MIN_MESSAGE_SIZE};
+use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
@@ -11,6 +11,7 @@ use wire_weaver::ww_version::CompactVersion;
 //
 // To ensure backward and forward format compatibility, there is a link setup phase, during which user protocol,
 // this link version and buffer sizes are exchanged.
+#[allow(dead_code)] // ignore warnings when running cargo check --all-features
 pub struct WireWeaverUsbLink<'i, T, R> {
     // Link info and status
     /// User-defined data types and API, also indirectly points to `ww_client_server` version

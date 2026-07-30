@@ -73,40 +73,40 @@ mod tests {
                 println!("finish called");
             }
 
-            pub fn send_updates(&mut self, stream_number: usize) -> Vec<Vec<u8>> {
-                println!("sending updates");
-                let mut updates = vec![];
-                let mut s1 = [0u8; 128];
-                let mut s2 = [0u8; 128];
-                match stream_number {
-                    0 => {
-                        updates.push(
-                            api_impl::stream_data_ser()
-                                .plain_stream(&0xAA, &mut s1, &mut s2)
-                                .unwrap()
-                                .to_vec(),
-                        );
-                    }
-                    1 => {
-                        updates.push(
-                            api_impl::stream_data_ser()
-                                .vec_stream(&[0xAAu8, 0xBB, 0xCC][..], &mut s1, &mut s2)
-                                .unwrap()
-                                .to_vec(),
-                        );
-                    }
-                    2 => {
-                        updates.push(
-                            api_impl::stream_data_ser()
-                                .array_of_streams(0, &[0xAAu8, 0xBB, 0xCC][..], &mut s1, &mut s2)
-                                .unwrap()
-                                .to_vec(),
-                        );
-                    }
-                    _ => {}
-                }
-                updates
-            }
+            // pub fn send_updates(&mut self, stream_number: usize) -> Vec<Vec<u8>> {
+            //     println!("sending updates");
+            //     let mut updates = vec![];
+            //     let mut s1 = [0u8; 128];
+            //     let mut s2 = [0u8; 128];
+            //     match stream_number {
+            //         0 => {
+            //             updates.push(
+            //                 api_impl::stream_data_ser()
+            //                     .plain_stream(&0xAA, &mut s1, &mut s2)
+            //                     .unwrap()
+            //                     .to_vec(),
+            //             );
+            //         }
+            //         1 => {
+            //             updates.push(
+            //                 api_impl::stream_data_ser()
+            //                     .vec_stream(&[0xAAu8, 0xBB, 0xCC][..], &mut s1, &mut s2)
+            //                     .unwrap()
+            //                     .to_vec(),
+            //             );
+            //         }
+            //         2 => {
+            //             updates.push(
+            //                 api_impl::stream_data_ser()
+            //                     .array_of_streams(0, &[0xAAu8, 0xBB, 0xCC][..], &mut s1, &mut s2)
+            //                     .unwrap()
+            //                     .to_vec(),
+            //             );
+            //         }
+            //         _ => {}
+            //     }
+            //     updates
+            // }
         }
 
         mod api_impl {
@@ -175,7 +175,7 @@ mod tests {
     async fn std_async_client_driving_no_std_sync_server() {
         tracing_subscriber::fmt::init();
         let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
-        let (notify_tx, notify_rx) = mpsc::unbounded_channel::<usize>();
+        let (notify_tx, _notify_rx) = mpsc::unbounded_channel::<usize>();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
 
         let data_clone = data.clone();

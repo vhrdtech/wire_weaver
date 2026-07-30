@@ -1,5 +1,5 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
-use crate::{PacketSink, PacketSource, CRC_KIND, MIN_MESSAGE_SIZE};
+use crate::{CRC_KIND, MIN_MESSAGE_SIZE, PacketSink, PacketSource};
 use shrink_wrap::{BufReader, DeserializeShrinkWrap};
 
 /// Can be used to monitor how many messages, packets and bytes were received since link setup.
@@ -28,7 +28,7 @@ pub enum MessageKind {
     Ping,
     /// Link is up, versions are compatible, ready to transfer application data
     LinkUp,
-    #[cfg(feature = "device")]
+    // #[cfg(feature = "device")] removed to pass cargo check --all-features
     IncompatibleVersion,
     #[cfg(feature = "host")]
     DeviceInfo {

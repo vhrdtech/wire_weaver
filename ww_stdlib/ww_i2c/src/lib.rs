@@ -3,18 +3,7 @@
 use wire_weaver::prelude::*;
 
 #[ww_trait]
-pub trait ApiRoot {
-    // impl_!(FirmwareUpdate);
-    // impl_!(FirmwareInfo);
-    // impl_!(BoardInfo);
-    // impl_!(IndicationControl);
-    // impl_!(Counters);
-    // impl_!(LogDefmt);
-
-    // property!(config, Config);
-
-    // TODO: use u7 addresses
-
+pub trait I2c {
     /// Query I2C bus capabilities supported by the adapter.
     fn i2c_capabilities() -> I2cCapabilities;
 
@@ -50,6 +39,10 @@ pub trait ApiRoot {
 
     /// Scan for devices on the bus and return address of devices that ACKed 1 byte read transaction.
     fn i2c_scan() -> Result<Vec<u8>, I2cError>;
+
+    // property!(config, Config);
+
+    // TODO: use u7 addresses
 
     // Perform several read transactions before condition is met or timeout occurs.
     // Can be used to speed up communications by avoiding repeated command-response cycles.
@@ -94,9 +87,9 @@ pub struct I2cTransactionTimeRange {
     pub end: RawTimestamp,
 }
 
-pub struct I2cReadEnvelope {
+pub struct I2cReadEnvelope<'i> {
     pub duration: I2cTransactionTimeRange,
-    pub data: Vec<u8>,
+    pub data: RefVec<'i, u8>,
 }
 
 #[derive_shrink_wrap]
@@ -113,9 +106,9 @@ pub struct I2cCycleSlot {
     pub slot_idx: u16,
 }
 
-pub struct I2cCycleRead {
+pub struct I2cCycleRead<'i> {
     pub slot: I2cCycleSlot,
-    pub result: Result<I2cReadEnvelope, I2cError>,
+    pub result: Result<I2cReadEnvelope<'i>, I2cError>,
 }
 
 #[derive_shrink_wrap]
@@ -169,9 +162,9 @@ pub enum I2cMode {
     // PMBus,
 }
 
-pub struct I2cCapabilities {
+pub struct I2cCapabilities<'i> {
     /// Supported discrete IO levels, e.g. 1V8, 3V3
-    pub supported_io_levels_mv: Vec<u16>,
+    pub supported_io_levels_mv: RefVec<'i, u16>,
     /// Supported IO levels range, if e.g. adjustable LDO is available
     pub supported_io_range_mv_min: Option<u16>, // TODO: replace with tuple when supported
     pub supported_io_range_mv_max: Option<u16>,
@@ -184,7 +177,7 @@ pub struct I2cCapabilities {
 
     pub cycle_slots_count: u32,
 
-    pub driver_name: String,
+    pub driver_name: &'i str,
 
     pub master_supported: bool,
     pub slave_supported: bool,

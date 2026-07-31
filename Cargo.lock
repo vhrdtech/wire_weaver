@@ -111,6 +111,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "array_of_streams"
 version = "0.1.0"
 dependencies = [
+ "array_of_streams_api",
  "tests_common",
  "wire_weaver",
  "ww_client_server",

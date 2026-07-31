@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Path, PathArguments, PathSegment};
-use ww_self::ApiLevelOwned;
+use ww_self::{ApiBundleOwned, ApiLevelOwned};
 
 pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream {
     if condition {
@@ -31,7 +31,8 @@ impl ErrorSeq {
     }
 }
 
-pub(crate) fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
+pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {
+    let crate_name = api_level.crate_name(api_bundle).unwrap();
     Ident::new(
         format!(
             "{}_{}",
@@ -41,6 +42,19 @@ pub(crate) fn mod_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
         .as_str(),
         Span::call_site(),
     )
+}
+
+pub(crate) fn source_marker(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> TokenStream {
+    let crate_name = api_level.crate_name(api_bundle).unwrap();
+    let crate_name = Ident::new(crate_name, Span::call_site());
+    let trait_full_gid = Ident::new(
+        &format!("{}_FULL_GID", api_level.trait_name).to_case(Case::Constant),
+        Span::call_site(),
+    );
+    quote! {
+        #[allow(unused_imports)]
+        use #crate_name::#trait_full_gid as _SOURCE_MARKER;
+    }
 }
 
 pub(crate) fn str_to_path(path: &str) -> Path {

@@ -29,8 +29,7 @@ pub(crate) fn stream_ser_methods_recursive(
 
         if let ApiItemKindOwned::Trait { trait_idx } = &item.kind {
             let child_level = bundle.get_trait(trait_idx.0).unwrap();
-            let crate_name = child_level.crate_name(bundle).unwrap();
-            let child_struct_name = stream_ser_struct_name(crate_name, child_level);
+            let child_struct_name = stream_ser_struct_name(child_level, bundle);
 
             index_chain.increment_length();
             if is_array {
@@ -111,7 +110,7 @@ pub(crate) fn stream_ser_methods_recursive(
         });
     }
 
-    let ser_struct_name = stream_ser_struct_name(crate_name, level);
+    let ser_struct_name = stream_ser_struct_name(level, bundle);
     let root_entry_fn = maybe_quote(
         is_root,
         quote! {
@@ -151,8 +150,8 @@ fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> Toke
     }
 }
 
-fn stream_ser_struct_name(crate_name: &str, api_level: &ApiLevelOwned) -> Ident {
-    let mod_name = util::mod_name(crate_name, api_level);
+fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {
+    let mod_name = util::mod_name(api_level, api_bundle);
     Ident::new(
         format!("{}_stream_serializer", mod_name)
             .to_case(Case::Pascal)

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use wire_weaver::prelude::*;
     use wire_weaver::MessageSink;
+    use wire_weaver::prelude::*;
     use ww_client_server::{Event, EventKind};
     use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 
@@ -14,7 +14,7 @@ mod tests {
         use wire_weaver::MessageSink;
 
         wire_weaver::ww_codegen!(
-            "../array_of_streams_api" :: ArrayOfStreams for NoStdSyncServer,
+            array_of_streams_api :: ArrayOfStreams for NoStdSyncServer,
             server = true, no_alloc = true, use_async = false,
             method_model = "_=immediate",
             property_model = "_=get_set",

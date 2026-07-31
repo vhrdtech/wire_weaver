@@ -128,7 +128,6 @@ pub fn gen_server(
     args_structs_recursive(
         api_bundle,
         api_level,
-        crate_name,
         config.no_alloc,
         &mut seen,
         &mut args_structs,
@@ -749,12 +748,11 @@ fn handle_stream(
 fn args_structs_recursive(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
-    crate_name: &str,
     no_alloc: bool,
     seen: &mut Vec<Ident>,
     ts: &mut TokenStream,
 ) {
-    let mod_name = util::mod_name(crate_name, api_level);
+    let mod_name = util::mod_name(api_level, api_bundle);
     if !seen.contains(&mod_name) {
         let args_structs = api_common::args_structs(api_bundle, api_level, no_alloc);
         ts.extend(quote! {
@@ -770,8 +768,7 @@ fn args_structs_recursive(
             continue;
         };
         let level = item.get_as_level(api_bundle).unwrap();
-        let crate_name = level.crate_name(api_bundle).unwrap();
-        args_structs_recursive(api_bundle, level, crate_name, no_alloc, seen, ts);
+        args_structs_recursive(api_bundle, level, no_alloc, seen, ts);
     }
 }
 

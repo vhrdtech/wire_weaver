@@ -74,7 +74,7 @@ mod tests {
 
         mod api_impl {
             wire_weaver::ww_codegen!(
-                "../traits_api" :: Traits for super::NoStdSyncServer,
+                traits_api :: Traits for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
@@ -93,7 +93,7 @@ mod tests {
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                "../traits_api" :: Traits for super::StdAsyncClient,
+                traits_api :: Traits for super::StdAsyncClient,
                 client = "full_client",
                 // debug_to_file = "../../target/tests_traits_client.rs"
             );

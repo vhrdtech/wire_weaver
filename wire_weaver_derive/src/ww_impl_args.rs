@@ -1,10 +1,10 @@
 use darling::FromMeta;
 use darling::ast::NestedMeta;
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, LitStr, Path, Result, Token};
+use syn::{Ident, Path, Result, Token};
 
 pub(crate) struct ApiArgs {
-    pub(crate) location: LitStr,
+    pub(crate) dep_name: Ident,
     _colon_colon: Token![::],
     pub(crate) trait_name: Ident,
     _for: Token![for],
@@ -42,7 +42,7 @@ pub(crate) struct ImplExtArgs {
 impl Parse for ApiArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(ApiArgs {
-            location: input.parse()?,
+            dep_name: input.parse()?,
             _colon_colon: input.parse()?,
             trait_name: input.parse()?,
             _for: input.parse()?,

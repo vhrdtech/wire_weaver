@@ -119,14 +119,12 @@ pub fn gen_client(
         ClientPathMode::Absolute
     };
 
-    let crate_name = api_level.crate_name(api_bundle).unwrap();
     // let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
     // let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
     let trait_clients = client_structs_recursive(
         api_bundle,
         api_level,
         IndexChain::new(),
-        crate_name,
         config.model,
         path_mode,
         Some(&client_struct_path),
@@ -164,7 +162,6 @@ fn client_structs_recursive(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &str,
     model: ClientModel,
     path_mode: ClientPathMode,
     is_at_root: Option<&Path>,
@@ -172,7 +169,8 @@ fn client_structs_recursive(
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
 
-    let mod_name = util::mod_name(crate_name, api_level);
+    let crate_name = api_level.crate_name(api_bundle).unwrap();
+    let mod_name = util::mod_name(api_level, api_bundle);
     let client_struct_name = client_struct_name(&mod_name.to_string());
     let full_gid = Ident::new(
         format!("{}_FULL_GID", api_level.trait_name)
@@ -218,7 +216,6 @@ fn client_structs_recursive(
             api_bundle,
             level,
             index_chain,
-            level.crate_name(api_bundle).unwrap(),
             model,
             path_mode,
             None,
@@ -271,8 +268,10 @@ fn client_structs_recursive(
             }
         }
     };
+    let source_marker = util::source_marker(api_level, api_bundle);
     ts.extend(quote! {
         mod #mod_name {
+            #source_marker
             use super::*;
 
             use wire_weaver::shrink_wrap::prelude::*;
@@ -371,8 +370,7 @@ fn level_method(
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
-            let crate_name = level.crate_name(api_bundle).unwrap();
-            let mod_name = util::mod_name(crate_name, level);
+            let mod_name = util::mod_name(level, api_bundle);
             let client_struct_name = client_struct_name(&mod_name.to_string());
             quote! {
                 pub fn #level_entry_fn_name(&self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {

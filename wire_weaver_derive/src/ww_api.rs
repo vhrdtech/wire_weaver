@@ -1,12 +1,14 @@
 use crate::ww_impl_args::ApiArgs;
+use convert_case::Casing;
 use proc_macro2::{Span, TokenStream};
-use quote::TokenStreamExt;
+use quote::{TokenStreamExt, quote};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::GenServerConfigRaw;
-use wire_weaver_core::load;
+use wire_weaver_core::load_dep;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
@@ -23,14 +25,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
-    let path = PathBuf::from(args.location.value());
-    let path = if path.is_relative() {
-        manifest_dir.join(path)
-    } else {
-        path
-    };
-    let api_bundle =
-        load(&path, Some(args.trait_name.to_string()), false).map_err(|e| format!("{e:?}"))?;
+    let api_bundle = load_dep(args.dep_name.to_string(), Some(args.trait_name.to_string()))
+        .map_err(|e| format!("{e:?}"))?;
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {
@@ -51,7 +47,19 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             .map_err(|e| format!("failed to parse method model: {e}"))?
     };
 
-    let mut codegen_ts = TokenStream::new();
+    // emit marker with correct spans to help IDEs navigate back to the source
+    let dep_name = args.dep_name;
+    let full_gid_const = Ident::new(
+        format!("{}_FULL_GID", args.trait_name.to_string())
+            .to_case(convert_case::Case::Constant)
+            .as_str(),
+        args.trait_name.span(),
+    );
+    let mut codegen_ts = quote! {
+        pub use #dep_name :: #full_gid_const as _SOURCE_MARKER;
+    };
+
+    // generate server code if requested
     if args.ext.server {
         let ts = gen_server(
             &api_bundle,
@@ -67,6 +75,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         codegen_ts.append_all(ts);
     }
 
+    // generate client code if requested
     if !args.ext.client.is_empty() {
         let client = args.ext.client.split(&['+', ' ']).collect::<Vec<_>>();
         let mut usb_connect = false;
@@ -97,6 +106,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         codegen_ts.append_all(ts);
     }
 
+    // save debug output to file if requested
     if !args.ext.debug_to_file.is_empty() {
         let path = manifest_dir.join(&args.ext.debug_to_file);
         if let Some(p) = path.parent()

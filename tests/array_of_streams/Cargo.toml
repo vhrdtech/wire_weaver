@@ -7,6 +7,7 @@ edition = "2024"
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 tests_common = { path = "../tests_common" }
+array_of_streams_api = { path = "../array_of_streams_api" }
 
 [features]
 default = ["std"]

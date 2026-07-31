@@ -115,7 +115,7 @@ mod tests {
             use wire_weaver::MessageSink;
 
             wire_weaver::ww_codegen!(
-                "../streams_api" :: Streams for NoStdSyncServer,
+                streams_api :: Streams for NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
@@ -151,7 +151,7 @@ mod tests {
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                "../streams_api" :: Streams for super::StdAsyncClient,
+                streams_api :: Streams for super::StdAsyncClient,
                 client = "full_client",
                 // debug_to_file = "../../target/tests_streams_client.rs"
             );

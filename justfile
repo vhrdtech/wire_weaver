@@ -11,6 +11,8 @@ check: check-core check-mcu check-examples-mcu
 check-core:
     @just header "Checking core"
     @cargo check
+    # check wire_weaver_usb_link with actual features to be used
+    @cargo check -p wire_weaver_usb_link --features=device,host,defmt
 
 # cargo check mcu workspace
 [working-directory('mcu')]

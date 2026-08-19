@@ -125,6 +125,7 @@ pub trait CANBusInterface {
     //fn tx_dedicated_pend(slot: u16) -> Result<(), E>;
     //fn tx_dedicated_periodic(slot: u16, period: Microseconds) -> Result<(), E>;
 
+    // TODO: change to array of streams?
     // RX FIFO or Queue 0
     stream!(rx_buffer0: CANEnvelope<'i>);
     // RX FIFO or Queue 1
@@ -132,10 +133,12 @@ pub trait CANBusInterface {
     // Dedicated RX buffer
     stream!(rx_dedicated: CANEnvelope<'i>); // need slot here and don't need ID
 
+    // TODO: move to capabilities
     /// Returns the list of supported termination values, in Ohms.
     /// Must return an empty list if fixed value is set in hardware or via mechanical switch.
     fn supported_termination_values() -> RefVec<'i, u16 /*Ohms*/>;
 
+    // TODO: change to property
     /// Returns current termination value, if any.
     /// This method must return Some(value) if it is fixed in hardware or via mechanical switch.
     fn current_termination_value() -> Option<u16>;
@@ -146,6 +149,7 @@ pub trait CANBusInterface {
     /// Interface capabilities
     fn capabilities() -> CANCapabilities;
 
+    // TODO: merge with capabilities
     /// Interface performance metrics. Can be None if group one is Some - interfaces performance depend on each other, so only
     /// the combined performance makes sense.
     fn performance() -> Option<CANInterfacePerformance>;

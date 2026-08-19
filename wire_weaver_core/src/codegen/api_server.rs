@@ -96,7 +96,6 @@ pub fn gen_server(
         ident_prefix: None,
         no_alloc: config.no_alloc,
         use_async: config.use_async,
-        method_model: &config.method_model,
         property_model: &config.property_model,
     };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
@@ -137,6 +136,8 @@ pub fn gen_server(
     quote! {
         #args_structs
 
+        #[allow(unused_imports)]
+        use wire_weaver::RpcResult;
         #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
@@ -199,7 +200,6 @@ struct ApiServerCGContext<'i> {
     ident_prefix: Option<String>,
     no_alloc: bool,
     use_async: bool,
-    method_model: &'i MethodModel,
     property_model: &'i PropertyModel,
 }
 
@@ -459,15 +459,14 @@ fn handle_method(
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
-    let maybe_let_output = if let Some(ty) = return_type {
+    let maybe_enforce_ty = if let Some(ty) = return_type {
         let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
         quote! {
-            let output: #enforce_ty =
+            let output: #enforce_ty = output;
         }
     } else {
         quote! {}
     };
-    // let maybe_let_output = maybe_quote(return_type.is_some(), quote! { let output = });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
 
     let (args_des, args_list) = des_args(mod_ident, ident, args, cx.no_alloc, error_seq);
@@ -479,24 +478,24 @@ fn handle_method(
 
     let ser_output_or_unit = ser_method_output(return_type, quote! { request.seq }, error_seq);
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
-    let call_and_handle_deferred = match cx.method_model.pick(ident.to_string().as_str()).unwrap() {
-        MethodModelKind::Immediate => quote! {
-            #maybe_let_output self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await;
-            if request.seq != 0 {
-                #ser_output_or_unit
-            } else {
-                Ok(&[])
-            }
-        },
-        MethodModelKind::Deferred => quote! {
-            let output = match self.#ident(msg_tx, #maybe_index_chain_arg request.seq, #args_list)#maybe_await {
-                Some(o) => o,
-                None => {
-                    return Ok(&[])
+    let es = error_seq.next_err();
+    let call_and_handle = quote! {
+        match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
+            RpcResult::Ready(output) => {
+                if request.seq != 0 {
+                    #maybe_enforce_ty
+                    #ser_output_or_unit
+                } else {
+                    Ok(&[])
                 }
-            };
-            #ser_output_or_unit
-        },
+            },
+            RpcResult::Deferred => {
+                return Ok(&[])
+            }
+            RpcResult::Unimplemented => {
+                return Err(Error::unimplemented(#es))
+            }
+        }
     };
 
     let es = error_seq.next_err();
@@ -504,7 +503,7 @@ fn handle_method(
         match &request.kind {
             RequestKind::Call { #is_args } => {
                 #args_des
-                #call_and_handle_deferred
+                #call_and_handle
             }
             _ => {
                 Err(Error::not_supported(#es))
@@ -740,7 +739,7 @@ fn handle_stream(
     quote! {
         match &request.kind {
             #specific_ops
-            _ => { Err(Error::new(#es, ErrorKind::OperationNotImplemented)) }
+            _ => { Err(Error::new(#es, ErrorKind::Unimplemented)) }
         }
     }
 }

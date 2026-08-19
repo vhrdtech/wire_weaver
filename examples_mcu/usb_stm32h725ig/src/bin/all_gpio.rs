@@ -8,13 +8,13 @@ use defmt_rtt as _;
 use embassy_stm32::pac::gpio::Gpio;
 use embassy_stm32::pac::{GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH, GPIOJ, GPIOK};
 use embassy_stm32::time::mhz;
-use embassy_stm32::{bind_interrupts, peripherals::USB_OTG_HS, usb, usb::Driver, Config};
+use embassy_stm32::{Config, bind_interrupts, peripherals::USB_OTG_HS, usb, usb::Driver};
 use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
+use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
@@ -58,7 +58,7 @@ struct ServerState {
 
 mod server_impl {
     wire_weaver::ww_codegen!(
-        "../../examples/all_gpio_api" :: AllGpioApi for ServerState,
+        all_gpio_api :: AllGpioApi for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
@@ -187,8 +187,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-    ) -> BankCapabilities<'_> {
-        BankCapabilities {
+    ) -> RpcResult<BankCapabilities<'_>> {
+        Ready(BankCapabilities {
             voltage: RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
             },
@@ -199,7 +199,7 @@ impl ServerState {
             custom_mode: Default::default(),
             custom_pull: Default::default(),
             custom_speed: Default::default(),
-        }
+        })
     }
 
     async fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> Volt {
@@ -214,8 +214,12 @@ impl ServerState {
         Err(Error::UnsupportedReferenceVoltage)
     }
 
-    async fn port_name(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) -> &'_ str {
-        match index[0].0 {
+    async fn port_name(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        index: [UNib32; 1],
+    ) -> RpcResult<&'_ str> {
+        let name = match index[0].0 {
             0 => "PA",
             1 => "PB",
             2 => "PC",
@@ -227,7 +231,8 @@ impl ServerState {
             8 => "PJ",
             9 => "PK",
             _ => "",
-        }
+        };
+        Ready(name)
     }
 
     async fn port_pin_set_output_level(
@@ -235,7 +240,7 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         index: [UNib32; 2],
         level: Level,
-    ) {
+    ) -> RpcResult<()> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let odr = self.bank[bank_idx].odr();
@@ -245,23 +250,29 @@ impl ServerState {
             Odr::LOW
         };
         odr.modify(|o| o.set_odr(pin_idx, level));
+        Ready(())
     }
 
     async fn port_pin_output_level(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         index: [UNib32; 2],
-    ) -> Level {
+    ) -> RpcResult<Level> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let odr = self.bank[bank_idx].odr().read().odr(pin_idx);
-        match odr {
+        let level = match odr {
             Odr::HIGH => Level::High,
             Odr::LOW => Level::Low,
-        }
+        };
+        Ready(level)
     }
 
-    async fn port_pin_toggle(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 2]) {
+    async fn port_pin_toggle(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        index: [UNib32; 2],
+    ) -> RpcResult<()> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let odr = self.bank[bank_idx].odr().read().odr(pin_idx);
@@ -272,20 +283,22 @@ impl ServerState {
         self.bank[bank_idx]
             .odr()
             .modify(|o| o.set_odr(pin_idx, odr));
+        Ready(())
     }
 
     async fn port_pin_input_level(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         index: [UNib32; 2],
-    ) -> Level {
+    ) -> RpcResult<Level> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let idr = self.bank[bank_idx].idr().read().idr(pin_idx);
-        match idr {
+        let level = match idr {
             Idr::HIGH => Level::High,
             Idr::LOW => Level::Low,
-        }
+        };
+        Ready(level)
     }
 
     async fn event_sideband(
@@ -303,7 +316,7 @@ impl ServerState {
         index: [UNib32; 2],
         mode: Mode,
         initial: Option<Level>,
-    ) -> Result<(), Error> {
+    ) -> RpcResult<Result<(), Error>> {
         if let Some(initial) = initial {
             self.port_pin_set_output_level(_msg_tx, index, initial)
                 .await;
@@ -325,19 +338,23 @@ impl ServerState {
             Mode::Input => Moder::INPUT,
             Mode::HighZ => Moder::ANALOG,
             Mode::Analog => Moder::ANALOG,
-            Mode::Custom(_) => return Err(Error::UnsupportedMode),
+            Mode::Custom(_) => return Ready(Err(Error::UnsupportedMode)),
         };
         self.bank[bank_idx]
             .moder()
             .modify(|m| m.set_moder(pin_idx, mode));
-        Ok(())
+        Ready(Ok(()))
     }
 
-    async fn port_pin_mode(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 2]) -> Mode {
+    async fn port_pin_mode(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        index: [UNib32; 2],
+    ) -> RpcResult<Mode> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let mode = self.bank[bank_idx].moder().read().moder(pin_idx);
-        match mode {
+        let mode = match mode {
             Moder::INPUT => Mode::Input,
             Moder::OUTPUT => {
                 let ot = self.bank[bank_idx].otyper().read().ot(pin_idx);
@@ -349,7 +366,8 @@ impl ServerState {
             }
             Moder::ALTERNATE => Mode::Custom(0),
             Moder::ANALOG => Mode::Analog,
-        }
+        };
+        Ready(mode)
     }
 
     async fn set_port_pin_pull(&mut self, index: [UNib32; 2], pull: Pull) -> Result<(), Error> {
@@ -412,8 +430,8 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
-    ) -> Result<(), Error> {
-        Err(Error::UnsupportedEventType)
+    ) -> RpcResult<Result<(), Error>> {
+        Ready(Err(Error::UnsupportedEventType))
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {

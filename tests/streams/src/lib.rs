@@ -69,8 +69,9 @@ mod tests {
                 ValidIndices::Range(0..255)
             }
 
-            fn finish(&mut self, _msg_tx: &mut impl MessageSink) {
+            fn finish(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
                 println!("finish called");
+                Ready(())
             }
 
             // pub fn send_updates(&mut self, stream_number: usize) -> Vec<Vec<u8>> {

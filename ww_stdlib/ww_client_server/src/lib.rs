@@ -324,7 +324,7 @@ pub enum ErrorKind<'i> {
     /// Failed to serialize response
     ResponseSerFailed,
     /// Request is good, but requested operation is not yet implemented
-    OperationNotImplemented,
+    Unimplemented,
     /// Tried to read a property with request seq number set to 0, meaning no response is expected
     ReadPropertyWithSeqZero,
     /// Returned if only absolute paths are handled (on very resource constrained nodes)
@@ -402,6 +402,13 @@ impl<'i> Error<'i> {
             kind: ErrorKind::ResponseSerFailed,
         }
     }
+
+    pub fn unimplemented(err_seq: u32) -> Self {
+        Self {
+            err_seq,
+            kind: ErrorKind::Unimplemented,
+        }
+    }
 }
 
 #[cfg(feature = "std")]
@@ -417,7 +424,7 @@ impl Error<'_> {
             ErrorKind::PathDesFailed => ErrorKindOwned::PathDesFailed,
             ErrorKind::PropertyDesFailed => ErrorKindOwned::PropertyDesFailed,
             ErrorKind::ResponseSerFailed => ErrorKindOwned::ResponseSerFailed,
-            ErrorKind::OperationNotImplemented => ErrorKindOwned::OperationNotImplemented,
+            ErrorKind::Unimplemented => ErrorKindOwned::Unimplemented,
             ErrorKind::ReadPropertyWithSeqZero => ErrorKindOwned::ReadPropertyWithSeqZero,
             ErrorKind::PathKindNotSupported => ErrorKindOwned::PathKindNotSupported,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),

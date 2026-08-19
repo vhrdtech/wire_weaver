@@ -3,16 +3,16 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use bbqueue::{
+    BBQueue,
     nicknames::Texas,
     prod_cons::framed::{FramedConsumer, FramedProducer},
     traits::{coordination::cas::AtomicCoord, notifier::maitake::MaiNotSpsc, storage::Inline},
-    BBQueue,
 };
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
 use embassy_stm32::{
-    bind_interrupts, dma,
+    Config, bind_interrupts, dma,
     gpio::{Level, Output, Speed},
     mode::Async,
     peripherals,
@@ -22,7 +22,6 @@ use embassy_stm32::{
     usart::{Config as UsartConfig, HalfDuplexReadback, Uart, UartRx, UartTx},
     usb,
     usb::Driver,
-    Config,
 };
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Sender;
@@ -30,7 +29,7 @@ use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
+use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
 use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 use ww_si::Volt;
 use ww_uart::{BaudRate, Capabilities, Mode, Parity, RxChunk, StopBits};
@@ -70,7 +69,7 @@ struct ServerState {
 
 mod server_impl {
     wire_weaver::ww_codegen!(
-        "../../examples/uart_api" :: UartBridge for ServerState,
+        uart_api :: UartBridge for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=value_on_changed",
@@ -179,8 +178,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-    ) -> Capabilities<'_> {
-        Capabilities {
+    ) -> RpcResult<Capabilities<'_>> {
+        let cap = Capabilities {
             min_baud_rate: 0,
             max_baud_rate: 0,
             voltages: RefVec::Slice {
@@ -192,7 +191,8 @@ impl ServerState {
             high_z_mode: false,
             test_mode: false,
             back_feed_detector: false,
-        }
+        };
+        Ready(cap)
     }
 
     async fn set_uart_baud_rate(
@@ -200,7 +200,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _baud_rate: BaudRate,
     ) -> Result<(), ww_uart::Error> {
-        Ok(())
+        Err(ww_uart::Error::Unsupported)
     }
 
     async fn set_uart_mode(
@@ -208,7 +208,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _mode: Mode,
     ) -> Result<(), ww_uart::Error> {
-        Ok(())
+        Err(ww_uart::Error::Unsupported)
     }
 
     async fn set_uart_stop_bits(
@@ -216,7 +216,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _stop_bits: StopBits,
     ) -> Result<(), ww_uart::Error> {
-        Ok(())
+        Err(ww_uart::Error::Unsupported)
     }
 
     async fn set_uart_parity(
@@ -224,7 +224,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _parity: Parity,
     ) -> Result<(), ww_uart::Error> {
-        Ok(())
+        Err(ww_uart::Error::Unsupported)
     }
 
     async fn set_uart_prevent_back_feed(
@@ -249,8 +249,8 @@ impl ServerState {
         _index: [UNib32; 1],
         _pin: ww_uart::Pin,
         _is_high: bool,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> RpcResult<Result<(), ww_uart::Error>> {
+        Ready(Err(ww_uart::Error::Unsupported))
     }
 }
 

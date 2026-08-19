@@ -7,18 +7,17 @@ use defmt::*;
 use defmt_rtt as _;
 use embassy_stm32::time::mhz;
 use embassy_stm32::{
-    bind_interrupts,
+    Config, bind_interrupts,
     gpio::{Level, Output, Speed},
     peripherals::USB_OTG_HS,
     usb,
     usb::Driver,
-    Config,
 };
 use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{usb_init, UsbBuffers, UsbServer, UsbTimings};
+use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -60,7 +59,7 @@ struct ServerState {
 
 mod server_impl {
     wire_weaver::ww_codegen!(
-        "../../examples/blinky_api" :: BlinkyApi for ServerState,
+        blinky_api :: BlinkyApi for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
@@ -70,14 +69,16 @@ mod server_impl {
 }
 
 impl ServerState {
-    async fn led_on(&mut self, _msg_tx: &mut impl MessageSink) {
+    async fn led_on(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
         self.leds[0].set_high();
         self.leds[1].set_high();
+        Ready(())
     }
 
-    async fn led_off(&mut self, _msg_tx: &mut impl MessageSink) {
+    async fn led_off(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
         self.leds[0].set_low();
         self.leds[1].set_low();
+        Ready(())
     }
 }
 

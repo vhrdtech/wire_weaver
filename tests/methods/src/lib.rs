@@ -26,32 +26,46 @@ mod tests {
         }
 
         impl NoStdSyncServer {
-            fn no_args(&mut self, _msg_tx: &mut impl MessageSink) {
+            fn no_args(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
                 self.data.write().unwrap().no_args_called = true;
+                Ready(())
             }
 
-            fn one_plain_arg(&mut self, _msg_tx: &mut impl MessageSink, value: u8) {
+            fn one_plain_arg(
+                &mut self,
+                _msg_tx: &mut impl MessageSink,
+                value: u8,
+            ) -> RpcResult<()> {
                 self.data.write().unwrap().one_plain_arg = value;
+                Ready(())
             }
 
-            fn plain_return(&mut self, _msg_tx: &mut impl MessageSink) -> u8 {
-                0xAA
+            fn plain_return(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<u8> {
+                Ready(0xAA)
             }
 
-            fn user_arg(&mut self, _msg_tx: &mut impl MessageSink, u: UserDefined<'_>) {
+            fn user_arg(
+                &mut self,
+                _msg_tx: &mut impl MessageSink,
+                u: UserDefined<'_>,
+            ) -> RpcResult<()> {
                 assert_eq!(u.a, 123);
                 let mut iter = u.b.into_iter();
                 assert_eq!(iter.next(), Some(&1));
                 assert_eq!(iter.next(), Some(&2));
                 assert_eq!(iter.next(), Some(&3));
                 assert_eq!(iter.next(), None);
+                Ready(())
             }
 
-            fn user_defined_return(&mut self, _msg_tx: &mut impl MessageSink) -> UserDefined<'_> {
-                UserDefined {
+            fn user_defined_return(
+                &mut self,
+                _msg_tx: &mut impl MessageSink,
+            ) -> RpcResult<UserDefined<'_>> {
+                Ready(UserDefined {
                     a: 37,
                     b: RefVec::new_bytes(&[1, 2, 3]),
-                }
+                })
             }
         }
 

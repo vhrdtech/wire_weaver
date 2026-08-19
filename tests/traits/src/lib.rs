@@ -28,16 +28,22 @@ mod tests {
         }
 
         impl NoStdSyncServer {
-            fn g1_m1(&mut self, _msg_tx: &mut impl MessageSink) {
+            fn g1_m1(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
                 self.data.write().unwrap().subgroup_m1_called = true;
+                Ready(())
             }
 
-            fn gpio_set_high(&mut self, _msg_tx: &mut impl MessageSink, index: [UNib32; 1]) {
+            fn gpio_set_high(
+                &mut self,
+                _msg_tx: &mut impl MessageSink,
+                index: [UNib32; 1],
+            ) -> RpcResult<()> {
                 self.data
                     .write()
                     .unwrap()
                     .gpio_used_indices
                     .push(index[0].0);
+                Ready(())
             }
 
             fn set_periph_channel_gain(&mut self, index: [UNib32; 2], gain: f32) {
@@ -54,7 +60,13 @@ mod tests {
                     .unwrap_or(0.0)
             }
 
-            fn periph_channel_run(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 2]) {}
+            fn periph_channel_run(
+                &mut self,
+                _msg_tx: &mut impl MessageSink,
+                _index: [UNib32; 2],
+            ) -> RpcResult<()> {
+                Ready(())
+            }
 
             fn valid_indices_root_gpio(&mut self) -> ValidIndices<'_> {
                 ValidIndices::Range(0..255)

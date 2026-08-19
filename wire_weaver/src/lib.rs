@@ -1,8 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod rpc;
 mod test;
 mod valid_indices;
 
+pub use rpc::RpcResult;
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
@@ -14,6 +16,8 @@ pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
+    pub use crate::rpc::RpcResult;
+    pub use crate::rpc::RpcResult::{Deferred, Ready, Unimplemented};
     pub use crate::valid_indices::ValidIndices;
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;

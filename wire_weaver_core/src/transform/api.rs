@@ -301,10 +301,10 @@ fn find_and_convert_trait(
 }
 
 /// ww_impl!(gpio: Gpio) or stream!(data: Packet)
-struct StreamAndImplMacroArgs {
-    resource_name: Ident,
-    multiplicity: Option<Option<PathSegment>>,
-    type_or_trait: Type,
+pub struct StreamAndImplMacroArgs {
+    pub resource_name: Ident,
+    pub multiplicity: Option<Option<PathSegment>>,
+    pub type_or_trait: Type,
 }
 
 impl Parse for StreamAndImplMacroArgs {
@@ -361,12 +361,12 @@ fn convert_multiplicity(
 /// ww_property!(rw+observe value: u8)
 /// observe valid with: ro, rw
 /// ww_property!(rw value: u8, MyError)
-struct PropertyMacroArgs {
-    access: PropertyAccess,
-    resource_name: Ident,
-    multiplicity: Option<Option<PathSegment>>,
-    ty: Type,
-    write_err_ty: Option<TypePath>,
+pub struct PropertyMacroArgs {
+    pub access: PropertyAccess,
+    pub resource_name: Ident,
+    pub multiplicity: Option<Option<PathSegment>>,
+    pub ty: Type,
+    pub write_err_ty: Option<TypePath>,
 }
 
 impl Parse for PropertyMacroArgs {

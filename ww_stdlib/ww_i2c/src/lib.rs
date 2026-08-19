@@ -5,7 +5,7 @@ use wire_weaver::prelude::*;
 #[ww_trait]
 pub trait I2c {
     /// Query I2C bus capabilities supported by the adapter.
-    fn i2c_capabilities() -> I2cCapabilities;
+    fn i2c_capabilities() -> I2cCapabilities<'i>;
 
     /// Configure I2C bus with the specified mode and IO level voltage.
     fn i2c_configure(mode: I2cMode, io_level_mv: u16) -> Result<u32, I2cError>;
@@ -30,7 +30,7 @@ pub trait I2c {
     /// only cycle reads will be executed to other non-busy devices in the meantime.
     fn i2c_read(
         addr: u8,
-        kind: I2cReadKind,
+        kind: I2cReadKind<'i>,
         len: u16,
         delay_after: u32,
     ) -> Result<I2cReadEnvelope, I2cError>;

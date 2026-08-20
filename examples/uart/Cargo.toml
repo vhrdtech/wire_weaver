@@ -21,3 +21,11 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = "0.3"
 tracing = "0.1"
 anyhow = "1"
+
+[[example]]
+name = "uart_blocking"
+path = "examples/blocking.rs"
+
+[[example]]
+name = "uart_simple"
+path = "examples/simple.rs"

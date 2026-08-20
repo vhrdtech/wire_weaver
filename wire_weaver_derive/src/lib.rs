@@ -54,8 +54,6 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 
 /// Define a ww_trait, this macro is only a marker and produces no Rust code. All the work is done inside ww_impl! macro, which
 /// loads the appropriate .rs file again through a file system or from crates.io, finds this marker and parses the trait definition.
-/// TODO: transform ww_trait into valid Rust trait?
-/// TODO: emit unit constant to check for name collisions
 ///
 /// Example:
 /// ```ignore
@@ -79,7 +77,8 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
 }
 
-/// Define an API entry point, otherwise the same as [ww_trait].
+/// Define an API entry point (root level), otherwise the same as [ww_trait].
+/// Provided for convenience, to distinguish between traits and API root's.
 #[proc_macro_attribute]
 pub fn ww_api_root(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()

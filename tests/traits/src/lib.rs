@@ -46,18 +46,21 @@ mod tests {
                 Ready(())
             }
 
-            fn set_periph_channel_gain(&mut self, index: [UNib32; 2], gain: f32) {
+            fn set_periph_channel_gain(&mut self, index: [UNib32; 2], gain: f32) -> SetResult<()> {
                 self.data.write().unwrap().set_gain.insert(index, gain);
+                Set
             }
 
-            fn get_periph_channel_gain(&self, index: [UNib32; 2]) -> f32 {
-                self.data
+            fn get_periph_channel_gain(&self, index: [UNib32; 2]) -> GetResult<f32, ()> {
+                let value = self
+                    .data
                     .read()
                     .unwrap()
                     .set_gain
                     .get(&index)
                     .copied()
-                    .unwrap_or(0.0)
+                    .unwrap_or(0.0);
+                Value(value)
             }
 
             fn periph_channel_run(

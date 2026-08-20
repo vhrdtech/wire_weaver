@@ -4,7 +4,7 @@ mod rpc;
 mod test;
 mod valid_indices;
 
-pub use rpc::RpcResult;
+pub use rpc::{GetResult, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
@@ -16,11 +16,14 @@ pub use ww_version;
 use ww_version::FullVersion;
 
 pub mod prelude {
-    pub use crate::rpc::RpcResult;
-    pub use crate::rpc::RpcResult::{Deferred, Ready, Unimplemented};
+    pub use crate::rpc::GetResult::{GetError, Value};
+    pub use crate::rpc::RpcResult::{Deferred, Ready};
+    pub use crate::rpc::SetResult::{Set, SetError};
+    pub use crate::rpc::{GetResult, RpcResult, SetResult};
     pub use crate::valid_indices::ValidIndices;
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;
+    pub use crate::ww_unimplemented;
     pub use crate::{MessageSink, WireWeaverAsyncApiBackend};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;

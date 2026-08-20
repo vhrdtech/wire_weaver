@@ -9,27 +9,34 @@ mod tests {
 
     #[derive(Default)]
     struct SharedTestData {
-        plain: u8,
+        x: u8,
+        y_changed: u8,
     }
 
     mod no_std_sync_server {
         use super::*;
         use std::sync::{Arc, RwLock};
         use tests_common::TestProcessEvents;
-        use wire_weaver::MessageSink;
-        use wire_weaver::prelude::ShrinkWrapError;
+        use wire_weaver::prelude::*;
+        use wire_weaver::{MessageSink, SetResult};
 
         pub struct NoStdSyncServer {
             pub data: Arc<RwLock<SharedTestData>>,
+            pub y: u8,
         }
 
         impl NoStdSyncServer {
-            fn set_plain(&mut self, value: u8) {
-                self.data.write().unwrap().plain = value;
+            fn set_x(&mut self, value: u8) -> SetResult<()> {
+                self.data.write().unwrap().x = value;
+                Set
             }
 
-            fn get_plain(&mut self) -> u8 {
-                self.data.read().unwrap().plain
+            fn get_x(&mut self) -> GetResult<u8, ()> {
+                Value(self.data.read().unwrap().x)
+            }
+
+            fn changed_y(&mut self) {
+                self.data.write().unwrap().y_changed += 1;
             }
         }
 
@@ -38,7 +45,7 @@ mod tests {
                 properties_api :: Properties for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
-                property_model = "_=get_set",
+                property_model = "x=get_set, y=value_on_changed",
                 introspect = false,
                 // debug_to_file = "../target/tests_properties_server.rs" // uncomment if you want to see the resulting AST and generated code
             );
@@ -94,7 +101,10 @@ mod tests {
         let data = Arc::new(RwLock::new(SharedTestData::default()));
 
         let data_clone = data.clone();
-        let server = no_std_sync_server::NoStdSyncServer { data: data_clone };
+        let server = no_std_sync_server::NoStdSyncServer {
+            data: data_clone,
+            y: 0xBB,
+        };
         tokio::spawn(async move {
             tests_common::test_event_loop(transport_cmd_rx, server, DummyTx {}).await;
         });
@@ -111,13 +121,23 @@ mod tests {
         let client = std_async_client::StdAsyncClient { cmd_tx };
         tokio::time::sleep(Duration::from_millis(10)).await;
 
-        let value = client.read_plain().read().await.unwrap();
+        let value = client.read_x().read().await.unwrap();
         assert_eq!(value, 0);
 
-        client.write_plain(0xAA).write().await.unwrap();
-        assert_eq!(data.read().unwrap().plain, 0xAA);
+        client.write_x(0xAA).write().await.unwrap();
+        assert_eq!(data.read().unwrap().x, 0xAA);
 
-        let value = client.read_plain().read().await.unwrap();
+        let value = client.read_x().read().await.unwrap();
         assert_eq!(value, 0xAA);
+
+        let y = client.read_y().read().await.unwrap();
+        assert_eq!(y, 0xBB);
+        client.write_y(0xCC).write().await.unwrap();
+        let y = client.read_y().read().await.unwrap();
+        assert_eq!(y, 0xCC);
+        assert_eq!(data.read().unwrap().y_changed, 1);
+
+        client.write_y(0xCC).write().await.unwrap();
+        assert_eq!(data.read().unwrap().y_changed, 1);
     }
 }

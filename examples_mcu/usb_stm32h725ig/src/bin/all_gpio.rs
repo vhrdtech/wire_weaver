@@ -202,16 +202,16 @@ impl ServerState {
         })
     }
 
-    async fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> Volt {
-        ww_si::quantity!(3.3 V f32)
+    async fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
+        Value(ww_si::quantity!(3.3 V f32))
     }
 
     async fn set_port_reference_voltage(
         &mut self,
         _index: [UNib32; 1],
         _quantity: Volt,
-    ) -> Result<(), Error> {
-        Err(Error::UnsupportedReferenceVoltage)
+    ) -> SetResult<Error> {
+        SetError(Error::UnsupportedReferenceVoltage)
     }
 
     async fn port_name(
@@ -370,34 +370,35 @@ impl ServerState {
         Ready(mode)
     }
 
-    async fn set_port_pin_pull(&mut self, index: [UNib32; 2], pull: Pull) -> Result<(), Error> {
+    async fn set_port_pin_pull(&mut self, index: [UNib32; 2], pull: Pull) -> SetResult<Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = match pull {
             Pull::None => Pupdr::FLOATING,
             Pull::Up => Pupdr::PULL_UP,
             Pull::Down => Pupdr::PULL_DOWN,
-            Pull::Custom(_) => return Err(Error::UnsupportedPull),
+            Pull::Custom(_) => return SetError(Error::UnsupportedPull),
         };
         self.bank[bank_idx]
             .pupdr()
             .modify(|p| p.set_pupdr(pin_idx, pull));
-        Ok(())
+        Set
     }
 
-    async fn get_port_pin_pull(&mut self, index: [UNib32; 2]) -> Pull {
+    async fn get_port_pin_pull(&mut self, index: [UNib32; 2]) -> GetResult<Pull, Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
-        match pull {
+        let pull = match pull {
             Pupdr::FLOATING => Pull::None,
             Pupdr::PULL_UP => Pull::Up,
             Pupdr::PULL_DOWN => Pull::Down,
             Pupdr::_RESERVED_3 => Pull::Custom(3),
-        }
+        };
+        Value(pull)
     }
 
-    async fn set_port_pin_speed(&mut self, index: [UNib32; 2], speed: Speed) -> Result<(), Error> {
+    async fn set_port_pin_speed(&mut self, index: [UNib32; 2], speed: Speed) -> SetResult<Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = match speed {
@@ -405,24 +406,25 @@ impl ServerState {
             Speed::Medium => Ospeedr::MEDIUM_SPEED,
             Speed::Fast => Ospeedr::HIGH_SPEED,
             Speed::VeryFast => Ospeedr::VERY_HIGH_SPEED,
-            Speed::Custom(_) => return Err(Error::UnsupportedSpeed),
+            Speed::Custom(_) => return SetError(Error::UnsupportedSpeed),
         };
         self.bank[bank_idx]
             .ospeedr()
             .modify(|o| o.set_ospeedr(pin_idx, speed));
-        Ok(())
+        Set
     }
 
-    async fn get_port_pin_speed(&mut self, index: [UNib32; 2]) -> Speed {
+    async fn get_port_pin_speed(&mut self, index: [UNib32; 2]) -> GetResult<Speed, Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);
-        match speed {
+        let speed = match speed {
             Ospeedr::LOW_SPEED => Speed::Slow,
             Ospeedr::MEDIUM_SPEED => Speed::Medium,
             Ospeedr::HIGH_SPEED => Speed::Fast,
             Ospeedr::VERY_HIGH_SPEED => Speed::VeryFast,
-        }
+        };
+        Value(speed)
     }
 
     async fn port_pin_configure_events(

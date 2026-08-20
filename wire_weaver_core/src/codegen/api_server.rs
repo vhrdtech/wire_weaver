@@ -3,7 +3,7 @@
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::ty_def;
-use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote};
+use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
 use crate::codegen::{api_common, util};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
@@ -131,13 +131,13 @@ pub fn gen_server(
         &mut seen,
         &mut args_structs,
     );
-    let es = error_seq.next_err();
+    let es = error_seq.next();
     let server_struct_path = config.server_struct_path;
     quote! {
         #args_structs
 
         #[allow(unused_imports)]
-        use wire_weaver::RpcResult;
+        use wire_weaver::{RpcResult, SetResult, GetResult};
         #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
@@ -239,7 +239,7 @@ fn process_request_inner_recursive(
         format!("process_{}", level_name_chain).as_str(),
         Span::call_site(),
     );
-    let es = error_seq.next_err();
+    let es = error_seq.next();
     let mut ts = quote! {
         #maybe_async fn #process_fn_name<'a>(
             &mut self,
@@ -311,8 +311,8 @@ fn level_matchers(
             Span::call_site(),
         ))
     });
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
+    let es0 = error_seq.next();
+    let es1 = error_seq.next();
     let handlers = api_level.items.iter().map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
             api_bundle,
@@ -325,7 +325,7 @@ fn level_matchers(
         ),
         Multiplicity::Array { .. } => {
             let check_err_on_no_alloc = if cx.no_alloc {
-                let es = error_seq.next_err();
+                let es = error_seq.next();
                 quote! { .map_err(|_| Error::new(#es, ErrorKind::ArrayIndexDesFailed))? }
             } else {
                 quote! {}
@@ -352,15 +352,15 @@ fn level_matchers(
                 Span::call_site(),
             );
             let maybe_index_chain_arg = index_chain.fun_argument_call();
-            let es = error_seq.next_err();
+            let es = error_seq.next();
             let validate_index = quote! {
                 if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
                     return Err(Error::new(#es, ErrorKind::BadIndex));
                 }
             };
-            let es0 = error_seq.next_err();
-            let es1 = error_seq.next_err();
-            let es2 = error_seq.next_err();
+            let es0 = error_seq.next();
+            let es1 = error_seq.next();
+            let es2 = error_seq.next();
             quote! {
                 match path_iter.next() {
                     Some(index) => {
@@ -478,7 +478,7 @@ fn handle_method(
 
     let ser_output_or_unit = ser_method_output(return_type, quote! { request.seq }, error_seq);
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
-    let es = error_seq.next_err();
+    let es = error_seq.next();
     let call_and_handle = quote! {
         match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
             RpcResult::Ready(output) => {
@@ -498,7 +498,7 @@ fn handle_method(
         }
     };
 
-    let es = error_seq.next_err();
+    let es = error_seq.next();
     quote! {
         match &request.kind {
             RequestKind::Call { #is_args } => {
@@ -518,130 +518,173 @@ fn handle_property(
     cx: &ApiServerCGContext,
     ident: &Ident,
     ty: &TypeOwned,
-    user_result_ty: &Option<TypeOwned>,
+    user_error_ty: &Option<TypeOwned>,
     access: PropertyAccess,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
-    // let mut des = TokenStream::new();
-    // let es = error_seq.next_err();
     let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
-    // ty.buf_read(
-    //     &Ident::new("value", Span::call_site()),
-    //     cx.no_alloc,
-    //     false,
-    //     quote! { .map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))? },
-    //     &enforce_ty,
-    //     &mut des,
-    // );
+    let maybe_ser_user_err = user_error_ty
+        .as_ref()
+        .map(|ty| ty_def(api_bundle, ty, false, true).unwrap())
+        .map(|enforce_user_err_ty| {
+            let (es0, es1) = (error_seq.next(), error_seq.next());
+            quote! {
+                let user_err: #enforce_user_err_ty = user_err;
+                let mut wr = BufWriter::new(scratch_args);
+                user_err.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                let user_err_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+            }
+        })
+        .unwrap_or(quote! {
+            let _unit: () = user_err;
+            let user_err_bytes = &[];
+        });
     let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
-    let maybe_let_user_result = maybe_quote(user_result_ty.is_some(), quote! { let user_result = });
-    let (es0, es1, es2, es3) = (
-        error_seq.next_err(),
-        error_seq.next_err(),
-        error_seq.next_err(),
-        error_seq.next_err(),
-    );
-    let maybe_ret_user_result = maybe_quote(
-        user_result_ty.is_some(),
-        quote! {
-            if user_result.is_err() && request.seq != 0 {
-                let mut wr = BufWriter::new(scratch_args);
-                user_result.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                let user_err_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                return Ok(
-                    ser_err_event(
-                        scratch_event,
-                        request.seq,
-                        Error::new(#es2, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
-                    ).map_err(|_| Error::new(#es3, ErrorKind::ResponseSerFailed))?
-                );
-            }
-        },
-    );
-    let set_property = Ident::new(
-        format!("set_{}", prefixed_ident).as_str(),
-        Span::call_site(),
-    );
-    let set_property = quote! {
-        #maybe_let_user_result self.#set_property(#maybe_index_chain_arg value)#maybe_await;
-        #maybe_ret_user_result
-    };
-    let get_and_ser_property = match property_model_pick {
-        PropertyModelKind::GetSet => {
-            let get_property = Ident::new(
-                format!("get_{}", prefixed_ident).as_str(),
-                Span::call_site(),
-            );
-            let es = error_seq.next_err();
-            quote! {
-                let value: #enforce_ty = self.#get_property(#maybe_index_chain_arg)#maybe_await;
-                let mut wr = BufWriter::new(scratch_args);
-                value.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-            }
-        }
-        PropertyModelKind::ValueOnChanged => {
-            let ser = TokenStream::new();
-            let es = error_seq.next_err();
-            quote! {
-                let mut wr = BufWriter::new(scratch_args);
-                #ser
-                self.#prefixed_ident #maybe_index_chain_indices
-                    .ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-            }
-        }
-    };
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
-    let write = quote! {
-        RequestKind::Write { data } => {
-            let data = data.as_slice();
-            let mut rd = BufReader::new(data);
-            let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es0, ErrorKind::PropertyDesFailed))?;
-            #set_property
-            if request.seq == 0 {
-                Ok(&[])
-            } else {
-                Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?)
-            }
-        }
-    };
-    let maybe_write = maybe_quote(
+
+    let maybe_set = maybe_quote_cl(
         matches!(
             access,
             PropertyAccess::WriteOnly | PropertyAccess::ReadWrite { .. }
         ),
-        write,
+        || {
+            let es = error_seq.next();
+            let ser_written = quote! {
+                if request.seq != 0 {
+                    Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
+                } else {
+                    Ok(&[])
+                }
+            };
+            let des_and_set_property = match property_model_pick {
+                PropertyModelKind::GetSet => {
+                    let set_property = Ident::new(
+                        format!("set_{}", prefixed_ident).as_str(),
+                        Span::call_site(),
+                    );
+                    let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
+                    let es3 = error_seq.next();
+                    quote! {
+                        let mut rd = BufReader::new(data.as_slice());
+                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es0, ErrorKind::PropertyDesFailed))?;
+                        match self.#set_property(#maybe_index_chain_arg value)#maybe_await {
+                            SetResult::Set => {
+                                #ser_written
+                            },
+                            SetResult::SetError(user_err) => {
+                                // if request.seq != 0 {
+                                // always send errors back, even if they won't reach a user call site, they will show up in logs
+                                #maybe_ser_user_err
+                                Ok(
+                                    ser_err_event(
+                                        scratch_event,
+                                        request.seq,
+                                        Error::new(#es1, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
+                                    ).map_err(|_| Error::new(#es2, ErrorKind::ResponseSerFailed))?
+                                )
+                                // } else {
+                                    // Ok(&[])
+                                // }
+                            }
+                            SetResult::Unimplemented => {
+                                Err(Error::unimplemented(#es3))
+                            }
+                        }
+                    }
+                }
+                PropertyModelKind::ValueOnChanged => {
+                    let changed_property = Ident::new(
+                        format!("changed_{}", prefixed_ident).as_str(),
+                        Span::call_site(),
+                    );
+                    let es = error_seq.next();
+                    quote! {
+                        let mut rd = BufReader::new(data.as_slice());
+                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
+                        if self.#prefixed_ident #maybe_index_chain_indices != value {
+                            self.#prefixed_ident #maybe_index_chain_indices = value;
+                            self.#changed_property(#maybe_index_chain_arg)#maybe_await;
+                        }
+                        #ser_written
+                    }
+                }
+            };
+            quote! {
+                RequestKind::Write { data } => {
+                    #des_and_set_property
+                }
+            }
+        },
     );
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
-    let read = quote! {
-        RequestKind::Read => {
-            #get_and_ser_property
-            let output_bytes = wr.finish_and_take().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-            let kind = EventKind::ReadValue {
-                    data: RefVec::Slice { slice: output_bytes }
-                };
-            Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?)
-        }
-    };
-    let maybe_read = maybe_quote(
+
+    let maybe_get = maybe_quote_cl(
         matches!(
             access,
             PropertyAccess::Const
                 | PropertyAccess::ReadOnly { .. }
                 | PropertyAccess::ReadWrite { .. }
         ),
-        read,
+        || {
+            let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
+            let ser_value = quote! {
+                let mut wr = BufWriter::new(scratch_args);
+                value.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                let output_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                let kind = EventKind::ReadValue { data: RefVec::Slice { slice: output_bytes } };
+                Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::new(#es2, ErrorKind::ResponseSerFailed))?)
+            };
+            let get_and_ser_property = match property_model_pick {
+                PropertyModelKind::GetSet => {
+                    let get_property = Ident::new(
+                        format!("get_{}", prefixed_ident).as_str(),
+                        Span::call_site(),
+                    );
+                    let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
+                    quote! {
+                        match self.#get_property(#maybe_index_chain_arg)#maybe_await {
+                            GetResult::Value(value) => {
+                                let value: #enforce_ty = value;
+                                #ser_value
+                            }
+                            GetResult::GetError(user_err) => {
+                                #maybe_ser_user_err
+                                Ok(
+                                    ser_err_event(
+                                        scratch_event,
+                                        request.seq,
+                                        Error::new(#es0, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
+                                    ).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?
+                                )
+                            }
+                            Unimplemented => {
+                                Err(Error::unimplemented(#es2))
+                            }
+                        }
+                    }
+                }
+                PropertyModelKind::ValueOnChanged => {
+                    quote! {
+                        let value: &#enforce_ty = &self.#prefixed_ident #maybe_index_chain_indices;
+                        #ser_value
+                    }
+                }
+            };
+            quote! {
+                RequestKind::Read => {
+                    #get_and_ser_property
+                }
+            }
+        },
     );
-    let es = error_seq.next_err();
+
+    let es = error_seq.next();
     quote! {
         match &request.kind {
-            #maybe_write
-            #maybe_read
+            #maybe_set
+            #maybe_get
             _ => { Err(Error::not_supported(#es)) }
         }
     }
@@ -660,7 +703,7 @@ fn handle_stream(
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
     let sideband_fn = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
-    let es = err_seq.next_err();
+    let es = err_seq.next();
     let handle_sideband_cmd = quote! {
         // user fn returns Option<StreamSidebandEvent>
         let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call sideband_cmd)#maybe_await;
@@ -693,7 +736,7 @@ fn handle_stream(
     } else {
         // sink (device in)
         let mut other_des = || {
-            let es = err_seq.next_err();
+            let es = err_seq.next();
             let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
             let ts = quote! {
                 let mut rd = BufReader::new(data);
@@ -735,7 +778,7 @@ fn handle_stream(
             }
         }
     };
-    let es = err_seq.next_err();
+    let es = err_seq.next();
     quote! {
         match &request.kind {
             #specific_ops
@@ -777,12 +820,12 @@ fn ser_method_output(
     errors_seq: &mut ErrorSeq,
 ) -> TokenStream {
     if let Some(_ty) = return_type {
-        let es = errors_seq.next_err();
+        let es = errors_seq.next();
         let ser_output = quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; };
 
-        let es0 = errors_seq.next_err();
-        let es1 = errors_seq.next_err();
-        let es2 = errors_seq.next_err();
+        let es0 = errors_seq.next();
+        let es1 = errors_seq.next();
+        let es2 = errors_seq.next();
         quote! {
             let mut wr = BufWriter::new(scratch_args);
             #ser_output
@@ -799,7 +842,7 @@ fn ser_method_output(
             Ok(event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))?)
         }
     } else {
-        let es = errors_seq.next_err();
+        let es = errors_seq.next();
         quote! {
             Ok(ser_unit_return_event(scratch_event, request.seq).map_err(|_| Error::response_ser_failed(#es))?)
         }
@@ -822,7 +865,7 @@ fn des_args(
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
-        let es = error_seq.next_err();
+        let es = error_seq.next();
         let args_des = quote! {
             let args = args.as_slice();
             let mut rd = BufReader::new(args);

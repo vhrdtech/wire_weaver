@@ -12,6 +12,17 @@ pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream 
     }
 }
 
+pub fn maybe_quote_cl<F: FnMut() -> TokenStream>(
+    condition: bool,
+    mut call_if_true: F,
+) -> TokenStream {
+    if condition {
+        call_if_true()
+    } else {
+        TokenStream::new()
+    }
+}
+
 pub fn add_prefix(prefix: Option<&String>, ident: &Ident) -> Ident {
     match prefix {
         Some(prefix) => Ident::new(format!("{}_{}", prefix, ident).as_str(), ident.span()),
@@ -23,7 +34,7 @@ pub fn add_prefix(prefix: Option<&String>, ident: &Ident) -> Ident {
 pub(crate) struct ErrorSeq(u32);
 
 impl ErrorSeq {
-    pub(crate) fn next_err(&mut self) -> TokenStream {
+    pub(crate) fn next(&mut self) -> TokenStream {
         let seq = self.0;
         let ts = quote! { #seq };
         self.0 += 1;

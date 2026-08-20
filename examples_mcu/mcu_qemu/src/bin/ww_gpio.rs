@@ -58,8 +58,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-    ) -> BankCapabilities<'_> {
-        BankCapabilities {
+    ) -> RpcResult<BankCapabilities<'_>> {
+        let cap = BankCapabilities {
             voltage: RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
             },
@@ -70,23 +70,28 @@ impl ServerState {
             custom_mode: Default::default(),
             custom_pull: Default::default(),
             custom_speed: Default::default(),
-        }
+        };
+        Ready(cap)
     }
 
-    fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> Volt {
-        ww_si::quantity!(3.3 V f32)
+    fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
+        Value(ww_si::quantity!(3.3 V f32))
     }
 
     fn set_port_reference_voltage(
         &mut self,
         _index: [UNib32; 1],
         _quantity: Volt,
-    ) -> Result<(), Error> {
-        Err(Error::UnsupportedReferenceVoltage)
+    ) -> SetResult<Error> {
+        SetError(Error::UnsupportedReferenceVoltage)
     }
 
-    fn port_name(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 1]) -> &'_ str {
-        unimplemented!()
+    fn port_name(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        _index: [UNib32; 1],
+    ) -> RpcResult<&'_ str> {
+        ww_unimplemented!()
     }
 
     fn port_pin_set_output_level(
@@ -94,28 +99,32 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
         _level: Level,
-    ) {
-        unimplemented!()
+    ) -> RpcResult<()> {
+        ww_unimplemented!()
     }
 
     fn port_pin_output_level(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
-    ) -> Level {
-        unimplemented!()
+    ) -> RpcResult<Level> {
+        ww_unimplemented!()
     }
 
-    fn port_pin_toggle(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 2]) {
-        unimplemented!()
+    fn port_pin_toggle(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        _index: [UNib32; 2],
+    ) -> RpcResult<()> {
+        ww_unimplemented!()
     }
 
     fn port_pin_input_level(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
-    ) -> Level {
-        unimplemented!()
+    ) -> RpcResult<Level> {
+        ww_unimplemented!()
     }
 
     fn event_sideband(
@@ -133,28 +142,32 @@ impl ServerState {
         _index: [UNib32; 2],
         _mode: Mode,
         _initial: Option<Level>,
-    ) -> Result<(), Error> {
-        unimplemented!()
+    ) -> RpcResult<Result<(), Error>> {
+        ww_unimplemented!()
     }
 
-    fn port_pin_mode(&mut self, _msg_tx: &mut impl MessageSink, _index: [UNib32; 2]) -> Mode {
-        unimplemented!()
+    fn port_pin_mode(
+        &mut self,
+        _msg_tx: &mut impl MessageSink,
+        _index: [UNib32; 2],
+    ) -> RpcResult<Mode> {
+        ww_unimplemented!()
     }
 
-    fn set_port_pin_pull(&mut self, _index: [UNib32; 2], _pull: Pull) -> Result<(), Error> {
-        unimplemented!()
+    fn set_port_pin_pull(&mut self, _index: [UNib32; 2], _pull: Pull) -> SetResult<Error> {
+        ww_unimplemented!()
     }
 
-    fn get_port_pin_pull(&mut self, _index: [UNib32; 2]) -> Pull {
-        unimplemented!()
+    fn get_port_pin_pull(&mut self, _index: [UNib32; 2]) -> GetResult<Pull, Error> {
+        ww_unimplemented!()
     }
 
-    fn set_port_pin_speed(&mut self, _index: [UNib32; 2], _speed: Speed) -> Result<(), Error> {
-        unimplemented!()
+    fn set_port_pin_speed(&mut self, _index: [UNib32; 2], _speed: Speed) -> SetResult<Error> {
+        ww_unimplemented!()
     }
 
-    fn get_port_pin_speed(&mut self, _index: [UNib32; 2]) -> Speed {
-        unimplemented!()
+    fn get_port_pin_speed(&mut self, _index: [UNib32; 2]) -> GetResult<Speed, Error> {
+        ww_unimplemented!()
     }
 
     fn port_pin_configure_events(
@@ -162,8 +175,8 @@ impl ServerState {
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
-    ) -> Result<(), Error> {
-        Err(Error::UnsupportedEventType)
+    ) -> RpcResult<Result<(), Error>> {
+        Ready(Err(Error::UnsupportedEventType))
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
@@ -177,7 +190,7 @@ impl ServerState {
 
 pub mod api_server {
     wire_weaver::ww_codegen!(
-        "../../examples/all_gpio_api" :: AllGpioApi for ServerState,
+        all_gpio_api :: AllGpioApi for super::ServerState,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",

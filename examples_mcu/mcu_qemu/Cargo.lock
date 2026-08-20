@@ -12,6 +12,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "all_gpio_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_gpio",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -315,6 +323,7 @@ checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
 name = "mcu_qemu"
 version = "0.1.0"
 dependencies = [
+ "all_gpio_api",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",

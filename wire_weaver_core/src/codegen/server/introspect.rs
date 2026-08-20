@@ -20,8 +20,8 @@ pub(crate) fn introspect(
         // TODO: sync variant of MessageSink
         return (quote! {}, api_signature);
     }
-    let es0 = error_seq.next_err();
-    let es1 = error_seq.next_err();
+    let es0 = error_seq.next();
+    let es1 = error_seq.next();
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {

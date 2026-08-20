@@ -59,12 +59,12 @@ async fn usb_server_task(
 struct ServerState {
     tx_producer: [TxProducer; 2],
     rx_consumer: [RxConsumer; 2],
-    uart_baud_rate: [BaudRate; 2],
-    uart_mode: [Mode; 2],
-    uart_stop_bits: [StopBits; 2],
-    uart_parity: [Parity; 2],
-    uart_prevent_back_feed: [bool; 2],
-    uart_reference_voltage: [Volt; 2],
+    // uart_baud_rate: [BaudRate; 2],
+    // uart_mode: [Mode; 2],
+    // uart_stop_bits: [StopBits; 2],
+    // uart_parity: [Parity; 2],
+    // uart_prevent_back_feed: [bool; 2],
+    // uart_reference_voltage: [Volt; 2],
 }
 
 mod server_impl {
@@ -72,7 +72,7 @@ mod server_impl {
         uart_api :: UartBridge for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
-        property_model = "_=value_on_changed",
+        property_model = "_=get_set",
         introspect = true,
         debug_to_file = "./target/generated_uart_server.rs"
     );
@@ -199,48 +199,84 @@ impl ServerState {
         &mut self,
         _index: [UNib32; 1],
         _baud_rate: BaudRate,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_baud_rate(
+        &mut self,
+        _index: [UNib32; 1],
+    ) -> GetResult<BaudRate, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn set_uart_mode(
         &mut self,
         _index: [UNib32; 1],
         _mode: Mode,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_mode(&mut self, _index: [UNib32; 1]) -> GetResult<Mode, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn set_uart_stop_bits(
         &mut self,
         _index: [UNib32; 1],
         _stop_bits: StopBits,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_stop_bits(
+        &mut self,
+        _index: [UNib32; 1],
+    ) -> GetResult<StopBits, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn set_uart_parity(
         &mut self,
         _index: [UNib32; 1],
         _parity: Parity,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_parity(&mut self, _index: [UNib32; 1]) -> GetResult<Parity, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn set_uart_prevent_back_feed(
         &mut self,
         _index: [UNib32; 1],
         _baud_rate: bool,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::Unsupported)
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_prevent_back_feed(
+        &mut self,
+        _index: [UNib32; 1],
+    ) -> GetResult<bool, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn set_uart_reference_voltage(
         &mut self,
         _index: [UNib32; 1],
         _voltage: Volt,
-    ) -> Result<(), ww_uart::Error> {
-        Err(ww_uart::Error::UnsupportedReferenceVoltage)
+    ) -> SetResult<ww_uart::Error> {
+        SetError(ww_uart::Error::UnsupportedReferenceVoltage)
+    }
+
+    async fn get_uart_reference_voltage(
+        &mut self,
+        _index: [UNib32; 1],
+    ) -> GetResult<Volt, ww_uart::Error> {
+        ww_unimplemented!()
     }
 
     async fn uart_set_pin_level(
@@ -250,7 +286,7 @@ impl ServerState {
         _pin: ww_uart::Pin,
         _is_high: bool,
     ) -> RpcResult<Result<(), ww_uart::Error>> {
-        Ready(Err(ww_uart::Error::Unsupported))
+        ww_unimplemented!()
     }
 }
 
@@ -376,12 +412,12 @@ async fn main(spawner: embassy_executor::Spawner) {
     let state = ServerState {
         tx_producer: [tx_bb_uart7.framed_producer(), tx_bb_uart8.framed_producer()],
         rx_consumer: [rx_bb_uart7.framed_consumer(), rx_bb_uart8.framed_consumer()],
-        uart_baud_rate: [BaudRate::Baud115200; 2],
-        uart_mode: [Mode::Asynchronous; 2],
-        uart_stop_bits: [StopBits::Stop1; 2],
-        uart_parity: [Parity::None; 2],
-        uart_prevent_back_feed: [false; 2],
-        uart_reference_voltage: [ww_si::quantity!(3300 mV u16); 2],
+        // uart_baud_rate: [BaudRate::Baud115200; 2],
+        // uart_mode: [Mode::Asynchronous; 2],
+        // uart_stop_bits: [StopBits::Stop1; 2],
+        // uart_parity: [Parity::None; 2],
+        // uart_prevent_back_feed: [false; 2],
+        // uart_reference_voltage: [ww_si::quantity!(3300 mV u16); 2],
     };
 
     let _ulpi_rst_n = Output::new(p.PH3, Level::High, Speed::Low); // do not drop

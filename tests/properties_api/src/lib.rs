@@ -2,7 +2,8 @@ use wire_weaver::prelude::*;
 
 #[ww_trait]
 trait Properties {
-    property!(rw plain: u8);
+    property!(rw x: u8);
+    property!(rw y: u8);
 
     // changes pub sub
     // const ro wo

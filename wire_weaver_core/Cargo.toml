@@ -12,7 +12,7 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
-cargo_toml = "0.22"
+cargo_toml = "1.0"
 #strum = "0.26"
 #strum_macros = "0.26"
 shrink_wrap.workspace = true
@@ -29,7 +29,7 @@ semver = "1.0"
 relative-path = "2.0"
 console = "0.16"
 ron = "0.12"
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 
 [features]

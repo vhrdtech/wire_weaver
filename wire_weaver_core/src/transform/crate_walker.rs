@@ -1,7 +1,6 @@
 use super::{api::convert_api_items, util::collect_docs};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
-use semver::Version;
 use shrink_wrap::UNib32;
 use std::collections::HashMap;
 use std::fs;
@@ -267,13 +266,9 @@ impl ManifestContext {
             .package
             .clone()
             .context("No package section found in Cargo.toml")?;
-        let Inheritable::Set(package_version) = &package.version else {
+        let Inheritable::Set(version) = &package.version else {
             return Err(anyhow!("No version found in Cargo.toml"));
         };
-        let version = Version::parse(package_version).context(format!(
-            "Failed to parse version in {}/Cargo.toml",
-            self.crate_path.display()
-        ))?;
         Ok(FullVersionOwned::new(
             package.name,
             VersionOwned::new(

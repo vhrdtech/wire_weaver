@@ -121,7 +121,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 //     f.write_fmt(format_args!("// {line}\n"))
                 //         .map_err(|e| e.to_string())?;
                 // }
-                let ts_formatted = crate::util::format_rust(format!("{codegen_ts}").as_str());
+                let ts_formatted = crate::util::format_rust(format!("{codegen_ts}"));
                 f.write_all(ts_formatted.as_bytes())
                     .map_err(|e| e.to_string())?;
             }

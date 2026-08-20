@@ -702,7 +702,11 @@ fn handle_stream(
     let maybe_index_chain_call = index_chain.fun_argument_call();
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
-    let sideband_fn = Ident::new(format!("{}_sideband", ident).as_str(), ident.span());
+    let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), &ident);
+    let sideband_fn = Ident::new(
+        format!("sideband_{}", prefixed_ident).as_str(),
+        ident.span(),
+    );
     let es = err_seq.next();
     let handle_sideband_cmd = quote! {
         // user fn returns Option<StreamSidebandEvent>
@@ -744,7 +748,7 @@ fn handle_stream(
             };
             (ts, quote! { value })
         };
-        let write = Ident::new(format!("{}_write", ident).as_str(), ident.span());
+        let write = Ident::new(format!("write_{}", prefixed_ident).as_str(), ident.span());
         let (des_data, arg) = match ty {
             TypeOwned::Tuple(elements) => {
                 if elements.is_empty() {

@@ -301,7 +301,7 @@ impl ServerState {
         Ready(level)
     }
 
-    async fn event_sideband(
+    async fn sideband_port_pin_event(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],

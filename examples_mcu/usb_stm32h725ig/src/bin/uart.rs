@@ -113,7 +113,7 @@ impl ServerState {
         ValidIndices::Range(0..0)
     }
 
-    async fn rx_sideband(
+    async fn sideband_uart_rx(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
@@ -149,7 +149,7 @@ impl ServerState {
         }
     }
 
-    async fn tx_sideband(
+    async fn sideband_uart_tx(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
@@ -158,14 +158,14 @@ impl ServerState {
         None
     }
 
-    async fn tx_write(&mut self, index: [UNib32; 1], bytes: &[u8]) {
+    async fn write_uart_tx(&mut self, index: [UNib32; 1], bytes: &[u8]) {
         let index = index[0].0 as usize;
         let mut wg = self.tx_producer[index].wait_grant(bytes.len() as u16).await;
         wg.copy_from_slice(bytes);
         wg.commit(bytes.len() as u16);
     }
 
-    async fn tx_mon_sideband(
+    async fn sideband_uart_tx_mon(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],

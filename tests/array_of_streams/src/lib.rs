@@ -37,7 +37,7 @@ mod tests {
 
     #[allow(dead_code)]
     impl NoStdSyncServer {
-        fn root_stream_sideband(
+        fn sideband_stream(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _cmd: StreamSidebandCommand,
@@ -45,24 +45,7 @@ mod tests {
             None
         }
 
-        fn root_array_of_streams_sideband(
-            &mut self,
-            _msg_tx: &mut impl MessageSink,
-            _index_chain: [UNib32; 1],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
-            None
-        }
-
-        fn subgroup_stream_sideband(
-            &mut self,
-            _msg_tx: &mut impl MessageSink,
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
-            None
-        }
-
-        fn subgroup_array_of_streams_sideband(
+        fn sideband_array_of_streams(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 1],
@@ -71,7 +54,15 @@ mod tests {
             None
         }
 
-        fn gpio_stream_sideband(
+        fn sideband_subgroup_stream(
+            &mut self,
+            _msg_tx: &mut impl MessageSink,
+            _cmd: StreamSidebandCommand,
+        ) -> Option<StreamSidebandEvent> {
+            None
+        }
+
+        fn sideband_subgroup_array_of_streams(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 1],
@@ -80,7 +71,16 @@ mod tests {
             None
         }
 
-        fn gpio_array_of_streams_sideband(
+        fn sideband_gpio_stream(
+            &mut self,
+            _msg_tx: &mut impl MessageSink,
+            _index_chain: [UNib32; 1],
+            _cmd: StreamSidebandCommand,
+        ) -> Option<StreamSidebandEvent> {
+            None
+        }
+
+        fn sideband_gpio_array_of_streams(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 2],
@@ -89,7 +89,7 @@ mod tests {
             None
         }
 
-        fn channel_stream_sideband(
+        fn sideband_periph_channel_stream(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 2],
@@ -98,7 +98,7 @@ mod tests {
             None
         }
 
-        fn channel_array_of_streams_sideband(
+        fn sideband_periph_channel_array_of_streams(
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 3],
@@ -107,7 +107,7 @@ mod tests {
             None
         }
 
-        fn valid_indices_root_root_array_of_streams(&mut self) -> ValidIndices<'_> {
+        fn valid_indices_root_array_of_streams(&mut self) -> ValidIndices<'_> {
             ValidIndices::Range(0..255)
         }
 
@@ -119,11 +119,11 @@ mod tests {
             ValidIndices::Range(0..255)
         }
 
-        fn valid_indices_root_subgroup_subgroup_array_of_streams(&mut self) -> ValidIndices<'_> {
+        fn valid_indices_root_subgroup_array_of_streams(&mut self) -> ValidIndices<'_> {
             ValidIndices::Range(0..255)
         }
 
-        fn valid_indices_root_gpio_gpio_array_of_streams(
+        fn valid_indices_root_gpio_array_of_streams(
             &mut self,
             _index: [UNib32; 1],
         ) -> ValidIndices<'_> {
@@ -134,7 +134,7 @@ mod tests {
             ValidIndices::Range(0..255)
         }
 
-        fn valid_indices_root_periph_channel_channel_array_of_streams(
+        fn valid_indices_root_periph_channel_array_of_streams(
             &mut self,
             _index: [UNib32; 2],
         ) -> ValidIndices<'_> {
@@ -149,36 +149,28 @@ mod tests {
         let mut s2 = [0u8; 512];
 
         let root = api_impl::stream_data_ser();
-        let update = root.root_stream(&v, &mut s1, &mut s2).unwrap();
+        let update = root.stream(&v, &mut s1, &mut s2).unwrap();
         check_path(update, &[0]);
-        let update = root
-            .root_array_of_streams(10, &v, &mut s1, &mut s2)
-            .unwrap();
+        let update = root.array_of_streams(10, &v, &mut s1, &mut s2).unwrap();
         check_path(update, &[1, 10]);
 
         let subgroup = root.subgroup();
-        let update = subgroup.subgroup_stream(&v, &mut s1, &mut s2).unwrap();
+        let update = subgroup.stream(&v, &mut s1, &mut s2).unwrap();
         check_path(update, &[2, 0]);
-        let update = subgroup
-            .subgroup_array_of_streams(11, &v, &mut s1, &mut s2)
-            .unwrap();
+        let update = subgroup.array_of_streams(11, &v, &mut s1, &mut s2).unwrap();
         check_path(update, &[2, 1, 11]);
 
         let gpio = root.gpio(123);
-        let update = gpio.gpio_stream(&v, &mut s1, &mut s2).unwrap();
+        let update = gpio.stream(&v, &mut s1, &mut s2).unwrap();
         check_path(update, &[3, 123, 0]);
-        let update = gpio
-            .gpio_array_of_streams(12, &v, &mut s1, &mut s2)
-            .unwrap();
+        let update = gpio.array_of_streams(12, &v, &mut s1, &mut s2).unwrap();
         check_path(update, &[3, 123, 1, 12]);
 
         let periph = root.periph(255);
         let channel = periph.channel(1023);
-        let update = channel.channel_stream(&v, &mut s1, &mut s2).unwrap();
+        let update = channel.stream(&v, &mut s1, &mut s2).unwrap();
         check_path(update, &[4, 255, 0, 1023, 0]);
-        let update = channel
-            .channel_array_of_streams(13, &v, &mut s1, &mut s2)
-            .unwrap();
+        let update = channel.array_of_streams(13, &v, &mut s1, &mut s2).unwrap();
         check_path(update, &[4, 255, 0, 1023, 1, 13]);
     }
 

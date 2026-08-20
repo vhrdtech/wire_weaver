@@ -2,8 +2,8 @@ use wire_weaver::prelude::*;
 
 #[ww_trait]
 trait ArrayOfStreams {
-    stream!(root_stream: Vec<u8>);
-    stream!(root_array_of_streams[]: [u8]);
+    stream!(stream: Vec<u8>);
+    stream!(array_of_streams[]: [u8]);
 
     ww_impl!(subgroup: Subgroup);
     ww_impl!(gpio[]: Gpio);
@@ -12,14 +12,14 @@ trait ArrayOfStreams {
 
 #[ww_trait]
 trait Subgroup {
-    stream!(subgroup_stream: [u8]);
-    stream!(subgroup_array_of_streams[]: [u8]);
+    stream!(stream: [u8]);
+    stream!(array_of_streams[]: [u8]);
 }
 
 #[ww_trait]
 trait Gpio {
-    stream!(gpio_stream: [u8]);
-    stream!(gpio_array_of_streams[]: [u8]);
+    stream!(stream: [u8]);
+    stream!(array_of_streams[]: [u8]);
 }
 
 #[ww_trait]
@@ -29,6 +29,6 @@ trait Peripheral {
 
 #[ww_trait]
 trait Channel {
-    stream!(channel_stream: [u8]);
-    stream!(channel_array_of_streams[]: [u8]);
+    stream!(stream: [u8]);
+    stream!(array_of_streams[]: [u8]);
 }

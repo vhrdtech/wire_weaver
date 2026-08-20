@@ -23,7 +23,7 @@ mod tests {
         }
 
         impl NoStdSyncServer {
-            fn plain_stream_sideband(
+            fn sideband_plain_stream(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
                 _cmd: StreamSidebandCommand,
@@ -32,7 +32,7 @@ mod tests {
                 None
             }
 
-            fn plain_sink_sideband(
+            fn sideband_plain_sink(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
                 _cmd: StreamSidebandCommand,
@@ -41,12 +41,12 @@ mod tests {
                 None
             }
 
-            fn plain_sink_write(&mut self, value: u8) {
+            fn write_plain_sink(&mut self, value: u8) {
                 println!("got plain sink write: {value}");
                 self.data.write().unwrap().plain_sink_rx.push(value);
             }
 
-            fn vec_stream_sideband(
+            fn sideband_vec_stream(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
                 _cmd: StreamSidebandCommand,
@@ -55,7 +55,7 @@ mod tests {
                 None
             }
 
-            fn array_of_streams_sideband(
+            fn sideband_array_of_streams(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
                 _idx: [UNib32; 1],

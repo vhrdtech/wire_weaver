@@ -83,23 +83,25 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, S
                         let Type::Path(mut type_path) = ext_trait else {
                             continue;
                         };
-                        if type_path.path.segments.len() <= 1 {
+                        let len = type_path.path.segments.len();
+                        if len >= 1 {
+                            // assuming ww_impl!(name: ext_crate::TraitName);
+                            // generate use ext_crate::NAME_FULL_GID as SRC_MARKER_X;
+                            let last = type_path.path.segments.last_mut().unwrap();
+                            last.ident = Ident::new(
+                                format!("{}_FULL_GID", last.ident)
+                                    .to_case(Case::Constant)
+                                    .as_str(),
+                                last.ident.span(),
+                            );
+                            let marker = unique_marker.next_const();
+                            helper_spans.append_all(quote! {
+                                #[allow(unused_imports)]
+                                use #type_path as #marker;
+                            });
+                        } else {
                             continue;
                         }
-                        // assuming ww_impl!(name: ext_crate::TraitName);
-                        // generate use ext_crate::NAME_FULL_GID as SRC_MARKER_X;
-                        let last = type_path.path.segments.last_mut().unwrap();
-                        last.ident = Ident::new(
-                            format!("{}_FULL_GID", last.ident)
-                                .to_case(Case::Constant)
-                                .as_str(),
-                            last.ident.span(),
-                        );
-                        let marker = unique_marker.next_const();
-                        helper_spans.append_all(quote! {
-                            #[allow(unused_imports)]
-                            use #type_path as #marker;
-                        });
                     }
                     _ => {}
                 }

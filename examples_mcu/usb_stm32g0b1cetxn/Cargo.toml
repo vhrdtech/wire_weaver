@@ -1,3 +1,5 @@
+# cargo-features = ["panic-immediate-abort"]
+
 [package]
 name = "cannify_micro_g0b1cetxn"
 version = "0.1.0"
@@ -71,6 +73,7 @@ lto = 'fat'
 opt-level = "z" # 3 - speed, s - size, z - even less size
 #opt-level = "s"
 overflow-checks = false
+# panic = "immediate-abort"
 
 # cargo test --release
 [profile.bench]

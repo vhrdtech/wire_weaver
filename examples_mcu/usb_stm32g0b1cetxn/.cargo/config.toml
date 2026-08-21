@@ -11,6 +11,5 @@ DEFMT_LOG = "debug,cannify_micro_g0b1cetxn=trace,wire_weaver_usb_embassy=debug" 
 CNT_BKP_BUFFER_SIZE_WORDS = "0" # Size of the counters buffer in BKPRAM (words, default is 0)
 
 # Minimize build size
-#[unstable]
-#build-std = ["core"]
-#build-std-features = ["panic_immediate_abort"] # for even smaller size
+[unstable]
+build-std = ["core"]

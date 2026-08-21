@@ -127,7 +127,7 @@ impl ServerState {
         ww_unimplemented!()
     }
 
-    fn event_sideband(
+    fn sideband_port_pin_event(
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],

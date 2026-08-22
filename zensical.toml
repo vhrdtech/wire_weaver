@@ -1,0 +1,200 @@
+[project]
+site_url = "https://www.example.com/"
+site_name = "Donguru"
+site_description = "Wire format and API code generator with rich type system and no alloc for embedded systems"
+# site_author = "Your name"
+
+copyright = "Copyright &copy; 2026 vhrdtech"
+
+repo_url = "https://github.com/vhrdtech/wire_weaver"
+repo_name = "vhrdtech/wire_weaver"
+edit_uri = "edit/main/docs/"
+
+nav = [
+    { "Home" = "index.md" },
+    { "SerDes" = [
+            "serdes/shrink_wrap.md",
+            "serdes/derive.md"
+        ]
+    },
+    { "API" = [
+            "api/overview.md",
+            "api/methods.md",
+            "api/properties.md",
+            "api/streams.md",
+            "api/traits.md",
+            "api/arrays.md",
+            "api/addressing.md",
+            "api/versioning.md",
+            "api/folder_structure.md",
+        ]
+    },
+    { "Evolution" = [
+            "evolution/rules.md",
+            "evolution/checker_tool.md"
+        ]
+    },
+    {
+        "Standard library" = [
+        "std_library/overview.md",
+        "std_library/ww_date_time.md",
+        "std_library/ww_version.md",
+        "std_library/ww_numeric.md",
+        "std_library/ww_self.md",
+        "std_library/ww_si.md",
+        "std_library/ww_client_server.md",
+        "std_library/ww_dfu.md",
+        "std_library/ww_can_bus.md",
+        "std_library/ww_log_baremetal.md"
+        ]
+    },
+    {
+        "Transport protocols" = [
+            "transport/overview.md",
+            "transport/usb.md"
+        ]
+    },
+    {
+        "Examples and templates" = [
+            "examples/examples.md",
+            { "wire_weaver_template repo" = "https://github.com/vhrdtech/wire_weaver_template" }
+        ]
+    },
+    {
+        "Dev tools" = [
+            "dev_tool.md"
+        ]
+    }
+]
+
+# extra_css = ["stylesheets/extra.css"]
+# extra_javascript = ["javascripts/extra.js"]
+
+[project.theme]
+# variant = "classic"
+# custom_dir = "overrides"
+# favicon = "images/favicon.png"
+language = "en"
+features = [
+  "announce.dismiss",
+  # "content.action.edit",
+  # "content.action.view",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "content.tooltips",
+  # "header.autohide",
+  # "navigation.expand",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  # "navigation.instant.progress",
+  "navigation.path",
+  # "navigation.prune",
+  "navigation.sections",
+  "navigation.tabs",
+  # "navigation.tabs.sticky",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  # "toc.follow",
+  # "toc.integrate",
+]
+
+# logo = "assets/logo.png"
+
+# [project.theme.icon]
+# logo = "lucide/smile"
+
+# [project.theme.font]
+# text = "Inter"
+# code = "Jetbrains Mono"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+primary = "teal"
+accent = "teal"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+primary = "teal"
+accent = "teal"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/vhrdtech"
+name = "vhrdtech on GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/company/vhrdtech/"
+name = "vhrdtech on LinkedIn"
+
+[[project.extra.social]]
+icon = "fontawesome/solid/globe"
+link = "https://vhrd.tech"
+name = "vhrd.tech website"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc = {
+  permalink = true
+}
+pymdownx.arithmatex = {
+  generic = true
+}
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji = {
+  emoji_generator = "zensical.extensions.emoji.to_svg",
+  emoji_index = "zensical.extensions.emoji.twemoji",
+}
+pymdownx.highlight = {
+  anchor_linenums = true,
+  line_spans = "__span",
+  pygments_lang_class = true,
+}
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+# pymdownx.snippets = {
+#   base_path = "includes",
+# }
+pymdownx.superfences = {
+  custom_fences = [
+    {
+      name = "mermaid",
+      class = "mermaid",
+      format = "pymdownx.superfences.fence_code_format",
+    },
+  ],
+}
+pymdownx.tabbed = {
+  alternate_style = true,
+  combine_header_slug = true
+}
+pymdownx.tasklist = {
+  custom_checkbox = true
+}
+pymdownx.tilde = {}

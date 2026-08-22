@@ -50,12 +50,12 @@ check-examples-mcu-usb-stm32h725ig:
 # Serve the documentation localy
 [group('docs')]
 serve-docs:
-    @uv run mkdocs serve
+    uv run --with zensical zensical serve
 
 # Build the documentation
 [group('docs')]
 build-docs:
-    @uv run mkdocs build
+    uv run --with zensical zensical build --clean
 
 header text:
     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"

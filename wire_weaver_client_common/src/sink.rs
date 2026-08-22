@@ -2,8 +2,8 @@ use crate::command_sender::TransportCommander;
 use crate::{StreamError, StreamEvent};
 use std::marker::PhantomData;
 use tokio::sync::mpsc::UnboundedReceiver;
-use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
 use ww_client_server::{PathKindOwned, StreamSidebandCommand};
 
 /// Stream of typed values from device to host.
@@ -18,19 +18,43 @@ pub struct Sink<T> {
 
 impl<T> Sink<T> {
     /// Send Open command through the sideband channel
-    pub fn open(&self) -> Result<(), StreamError> {
-        self.sideband(StreamSidebandCommand::Open)
+    pub async fn open(&self) -> Result<(), StreamError> {
+        self.sideband(StreamSidebandCommand::Open).await
+    }
+
+    /// Send Open command through the sideband channel
+    pub fn open_blocking(&self) -> Result<(), StreamError> {
+        self.sideband_blocking(StreamSidebandCommand::Open)
     }
 
     /// Send Close command through the sideband channel
-    pub fn close(&self) -> Result<(), StreamError> {
-        self.sideband(StreamSidebandCommand::Close)
+    pub async fn close(&self) -> Result<(), StreamError> {
+        self.sideband(StreamSidebandCommand::Close).await
+    }
+
+    /// Send Close command through the sideband channel
+    pub fn close_blocking(&self) -> Result<(), StreamError> {
+        self.sideband_blocking(StreamSidebandCommand::Close)
     }
 
     /// Send command through the sideband channel
-    pub fn sideband(&self, sideband_cmd: StreamSidebandCommand) -> Result<(), StreamError> {
+    pub async fn sideband(&self, sideband_cmd: StreamSidebandCommand) -> Result<(), StreamError> {
         self.transport_cmd_tx
-            .send_stream_sideband_forget(self.path_kind.clone(), sideband_cmd)?;
+            .send_stream_sideband(self.path_kind.clone(), sideband_cmd, None)
+            .await?;
+        Ok(())
+    }
+
+    /// Send command through the sideband channel
+    pub fn sideband_blocking(
+        &self,
+        sideband_cmd: StreamSidebandCommand,
+    ) -> Result<(), StreamError> {
+        self.transport_cmd_tx.send_stream_sideband_blocking(
+            self.path_kind.clone(),
+            sideband_cmd,
+            None,
+        )?;
         Ok(())
     }
 }
@@ -40,18 +64,26 @@ impl<T> Sink<T> {
 impl<T: SerializeShrinkWrap> Sink<T> {
     // TODO: remove &mut when scratch is no longer needed
     /// Serialize and send the provided value to a remote device sink
-    pub fn send(&mut self, value: T) -> Result<(), StreamError> {
+    pub async fn send(&mut self, value: T) -> Result<(), StreamError> {
         let value_bytes = value.to_ww_bytes(&mut self.scratch)?;
         self.transport_cmd_tx
-            .send_write_request_forget(self.path_kind.clone(), value_bytes.to_vec())?;
+            .send_write_request_forget(self.path_kind.clone(), value_bytes.to_vec())
+            .await?;
         Ok(())
     }
 }
 
 impl Sink<RawSliceOwned> {
-    pub fn send_bytes(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
+    pub async fn send_bytes(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
         self.transport_cmd_tx
-            .send_write_request_forget(self.path_kind.clone(), bytes.to_vec())?;
+            .send_write_request_forget(self.path_kind.clone(), bytes.to_vec())
+            .await?;
+        Ok(())
+    }
+
+    pub fn send_bytes_blocking(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
+        self.transport_cmd_tx
+            .send_write_request_forget_blocking(self.path_kind.clone(), bytes.to_vec())?;
         Ok(())
     }
 }

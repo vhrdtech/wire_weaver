@@ -1,4 +1,4 @@
-use all_gpio::{AllGpio, DeviceFilter, OnError};
+use all_gpio::{AllGpio, DeviceFilter};
 use anyhow::Result;
 use futures::future::join_all;
 use std::time::Instant;
@@ -7,7 +7,7 @@ use std::time::Instant;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = AllGpio::connect(filter, OnError::ExitImmediately).await?;
+    let mut device = AllGpio::connect(filter, Default::default()).await?;
     let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 

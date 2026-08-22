@@ -1,6 +1,6 @@
+use crate::Error;
 use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -46,11 +46,10 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         self.postpone_err?;
 
         // send call to a remote device through transport layer
-        let done_rx = self.transport_cmd_tx.send_write_request(
-            self.path_kind,
-            self.value,
-            self.timeout_override,
-        )?;
+        let done_rx = self
+            .transport_cmd_tx
+            .send_write_request(self.path_kind, self.value, self.timeout_override)
+            .await?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -63,7 +62,7 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         self.postpone_err?;
 
         // send call to a remote device through transport layer
-        let done_rx = self.transport_cmd_tx.send_write_request(
+        let done_rx = self.transport_cmd_tx.send_write_request_blocking(
             self.path_kind,
             self.value,
             self.timeout_override,
@@ -78,10 +77,19 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     }
 
     /// Send write request with seq = 0 and immediately return without response (remote end won't send it either).
-    pub fn write_forget(self) -> Result<(), Error> {
+    pub async fn write_forget(self) -> Result<(), Error> {
         self.postpone_err?;
         self.transport_cmd_tx
-            .send_write_request_forget(self.path_kind, self.value)?;
+            .send_write_request_forget(self.path_kind, self.value)
+            .await?;
+        Ok(())
+    }
+
+    /// Send write request with seq = 0 and immediately return without response (remote end won't send it either).
+    pub fn blocking_write_forget(self) -> Result<(), Error> {
+        self.postpone_err?;
+        self.transport_cmd_tx
+            .send_write_request_forget_blocking(self.path_kind, self.value)?;
         Ok(())
     }
 

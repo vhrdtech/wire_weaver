@@ -3,8 +3,8 @@ use crate::prepared_call::PreparedCall;
 use crate::rx_dispatcher::{ResponseReceiver, ResponseSender, StreamUpdateReceiver};
 use crate::stream::Stream;
 use crate::{
-    Command, DeviceFilter, DeviceInfoBundle, Error, OnError, PreparedRead, PreparedWrite,
-    Sink, DEFAULT_REQUEST_TIMEOUT,
+    Command, DEFAULT_REQUEST_TIMEOUT, DeviceFilter, DeviceInfoBundle, Error, OnError, PreparedRead,
+    PreparedWrite, Sink,
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -24,7 +24,7 @@ use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 /// Replies are received through one-shot channels created on the fly when requests are sent.
 #[derive(Clone)]
 pub struct CommandSender {
-    transport_cmd_tx: mpsc::UnboundedSender<Command>,
+    transport_cmd_tx: mpsc::Sender<Command>,
     /// * None for command sender attached to API root, trait addressing will result in an error.
     /// * Some (empty path) for trait implemented at root level (unknown path), trait addressing will be used.
     /// * Some (non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
@@ -45,12 +45,12 @@ pub struct CommandSender {
 }
 
 pub(crate) struct TransportCommander {
-    cmd_tx: mpsc::UnboundedSender<Command>,
+    cmd_tx: mpsc::Sender<Command>,
     default_timeout: Duration,
 }
 
 impl CommandSender {
-    pub fn new(transport_cmd_tx: mpsc::UnboundedSender<Command>) -> Self {
+    pub fn new(transport_cmd_tx: mpsc::Sender<Command>) -> Self {
         Self {
             transport_cmd_tx,
             base_path: None,
@@ -74,7 +74,16 @@ impl CommandSender {
         user_protocol_version: FullVersionOwned,
         on_error: OnError,
     ) -> Result<(), Error> {
-        let connected_rx = self.connect_inner(filter, user_protocol_version, on_error)?;
+        let (connected_tx, connected_rx) = oneshot::channel();
+        self.transport_cmd_tx
+            .send(Command::Connect {
+                filter: Box::new(filter),
+                client_version: Box::new(user_protocol_version),
+                on_error,
+                connected_tx: Some(connected_tx),
+            })
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)?;
         let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
         self.connected_device = connection_result?;
         Ok(())
@@ -86,7 +95,15 @@ impl CommandSender {
         user_protocol_version: FullVersionOwned,
         on_error: OnError,
     ) -> Result<(), Error> {
-        let connected_rx = self.connect_inner(filter, user_protocol_version, on_error)?;
+        let (connected_tx, connected_rx) = oneshot::channel();
+        self.transport_cmd_tx
+            .blocking_send(Command::Connect {
+                filter: Box::new(filter),
+                client_version: Box::new(user_protocol_version),
+                on_error,
+                connected_tx: Some(connected_tx),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
         let connection_result = connected_rx
             .blocking_recv()
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -94,28 +111,19 @@ impl CommandSender {
         Ok(())
     }
 
-    fn connect_inner(
-        &mut self,
-        filter: DeviceFilter,
-        client_version: FullVersionOwned,
-        on_error: OnError,
-    ) -> Result<oneshot::Receiver<Result<DeviceInfoBundle, Error>>, Error> {
-        let (connected_tx, connected_rx) = oneshot::channel();
-        self.transport_cmd_tx
-            .send(Command::Connect {
-                filter: Box::new(filter),
-                client_version: Box::new(client_version),
-                on_error,
-                connected_tx: Some(connected_tx),
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(connected_rx)
-    }
-
-    pub fn send(&self, command: Command) -> Result<(), Error> {
+    pub async fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?
         self.transport_cmd_tx
             .send(command)
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub fn blocking_send(&self, command: Command) -> Result<(), Error> {
+        // TODO: Add command tx limit?
+        self.transport_cmd_tx
+            .blocking_send(command)
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
@@ -204,7 +212,7 @@ impl CommandSender {
         }
     }
 
-    pub fn prepare_stream<T: DeserializeShrinkWrapOwned>(
+    pub async fn prepare_stream<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
@@ -214,6 +222,32 @@ impl CommandSender {
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+            })
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(Stream {
+            transport_cmd_tx: TransportCommander::new(
+                self.transport_cmd_tx.clone(),
+                self.default_timeout,
+            ),
+            path_kind,
+            rx,
+            _phantom: PhantomData,
+        })
+    }
+
+    pub fn prepare_stream_blocking<T: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+    ) -> Result<Stream<T>, Error> {
+        let since = None; // TODO: fix
+        self.check_version(since)?;
+        let path_kind = self.to_ww_client_server_path(path)?;
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.transport_cmd_tx
+            .blocking_send(Command::OnStreamEvent {
                 path_kind: Box::new(path_kind.clone()),
                 stream_event_tx: tx,
             })
@@ -229,7 +263,7 @@ impl CommandSender {
         })
     }
 
-    pub fn prepare_sink<T: DeserializeShrinkWrapOwned>(
+    pub async fn prepare_sink<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
@@ -239,6 +273,33 @@ impl CommandSender {
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+            })
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(Sink {
+            transport_cmd_tx: TransportCommander::new(
+                self.transport_cmd_tx.clone(),
+                self.default_timeout,
+            ),
+            path_kind,
+            _sideband_rx: rx,
+            _phantom: PhantomData,
+            scratch: [0u8; 1024],
+        })
+    }
+
+    pub fn prepare_sink_blocking<T: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+    ) -> Result<Sink<T>, Error> {
+        let since = None; // TODO: fix
+        self.check_version(since)?;
+        let path_kind = self.to_ww_client_server_path(path)?;
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.transport_cmd_tx
+            .blocking_send(Command::OnStreamEvent {
                 path_kind: Box::new(path_kind.clone()),
                 stream_event_tx: tx,
             })
@@ -385,14 +446,14 @@ impl CommandSender {
 }
 
 impl TransportCommander {
-    fn new(cmd_tx: mpsc::UnboundedSender<Command>, default_timeout: Duration) -> Self {
+    fn new(cmd_tx: mpsc::Sender<Command>, default_timeout: Duration) -> Self {
         Self {
             cmd_tx,
             default_timeout,
         }
     }
 
-    fn send_message_expect_response(
+    async fn send_message_expect_response(
         &self,
         bytes: Vec<u8>,
         done_tx: ResponseSender,
@@ -403,10 +464,25 @@ impl TransportCommander {
                 bytes,
                 done_tx: Some((done_tx, timeout.unwrap_or(self.default_timeout))),
             })
+            .await
             .map_err(|_| Error::EventLoopNotRunning)
     }
 
-    pub(crate) fn send_call_request(
+    fn send_message_expect_response_blocking(
+        &self,
+        bytes: Vec<u8>,
+        done_tx: ResponseSender,
+        timeout: Option<Duration>,
+    ) -> Result<(), Error> {
+        self.cmd_tx
+            .blocking_send(Command::SendMessage {
+                bytes,
+                done_tx: Some((done_tx, timeout.unwrap_or(self.default_timeout))),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)
+    }
+
+    pub(crate) async fn send_call_request(
         &self,
         path_kind: PathKindOwned,
         args: Vec<u8>,
@@ -420,11 +496,30 @@ impl TransportCommander {
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+            .await?;
         Ok(done_rx)
     }
 
-    pub(crate) fn send_call_request_forget(
+    pub(crate) fn send_call_request_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        args: Vec<u8>,
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind,
+            kind: RequestKindOwned::Call { args },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        Ok(done_rx)
+    }
+
+    pub(crate) async fn send_call_request_forget(
         &self,
         path_kind: PathKindOwned,
         args: Vec<u8>,
@@ -441,11 +536,33 @@ impl TransportCommander {
                 bytes: req.to_vec(),
                 done_tx: None,
             })
+            .await
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
 
-    pub(crate) fn send_read_request(
+    pub(crate) fn send_call_request_forget_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        args: Vec<u8>,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind,
+            kind: RequestKindOwned::Call { args },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .blocking_send(Command::SendMessage {
+                bytes: req.to_vec(),
+                done_tx: None,
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub(crate) async fn send_read_request(
         &self,
         path_kind: PathKindOwned,
         timeout: Option<Duration>,
@@ -458,11 +575,29 @@ impl TransportCommander {
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+            .await?;
         Ok(done_rx)
     }
 
-    pub(crate) fn send_write_request(
+    pub(crate) fn send_read_request_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind,
+            kind: RequestKindOwned::Read,
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        Ok(done_rx)
+    }
+
+    pub(crate) async fn send_write_request(
         &self,
         path_kind: PathKindOwned,
         value: Vec<u8>,
@@ -476,11 +611,30 @@ impl TransportCommander {
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+            .await?;
         Ok(done_rx)
     }
 
-    pub(crate) fn send_write_request_forget(
+    pub(crate) fn send_write_request_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        value: Vec<u8>,
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind,
+            kind: RequestKindOwned::Write { data: value },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        Ok(done_rx)
+    }
+
+    pub(crate) async fn send_write_request_forget(
         &self,
         path_kind: PathKindOwned,
         value: Vec<u8>,
@@ -497,12 +651,33 @@ impl TransportCommander {
                 bytes: req.to_vec(),
                 done_tx: None,
             })
+            .await
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn send_stream_sideband(
+    pub(crate) fn send_write_request_forget_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        value: Vec<u8>,
+    ) -> Result<(), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind,
+            kind: RequestKindOwned::Write { data: value },
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        self.cmd_tx
+            .blocking_send(Command::SendMessage {
+                bytes: req.to_vec(),
+                done_tx: None,
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub(crate) async fn send_stream_sideband(
         &self,
         path_kind: PathKindOwned,
         sideband_cmd: StreamSidebandCommand,
@@ -516,15 +691,17 @@ impl TransportCommander {
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+            .await?;
         Ok(done_rx)
     }
 
-    pub(crate) fn send_stream_sideband_forget(
+    pub(crate) fn send_stream_sideband_blocking(
         &self,
         path_kind: PathKindOwned,
         sideband_cmd: StreamSidebandCommand,
-    ) -> Result<(), Error> {
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
@@ -532,16 +709,55 @@ impl TransportCommander {
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
-        self.cmd_tx
-            .send(Command::SendMessage {
-                bytes: req.to_vec(),
-                done_tx: None,
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(())
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        Ok(done_rx)
     }
 
-    pub(crate) fn send_introspect(
+    // pub(crate) async fn send_stream_sideband_forget(
+    //     &self,
+    //     path_kind: PathKindOwned,
+    //     sideband_cmd: StreamSidebandCommand,
+    // ) -> Result<(), Error> {
+    //     let req = ww_client_server::RequestOwned {
+    //         seq: 0,
+    //         path_kind,
+    //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
+    //     };
+    //     let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+    //     let req = req.to_ww_bytes(&mut scratch)?;
+    //     self.cmd_tx
+    //         .send(Command::SendMessage {
+    //             bytes: req.to_vec(),
+    //             done_tx: None,
+    //         })
+    //         .await
+    //         .map_err(|_| Error::EventLoopNotRunning)?;
+    //     Ok(())
+    // }
+
+    // pub(crate) fn send_stream_sideband_forget_blocking(
+    //     &self,
+    //     path_kind: PathKindOwned,
+    //     sideband_cmd: StreamSidebandCommand,
+    // ) -> Result<(), Error> {
+    //     let req = ww_client_server::RequestOwned {
+    //         seq: 0,
+    //         path_kind,
+    //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
+    //     };
+    //     let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+    //     let req = req.to_ww_bytes(&mut scratch)?;
+    //     self.cmd_tx
+    //         .blocking_send(Command::SendMessage {
+    //             bytes: req.to_vec(),
+    //             done_tx: None,
+    //         })
+    //         .map_err(|_| Error::EventLoopNotRunning)?;
+    //     Ok(())
+    // }
+
+    pub(crate) async fn send_introspect(
         &self,
         _timeout: Option<Duration>,
     ) -> Result<StreamUpdateReceiver, Error> {
@@ -558,9 +774,38 @@ impl TransportCommander {
                 path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
                 stream_event_tx,
             })
+            .await
             .map_err(|_| Error::EventLoopNotRunning)?;
         self.cmd_tx
             .send(Command::SendMessage {
+                bytes: req.to_vec(),
+                done_tx: None,
+            })
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(stream_event_rx)
+    }
+
+    pub(crate) fn send_introspect_blocking(
+        &self,
+        _timeout: Option<Duration>,
+    ) -> Result<StreamUpdateReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: 0,
+            path_kind: PathKindOwned::Absolute { path: vec![] },
+            kind: RequestKindOwned::Introspect,
+        };
+        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
+        let req = req.to_ww_bytes(&mut scratch)?;
+        let (stream_event_tx, stream_event_rx) = mpsc::unbounded_channel();
+        self.cmd_tx
+            .blocking_send(Command::OnStreamEvent {
+                path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
+                stream_event_tx,
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        self.cmd_tx
+            .blocking_send(Command::SendMessage {
                 bytes: req.to_vec(),
                 done_tx: None,
             })

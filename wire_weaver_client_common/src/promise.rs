@@ -340,7 +340,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                 return true;
             };
             // send call to a remote device through transport layer
-            match transport_cmd_tx.send_call_request(path_kind, args, *timeout) {
+            // this should not actually block, unless there are huge number of requests being generated
+            match transport_cmd_tx.send_call_request_blocking(path_kind, args, *timeout) {
                 Ok(done_rx) => {
                     self.state = StateInner::WaitingForReply(done_rx);
                 }
@@ -366,7 +367,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                 return true;
             };
             // send call to a remote device through transport layer
-            match transport_cmd_tx.send_read_request(path_kind, *timeout) {
+            // this should not actually block, unless there are huge number of requests being generated
+            match transport_cmd_tx.send_read_request_blocking(path_kind, *timeout) {
                 Ok(done_rx) => {
                     self.state = StateInner::WaitingForReply(done_rx);
                 }
@@ -393,7 +395,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                 return true;
             };
             // send call to a remote device through transport layer
-            match transport_cmd_tx.send_write_request(path_kind, value, *timeout) {
+            // this should not actually block, unless there are huge number of requests being generated
+            match transport_cmd_tx.send_write_request_blocking(path_kind, value, *timeout) {
                 Ok(done_rx) => {
                     self.state = StateInner::WaitingForReply(done_rx);
                 }
@@ -409,7 +412,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     fn send_introspect(&mut self) -> bool {
         if let StateInner::WaitingForIntrospect { transport_cmd_tx } = &mut self.state {
             // send introspect request to a remote device through transport layer
-            match transport_cmd_tx.send_introspect(None) {
+            // this should not actually block, unless there are huge number of requests being generated
+            match transport_cmd_tx.send_introspect_blocking(None) {
                 // TODO: introspect: add timeout
                 Ok(chunks_rx) => {
                     self.state = StateInner::WaitingForMultiReply(chunks_rx, vec![]);

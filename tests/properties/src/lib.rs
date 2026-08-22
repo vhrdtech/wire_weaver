@@ -97,7 +97,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn std_async_client_driving_no_std_sync_server() {
         tracing_subscriber::fmt::init();
-        let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+        let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(128);
         let data = Arc::new(RwLock::new(SharedTestData::default()));
 
         let data_clone = data.clone();

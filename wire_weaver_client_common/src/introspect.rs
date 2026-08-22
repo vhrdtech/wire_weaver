@@ -17,7 +17,7 @@ impl Introspect {
     /// Request introspect data from a remote device.
     pub async fn download(self) -> Result<ApiBundleOwned, Error> {
         // TODO: set introspect download data timeout
-        let rx = self.transport_cmd_tx.send_introspect(None)?;
+        let rx = self.transport_cmd_tx.send_introspect(None).await?;
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
             path_kind: PathKindOwned::Absolute { path: vec![] },
@@ -34,7 +34,7 @@ impl Introspect {
 
     /// Receive all the introspect bytes chunks.
     pub fn download_blocking(self) -> Result<ApiBundleOwned, Error> {
-        let rx = self.transport_cmd_tx.send_introspect(None)?;
+        let rx = self.transport_cmd_tx.send_introspect_blocking(None)?;
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
             path_kind: PathKindOwned::Absolute { path: vec![] },

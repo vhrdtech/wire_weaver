@@ -1,5 +1,5 @@
 use anyhow::Result;
-use blinky::{Blinky, DeviceFilter, OnError};
+use blinky::{Blinky, DeviceFilter};
 use std::time::Duration;
 
 fn main() -> Result<()> {
@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     let _guard = runtime.enter();
 
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut driver = Blinky::connect_blocking(filter, OnError::ExitImmediately)?;
+    let mut driver = Blinky::connect_blocking(filter, Default::default())?;
 
     println!("Turning LED on");
     driver.led_on().blocking_call()?;

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use uart::{DeviceFilter, OnError, UartBridge};
+use uart::{DeviceFilter, UartBridge};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
@@ -10,9 +10,9 @@ fn main() -> Result<()> {
     let _guard = runtime.enter();
 
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = UartBridge::connect_blocking(filter, OnError::ExitImmediately)?;
+    let mut device = UartBridge::connect_blocking(filter, Default::default())?;
 
-    let mut uart0_rx = device.uart(0).rx()?;
+    let mut uart0_rx = device.uart(0).rx_blocking()?;
     let chunk = uart0_rx.recv_blocking()?;
     println!("{:02?}", chunk.bytes);
 

@@ -78,6 +78,20 @@ impl From<wire_weaver::shrink_wrap::Error> for Error {
     }
 }
 
+pub struct ClientConfig {
+    pub on_error: OnError,
+    pub cmd_queue_size: usize,
+}
+
+impl Default for ClientConfig {
+    fn default() -> Self {
+        Self {
+            on_error: OnError::ExitImmediately,
+            cmd_queue_size: 8192,
+        }
+    }
+}
+
 /// Configures how to handle connection errors
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum OnError {

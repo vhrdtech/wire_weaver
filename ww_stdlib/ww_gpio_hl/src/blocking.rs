@@ -1,5 +1,5 @@
-use crate::ww::{BankClient, GpioClient};
 use crate::Error;
+use crate::ww::{BankClient, GpioClient};
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client_common::{Attachment, Stream};
 use ww_gpio::{BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull};
@@ -289,7 +289,7 @@ impl FlexBlocking {
             _ => {}
         }
         if self.event_rx.is_none() {
-            self.event_rx = Some(self.io.event()?);
+            self.event_rx = Some(self.io.event_blocking()?);
         }
         let Some(event_rx) = self.event_rx.as_mut() else {
             return Err(Error::Internal("event_rx is None".into()));

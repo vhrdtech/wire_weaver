@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::Receiver;
 use wire_weaver::prelude::*;
 use wire_weaver_client_common::{Command, DeviceInfoBundle};
 use ww_client_server::{Event, EventKind, Request};
@@ -23,7 +23,7 @@ pub trait TestProcessEvents {
 }
 
 pub async fn test_event_loop(
-    mut cmd_rx: UnboundedReceiver<Command>,
+    mut cmd_rx: Receiver<Command>,
     mut server: impl TestProcessEvents,
     mut msg_tx: impl MessageSink,
 ) {

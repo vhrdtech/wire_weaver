@@ -45,7 +45,7 @@ impl State {
     }
 }
 
-pub async fn usb_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
+pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
     let mut state = State::new();
     let mut rx_dispatcher = RxDispatcher::default();
 
@@ -122,7 +122,7 @@ pub async fn usb_worker(mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
 }
 
 async fn wait_for_connection_and_queue_commands(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
+    cmd_rx: &mut mpsc::Receiver<Command>,
     state: &mut State,
 ) -> Result<Option<(Interface, DeviceInfo, TransferType, usize, FullVersionOwned)>, ()> {
     loop {
@@ -202,7 +202,7 @@ enum EventLoopResult {
 }
 
 async fn process_commands_and_endpoints<T, R>(
-    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
+    cmd_rx: &mut mpsc::Receiver<Command>,
     link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
     rx_dispatcher: &mut RxDispatcher,

@@ -25,6 +25,18 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
     }
 }
 
+// pub trait SerializeShrinkWrapOwned {
+//     const ELEMENT_SIZE: ElementSize;
+
+//     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error>;
+
+//     fn to_ww_bytes_owned(&self, buf: &mut Vec) -> Result<(), Error> {
+//         let mut wr = BufWriter::new(buf);
+//         self.ser_shrink_wrap(&mut wr)?;
+//         wr.finish_and_take()
+//     }
+// }
+
 pub trait DeserializeShrinkWrapOwned: Sized {
     const ELEMENT_SIZE: ElementSize;
 

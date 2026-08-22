@@ -1,6 +1,6 @@
+use crate::Error;
 use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -29,7 +29,9 @@ pub struct PreparedCall<T> {
 }
 
 impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
-    /// Use a provided timeout instead of the default one propagated from CommandSender
+    /// Use a provided timeout instead of the default one propagated from CommandSender.
+    ///
+    /// Note that this timeout does not take into account possible command queue slot waiting.
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
             postpone_err: self.postpone_err,
@@ -42,16 +44,18 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
     }
 
     /// Send a call request, await a response (or timeout) and return it.
+    ///
+    /// Note that this method might have to await for command queue slot.
+    /// This can happen if too many requests are sent or if client device is slow to respond.
     pub async fn call(self) -> Result<T, Error> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         self.postpone_err?;
 
         // send call to a remote device through transport layer
-        let done_rx = self.transport_cmd_tx.send_call_request(
-            self.path_kind,
-            self.args,
-            self.timeout_override,
-        )?;
+        let done_rx = self
+            .transport_cmd_tx
+            .send_call_request(self.path_kind, self.args, self.timeout_override)
+            .await?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -61,11 +65,14 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
     }
 
     /// Send a call request, block the thread until a response is received (or timeout) and return it.
+    ///
+    /// Note that this method might block waiting for command queue slot.
+    /// This can happen if too many requests are sent or if client device is slow to respond.
     pub fn blocking_call(self) -> Result<T, Error> {
         self.postpone_err?;
 
         // send call to a remote device through transport layer
-        let done_rx = self.transport_cmd_tx.send_call_request(
+        let done_rx = self.transport_cmd_tx.send_call_request_blocking(
             self.path_kind,
             self.args,
             self.timeout_override,
@@ -81,10 +88,25 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
     }
 
     /// Send a call request with seq = 0 and immediately return without response (the remote end won't send it either).
-    pub fn call_forget(self) -> Result<(), Error> {
+    ///
+    /// Note that this method might have to await for command queue slot.
+    /// This can happen if too many requests are sent or if client device is slow to respond.
+    pub async fn call_forget(self) -> Result<(), Error> {
         self.postpone_err?;
         self.transport_cmd_tx
-            .send_call_request_forget(self.path_kind, self.args)?;
+            .send_call_request_forget(self.path_kind, self.args)
+            .await?;
+        Ok(())
+    }
+
+    /// Send a call request with seq = 0 and immediately return without response (the remote end won't send it either).
+    ///
+    /// Note that this method might block waiting for command queue slot.
+    /// This can happen if too many requests are sent or if client device is slow to respond.
+    pub fn blocking_call_forget(self) -> Result<(), Error> {
+        self.postpone_err?;
+        self.transport_cmd_tx
+            .send_call_request_forget_blocking(self.path_kind, self.args)?;
         Ok(())
     }
 

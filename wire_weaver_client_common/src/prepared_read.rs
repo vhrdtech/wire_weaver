@@ -1,6 +1,6 @@
+use crate::Error;
 use crate::command_sender::TransportCommander;
 use crate::promise::Promise;
-use crate::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -46,7 +46,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
-            .send_read_request(path_kind, self.timeout_override)?;
+            .send_read_request(path_kind, self.timeout_override)
+            .await?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -63,7 +64,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
-            .send_read_request(path_kind, self.timeout_override)?;
+            .send_read_request_blocking(path_kind, self.timeout_override)?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx

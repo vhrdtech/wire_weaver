@@ -13,11 +13,12 @@ async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     let mut device = if cli.need_device() {
         let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-        let device = wire_weaver_usb_host::util::connect_runtime_api(filter.clone())
-            .await
-            .context(format!(
-                "Connecting to USB device with filter: {filter:02x?}"
-            ))?;
+        let device =
+            wire_weaver_usb_host::util::connect_runtime_api(filter.clone(), Default::default())
+                .await
+                .context(format!(
+                    "Connecting to USB device with filter: {filter:02x?}"
+                ))?;
         Some(device)
     } else {
         None

@@ -508,26 +508,51 @@ fn handle_stream(
     };
     let path_kind = path_kind(path_mode, gid_paths);
 
-    if is_up {
-        // client in
-        quote! {
-            pub fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
-                #index_chain_push
-                let path_kind = #path_kind;
-                let stream = self.cmd_tx.prepare_stream(path_kind)?;
-                Ok(stream)
+    let stream_accessors = |is_async| {
+        let ident = if is_async {
+            ident.clone()
+        } else {
+            Ident::new(&format!("{}_blocking", ident), ident.span())
+        };
+        let maybe_async = maybe_quote(is_async, quote! { async });
+        let maybe_await = maybe_quote(is_async, quote! { .await });
+        if is_up {
+            // client in
+            let prepare_fn = if is_async {
+                quote! { prepare_stream }
+            } else {
+                quote! { prepare_stream_blocking }
+            };
+            quote! {
+                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    let stream = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
+                    Ok(stream)
+                }
+            }
+        } else {
+            // client out
+            let prepare_fn = if is_async {
+                quote! { prepare_sink }
+            } else {
+                quote! { prepare_sink_blocking }
+            };
+            quote! {
+                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    let sink = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
+                    Ok(sink)
+                }
             }
         }
-    } else {
-        // client out
-        quote! {
-            pub fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
-                #index_chain_push
-                let path_kind = #path_kind;
-                let sink = self.cmd_tx.prepare_sink(path_kind)?;
-                Ok(sink)
-            }
-        }
+    };
+    let sync_accessors = stream_accessors(false);
+    let async_accessors = stream_accessors(true);
+    quote! {
+        #sync_accessors
+        #async_accessors
     }
 }
 
@@ -603,13 +628,14 @@ fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
     quote! {
         pub #maybe_async fn #fn_name(
                 filter: wire_weaver_client_common::DeviceFilter,
-                on_error: wire_weaver_client_common::OnError
+                config: wire_weaver_client_common::ClientConfig,
         ) -> Result<Self, wire_weaver_client_common::Error> {
             Self::#raw_connect_fn(
                 filter,
                 #api_crate_name::#full_gid_const,
-                on_error,
+                config.on_error,
                 std::time::Duration::from_secs(1),
+                Some(config.cmd_queue_size),
             )
             #maybe_await
         }
@@ -635,9 +661,10 @@ fn usb_connect_fn(is_async: bool) -> TokenStream {
             api_version: wire_weaver::ww_version::FullVersion<'static>,
             on_error: wire_weaver_client_common::OnError,
             local_timeout: std::time::Duration,
+            cmd_queue_size: Option<usize>
         ) -> Result<Self, wire_weaver_client_common::Error> {
             use tokio::sync::mpsc;
-            let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+            let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
             let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx);
             cmd_tx.set_local_timeout(local_timeout);
             tokio::spawn(async move {
@@ -684,6 +711,7 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
             self.cmd_tx
                 .send(cmd)
+                .await
                 .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             Ok(())
@@ -692,27 +720,28 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
         pub fn disconnect_and_exit_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
             self.cmd_tx
-                .send(cmd)
+                .blocking_send(cmd)
                 .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             let _ = done_rx.blocking_recv().map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             Ok(())
         }
 
-        pub fn disconnect_and_exit_forget(&mut self) -> Result<(), wire_weaver_client_common::Error> {
-            self.cmd_tx
-                .send(wire_weaver_client_common::Command::DisconnectAndExit {
-                    disconnected_tx: None,
-                })
-                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            Ok(())
-        }
+        // pub fn disconnect_and_exit_forget(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        //     self.cmd_tx
+        //         .send(wire_weaver_client_common::Command::DisconnectAndExit {
+        //             disconnected_tx: None,
+        //         })
+        //         .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
+        //     Ok(())
+        // }
 
         /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
-        pub fn disconnect_keep_streams_non_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client_common::Error> {
             self.cmd_tx
                 .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
                     disconnected_tx: None,
                 })
+                .await
                 .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
             Ok(())
         }

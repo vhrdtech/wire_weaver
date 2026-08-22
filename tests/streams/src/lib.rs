@@ -175,7 +175,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn std_async_client_driving_no_std_sync_server() {
         tracing_subscriber::fmt::init();
-        let (transport_cmd_tx, transport_cmd_rx) = mpsc::unbounded_channel();
+        let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(128);
         let (notify_tx, _notify_rx) = mpsc::unbounded_channel::<usize>();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
 
@@ -197,21 +197,21 @@ mod tests {
         let client = std_async_client::StdAsyncClient { cmd_tx };
         tokio::time::sleep(Duration::from_millis(10)).await;
 
-        let mut rx = client.plain_stream().expect("successful stream open");
+        let mut rx = client.plain_stream().await.expect("successful stream open");
         notify_tx.send(0).unwrap();
         let connected = rx.recv_any().await.unwrap();
         assert_eq!(connected, TypedStreamEvent::Connected);
         let stream_data = rx.recv().await.unwrap();
         assert_eq!(stream_data, 0xAA);
 
-        let mut sink = client.plain_sink().unwrap();
-        sink.send(1).unwrap();
-        sink.send(2).unwrap();
+        let mut sink = client.plain_sink().await.unwrap();
+        sink.send(1).await.unwrap();
+        sink.send(2).await.unwrap();
 
         client.finish().call().await.unwrap();
         assert_eq!(data.read().unwrap().plain_sink_rx, vec![1, 2]);
 
-        let mut rx2 = client.vec_stream().expect("successful stream open");
+        let mut rx2 = client.vec_stream().await.expect("successful stream open");
         notify_tx.send(1).unwrap();
         let connected = rx2.recv_any().await.unwrap();
         assert!(matches!(connected, TypedStreamEvent::Connected));
@@ -221,6 +221,7 @@ mod tests {
 
         let mut rx_arr0 = client
             .array_of_streams(0)
+            .await
             .expect("subscribe to stream array 0");
         notify_tx.send(2).unwrap();
         let connected = rx_arr0.recv_any().await.unwrap();

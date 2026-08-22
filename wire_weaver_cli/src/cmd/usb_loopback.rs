@@ -13,11 +13,13 @@ pub(crate) async fn usb_loopback(
 ) -> Result<()> {
     let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
     let packet_size = packet_size.parse::<usize>().ok();
-    device.send(Command::LoopbackTest {
-        test_duration: Duration::from_secs(duration_sec as u64),
-        packet_size,
-        progress_tx,
-    })?;
+    device
+        .send(Command::LoopbackTest {
+            test_duration: Duration::from_secs(duration_sec as u64),
+            packet_size,
+            progress_tx,
+        })
+        .await?;
     let mut progress_bar = None;
     while let Some(progress) = progress_rx.recv().await {
         match progress {

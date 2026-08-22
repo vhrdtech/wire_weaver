@@ -1,12 +1,12 @@
 use anyhow::Result;
-use blinky_evolved::{Blinky, DeviceFilter, OnError};
+use blinky_evolved::{Blinky, DeviceFilter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = Blinky::connect(filter, OnError::ExitImmediately).await?;
+    let mut device = Blinky::connect(filter, Default::default()).await?;
 
     println!("Device info: {:?}", device.info());
 

@@ -3,6 +3,10 @@ use core::fmt::{Debug, Formatter};
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
+/// Zero-copy, no_std and no-alloc growable array.
+///
+/// Generic overy any type `T` that implements [SerializeShrinkWrap] + [DeserializeShrinkWrap].
+/// Including other vectors, user defined structs with dynamic size, etc.
 #[derive(Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
@@ -66,6 +70,7 @@ where
 }
 
 // implementing separately because partial specialization is not yet supported
+// https://github.com/rust-lang/rust/issues/31844
 impl<'i> RefVec<'i, u8> {
     pub fn new_bytes(slice: &'i [u8]) -> Self {
         RefVec::Slice { slice }

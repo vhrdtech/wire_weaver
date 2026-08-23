@@ -22,9 +22,9 @@ pub use traits::{
 
 #[cfg(feature = "std")]
 pub mod alloc;
+pub mod any_on_stack;
 pub mod nib;
 pub mod raw_slice;
-pub mod stack_vec;
 pub mod un;
 
 pub use nib::Nibble;
@@ -83,13 +83,13 @@ impl std::error::Error for Error {}
 
 pub mod prelude {
     pub use crate::Error as ShrinkWrapError;
+    pub use crate::any_on_stack::AnyOnStack;
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::nib::Nibble;
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;
     pub use crate::ref_vec::{RefVec, RefVecIter};
-    pub use crate::stack_vec::StackVec;
     pub use crate::traits::{
         DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
     };

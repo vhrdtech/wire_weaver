@@ -7,20 +7,20 @@ description = "Transport layer on top of USB packets, allowing multiple messages
 license.workspace = true
 repository.workspace = true
 
-[dependencies]
-crc = "3.3.0"
-strum_macros = { workspace = true }
-defmt = { workspace = true, optional = true }
-wire_weaver = { version = "0.4.0", path = "../wire_weaver", default-features = false }
-shrink_wrap.workspace = true
-ww_global.workspace = true
-
 [features]
 std = []
 host = ["std", "wire_weaver/std"]
 device = []
 defmt = ["dep:defmt", "wire_weaver/defmt"]
 
+[dependencies]
+crc = "3.3.0"
+defmt = { workspace = true, optional = true }
+shrink_wrap.workspace = true
+strum_macros = { workspace = true }
+wire_weaver = { version = "0.4.0", path = "../wire_weaver", default-features = false }
+ww_global.workspace = true
+
 [dev-dependencies]
-worst-executor = { version = "0.1.1", git = "https://github.com/romixlab/worst-executor.git" }
 tokio = { version = "1.48", features = ["sync"] }
+worst-executor = { version = "0.1.1", git = "https://github.com/romixlab/worst-executor.git" }

@@ -8,6 +8,6 @@ name = "blinky"
 crate-type = ["cdylib"]
 
 [dependencies]
+blinky = { path = "../blinky" }
 pyo3 = "0.29"
 tokio = { version = "1", features = ["rt-multi-thread"] }
-blinky = { path = "../blinky" }

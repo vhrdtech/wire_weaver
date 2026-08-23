@@ -8,7 +8,7 @@ repository.workspace = true
 description = "shrink_wrap wire format code generator"
 
 [dependencies]
-syn = { version = "3", features = ["full", "extra-traits"] }
-quote = "1.0"
 proc-macro2 = "1.0"
+quote = "1.0"
 sha2 = "0.11"
+syn = { version = "3", features = ["full", "extra-traits"] }

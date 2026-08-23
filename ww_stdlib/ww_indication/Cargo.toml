@@ -6,11 +6,11 @@ description = "Device indication LED control API"
 edition.workspace = true
 license.workspace = true
 
-[dependencies]
-wire_weaver.workspace = true
-defmt = { version = "1.0", optional = true }
-
 [features]
 default = ["std"]
 std = ["wire_weaver/std"]
 defmt = ["dep:defmt", "wire_weaver/defmt"]
+
+[dependencies]
+defmt = { version = "1.0", optional = true }
+wire_weaver.workspace = true

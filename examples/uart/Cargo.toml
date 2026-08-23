@@ -3,24 +3,24 @@ name = "uart"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+usb-tracing = ["wire_weaver_usb_host/usb-tracing"]
+
 [dependencies]
+tokio = { version = "1", features = ["sync", "rt"] }
 uart_api = { path = "../uart_api" }
-ww_uart = { workspace = true, features = ["std"] }
-ww_si = { workspace = true, features = ["std"] }
 wire_weaver = { workspace = true }
 wire_weaver_client_common = { workspace = true }
 wire_weaver_usb_host = { workspace = true }
 ww_client_server = { workspace = true }
-tokio = { version = "1", features = ["sync", "rt"] }
-
-[features]
-usb-tracing = ["wire_weaver_usb_host/usb-tracing"]
+ww_si = { workspace = true, features = ["std"] }
+ww_uart = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-tracing-subscriber = "0.3"
-tracing = "0.1"
 anyhow = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
 
 [[example]]
 name = "uart_blocking"

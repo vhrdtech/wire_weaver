@@ -11,7 +11,7 @@ description = "Macros for generating shrink_wrap serdes code."
 proc-macro = true
 
 [dependencies]
-syn = { version = "3", features = ["full", "extra-traits", "printing"] }
-quote = "1.0"
 proc-macro2 = "1.0"
+quote = "1.0"
 shrink_wrap_core = { version = "0.2.0", path = "../shrink_wrap_core" }
+syn = { version = "3", features = ["full", "extra-traits", "printing"] }

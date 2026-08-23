@@ -6,11 +6,11 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
-wire_weaver_client_common = { path = "../wire_weaver_client_common" }
-wire_weaver_udp_link = { path = "../wire_weaver_udp_link" }
+futures-util = "0.3"
+shrink_wrap.workspace = true
+thiserror = "2.0"
 tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
 tokio-tungstenite = "0.30"
-futures-util = "0.3"
-thiserror = "2.0"
 tracing = "0.1"
-shrink_wrap.workspace = true
+wire_weaver_client_common = { path = "../wire_weaver_client_common" }
+wire_weaver_udp_link = { path = "../wire_weaver_udp_link" }

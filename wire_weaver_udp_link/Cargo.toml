@@ -6,7 +6,7 @@ description.workspace = true
 edition.workspace = true
 
 [dependencies]
-strum_macros = { workspace = true }
 defmt = { workspace = true, optional = true }
+strum_macros = { workspace = true }
 wire_weaver = { path = "../wire_weaver" }
 ww_version.workspace = true

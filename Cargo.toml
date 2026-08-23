@@ -1,3 +1,24 @@
+
+[workspace]
+resolver = "3"
+members = [
+    #    "wire_weaver_tool",
+    "examples/*",
+    "shrink_wrap/*",
+    "tests/*",
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client_common",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_net_host",
+    "wire_weaver_udp_link",
+    "wire_weaver_usb_host",
+    "wire_weaver_usb_link",
+    "ww_stdlib/*",
+]
+
+exclude = ["examples_mcu", "tests/usb_link", "wire_weaver_tool"]
 [workspace.package]
 version = "0.4.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
@@ -7,12 +28,14 @@ repository = "https://github.com/vhrdtech/wire_weaver"
 license = "MIT"
 
 [workspace.dependencies]
-syn = { version = "3", features = ["full", "extra-traits"] }
-quote = "1.0"
-proc-macro2 = "1.0"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
 defmt = "1.1"
+proc-macro2 = "1.0"
+quote = "1.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+shrink_wrap = { path = "./shrink_wrap/shrink_wrap", default-features = false }
+shrink_wrap_core = { path = "./shrink_wrap/shrink_wrap_core" }
 strum_macros = "0.28"
+syn = { version = "3", features = ["full", "extra-traits"] }
 #shrink_wrap = { version = "0.1.2", default-features = false }
 #shrink_wrap_core = { version = "0.2.0" }
 #ww_version = { version = "0.1.1", default-features = false }
@@ -23,20 +46,18 @@ strum_macros = "0.28"
 wire_weaver = { path = "./wire_weaver", default-features = false }
 wire_weaver_client_common = { path = "./wire_weaver_client_common" }
 wire_weaver_usb_embassy = { path = "./mcu/wire_weaver_usb_embassy" }
-wire_weaver_usb_link = { path = "./wire_weaver_usb_link", default-features = false }
 wire_weaver_usb_host = { path = "./wire_weaver_usb_host" }
-shrink_wrap = { path = "./shrink_wrap/shrink_wrap", default-features = false }
-shrink_wrap_core = { path = "./shrink_wrap/shrink_wrap_core" }
-ww_version = { path = "./ww_stdlib/ww_version", default-features = false }
+wire_weaver_usb_link = { path = "./wire_weaver_usb_link", default-features = false }
 ww_client_server = { path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
-ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
-ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
-ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
-ww_uart = { path = "./ww_stdlib/ww_uart", default-features = false }
-ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
-ww_self = { path = "./ww_stdlib/ww_self" }
 ww_global = { path = "./ww_stdlib/ww_global" }
+ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
+ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
+ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
+ww_self = { path = "./ww_stdlib/ww_self" }
+ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
+ww_uart = { path = "./ww_stdlib/ww_uart", default-features = false }
+ww_version = { path = "./ww_stdlib/ww_version", default-features = false }
 
 #shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa", default-features = false }
 #shrink_wrap_core = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa" }
@@ -48,24 +69,3 @@ ww_global = { path = "./ww_stdlib/ww_global" }
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }
 wire_weaver_core = { path = "./wire_weaver_core" }
-
-[workspace]
-resolver = "3"
-members = [
-    "shrink_wrap/*",
-    "wire_weaver",
-    "wire_weaver_core",
-    "wire_weaver_derive",
-    "wire_weaver_usb_host",
-    "wire_weaver_usb_link",
-    "wire_weaver_net_host",
-    "wire_weaver_client_common",
-    "wire_weaver_udp_link",
-    "ww_stdlib/*",
-    #    "wire_weaver_tool",
-    "examples/*",
-    "tests/*",
-    "wire_weaver_cli",
-]
-
-exclude = ["examples_mcu", "tests/usb_link", "wire_weaver_tool"]

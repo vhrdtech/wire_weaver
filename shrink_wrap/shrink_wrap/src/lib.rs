@@ -13,6 +13,7 @@ pub mod ref_box;
 pub use ref_box::RefBox;
 pub mod ref_vec;
 pub use ref_vec::{RefVec, RefVecIter};
+pub mod either_any_vec;
 pub mod traits;
 pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
 pub use traits::{
@@ -81,6 +82,7 @@ impl std::error::Error for Error {}
 // }
 
 pub mod prelude {
+    pub use crate::Error as ShrinkWrapError;
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     pub use crate::nib::Nibble;
@@ -92,6 +94,5 @@ pub mod prelude {
         DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
     };
     pub use crate::un::*;
-    pub use crate::Error as ShrinkWrapError;
-    pub use shrink_wrap_derive::{derive_shrink_wrap, ShrinkWrap};
+    pub use shrink_wrap_derive::{ShrinkWrap, derive_shrink_wrap};
 }

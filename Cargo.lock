@@ -1966,6 +1966,7 @@ name = "shrink_wrap"
 version = "0.1.2"
 dependencies = [
  "defmt",
+ "either",
  "hex-literal",
  "paste",
  "serde",

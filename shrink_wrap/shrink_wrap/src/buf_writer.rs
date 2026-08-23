@@ -25,6 +25,14 @@ pub struct BufWriter<'i> {
     len_bytes: usize,
 }
 
+/// Buffer writer state that can be used to jump back and fill in some data.
+#[derive(Copy, Clone)]
+pub(crate) struct BufWriterState {
+    byte_idx: usize,
+    bit_idx: u8,
+    len_bytes: usize,
+}
+
 impl<'i> BufWriter<'i> {
     /// Create a new BufWriter from the provided mutable slice.
     /// `buf` does not need to be initialized to zero.
@@ -444,6 +452,29 @@ impl<'i> BufWriter<'i> {
     #[inline]
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
+    }
+
+    pub(crate) fn save_state(&self) -> BufWriterState {
+        BufWriterState {
+            byte_idx: self.byte_idx,
+            bit_idx: self.bit_idx,
+            len_bytes: self.len_bytes,
+        }
+    }
+
+    pub(crate) fn restore_state(&mut self, state: BufWriterState) {
+        self.byte_idx = state.byte_idx;
+        self.bit_idx = state.bit_idx;
+        self.len_bytes = state.len_bytes;
+    }
+}
+
+impl BufWriterState {
+    pub(crate) fn bits_in_byte_left(&self) -> u8 {
+        if self.byte_idx >= self.len_bytes {
+            return 0;
+        }
+        self.bit_idx + 1
     }
 }
 

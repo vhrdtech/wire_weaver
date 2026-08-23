@@ -1,6 +1,6 @@
+use crate::Error::OutOfBoundsRev;
 use crate::nib32::UNib32;
 use crate::un::read_unx;
-use crate::Error::OutOfBoundsRev;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
@@ -223,15 +223,19 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
-    // pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
-    //     let len_bytes = self.read_unib32_rev()? as usize;
-    //     self.read_raw_slice(len_bytes)
-    // }
+    /// Consume BufReader and treat all the remaining bytes as an u8 slice
+    /// The intended way to use this method is to first read the length of the slice using
+    /// read_unib32_rev, then split the original BufReader and use this method.
+    pub fn into_raw_slice(mut self) -> Result<&'i [u8], Error> {
+        let len_bytes = self.bytes_left();
+        let bytes = self.read_raw_slice(len_bytes)?;
+        Ok(bytes)
+    }
 
     /// Consume BufReader and treat all the remaining bytes as UTF8 encoded str.
     /// The intended way to use this method is to first read the length of the string using
     /// read_unib32_rev, then split the original BufReader and use this method.
-    pub fn read_raw_str(mut self) -> Result<&'i str, Error> {
+    pub fn into_raw_str(mut self) -> Result<&'i str, Error> {
         let len_bytes = self.bytes_left();
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
@@ -426,6 +430,30 @@ mod tests {
         assert_eq!(rd.bytes_left(), 1);
         assert_eq!(rd.read_u8(), Ok(3));
         assert_eq!(rd.bytes_left(), 0);
+    }
+
+    #[test]
+    fn bits() {
+        let mut rd = BufReader::new(&[0b0101_1100, 0b1010_0011]);
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(false));
+
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(false));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(true));
+
+        assert_eq!(rd.bits_left(), 0);
     }
 
     #[test]

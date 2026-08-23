@@ -1,5 +1,5 @@
 use crate::{ApiBundleOwned, FieldsOwned, FieldsValueOwned, Repr, TypeOwned, ValueOwned};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use shrink_wrap::{BufReader, BufWriter, Nibble};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
@@ -139,7 +139,7 @@ fn from_shrink_wrap_inner(
             from_shrink_wrap_inner(rd, ty, api_bundle)
         }
         // TypeOwned::Flag => {}
-        TypeOwned::String => Ok(ValueOwned::String(rd.read_raw_str()?.to_string())),
+        TypeOwned::String => Ok(ValueOwned::String(rd.into_raw_str()?.to_string())),
         TypeOwned::Vec(inner_ty) => {
             let len = rd.read_unib32_rev()?;
             let mut items = vec![];

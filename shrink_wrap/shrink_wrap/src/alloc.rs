@@ -70,7 +70,7 @@ impl<'i> DeserializeShrinkWrap<'i> for String {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        Ok(String::from(rd.read_raw_str()?))
+        Ok(String::from(rd.into_raw_str()?))
     }
 }
 
@@ -78,7 +78,7 @@ impl DeserializeShrinkWrapOwned for String {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-        Ok(String::from(rd.read_raw_str()?))
+        Ok(String::from(rd.into_raw_str()?))
     }
 }
 

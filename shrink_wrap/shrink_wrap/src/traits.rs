@@ -294,7 +294,7 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        rd.read_raw_str()
+        rd.into_raw_str()
     }
 }
 

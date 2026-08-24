@@ -16,24 +16,42 @@ use either::Either;
 /// pretty neat optimizations. Length is not stored, as it is implied from type knowledge.
 /// It is used to implemenent multi-calls and multi-read/write operations with arbitratry types in wire_weaver (storing `Result<Any, E>`).
 ///
-/// Use [EitherAnyVecWriter] to construct the array.
+/// Use [EitherAnyVecWriter] or [EitherAnyVecBuilder] to construct the array.
 #[derive(Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EitherAnyVec<'i> {
     data: &'i [u8],
 }
 
-/// Zero-copy, no_std and no-alloc array writer of `Either::L(Any), R(Any)` elements.
+/// Iterator over EitherAnyVec
+pub struct EitherAnyVecIter<'i> {
+    flags: Option<BufReader<'i>>,
+    rd: BufReader<'i>,
+}
+
+/// no_std and no-alloc array writer of `Either::L(Any), R(Any)` elements.
 ///
-/// Each element can be of any type that implements [SerializeShrinkWrap].
+/// Each element is written in 1 stage with the call to [EitherAnyVecWriter::write].
+///
+/// Elements can be of any type that implements [SerializeShrinkWrap].
 /// Including user defined structs with dynamic size, etc.
 /// Elements don't have to be of the same type, hence there is no generic parameter.
 pub struct EitherAnyVecWriter<'i> {
     data: &'i mut [u8],
+    builder: EitherAnyVecBuilder,
+}
+
+/// no_std and no-alloc array builder of `Either::L(Any), R(Any)` elements.
+///
+/// Each element is written in 3 stages: `start`, `write` (with regular BufWriter), `finish`.
+/// Information about whether written element was actually left or right is only required at the `finish` stage.
+/// This allows getting mutable BufWriter without closures and keeps borrow checker happy.
+pub struct EitherAnyVecBuilder {
     flags: Option<BufWriterState>,
     items: BufWriterState,
 }
 
+/// Special type returned by [EitherAnyVecBuilder::write_item_start] and consumed by [EitherAnyVecBuilder::write_item_finish]
 pub struct EitherAnyVecMarker {
     flags: BufWriterState,
 }
@@ -47,31 +65,29 @@ impl<'i> EitherAnyVec<'i> {
         self.data.is_empty()
     }
 
-    pub fn iter(&self) -> EitherVecIter<'i> {
-        EitherVecIter {
+    pub fn iter(&self) -> EitherAnyVecIter<'i> {
+        EitherAnyVecIter {
             flags: None,
             rd: BufReader::new(self.data),
         }
     }
 }
 
-impl<'i> EitherAnyVecWriter<'i> {
-    pub fn new(data: &'i mut [u8]) -> Self {
-        let wr = BufWriter::new(data);
+impl EitherAnyVecBuilder {
+    pub fn new(buf: &mut [u8]) -> (Self, BufWriter<'_>) {
+        let wr = BufWriter::new(buf);
         let items = wr.save_state();
-        let data = wr.deinit();
-        Self {
-            data,
-            flags: None,
-            items,
-        }
+        (Self { flags: None, items }, wr)
     }
 
-    pub fn write_flag(&mut self, is_right: bool) -> Result<EitherAnyVecMarker, Error> {
+    fn write_flag(
+        &mut self,
+        is_right: bool,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<EitherAnyVecMarker, Error> {
         let marker = if let Some(flags) = self.flags {
             let marker = flags;
             let replenish_flags = flags.bits_in_byte_left() == 1;
-            let mut wr = BufWriter::new(self.data);
             wr.restore_state(flags);
             wr.write_bool(is_right)?;
             if replenish_flags {
@@ -82,7 +98,6 @@ impl<'i> EitherAnyVecWriter<'i> {
             marker
         } else {
             // on each flag group
-            let mut wr = BufWriter::new(self.data);
             wr.restore_state(self.items);
             wr.align_byte();
             let marker = wr.save_state();
@@ -95,59 +110,109 @@ impl<'i> EitherAnyVecWriter<'i> {
         Ok(EitherAnyVecMarker { flags: marker })
     }
 
-    pub fn update_flag(&mut self, marker: EitherAnyVecMarker, is_right: bool) {
-        let mut wr = BufWriter::new(self.data);
+    /// Begin writing a new item, after this call a new flag is allocated in the buffer.
+    /// It is not yet known whether left or right item is going to be written next.
+    pub fn write_item_start(
+        &mut self,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<EitherAnyVecMarker, Error> {
+        let marker = self.write_flag(false, wr)?;
+        wr.restore_state(self.items);
+        Ok(marker)
+    }
+
+    /// Serialize the next item using wr BufWriter itself.
+    /// Then call this method, providing marker from [Self::write_item_start] and whether left or right item was written.
+    pub fn write_item_finish(
+        &mut self,
+        marker: EitherAnyVecMarker,
+        is_right: bool,
+        wr: &mut BufWriter<'_>,
+    ) {
+        self.items = wr.save_state();
         wr.restore_state(marker.flags);
         let _ = wr.write_bool(is_right);
     }
 
-    // pub fn write_item_start(&'i mut self) -> BufWriter<'i> {
-    //     let mut wr = BufWriter::new(self.data);
-    //     wr.restore_state(self.items);
-    //     wr
-    // }
+    /// Write left item in one step.
+    pub fn write_left<L: SerializeShrinkWrap>(
+        &mut self,
+        item_left: &L,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<(), Error> {
+        self.write_flag(false, wr)?;
+        wr.restore_state(self.items);
+        wr.write(item_left)?;
+        self.items = wr.save_state();
+        Ok(())
+    }
 
-    // pub fn write_item_finish(&mut self, wr: BufWriter<'i>) {
-    //     self.items = wr.save_state();
-    // }
+    /// Write right item in one step.
+    pub fn write_right<R: SerializeShrinkWrap>(
+        &mut self,
+        item_right: &R,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<(), Error> {
+        self.write_flag(true, wr)?;
+        wr.restore_state(self.items);
+        wr.write(item_right)?;
+        self.items = wr.save_state();
+        Ok(())
+    }
 
+    /// Finalize the BufWriter and get result bytes
+    pub fn finish_and_take(self, mut wr: BufWriter<'_>) -> Result<&[u8], Error> {
+        wr.restore_state(self.items);
+        wr.finish_and_take()
+    }
+}
+
+impl<'i> EitherAnyVecWriter<'i> {
+    pub fn new(data: &'i mut [u8]) -> Self {
+        let wr = BufWriter::new(data);
+        let items = wr.save_state();
+        let data = wr.deinit();
+        Self {
+            data,
+            builder: EitherAnyVecBuilder { flags: None, items },
+        }
+    }
+
+    /// Write either left or right item to the buffer.
     pub fn write<L: SerializeShrinkWrap, R: SerializeShrinkWrap>(
         &mut self,
         elem: Either<L, R>,
     ) -> Result<(), Error> {
         let is_right = matches!(elem, Either::Right(_));
-        self.write_flag(is_right)?;
-
         let mut wr = BufWriter::new(self.data);
-        wr.restore_state(self.items);
+        self.builder.write_flag(is_right, &mut wr)?;
+
+        wr.restore_state(self.builder.items);
         match &elem {
             Either::Left(l) => wr.write(l)?,
             Either::Right(r) => wr.write(r)?,
         }
-        self.items = wr.save_state();
+        self.builder.items = wr.save_state();
         Ok(())
     }
 
+    /// Write an item inside a closure first and then update the flag.
+    /// Closure must return an `is_right` boolean.
     pub fn write_with<F: FnMut(&mut BufWriter<'_>) -> bool>(
         &mut self,
         mut f: F,
     ) -> Result<(), Error> {
-        let marker = self.write_flag(false)?;
-
         let mut wr = BufWriter::new(self.data);
-        wr.restore_state(self.items);
+        let marker = self.builder.write_item_start(&mut wr)?;
         let is_right = f(&mut wr);
-        self.items = wr.save_state();
-
-        self.update_flag(marker, is_right);
-
+        self.builder.write_item_finish(marker, is_right, &mut wr);
         Ok(())
     }
 
+    /// Finalize the BufWriter and get result bytes
     pub fn finish_and_take(self) -> Result<&'i [u8], Error> {
-        let mut wr = BufWriter::new(self.data);
-        wr.restore_state(self.items);
-        wr.finish_and_take()
+        let wr = BufWriter::new(self.data);
+        self.builder.finish_and_take(wr)
     }
 }
 
@@ -169,13 +234,8 @@ impl<'i> DeserializeShrinkWrap<'i> for EitherAnyVec<'i> {
     }
 }
 
-pub struct EitherVecIter<'i> {
-    flags: Option<BufReader<'i>>,
-    rd: BufReader<'i>,
-}
-
-impl<'i> EitherVecIter<'i> {
-    /// Read the next flag and element with any `L` and `R` types specific to this call only.
+impl<'i> EitherAnyVecIter<'i> {
+    /// Read the next flag and deserialize either `L` or `R` type.
     pub fn next<L: DeserializeShrinkWrap<'i>, R: DeserializeShrinkWrap<'i>>(
         &mut self,
     ) -> Result<Either<L, R>, Error> {
@@ -351,27 +411,18 @@ mod tests {
     }
 
     #[test]
-    fn result_vec_staged_write() {
+    fn result_vec_write_with() {
         let mut buf = [0u8; 64];
         let mut wr = EitherAnyVecWriter::new(&mut buf);
 
-        wr.write_with(|wr| {
-            write_with_buf_writer(wr, vec![0xAA, 0xBB, 0xCC]);
-            true
-        })
-        .unwrap();
+        wr.write_with(|wr| write_with_buf_writer(wr, vec![0xAA, 0xBB, 0xCC]))
+            .unwrap();
 
-        wr.write_with(|wr| {
-            write_with_buf_writer(wr, vec![0xDD, 0xEE]);
-            true
-        })
-        .unwrap();
+        wr.write_with(|wr| write_with_buf_writer(wr, vec![0xDD, 0xEE]))
+            .unwrap();
 
-        wr.write_with(|wr| {
-            write_with_buf_writer(wr, vec![0xFF]);
-            true
-        })
-        .unwrap();
+        wr.write_with(|wr| write_with_buf_writer(wr, vec![0xFF]))
+            .unwrap();
 
         wr.write_with(|wr| {
             wr.write(&MyError::E).unwrap();
@@ -383,7 +434,29 @@ mod tests {
         assert_eq!(data, RESULT_VEC);
     }
 
-    fn write_with_buf_writer(wr: &mut BufWriter<'_>, ty: Vec<u8>) {
+    // look Ma, no closures!
+    #[test]
+    fn result_vec_write_builder() {
+        let mut buf = [0u8; 64];
+        let (mut builder, mut wr) = EitherAnyVecBuilder::new(&mut buf);
+
+        let marker = builder.write_item_start(&mut wr).unwrap();
+        let is_right = write_with_buf_writer(&mut wr, vec![0xAA, 0xBB, 0xCC]);
+        builder.write_item_finish(marker, is_right, &mut wr);
+
+        let marker = builder.write_item_start(&mut wr).unwrap();
+        let is_right = write_with_buf_writer(&mut wr, vec![0xDD, 0xEE]);
+        builder.write_item_finish(marker, is_right, &mut wr);
+
+        builder.write_right(&vec![0xFFu8], &mut wr).unwrap();
+        builder.write_left(&MyError::E, &mut wr).unwrap();
+
+        let data = builder.finish_and_take(wr).unwrap();
+        assert_eq!(data, RESULT_VEC);
+    }
+
+    fn write_with_buf_writer(wr: &mut BufWriter, ty: Vec<u8>) -> bool {
         wr.write(&ty).unwrap();
+        true
     }
 }

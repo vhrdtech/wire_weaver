@@ -93,6 +93,30 @@ impl ItemEnum {
             Repr::Nibble => Ident::new("u8", Span::call_site()),
         }
     }
+
+    pub fn to_discriminants(&self) -> Self {
+        ItemEnum {
+            docs: Docs::empty(),
+            derive_borrowed: vec![],
+            derive_owned: vec![],
+            size_assumption: None,
+            repr: self.repr,
+            explicit_ww_repr: self.explicit_ww_repr,
+            ident: Ident::new(&format!("{}Discriminants", self.ident), self.ident.span()),
+            variants: self
+                .variants
+                .iter()
+                .map(|v| {
+                    let mut v = v.clone();
+                    v.fields = Fields::Unit;
+                    v
+                })
+                .collect(),
+            cfg: None,
+            defmt: None,
+            serde: None,
+        }
+    }
 }
 
 impl Variant {

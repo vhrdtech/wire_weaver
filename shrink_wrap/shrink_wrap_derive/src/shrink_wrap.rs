@@ -1,16 +1,21 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::TokenStreamExt;
 use shrink_wrap_core::ast::{ItemEnum, ItemStruct};
 use shrink_wrap_core::transform::take_owned_attr;
-use syn::{File, Item};
+use syn::parse::Parse;
+use syn::{File, Item, parse2};
 
 // TODO: move owned = "" to derive_shrink_warp attribute macro args?
-pub fn shrink_wrap_attr(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn shrink_wrap_attr(attr: TokenStream, item: TokenStream) -> TokenStream {
     let file = match syn::parse2::<File>(item) {
         Ok(f) => f,
         Err(e) => return e.to_compile_error(),
     };
-    shrink_wrap_attr_inner(file)
+    let args: Args = match parse2(attr) {
+        Ok(args) => args,
+        Err(e) => return e.to_compile_error(),
+    };
+    shrink_wrap_attr_inner(file, args)
         .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
@@ -23,7 +28,7 @@ pub fn shrink_wrap_derive(item: TokenStream) -> TokenStream {
         .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
+fn shrink_wrap_attr_inner(mut file: File, args: Args) -> Result<TokenStream, String> {
     let Some(mut item) = file.items.pop() else {
         return Err("Expected one item (enum or struct)".into());
     };
@@ -41,6 +46,10 @@ fn shrink_wrap_attr_inner(mut file: File) -> Result<TokenStream, String> {
             let ww_item_enum = ItemEnum::from_syn(item_enum, true)?;
             ts.append_all(ww_item_enum.def_rust(no_alloc));
             ts.append_all(ww_item_enum.serdes_rust(no_alloc, false));
+            if args.discriminants_enum {
+                let discriminants_enum = ww_item_enum.to_discriminants();
+                ts.append_all(discriminants_enum.def_rust(true));
+            }
             if let Some(feature) = &generate_owned {
                 let enum_owned = ww_item_enum.to_owned(feature.clone());
                 ts.append_all(enum_owned.def_rust(false));
@@ -89,5 +98,30 @@ fn has_lifetimes(item: &Item) -> bool {
         Item::Enum(item_enum) => item_enum.generics.lifetimes().next().is_some(),
         Item::Struct(item_struct) => item_struct.generics.lifetimes().next().is_some(),
         _ => false,
+    }
+}
+
+struct Args {
+    discriminants_enum: bool,
+}
+
+impl Parse for Args {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut discriminants_enum = false;
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+            match ident.to_string().as_str() {
+                "discriminants" => {
+                    discriminants_enum = true;
+                }
+                u => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        format!("unsupported directive '{u}'"),
+                    ));
+                }
+            }
+        }
+        Ok(Args { discriminants_enum })
     }
 }

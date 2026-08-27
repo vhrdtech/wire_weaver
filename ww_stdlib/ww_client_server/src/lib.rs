@@ -1,11 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc = include_str!("../README.md")]
 
+pub mod builder;
+pub mod multi_req;
 pub mod util;
 
-use wire_weaver::prelude::*;
+use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
 use ww_version::{CompactVersion, FullVersion};
 
+#[cfg(feature = "std")]
+use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 #[cfg(feature = "std")]
 use ww_version::FullVersionOwned;
 
@@ -78,14 +82,14 @@ pub enum RequestKind<'i> {
     /// Expected to get EventKind::ReturnValue, unless request ID is 0.
     Call {
         /// Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
-        args: RefVec<'i, u8>,
+        args: TailBytes<'i>,
     },
     /// Call the same method over an array of traits or several methods in one request.
     MultiCall {
         /// List of resources to call
         multi_idx: MultiIndex<'i>,
         /// Some when calling the same method on an array of traits
-        resource_id: Option<UNib32>,
+        in_each_array_id: Option<UNib32>,
         multi_args: MultiArgs<'i>,
     },
 
@@ -97,20 +101,20 @@ pub enum RequestKind<'i> {
         /// List of properties to read from
         multi_idx: MultiIndex<'i>,
         /// Some when reading the same property on an array of traits
-        resource_id: Option<UNib32>,
+        in_each_array_id: Option<UNib32>,
     },
 
     // Read the default value of a property, if available.
     // ReadDefault,
     /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
-    Write { data: RefVec<'i, u8> },
+    Write { data: TailBytes<'i> },
     /// Write multiple properties or streams in one request.
     MultiWrite {
         /// List of resources to write to
         multi_idx: MultiIndex<'i>,
         /// Some when addressing the same resource on an array of traits
-        resource_id: Option<UNib32>,
+        in_each_array_id: Option<UNib32>,
         multi_data: MultiArgs<'i>,
     },
 
@@ -218,7 +222,7 @@ pub struct Event<'i> {
 }
 
 /// Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.
-#[derive_shrink_wrap]
+#[derive_shrink_wrap(discriminants)]
 #[ww_repr(nib)]
 #[final_structure]
 #[owned = "std"]
@@ -227,16 +231,16 @@ pub enum EventKind<'i> {
     /// Sent in response to RequestKind::Call, unless request ID is 0.
     ReturnValue {
         /// Serialized return value of a method.
-        data: RefVec<'i, u8>,
         // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
         // TODO: add CRC?
+        data: TailBytes<'i>,
     },
 
     /// Sent in response to RequestKind::Read.
     // TODO: remove and use ReturnValue?
     ReadValue {
         /// Serialized property value.
-        data: RefVec<'i, u8>,
+        data: TailBytes<'i>,
     },
 
     /// Sent in response to RequestKind::Write, only for properties and when request ID is not 0.
@@ -247,7 +251,7 @@ pub enum EventKind<'i> {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
         /// Stream data can be a whole frame or a chunk of a byte stream.
-        data: RefVec<'i, u8>,
+        data: TailBytes<'i>,
     },
     /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
@@ -288,19 +292,20 @@ pub enum StreamSidebandEvent {
 }
 
 #[derive_shrink_wrap]
+#[final_structure]
 #[derive(Debug)]
 #[owned = "std"]
 pub struct Error<'i> {
     /// Unique error ID for each error in generated code. Can be used to map an error back to source code.
-    err_seq: u32,
+    err_seq: UNib32,
     /// Actual error kind.
     kind: ErrorKind<'i>,
 }
 
 /// Various errors that can occur during Request processing.
 /// TODO: Add shrink_wrap error here as well for more context
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
+#[derive_shrink_wrap(discriminants)]
+#[ww_repr(u8)]
 #[derive(Debug)]
 #[owned = "std"]
 pub enum ErrorKind<'i> {
@@ -379,33 +384,36 @@ impl PathKind<'_> {
 
 impl<'i> Error<'i> {
     pub fn new(err_seq: u32, kind: ErrorKind<'i>) -> Error<'i> {
-        Self { err_seq, kind }
+        Self {
+            err_seq: UNib32(err_seq),
+            kind,
+        }
     }
 
     pub fn not_supported(err_seq: u32) -> Self {
         Self {
-            err_seq,
+            err_seq: UNib32(err_seq),
             kind: ErrorKind::OperationNotSupported,
         }
     }
 
     pub fn bad_path(err_seq: u32) -> Self {
         Self {
-            err_seq,
+            err_seq: UNib32(err_seq),
             kind: ErrorKind::BadPath,
         }
     }
 
     pub fn response_ser_failed(err_seq: u32) -> Self {
         Self {
-            err_seq,
+            err_seq: UNib32(err_seq),
             kind: ErrorKind::ResponseSerFailed,
         }
     }
 
     pub fn unimplemented(err_seq: u32) -> Self {
         Self {
-            err_seq,
+            err_seq: UNib32(err_seq),
             kind: ErrorKind::Unimplemented,
         }
     }
@@ -492,40 +500,58 @@ impl PathKindOwned {
     }
 }
 
+impl RequestKind<'_> {
+    pub fn discriminants(&self) -> EventKindDiscriminants {
+        match self {
+            RequestKind::Call { .. } => EventKindDiscriminants::ReturnValue,
+            RequestKind::MultiCall { .. } => EventKindDiscriminants::ReturnValue,
+            RequestKind::Read => EventKindDiscriminants::ReadValue,
+            RequestKind::MultiRead { .. } => EventKindDiscriminants::ReadValue,
+            RequestKind::Write { .. } => EventKindDiscriminants::Written,
+            RequestKind::MultiWrite { .. } => EventKindDiscriminants::Written,
+            RequestKind::Subscribe => EventKindDiscriminants::Subscribed,
+            RequestKind::Unsubscribe => EventKindDiscriminants::Unsubscribed,
+            RequestKind::ChangeRate { .. } => EventKindDiscriminants::RateChanged,
+            RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
+            RequestKind::Introspect => EventKindDiscriminants::StreamData,
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 impl RequestKind<'_> {
     pub fn make_owned(&self) -> Result<RequestKindOwned, shrink_wrap::Error> {
         let req = match self {
             RequestKind::Call { args } => RequestKindOwned::Call {
-                args: args.to_vec(),
+                args: args.make_owned(),
             },
             RequestKind::MultiCall {
                 multi_idx,
-                resource_id,
+                in_each_array_id,
                 multi_args,
             } => RequestKindOwned::MultiCall {
                 multi_idx: multi_idx.make_owned()?,
-                resource_id: *resource_id,
+                in_each_array_id: *in_each_array_id,
                 multi_args: multi_args.make_owned()?,
             },
             RequestKind::Read => RequestKindOwned::Read,
             RequestKind::MultiRead {
                 multi_idx,
-                resource_id,
+                in_each_array_id,
             } => RequestKindOwned::MultiRead {
                 multi_idx: multi_idx.make_owned()?,
-                resource_id: *resource_id,
+                in_each_array_id: *in_each_array_id,
             },
             RequestKind::Write { data } => RequestKindOwned::Write {
-                data: data.to_vec(),
+                data: data.make_owned(),
             },
             RequestKind::MultiWrite {
                 multi_idx,
-                resource_id,
+                in_each_array_id,
                 multi_data,
             } => RequestKindOwned::MultiWrite {
                 multi_idx: multi_idx.make_owned()?,
-                resource_id: *resource_id,
+                in_each_array_id: *in_each_array_id,
                 multi_data: multi_data.make_owned()?,
             },
             RequestKind::StreamSideband { sideband_cmd } => RequestKindOwned::StreamSideband {

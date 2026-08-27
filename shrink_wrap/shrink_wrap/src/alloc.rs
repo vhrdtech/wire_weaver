@@ -59,26 +59,26 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for Vec<T> {
 }
 
 impl SerializeShrinkWrap for String {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_raw_str(self.as_str())
+        wr.write_str(self.as_str())
     }
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for String {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        Ok(String::from(rd.into_raw_str()?))
+        Ok(String::from(rd.read_str()?))
     }
 }
 
 impl DeserializeShrinkWrapOwned for String {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-        Ok(String::from(rd.into_raw_str()?))
+        Ok(String::from(rd.read_str()?))
     }
 }
 

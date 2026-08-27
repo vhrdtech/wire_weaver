@@ -223,20 +223,15 @@ impl<'i> BufReader<'i> {
         Ok(val)
     }
 
-    /// Consume BufReader and treat all the remaining bytes as an u8 slice
-    /// The intended way to use this method is to first read the length of the slice using
-    /// read_unib32_rev, then split the original BufReader and use this method.
-    pub fn into_raw_slice(mut self) -> Result<&'i [u8], Error> {
-        let len_bytes = self.bytes_left();
-        let bytes = self.read_raw_slice(len_bytes)?;
-        Ok(bytes)
+    /// Read length of the u8 slice from the back of the buffer and then the slice itself
+    pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
+        let len_bytes = self.read_unib32_rev()? as usize;
+        self.read_raw_slice(len_bytes)
     }
 
-    /// Consume BufReader and treat all the remaining bytes as UTF8 encoded str.
-    /// The intended way to use this method is to first read the length of the string using
-    /// read_unib32_rev, then split the original BufReader and use this method.
-    pub fn into_raw_str(mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.bytes_left();
+    /// Read length of the string from the back of the buffer and then the string itself
+    pub fn read_str(&mut self) -> Result<&'i str, Error> {
+        let len_bytes = self.read_unib32_rev()? as usize;
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }

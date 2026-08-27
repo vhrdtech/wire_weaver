@@ -130,6 +130,15 @@ pub enum ElementSize {
     Sized { size_bits: usize },
 }
 
+// was originally implemented when calling write in server codegen, not knowing if object is plain or custom (e.g., &u8)
+impl<T: SerializeShrinkWrap> SerializeShrinkWrap for &T {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        <T as SerializeShrinkWrap>::ser_shrink_wrap(&self, wr)
+    }
+}
+
 impl ElementSize {
     pub const fn add(&self, other: ElementSize) -> ElementSize {
         // Order is very important here, size requirement is bumped from Sized to SelfDescribing to Unsized.
@@ -282,19 +291,31 @@ impl_deserialize!(i, 128);
 impl_deserialize!(f, 32);
 impl_deserialize!(f, 64);
 
-impl SerializeShrinkWrap for &'_ str {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+impl SerializeShrinkWrap for &'_ [u8] {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_raw_str(self)
+        let Ok(len_u16) = u16::try_from(self.len()) else {
+            return Err(Error::VecTooLong);
+        };
+        wr.write_u16_rev(len_u16)?;
+        wr.write_raw_slice(self)
+    }
+}
+
+impl SerializeShrinkWrap for &'_ str {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_str(self)
     }
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for &'i str {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        rd.into_raw_str()
+        rd.read_str()
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::ast::ty::Type;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use std::ops::Deref;
 use syn::{Lit, LitInt};
 
@@ -195,33 +195,6 @@ impl Type {
             Type::I128 => "write_i128",
             Type::F32 => "write_f32",
             Type::F64 => "write_f64",
-            // Type::Bytes => {
-            //     if no_alloc {
-            //         "write_bytes"
-            //     } else {
-            //         tokens.append_all(quote! { wr.write_raw_slice(&#field_path)?; });
-            //         return;
-            //     }
-            // }
-            // Type::String => {
-            //     // size is handled here as a small optimization, generic write and read implementations would also work.
-            //     // Since String is very simple and does not contain any inner objects, there is no need to do no-op calculations.
-            //     // let field_path_value = field_path.clone().by_value();
-            //     let field_path_ref = field_path.by_ref();
-            //     tokens.append_all(quote! {
-            //         let len = u16::try_from(#field_path_ref.len()).map_err(|_| ShrinkWrapError::StrTooLong)?;
-            //         wr.write_u16_rev(len)?;
-            //     });
-            //     if no_alloc {
-            //         tokens.append_all(quote! { wr.write_raw_str(#field_path_ref) #handle_eob; });
-            //         return;
-            //     } else {
-            //         tokens.append_all(
-            //             quote! { wr.write_raw_str(#field_path_ref.as_str()) #handle_eob; },
-            //         );
-            //         return;
-            //     }
-            // }
             Type::IsSome(option_field) => {
                 let path = if field_path.is_empty() {
                     quote! { #option_field }

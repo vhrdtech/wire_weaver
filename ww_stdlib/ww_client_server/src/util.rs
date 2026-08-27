@@ -1,5 +1,5 @@
 use super::{Event, EventKind};
-use wire_weaver::shrink_wrap::{ref_vec::RefVec, BufWriter, Error, SerializeShrinkWrap};
+use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap, tail_bytes::TailBytes};
 
 pub fn ser_ok_event<'a>(
     scratch: &'a mut [u8],
@@ -37,8 +37,7 @@ pub fn ser_unit_return_event(scratch: &mut [u8], seq: u16) -> Result<&[u8], Erro
     let event = Event {
         seq,
         result: Ok(EventKind::ReturnValue {
-            // 0 is for future compatibility if unit is changed to something else
-            data: RefVec::Slice { slice: &[0x00] },
+            data: TailBytes(&[]),
         }),
     };
     event.ser_shrink_wrap(&mut wr)?;

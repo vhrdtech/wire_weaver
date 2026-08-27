@@ -502,7 +502,7 @@ fn handle_stream(
     is_up: bool,
 ) -> TokenStream {
     let ty_def = if ty.is_byte_slice(api_bundle).unwrap() {
-        quote! { wire_weaver::shrink_wrap::raw_slice::RawSliceOwned }
+        quote! { wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned }
     } else {
         ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap()
     };

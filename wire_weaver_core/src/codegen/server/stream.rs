@@ -67,9 +67,9 @@ pub(crate) fn stream_ser_methods_recursive(
         };
 
         let bytes_to_container = if no_alloc {
-            quote! { RefVec::Slice { slice: value_bytes } }
+            quote! { TailBytes(value_bytes) }
         } else {
-            quote! { Vec::from(value_bytes) }
+            quote! { TailBytesOwned(Vec::from(value_bytes)) }
         };
 
         let (value_ty, value_ser) = if ty.is_byte_slice(bundle).unwrap() {

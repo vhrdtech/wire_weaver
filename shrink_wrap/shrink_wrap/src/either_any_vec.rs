@@ -1,4 +1,4 @@
-use crate::buf_writer::BufWriterState;
+use crate::buf_writer::{BufWriterState, UnsizedBuilder};
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 use either::Either;
@@ -47,6 +47,7 @@ pub struct EitherAnyVecWriter<'i> {
 /// Information about whether written element was actually left or right is only required at the `finish` stage.
 /// This allows getting mutable BufWriter without closures and keeps borrow checker happy.
 pub struct EitherAnyVecBuilder {
+    unsized_builder: UnsizedBuilder,
     flags: Option<BufWriterState>,
     items: BufWriterState,
 }
@@ -74,10 +75,18 @@ impl<'i> EitherAnyVec<'i> {
 }
 
 impl EitherAnyVecBuilder {
-    pub fn new(buf: &mut [u8]) -> (Self, BufWriter<'_>) {
-        let wr = BufWriter::new(buf);
+    pub fn new(buf: &mut [u8]) -> Result<(Self, BufWriter<'_>), Error> {
+        let mut wr = BufWriter::new(buf);
+        let unsized_builder = UnsizedBuilder::new(&mut wr)?;
         let items = wr.save_state();
-        (Self { flags: None, items }, wr)
+        Ok((
+            Self {
+                unsized_builder,
+                flags: None,
+                items,
+            },
+            wr,
+        ))
     }
 
     fn write_flag(
@@ -163,19 +172,16 @@ impl EitherAnyVecBuilder {
     /// Finalize the BufWriter and get result bytes
     pub fn finish_and_take(self, mut wr: BufWriter<'_>) -> Result<&[u8], Error> {
         wr.restore_state(self.items);
+        self.unsized_builder.finish(&mut wr)?;
         wr.finish_and_take()
     }
 }
 
 impl<'i> EitherAnyVecWriter<'i> {
-    pub fn new(data: &'i mut [u8]) -> Self {
-        let wr = BufWriter::new(data);
-        let items = wr.save_state();
+    pub fn new(data: &'i mut [u8]) -> Result<Self, Error> {
+        let (builder, wr) = EitherAnyVecBuilder::new(data)?;
         let data = wr.deinit();
-        Self {
-            data,
-            builder: EitherAnyVecBuilder { flags: None, items },
-        }
+        Ok(Self { data, builder })
     }
 
     /// Write either left or right item to the buffer.
@@ -217,19 +223,19 @@ impl<'i> EitherAnyVecWriter<'i> {
 }
 
 impl<'i> SerializeShrinkWrap for EitherAnyVec<'i> {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_raw_slice(self.data)
+        wr.write_bytes(self.data)
     }
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for EitherAnyVec<'i> {
-    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         Ok(EitherAnyVec {
-            data: rd.into_raw_slice()?,
+            data: rd.read_bytes()?,
         })
     }
 }
@@ -280,6 +286,7 @@ mod tests {
         0xBF,
         0b1010_0011, // RLRL_LLRR
         0b1111_1000,
+        0x19,
     ];
 
     #[test]
@@ -324,7 +331,7 @@ mod tests {
     #[test]
     fn write_numbers() {
         let mut buf = [0u8; 16];
-        let mut wr = EitherAnyVecWriter::new(&mut buf);
+        let mut wr = EitherAnyVecWriter::new(&mut buf).unwrap();
         wr.write::<_, ()>(Either::Left(false)).unwrap();
         wr.write::<(), _>(Either::Right(U3::max())).unwrap();
         wr.write::<_, ()>(Either::Left(U4::new(0b1101).unwrap()))
@@ -360,6 +367,7 @@ mod tests {
         0x40, // MyError (1B because it is Unsized)
         0x11, // lengths from the back: 3, 2, 1, 1
         0x23,
+        0x29, // size in bytes
     ];
 
     #[derive_shrink_wrap]
@@ -376,7 +384,7 @@ mod tests {
     #[test]
     fn result_vec_write() {
         let mut buf = [0u8; 64];
-        let mut wr = EitherAnyVecWriter::new(&mut buf);
+        let mut wr = EitherAnyVecWriter::new(&mut buf).unwrap();
         wr.write::<MyError, Vec<u8>>(Either::Right(vec![0xAA, 0xBB, 0xCC]))
             .unwrap();
         wr.write::<MyError, Vec<u8>>(Either::Right(vec![0xDD, 0xEE]))
@@ -413,7 +421,7 @@ mod tests {
     #[test]
     fn result_vec_write_with() {
         let mut buf = [0u8; 64];
-        let mut wr = EitherAnyVecWriter::new(&mut buf);
+        let mut wr = EitherAnyVecWriter::new(&mut buf).unwrap();
 
         wr.write_with(|wr| write_with_buf_writer(wr, vec![0xAA, 0xBB, 0xCC]))
             .unwrap();
@@ -438,7 +446,7 @@ mod tests {
     #[test]
     fn result_vec_write_builder() {
         let mut buf = [0u8; 64];
-        let (mut builder, mut wr) = EitherAnyVecBuilder::new(&mut buf);
+        let (mut builder, mut wr) = EitherAnyVecBuilder::new(&mut buf).unwrap();
 
         let marker = builder.write_item_start(&mut wr).unwrap();
         let is_right = write_with_buf_writer(&mut wr, vec![0xAA, 0xBB, 0xCC]);

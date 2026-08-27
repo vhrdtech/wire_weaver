@@ -4,6 +4,10 @@
 default:
     @just --list
 
+# Test everything
+test:
+    cargo nextest run --workspace --no-fail-fast
+
 # cargo check everything
 check: check-core check-mcu check-examples-mcu
 

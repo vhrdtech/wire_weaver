@@ -17,6 +17,7 @@ trait Methods {
 
 #[derive_shrink_wrap]
 #[owned = "std"]
+#[derive(Debug, PartialEq, Eq)]
 struct UserDefined<'i> {
     a: u8,
     b: RefVec<'i, u8>,

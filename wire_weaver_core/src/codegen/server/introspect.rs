@@ -29,18 +29,22 @@ pub(crate) fn introspect(
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
                     let event = Event {
                         seq: request.seq,
-                        result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: RefVec::new_bytes(chunk) }),
+                        result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: TailBytes(chunk) }),
                     };
-                    let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                    wr.reset();
+                    event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                    let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                     msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
                 }
                 let event = Event {
                     seq: request.seq,
                     result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
                 };
-                let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                wr.reset();
+                event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                 msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                Ok(&[])
+                Ok(WrAction::Deferred)
             }
         }
     } else {
@@ -50,9 +54,11 @@ pub(crate) fn introspect(
                     seq: request.seq,
                     result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
                 };
-                let event_bytes = event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                wr.reset();
+                event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                 msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                Ok(&[])
+                Ok(WrAction::Deferred)
             }
         }
     };

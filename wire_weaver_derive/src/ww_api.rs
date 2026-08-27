@@ -70,6 +70,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 property_model,
                 server_struct_path: args.context_ident.clone(),
                 generate_introspect: args.ext.introspect,
+                multi_req: args.ext.multi_req,
             },
         );
         codegen_ts.append_all(ts);

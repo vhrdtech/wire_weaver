@@ -32,6 +32,9 @@ pub struct GenServerConfig {
     pub server_struct_path: String,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
     pub generate_introspect: bool,
+    /// Generate multi read, multi write and multi call support code.
+    /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
+    pub multi_req: bool,
 }
 
 /// API server code generation configuration.
@@ -51,6 +54,9 @@ pub struct GenServerConfigRaw {
     pub server_struct_path: Path,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
     pub generate_introspect: bool,
+    /// Generate multi read, multi write and multi call support code.
+    /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
+    pub multi_req: bool,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -62,6 +68,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             property_model: config.property_model,
             server_struct_path: super::util::str_to_path(&config.server_struct_path),
             generate_introspect: config.generate_introspect,
+            multi_req: config.multi_req,
         }
     }
 }
@@ -97,6 +104,7 @@ pub fn gen_server(
         no_alloc: config.no_alloc,
         use_async: config.use_async,
         property_model: &config.property_model,
+        multi_req: config.multi_req,
     };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
@@ -131,8 +139,10 @@ pub fn gen_server(
         &mut seen,
         &mut args_structs,
     );
-    let es = error_seq.next();
+    let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
+    let maybe_use_ser_shrink_wrap = maybe_quote_cl(cx.multi_req, || quote! { false, });
+    // let maybe_use_write = maybe_quote_cl(cx.multi_req, || quote! { true, });
     quote! {
         #args_structs
 
@@ -141,16 +151,30 @@ pub fn gen_server(
         #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
-            Error as ShrinkWrapError, nib32::UNib32, ElementSize
+            Error as ShrinkWrapError, nib32::UNib32, ElementSize,
+            buf_writer::BufWriterState,
+            tail_bytes::TailBytes,
         };
         #[allow(unused_imports)]
-        use ww_client_server::{Request, RequestKind, Event, EventKind, PathKind, Error, ErrorKind, StreamSidebandCommand, util::{ser_ok_event, ser_err_event, ser_unit_return_event}};
+        use ww_client_server::{
+            Request, RequestKind, Event, EventKind, EventKindDiscriminants,
+            PathKind, Error, ErrorKind, StreamSidebandCommand, ErrorKindDiscriminants,
+            util::{ser_ok_event, ser_err_event, ser_unit_return_event},
+            builder::{EventBuilder, EventKindBuilder, ErrorBuilder},
+        };
+        use core::slice::Iter;
         #additional_use
         #api_signature
 
+        enum WrAction {
+            WrittenOk,
+            WrittenErr,
+            Deferred
+        }
+
         impl #server_struct_path {
             /// Returns an Error only if request deserialization or error serialization failed.
-            /// If there are any other errors, they are returned to the remote caller.
+            /// If there are any other errors, they are sent to the remote.
             pub #maybe_async fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
@@ -161,28 +185,105 @@ pub fn gen_server(
             ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd)?;
-                // if matches!(request.kind, RequestKind::Read) && request.seq == 0 { // TODO: Move to property read
-                //     return Ok(ser_err_event(scratch_err, request.seq, Error::ReadPropertyWithSeqZero).map_err(|_| Error::ResponseSerFailed)?)
-                // }
+
+                let mut wr = BufWriter::new(scratch_event);
+                let event_builder = EventBuilder::new(request.seq, &mut wr)?;
+
                 // TODO: handle trait paths on server side
                 let PathKind::Absolute { path } = &request.path_kind else {
-                    let mut wr = BufWriter::new(scratch_err);
-                    let event = Event { seq: request.seq, result: Err(Error::new(#es, ErrorKind::PathKindNotSupported)) };
-                    event.ser_shrink_wrap(&mut wr)?;
+                    wr.write(&Error::new(#es1, ErrorKind::PathKindNotSupported))?;
+                    event_builder.finish(false, &mut wr);
                     return wr.finish_and_take();
                 };
-                let mut path_iter = path.iter();
-                match self.process_root(path.clone(), &mut path_iter, &request, scratch_args, scratch_event, msg_tx)#maybe_await {
-                    Ok(response_bytes) => Ok(response_bytes),
-                    Err(e) => {
-                        let mut wr = BufWriter::new(scratch_err);
-                        let event = Event {
-                            seq: request.seq,
-                            result: Err(e)
-                        };
-                        event.ser_shrink_wrap(&mut wr)?;
-                        wr.finish_and_take()
+
+                const MAX_DEPTH: usize = 16; // TODO: calculate max depth
+                let mut path_arr = [UNib32(0); MAX_DEPTH];
+                let mut path_len: usize = 0;
+                for (idx, resource_id) in path.iter().enumerate() {
+                    let resource_id = resource_id?;
+                    if idx < MAX_DEPTH {
+                        path_arr[idx] = resource_id;
+                        path_len += 1;
+                    } else {
+                        wr.write(&Error::new(#es2, ErrorKind::BadPath))?;
+                        event_builder.finish(false, &mut wr);
+                        return wr.finish_and_take();
                     }
+                }
+
+                let path = &path_arr[..path_len];
+                let mut iter = path.iter();
+                let before_event_kind = wr.save_state();
+                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+                match &request.kind {
+                    _ => {
+                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap msg_tx)#maybe_await {
+                            Ok(WrAction::WrittenOk) => {
+                                if request.seq == 0 {
+                                    return Ok(&[])
+                                }
+                                event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+                                event_builder.finish(true, &mut wr);
+                                wr.finish_and_take()
+                            }
+                            Ok(WrAction::WrittenErr) => {
+                                event_builder.finish(false, &mut wr);
+                                wr.finish_and_take()
+                            }
+                            Ok(WrAction::Deferred) => {
+                                Ok(&[])
+                            }
+                            Err(e) => {
+                                wr.restore_state(before_event_kind); // handler could have started to write to wr but failed
+                                wr.write(&e)?;
+                                event_builder.finish(false, &mut wr);
+                                wr.finish_and_take()
+                            }
+                        }
+                    }
+                    RequestKind::MultiCall {
+                        multi_idx,
+                        in_each_array_id,
+                        ..
+                    } | RequestKind::MultiRead {
+                        multi_idx,
+                        in_each_array_id,
+                    } | RequestKind::MultiWrite {
+                        multi_idx,
+                        in_each_array_id,
+                        ..
+                    } => {
+                        todo!()
+                        // let (mut builder, mut wr) =
+                        //     shrink_wrap::either_any_vec::EitherAnyVecBuilder::new(scratch_event);
+                        // for index_or_glob in multi_idx.iter() {
+                        //     path_arr[path_len] = index_or_glob;
+                        //     let path_len = if let Some(resource_id) = in_each_array_id {
+                        //         path_arr[path_len + 1] = ResourceIndexKind::Index(resource_id.0);
+                        //         path_len + 2
+                        //     } else {
+                        //         path_len + 1
+                        //     };
+                        //     let path = &path_arr[..path_len];
+                        //     let mut iter = path.iter();
+                        //     let marker = builder.write_item_start(&mut wr)?;
+                        //     match self
+                        //         .process_root(path, &mut iter, &request, scratch_args, &mut wr, msg_tx)
+                        //         .await
+                        //     {
+                        //         Ok(r) => {
+                        //             builder.write_item_finish(marker, true, &mut wr);
+                        //         }
+                        //         Err(e) => {
+                        //             // nothing was written to wr
+                        //             wr.write(&e)?;
+                        //             builder.write_item_finish(marker, false, &mut wr);
+                        //         }
+                        //     }
+                        // }
+                        // let data = builder.finish_and_take(wr)?;
+                    }
+
                 }
             }
 
@@ -201,6 +302,7 @@ struct ApiServerCGContext<'i> {
     no_alloc: bool,
     use_async: bool,
     property_model: &'i PropertyModel,
+    multi_req: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -240,18 +342,19 @@ fn process_request_inner_recursive(
         Span::call_site(),
     );
     let es = error_seq.next();
+    let maybe_use_read = maybe_quote_cl(cx.multi_req, || quote! { use_write: bool, });
     let mut ts = quote! {
         #maybe_async fn #process_fn_name<'a>(
             &mut self,
             #maybe_index_chain_def
-            path: RefVec<'_, UNib32>,
-            path_iter: &mut RefVecIter<'_, UNib32>,
+            path: &[UNib32],
+            path_iter: &mut Iter<'_, UNib32>,
             request: &Request<'_>,
-            scratch_args: &'a mut [u8],
-            scratch_event: &'a mut [u8],
+            wr: &mut BufWriter<'_>,
+            #maybe_use_read
             msg_tx: &mut impl wire_weaver::MessageSink,
-        ) -> Result<&'a [u8], Error<'_>> {
-            match path_iter.next() {
+        ) -> Result<WrAction, Error<'a>> {
+            match path_iter.next().copied() {
                 #level_matchers
                 None => {
                     match request.kind {
@@ -311,8 +414,7 @@ fn level_matchers(
             Span::call_site(),
         ))
     });
-    let es0 = error_seq.next();
-    let es1 = error_seq.next();
+    let es = error_seq.next();
     let handlers = api_level.items.iter().map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
             api_bundle,
@@ -324,12 +426,6 @@ fn level_matchers(
             error_seq,
         ),
         Multiplicity::Array { .. } => {
-            let check_err_on_no_alloc = if cx.no_alloc {
-                let es = error_seq.next();
-                quote! { .map_err(|_| Error::new(#es, ErrorKind::ArrayIndexDesFailed))? }
-            } else {
-                quote! {}
-            };
             let mut index_chain_with_this_index = index_chain;
             let maybe_index_chain_push =
                 index_chain_with_this_index.push_back(quote! {}, quote! { index });
@@ -348,23 +444,21 @@ fn level_matchers(
                     "valid_indices_{level_name_chain}_{}",
                     item.ident.to_case(Case::Snake)
                 )
-                    .as_str(),
+                .as_str(),
                 Span::call_site(),
             );
             let maybe_index_chain_arg = index_chain.fun_argument_call();
-            let es = error_seq.next();
             let validate_index = quote! {
                 if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
                     return Err(Error::new(#es, ErrorKind::BadIndex));
                 }
             };
-            let es0 = error_seq.next();
-            let es1 = error_seq.next();
-            let es2 = error_seq.next();
+            let es = error_seq.next();
+            let ser_indices = ser_value(cx.multi_req, quote! { indices }, error_seq);
             quote! {
-                match path_iter.next() {
+                match path_iter.next().copied() {
                     Some(index) => {
-                        let index = index #check_err_on_no_alloc;
+                        // let index = index #check_err_on_no_alloc;
                         #validate_index
                         #maybe_index_chain_push
                         #lm
@@ -372,26 +466,20 @@ fn level_matchers(
                     None => {
                         if let RequestKind::Read /* ValidIndices */ = request.kind {
                             let indices = self.#valid_indices(#maybe_index_chain_arg);
-                            let indices_bytes = indices.to_ww_bytes(scratch_args).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                            Ok(ser_ok_event(scratch_event, request.seq, EventKind::ReadValue { data: RefVec::new_bytes(indices_bytes) })
-                                .map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?)
+                            #ser_indices
+                            Ok(WrAction::WrittenOk)
                         } else {
-                            Err(Error::new(#es2, ErrorKind::ExpectedArrayIndexGotNone))
+                            Err(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))
                         }
                     }
                 }
             }
         }
     });
-    let check_err_on_no_alloc = if cx.no_alloc {
-        quote! { .map_err(|_| Error::new(#es0, ErrorKind::PathDesFailed))?.0 }
-    } else {
-        quote! { .0 }
-    };
     quote! {
-        Some(id) => match id #check_err_on_no_alloc {
+        Some(id) => match id.0 {
             #(#ids => { #handlers } ),*
-            _ => { Err(Error::bad_path(#es1)) }
+            _ => { Err(Error::bad_path(#es)) }
         }
     }
 }
@@ -441,8 +529,9 @@ fn level_matcher(
             );
             let maybe_await = maybe_quote(cx.use_async, quote! { .await });
             let maybe_index_chain_arg = index_chain.fun_argument_call();
+            let maybe_use_write = maybe_quote_cl(cx.multi_req, || quote! { use_write, });
             quote! {
-                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, scratch_event, scratch_args, msg_tx)#maybe_await?)
+                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_use_write msg_tx)#maybe_await?)
             }
         }
     }
@@ -470,40 +559,34 @@ fn handle_method(
     let maybe_index_chain_arg = index_chain.fun_argument_call();
 
     let (args_des, args_list) = des_args(mod_ident, ident, args, cx.no_alloc, error_seq);
-    let is_args = if args.is_empty() {
+    let maybe_args = if args.is_empty() {
         quote! { .. }
     } else {
         quote! { args }
     };
 
-    let ser_output_or_unit = ser_method_output(return_type, quote! { request.seq }, error_seq);
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let es = error_seq.next();
-    let call_and_handle = quote! {
-        match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
-            RpcResult::Ready(output) => {
-                if request.seq != 0 {
-                    #maybe_enforce_ty
-                    #ser_output_or_unit
-                } else {
-                    Ok(&[])
-                }
-            },
-            RpcResult::Deferred => {
-                return Ok(&[])
-            }
-            RpcResult::Unimplemented => {
-                return Err(Error::unimplemented(#es))
-            }
-        }
-    };
-
-    let es = error_seq.next();
+    let ser_output = ser_value(cx.multi_req, quote! { output }, error_seq);
     quote! {
         match &request.kind {
-            RequestKind::Call { #is_args } => {
+            RequestKind::Call { #maybe_args } => {
                 #args_des
-                #call_and_handle
+                match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
+                    RpcResult::Ready(output) => {
+                        if request.seq != 0 {
+                            #maybe_enforce_ty
+                            #ser_output
+                        }
+                        Ok(WrAction::WrittenOk)
+                    },
+                    RpcResult::Deferred => {
+                        Ok(WrAction::Deferred)
+                    }
+                    RpcResult::Unimplemented => {
+                        Err(Error::unimplemented(#es))
+                    }
+                }
             }
             _ => {
                 Err(Error::not_supported(#es))
@@ -526,23 +609,26 @@ fn handle_property(
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
     let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
-    let maybe_ser_user_err = user_error_ty
+    let es = error_seq.next();
+    let ser_user_err = user_error_ty
         .as_ref()
         .map(|ty| ty_def(api_bundle, ty, false, true).unwrap())
         .map(|enforce_user_err_ty| {
-            let (es0, es1) = (error_seq.next(), error_seq.next());
             quote! {
                 let user_err: #enforce_user_err_ty = user_err;
-                let mut wr = BufWriter::new(scratch_args);
-                user_err.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                let user_err_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                let err_builder = ErrorBuilder::new(#es, wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                wr.write(&user_err).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                err_builder.finish_with_kind(ErrorKindDiscriminants::UserBytes, wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         })
         .unwrap_or(quote! {
             let _unit: () = user_err;
-            let user_err_bytes = &[];
+            wr.write(&Error::new(#es, ErrorKind::UserBytes(RefVec::new_bytes(&[])))).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
         });
-    let property_model_pick = cx.property_model.pick(ident.to_string().as_str()).unwrap();
+    let property_model_pick = cx
+        .property_model
+        .pick(ident.to_string().as_str())
+        .unwrap_or(PropertyModelKind::GetSet);
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
 
     let maybe_set = maybe_quote_cl(
@@ -551,46 +637,28 @@ fn handle_property(
             PropertyAccess::WriteOnly | PropertyAccess::ReadWrite { .. }
         ),
         || {
-            let es = error_seq.next();
-            let ser_written = quote! {
-                if request.seq != 0 {
-                    Ok(ser_ok_event(scratch_event, request.seq, EventKind::Written).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
-                } else {
-                    Ok(&[])
-                }
-            };
             let des_and_set_property = match property_model_pick {
                 PropertyModelKind::GetSet => {
                     let set_property = Ident::new(
                         format!("set_{}", prefixed_ident).as_str(),
                         Span::call_site(),
                     );
-                    let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
-                    let es3 = error_seq.next();
+                    let es = error_seq.next();
                     quote! {
                         let mut rd = BufReader::new(data.as_slice());
-                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es0, ErrorKind::PropertyDesFailed))?;
+                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         match self.#set_property(#maybe_index_chain_arg value)#maybe_await {
                             SetResult::Set => {
-                                #ser_written
+                                Ok(WrAction::WrittenOk)
                             },
                             SetResult::SetError(user_err) => {
                                 // if request.seq != 0 {
                                 // always send errors back, even if they won't reach a user call site, they will show up in logs
-                                #maybe_ser_user_err
-                                Ok(
-                                    ser_err_event(
-                                        scratch_event,
-                                        request.seq,
-                                        Error::new(#es1, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
-                                    ).map_err(|_| Error::new(#es2, ErrorKind::ResponseSerFailed))?
-                                )
-                                // } else {
-                                    // Ok(&[])
-                                // }
+                                #ser_user_err
+                                Ok(WrAction::WrittenErr)
                             }
                             SetResult::Unimplemented => {
-                                Err(Error::unimplemented(#es3))
+                                Err(Error::unimplemented(#es))
                             }
                         }
                     }
@@ -608,7 +676,7 @@ fn handle_property(
                             self.#prefixed_ident #maybe_index_chain_indices = value;
                             self.#changed_property(#maybe_index_chain_arg)#maybe_await;
                         }
-                        #ser_written
+                        Ok(WrAction::WrittenOk)
                     }
                 }
             };
@@ -628,39 +696,27 @@ fn handle_property(
                 | PropertyAccess::ReadWrite { .. }
         ),
         || {
-            let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
-            let ser_value = quote! {
-                let mut wr = BufWriter::new(scratch_args);
-                value.ser_shrink_wrap(&mut wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                let output_bytes = wr.finish_and_take().map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
-                let kind = EventKind::ReadValue { data: RefVec::Slice { slice: output_bytes } };
-                Ok(ser_ok_event(scratch_event, request.seq, kind).map_err(|_| Error::new(#es2, ErrorKind::ResponseSerFailed))?)
-            };
+            let es = error_seq.next();
+            let ser_value = ser_value(cx.multi_req, quote! { value }, error_seq);
             let get_and_ser_property = match property_model_pick {
                 PropertyModelKind::GetSet => {
                     let get_property = Ident::new(
                         format!("get_{}", prefixed_ident).as_str(),
                         Span::call_site(),
                     );
-                    let (es0, es1, es2) = (error_seq.next(), error_seq.next(), error_seq.next());
                     quote! {
                         match self.#get_property(#maybe_index_chain_arg)#maybe_await {
                             GetResult::Value(value) => {
                                 let value: #enforce_ty = value;
                                 #ser_value
+                                Ok(WrAction::WrittenOk)
                             }
                             GetResult::GetError(user_err) => {
-                                #maybe_ser_user_err
-                                Ok(
-                                    ser_err_event(
-                                        scratch_event,
-                                        request.seq,
-                                        Error::new(#es0, ErrorKind::UserBytes(RefVec::new_bytes(user_err_bytes)))
-                                    ).map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?
-                                )
+                                #ser_user_err
+                                Ok(WrAction::WrittenErr)
                             }
-                            Unimplemented => {
-                                Err(Error::unimplemented(#es2))
+                            GetResult::Unimplemented => {
+                                Err(Error::unimplemented(#es))
                             }
                         }
                     }
@@ -669,6 +725,7 @@ fn handle_property(
                     quote! {
                         let value: &#enforce_ty = &self.#prefixed_ident #maybe_index_chain_indices;
                         #ser_value
+                        Ok(WrAction::WrittenOk)
                     }
                 }
             };
@@ -707,20 +764,20 @@ fn handle_stream(
         format!("sideband_{}", prefixed_ident).as_str(),
         ident.span(),
     );
-    let es = err_seq.next();
     let handle_sideband_cmd = quote! {
         // user fn returns Option<StreamSidebandEvent>
         let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call sideband_cmd)#maybe_await;
         match r {
             Some(sideband_event) => {
-                let event = Event {
-                    seq: request.seq,
-                    result: Ok(EventKind::StreamSideband { path, sideband_event })
-                };
-                Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
+                // let event = Event {
+                //     seq: request.seq,
+                //     result: Ok(EventKind::StreamSideband { path, sideband_event })
+                // };
+                // Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
+                Ok(WrAction::WrittenOk) // TODO: sideband
             }
             None => {
-                Ok(&[])
+                Ok(WrAction::WrittenOk)
             }
         }
     };
@@ -774,7 +831,7 @@ fn handle_stream(
             RequestKind::Write { data } => {
                 #des_data
                 self.#write(#maybe_index_chain_call #arg)#maybe_await;
-                Ok(&[]) // do not send acknowledgements on stream writes
+                Ok(WrAction::WrittenOk) // TODO: ?? do not send acknowledgements on stream writes
             }
             RequestKind::StreamSideband { sideband_cmd } => {
                 let sideband_cmd = *sideband_cmd;
@@ -901,7 +958,7 @@ fn deferred_method_return_ser_methods(
         let ApiItemKindOwned::Method { return_ty, .. } = &item.kind else {
             continue;
         };
-        if method_model.pick(&item.ident).unwrap() != MethodModelKind::Deferred {
+        if method_model.pick(&item.ident) != Some(MethodModelKind::Deferred) {
             continue;
         }
         let fn_name = Ident::new(
@@ -923,4 +980,21 @@ fn deferred_method_return_ser_methods(
         });
     }
     ts
+}
+
+fn ser_value(multi_req: bool, ident: TokenStream, error_seq: &mut ErrorSeq) -> TokenStream {
+    let es = error_seq.next();
+    if multi_req {
+        quote! {
+            if use_write {
+                wr.write(& #ident).map_err(|_| Error::response_ser_failed(#es))?;
+            } else {
+                #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;
+            }
+        }
+    } else {
+        quote! {
+            #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;
+        }
+    }
 }

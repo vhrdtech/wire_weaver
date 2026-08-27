@@ -186,5 +186,14 @@ mod tests {
             .call()
             .await
             .unwrap();
+
+        let value = client.user_defined_return().call().await.unwrap();
+        assert_eq!(
+            value,
+            UserDefinedOwned {
+                a: 37,
+                b: vec![1, 2, 3]
+            }
+        );
     }
 }

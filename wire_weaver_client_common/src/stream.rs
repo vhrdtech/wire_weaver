@@ -5,7 +5,7 @@ use std::ops::ControlFlow;
 use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
-use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
+use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSidebandCommand, StreamSidebandEvent};
 
 /// Stream of typed values from host to device.
@@ -155,7 +155,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 }
 
-impl Stream<RawSliceOwned> {
+impl Stream<TailBytesOwned> {
     /// Receive and accumulate bytes from this stream until Close sideband event is received.
     /// Returns an error if any other kind of sideband event is received instead.
     pub async fn recv_all_bytes(&mut self) -> Result<Vec<u8>, StreamError> {

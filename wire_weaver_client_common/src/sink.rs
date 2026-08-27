@@ -3,7 +3,7 @@ use crate::{StreamError, StreamEvent};
 use std::marker::PhantomData;
 use tokio::sync::mpsc::UnboundedReceiver;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
-use wire_weaver::shrink_wrap::raw_slice::RawSliceOwned;
+use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSidebandCommand};
 
 /// Stream of typed values from device to host.
@@ -59,8 +59,8 @@ impl<T> Sink<T> {
     }
 }
 
-// Intentionally not applicable when byte slices are used (RawSliceOwned does not implement SerializeShrinkWrap)
-// impl below for RawSliceOwned is provided instead
+// Intentionally not applicable when byte slices are used (TailBytesOwned does not implement SerializeShrinkWrap)
+// impl below for TailBytesOwned is provided instead
 impl<T: SerializeShrinkWrap> Sink<T> {
     // TODO: remove &mut when scratch is no longer needed
     /// Serialize and send the provided value to a remote device sink
@@ -73,7 +73,7 @@ impl<T: SerializeShrinkWrap> Sink<T> {
     }
 }
 
-impl Sink<RawSliceOwned> {
+impl Sink<TailBytesOwned> {
     pub async fn send_bytes(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
         self.transport_cmd_tx
             .send_write_request_forget(self.path_kind.clone(), bytes.to_vec())

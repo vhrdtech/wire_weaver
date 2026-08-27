@@ -24,7 +24,7 @@ pub use traits::{
 pub mod alloc;
 pub mod any_on_stack;
 pub mod nib;
-pub mod raw_slice;
+pub mod tail_bytes;
 pub mod un;
 
 pub use nib::Nibble;

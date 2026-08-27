@@ -12,6 +12,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
 use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
@@ -491,7 +492,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Call { args },
+            kind: RequestKindOwned::Call {
+                args: TailBytesOwned(args),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -510,7 +513,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Call { args },
+            kind: RequestKindOwned::Call {
+                args: TailBytesOwned(args),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -527,7 +532,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Call { args },
+            kind: RequestKindOwned::Call {
+                args: TailBytesOwned(args),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -549,7 +556,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Call { args },
+            kind: RequestKindOwned::Call {
+                args: TailBytesOwned(args),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -606,7 +615,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Write { data: value },
+            kind: RequestKindOwned::Write {
+                data: TailBytesOwned(value),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -625,7 +636,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Write { data: value },
+            kind: RequestKindOwned::Write {
+                data: TailBytesOwned(value),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -642,7 +655,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Write { data: value },
+            kind: RequestKindOwned::Write {
+                data: TailBytesOwned(value),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -664,7 +679,9 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::Write { data: value },
+            kind: RequestKindOwned::Write {
+                data: TailBytesOwned(value),
+            },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;

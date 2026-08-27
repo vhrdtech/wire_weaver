@@ -27,10 +27,16 @@ pub struct BufWriter<'i> {
 
 /// Buffer writer state that can be used to jump back and fill in some data.
 #[derive(Copy, Clone)]
-pub(crate) struct BufWriterState {
+pub struct BufWriterState {
     byte_idx: usize,
     bit_idx: u8,
     len_bytes: usize,
+}
+
+/// Builder-style serialization token for 'Unsized' types.
+pub struct UnsizedBuilder {
+    size_slot_pos: U16RevPos,
+    unsized_start_idx: usize,
 }
 
 impl<'i> BufWriter<'i> {
@@ -44,6 +50,14 @@ impl<'i> BufWriter<'i> {
             byte_idx: 0,
             bit_idx: 7,
         }
+    }
+
+    /// Reset BufWriter to the beginning, "forgetting" all written data.
+    /// Usefull when re-using the same writer multiple times.
+    pub fn reset(&mut self) {
+        self.len_bytes = self.buf.len();
+        self.byte_idx = 0;
+        self.bit_idx = 7;
     }
 
     /// Write on bit to the buffer. One can write 8 bits with this function, and only one byte will be used in the buffer.
@@ -217,6 +231,7 @@ impl<'i> BufWriter<'i> {
 
     /// Write the provided slice to the buffer as is. Note that you won't be able to read it back
     /// with BufReader without knowing the length, which is not written in this case.
+    /// See also [Self::write_bytes].
     pub fn write_raw_slice(&mut self, val: &[u8]) -> Result<(), Error> {
         self.align_byte();
         if self.bytes_left() < val.len() {
@@ -251,12 +266,17 @@ impl<'i> BufWriter<'i> {
         self.buf[self.byte_idx..].fill(val);
     }
 
-    /// Write variable length string to the buffer. Note that you need to write the length of
-    /// the string with write_u16_rev as well; otherwise it will be impossible to read it back with BufReader.
-    /// This is taken care of by Unsized mechanism in Type (for &str, String, Option and Result) and in RefVec.
-    pub fn write_raw_str(&mut self, val: &str) -> Result<(), Error> {
-        // let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-        // self.write_u16_rev(len)?;
+    /// Write variable length slice to the buffer. Length will be written to the back.
+    pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
+        let len_bytes = u16::try_from(val.len()).map_err(|_| Error::VecTooLong)?;
+        self.write_u16_rev(len_bytes)?;
+        self.write_raw_slice(val)
+    }
+
+    /// Write variable length string to the buffer. Length will be written to the back.
+    pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
+        let len_bytes = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
+        self.write_u16_rev(len_bytes)?;
         self.write_raw_slice(val.as_bytes())
     }
 
@@ -273,28 +293,14 @@ impl<'i> BufWriter<'i> {
     /// deserialized with [des_shrink_wrap](crate::DeserializeShrinkWrap::des_shrink_wrap).
     /// (because of the additional size written by write and expected by the read).
     pub fn write<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {
-        let unsized_info = if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            // ensure start_idx below is on a byte boundary
-            self.align_byte();
-            // reserve one size slot
-            let size_slot_pos = self.write_u16_rev(0)?;
-            let unsized_start_idx = self.pos().0;
-            Some((size_slot_pos, unsized_start_idx))
+        let unsized_builder = if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
+            Some(UnsizedBuilder::new(self)?)
         } else {
             None
         };
         val.ser_shrink_wrap(self)?;
-        if let Some((size_slot_pos, unsized_start_idx)) = unsized_info {
-            // T might have written several nib16_rev's as well, encode and place them after type's data
-            self.encode_nib16_rev(self.u16_rev_pos(), size_slot_pos)?;
-            // e.g., enum, only one nib discriminant is written => need to align
-            self.align_byte();
-            let size_bytes = self.pos().0 - unsized_start_idx;
-            let Ok(size_bytes) = u16::try_from(size_bytes) else {
-                return Err(Error::ItemTooLong);
-            };
-            // write actual Unsized size, it will be encoded later, by the parent write method or when finish is called
-            self.update_u16_rev(size_slot_pos, size_bytes)?;
+        if let Some(builder) = unsized_builder {
+            builder.finish(self)?;
         }
         Ok(())
     }
@@ -454,7 +460,8 @@ impl<'i> BufWriter<'i> {
         (self.byte_idx, self.bit_idx)
     }
 
-    pub(crate) fn save_state(&self) -> BufWriterState {
+    /// Save current write position.
+    pub fn save_state(&self) -> BufWriterState {
         BufWriterState {
             byte_idx: self.byte_idx,
             bit_idx: self.bit_idx,
@@ -462,7 +469,10 @@ impl<'i> BufWriter<'i> {
         }
     }
 
-    pub(crate) fn restore_state(&mut self, state: BufWriterState) {
+    /// Restore previous write position.
+    /// Primary use case is to go back and update a boolean flag.
+    /// Warning: writing dynamic objects after restoring state will corrupt previously dynamic objects.
+    pub fn restore_state(&mut self, state: BufWriterState) {
         self.byte_idx = state.byte_idx;
         self.bit_idx = state.bit_idx;
         self.len_bytes = state.len_bytes;
@@ -475,6 +485,34 @@ impl BufWriterState {
             return 0;
         }
         self.bit_idx + 1
+    }
+}
+
+impl UnsizedBuilder {
+    pub fn new(wr: &mut BufWriter<'_>) -> Result<Self, Error> {
+        // ensure start_idx below is on a byte boundary
+        wr.align_byte();
+        // reserve one size slot
+        let size_slot_pos = wr.write_u16_rev(0)?;
+        let unsized_start_idx = wr.pos().0;
+        Ok(UnsizedBuilder {
+            size_slot_pos,
+            unsized_start_idx,
+        })
+    }
+
+    pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
+        // T might have written several nib16_rev's as well, encode and place them after type's data
+        wr.encode_nib16_rev(wr.u16_rev_pos(), self.size_slot_pos)?;
+        // e.g., enum, only one nib discriminant is written => need to align
+        wr.align_byte();
+        let size_bytes = wr.pos().0 - self.unsized_start_idx;
+        let Ok(size_bytes) = u16::try_from(size_bytes) else {
+            return Err(Error::ItemTooLong);
+        };
+        // write actual Unsized size, it will be encoded later, by the parent write method or when finish is called
+        wr.update_u16_rev(self.size_slot_pos, size_bytes)?;
+        Ok(())
     }
 }
 

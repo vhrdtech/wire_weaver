@@ -1,5 +1,6 @@
 use core::fmt::{Debug, Formatter};
 
+use crate::buf_writer::U16RevPos;
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
@@ -25,6 +26,23 @@ pub enum RefVec<'i, T> {
     //     len_elements: usize,
     //     // element_size: ElementSize,
     // },
+}
+
+pub enum RefVecIter<'i, T> {
+    Slice {
+        slice: &'i [T],
+        pos: usize,
+    },
+    Buf {
+        buf: BufReader<'i>,
+        elements_count: u32,
+        pos: u32,
+    },
+}
+
+pub struct RefVecU8Builder {
+    element_count_pos: U16RevPos,
+    byte_pos: usize,
 }
 
 impl<T> RefVec<'_, T> {
@@ -78,12 +96,11 @@ impl<'i> RefVec<'i, u8> {
 
     pub fn ser_shrink_wrap_vec_u8(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let len = self.len();
-        let Ok(len_u16) = u16::try_from(len) else {
+        let Ok(element_count_u16) = u16::try_from(len) else {
             return Err(Error::VecTooLong);
         };
         // len == size in bytes when serialized, so this works
-        wr.write_u16_rev(len_u16)?;
-        let len = self.len();
+        wr.write_u16_rev(element_count_u16)?;
         match self {
             RefVec::Slice { slice, .. } => {
                 wr.write_raw_slice(slice)?;
@@ -184,23 +201,6 @@ impl core::ops::Deref for RefVec<'_, u8> {
     }
 }
 
-pub enum RefVecIter<'i, T> {
-    Slice {
-        slice: &'i [T],
-        pos: usize,
-    },
-    Buf {
-        buf: BufReader<'i>,
-        elements_count: u32,
-        pos: u32,
-    },
-    // Gen {
-    //     gen: F,
-    //     len_elements: usize,
-    //     // element_size: ElementSize,
-    // },
-}
-
 impl<'i, T: DeserializeShrinkWrap<'i> + Clone> Iterator for RefVecIter<'i, T> {
     type Item = Result<T, Error>;
 
@@ -278,6 +278,30 @@ impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<
 }
 
 impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
+
+impl RefVecU8Builder {
+    pub fn new(wr: &mut BufWriter<'_>) -> Result<Self, Error> {
+        wr.align_byte();
+        let element_count_pos = wr.write_u16_rev(0)?;
+        let byte_pos = wr.pos().0;
+        Ok(Self {
+            element_count_pos,
+            byte_pos,
+        })
+    }
+
+    pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
+        // T might have written several nib16_rev's as well, encode and place them after type's data
+        wr.encode_nib16_rev(wr.u16_rev_pos(), self.element_count_pos)?;
+        // e.g., enum, only one nib discriminant is written => need to align
+        wr.align_byte();
+        let size_bytes = wr.pos().0 - self.byte_pos;
+        let Ok(elements_count) = u16::try_from(size_bytes) else {
+            return Err(Error::VecTooLong);
+        };
+        wr.update_u16_rev(self.element_count_pos, elements_count)
+    }
+}
 
 #[cfg(test)]
 mod tests {

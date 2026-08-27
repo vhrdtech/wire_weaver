@@ -79,7 +79,7 @@ pub enum PathKind<'i> {
 #[derive(Debug)]
 pub enum RequestKind<'i> {
     /// Call a method with provided arguments.
-    /// Expected to get EventKind::ReturnValue, unless request ID is 0.
+    /// Expected to get [EventKind::Value], unless request ID is 0.
     Call {
         /// Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
         args: TailBytes<'i>,
@@ -94,7 +94,7 @@ pub enum RequestKind<'i> {
     },
 
     /// Read a property.
-    /// Expected to get EventKind::ReadValue with property bytes.
+    /// Expected to get [EventKind::Value] with property bytes.
     Read,
     /// Read the same property over an array of traits or several properties in one request.
     MultiRead {
@@ -104,8 +104,6 @@ pub enum RequestKind<'i> {
         in_each_array_id: Option<UNib32>,
     },
 
-    // Read the default value of a property, if available.
-    // ReadDefault,
     /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
     Write { data: TailBytes<'i> },
@@ -118,32 +116,14 @@ pub enum RequestKind<'i> {
         multi_data: MultiArgs<'i>,
     },
 
+    /// Stream sideband channel (open, close, frame sync, etc.). Optional to use.
+    StreamSideband { sideband: StreamSideband },
+
     // Write default value (if available) to a property, without sending any data.
     // WriteDefault,
-
-    // Write multiple properties at once, using a list of paths or a glob pattern?.
-    // WriteMany,
-    /// Subscribe to property changes
-    Subscribe,
-    /// Unsubscribe from property changes
-    Unsubscribe,
-
-    /// Set a limit on how often property or stream updates are sent. Optional.
-    ChangeRate { shaper_config: ShaperConfig },
-
-    /// Stream sideband channel (open, close, frame sync, etc.). Optional to use.
-    StreamSideband { sideband_cmd: StreamSidebandCommand },
-
     /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
     /// Optional, for simplicity can be implemented only at root level, sending all API tree.
     Introspect,
-    // Get [ValidIndices] for an array resource.
-    // ValidIndices, -> requested as Read
-
-    // Version,
-    // Borrow,
-    // Release,
-    // Heartbeat,
 }
 
 /// Index for a multi request. Two kinds of multi requests are possible:
@@ -192,23 +172,6 @@ pub enum MultiArgs<'i> {
     Different(RefVec<'i, u8>),
 }
 
-/// Sideband command for a stream, delivered in the same order with stream data.
-/// Optional, user can choose to send stream updates without using the sideband channel.
-/// This is a separate enum to make generated code more convenient - only one function for user to implement.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[final_structure]
-#[derive(Debug, Copy, Clone)]
-pub enum StreamSidebandCommand {
-    Open,
-    Close,
-    /// If stream is a sequence of bytes, can be used to delimit frames
-    FrameSync,
-    ChangeRate(ShaperConfig),
-    SizeHint(u32),
-    User(u32),
-}
-
 /// Asynchronous result with a request ID, sent back from server to client, as a response to a Request or on stream or properties updates.
 #[derive_shrink_wrap]
 #[owned = "std"]
@@ -228,18 +191,11 @@ pub struct Event<'i> {
 #[owned = "std"]
 #[derive(Debug)]
 pub enum EventKind<'i> {
-    /// Sent in response to RequestKind::Call, unless request ID is 0.
-    ReturnValue {
+    /// Sent in response to [RequestKind::Call] or [RequestKind::Read], unless request ID is 0.
+    Value {
         /// Serialized return value of a method.
         // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
         // TODO: add CRC?
-        data: TailBytes<'i>,
-    },
-
-    /// Sent in response to RequestKind::Read.
-    // TODO: remove and use ReturnValue?
-    ReadValue {
-        /// Serialized property value.
         data: TailBytes<'i>,
     },
 
@@ -253,23 +209,13 @@ pub enum EventKind<'i> {
         /// Stream data can be a whole frame or a chunk of a byte stream.
         data: TailBytes<'i>,
     },
+
     /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
-        sideband_event: StreamSidebandEvent,
+        sideband: StreamSideband,
     },
-
-    /// Sent in response to RequestKind::Subscribe for properties. Optional.
-    Subscribed {
-        /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
-        path: RefVec<'i, UNib32>,
-    },
-    /// Sent in response to RequestKind::Unsubscribe for properties. Optional.
-    Unsubscribed { path: RefVec<'i, UNib32> },
-
-    /// Sent in response to RequestKind::ChangeRata for properties. Optional.
-    RateChanged,
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
@@ -278,17 +224,17 @@ pub enum EventKind<'i> {
 #[ww_repr(nib)]
 #[final_structure]
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
-pub enum StreamSidebandEvent {
+pub enum StreamSideband {
     /// Sent if a stream was successfully opened
-    Opened,
+    Open,
     /// Sent if a stream was successfully closed
-    Closed,
+    Close,
     /// If a stream is a sequence of bytes, can be used to delimit frames
     FrameSync,
     /// Can be used to indicate total size of the upcoming stream updates
-    SizeHint(u32),
+    SizeHint(UNib32),
     /// User event, can be used to indicate errors or other data
-    User(u32),
+    User(UNib32),
 }
 
 #[derive_shrink_wrap]
@@ -340,15 +286,15 @@ pub enum ErrorKind<'i> {
     UserStr(&'i str),
 }
 
-/// Optional shaper configuration request.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[derive(Debug, Copy, Clone)]
-pub enum ShaperConfig {
-    NoLimit,
-    MaxBitrate { bytes_per_s: u32 },
-    MaxRate { events_per_s: u32 },
-}
+// Optional shaper configuration request.
+// #[derive_shrink_wrap]
+// #[ww_repr(nib)]
+// #[derive(Debug, Copy, Clone)]
+// pub enum ShaperConfig {
+//     NoLimit,
+//     MaxBitrate { bytes_per_s: u32 },
+//     MaxRate { events_per_s: u32 },
+// }
 
 impl PathKind<'_> {
     pub fn absolute(path_from_root: &[UNib32]) -> PathKind<'_> {
@@ -503,15 +449,12 @@ impl PathKindOwned {
 impl RequestKind<'_> {
     pub fn discriminants(&self) -> EventKindDiscriminants {
         match self {
-            RequestKind::Call { .. } => EventKindDiscriminants::ReturnValue,
-            RequestKind::MultiCall { .. } => EventKindDiscriminants::ReturnValue,
-            RequestKind::Read => EventKindDiscriminants::ReadValue,
-            RequestKind::MultiRead { .. } => EventKindDiscriminants::ReadValue,
+            RequestKind::Call { .. } => EventKindDiscriminants::Value,
+            RequestKind::MultiCall { .. } => EventKindDiscriminants::Value,
+            RequestKind::Read => EventKindDiscriminants::Value,
+            RequestKind::MultiRead { .. } => EventKindDiscriminants::Value,
             RequestKind::Write { .. } => EventKindDiscriminants::Written,
             RequestKind::MultiWrite { .. } => EventKindDiscriminants::Written,
-            RequestKind::Subscribe => EventKindDiscriminants::Subscribed,
-            RequestKind::Unsubscribe => EventKindDiscriminants::Unsubscribed,
-            RequestKind::ChangeRate { .. } => EventKindDiscriminants::RateChanged,
             RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
         }
@@ -554,13 +497,8 @@ impl RequestKind<'_> {
                 in_each_array_id: *in_each_array_id,
                 multi_data: multi_data.make_owned()?,
             },
-            RequestKind::StreamSideband { sideband_cmd } => RequestKindOwned::StreamSideband {
-                sideband_cmd: *sideband_cmd,
-            },
-            RequestKind::Subscribe => RequestKindOwned::Subscribe,
-            RequestKind::Unsubscribe => RequestKindOwned::Unsubscribe,
-            RequestKind::ChangeRate { shaper_config } => RequestKindOwned::ChangeRate {
-                shaper_config: *shaper_config,
+            RequestKind::StreamSideband { sideband } => RequestKindOwned::StreamSideband {
+                sideband: *sideband,
             },
             RequestKind::Introspect => RequestKindOwned::Introspect,
         };

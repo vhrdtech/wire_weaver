@@ -8,7 +8,7 @@ use core::future::Future;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
-use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+use ww_client_server::StreamSideband;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
@@ -131,8 +131,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
+        _sideband: StreamSideband,
+    ) -> Option<StreamSideband> {
         None
     }
 

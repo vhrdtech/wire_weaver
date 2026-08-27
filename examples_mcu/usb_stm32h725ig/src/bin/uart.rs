@@ -30,7 +30,7 @@ use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
-use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+use ww_client_server::StreamSideband;
 use ww_si::Volt;
 use ww_uart::{BaudRate, Capabilities, Mode, Parity, RxChunk, StopBits};
 
@@ -117,8 +117,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
+        _sideband: StreamSideband,
+    ) -> Option<StreamSideband> {
         None
     }
 
@@ -153,8 +153,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
+        _sideband: StreamSideband,
+    ) -> Option<StreamSideband> {
         None
     }
 
@@ -169,8 +169,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 1],
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
+        _sideband: StreamSideband,
+    ) -> Option<StreamSideband> {
         None
     }
 

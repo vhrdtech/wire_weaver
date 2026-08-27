@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_client_server::{PathKindOwned, StreamSidebandCommand, StreamSidebandEvent};
+use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Stream of typed values from host to device.
 /// Also holds a sideband channel.
@@ -32,42 +32,39 @@ pub enum StreamError {
 impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     /// Send Open command through sideband channel
     pub async fn open(&self) -> Result<(), StreamError> {
-        self.sideband(StreamSidebandCommand::Open).await
+        self.sideband(StreamSideband::Open).await
     }
 
     /// Send Open command through sideband channel
     pub fn open_blocking(&self) -> Result<(), StreamError> {
-        self.sideband_blocking(StreamSidebandCommand::Open)
+        self.sideband_blocking(StreamSideband::Open)
     }
 
     /// Send Close command through sideband channel
     pub async fn close(&self) -> Result<(), StreamError> {
-        self.sideband(StreamSidebandCommand::Close).await
+        self.sideband(StreamSideband::Close).await
     }
 
     /// Send Close command through sideband channel
     pub fn close_blocking(&self) -> Result<(), StreamError> {
-        self.sideband_blocking(StreamSidebandCommand::Close)
+        self.sideband_blocking(StreamSideband::Close)
     }
 
     /// Send command through sideband channel
-    pub async fn sideband(&self, sideband_cmd: StreamSidebandCommand) -> Result<(), StreamError> {
+    pub async fn sideband(&self, sideband: StreamSideband) -> Result<(), StreamError> {
         // TODO: add synchronous mode to stream sideband (wait for response)?
         self.transport_cmd_tx
-            .send_stream_sideband(self.path_kind.clone(), sideband_cmd, None)
+            .send_stream_sideband(self.path_kind.clone(), sideband, None)
             .await?;
         Ok(())
     }
 
     /// Send command through sideband channel
-    pub fn sideband_blocking(
-        &self,
-        sideband_cmd: StreamSidebandCommand,
-    ) -> Result<(), StreamError> {
+    pub fn sideband_blocking(&self, sideband: StreamSideband) -> Result<(), StreamError> {
         // TODO: add synchronous mode to stream sideband (wait for response)?
         self.transport_cmd_tx.send_stream_sideband_blocking(
             self.path_kind.clone(),
-            sideband_cmd,
+            sideband,
             None,
         )?;
         Ok(())
@@ -196,7 +193,7 @@ fn recv_all_inner(ev: StreamEvent, buf: &mut Vec<u8>) -> Result<ControlFlow<()>,
             Ok(ControlFlow::Continue(()))
         }
         StreamEvent::Connected => Ok(ControlFlow::Continue(())),
-        StreamEvent::Sideband(StreamSidebandEvent::Closed) => Ok(ControlFlow::Break(())),
+        StreamEvent::Sideband(StreamSideband::Close) => Ok(ControlFlow::Break(())),
         e => Err(StreamError::UnexpectedEvent(e)),
     }
 }

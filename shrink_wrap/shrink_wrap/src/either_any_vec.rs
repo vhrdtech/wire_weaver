@@ -1,4 +1,4 @@
-use crate::buf_writer::{BufWriterState, UnsizedBuilder};
+use crate::buf_writer::BufWriterState;
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 use either::Either;
@@ -47,7 +47,7 @@ pub struct EitherAnyVecWriter<'i> {
 /// Information about whether written element was actually left or right is only required at the `finish` stage.
 /// This allows getting mutable BufWriter without closures and keeps borrow checker happy.
 pub struct EitherAnyVecBuilder {
-    unsized_builder: UnsizedBuilder,
+    // unsized_builder: UnsizedBuilder,
     flags: Option<BufWriterState>,
     items: BufWriterState,
 }
@@ -76,12 +76,12 @@ impl<'i> EitherAnyVec<'i> {
 
 impl EitherAnyVecBuilder {
     pub fn new(buf: &mut [u8]) -> Result<(Self, BufWriter<'_>), Error> {
-        let mut wr = BufWriter::new(buf);
-        let unsized_builder = UnsizedBuilder::new(&mut wr)?;
+        let wr = BufWriter::new(buf);
+        // let unsized_builder = UnsizedBuilder::new(&mut wr)?;
         let items = wr.save_state();
         Ok((
             Self {
-                unsized_builder,
+                // unsized_builder,
                 flags: None,
                 items,
             },
@@ -172,7 +172,7 @@ impl EitherAnyVecBuilder {
     /// Finalize the BufWriter and get result bytes
     pub fn finish_and_take(self, mut wr: BufWriter<'_>) -> Result<&[u8], Error> {
         wr.restore_state(self.items);
-        self.unsized_builder.finish(&mut wr)?;
+        // self.unsized_builder.finish(&mut wr)?;
         wr.finish_and_take()
     }
 }
@@ -226,7 +226,7 @@ impl<'i> SerializeShrinkWrap for EitherAnyVec<'i> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        wr.write_bytes(self.data)
+        wr.write_raw_slice(self.data)
     }
 }
 
@@ -235,7 +235,7 @@ impl<'i> DeserializeShrinkWrap<'i> for EitherAnyVec<'i> {
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         Ok(EitherAnyVec {
-            data: rd.read_bytes()?,
+            data: rd.read_raw_slice(rd.bytes_left())?,
         })
     }
 }
@@ -286,7 +286,7 @@ mod tests {
         0xBF,
         0b1010_0011, // RLRL_LLRR
         0b1111_1000,
-        0x19,
+        // 0x19,
     ];
 
     #[test]
@@ -367,7 +367,7 @@ mod tests {
         0x40, // MyError (1B because it is Unsized)
         0x11, // lengths from the back: 3, 2, 1, 1
         0x23,
-        0x29, // size in bytes
+        // 0x29, // size in bytes
     ];
 
     #[derive_shrink_wrap]

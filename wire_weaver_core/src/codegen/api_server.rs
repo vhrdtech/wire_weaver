@@ -158,7 +158,7 @@ pub fn gen_server(
         #[allow(unused_imports)]
         use ww_client_server::{
             Request, RequestKind, Event, EventKind, EventKindDiscriminants,
-            PathKind, Error, ErrorKind, StreamSidebandCommand, ErrorKindDiscriminants,
+            PathKind, Error, ErrorKind, StreamSideband, ErrorKindDiscriminants,
             util::{ser_ok_event, ser_err_event, ser_unit_return_event},
             builder::{EventBuilder, EventKindBuilder, ErrorBuilder},
         };
@@ -764,34 +764,26 @@ fn handle_stream(
         format!("sideband_{}", prefixed_ident).as_str(),
         ident.span(),
     );
-    let handle_sideband_cmd = quote! {
-        // user fn returns Option<StreamSidebandEvent>
-        let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call sideband_cmd)#maybe_await;
+    let es = err_seq.next();
+    let handle_sideband = quote! {
+        // user fn returns Option<StreamSideband>
+        let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call *sideband)#maybe_await;
         match r {
-            Some(sideband_event) => {
-                // let event = Event {
-                //     seq: request.seq,
-                //     result: Ok(EventKind::StreamSideband { path, sideband_event })
-                // };
-                // Ok(event.to_ww_bytes(scratch_event).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?)
-                Ok(WrAction::WrittenOk) // TODO: sideband
+            Some(sideband) => {
+                wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                Ok(WrAction::WrittenOk)
             }
             None => {
-                Ok(WrAction::WrittenOk)
+                Ok(WrAction::Deferred)
             }
         }
     };
-
     let specific_ops = if is_up {
         // stream (device out)
         quote! {
-            RequestKind::ChangeRate { .. } | RequestKind::StreamSideband { .. } => {
-                let sideband_cmd = match &request.kind {
-                    RequestKind::ChangeRate { shaper_config } => StreamSidebandCommand::ChangeRate(*shaper_config),
-                    RequestKind::StreamSideband { sideband_cmd } => *sideband_cmd,
-                    _ => unreachable!()
-                };
-                #handle_sideband_cmd
+            RequestKind::StreamSideband { sideband } => {
+                #handle_sideband
             }
         }
     } else {
@@ -826,16 +818,14 @@ fn handle_stream(
             }
             _ => other_des(),
         };
-        // let maybe_comma = maybe_quote(!index_chain.is_empty(), quote! { , });
         quote! {
             RequestKind::Write { data } => {
                 #des_data
                 self.#write(#maybe_index_chain_call #arg)#maybe_await;
                 Ok(WrAction::WrittenOk) // TODO: ?? do not send acknowledgements on stream writes
             }
-            RequestKind::StreamSideband { sideband_cmd } => {
-                let sideband_cmd = *sideband_cmd;
-                #handle_sideband_cmd
+            RequestKind::StreamSideband { sideband } => {
+                #handle_sideband
             }
         }
     };
@@ -895,7 +885,7 @@ fn ser_method_output(
             let mut event_wr = BufWriter::new(scratch_event);
             let event = Event {
                 seq: #seq_path,
-                result: Ok(EventKind::ReturnValue {
+                result: Ok(EventKind::Value {
                     data: RefVec::Slice { slice: output_bytes }
                 })
             };

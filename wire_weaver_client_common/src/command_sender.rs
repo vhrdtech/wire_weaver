@@ -13,7 +13,7 @@ use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSidebandCommand};
+use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
 use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
@@ -700,13 +700,13 @@ impl TransportCommander {
     pub(crate) async fn send_stream_sideband(
         &self,
         path_kind: PathKindOwned,
-        sideband_cmd: StreamSidebandCommand,
+        sideband: StreamSideband,
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::StreamSideband { sideband_cmd },
+            kind: RequestKindOwned::StreamSideband { sideband },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;
@@ -719,13 +719,13 @@ impl TransportCommander {
     pub(crate) fn send_stream_sideband_blocking(
         &self,
         path_kind: PathKindOwned,
-        sideband_cmd: StreamSidebandCommand,
+        sideband: StreamSideband,
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: 0,
             path_kind,
-            kind: RequestKindOwned::StreamSideband { sideband_cmd },
+            kind: RequestKindOwned::StreamSideband { sideband },
         };
         let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
         let req = req.to_ww_bytes(&mut scratch)?;

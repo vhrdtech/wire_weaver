@@ -38,7 +38,7 @@ pub(crate) fn introspect(
                 }
                 let event = Event {
                     seq: request.seq,
-                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
+                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
                 };
                 wr.reset();
                 event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
@@ -52,7 +52,7 @@ pub(crate) fn introspect(
             RequestKind::Introspect => {
                 let event = Event {
                     seq: request.seq,
-                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband_event: ww_client_server::StreamSidebandEvent::Closed }),
+                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
                 };
                 wr.reset();
                 event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;

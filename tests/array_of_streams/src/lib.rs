@@ -2,8 +2,8 @@
 mod tests {
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
+    use ww_client_server::StreamSideband;
     use ww_client_server::{Event, EventKind};
-    use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
 
     #[allow(dead_code)]
     pub struct NoStdSyncServer {}
@@ -40,8 +40,8 @@ mod tests {
         fn sideband_stream(
             &mut self,
             _msg_tx: &mut impl MessageSink,
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -49,16 +49,16 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 1],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
         fn sideband_subgroup_stream(
             &mut self,
             _msg_tx: &mut impl MessageSink,
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -66,8 +66,8 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 1],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -75,8 +75,8 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 1],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -84,8 +84,8 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 2],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -93,8 +93,8 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 2],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 
@@ -102,8 +102,8 @@ mod tests {
             &mut self,
             _msg_tx: &mut impl MessageSink,
             _index_chain: [UNib32; 3],
-            _cmd: StreamSidebandCommand,
-        ) -> Option<StreamSidebandEvent> {
+            _cmd: StreamSideband,
+        ) -> Option<StreamSideband> {
             None
         }
 

@@ -210,7 +210,7 @@ impl RxDispatcher {
         trace!("received event: {:?}", event);
         match event.result {
             Ok(event_kind) => match event_kind {
-                EventKind::ReturnValue { data } | EventKind::ReadValue { data } => {
+                EventKind::Value { data } => {
                     if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
                         let return_or_value_bytes = data.as_slice().to_vec();
                         if done_tx.send(Ok(return_or_value_bytes)).is_err() {
@@ -235,8 +235,8 @@ impl RxDispatcher {
                         EventKind::StreamData { data, .. } => {
                             StreamEvent::Data(data.as_slice().to_vec())
                         }
-                        EventKind::StreamSideband { sideband_event, .. } => {
-                            StreamEvent::Sideband(sideband_event)
+                        EventKind::StreamSideband { sideband, .. } => {
+                            StreamEvent::Sideband(sideband)
                         }
                         _ => unreachable!(),
                     };
@@ -254,7 +254,6 @@ impl RxDispatcher {
                         }
                     }
                 }
-                _ => {}
             },
             Err(e) => {
                 if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {

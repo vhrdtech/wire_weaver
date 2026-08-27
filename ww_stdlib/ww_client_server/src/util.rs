@@ -36,7 +36,7 @@ pub fn ser_unit_return_event(scratch: &mut [u8], seq: u16) -> Result<&[u8], Erro
     let mut wr = BufWriter::new(scratch);
     let event = Event {
         seq,
-        result: Ok(EventKind::ReturnValue {
+        result: Ok(EventKind::Value {
             data: TailBytes(&[]),
         }),
     };

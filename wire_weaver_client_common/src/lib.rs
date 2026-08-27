@@ -29,7 +29,7 @@ pub use ww_self;
 pub use ww_version;
 
 use std::time::Duration;
-use ww_client_server::StreamSidebandEvent;
+use ww_client_server::StreamSideband;
 use ww_version::FullVersionOwned;
 
 pub type SeqTy = u16;
@@ -125,7 +125,7 @@ pub enum StreamEvent {
     /// Data channel from remote device
     Data(Vec<u8>),
     /// Sideband channel from remote device
-    Sideband(StreamSidebandEvent),
+    Sideband(StreamSideband),
     /// Locally generated event, sent when connection to remote device is up
     Connected,
     /// Locally generated event, sent when connection to remote device is down
@@ -137,7 +137,7 @@ pub enum TypedStreamEvent<T> {
     /// Data channel from remote device
     Data(T),
     /// Sideband channel from remote device
-    Sideband(StreamSidebandEvent),
+    Sideband(StreamSideband),
     /// Locally generated event, sent when connection to remote device is up
     Connected,
     /// Locally generated event, sent when connection to remote device is down

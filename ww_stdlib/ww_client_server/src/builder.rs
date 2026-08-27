@@ -91,7 +91,7 @@ mod tests {
     fn event_builder_ok() {
         let ev = Event {
             seq: 0xABCD,
-            result: Ok(crate::EventKind::ReadValue {
+            result: Ok(crate::EventKind::Value {
                 data: TailBytes(&[0xAA, 0xBB, 0xCC]),
             }),
         };
@@ -101,7 +101,7 @@ mod tests {
         let mut buf = [0u8; 32];
         let mut wr = BufWriter::new(&mut buf);
         let builder = EventBuilder::new(0xABCD, &mut wr).unwrap();
-        EventKind::ReadValue {
+        EventKind::Value {
             data: TailBytes(&[0xAA, 0xBB, 0xCC]),
         }
         .ser_shrink_wrap(&mut wr)
@@ -136,7 +136,7 @@ mod tests {
     fn event_builder_low_level() {
         let ev = Event {
             seq: 0xABCD,
-            result: Ok(crate::EventKind::ReadValue {
+            result: Ok(crate::EventKind::Value {
                 data: TailBytes(&[0xAA, 0xBB, 0xCC, 0x03]),
             }),
         };
@@ -150,7 +150,7 @@ mod tests {
         // wr.write(&&[0xAAu8, 0xBB, 0xCC][..]).unwrap();
         let bytes = &[0xAAu8, 0xBB, 0xCC][..];
         bytes.ser_shrink_wrap(&mut wr).unwrap();
-        ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::ReadValue, &mut wr);
+        ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::Value, &mut wr);
         ev_builder.finish(true, &mut wr);
         let builder_bytes = wr.finish_and_take().unwrap();
 
@@ -176,7 +176,7 @@ mod tests {
 
         let ev = Event {
             seq: 0xABCD,
-            result: Ok(crate::EventKind::ReadValue {
+            result: Ok(crate::EventKind::Value {
                 data: TailBytes(custom_bytes),
             }),
         };
@@ -190,7 +190,7 @@ mod tests {
         let ev_kind_builder = EventKindBuilder::new(&mut wr).unwrap();
         custom.ser_shrink_wrap(&mut wr).unwrap();
         // wr.write(&custom).unwrap();
-        ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::ReadValue, &mut wr);
+        ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::Value, &mut wr);
         ev_builder.finish(true, &mut wr);
         let builder_bytes = wr.finish_and_take().unwrap();
 

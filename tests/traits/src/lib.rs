@@ -177,8 +177,7 @@ mod tests {
                         let r = match event.result {
                             Ok(event_kind) => {
                                 let data = match event_kind {
-                                    EventKind::ReturnValue { data } => data.as_slice().to_vec(),
-                                    EventKind::ReadValue { data } => data.as_slice().to_vec(),
+                                    EventKind::Value { data } => data.as_slice().to_vec(),
                                     _ => vec![],
                                 };
                                 Ok(data)

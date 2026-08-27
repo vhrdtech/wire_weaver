@@ -140,7 +140,7 @@ pub fn gen_client(
         #[allow(unused_imports)]
         use wire_weaver_client_common::StreamEvent;
         #[allow(unused_imports)]
-        use wire_weaver_client_common::ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+        use wire_weaver_client_common::ww_client_server::StreamSideband;
         #additional_use
 
         #hl_init

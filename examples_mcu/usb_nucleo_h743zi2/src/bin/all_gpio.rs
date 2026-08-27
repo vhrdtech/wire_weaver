@@ -16,7 +16,7 @@ use static_cell::StaticCell;
 use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
-use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+use ww_client_server::StreamSideband;
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
 bind_interrupts!(struct Irqs {
@@ -272,8 +272,8 @@ impl ServerState {
         &mut self,
         _msg_tx: &mut impl MessageSink,
         _index: [UNib32; 2],
-        _cmd: StreamSidebandCommand,
-    ) -> Option<StreamSidebandEvent> {
+        _sideband: StreamSideband,
+    ) -> Option<StreamSideband> {
         None
     }
 

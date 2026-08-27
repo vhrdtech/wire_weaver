@@ -16,7 +16,7 @@ mod tests {
 
     mod no_std_sync_server {
         use super::*;
-        use ww_client_server::{StreamSidebandCommand, StreamSidebandEvent};
+        use ww_client_server::StreamSideband;
 
         pub struct NoStdSyncServer {
             pub data: Arc<RwLock<SharedTestData>>,
@@ -26,8 +26,8 @@ mod tests {
             fn sideband_plain_stream(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
-                _cmd: StreamSidebandCommand,
-            ) -> Option<StreamSidebandEvent> {
+                _cmd: StreamSideband,
+            ) -> Option<StreamSideband> {
                 println!("plain stream sideband: {_cmd:?}");
                 None
             }
@@ -35,8 +35,8 @@ mod tests {
             fn sideband_plain_sink(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
-                _cmd: StreamSidebandCommand,
-            ) -> Option<StreamSidebandEvent> {
+                _cmd: StreamSideband,
+            ) -> Option<StreamSideband> {
                 println!("plain sink sideband: {_cmd:?}");
                 None
             }
@@ -49,8 +49,8 @@ mod tests {
             fn sideband_vec_stream(
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
-                _cmd: StreamSidebandCommand,
-            ) -> Option<StreamSidebandEvent> {
+                _cmd: StreamSideband,
+            ) -> Option<StreamSideband> {
                 println!("vec stream sideband: {_cmd:?}");
                 None
             }
@@ -59,8 +59,8 @@ mod tests {
                 &mut self,
                 _msg_tx: &mut impl MessageSink,
                 _idx: [UNib32; 1],
-                _cmd: StreamSidebandCommand,
-            ) -> Option<StreamSidebandEvent> {
+                _cmd: StreamSideband,
+            ) -> Option<StreamSideband> {
                 println!("array_of_streams sideband: {_idx:?} {_cmd:?}");
                 None
             }

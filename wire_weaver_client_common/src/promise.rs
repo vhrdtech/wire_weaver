@@ -5,7 +5,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
-use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSidebandEvent};
+use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSideband};
 
 pub struct Promise<T> {
     state: StateInner<T>,
@@ -296,7 +296,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                     StreamEvent::Data(chunk) => {
                         acc.extend_from_slice(&chunk);
                     }
-                    StreamEvent::Sideband(StreamSidebandEvent::Closed) => {
+                    StreamEvent::Sideband(StreamSideband::Close) => {
                         self.state = StateInner::from_ww_bytes_owned(acc);
                     }
                     StreamEvent::Connected => {}

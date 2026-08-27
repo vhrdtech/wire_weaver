@@ -346,6 +346,7 @@ where
     T: PacketSink<Error = TransferError>,
     R: PacketSource<Error = TransferError>,
 {
+    trace!("link: {message:?}");
     match message {
         Ok(MessageKind::Data(len)) => {
             state.common.last_rx_ping_instant = Some(Instant::now());
@@ -379,7 +380,6 @@ where
             };
         }
         Ok(MessageKind::Ping) => {
-            trace!("Ping");
             state.common.last_rx_ping_instant = Some(Instant::now());
         }
         Ok(MessageKind::DeviceInfo {

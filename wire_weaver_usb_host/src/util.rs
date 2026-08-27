@@ -28,9 +28,9 @@ pub async fn connect_runtime_api(
 /// Then communicate with the device via dynamically generated UI or through REPL.
 pub fn connect_runtime_api_blocking(
     filter: DeviceFilter,
-    cmd_queue_size: usize,
+    config: ClientConfig,
 ) -> Result<CommandSender, Error> {
-    let mut cmd_tx = start_worker(cmd_queue_size);
+    let mut cmd_tx = start_worker(config.cmd_queue_size);
     cmd_tx.connect_blocking(
         filter,
         FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)),

@@ -326,9 +326,12 @@ impl CommandSender {
 
     pub async fn disconnect(&self) {
         let (tx, rx) = oneshot::channel::<()>();
-        _ = self.transport_cmd_tx.send(Command::DisconnectAndExit {
-            disconnected_tx: Some(tx),
-        });
+        _ = self
+            .transport_cmd_tx
+            .send(Command::DisconnectAndExit {
+                disconnected_tx: Some(tx),
+            })
+            .await;
         _ = rx.await;
     }
 

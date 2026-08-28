@@ -1,7 +1,7 @@
-use crate::codegen::index_chain::IndexChain;
 use crate::codegen::ty_def::ty_def;
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
+use crate::codegen::{index_chain::IndexChain, ty_def::TyPos};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -75,7 +75,7 @@ pub(crate) fn stream_ser_methods_recursive(
         let (value_ty, value_ser) = if ty.is_byte_slice(bundle).unwrap() {
             (quote! { [u8] }, quote! { let value_bytes = value; })
         } else {
-            let ty_def = ty_def(bundle, ty, !no_alloc, true).unwrap();
+            let ty_def = ty_def(bundle, ty, !no_alloc, TyPos::Arg).unwrap();
             let value_ser = quote! {
                 let mut wr = BufWriter::new(scratch_value);
                 value.ser_shrink_wrap(&mut wr)?;

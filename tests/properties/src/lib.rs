@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
+    use properties_api::{Custom, CustomOwned, Inner, InnerOwned};
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
     use tests_common::DummyTx;
     use tokio::sync::mpsc;
+    use wire_weaver::shrink_wrap::RefVec;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
     use wire_weaver_client_common::{CommandSender, DeviceFilter, OnError};
 
@@ -15,6 +17,7 @@ mod tests {
 
     mod no_std_sync_server {
         use super::*;
+        use properties_api::{Custom, Inner};
         use std::sync::{Arc, RwLock};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
@@ -37,6 +40,19 @@ mod tests {
 
             fn changed_y(&mut self) {
                 self.data.write().unwrap().y_changed += 1;
+            }
+
+            fn get_custom(&mut self) -> GetResult<Custom<'_>, ()> {
+                Value(Custom {
+                    z: 123,
+                    inner: RefVec::Slice {
+                        slice: &[Inner { u: 63, v: "abc" }, Inner { u: 127, v: "def" }],
+                    },
+                })
+            }
+
+            fn set_custom(&mut self, custom: Custom<'_>) -> SetResult<()> {
+                Set
             }
         }
 
@@ -139,5 +155,21 @@ mod tests {
 
         client.write_y(0xCC).write().await.unwrap();
         assert_eq!(data.read().unwrap().y_changed, 1);
+
+        let expected_custom = CustomOwned {
+            z: 123,
+            inner: vec![
+                InnerOwned {
+                    u: 63,
+                    v: "abc".into(),
+                },
+                InnerOwned {
+                    u: 127,
+                    v: "def".into(),
+                },
+            ],
+        };
+        let custom = client.read_custom().read().await.unwrap();
+        assert_eq!(custom, expected_custom);
     }
 }

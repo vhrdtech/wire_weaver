@@ -1,8 +1,8 @@
-use crate::codegen::ty_def::ty_def;
+use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::maybe_quote;
 use convert_case::Casing;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned};
 
 pub fn args_structs(
@@ -18,7 +18,7 @@ pub fn args_structs(
             }
             let fields = args.iter().map(|f| {
                 let ident = Ident::new(&f.ident, Span::call_site());
-                let ty = ty_def(api_bundle, &f.ty, !no_alloc, false).unwrap();
+                let ty = ty_def(api_bundle, &f.ty, !no_alloc, TyPos::Def).unwrap();
                 quote! { #ident: #ty }
             });
 

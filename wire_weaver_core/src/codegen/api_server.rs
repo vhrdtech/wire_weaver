@@ -2,7 +2,7 @@
 //! * Server's index chain contains only array indices on the way to a resource
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::stream::stream_ser_methods_recursive;
-use crate::codegen::ty_def::ty_def;
+use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
 use crate::codegen::{api_common, util};
 use crate::method_model::{MethodModel, MethodModelKind};
@@ -549,7 +549,7 @@ fn handle_method(
 ) -> TokenStream {
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_enforce_ty = if let Some(ty) = return_type {
-        let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
+        let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
         quote! {
             let output: #enforce_ty = output;
         }
@@ -608,11 +608,11 @@ fn handle_property(
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
-    let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
+    let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
     let es = error_seq.next();
     let ser_user_err = user_error_ty
         .as_ref()
-        .map(|ty| ty_def(api_bundle, ty, false, true).unwrap())
+        .map(|ty| ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap())
         .map(|enforce_user_err_ty| {
             quote! {
                 let user_err: #enforce_user_err_ty = user_err;
@@ -790,7 +790,7 @@ fn handle_stream(
         // sink (device in)
         let mut other_des = || {
             let es = err_seq.next();
-            let enforce_ty = ty_def(api_bundle, ty, false, true).unwrap();
+            let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
             let ts = quote! {
                 let mut rd = BufReader::new(data);
                 let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
@@ -958,7 +958,7 @@ fn deferred_method_return_ser_methods(
         let ser_output_or_unit = ser_method_output(return_ty, quote! { seq }, error_seq);
         let maybe_output = match return_ty {
             Some(ty) => {
-                let ty = ty_def(api_bundle, ty, !no_alloc, true).unwrap();
+                let ty = ty_def(api_bundle, ty, !no_alloc, TyPos::Annotation).unwrap();
                 quote! { , output: #ty }
             }
             None => quote! {},

@@ -3,7 +3,7 @@
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::introspect::introspect_prepare;
-use crate::codegen::ty_def::{ty_def, ty_def_by_idx};
+use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
 use convert_case::{Case, Casing};
@@ -324,7 +324,7 @@ fn level_method(
             index_type_idx: Some(type_idx),
         } => {
             let p = index_chain.push_back(quote! {}, quote! { UNib32(index.into()) });
-            let ty = ty_def_by_idx(api_bundle, type_idx.0, false, true).unwrap();
+            let ty = ty_def_by_idx(api_bundle, type_idx.0, false, TyPos::Arg).unwrap();
             (quote! { #index_chain_push_pre #p }, quote! { , index: #ty })
         }
     };
@@ -412,7 +412,7 @@ fn handle_method(
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(api_bundle, ident, args, model.no_alloc());
     let output_ty = if let Some(return_type) = &return_type {
-        ty_def(api_bundle, return_type, true, true).unwrap()
+        ty_def(api_bundle, return_type, true, TyPos::Arg).unwrap()
     } else {
         quote! { () }
     };
@@ -443,7 +443,7 @@ fn handle_property(
     user_result_ty: &Option<TypeOwned>,
 ) -> TokenStream {
     let path_kind = path_kind(path_mode, gid_paths);
-    let ty = ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap();
+    let ty = ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap();
 
     let write_fns = if matches!(
         access,
@@ -451,7 +451,7 @@ fn handle_property(
     ) {
         let write_fn_name = Ident::new(&format!("write_{}", prop_name), Span::call_site());
         let user_result_ty = if let Some(ty) = user_result_ty {
-            ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap()
+            ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap()
         } else {
             quote! { () }
         };
@@ -504,7 +504,7 @@ fn handle_stream(
     let ty_def = if ty.is_byte_slice(api_bundle).unwrap() {
         quote! { wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned }
     } else {
-        ty_def(api_bundle, ty, !model.no_alloc(), true).unwrap()
+        ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap()
     };
     let path_kind = path_kind(path_mode, gid_paths);
 
@@ -595,7 +595,7 @@ fn ser_args(
         };
         let tys: Result<Vec<TokenStream>, _> = args
             .iter()
-            .map(|arg| ty_def(api_bundle, &arg.ty, !no_alloc, true))
+            .map(|arg| ty_def(api_bundle, &arg.ty, !no_alloc, TyPos::Arg))
             .collect();
         let tys = tys.unwrap();
         let mut args_list = quote! { #(#idents: #tys),* };

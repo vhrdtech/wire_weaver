@@ -1,61 +1,73 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{ApiBundleOwned, TypeOwned};
 
+use crate::codegen::util::maybe_quote_cl;
+
+#[derive(Copy, Clone)]
+pub(crate) enum TyPos {
+    Def, // RefVec<'i, T>
+    Arg, // RefVec<'_, T>
+    // Return,     // RefVec<'i, T>
+    Annotation, // RefVec<'_, T>
+    Expr,       // Turbofish RefVec::<'_, T>
+}
+
 pub(crate) fn ty_def(
     api_bundle: &ApiBundleOwned,
     ty: &TypeOwned,
     alloc: bool,
-    arg_pos: bool,
+    ty_pos: TyPos,
 ) -> Result<TokenStream> {
-    ty_def_inner(api_bundle, ty, alloc, arg_pos, None)
+    ty_def_inner(api_bundle, ty, alloc, ty_pos, None)
 }
 
 pub(crate) fn ty_def_by_idx(
     api_bundle: &ApiBundleOwned,
     type_idx: u32,
     alloc: bool,
-    arg_pos: bool,
+    ty_pos: TyPos,
 ) -> Result<TokenStream> {
     let ty = api_bundle.get_ty(type_idx)?;
-    ty_def_inner(api_bundle, &ty.0, alloc, arg_pos, Some(ty.1))
+    ty_def_inner(api_bundle, &ty.0, alloc, ty_pos, Some(ty.1))
 }
 
 fn ty_def_inner(
     api_bundle: &ApiBundleOwned,
     ty: &TypeOwned,
     alloc: bool,
-    arg_pos: bool,
+    ty_pos: TyPos,
     crate_idx: Option<u32>,
 ) -> Result<TokenStream> {
+    let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
     match ty {
         TypeOwned::Bool => Ok(quote! { bool }),
         TypeOwned::NumericAny(numeric_any) => Ok(ty_def_numeric_any(numeric_any)),
         TypeOwned::OutOfLine { type_idx } => {
             let (ty, crate_idx) = api_bundle.get_ty(type_idx.0)?;
-            ty_def_inner(api_bundle, ty, alloc, arg_pos, Some(crate_idx))
+            ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(crate_idx))
         }
         TypeOwned::Flag => Err(anyhow!("Flag type cannot be in def position")),
         TypeOwned::String => Ok(if alloc {
             quote! { String }
         } else {
-            let l = lifetime(arg_pos);
+            let l = lifetime(ty_pos);
             quote! { & #l str }
         }),
         TypeOwned::Vec(inner_ty) => {
-            let inner_ty = ty_def_inner(api_bundle, inner_ty, alloc, arg_pos, None)?;
+            let inner_ty = ty_def_inner(api_bundle, inner_ty, alloc, ty_pos, None)?;
             if alloc {
                 Ok(quote! { Vec<#inner_ty> })
             } else {
-                let l = lifetime(arg_pos);
-                Ok(quote! { shrink_wrap::RefVec<#l, #inner_ty> })
+                let l = lifetime(ty_pos);
+                Ok(quote! { shrink_wrap::RefVec #maybe_turbofish <#l, #inner_ty> })
             }
         }
         TypeOwned::Array { len, ty } => {
-            let ty = ty_def_inner(api_bundle, ty, alloc, arg_pos, None)?;
+            let ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
             let len = Lit::Int(LitInt::new(
                 format!("{}", len.0).as_str(),
                 Span::call_site(),
@@ -65,7 +77,7 @@ fn ty_def_inner(
         TypeOwned::Tuple(types) => {
             let types: Result<Vec<TokenStream>, _> = types
                 .iter()
-                .map(|ty| ty_def_inner(api_bundle, ty, alloc, arg_pos, None))
+                .map(|ty| ty_def_inner(api_bundle, ty, alloc, ty_pos, None))
                 .collect();
             let types = types?;
             Ok(quote! { ( #(#types),* ) })
@@ -75,7 +87,7 @@ fn ty_def_inner(
             &item_struct.ident,
             item_struct.is_lifetime(api_bundle)?,
             alloc,
-            arg_pos,
+            ty_pos,
             api_bundle,
         ),
         TypeOwned::Enum(item_enum) => user_ty_def(
@@ -83,34 +95,34 @@ fn ty_def_inner(
             &item_enum.ident,
             item_enum.is_lifetime(api_bundle)?,
             alloc,
-            arg_pos,
+            ty_pos,
             api_bundle,
         ),
         TypeOwned::Option { some_ty } => {
-            let some_ty = ty_def_inner(api_bundle, some_ty, alloc, arg_pos, None)?;
-            Ok(quote! { Option<#some_ty> })
+            let some_ty = ty_def_inner(api_bundle, some_ty, alloc, ty_pos, None)?;
+            Ok(quote! { Option #maybe_turbofish <#some_ty> })
         }
         TypeOwned::Result { ok_ty, err_ty } => {
-            let ok_ty = ty_def_inner(api_bundle, ok_ty, alloc, arg_pos, None)?;
-            let err_ty = ty_def_inner(api_bundle, err_ty, alloc, arg_pos, None)?;
-            Ok(quote! { Result<#ok_ty, #err_ty> })
+            let ok_ty = ty_def_inner(api_bundle, ok_ty, alloc, ty_pos, None)?;
+            let err_ty = ty_def_inner(api_bundle, err_ty, alloc, ty_pos, None)?;
+            Ok(quote! { Result #maybe_turbofish <#ok_ty, #err_ty> })
         }
         TypeOwned::Box(inner_ty) => {
-            let inner_ty = ty_def_inner(api_bundle, inner_ty, alloc, arg_pos, None)?;
+            let inner_ty = ty_def_inner(api_bundle, inner_ty, alloc, ty_pos, None)?;
             Ok(if alloc {
-                quote! { Box<#inner_ty> }
+                quote! { Box #maybe_turbofish <#inner_ty> }
             } else {
-                let l = lifetime(arg_pos);
-                quote! { shrink_wrap::RefBox<#l, #inner_ty> }
+                let l = lifetime(ty_pos);
+                quote! { shrink_wrap::RefBox #maybe_turbofish <#l, #inner_ty> }
             })
         }
         TypeOwned::Range(numeric_base) => {
             let numeric_base = ty_def_numeric_base(numeric_base);
-            Ok(quote! { core::ops::Range<#numeric_base> })
+            Ok(quote! { core::ops::Range #maybe_turbofish <#numeric_base> })
         }
         TypeOwned::RangeInclusive(numeric_base) => {
             let numeric_base = ty_def_numeric_base(numeric_base);
-            Ok(quote! { core::ops::RangeInclusive<#numeric_base> })
+            Ok(quote! { core::ops::RangeInclusive #maybe_turbofish <#numeric_base> })
         }
     }
 }
@@ -120,7 +132,7 @@ fn user_ty_def(
     ty_name: &str,
     is_lifetime: bool,
     alloc: bool,
-    arg_pos: bool,
+    ty_pos: TyPos,
     api_bundle: &ApiBundleOwned,
 ) -> Result<TokenStream> {
     let source_crate = if let Some(crate_idx) = crate_idx {
@@ -130,6 +142,7 @@ fn user_ty_def(
     } else {
         quote! {}
     };
+    let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
 
     if alloc {
         let ty_name = if is_lifetime {
@@ -142,8 +155,8 @@ fn user_ty_def(
         // no_std
         let ty_name = Ident::new(ty_name, Span::call_site());
         if is_lifetime {
-            let l = lifetime(arg_pos);
-            Ok(quote! { #source_crate::#ty_name<#l> })
+            let l = lifetime(ty_pos);
+            Ok(quote! { #source_crate::#ty_name #maybe_turbofish <#l> })
         } else {
             Ok(quote! { #source_crate::#ty_name })
         }
@@ -190,10 +203,10 @@ fn ty_def_numeric_base(base: &NumericBaseType) -> TokenStream {
     }
 }
 
-fn lifetime(arg_pos: bool) -> TokenStream {
-    if arg_pos {
-        quote! { '_ }
-    } else {
-        quote! { 'i }
+fn lifetime(ty_pos: TyPos) -> TokenStream {
+    match ty_pos {
+        TyPos::Def /*| TyPos::Return*/ => quote! { 'i },
+        TyPos::Arg | TyPos::Expr => quote! { '_ },
+        TyPos::Annotation => quote! {},
     }
 }

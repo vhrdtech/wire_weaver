@@ -51,6 +51,10 @@ check-examples-mcu-usb-stm32h725ig:
     @just header "Checking usb_stm32h725ig"
     @cargo check
 
+[working-directory('examples_mcu/usb_stm32h725ig')]
+upload-examples-mcu-usb-stm32h725ig:
+    mx3 fw upload --bin uart --rename usb_b135_uart
+
 # Serve the documentation localy
 [group('docs')]
 serve-docs:

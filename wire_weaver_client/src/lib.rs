@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 mod client;
-mod commander;
 mod config;
 mod device_info;
 mod error;
@@ -17,9 +16,9 @@ pub use client::prepared_write::PreparedWrite;
 pub use client::promise::Promise;
 pub use client::sink::Sink;
 pub use client::stream::{Stream, StreamError, StreamEvent, TypedStreamEvent};
-pub use commander::Commander;
 pub use config::ClientConfig;
 pub use device_info::{ApiInfo, DeviceInfo};
+pub use event_loop::commander::Commander;
 
 #[cfg(feature = "usb")]
 mod usb;

@@ -1,6 +1,6 @@
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UNib32};
 
-use crate::command_sender::TransportCommander;
+use crate::commander::TransportCommander;
 
 pub(crate) trait PropertyPath {
     type Output;

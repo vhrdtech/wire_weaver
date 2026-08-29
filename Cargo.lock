@@ -2871,12 +2871,20 @@ name = "wire_weaver_client"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "hex",
  "semver",
  "strum 0.28.0",
  "strum_macros 0.28.0",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "wire_weaver",
  "wire_weaver_client_common",
  "wire_weaver_net_host",
  "wire_weaver_usb_host",
+ "ww_client_server",
+ "ww_self",
+ "ww_version",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 use crate::Error;
-use crate::command_sender::TransportCommander;
+use crate::commander::TransportCommander;
 use crate::promise::Promise;
 use std::fmt::Debug;
 use std::marker::PhantomData;

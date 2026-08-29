@@ -1,32 +1,12 @@
-pub mod attachment;
 mod command;
-pub mod command_sender;
-pub mod device_filter;
 pub mod event_loop_state;
-mod introspect;
-pub mod multi_read;
-mod prepared_call;
-mod prepared_read;
-mod prepared_write;
-pub mod promise;
 pub mod rx_dispatcher;
-mod sink;
-pub mod stream;
 mod tracing;
 pub mod ww;
 
-// TODO: remove
-pub use attachment::Attachment;
 pub use command::{
     Command, ConnectionInfo, DeviceApiInfo, EventLoopExitReason, EventLoopResidual, TestProgress,
 };
-pub use command_sender::CommandSender;
-pub use device_filter::DeviceFilter;
-pub use prepared_call::PreparedCall;
-pub use prepared_read::PreparedRead;
-pub use prepared_write::PreparedWrite;
-pub use sink::Sink;
-pub use stream::{Stream, StreamError};
 pub use ww_client_server;
 pub use ww_self;
 pub use ww_version;
@@ -36,7 +16,6 @@ use ww_client_server::StreamSideband;
 use ww_version::FullVersionOwned;
 
 pub type SeqTy = u16;
-const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

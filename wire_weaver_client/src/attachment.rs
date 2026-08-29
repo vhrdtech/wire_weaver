@@ -1,4 +1,4 @@
-use crate::CommandSender;
+use crate::Commander;
 use ww_version::FullVersionOwned;
 
 /// Trait attachment point that carries:
@@ -13,13 +13,13 @@ use ww_version::FullVersionOwned;
 /// For example: `ww_gpio_hl` uses "low-level" `ww_gpio` trait describing IO pins and
 /// exposes a more user-friendly and canonical API with each pin represented by a separate struct.
 pub struct Attachment {
-    cmd_tx: CommandSender,
+    cmd_tx: Commander,
     source_crate: FullVersionOwned,
     trait_name: String,
 }
 
 impl Attachment {
-    pub fn new(cmd_tx: CommandSender, source_crate: FullVersionOwned, trait_name: String) -> Self {
+    pub fn new(cmd_tx: Commander, source_crate: FullVersionOwned, trait_name: String) -> Self {
         Self {
             cmd_tx,
             source_crate,
@@ -27,11 +27,11 @@ impl Attachment {
         }
     }
 
-    pub fn cmd_tx(&mut self) -> &mut CommandSender {
+    pub fn cmd_tx(&mut self) -> &mut Commander {
         &mut self.cmd_tx
     }
 
-    pub fn cmd_tx_take(self) -> CommandSender {
+    pub fn cmd_tx_take(self) -> Commander {
         self.cmd_tx
     }
 

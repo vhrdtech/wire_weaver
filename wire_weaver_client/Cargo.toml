@@ -9,15 +9,24 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+thiserror = "2.0"
 semver.workspace = true
 wire_weaver_client_common.workspace = true
 wire_weaver_usb_host = { workspace = true, optional = true }
 wire_weaver_net_host = { workspace = true, optional = true }
 strum.workspace = true
 strum_macros.workspace = true
+ww_version = { workspace = true, features = ["std"] }
+wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["std"] }
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
+hex = "0.4"
+tracing = "0.1"
 
 [features]
-default = ["usb", "net"]
+default = ["usb"]
+# default = ["usb", "net"]
 usb = ["dep:wire_weaver_usb_host"] # connect to devices via USB (using nusb)
 net = ["dep:wire_weaver_net_host"] # connect to devices via WebSockets or UDP
 can = [] # connect to devices via CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux

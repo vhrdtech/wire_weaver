@@ -1,9 +1,10 @@
-use crate::command_sender::TransportCommander;
-use crate::{StreamError, StreamEvent};
+use crate::StreamError;
+use crate::commander::TransportCommander;
 use std::marker::PhantomData;
 use tokio::sync::mpsc::UnboundedReceiver;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use wire_weaver_client_common::StreamEvent;
 use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Stream of typed values from device to host.

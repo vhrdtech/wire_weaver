@@ -6,11 +6,11 @@ use tracing::{debug, trace, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UNib32};
 use ww_client_server::{EventKind, PathKindOwned};
 
-pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
-pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
+pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
+pub type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
 
 pub(crate) type StreamUpdateSender = mpsc::UnboundedSender<StreamEvent>;
-pub(crate) type StreamUpdateReceiver = mpsc::UnboundedReceiver<StreamEvent>;
+pub type StreamUpdateReceiver = mpsc::UnboundedReceiver<StreamEvent>;
 
 const IGNORE_TIMER_DURATION: Duration = Duration::from_millis(1);
 

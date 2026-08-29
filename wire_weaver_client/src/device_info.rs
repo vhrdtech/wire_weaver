@@ -1,6 +1,6 @@
 use semver::Version;
 
-use crate::options::Options;
+use crate::options::{Options, ValidatedOptions};
 
 pub struct DeviceInfo {
     pub manufacturer: String,
@@ -17,7 +17,7 @@ pub struct ApiInfo {
 }
 
 impl DeviceInfo {
-    pub fn is_matching(&self, f: &Options) -> bool {
+    pub(crate) fn is_matching(&self, f: &ValidatedOptions) -> bool {
         let mfg_match = Self::contains(&self.manufacturer, f.manufacturers_contains());
         let product_match = Self::contains(&self.product, f.products_contains());
         let serials_match = self.serials.iter().any(|s| Self::eq(s, f.serials_eq()));

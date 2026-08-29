@@ -1,10 +1,11 @@
-use crate::command_sender::TransportCommander;
-use crate::rx_dispatcher::StreamUpdateReceiver;
-use crate::{Error, StreamEvent};
+use crate::Error;
+use crate::commander::TransportCommander;
 use std::fmt::{Debug, Display, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
+use wire_weaver_client_common::StreamEvent;
+use wire_weaver_client_common::rx_dispatcher::StreamUpdateReceiver;
 use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSideband};
 
 pub struct Promise<T> {

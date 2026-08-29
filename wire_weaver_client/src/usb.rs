@@ -5,10 +5,10 @@ use wire_weaver_usb_host::nusb::{self, MaybeFuture};
 
 use crate::{
     device_info::DeviceInfo,
-    options::{OptionPiece, Options},
+    options::{OptionPiece, Options, ValidatedOptions},
 };
 
-pub(crate) fn connect_blocking(f: &Options) -> Result<OptionPiece<()>, Error> {
+pub(crate) fn connect_blocking(f: &ValidatedOptions) -> Result<Option<()>, Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
     let devices = nusb::list_devices()
         .wait()

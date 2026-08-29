@@ -1,11 +1,8 @@
+use crate::Error;
 use crate::introspect::Introspect;
 use crate::prepared_call::PreparedCall;
-use crate::rx_dispatcher::{ResponseReceiver, ResponseSender, StreamUpdateReceiver};
 use crate::stream::Stream;
-use crate::{
-    Command, DEFAULT_REQUEST_TIMEOUT, DeviceApiInfo, DeviceFilter, Error, OnError, PreparedRead,
-    PreparedWrite, Sink,
-};
+use crate::{DEFAULT_REQUEST_TIMEOUT, PreparedRead, PreparedWrite, Sink};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -13,6 +10,10 @@ use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use wire_weaver_client_common::rx_dispatcher::{
+    ResponseReceiver, ResponseSender, StreamUpdateReceiver,
+};
+use wire_weaver_client_common::{Command, DeviceApiInfo};
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
 use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
@@ -24,7 +25,7 @@ use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 /// Commands sent through this channel are received by a worker thread (e.g., USB or WebSocket clients) and forwarded to a connected device.
 /// Replies are received through one-shot channels created on the fly when requests are sent.
 #[derive(Clone)]
-pub struct CommandSender {
+pub struct Commander {
     transport_cmd_tx: mpsc::Sender<Command>,
     /// * None for command sender attached to API root, trait addressing will result in an error.
     /// * Some (empty path) for trait implemented at root level (unknown path), trait addressing will be used.
@@ -50,7 +51,7 @@ pub(crate) struct TransportCommander {
     default_timeout: Duration,
 }
 
-impl CommandSender {
+impl Commander {
     pub fn new(transport_cmd_tx: mpsc::Sender<Command>) -> Self {
         Self {
             transport_cmd_tx,

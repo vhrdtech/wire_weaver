@@ -5,8 +5,6 @@ use anyhow::Result;
 use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
 
-use crate::options::DeviceFilterPieceDiscriminants::UserLabelEq;
-
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
 /// - Specific device selection
@@ -24,12 +22,12 @@ use crate::options::DeviceFilterPieceDiscriminants::UserLabelEq;
 /// - Builder pattern that plays nicely with specific device crates
 #[derive(Clone, Debug)]
 pub struct Options {
-    pub(crate) pieces: Vec<OptionPiece>,
+    pieces: Vec<OptionPiece>,
     priority: String,
     cmd_queue_size: usize,
 }
 
-struct ValidatedOptions {
+pub(crate) struct ValidatedOptions {
     pub(crate) pieces: Vec<OptionPiece>,
     priority: Vec<InterfaceKind>,
     cmd_queue_size: usize,
@@ -156,11 +154,12 @@ impl Options {
     }
 
     pub(crate) fn validate(self) -> Result<ValidatedOptions> {
-        self.canonicalize();
+        let mut s = self;
+        s.canonicalize();
         Ok(ValidatedOptions {
-            pieces: self.pieces,
+            pieces: s.pieces,
             priority: vec![],
-            cmd_queue_size: self.cmd_queue_size,
+            cmd_queue_size: s.cmd_queue_size,
         })
     }
 
@@ -168,6 +167,94 @@ impl Options {
     pub fn prio(&mut self, priority: String) -> &mut Self {
         self.priority = priority;
         self
+    }
+
+    /// Select USB device by VID:PID numbers
+    #[cfg(feature = "usb")]
+    pub fn usb_vid_pid(self, vid: u16, pid: u16) -> Self {
+        let mut f = self;
+        f.pieces.push(OptionPiece::UsbVidPid { vid, pid });
+        f
+    }
+
+    /// Select USB device by bus name and port chain
+    #[cfg(feature = "usb")]
+    pub fn usb_port_chain(self, bus_id: String, port_chain: Vec<u8>) -> Self {
+        let mut f = self;
+        f.pieces.push(OptionPiece::UsbPath { bus_id, port_chain });
+        f
+    }
+
+    /// Consider USB devices as a potential connection targets
+    #[cfg(feature = "usb")]
+    pub fn usb(self) -> Self {
+        let mut f = self;
+        f.pieces.push(OptionPiece::Usb);
+        f
+    }
+
+    /// Do not consider USB devices as a potential connection targets
+    #[cfg(feature = "usb")]
+    pub fn no_usb(self) -> Self {
+        let mut f = self;
+        f.pieces.push(OptionPiece::NoUsb);
+        f
+    }
+
+    /// CommandSender queue size, limits the amount of simulatenous requests in-flight.
+    /// Default is 8192, using more than 65_534 will lead to blocking if reached.
+    pub fn cmd_queue_size(self, size: usize) -> Self {
+        let mut f = self;
+        f.cmd_queue_size = size;
+        f
+    }
+
+    pub(crate) fn canonicalize(&mut self) {
+        #[cfg(feature = "usb")]
+        self.canonicalize_inner(
+            &[
+                OptionPieceDiscriminants::Usb,
+                OptionPieceDiscriminants::UsbVidPid,
+                OptionPieceDiscriminants::UsbPath,
+            ],
+            OptionPieceDiscriminants::NoUsb,
+        );
+    }
+
+    fn canonicalize_inner(
+        &mut self,
+        opt_in: &[OptionPieceDiscriminants],
+        opt_out: OptionPieceDiscriminants,
+    ) {
+        let mut opt_in_at = vec![];
+        let mut remove_at = vec![];
+        for (idx, p) in self.pieces.iter().enumerate() {
+            let kind = OptionPieceDiscriminants::from(p);
+            if opt_in.contains(&kind) {
+                opt_in_at.push(idx);
+            }
+            if kind == opt_out {
+                remove_at.extend(opt_in_at.drain(..));
+                remove_at.push(idx);
+            }
+        }
+        let mut idx = 0;
+        self.pieces.retain(|_| {
+            let retain = !remove_at.contains(&idx);
+            idx += 1;
+            retain
+        });
+    }
+}
+
+impl ValidatedOptions {
+    pub(crate) fn is_usb(&self) -> bool {
+        self.pieces.iter().any(|p| {
+            matches!(
+                p,
+                OptionPiece::UsbVidPid { .. } | OptionPiece::UsbPath { .. } | OptionPiece::Usb
+            )
+        })
     }
 
     pub(crate) fn manufacturers_contains(&self) -> impl Iterator<Item = &str> {
@@ -223,94 +310,6 @@ impl Options {
             }
         })
     }
-
-    /// Select USB device by VID:PID numbers
-    #[cfg(feature = "usb")]
-    pub fn usb_vid_pid(self, vid: u16, pid: u16) -> Self {
-        let mut f = self;
-        f.pieces.push(OptionPiece::UsbVidPid { vid, pid });
-        f
-    }
-
-    /// Select USB device by bus name and port chain
-    #[cfg(feature = "usb")]
-    pub fn usb_port_chain(self, bus_id: String, port_chain: Vec<u8>) -> Self {
-        let mut f = self;
-        f.pieces.push(OptionPiece::UsbPath { bus_id, port_chain });
-        f
-    }
-
-    /// Consider USB devices as a potential connection targets
-    #[cfg(feature = "usb")]
-    pub fn usb(self) -> Self {
-        let mut f = self;
-        f.pieces.push(OptionPiece::Usb);
-        f
-    }
-
-    /// Do not consider USB devices as a potential connection targets
-    #[cfg(feature = "usb")]
-    pub fn no_usb(self) -> Self {
-        let mut f = self;
-        f.pieces.push(OptionPiece::NoUsb);
-        f
-    }
-
-    /// CommandSender queue size, limits the amount of simulatenous requests in-flight.
-    /// Default is 8192, using more than 65_534 will lead to blocking if reached.
-    pub fn cmd_queue_size(self, size: usize) -> Self {
-        let mut f = self;
-        f.cmd_queue_size = size;
-        f
-    }
-
-    pub(crate) fn canonicalize(&mut self) {
-        #[cfg(feature = "usb")]
-        self.canonicalize_inner(
-            &[
-                DeviceFilterPieceDiscriminants::Usb,
-                DeviceFilterPieceDiscriminants::UsbVidPid,
-                DeviceFilterPieceDiscriminants::UsbPath,
-            ],
-            DeviceFilterPieceDiscriminants::NoUsb,
-        );
-    }
-
-    fn canonicalize_inner(
-        &mut self,
-        opt_in: &[DeviceFilterPieceDiscriminants],
-        opt_out: DeviceFilterPieceDiscriminants,
-    ) {
-        let mut opt_in_at = vec![];
-        let mut remove_at = vec![];
-        for (idx, p) in self.pieces.iter().enumerate() {
-            let kind = DeviceFilterPieceDiscriminants::from(p);
-            if opt_in.contains(&kind) {
-                opt_in_at.push(idx);
-            }
-            if kind == opt_out {
-                remove_at.extend(opt_in_at.drain(..));
-                remove_at.push(idx);
-            }
-        }
-        let mut idx = 0;
-        self.pieces.retain(|_| {
-            let retain = !remove_at.contains(&idx);
-            idx += 1;
-            retain
-        });
-    }
-}
-
-impl ValidatedOptions {
-    pub(crate) fn is_usb(&self) -> bool {
-        self.pieces.iter().any(|p| {
-            matches!(
-                p,
-                OptionPiece::UsbVidPid { .. } | OptionPiece::UsbPath { .. } | OptionPiece::Usb
-            )
-        })
-    }
 }
 
 #[cfg(test)]
@@ -327,12 +326,11 @@ mod tests {
         let f = Options::new().validate().unwrap();
         assert_eq!(f.is_usb(), false); // unless opted-in, interface is not considered
 
-        let mut f = Options::new()
+        let f = Options::new()
             .usb_vid_pid(0x1, 0x2)
             .usb()
             .validate()
             .unwrap();
-        f.canonicalize();
         assert_eq!(
             f.pieces,
             vec![
@@ -342,18 +340,15 @@ mod tests {
         );
         assert_eq!(f.is_usb(), true);
 
-        let mut f = Options::new().usb().validate().unwrap();
-        f.canonicalize();
+        let f = Options::new().usb().validate().unwrap();
         assert_eq!(f.pieces, vec![OptionPiece::Usb]);
         assert_eq!(f.is_usb(), true);
 
-        let mut f = Options::new().usb().no_usb().validate().unwrap();
-        f.canonicalize();
+        let f = Options::new().usb().no_usb().validate().unwrap();
         assert_eq!(f.pieces, vec![]);
         assert_eq!(f.is_usb(), false);
 
-        let mut f = Options::new().usb().no_usb().usb().validate().unwrap();
-        f.canonicalize();
+        let f = Options::new().usb().no_usb().usb().validate().unwrap();
         assert_eq!(f.pieces, vec![OptionPiece::Usb]);
         assert_eq!(f.is_usb(), true);
     }

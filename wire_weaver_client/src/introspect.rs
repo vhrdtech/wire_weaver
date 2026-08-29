@@ -1,6 +1,7 @@
-use crate::command_sender::TransportCommander;
+use crate::Error;
+use crate::Stream;
+use crate::commander::TransportCommander;
 use crate::promise::Promise;
-use crate::{Error, Stream};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 use ww_self::ApiBundleOwned;

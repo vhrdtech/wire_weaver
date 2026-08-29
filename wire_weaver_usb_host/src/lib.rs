@@ -8,7 +8,7 @@ pub mod tracing;
 pub mod util;
 
 pub use event_loop::usb_worker;
-pub use nusb::DeviceInfo;
+pub use nusb;
 pub use wire_weaver_client_common;
 
 use nusb::transfer::TransferError;

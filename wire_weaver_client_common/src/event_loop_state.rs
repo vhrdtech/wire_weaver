@@ -1,13 +1,12 @@
 use crate::tracing::TraceEvent;
-use crate::{DeviceInfoBundle, Error, OnError};
+use crate::{ConnectionInfo, DeviceApiInfo};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use ww_version::FullVersionOwned;
 
 pub struct CommonState {
-    pub exit_on_error: bool,
     pub link_up: bool,
-    pub connected_tx: Option<oneshot::Sender<Result<DeviceInfoBundle, Error>>>,
+    pub connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     pub packet_started_instant: Option<Instant>,
     pub last_rx_ping_instant: Option<Instant>,
     pub packet_accumulation_time: Duration,
@@ -16,21 +15,20 @@ pub struct CommonState {
     // pub remote_max_message_size: Option<usize>,
     // pub remote_link_version: Option<CompactVersion>,
     // pub remote_api_model_version: Option<CompactVersion>,
-    pub device_info: Option<DeviceInfoBundle>,
+    pub device_api_info: Option<DeviceApiInfo>,
     pub tracers: Vec<mpsc::UnboundedSender<TraceEvent>>,
 }
 
 impl Default for CommonState {
     fn default() -> Self {
         CommonState {
-            exit_on_error: true,
             link_up: false,
             connected_tx: None,
             packet_started_instant: None,
             last_rx_ping_instant: None,
             packet_accumulation_time: Duration::from_millis(1),
             client_version: None,
-            device_info: None,
+            device_api_info: None,
             tracers: vec![],
         }
     }
@@ -45,11 +43,9 @@ impl CommonState {
 
     pub fn on_connect(
         &mut self,
-        on_error: OnError,
-        connected_tx: Option<oneshot::Sender<Result<DeviceInfoBundle, Error>>>,
+        connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
         client_version: FullVersionOwned,
     ) {
-        self.exit_on_error = on_error != OnError::KeepRetrying;
         self.connected_tx = connected_tx;
         self.client_version = Some(client_version);
     }

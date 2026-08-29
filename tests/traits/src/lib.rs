@@ -8,7 +8,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
     use wire_weaver_client_common::{
-        Command, CommandSender, DeviceFilter, DeviceInfoBundle, OnError,
+        Command, CommandSender, DeviceFilter, DeviceApiInfo, OnError,
     };
     use ww_client_server::{Event, EventKind, Request};
 
@@ -154,7 +154,7 @@ mod tests {
                 match cmd {
                     Command::Connect { connected_tx, .. } => {
                         if let Some(tx) = connected_tx {
-                            tx.send(Ok(DeviceInfoBundle::empty())).unwrap();
+                            tx.send(Ok(DeviceApiInfo::empty())).unwrap();
                         }
                         continue;
                     }

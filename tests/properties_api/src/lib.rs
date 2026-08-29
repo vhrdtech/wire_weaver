@@ -8,13 +8,14 @@ trait Properties {
     // changes pub sub
     // const ro wo
     // () [u8]
-    // property!(rw custom: Custom<'i>);
+    property!(rw custom: Custom<'i>);
     // property!(rw custom: RefVec<'i, u8>);
     // arrays
 }
 
 #[derive_shrink_wrap]
 #[owned = "std"]
+#[derive(Debug, PartialEq, Eq)]
 struct Custom<'i> {
     z: u8,
     inner: RefVec<'i, Inner<'i>>,
@@ -22,7 +23,7 @@ struct Custom<'i> {
 
 #[derive_shrink_wrap]
 #[owned = "std"]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Inner<'i> {
     u: u8,
     v: &'i str,

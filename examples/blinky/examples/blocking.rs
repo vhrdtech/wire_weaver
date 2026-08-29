@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     println!("Turning LED off");
     driver.led_off().blocking_call()?;
 
-    driver.disconnect_and_exit_blocking()?;
+    driver.disconnect_blocking()?;
 
     Ok(())
 }

@@ -25,10 +25,8 @@ quote = { workspace = true }
 regex = "1.12"
 relative-path = "2.0"
 ron = "0.12"
-semver = "1.0"
+semver.workspace = true
 sha2 = "0.11"
-#strum = "0.26"
-#strum_macros = "0.26"
 shrink_wrap.workspace = true
 shrink_wrap_core.workspace = true
 syn = { workspace = true }

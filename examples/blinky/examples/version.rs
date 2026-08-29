@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
 
     println!("{:?}", device.info());
 
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
 
     Ok(())
 }

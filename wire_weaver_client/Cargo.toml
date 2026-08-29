@@ -1,0 +1,28 @@
+[package]
+name = "wire_weaver_client"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+semver.workspace = true
+wire_weaver_client_common.workspace = true
+wire_weaver_usb_host = { workspace = true, optional = true }
+wire_weaver_net_host = { workspace = true, optional = true }
+strum.workspace = true
+strum_macros.workspace = true
+
+[features]
+default = ["usb", "net"]
+usb = ["dep:wire_weaver_usb_host"] # connect to devices via USB (using nusb)
+net = ["dep:wire_weaver_net_host"] # connect to devices via WebSockets or UDP
+can = [] # connect to devices via CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
+rtt = [] # connect to devices via RTT over JTAG/SWD
+i2c = [] # connect to devices via I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
+uart = [] # connect to devices via UART using USB or Ethernet to UART bridges or system provided serial ports
+ipc = [] # connect to devices via inter-process communication channel (using iceoryx2)
+in_process = [] # connect to virtual devices via in-process channel

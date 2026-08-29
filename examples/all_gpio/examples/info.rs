@@ -18,6 +18,6 @@ async fn main() -> Result<()> {
     let capabilities = device.port(0).capabilities().call().await?;
     println!("Port 0 capabilities: {:#?}", capabilities);
 
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
     Ok(())
 }

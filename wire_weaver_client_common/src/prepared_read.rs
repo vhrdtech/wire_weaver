@@ -1,10 +1,12 @@
 use crate::Error;
 use crate::command_sender::TransportCommander;
+use crate::multi_read::PropertyPath;
 use crate::promise::Promise;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
+use wire_weaver::shrink_wrap::UNib32;
 use ww_client_server::PathKindOwned;
 
 /// Self-contained struct containing all necessary information needed to perform a read:
@@ -92,5 +94,23 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             self.transport_cmd_tx,
             marker,
         )
+    }
+}
+
+impl<T: DeserializeShrinkWrapOwned> PropertyPath for PreparedRead<T> {
+    type Output = T;
+
+    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+        let Ok(path_kind) = &self.path_kind else {
+            return None;
+        };
+        let PathKindOwned::Absolute { path } = path_kind else {
+            return None;
+        };
+        Some(path.clone())
+    }
+
+    fn commander(self) -> TransportCommander {
+        self.transport_cmd_tx
     }
 }

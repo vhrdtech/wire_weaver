@@ -1,5 +1,6 @@
 use crate::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::{DeviceFilter, Error, OnError};
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -9,17 +10,37 @@ use ww_version::{FullVersionOwned, VersionOwned};
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).
 /// Generated client code uses [CommandSender](CommandSender), which sends out Command's.
 pub enum Command {
-    /// Try to connect to / open a device with the specified filter.
+    /// Connect to a device identified by a provided handle.
+    /// On success, send a message through connected_tx.
+    /// On failure, send a message through failed_tx.
     Connect {
-        filter: Box<DeviceFilter>,
+        /// Interface specific handle or device to connect to (e.g., nusb::DeviceInfo for USB)
+        handle: Box<dyn Any + Send>,
         client_version: Box<FullVersionOwned>,
-        // TODO: supported_use_protocols: Vec<FullVersion<'static>> and keep only the one in common
-        on_error: OnError,
-        connected_tx: Option<oneshot::Sender<Result<DeviceInfoBundle, Error>>>,
+        /// Connection status sender.
+        connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
+        /// Before exiting, event loop will return it's command receiver through this channel.
+        /// Can be used to re-connect without dropping all command senders client code uses.
+        failed_tx: Option<oneshot::Sender<EventLoopResidual>>,
     },
-    /// All incoming messages from a device and all outgoing commands will be sent to this channel.
-    RegisterTracer {
-        trace_event_tx: mpsc::UnboundedSender<crate::tracing::TraceEvent>,
+
+    /// Send ww_client_server Request to a remote device
+    SendMessage {
+        bytes: Vec<u8>,
+        /// If None - the message will be sent with seq = 0
+        /// TODO: Timeout per each update or in total for multipart?
+        done_tx: Option<(ResponseSender, Duration)>,
+    },
+    /// Subscribe to a stream or property change
+    OnStreamEvent {
+        path_kind: Box<PathKindOwned>,
+        stream_event_tx: StreamUpdateSender,
+    },
+
+    /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
+    /// and streams will stop. Use when shutting down the whole application.
+    DisconnectAndExit {
+        disconnected_tx: Option<oneshot::Sender<()>>,
     },
 
     /// Complete outstanding requests (but ignore new ones)? Then, close the device connection but keep the worker task running.
@@ -29,22 +50,12 @@ pub enum Command {
         disconnected_tx: Option<oneshot::Sender<()>>,
     },
 
-    /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
-    /// and streams will stop. Use when shutting down the whole application.
-    DisconnectAndExit {
-        disconnected_tx: Option<oneshot::Sender<()>>,
+    /// All incoming messages from a device and all outgoing commands will be sent to this channel.
+    /// Multiple tracers could be installed.
+    RegisterTracer {
+        trace_event_tx: mpsc::UnboundedSender<crate::tracing::TraceEvent>,
     },
 
-    SendMessage {
-        bytes: Vec<u8>,
-        /// If None - the message will be sent with seq = 0
-        /// TODO: Timeout per each update or in total for multipart?
-        done_tx: Option<(ResponseSender, Duration)>,
-    },
-    OnStreamEvent {
-        path_kind: Box<PathKindOwned>,
-        stream_event_tx: StreamUpdateSender,
-    },
     // RecycleBuffer(Vec<u8>),
     // GetStats,
     LoopbackTest {
@@ -52,6 +63,27 @@ pub enum Command {
         packet_size: Option<usize>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
+}
+
+pub struct ConnectionInfo {
+    pub result: Result<DeviceApiInfo, anyhow::Error>,
+}
+
+pub struct EventLoopResidual {
+    pub cmd_rx: mpsc::Receiver<Command>,
+    // dispatcher_tx: mpsc::
+    /// If event loop spawned, but failed to connect, keep this around for eventual re-connect.
+    /// (Only if not exiting on error)
+    pub connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
+    pub result: anyhow::Result<EventLoopExitReason>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EventLoopExitReason {
+    CommanderDropped,
+    DisconnectCommand,
+    DisconnectKeepStreamsCommand,
+    DisconnectFromDevice,
 }
 
 const _: () = {
@@ -89,7 +121,7 @@ impl Command {
 }
 
 #[derive(Clone, Debug)]
-pub struct DeviceInfoBundle {
+pub struct DeviceApiInfo {
     /// Link carries API model messages.
     pub link_version: FullVersionOwned,
     /// Maximum message size supported by the device.
@@ -105,9 +137,9 @@ pub struct DeviceInfoBundle {
 #[derive(Clone, Default)]
 pub struct UserApiSignature(pub Vec<u8>);
 
-impl DeviceInfoBundle {
+impl DeviceApiInfo {
     pub fn empty() -> Self {
-        DeviceInfoBundle {
+        DeviceApiInfo {
             link_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
@@ -126,5 +158,11 @@ impl Debug for UserApiSignature {
 impl From<Vec<u8>> for UserApiSignature {
     fn from(hash: Vec<u8>) -> Self {
         UserApiSignature(hash)
+    }
+}
+
+impl ConnectionInfo {
+    pub fn err(e: anyhow::Error) -> Self {
+        Self { result: Err(e) }
     }
 }

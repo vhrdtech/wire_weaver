@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
     let err = r.unwrap_err();
     println!("led_toggle() failed: {err}");
 
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
 
     Ok(())
 }

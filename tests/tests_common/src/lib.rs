@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Receiver;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::{Command, DeviceInfoBundle};
+use wire_weaver_client_common::{Command, DeviceApiInfo};
 use ww_client_server::{Event, EventKind, Request};
 
 pub struct DummyTx;
@@ -36,7 +36,7 @@ pub async fn test_event_loop(
         match cmd {
             Command::Connect { connected_tx, .. } => {
                 if let Some(tx) = connected_tx {
-                    tx.send(Ok(DeviceInfoBundle::empty())).unwrap();
+                    tx.send(Ok(DeviceApiInfo::empty())).unwrap();
                 }
                 continue;
             }

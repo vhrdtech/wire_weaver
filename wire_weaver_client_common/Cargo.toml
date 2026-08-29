@@ -11,6 +11,7 @@ repository.workspace = true
 nusb = ["dep:nusb"]
 
 [dependencies]
+anyhow.workspace = true
 hex = "0.4"
 nusb = { version = "0.2", optional = true }
 thiserror = "2.0"

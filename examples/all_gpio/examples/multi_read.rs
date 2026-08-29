@@ -1,6 +1,7 @@
 use all_gpio::{AllGpio, DeviceFilter};
 use anyhow::Result;
 use std::time::Instant;
+use wire_weaver_client_common::multi_read::MultiRead;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -10,13 +11,11 @@ async fn main() -> Result<()> {
     let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 
-    for port in ports.iter() {
-        let port_name = device.port(port).name().call().await?;
-        for pin in 0..=15 {
-            let mode = device.port(port).pin(pin).mode().call().await?;
-            println!("{port_name}{}: {:?}", pin, mode);
-        }
-    }
+    (
+        device.port(0).pin(0).read_speed(),
+        device.port(0).pin(1).read_speed(),
+    )
+        .multi_read();
 
     // takes 940ms on USB Full Speed, see mode_parallel example for a vast improvement over this
     // 361ms on USB High Speed

@@ -35,6 +35,6 @@ async fn main() -> Result<()> {
     // 17ms on USB High Speed
     // 125μs accumulation time, also 17ms with 300μs and 1ms windows (but much fewer packets)
     println!("took {} ms", now.elapsed().as_millis());
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
     Ok(())
 }

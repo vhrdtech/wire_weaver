@@ -707,43 +707,24 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
             &WW_API_SIGNATURE_BYTES
         }
 
-        pub async fn disconnect_and_exit(&mut self) -> Result<(), wire_weaver_client_common::Error> {
-            let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
-            self.cmd_tx
-                .send(cmd)
-                .await
-                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            let _ = done_rx.await.map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            Ok(())
+        /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
+        pub async fn disconnect(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+            self.cmd_tx.disconnect().await
         }
 
-        pub fn disconnect_and_exit_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
-            let (cmd, done_rx) = wire_weaver_client_common::Command::disconnect_and_exit();
-            self.cmd_tx
-                .blocking_send(cmd)
-                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            let _ = done_rx.blocking_recv().map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            Ok(())
+        /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
+        pub fn disconnect_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+            self.cmd_tx.disconnect_blocking()
         }
 
-        // pub fn disconnect_and_exit_forget(&mut self) -> Result<(), wire_weaver_client_common::Error> {
-        //     self.cmd_tx
-        //         .send(wire_weaver_client_common::Command::DisconnectAndExit {
-        //             disconnected_tx: None,
-        //         })
-        //         .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-        //     Ok(())
-        // }
-
-        /// Disconnect from a connected device. Event loop will be left running, and error mode will be set to KeepRetrying.
+        /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
         pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client_common::Error> {
-            self.cmd_tx
-                .send(wire_weaver_client_common::Command::DisconnectKeepStreams {
-                    disconnected_tx: None,
-                })
-                .await
-                .map_err(|_| wire_weaver_client_common::Error::EventLoopNotRunning)?;
-            Ok(())
+            self.cmd_tx.disconnect_keep_streams().await
+        }
+
+        /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
+        pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+            self.cmd_tx.disconnect_keep_streams_blocking()
         }
     }
 }

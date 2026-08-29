@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     println!("Turning LED off");
     device.led_off().call().await?;
 
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
 
     Ok(())
 }

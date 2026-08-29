@@ -4,6 +4,7 @@ pub mod command_sender;
 pub mod device_filter;
 pub mod event_loop_state;
 mod introspect;
+pub mod multi_read;
 mod prepared_call;
 mod prepared_read;
 mod prepared_write;
@@ -16,7 +17,9 @@ pub mod ww;
 
 // TODO: remove
 pub use attachment::Attachment;
-pub use command::{Command, DeviceInfoBundle, TestProgress};
+pub use command::{
+    Command, ConnectionInfo, DeviceApiInfo, EventLoopExitReason, EventLoopResidual, TestProgress,
+};
 pub use command_sender::CommandSender;
 pub use device_filter::DeviceFilter;
 pub use prepared_call::PreparedCall;
@@ -64,6 +67,8 @@ pub enum Error {
     CmdTxDropped,
     #[error("Exit command received")]
     ExitRequested,
+    #[error("No ping from device")]
+    NoPingFromDevice,
     #[error("Transport specific error: {}", .0)]
     Transport(String),
     #[error("User error: '{}'", .0)]

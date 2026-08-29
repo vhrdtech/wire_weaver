@@ -13,7 +13,6 @@ async fn main() -> Result<()> {
     let api_bundle = device.introspect().download().await?;
     println!("{:#?}", api_bundle);
 
-    device.disconnect().await;
-
+    device.disconnect().await?;
     Ok(())
 }

@@ -15,11 +15,11 @@ use core::marker::PhantomData;
 ///
 /// With StackVec though, any complex object can be stored on the stack, with only one buffer size to choose:
 /// ```rust
-/// use shrink_wrap::stack_vec::StackVec;
+/// use shrink_wrap::any_on_stack::AnyOnStack;
 ///
-/// let value = StackVec::<6, _>::some(([1u8, 2, 3, 4], [5u8, 6])).unwrap();
+/// let value = AnyOnStack::<6, _>::some(([1u8, 2, 3, 4], [5u8, 6])).unwrap();
 /// assert_eq!(value.bytes(), &[1, 2, 3, 4, 5, 6]);
-/// let value = StackVec::<6, _>::some(([7u8, 8], [9u8, 10, 11, 12])).unwrap();
+/// let value = AnyOnStack::<6, _>::some(([7u8, 8], [9u8, 10, 11, 12])).unwrap();
 /// assert_eq!(value.bytes(), &[7, 8, 9, 10, 11, 12]);
 /// ```
 /// Note how only 6 bytes for the total buffer size need to be specified and buffer is distributed between two arrays.

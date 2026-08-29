@@ -13,6 +13,6 @@ async fn main() -> Result<()> {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
     Ok(())
 }

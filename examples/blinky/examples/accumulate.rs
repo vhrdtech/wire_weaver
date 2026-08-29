@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     // since we do not await for any responses, wait a bit to allow requests to be sent
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    driver.disconnect_and_exit().await?;
+    driver.disconnect().await?;
 
     Ok(())
 }

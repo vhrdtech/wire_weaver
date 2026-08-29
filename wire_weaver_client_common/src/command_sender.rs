@@ -3,7 +3,7 @@ use crate::prepared_call::PreparedCall;
 use crate::rx_dispatcher::{ResponseReceiver, ResponseSender, StreamUpdateReceiver};
 use crate::stream::Stream;
 use crate::{
-    Command, DEFAULT_REQUEST_TIMEOUT, DeviceFilter, DeviceInfoBundle, Error, OnError, PreparedRead,
+    Command, DEFAULT_REQUEST_TIMEOUT, DeviceApiInfo, DeviceFilter, Error, OnError, PreparedRead,
     PreparedWrite, Sink,
 };
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ pub struct CommandSender {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     default_timeout: Duration,
-    connected_device: DeviceInfoBundle,
+    connected_device: DeviceApiInfo,
     client_api: Option<(
         Result<ApiBundleOwned, wire_weaver::shrink_wrap::Error>,
         Vec<u8>,
@@ -57,7 +57,7 @@ impl CommandSender {
             base_path: None,
             gid_map: HashMap::new(),
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
-            connected_device: DeviceInfoBundle::empty(),
+            connected_device: DeviceApiInfo::empty(),
             client_api: None,
         }
     }
@@ -69,48 +69,48 @@ impl CommandSender {
         self.default_timeout = timeout;
     }
 
-    pub async fn connect(
-        &mut self,
-        filter: DeviceFilter,
-        user_protocol_version: FullVersionOwned,
-        on_error: OnError,
-    ) -> Result<(), Error> {
-        let (connected_tx, connected_rx) = oneshot::channel();
-        self.transport_cmd_tx
-            .send(Command::Connect {
-                filter: Box::new(filter),
-                client_version: Box::new(user_protocol_version),
-                on_error,
-                connected_tx: Some(connected_tx),
-            })
-            .await
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-        self.connected_device = connection_result?;
-        Ok(())
-    }
+    // pub async fn connect(
+    //     &mut self,
+    //     filter: DeviceFilter,
+    //     user_protocol_version: FullVersionOwned,
+    //     on_error: OnError,
+    // ) -> Result<(), Error> {
+    //     let (connected_tx, connected_rx) = oneshot::channel();
+    //     self.transport_cmd_tx
+    //         .send(Command::Connect {
+    //             filter: Box::new(filter),
+    //             client_version: Box::new(user_protocol_version),
+    //             on_error,
+    //             connected_tx: Some(connected_tx),
+    //         })
+    //         .await
+    //         .map_err(|_| Error::EventLoopNotRunning)?;
+    //     let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
+    //     self.connected_device = connection_result?;
+    //     Ok(())
+    // }
 
-    pub fn connect_blocking(
-        &mut self,
-        filter: DeviceFilter,
-        user_protocol_version: FullVersionOwned,
-        on_error: OnError,
-    ) -> Result<(), Error> {
-        let (connected_tx, connected_rx) = oneshot::channel();
-        self.transport_cmd_tx
-            .blocking_send(Command::Connect {
-                filter: Box::new(filter),
-                client_version: Box::new(user_protocol_version),
-                on_error,
-                connected_tx: Some(connected_tx),
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        let connection_result = connected_rx
-            .blocking_recv()
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        self.connected_device = connection_result?;
-        Ok(())
-    }
+    // pub fn connect_blocking(
+    //     &mut self,
+    //     filter: DeviceFilter,
+    //     user_protocol_version: FullVersionOwned,
+    //     on_error: OnError,
+    // ) -> Result<(), Error> {
+    //     let (connected_tx, connected_rx) = oneshot::channel();
+    //     self.transport_cmd_tx
+    //         .blocking_send(Command::Connect {
+    //             filter: Box::new(filter),
+    //             client_version: Box::new(user_protocol_version),
+    //             on_error,
+    //             connected_tx: Some(connected_tx),
+    //         })
+    //         .map_err(|_| Error::EventLoopNotRunning)?;
+    //     let connection_result = connected_rx
+    //         .blocking_recv()
+    //         .map_err(|_| Error::EventLoopNotRunning)?;
+    //     self.connected_device = connection_result?;
+    //     Ok(())
+    // }
 
     pub async fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?
@@ -324,25 +324,6 @@ impl CommandSender {
         ))
     }
 
-    pub async fn disconnect(&self) {
-        let (tx, rx) = oneshot::channel::<()>();
-        _ = self
-            .transport_cmd_tx
-            .send(Command::DisconnectAndExit {
-                disconnected_tx: Some(tx),
-            })
-            .await;
-        _ = rx.await;
-    }
-
-    pub fn disconnect_blocking(&self) {
-        let (tx, rx) = oneshot::channel::<()>();
-        _ = self.transport_cmd_tx.send(Command::DisconnectAndExit {
-            disconnected_tx: Some(tx),
-        });
-        _ = rx.blocking_recv();
-    }
-
     pub fn base_path(&self) -> Option<&Vec<UNib32>> {
         self.base_path.as_ref()
     }
@@ -351,7 +332,7 @@ impl CommandSender {
         self.base_path = Some(base_path);
     }
 
-    pub fn info(&self) -> &DeviceInfoBundle {
+    pub fn info(&self) -> &DeviceApiInfo {
         &self.connected_device
     }
 
@@ -446,6 +427,52 @@ impl CommandSender {
                 )),
             ))
         }
+    }
+
+    pub async fn disconnect(&self) -> Result<(), Error> {
+        let (tx, rx) = oneshot::channel::<()>();
+        self.transport_cmd_tx
+            .send(Command::DisconnectAndExit {
+                disconnected_tx: Some(tx),
+            })
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        rx.await.map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub fn disconnect_blocking(&self) -> Result<(), Error> {
+        let (tx, rx) = oneshot::channel::<()>();
+        self.transport_cmd_tx
+            .blocking_send(Command::DisconnectAndExit {
+                disconnected_tx: Some(tx),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        rx.blocking_recv().map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub async fn disconnect_keep_streams(&self) -> Result<(), Error> {
+        let (tx, rx) = oneshot::channel::<()>();
+        self.transport_cmd_tx
+            .send(Command::DisconnectKeepStreams {
+                disconnected_tx: Some(tx),
+            })
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        rx.await.map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
+    }
+
+    pub fn disconnect_keep_streams_blocking(&self) -> Result<(), Error> {
+        let (tx, rx) = oneshot::channel::<()>();
+        self.transport_cmd_tx
+            .blocking_send(Command::DisconnectKeepStreams {
+                disconnected_tx: Some(tx),
+            })
+            .map_err(|_| Error::EventLoopNotRunning)?;
+        rx.blocking_recv().map_err(|_| Error::EventLoopNotRunning)?;
+        Ok(())
     }
 }
 

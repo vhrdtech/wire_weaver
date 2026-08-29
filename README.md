@@ -2,18 +2,22 @@
 
 ![Crates.io Version](https://img.shields.io/crates/v/wire_weaver)
 
-<p align="center">
-<img src="./docs/assets/logo-shrinkwrap-256.png" alt="logo"/>
-</p>
+<img align="right" src="./docs/assets/logo-shrinkwrap-256.png" alt="logo"/>
 
-> WireWeaver is an API code generator for microcontrollers, supporting user-defined types, methods, properties, streams,
-> and traits.
-> It handles unsized types like Vec<T> and String even in no_std environments without an allocator,
-> and ensures full backward and forward compatibility between devices across format versions.
+WireWeaver is a collection of crates for designing `#[no_std]` APIs:
 
-Currently only Rust language is supported, with the idea to handle device communications in Rust and provide higher
-level bindings for Python, C++ and other languages. C support is tentatively planned to be implemented directly, to run
-e.g., on TMS320 DSPs.
+- RPC, streams and properties
+- API traits (composable building blocks)
+- Backwards and forwards compatibility
+- Server and client code generation, blocking and async
+  - Currently for Rust and Python
+- Cross platform USB, Ethernet and CAN Bus support
+- Introspection and dynamic Python clients
+- CLI and GUI tooling
+- Uses `shrink_wrap` wire format
+  - Zero-copy, no-alloc and no_std
+  - Dynamically sized user-defined types and vectors (on no_std as well)
+  - Bit level packing and [more](https://github.com/vhrdtech/wire_weaver/tree/master/shrink_wrap)
 
 Current state is - approaching alpha release.
 
@@ -21,17 +25,6 @@ Current state is - approaching alpha release.
 
 Documentation with a step-by-step guide is
 available [here](https://vhrdtech.github.io/wire_weaver/).
-
-Supported:
-
-* RPC - functions with any number of arguments of any type, returning any type
-* Streams of bytes or objects
-* Properties of any type
-* Traits
-* Blocking and async mode
-* USB without drivers on Windows, Linux and macOS
-* soon: WebSocket and UDP support
-* soon: CAN bus support
 
 Traits can be made "global" by publishing them on crates.io.
 Useful for things like logging, GPIO control or firmware update, allowing code reuse across projects.

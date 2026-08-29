@@ -1,4 +1,4 @@
-use wire_weaver_client_common::{CommandSender, DeviceInfoBundle};
+use wire_weaver_client_common::{CommandSender, DeviceApiInfo};
 pub use wire_weaver_client_common::{DeviceFilter, OnError};
 
 pub struct AllGpio {
@@ -6,7 +6,7 @@ pub struct AllGpio {
 }
 
 impl AllGpio {
-    pub fn info(&self) -> &DeviceInfoBundle {
+    pub fn info(&self) -> &DeviceApiInfo {
         self.cmd_tx.info()
     }
 }

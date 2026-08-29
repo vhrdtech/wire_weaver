@@ -14,8 +14,10 @@ usb-tracing = [
 ] # stream all USB packets over iceoryx2 to debugger
 
 [dependencies]
+anyhow.workspace = true
 cfg-if = "1"
 futures-lite = "2.6"
+either = "1"
 iceoryx2 = { version = "0.8", optional = true }
 iceoryx2-bb-container = { version = "0.8", optional = true }
 nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?

@@ -1,18 +1,21 @@
 use crate::ww_nusb::{Sink, Source};
-use crate::{MAX_MESSAGE_SIZE, UsbError};
+use crate::{MAX_MESSAGE_SIZE, UsbError, connection};
+use anyhow::anyhow;
+use either::Either;
+use nusb::DeviceInfo;
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
-use nusb::{DeviceInfo, Interface};
-use std::fmt::Debug;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+use wire_weaver_client_common::EventLoopExitReason;
 use wire_weaver_client_common::rx_dispatcher::{
     DispatcherCommand, DispatcherMessage, RxDispatcher,
 };
 use wire_weaver_client_common::{
-    Command, DeviceInfoBundle, Error, OnError, TestProgress, event_loop_state::CommonState,
+    Command, ConnectionInfo, DeviceApiInfo, Error, EventLoopResidual, TestProgress,
+    event_loop_state::CommonState,
 };
 use wire_weaver_usb_link::{
     DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
@@ -46,6 +49,7 @@ impl State {
 }
 
 pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
+    debug!("usb worker started");
     let mut state = State::new();
     let mut rx_dispatcher = RxDispatcher::default();
 
@@ -53,36 +57,36 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
     let mut rx_buf = [0u8; 1024];
     let mut link = None;
 
-    loop {
+    let mut exited_tx = None;
+    let mut connected_tx = None;
+
+    let result = loop {
         match &mut link {
             Some(l) => {
                 match process_commands_and_endpoints(&mut cmd_rx, l, &mut state, &mut rx_dispatcher)
                     .await
                 {
                     Ok(r) => {
-                        info!("usb event loop (inner) exited with {:?}", r);
-                        if r == EventLoopResult::Exit {
-                            break;
-                        }
+                        debug!("exiting with: {:?}", r);
+                        break Ok(r);
                     }
-                    Err(e) => error!("usb event loop (inner) exited with {:?}", e),
-                }
-                if state.common.exit_on_error {
-                    break;
-                } else {
-                    info!("will try to reconnect");
-                    state.on_disconnect();
-                    link = None;
-                    continue;
+                    Err(e) => {
+                        error!("exiting with: {:?}", e);
+                        break Err(e);
+                    }
                 }
             }
             None => match wait_for_connection_and_queue_commands(&mut cmd_rx, &mut state).await {
-                Ok(Some((interface, di, transfer_type, max_packet_size, user_protocol))) => {
-                    state.max_packet_size = max_packet_size;
-                    debug!("max_packet_size: {}", max_packet_size);
-                    let is_bulk = transfer_type == TransferType::Bulk;
-                    let sink = Sink::new(&interface, max_packet_size, is_bulk).unwrap();
-                    let source = Source::new(&interface, max_packet_size, is_bulk).unwrap();
+                Ok(Either::Left(wait_ok)) => {
+                    state.max_packet_size = wait_ok.dev.max_packet_size;
+                    debug!("max_packet_size: {}", wait_ok.dev.max_packet_size);
+                    let is_bulk = wait_ok.dev.transfer_type == TransferType::Bulk;
+                    let sink =
+                        Sink::new(&wait_ok.dev.interface, wait_ok.dev.max_packet_size, is_bulk)
+                            .unwrap();
+                    let source =
+                        Source::new(&wait_ok.dev.interface, wait_ok.dev.max_packet_size, is_bulk)
+                            .unwrap();
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "usb-tracing")] {
                             use iceoryx2::prelude::*;
@@ -99,70 +103,97 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
                         }
                     }
                     link = Some(WireWeaverUsbLink::new_host(
-                        user_protocol,
+                        *wait_ok.client_version,
                         sink,
-                        &mut tx_buf[..max_packet_size],
+                        &mut tx_buf[..wait_ok.dev.max_packet_size],
                         source,
-                        &mut rx_buf[..max_packet_size],
+                        &mut rx_buf[..wait_ok.dev.max_packet_size],
                     ));
-                    state.device_info = Some(di);
+                    state.device_info = Some(*wait_ok.di);
+                    exited_tx = wait_ok.exited_tx;
                 }
-                Ok(None) => {
-                    // OnError::KeepRetrying
-                    continue;
+                Ok(Either::Right(reason)) => {
+                    break Ok(reason);
                 }
-                Err(_) => {
-                    // timeout expired or OnError::Immediate
-                    break;
+                Err(e) => {
+                    exited_tx = e.exited_tx;
+                    connected_tx = e.connected_tx;
+                    break Err(e.error);
                 }
             },
         }
+    };
+
+    if let Some(tx) = exited_tx {
+        _ = tx.send(EventLoopResidual {
+            cmd_rx,
+            connected_tx,
+            result,
+        });
     }
     debug!("usb worker exited");
+}
+
+struct WaitOk {
+    di: Box<DeviceInfo>,
+    dev: connection::ConnectOk,
+    client_version: Box<FullVersionOwned>,
+    // connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
+    exited_tx: Option<oneshot::Sender<EventLoopResidual>>,
+}
+
+struct WaitErr {
+    connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
+    exited_tx: Option<oneshot::Sender<EventLoopResidual>>,
+    error: anyhow::Error,
 }
 
 async fn wait_for_connection_and_queue_commands(
     cmd_rx: &mut mpsc::Receiver<Command>,
     state: &mut State,
-) -> Result<Option<(Interface, DeviceInfo, TransferType, usize, FullVersionOwned)>, ()> {
+) -> Result<Either<WaitOk, EventLoopExitReason>, WaitErr> {
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
             // all senders have been dropped
             debug!("usb worker exiting, because all command senders were dropped");
-            return Err(());
+            return Err(WaitErr {
+                connected_tx: None,
+                exited_tx: None,
+                error: anyhow!("all command senders dropped"),
+            });
         };
         match cmd {
             Command::Connect {
-                filter,
-                on_error,
-                connected_tx,
+                handle,
                 client_version,
+                connected_tx,
+                failed_tx,
             } => {
-                let (interface, di, transfer_type, max_packet_size) =
-                    match crate::connection::connect(&filter, on_error).await {
-                        Ok(i_di) => i_di,
-                        Err(e) => {
-                            // TODO: drop requests if any
-                            return if on_error == OnError::KeepRetrying {
-                                Ok(None)
-                            } else {
-                                if let Some(tx) = connected_tx {
-                                    _ = tx.send(Err(e));
-                                }
-                                Err(())
-                            };
-                        }
-                    };
-                state
-                    .common
-                    .on_connect(on_error, connected_tx, *client_version.clone());
-                return Ok(Some((
-                    interface,
-                    di,
-                    transfer_type,
-                    max_packet_size,
-                    *client_version,
-                )));
+                let Ok(di) = handle.downcast::<DeviceInfo>() else {
+                    return Err(WaitErr {
+                        connected_tx,
+                        exited_tx: failed_tx,
+                        error: anyhow!(""),
+                    });
+                };
+                return match connection::connect(&di) {
+                    Ok(dev) => {
+                        state
+                            .common
+                            .on_connect(connected_tx, *client_version.clone());
+                        Ok(Either::Left(WaitOk {
+                            di,
+                            dev,
+                            client_version,
+                            exited_tx: failed_tx,
+                        }))
+                    }
+                    Err(e) => Err(WaitErr {
+                        connected_tx,
+                        exited_tx: failed_tx,
+                        error: e,
+                    }),
+                };
             }
             Command::RegisterTracer { trace_event_tx } => {
                 state.common.tracers.push(trace_event_tx);
@@ -171,14 +202,15 @@ async fn wait_for_connection_and_queue_commands(
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
-                return Ok(None);
+                return Ok(Either::Right(
+                    EventLoopExitReason::DisconnectKeepStreamsCommand,
+                ));
             }
             Command::DisconnectAndExit { disconnected_tx } => {
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
-                state.common.exit_on_error = true;
-                return Err(());
+                return Ok(Either::Right(EventLoopExitReason::DisconnectCommand));
             }
             Command::SendMessage { .. } => {
                 warn!("ignoring send message while disconnected");
@@ -194,26 +226,19 @@ async fn wait_for_connection_and_queue_commands(
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum EventLoopResult {
-    DisconnectKeepStreams,
-    Disconnect,
-    Exit,
-}
-
 async fn process_commands_and_endpoints<T, R>(
     cmd_rx: &mut mpsc::Receiver<Command>,
     link: &mut WireWeaverUsbLink<'_, T, R>,
     state: &mut State,
     rx_dispatcher: &mut RxDispatcher,
-) -> Result<EventLoopResult, Error>
+) -> Result<EventLoopExitReason, anyhow::Error>
 where
     T: PacketSink<Error = TransferError>,
     R: PacketSource<Error = TransferError>,
 {
     link.send_get_device_info()
         .await
-        .map_err(|e| Error::Transport(format!("{:?}", e)))?;
+        .map_err(|e| anyhow!("{e:?}"))?;
     let mut scratch = [0u8; MAX_MESSAGE_SIZE];
     let mut link_setup_retries = 5;
     let ping_period = Duration::from_millis(PING_INTERVAL_MS);
@@ -271,22 +296,22 @@ where
             message = link.receive_message(&mut state.message_rx) => {
                 match handle_message(message, link, state, rx_dispatcher).await? {
                     EventLoopSpinResult::Continue => {}
-                    EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
+                    EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopExitReason::DisconnectKeepStreamsCommand),
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopExitReason::DisconnectFromDevice),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopExitReason::DisconnectCommand)
                 }
             }
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else {
                     info!("all cmd tx instances were dropped, exiting");
                     link.send_disconnect(DisconnectReason::RequestByUser).await.map_err(|e| Error::Transport(format!("{:?}", e)))?;
-                    return Ok(EventLoopResult::Exit);
+                    return Ok(EventLoopExitReason::CommanderDropped);
                 };
                 match handle_command(cmd, link, state, rx_dispatcher, &mut scratch).await? {
                     EventLoopSpinResult::Continue => {}
-                    EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopResult::DisconnectKeepStreams),
-                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopResult::Disconnect),
-                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopResult::Exit)
+                    EventLoopSpinResult::DisconnectKeepStreams => return Ok(EventLoopExitReason::DisconnectKeepStreamsCommand),
+                    EventLoopSpinResult::DisconnectFromDevice => return Ok(EventLoopExitReason::DisconnectFromDevice),
+                    EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopExitReason::DisconnectCommand)
                 }
             }
             _ = timer => {
@@ -298,20 +323,20 @@ where
                             && code == crate::ww_nusb::ERR_WRITE_PACKET_TIMEOUT
                             && let Some(tx) = state.common.connected_tx.take()
                         {
-                            _ = tx.send(Err(Error::Other("Device is not accepting USB transfers, it might be in an endless loop or in HardFault".into())));
+                            _ = tx.send(ConnectionInfo::err(anyhow!("Device is not accepting USB transfers, it might be in an endless loop or in HardFault")));
                         }
                         r.map_err(|e| Error::Transport(format!("{:?}", e)))?;
                         link_setup_retries -= 1;
                     } else {
                         error!("exiting, because link setup failed after several retries");
-                        return Err(Error::LinkSetupTimeout);
+                        return Err(anyhow!(Error::LinkSetupTimeout));
                     }
                 } else {
                     if let Some(last) = &state.common.last_rx_ping_instant {
                         let dt = Instant::now() - *last;
                         if dt > Duration::from_secs(10) {
                             warn!("no ping from device for 10 seconds, exiting");
-                            return Ok(EventLoopResult::Disconnect);
+                            return Err(anyhow!(Error::NoPingFromDevice));
                         }
                     }
                     if let Some(instant) = state.common.packet_started_instant {
@@ -390,7 +415,7 @@ where
             user_api_signature,
             packet_accumulation_time_us,
         }) => {
-            let connected_device_info = DeviceInfoBundle {
+            let connected_device_info = DeviceApiInfo {
                 link_version: FullVersionOwned::new(
                     format!("G{}", link_version.gid.id.0),
                     VersionOwned::new(
@@ -423,7 +448,7 @@ where
             }
             state.common.packet_accumulation_time =
                 Duration::from_micros(packet_accumulation_time_us as u64);
-            state.common.device_info = Some(connected_device_info);
+            state.common.device_api_info = Some(connected_device_info);
             // only one version is in use right now, so no need to choose between different link versions
             link.send_link_setup(MAX_MESSAGE_SIZE as u32)
                 .await
@@ -434,11 +459,13 @@ where
             state.max_protocol_mismatched_messages = 10;
             rx_dispatcher.handle_msg(DispatcherMessage::Connected);
             if let Some(tx) = state.common.connected_tx.take() {
-                _ = tx.send(Ok(state
-                    .common
-                    .device_info
-                    .clone()
-                    .unwrap_or(DeviceInfoBundle::empty())));
+                _ = tx.send(ConnectionInfo {
+                    result: Ok(state
+                        .common
+                        .device_api_info
+                        .clone()
+                        .unwrap_or(DeviceApiInfo::empty())),
+                });
             }
             state.common.on_link_up();
         }

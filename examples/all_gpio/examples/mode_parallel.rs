@@ -32,6 +32,6 @@ async fn main() -> Result<()> {
     // takes 55ms compared to mode example on USB Full Speed
     // 38ms on USB High Speed
     println!("took {} ms", now.elapsed().as_millis());
-    device.disconnect_and_exit().await?;
+    device.disconnect().await?;
     Ok(())
 }

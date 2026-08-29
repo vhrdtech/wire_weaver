@@ -2,11 +2,7 @@ use std::net::IpAddr;
 
 #[derive(Clone, Debug)]
 pub struct DeviceFilter {
-    pub kind: DeviceFilterKind,
-    // /// If a server process dedicated to the targeted device is already running, connect through it, instead of directly
-    // pub allow_ipc: bool,
-    // /// Spawn an IPC process, that will establish an actual connection to the selected device and connect through it
-    // pub require_ipc: bool,
+    kind: DeviceFilterKind,
 }
 
 #[derive(Clone, Debug)]

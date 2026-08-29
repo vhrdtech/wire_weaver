@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     }
 
     if let Some(d) = device.as_mut() {
-        d.disconnect_and_exit().await?;
+        d.disconnect().await?;
     }
     Ok(())
 }
@@ -88,7 +88,7 @@ async fn handle_user_command(
             },
             Command::Disconnect => {
                 if let Some(mut d) = device.take() {
-                    let r = d.disconnect_and_exit().await;
+                    let r = d.disconnect().await;
                     if r.is_ok() {
                         info!("Disconnect: {r:?}");
                     } else {

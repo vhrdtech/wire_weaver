@@ -79,15 +79,9 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     // generate client code if requested
     if !args.ext.client.is_empty() {
         let client = args.ext.client.split(&['+', ' ']).collect::<Vec<_>>();
-        let mut usb_connect = false;
         let model = match client[0] {
             "raw" => ClientModel::Raw,
-            "async_worker" | "full_client" => {
-                for ext in &client[1..] {
-                    usb_connect = *ext == "usb";
-                }
-                ClientModel::StdFullClient
-            }
+            "std_client" => ClientModel::StdFullClient,
             "trait_client" => ClientModel::StdTraitClient,
             _ => {
                 return Err(format!(
@@ -101,7 +95,6 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             GenClientConfigRaw {
                 model,
                 client_struct_path: args.context_ident.clone(),
-                usb_connect,
             },
         );
         codegen_ts.append_all(ts);

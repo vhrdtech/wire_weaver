@@ -38,11 +38,11 @@ impl Default for CommonState {
 }
 
 impl CommonState {
-    pub fn on_disconnect(&mut self) {
-        self.link_up = false;
-        self.packet_started_instant = None;
-        self.connected_tx = None;
-    }
+    // pub fn on_disconnect(&mut self) {
+    //     self.link_up = false;
+    //     self.packet_started_instant = None;
+    //     self.connected_tx = None;
+    // }
 
     pub fn on_connect(
         &mut self,

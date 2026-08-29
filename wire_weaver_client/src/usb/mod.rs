@@ -8,6 +8,8 @@ mod ww_nusb;
 pub mod tracing;
 // pub mod util;
 
+pub(crate) use connect::{try_connect, try_connect_blocking};
+
 use nusb::transfer::TransferError;
 use std::fmt::Debug;
 
@@ -19,8 +21,8 @@ pub enum UsbError {
     Nusb(String),
     #[error("WireWeaverUsbLink error: {:?}", .0)]
     Link(wire_weaver_usb_link::Error<TransferError, TransferError>),
-    #[error("nusb::watch_devices() iterator returned None")]
-    WatcherReturnedNone,
+    // #[error("nusb::watch_devices() iterator returned None")]
+    // WatcherReturnedNone,
 }
 
 impl From<nusb::Error> for UsbError {

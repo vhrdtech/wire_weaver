@@ -3,6 +3,7 @@ use crate::Introspect;
 use crate::PreparedCall;
 use crate::Stream;
 use crate::device_info::DeviceApiInfo;
+use crate::device_info::UserApiSignature;
 use crate::event_loop::command::Command;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
@@ -40,11 +41,8 @@ pub struct Commander {
     /// But can also be forced to a known GID if performance is critical.
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     default_timeout: Duration,
-    connected_device: DeviceApiInfo,
-    client_api: Option<(
-        Result<ApiBundleOwned, wire_weaver::shrink_wrap::Error>,
-        Vec<u8>,
-    )>,
+    pub(crate) connected_device: DeviceApiInfo,
+    inrtospect: Option<(Box<ApiBundleOwned>, UserApiSignature)>,
 }
 
 pub(crate) struct TransportCommander {
@@ -60,7 +58,7 @@ impl Commander {
             gid_map: HashMap::new(),
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             connected_device: DeviceApiInfo::empty(),
-            client_api: None,
+            inrtospect: None,
         }
     }
 
@@ -338,20 +336,28 @@ impl Commander {
         &self.connected_device
     }
 
-    pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
-        self.client_api = Some((
-            ApiBundleOwned::from_ww_bytes_owned(ww_bytes),
-            api_signature.to_vec(),
-        ));
+    pub(crate) fn set_introspect_data(
+        &mut self,
+        api_bundle: Box<ApiBundleOwned>,
+        signature: UserApiSignature,
+    ) {
+        self.inrtospect = Some((api_bundle, signature));
     }
 
-    pub fn print_version_report(&self) {
-        let Some((_api_bundle, api_signature)) = &self.client_api else {
-            println!("No client introspect data available");
-            return;
-        };
-        println!("Client api signature: {}", hex::encode(api_signature));
-    }
+    // pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
+    //     self.client_api = Some((
+    //         ApiBundleOwned::from_ww_bytes_owned(ww_bytes),
+    //         api_signature.to_vec(),
+    //     ));
+    // }
+
+    // pub fn print_version_report(&self) {
+    //     let Some((_api_bundle, api_signature)) = &self.client_api else {
+    //         println!("No client introspect data available");
+    //         return;
+    //     };
+    //     println!("Client api signature: {}", hex::encode(api_signature));
+    // }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {

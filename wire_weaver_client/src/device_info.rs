@@ -5,6 +5,7 @@ use ww_version::{FullVersionOwned, VersionOwned};
 
 use crate::config::ValidatedConfig;
 
+#[derive(Debug)]
 pub struct DeviceInfo {
     pub manufacturer: String,
     pub product: String,
@@ -13,10 +14,11 @@ pub struct DeviceInfo {
     pub api: Option<ApiInfo>,
 }
 
+#[derive(Debug)]
 pub struct ApiInfo {
     pub gid: String,
     pub version: Version,
-    pub signature: Vec<u8>,
+    pub signature: UserApiSignature,
 }
 
 pub struct ConnectionInfo {

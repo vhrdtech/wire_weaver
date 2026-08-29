@@ -46,11 +46,11 @@ impl State {
         }
     }
 
-    fn on_disconnect(&mut self) {
-        self.common.on_disconnect();
-        self.device_info = None;
-        self.max_protocol_mismatched_messages = 10;
-    }
+    // fn on_disconnect(&mut self) {
+    //     self.common.on_disconnect();
+    //     self.device_info = None;
+    //     self.max_protocol_mismatched_messages = 10;
+    // }
 }
 
 pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
@@ -61,6 +61,7 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
     let mut tx_buf = [0u8; 1024];
     let mut rx_buf = [0u8; 1024];
     let mut link = None;
+    let mut _usb_device = None;
 
     let mut exited_tx = None;
     let mut connected_tx = None;
@@ -116,6 +117,7 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
                     ));
                     state.device_info = Some(*wait_ok.di);
                     exited_tx = wait_ok.exited_tx;
+                    _usb_device = Some(wait_ok.dev.device);
                 }
                 Ok(Either::Right(reason)) => {
                     break Ok(reason);

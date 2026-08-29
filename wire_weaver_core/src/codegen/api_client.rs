@@ -22,8 +22,6 @@ pub struct GenClientConfig {
     /// 'impl <client_struct_path> { client methods }' code will be generated.
     /// Pass e.g., "crate::MyDeviceClient".
     pub client_struct_path: String,
-    /// Whether to generate init code for USB clients (connect, connect_blocking methods).
-    pub usb_connect: bool,
 }
 
 /// API client code generation configuration.
@@ -35,8 +33,6 @@ pub struct GenClientConfigRaw {
     /// 'impl <client_struct_path> { client methods }' code will be generated.
     /// Pass e.g., "crate::MyDeviceClient".
     pub client_struct_path: Path,
-    /// Whether to generate init code for USB clients (connect, connect_blocking methods).
-    pub usb_connect: bool,
 }
 
 impl From<GenClientConfig> for GenClientConfigRaw {
@@ -44,7 +40,6 @@ impl From<GenClientConfig> for GenClientConfigRaw {
         Self {
             model: config.model,
             client_struct_path: super::util::str_to_path(&config.client_struct_path),
-            usb_connect: config.usb_connect,
         }
     }
 }
@@ -104,7 +99,7 @@ pub fn gen_client(
     let api_level = &api_bundle.root;
     let client_struct_path = config.client_struct_path;
     let hl_init = if config.model == ClientModel::StdFullClient {
-        let d = connect_disconnect_methods(config.usb_connect, api_bundle);
+        let d = connect_disconnect_methods(api_bundle);
         quote! {
             impl #client_struct_path {
                 #d
@@ -231,10 +226,10 @@ fn client_structs_recursive(
     let full = &gid_paths.0;
     let attachment = quote! {
         pub fn attachment(&self) -> wire_weaver_client::Attachment {
-            let mut cmd_tx = self.cmd_tx.clone();
-            cmd_tx.set_base_path(#index_chain);
+            let mut cmd = self.cmd.clone();
+            cmd.set_base_path(#index_chain);
             wire_weaver_client::Attachment::new(
-                cmd_tx,
+                cmd,
                 #full.make_owned(),
                 #trait_name.to_string()
             )
@@ -259,7 +254,7 @@ fn client_structs_recursive(
         quote! {
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
-                pub cmd_tx: &'i wire_weaver_client::CommandSender,
+                pub cmd: &'i wire_weaver_client::CommandSender,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -377,7 +372,7 @@ fn level_method(
                     #index_chain_push
                     #mod_name::#client_struct_name {
                         index_chain,
-                        cmd_tx: &self.cmd_tx,
+                        cmd: &self.cmd,
                     }
                 }
             }
@@ -393,7 +388,7 @@ fn level_method(
             pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<ValidIndicesOwned> {
                 #index_chain_push_pre
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_read(path_kind)
+                self.cmd.prepare_read(path_kind)
             }
         }
     }
@@ -427,7 +422,7 @@ fn handle_method(
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd_tx.prepare_call(path_kind, args_bytes)
+            self.cmd.prepare_call(path_kind, args_bytes)
         }
     }
 }
@@ -461,7 +456,7 @@ fn handle_property(
                 let value = #prop_name.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_write(path_kind, value)
+                self.cmd.prepare_write(path_kind, value)
             }
         }
     } else {
@@ -477,7 +472,7 @@ fn handle_property(
             pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd_tx.prepare_read(path_kind)
+                self.cmd.prepare_read(path_kind)
             }
         }
     } else {
@@ -527,7 +522,7 @@ fn handle_stream(
                 pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::Stream<#ty_def>, wire_weaver_client::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
-                    let stream = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
+                    let stream = self.cmd.#prepare_fn(path_kind) #maybe_await ?;
                     Ok(stream)
                 }
             }
@@ -542,7 +537,7 @@ fn handle_stream(
                 pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::Sink<#ty_def>, wire_weaver_client::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
-                    let sink = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
+                    let sink = self.cmd.#prepare_fn(path_kind) #maybe_await ?;
                     Ok(sink)
                 }
             }
@@ -607,95 +602,103 @@ fn ser_args(
     }
 }
 
-fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
-    let maybe_async = maybe_quote(is_async, quote! { async });
-    let maybe_await = maybe_quote(is_async, quote! { .await });
-    let fn_name = if is_async {
-        quote! { connect }
-    } else {
-        quote! { connect_blocking }
-    };
-    let api_crate_name = api_bundle.root.crate_name(api_bundle).unwrap();
-    let trait_name = api_bundle.root.trait_name.to_case(Case::Constant);
-    let full_gid_const = format!("{trait_name}_FULL_GID");
-    let full_gid_const = Ident::new(&full_gid_const, Span::call_site());
-    let api_crate_name = Ident::new(api_crate_name, Span::call_site());
-    let raw_connect_fn = if is_async {
-        quote! { connect_raw }
-    } else {
-        quote! { connect_raw_blocking }
-    };
-    quote! {
-        pub #maybe_async fn #fn_name(
-                filter: wire_weaver_client::DeviceFilter,
-                config: wire_weaver_client::ClientConfig,
-        ) -> Result<Self, wire_weaver_client::Error> {
-            Self::#raw_connect_fn(
-                filter,
-                #api_crate_name::#full_gid_const,
-                config.on_error,
-                std::time::Duration::from_secs(1),
-                Some(config.cmd_queue_size),
-            )
-            #maybe_await
-        }
-    }
-}
+// fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
+//     let maybe_async = maybe_quote(is_async, quote! { async });
+//     let maybe_await = maybe_quote(is_async, quote! { .await });
+//     let fn_name = if is_async {
+//         quote! { connect }
+//     } else {
+//         quote! { connect_blocking }
+//     };
+//     let api_crate_name = api_bundle.root.crate_name(api_bundle).unwrap();
+//     let trait_name = api_bundle.root.trait_name.to_case(Case::Constant);
+//     let full_gid_const = format!("{trait_name}_FULL_GID");
+//     let full_gid_const = Ident::new(&full_gid_const, Span::call_site());
+//     let api_crate_name = Ident::new(api_crate_name, Span::call_site());
+//     let raw_connect_fn = if is_async {
+//         quote! { connect_raw }
+//     } else {
+//         quote! { connect_raw_blocking }
+//     };
+//     quote! {
+//         pub #maybe_async fn #fn_name(
+//                 filter: wire_weaver_client::DeviceFilter,
+//                 config: wire_weaver_client::ClientConfig,
+//         ) -> Result<Self, wire_weaver_client::Error> {
+//             Self::#raw_connect_fn(
+//                 filter,
+//                 #api_crate_name::#full_gid_const,
+//                 config.on_error,
+//                 std::time::Duration::from_secs(1),
+//                 Some(config.cmd_queue_size),
+//             )
+//             #maybe_await
+//         }
+//     }
+// }
 
-fn usb_connect_fn(is_async: bool) -> TokenStream {
-    let maybe_async = maybe_quote(is_async, quote! { async });
-    let maybe_await = maybe_quote(is_async, quote! { .await });
-    let cmd_connect_fn = if is_async {
-        quote! { connect }
-    } else {
-        quote! { connect_blocking }
-    };
-    let connect_fn = if is_async {
-        quote! { connect_raw }
-    } else {
-        quote! { connect_raw_blocking }
-    };
-    quote! {
-        pub #maybe_async fn #connect_fn(
-            filter: wire_weaver_client::DeviceFilter,
-            api_version: wire_weaver::ww_version::FullVersion<'static>,
-            on_error: wire_weaver_client::OnError,
-            local_timeout: std::time::Duration,
-            cmd_queue_size: Option<usize>
-        ) -> Result<Self, wire_weaver_client::Error> {
-            use tokio::sync::mpsc;
-            let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
-            let mut cmd_tx = wire_weaver_client::CommandSender::new(transport_cmd_tx);
-            cmd_tx.set_local_timeout(local_timeout);
-            tokio::spawn(async move {
-                wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
-            });
-            cmd_tx.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
-            cmd_tx.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
-            Ok(Self {
-                cmd_tx,
-            })
-        }
-    }
-}
+// fn usb_connect_fn(is_async: bool) -> TokenStream {
+//     let maybe_async = maybe_quote(is_async, quote! { async });
+//     let maybe_await = maybe_quote(is_async, quote! { .await });
+//     let cmd_connect_fn = if is_async {
+//         quote! { connect }
+//     } else {
+//         quote! { connect_blocking }
+//     };
+//     let connect_fn = if is_async {
+//         quote! { connect_raw }
+//     } else {
+//         quote! { connect_raw_blocking }
+//     };
+//     quote! {
+//         pub #maybe_async fn #connect_fn(
+//             filter: wire_weaver_client::DeviceFilter,
+//             api_version: wire_weaver::ww_version::FullVersion<'static>,
+//             on_error: wire_weaver_client::OnError,
+//             local_timeout: std::time::Duration,
+//             cmd_queue_size: Option<usize>
+//         ) -> Result<Self, wire_weaver_client::Error> {
+//             use tokio::sync::mpsc;
+//             let (transport_cmd, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
+//             let mut cmd = wire_weaver_client::CommandSender::new(transport_cmd);
+//             cmd.set_local_timeout(local_timeout);
+//             tokio::spawn(async move {
+//                 wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
+//             });
+//             cmd.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
+//             cmd.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
+//             Ok(Self {
+//                 cmd,
+//             })
+//         }
+//     }
+// }
 
-fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
+fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
     let (ww_self_bytes_const, api_signature_bytes) = introspect_prepare(api_bundle);
-    let (usb_connect_fn_raw, usb_connect_blocking_raw) = if usb_connect {
-        (usb_connect_fn(true), usb_connect_fn(false))
-    } else {
-        (quote! {}, quote! {})
-    };
-    let (connect_fn, connect_fn_blocking) = if usb_connect {
-        (connect_fn(true, api_bundle), connect_fn(false, api_bundle))
-    } else {
-        (quote! {}, quote! {})
-    };
+    // let (usb_connect_fn_raw, usb_connect_blocking_raw) = if usb_connect {
+    //     (usb_connect_fn(true), usb_connect_fn(false))
+    // } else {
+    //     (quote! {}, quote! {})
+    // };
+    // let (connect_fn, connect_fn_blocking) = if usb_connect {
+    //     (connect_fn(true, api_bundle), connect_fn(false, api_bundle))
+    // } else {
+    //     (quote! {}, quote! {})
+    // };
     quote! {
-        #connect_fn
-        #connect_fn_blocking
-        #usb_connect_fn_raw
-        #usb_connect_blocking_raw
+        pub fn new() -> wire_weaver_client::PreparedConnection<Self> {
+            let config = <Self as wire_weaver_client::WwClient>::default_config();
+            let config = config.introspect(Self::introspect_bytes(), Self::api_signature());
+            wire_weaver_client::PreparedConnection::new(config)
+        }
+
+        pub fn config<C: Fn(wire_weaver_client::ClientConfig) -> wire_weaver_client::ClientConfig>(c: C) -> wire_weaver_client::PreparedConnection<Self> {
+            let config = <Self as wire_weaver_client::WwClient>::default_config();
+            let config = config.introspect(Self::introspect_bytes(), Self::api_signature());
+            let config = c(config);
+            wire_weaver_client::PreparedConnection::new(config)
+        }
 
         fn introspect_bytes() -> &'static [u8] {
             const WW_SELF_BYTES: #ww_self_bytes_const;
@@ -709,23 +712,23 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
         pub async fn disconnect(&mut self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd_tx.disconnect().await
+            self.cmd.disconnect().await
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
         pub fn disconnect_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd_tx.disconnect_blocking()
+            self.cmd.disconnect_blocking()
         }
 
-        /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd_tx.disconnect_keep_streams().await
-        }
+        // /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
+        // pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client::Error> {
+        //     self.cmd.disconnect_keep_streams().await
+        // }
 
-        /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd_tx.disconnect_keep_streams_blocking()
-        }
+        // /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
+        // pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
+        //     self.cmd.disconnect_keep_streams_blocking()
+        // }
     }
 }
 

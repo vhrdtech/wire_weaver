@@ -1,10 +1,10 @@
-use std::any::Any;
-
-use crate::Error;
 use crate::config::{ConfigPiece, ValidatedConfig};
-use anyhow::{Context, Result, anyhow};
+use crate::event_loop::DeviceHandle;
+use crate::event_loop::command::Command;
+use anyhow::{Context, anyhow, bail};
 use nusb::descriptors::TransferType;
 use nusb::{Device, DeviceInfo, Interface, MaybeFuture};
+use tokio::sync::mpsc;
 use tracing::trace;
 
 pub(crate) struct ConnectOk {
@@ -14,7 +14,7 @@ pub(crate) struct ConnectOk {
     pub(crate) max_packet_size: usize,
 }
 
-pub(crate) fn connect(di: &DeviceInfo) -> Result<ConnectOk> {
+pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
     trace!("connecting to USB device: {di:?}");
     let device = di.open().wait()?;
     let device_clone = device.clone();
@@ -94,30 +94,61 @@ pub(crate) fn connect(di: &DeviceInfo) -> Result<ConnectOk> {
 //     }
 // }
 
-pub(crate) fn connect_blocking(f: &ValidatedConfig) -> Result<Option<()>, Error> {
+pub(crate) async fn try_connect(
+    c: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Option<DeviceHandle>, anyhow::Error> {
+    let devices = nusb::list_devices().await?;
+    start_event_loop(c, devices, cmd_rx)
+}
+
+pub(crate) fn try_connect_blocking(
+    c: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Option<DeviceHandle>, anyhow::Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
-    let devices = nusb::list_devices()
-        .wait()
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let devices = nusb::list_devices().wait()?;
+    start_event_loop(c, devices, cmd_rx)
+}
+
+fn start_event_loop(
+    c: &ValidatedConfig,
+    devices: impl Iterator<Item = nusb::DeviceInfo>,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Option<DeviceHandle>, anyhow::Error> {
+    let Some(matched) = select_matching(c, devices)? else {
+        return Ok(None);
+    };
+    let Some(cmd_rx) = cmd_rx.take() else {
+        bail!("Internal error: cmd_rx is None");
+    };
+    tokio::spawn(async move {
+        super::event_loop::usb_worker(cmd_rx).await;
+    });
+    let handle = Box::new(matched);
+    Ok(Some(handle))
+}
+
+fn select_matching(
+    c: &ValidatedConfig,
+    devices: impl Iterator<Item = nusb::DeviceInfo>,
+) -> Result<Option<nusb::DeviceInfo>, crate::Error> {
     let mut matching = vec![];
-    for nusb_info in devices {
+    for nusb_info in devices.into_iter() {
         let info = crate::DeviceInfo::from(&nusb_info);
-        let vid_pid_match = vid_pid_match(&f.pieces, &nusb_info);
-        let chain_match = port_chain_match(&f.pieces, &nusb_info);
-        if vid_pid_match || chain_match || info.is_matching(f) {
+        let vid_pid_match = vid_pid_match(&c.pieces, &nusb_info);
+        let chain_match = port_chain_match(&c.pieces, &nusb_info);
+        if vid_pid_match || chain_match || info.is_matching(c) {
             matching.push((nusb_info, info));
         }
     }
     if let Some((nusb_info, info)) = matching.pop() {
         if matching.is_empty() {
-            // let any: Box<dyn Any> = Box::new(nusb_info);
-            let dev = nusb_info.open().wait().unwrap();
-            let any: Box<dyn Any> = Box::new(dev);
-            Ok(Some(()))
+            Ok(Some(nusb_info))
         } else {
-            Err(Error::Other(
-                "More than one device matched the provided filter".into(),
-            ))
+            let mut devices = vec![info];
+            devices.extend(matching.drain(..).map(|(_, info)| info));
+            Err(crate::Error::AmbiguousDeviceChoice(devices))
         }
     } else {
         Ok(None)

@@ -1,13 +1,12 @@
 use anyhow::Result;
-use blinky::{Blinky, DeviceFilter};
+use blinky::Blinky;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = Blinky::connect(filter, Default::default()).await?;
+    let mut device = Blinky::new().connect().await?;
 
     println!("Turning LED on");
     device.led_on().call().await?;

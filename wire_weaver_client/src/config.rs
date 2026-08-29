@@ -1,8 +1,13 @@
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 
 use anyhow::{Result, bail};
 use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
+use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
+use ww_self::ApiBundleOwned;
+use ww_version::{FullVersionOwned, VersionOwned};
+
+use crate::device_info::UserApiSignature;
 
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
@@ -24,14 +29,21 @@ pub struct ClientConfig {
     pieces: Vec<ConfigPiece>,
     priority: String,
     cmd_queue_size: Option<usize>,
+    introspect: Option<(Vec<u8>, UserApiSignature)>,
+    default_timeout: Option<Duration>,
+    client_version: Option<Box<FullVersionOwned>>,
 }
 
 pub(crate) struct ValidatedConfig {
     pub(crate) pieces: Vec<ConfigPiece>,
     priority: Vec<InterfaceKind>,
-    cmd_queue_size: usize,
+    pub(crate) cmd_queue_size: usize,
+    pub(crate) default_timeout: Duration,
+    pub(crate) client_version: Box<FullVersionOwned>,
+    pub(crate) introspect: Option<(Box<ApiBundleOwned>, UserApiSignature)>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum InterfaceKind {
     Usb,
     WebSocket,
@@ -121,24 +133,38 @@ impl ClientConfig {
         Default::default()
     }
 
-    pub fn from_pieces(pieces: impl IntoIterator<Item = ConfigPiece>) -> Self {
-        Self {
-            pieces: pieces.into_iter().collect(),
-            ..Default::default()
-        }
-    }
+    // pub fn from_pieces(pieces: impl IntoIterator<Item = ConfigPiece>) -> Self {
+    //     Self {
+    //         pieces: pieces.into_iter().collect(),
+    //         ..Default::default()
+    //     }
+    // }
 
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
-        let mut s = self;
-        s.canonicalize();
+        let s = self;
+        // s.canonicalize();
+        let introspect = if let Some((ww_self_bytes, signature)) = s.introspect {
+            let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
+            Some((Box::new(api_bundle), signature))
+        } else {
+            None
+        };
         let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
         if cmd_queue_size < 1 || cmd_queue_size > 65_534 {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
         }
+        // connecting as dynamic client (introspect device) if no client version specified
+        let client_version = s.client_version.unwrap_or(Box::new(FullVersionOwned::new(
+            "".into(),
+            VersionOwned::new(0, 1, 0),
+        )));
         Ok(ValidatedConfig {
             pieces: s.pieces,
             priority: vec![],
             cmd_queue_size,
+            default_timeout: s.default_timeout.unwrap_or(crate::DEFAULT_REQUEST_TIMEOUT),
+            client_version,
+            introspect,
         })
     }
 
@@ -149,7 +175,6 @@ impl ClientConfig {
     }
 
     /// Select USB device by VID:PID numbers
-    #[cfg(feature = "usb")]
     pub fn usb_vid_pid(self, vid: u16, pid: u16) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::UsbVidPid { vid, pid });
@@ -157,7 +182,6 @@ impl ClientConfig {
     }
 
     /// Select USB device by bus name and port chain
-    #[cfg(feature = "usb")]
     pub fn usb_port_chain(self, bus_id: String, port_chain: Vec<u8>) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::UsbPath { bus_id, port_chain });
@@ -165,7 +189,6 @@ impl ClientConfig {
     }
 
     /// Consider USB devices as a potential connection targets
-    #[cfg(feature = "usb")]
     pub fn usb(self) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::Usb);
@@ -173,7 +196,6 @@ impl ClientConfig {
     }
 
     /// Do not consider USB devices as a potential connection targets
-    #[cfg(feature = "usb")]
     pub fn no_usb(self) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::NoUsb);
@@ -188,52 +210,75 @@ impl ClientConfig {
         f
     }
 
-    pub(crate) fn canonicalize(&mut self) {
-        #[cfg(feature = "usb")]
-        self.canonicalize_inner(
-            &[
-                ConfigPieceDiscriminants::Usb,
-                ConfigPieceDiscriminants::UsbVidPid,
-                ConfigPieceDiscriminants::UsbPath,
-            ],
-            ConfigPieceDiscriminants::NoUsb,
-        );
+    pub fn introspect(self, signature: &[u8], ww_self_bytes: &[u8]) -> Self {
+        let mut c = self;
+        c.introspect = Some((ww_self_bytes.to_vec(), UserApiSignature(signature.to_vec())));
+        c
     }
 
-    fn canonicalize_inner(
-        &mut self,
-        opt_in: &[ConfigPieceDiscriminants],
-        opt_out: ConfigPieceDiscriminants,
-    ) {
-        let mut opt_in_at = vec![];
-        let mut remove_at = vec![];
-        for (idx, p) in self.pieces.iter().enumerate() {
-            let kind = ConfigPieceDiscriminants::from(p);
-            if opt_in.contains(&kind) {
-                opt_in_at.push(idx);
-            }
-            if kind == opt_out {
-                remove_at.extend(opt_in_at.drain(..));
-                remove_at.push(idx);
-            }
-        }
-        let mut idx = 0;
-        self.pieces.retain(|_| {
-            let retain = !remove_at.contains(&idx);
-            idx += 1;
-            retain
-        });
+    pub fn default_timeout(self, timeout: Duration) -> Self {
+        let mut c = self;
+        c.default_timeout = Some(timeout);
+        c
     }
+
+    // pub(crate) fn canonicalize(&mut self) {
+    //     #[cfg(feature = "usb")]
+    //     self.canonicalize_inner(
+    //         &[
+    //             ConfigPieceDiscriminants::Usb,
+    //             ConfigPieceDiscriminants::UsbVidPid,
+    //             ConfigPieceDiscriminants::UsbPath,
+    //         ],
+    //         ConfigPieceDiscriminants::NoUsb,
+    //     );
+    // }
+
+    // fn canonicalize_inner(
+    //     &mut self,
+    //     opt_in: &[ConfigPieceDiscriminants],
+    //     opt_out: ConfigPieceDiscriminants,
+    // ) {
+    //     let mut opt_in_at = vec![];
+    //     let mut remove_at = vec![];
+    //     for (idx, p) in self.pieces.iter().enumerate() {
+    //         let kind = ConfigPieceDiscriminants::from(p);
+    //         if opt_in.contains(&kind) {
+    //             opt_in_at.push(idx);
+    //         }
+    //         if kind == opt_out {
+    //             remove_at.extend(opt_in_at.drain(..));
+    //             remove_at.push(idx);
+    //         }
+    //     }
+    //     let mut idx = 0;
+    //     self.pieces.retain(|_| {
+    //         let retain = !remove_at.contains(&idx);
+    //         idx += 1;
+    //         retain
+    //     });
+    // }
 }
 
 impl ValidatedConfig {
     pub(crate) fn is_usb(&self) -> bool {
-        self.pieces.iter().any(|p| {
-            matches!(
-                p,
-                ConfigPiece::UsbVidPid { .. } | ConfigPiece::UsbPath { .. } | ConfigPiece::Usb
-            )
-        })
+        self.is_opted_in(
+            &[
+                ConfigPieceDiscriminants::UsbPath,
+                ConfigPieceDiscriminants::UsbVidPid,
+                ConfigPieceDiscriminants::Usb,
+            ],
+            ConfigPieceDiscriminants::NoUsb,
+        )
+    }
+
+    pub(crate) fn interfaces(&self) -> Vec<InterfaceKind> {
+        let mut interfaces = vec![];
+        if self.is_usb() {
+            interfaces.push(InterfaceKind::Usb);
+        }
+        // TODO: sort by priority
+        interfaces
     }
 
     pub(crate) fn manufacturers_contains(&self) -> impl Iterator<Item = &str> {
@@ -289,6 +334,29 @@ impl ValidatedConfig {
             }
         })
     }
+
+    fn is_opted_in(
+        &self,
+        opt_in: &[ConfigPieceDiscriminants],
+        opt_out: ConfigPieceDiscriminants,
+    ) -> bool {
+        let find_rev = |d: &[ConfigPieceDiscriminants]| {
+            self.pieces
+                .iter()
+                .rev()
+                .enumerate()
+                .find(|(_, p)| d.contains(&ConfigPieceDiscriminants::from(*p)))
+                .map(|(idx, _)| idx)
+        };
+        let opted_out = find_rev(&[opt_out]);
+        let opted_in = find_rev(opt_in);
+        match (opted_out, opted_in) {
+            (None, None) => false,
+            (Some(_), None) => false,
+            (None, Some(_)) => true,
+            (Some(opted_out), Some(opted_in)) => opted_in < opted_out,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -324,11 +392,14 @@ mod tests {
         assert_eq!(f.is_usb(), true);
 
         let f = ClientConfig::new().usb().no_usb().validate().unwrap();
-        assert_eq!(f.pieces, vec![]);
+        assert_eq!(f.pieces, vec![ConfigPiece::Usb, ConfigPiece::NoUsb]);
         assert_eq!(f.is_usb(), false);
 
         let f = ClientConfig::new().usb().no_usb().usb().validate().unwrap();
-        assert_eq!(f.pieces, vec![ConfigPiece::Usb]);
+        assert_eq!(
+            f.pieces,
+            vec![ConfigPiece::Usb, ConfigPiece::NoUsb, ConfigPiece::Usb]
+        );
         assert_eq!(f.is_usb(), true);
     }
 }

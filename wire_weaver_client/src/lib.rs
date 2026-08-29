@@ -28,4 +28,13 @@ const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
 pub type SeqTy = u16;
 pub use error::Error;
 
+pub use ww_client_server;
+pub use ww_self;
+pub use ww_version;
+
 // pub fn start(filter: DeviceFilter) {}
+
+pub trait WwClient {
+    fn default_config() -> ClientConfig;
+    fn from_cmd(cmd: Commander) -> Self;
+}

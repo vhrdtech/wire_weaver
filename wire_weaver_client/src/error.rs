@@ -1,5 +1,7 @@
 use ww_version::FullVersionOwned;
 
+use crate::DeviceInfo;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Called a method that required event loop to be running")]
@@ -37,6 +39,8 @@ pub enum Error {
     User(String),
     #[error("Other error: '{}'", .0)]
     Other(String),
+    #[error("More than one devices matched the provided filter: {:#?}", .0)]
+    AmbiguousDeviceChoice(Vec<DeviceInfo>),
 }
 
 impl From<wire_weaver::shrink_wrap::Error> for Error {

@@ -1,8 +1,11 @@
-use crate::tracing::TraceEvent;
-use crate::{ConnectionInfo, DeviceApiInfo};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use ww_version::FullVersionOwned;
+
+use crate::{
+    device_info::{ConnectionInfo, DeviceApiInfo},
+    tracing::tracing::TraceEvent,
+};
 
 pub struct CommonState {
     pub link_up: bool,
@@ -54,7 +57,7 @@ impl CommonState {
         self.link_up = true;
         self.tracers.retain_mut(|tx| {
             tx.send(TraceEvent::Connected {
-                info: Box::new(crate::tracing::ConnectionInfo {}),
+                // info: Box::new(ConnectionInfo {}),
             })
             .is_ok()
         });

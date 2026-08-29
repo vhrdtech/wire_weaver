@@ -1,7 +1,12 @@
 use crate::Error;
-use crate::introspect::Introspect;
-use crate::prepared_call::PreparedCall;
-use crate::stream::Stream;
+use crate::Introspect;
+use crate::PreparedCall;
+use crate::Stream;
+use crate::device_info::DeviceApiInfo;
+use crate::event_loop::command::Command;
+use crate::event_loop::rx_dispatcher::ResponseReceiver;
+use crate::event_loop::rx_dispatcher::ResponseSender;
+use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{DEFAULT_REQUEST_TIMEOUT, PreparedRead, PreparedWrite, Sink};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -10,10 +15,6 @@ use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver_client::rx_dispatcher::{
-    ResponseReceiver, ResponseSender, StreamUpdateReceiver,
-};
-use wire_weaver_client::{Command, DeviceApiInfo};
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
 use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};

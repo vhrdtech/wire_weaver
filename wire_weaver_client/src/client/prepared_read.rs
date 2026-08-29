@@ -1,7 +1,6 @@
-use crate::Error;
+use crate::client::multi_read::PropertyPath;
 use crate::commander::TransportCommander;
-use crate::multi_read::PropertyPath;
-use crate::promise::Promise;
+use crate::{Error, Promise};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;

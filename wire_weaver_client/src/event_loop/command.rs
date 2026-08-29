@@ -1,10 +1,15 @@
-use crate::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use std::any::Any;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use ww_client_server::PathKindOwned;
-use ww_version::{FullVersionOwned, VersionOwned};
+use ww_version::FullVersionOwned;
+
+use crate::{
+    device_info::ConnectionInfo,
+    event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender},
+    tracing::tracing::TraceEvent,
+};
 
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).
 /// Generated client code uses [CommandSender](CommandSender), which sends out Command's.
@@ -52,7 +57,7 @@ pub enum Command {
     /// All incoming messages from a device and all outgoing commands will be sent to this channel.
     /// Multiple tracers could be installed.
     RegisterTracer {
-        trace_event_tx: mpsc::UnboundedSender<crate::tracing::TraceEvent>,
+        trace_event_tx: mpsc::UnboundedSender<TraceEvent>,
     },
 
     // RecycleBuffer(Vec<u8>),
@@ -62,10 +67,6 @@ pub enum Command {
         packet_size: Option<usize>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
-}
-
-pub struct ConnectionInfo {
-    pub result: Result<DeviceApiInfo, anyhow::Error>,
 }
 
 pub struct EventLoopResidual {
@@ -116,52 +117,5 @@ impl Command {
             disconnected_tx: Some(tx),
         };
         (cmd, rx)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct DeviceApiInfo {
-    /// Link carries API model messages.
-    pub link_version: FullVersionOwned,
-    /// Maximum message size supported by the device.
-    pub max_message_size: usize,
-    /// API model defines what operations can be performed (call, write, etc.).
-    pub api_model_version: FullVersionOwned,
-    /// User-defined API carried by API model.
-    pub user_api_version: FullVersionOwned,
-    pub user_api_signature: UserApiSignature,
-}
-
-/// First 8 bytes for SHA256 of ww_self bytes without doc comments
-#[derive(Clone, Default)]
-pub struct UserApiSignature(pub Vec<u8>);
-
-impl DeviceApiInfo {
-    pub fn empty() -> Self {
-        DeviceApiInfo {
-            link_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            max_message_size: 0,
-            api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            user_api_signature: Default::default(),
-        }
-    }
-}
-
-impl Debug for UserApiSignature {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
-    }
-}
-
-impl From<Vec<u8>> for UserApiSignature {
-    fn from(hash: Vec<u8>) -> Self {
-        UserApiSignature(hash)
-    }
-}
-
-impl ConnectionInfo {
-    pub fn err(e: anyhow::Error) -> Self {
-        Self { result: Err(e) }
     }
 }

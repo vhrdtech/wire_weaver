@@ -1,4 +1,3 @@
-#[cfg(feature = "net")]
 use std::net::IpAddr;
 
 use anyhow::{Result, bail};
@@ -48,58 +47,44 @@ pub(crate) enum InterfaceKind {
 #[derive(Clone, Debug, PartialEq, Eq, EnumDiscriminants)]
 pub(crate) enum ConfigPiece {
     /// Connect to a USB device with the specified VID:PID
-    #[cfg(feature = "usb")]
     UsbVidPid { vid: u16, pid: u16 },
     /// Connect to a USB device at the specified path (bus_number + port chain)
-    #[cfg(feature = "usb")]
     UsbPath { bus_id: String, port_chain: Vec<u8> },
     /// Connect to a USB device, other filter pieces are required to select which one.
-    #[cfg(feature = "usb")]
     Usb,
     /// Negate previous USB related filters or exclude USB from the interfaces to try.
-    #[cfg(feature = "usb")]
     NoUsb,
 
     /// Connect to a networked device via WebSocket
-    #[cfg(feature = "net")]
     WebSocketAddr {
         addr: IpAddr,
         port: u16,
         path: String,
     },
     /// Connect to a network device via WebSocket, other filter pieces are required to select which one.
-    #[cfg(feature = "net")]
     WebSocket,
     /// Negate previous WebSocket related filters or exclude WebSocket from the interfaces to try.
-    #[cfg(feature = "net")]
     NoWebSocket,
 
     /// Connect to a networked device via UDP
-    #[cfg(feature = "net")]
     UdpAddr { addr: IpAddr, port: u16 },
     /// Connect to a network device via UDP, other filter pieces are required to select which one.
-    #[cfg(feature = "net")]
     Udp,
     /// Negate previous UDP related filters or exclude WebSocket from the interfaces to try.
-    #[cfg(feature = "net")]
     NoUdp,
 
     /// Connect to a device running in another process via IPC interface (iceoryx2).
     /// Used to split multiplex multiple clients to one USB device for example.
     /// Server claims USB interface, clients connect to it via ipc or network.
     /// Can also be used for testing purposes or to create virtual devices.
-    #[cfg(feature = "ipc")]
     Ipc,
     /// Negate previous IPC related filters or exclude IPC from the interfaces to try.
-    #[cfg(feature = "ipc")]
     NoIpc,
 
     /// Connec to a device running in the same process via lock-free channel.
     /// Can be used for testing purposes or to create virtual devices.
-    #[cfg(feature = "in_process")]
     InProcess,
     /// Negate previous InProcess related filters or exclude InProcess from the interfaces to try.
-    #[cfg(feature = "in_process")]
     NoInProcess,
 
     /// Filter out a device with the specified serial number. Ignoring case.
@@ -119,8 +104,8 @@ pub(crate) enum ConfigPiece {
 }
 
 #[cfg(feature = "usb")]
-impl From<wire_weaver_usb_host::nusb::DeviceInfo> for ClientConfig {
-    fn from(nusb_info: wire_weaver_usb_host::nusb::DeviceInfo) -> Self {
+impl From<nusb::DeviceInfo> for ClientConfig {
+    fn from(nusb_info: nusb::DeviceInfo) -> Self {
         ClientConfig {
             pieces: vec![ConfigPiece::UsbPath {
                 bus_id: nusb_info.bus_id().to_string(),

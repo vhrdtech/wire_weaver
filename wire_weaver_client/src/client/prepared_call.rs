@@ -1,6 +1,5 @@
-use crate::Error;
 use crate::commander::TransportCommander;
-use crate::promise::Promise;
+use crate::{Error, Promise};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;

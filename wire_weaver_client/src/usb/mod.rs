@@ -1,4 +1,5 @@
-mod connection;
+mod connect;
+
 mod event_loop;
 mod loopback;
 mod ww_nusb;
@@ -6,10 +7,6 @@ mod ww_nusb;
 #[cfg(feature = "usb-tracing")]
 pub mod tracing;
 // pub mod util;
-
-pub use event_loop::usb_worker;
-pub use nusb;
-pub use wire_weaver_client;
 
 use nusb::transfer::TransferError;
 use std::fmt::Debug;

@@ -6,7 +6,6 @@ use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver_client::{StreamEvent, TypedStreamEvent};
 use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Stream of typed values from host to device.
@@ -16,6 +15,30 @@ pub struct Stream<T> {
     pub(crate) path_kind: PathKindOwned,
     pub(crate) rx: UnboundedReceiver<StreamEvent>,
     pub(crate) _phantom: PhantomData<T>,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum StreamEvent {
+    /// Data channel from remote device
+    Data(Vec<u8>),
+    /// Sideband channel from remote device
+    Sideband(StreamSideband),
+    /// Locally generated event, sent when connection to remote device is up
+    Connected,
+    /// Locally generated event, sent when connection to remote device is down
+    Disconnected,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum TypedStreamEvent<T> {
+    /// Data channel from remote device
+    Data(T),
+    /// Sideband channel from remote device
+    Sideband(StreamSideband),
+    /// Locally generated event, sent when connection to remote device is up
+    Connected,
+    /// Locally generated event, sent when connection to remote device is down
+    Disconnected,
 }
 
 #[derive(thiserror::Error, Debug)]

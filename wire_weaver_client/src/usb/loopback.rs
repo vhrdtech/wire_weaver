@@ -2,8 +2,9 @@ use nusb::transfer::TransferError;
 use rand::Rng;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
-use wire_weaver_client::TestProgress;
 use wire_weaver_usb_link::{MessageKind, PacketSink, PacketSource, WireWeaverUsbLink};
+
+use crate::event_loop::command::TestProgress;
 
 const PACKET_OVERHEAD: usize = 2 + 4 + 4; // (opcode + len) + repeat + seq
 

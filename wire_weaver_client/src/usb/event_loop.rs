@@ -1,5 +1,12 @@
-use crate::ww_nusb::{Sink, Source};
-use crate::{MAX_MESSAGE_SIZE, UsbError, connection};
+use crate::Error;
+use crate::device_info::{ConnectionInfo, DeviceApiInfo};
+use crate::event_loop::command::{Command, EventLoopExitReason, EventLoopResidual, TestProgress};
+use crate::event_loop::event_loop_state::CommonState;
+use crate::event_loop::rx_dispatcher::{DispatcherCommand, DispatcherMessage, RxDispatcher};
+use crate::usb::loopback::loopback_test;
+
+use super::ww_nusb::{Sink, Source};
+use super::{MAX_MESSAGE_SIZE, UsbError};
 use anyhow::anyhow;
 use either::Either;
 use nusb::DeviceInfo;
@@ -9,14 +16,12 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-use wire_weaver_client::EventLoopExitReason;
-use wire_weaver_client::rx_dispatcher::{
-    DispatcherCommand, DispatcherMessage, RxDispatcher,
-};
-use wire_weaver_client::{
-    Command, ConnectionInfo, DeviceApiInfo, Error, EventLoopResidual, TestProgress,
-    event_loop_state::CommonState,
-};
+// use wire_weaver_client::EventLoopExitReason;
+// use wire_weaver_client::rx_dispatcher::{DispatcherCommand, DispatcherMessage, RxDispatcher};
+// use wire_weaver_client::{
+//     Command, ConnectionInfo, DeviceApiInfo, Error, EventLoopResidual, TestProgress,
+//     event_loop_state::CommonState,
+// };
 use wire_weaver_usb_link::{
     DisconnectReason, Error as LinkError, MessageKind, PING_INTERVAL_MS, PacketSink, PacketSource,
     WireWeaverUsbLink,
@@ -136,7 +141,7 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
 
 struct WaitOk {
     di: Box<DeviceInfo>,
-    dev: connection::ConnectOk,
+    dev: super::connect::ConnectOk,
     client_version: Box<FullVersionOwned>,
     // connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     exited_tx: Option<oneshot::Sender<EventLoopResidual>>,
@@ -176,7 +181,7 @@ async fn wait_for_connection_and_queue_commands(
                         error: anyhow!(""),
                     });
                 };
-                return match connection::connect(&di) {
+                return match super::connect::connect(&di) {
                     Ok(dev) => {
                         state
                             .common
@@ -320,7 +325,7 @@ where
                         warn!("resending GetDeviceInfo after no answer received from device");
                         let r = link.send_get_device_info().await;
                         if let Err(wire_weaver_usb_link::Error::SinkError(TransferError::Unknown(code))) = r
-                            && code == crate::ww_nusb::ERR_WRITE_PACKET_TIMEOUT
+                            && code == super::ww_nusb::ERR_WRITE_PACKET_TIMEOUT
                             && let Some(tx) = state.common.connected_tx.take()
                         {
                             _ = tx.send(ConnectionInfo::err(anyhow!("Device is not accepting USB transfers, it might be in an endless loop or in HardFault")));
@@ -588,8 +593,7 @@ where
             } else {
                 state.max_packet_size
             };
-            crate::loopback::loopback_test(test_duration, packet_size, progress_tx, link, scratch)
-                .await;
+            loopback_test(test_duration, packet_size, progress_tx, link, scratch).await;
         }
     }
     Ok(EventLoopSpinResult::Continue)

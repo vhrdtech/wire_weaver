@@ -5,10 +5,10 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
-use wire_weaver_client_common::event_loop_state::CommonState;
-use wire_weaver_client_common::ww_client_server::{Event, EventKind};
-use wire_weaver_client_common::ww_version::FullVersion;
-use wire_weaver_client_common::{Command, Error, ww_client_server, ww_client_server::RequestKind};
+use wire_weaver_client::event_loop_state::CommonState;
+use wire_weaver_client::ww_client_server::{Event, EventKind};
+use wire_weaver_client::ww_version::FullVersion;
+use wire_weaver_client::{Command, Error, ww_client_server, ww_client_server::RequestKind};
 use wire_weaver_udp_link::{Datagram, Op, UDP_LINK_MAGIC};
 
 const MAX_RX_DATAGRAM_LEN: usize = 1500 - 20 - 8;

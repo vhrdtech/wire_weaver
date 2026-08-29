@@ -3,17 +3,11 @@ name = "blinky_evolved"
 version = "0.1.0"
 edition = "2024"
 
-[features]
-usb-tracing = ["wire_weaver_usb_host/usb-tracing"]
-
 [dependencies]
 blinky_api = { path = "../blinky_api" } # on purpose link to blinky_api here to demonstrate how #[since = ""] works
 blinky_api_evolved = { path = "../blinky_api_evolved" }
 tokio = { version = "1", features = ["sync", "rt"] }
-wire_weaver = { workspace = true }
-wire_weaver_client_common = { workspace = true }
-wire_weaver_usb_host = { workspace = true }
-ww_client_server = { workspace = true }
+wire_weaver_client.workspace = true
 
 [dev-dependencies]
 anyhow = "1"

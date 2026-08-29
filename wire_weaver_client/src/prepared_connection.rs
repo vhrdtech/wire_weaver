@@ -1,12 +1,12 @@
-use crate::options::Options;
+use crate::config::ClientConfig;
 use anyhow::Result;
 
 pub struct PreparedConnection {
-    options: Options,
+    options: ClientConfig,
 }
 
 impl PreparedConnection {
-    pub fn new(options: Options) -> Self {
+    pub fn new(options: ClientConfig) -> Self {
         Self { options }
     }
 

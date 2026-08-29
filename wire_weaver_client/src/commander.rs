@@ -10,10 +10,10 @@ use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver_client_common::rx_dispatcher::{
+use wire_weaver_client::rx_dispatcher::{
     ResponseReceiver, ResponseSender, StreamUpdateReceiver,
 };
-use wire_weaver_client_common::{Command, DeviceApiInfo};
+use wire_weaver_client::{Command, DeviceApiInfo};
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
 use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};

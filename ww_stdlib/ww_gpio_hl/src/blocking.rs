@@ -1,7 +1,7 @@
 use crate::Error;
 use crate::ww::{BankClient, GpioClient};
 use wire_weaver::ValidIndicesOwned;
-use wire_weaver_client_common::{Attachment, Stream};
+use wire_weaver_client::{Attachment, Stream};
 use ww_gpio::{BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull};
 
 /// GPIO configured as Push-Pull output.

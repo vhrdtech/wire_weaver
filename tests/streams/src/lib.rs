@@ -7,7 +7,7 @@ mod tests {
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver_client_common::{CommandSender, DeviceFilter, OnError, TypedStreamEvent};
+    use wire_weaver_client::{CommandSender, DeviceFilter, OnError, TypedStreamEvent};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -144,7 +144,7 @@ mod tests {
     }
 
     mod std_async_client {
-        use wire_weaver_client_common::CommandSender;
+        use wire_weaver_client::CommandSender;
 
         pub struct StdAsyncClient {
             pub cmd_tx: CommandSender,

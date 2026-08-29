@@ -1,5 +1,5 @@
-use wire_weaver_client_common::{CommandSender, DeviceApiInfo};
-pub use wire_weaver_client_common::{DeviceFilter, OnError};
+use wire_weaver_client::{CommandSender, DeviceApiInfo};
+pub use wire_weaver_client::{DeviceFilter, OnError};
 
 pub struct AllGpio {
     cmd_tx: CommandSender,

@@ -9,7 +9,7 @@ pub mod tracing;
 
 pub use event_loop::usb_worker;
 pub use nusb;
-pub use wire_weaver_client_common;
+pub use wire_weaver_client;
 
 use nusb::transfer::TransferError;
 use std::fmt::Debug;

@@ -1,6 +1,6 @@
 use crate::Error;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::{Attachment, CommandSender};
+use wire_weaver_client::{Attachment, CommandSender};
 
 #[derive(Clone)]
 pub(crate) struct BankClient {

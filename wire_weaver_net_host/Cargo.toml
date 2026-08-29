@@ -12,5 +12,4 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
 tokio-tungstenite = "0.30"
 tracing = "0.1"
-wire_weaver_client_common = { path = "../wire_weaver_client_common" }
 wire_weaver_udp_link = { path = "../wire_weaver_udp_link" }

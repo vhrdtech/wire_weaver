@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 tokio = { version = "1", features = ["sync"] }
 wire_weaver.workspace = true
-wire_weaver_client_common.workspace = true
+wire_weaver_client.workspace = true
 ww_client_server.workspace = true

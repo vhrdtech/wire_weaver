@@ -11,7 +11,6 @@ license.workspace = true
 anyhow.workspace = true
 thiserror = "2.0"
 semver.workspace = true
-wire_weaver_client_common.workspace = true
 wire_weaver_usb_host = { workspace = true, optional = true }
 wire_weaver_net_host = { workspace = true, optional = true }
 strum.workspace = true

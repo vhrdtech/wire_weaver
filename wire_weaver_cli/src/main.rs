@@ -1,7 +1,7 @@
 use crate::cli::Commands;
 use anyhow::{Context, Result};
 use clap::Parser;
-use wire_weaver_usb_host::wire_weaver_client_common::{Command, DeviceFilter};
+use wire_weaver_usb_host::wire_weaver_client::{Command, DeviceFilter};
 
 mod cli;
 pub(crate) mod cmd;

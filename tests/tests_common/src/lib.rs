@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Receiver;
 use wire_weaver::prelude::*;
-use wire_weaver_client_common::{Command, DeviceApiInfo};
+use wire_weaver_client::{Command, DeviceApiInfo};
 use ww_client_server::{Event, EventKind, Request};
 
 pub struct DummyTx;
@@ -58,7 +58,7 @@ pub async fn test_event_loop(
                         };
                         Ok(data)
                     }
-                    Err(e) => Err(wire_weaver_client_common::Error::RemoteError(
+                    Err(e) => Err(wire_weaver_client::Error::RemoteError(
                         e.make_owned(),
                     )),
                 };

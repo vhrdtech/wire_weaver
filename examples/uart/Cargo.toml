@@ -3,16 +3,10 @@ name = "uart"
 version = "0.1.0"
 edition = "2024"
 
-[features]
-usb-tracing = ["wire_weaver_usb_host/usb-tracing"]
-
 [dependencies]
 tokio = { version = "1", features = ["sync", "rt"] }
 uart_api = { path = "../uart_api" }
-wire_weaver = { workspace = true }
-wire_weaver_client_common = { workspace = true }
-wire_weaver_usb_host = { workspace = true }
-ww_client_server = { workspace = true }
+wire_weaver_client.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_uart = { workspace = true, features = ["std"] }
 

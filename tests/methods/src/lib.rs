@@ -6,8 +6,8 @@ mod tests {
     use tests_common::DummyTx;
     use tokio::sync::mpsc;
     use wire_weaver::prelude::*;
-    use wire_weaver_client_common::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver_client_common::{CommandSender, DeviceFilter, OnError};
+    use wire_weaver_client::ww_version::{FullVersionOwned, VersionOwned};
+    use wire_weaver_client::{CommandSender, DeviceFilter, OnError};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -95,7 +95,7 @@ mod tests {
     }
 
     mod std_async_client {
-        use wire_weaver_client_common::CommandSender;
+        use wire_weaver_client::CommandSender;
 
         pub struct StdAsyncClient {
             pub cmd_tx: CommandSender,

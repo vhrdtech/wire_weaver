@@ -1,7 +1,7 @@
 use crate::usb_worker;
 use tokio::sync::mpsc;
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-use wire_weaver_client_common::{ClientConfig, CommandSender, DeviceFilter, Error, OnError};
+use wire_weaver_client::{ClientConfig, CommandSender, DeviceFilter, Error, OnError};
 
 /// Connect to the USB device without code-generated WireWeaver client code. Intended use cases are:
 ///     * request API and type definitions from the device itself

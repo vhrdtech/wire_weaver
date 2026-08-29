@@ -1,7 +1,7 @@
 use all_gpio::{AllGpio, DeviceFilter};
 use anyhow::Result;
 use std::time::Instant;
-use wire_weaver_client_common::multi_read::MultiRead;
+use wire_weaver_client::multi_read::MultiRead;
 
 #[tokio::main]
 async fn main() -> Result<()> {

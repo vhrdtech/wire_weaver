@@ -9,11 +9,11 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-use wire_weaver_client_common::EventLoopExitReason;
-use wire_weaver_client_common::rx_dispatcher::{
+use wire_weaver_client::EventLoopExitReason;
+use wire_weaver_client::rx_dispatcher::{
     DispatcherCommand, DispatcherMessage, RxDispatcher,
 };
-use wire_weaver_client_common::{
+use wire_weaver_client::{
     Command, ConnectionInfo, DeviceApiInfo, Error, EventLoopResidual, TestProgress,
     event_loop_state::CommonState,
 };

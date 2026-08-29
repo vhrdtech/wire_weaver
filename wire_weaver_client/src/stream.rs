@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver_client_common::{StreamEvent, TypedStreamEvent};
+use wire_weaver_client::{StreamEvent, TypedStreamEvent};
 use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Stream of typed values from host to device.

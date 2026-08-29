@@ -1,4 +1,4 @@
-use wire_weaver_usb_host::wire_weaver_client_common::CommandSender;
+use wire_weaver_usb_host::wire_weaver_client::CommandSender;
 
 pub(crate) async fn introspect(device: &mut CommandSender) -> Result<(), anyhow::Error> {
     let api_bundle = device.introspect().download().await?;

@@ -14,5 +14,5 @@ tests_common = { path = "../tests_common" }
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
 tracing-subscriber = "0.3"
 wire_weaver.workspace = true
-wire_weaver_client_common.workspace = true
+wire_weaver_client.workspace = true
 ww_client_server.workspace = true

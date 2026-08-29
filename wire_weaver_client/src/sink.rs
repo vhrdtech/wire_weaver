@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use tokio::sync::mpsc::UnboundedReceiver;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver_client_common::StreamEvent;
+use wire_weaver_client::StreamEvent;
 use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Stream of typed values from device to host.

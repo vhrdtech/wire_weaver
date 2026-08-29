@@ -1,7 +1,7 @@
 #[cfg(feature = "net")]
 use std::net::IpAddr;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
 
@@ -20,27 +20,17 @@ use strum_macros::EnumDiscriminants;
 ///     - "Adding" option ('Usb', 'WebSocket', 'Udp', etc.)
 ///     - "Removing" option ('NoUsb', 'NoWebSocket', 'NoUdp', etc.)
 /// - Builder pattern that plays nicely with specific device crates
-#[derive(Clone, Debug)]
-pub struct Options {
-    pieces: Vec<OptionPiece>,
+#[derive(Clone, Debug, Default)]
+pub struct ClientConfig {
+    pieces: Vec<ConfigPiece>,
     priority: String,
-    cmd_queue_size: usize,
+    cmd_queue_size: Option<usize>,
 }
 
-pub(crate) struct ValidatedOptions {
-    pub(crate) pieces: Vec<OptionPiece>,
+pub(crate) struct ValidatedConfig {
+    pub(crate) pieces: Vec<ConfigPiece>,
     priority: Vec<InterfaceKind>,
     cmd_queue_size: usize,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            pieces: vec![],
-            priority: Default::default(),
-            cmd_queue_size: 8_192,
-        }
-    }
 }
 
 pub(crate) enum InterfaceKind {
@@ -56,7 +46,7 @@ pub(crate) enum InterfaceKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumDiscriminants)]
-pub(crate) enum OptionPiece {
+pub(crate) enum ConfigPiece {
     /// Connect to a USB device with the specified VID:PID
     #[cfg(feature = "usb")]
     UsbVidPid { vid: u16, pid: u16 },
@@ -129,10 +119,10 @@ pub(crate) enum OptionPiece {
 }
 
 #[cfg(feature = "usb")]
-impl From<wire_weaver_usb_host::nusb::DeviceInfo> for Options {
+impl From<wire_weaver_usb_host::nusb::DeviceInfo> for ClientConfig {
     fn from(nusb_info: wire_weaver_usb_host::nusb::DeviceInfo) -> Self {
-        Options {
-            pieces: vec![OptionPiece::UsbPath {
+        ClientConfig {
+            pieces: vec![ConfigPiece::UsbPath {
                 bus_id: nusb_info.bus_id().to_string(),
                 port_chain: nusb_info.port_chain().to_vec(),
             }],
@@ -141,25 +131,29 @@ impl From<wire_weaver_usb_host::nusb::DeviceInfo> for Options {
     }
 }
 
-impl Options {
+impl ClientConfig {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn from_pieces(pieces: impl IntoIterator<Item = OptionPiece>) -> Self {
+    pub fn from_pieces(pieces: impl IntoIterator<Item = ConfigPiece>) -> Self {
         Self {
             pieces: pieces.into_iter().collect(),
             ..Default::default()
         }
     }
 
-    pub(crate) fn validate(self) -> Result<ValidatedOptions> {
+    pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let mut s = self;
         s.canonicalize();
-        Ok(ValidatedOptions {
+        let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
+        if cmd_queue_size < 1 || cmd_queue_size > 65_534 {
+            bail!("Wrong cmd queue size of {cmd_queue_size}");
+        }
+        Ok(ValidatedConfig {
             pieces: s.pieces,
             priority: vec![],
-            cmd_queue_size: s.cmd_queue_size,
+            cmd_queue_size,
         })
     }
 
@@ -173,7 +167,7 @@ impl Options {
     #[cfg(feature = "usb")]
     pub fn usb_vid_pid(self, vid: u16, pid: u16) -> Self {
         let mut f = self;
-        f.pieces.push(OptionPiece::UsbVidPid { vid, pid });
+        f.pieces.push(ConfigPiece::UsbVidPid { vid, pid });
         f
     }
 
@@ -181,7 +175,7 @@ impl Options {
     #[cfg(feature = "usb")]
     pub fn usb_port_chain(self, bus_id: String, port_chain: Vec<u8>) -> Self {
         let mut f = self;
-        f.pieces.push(OptionPiece::UsbPath { bus_id, port_chain });
+        f.pieces.push(ConfigPiece::UsbPath { bus_id, port_chain });
         f
     }
 
@@ -189,7 +183,7 @@ impl Options {
     #[cfg(feature = "usb")]
     pub fn usb(self) -> Self {
         let mut f = self;
-        f.pieces.push(OptionPiece::Usb);
+        f.pieces.push(ConfigPiece::Usb);
         f
     }
 
@@ -197,7 +191,7 @@ impl Options {
     #[cfg(feature = "usb")]
     pub fn no_usb(self) -> Self {
         let mut f = self;
-        f.pieces.push(OptionPiece::NoUsb);
+        f.pieces.push(ConfigPiece::NoUsb);
         f
     }
 
@@ -205,7 +199,7 @@ impl Options {
     /// Default is 8192, using more than 65_534 will lead to blocking if reached.
     pub fn cmd_queue_size(self, size: usize) -> Self {
         let mut f = self;
-        f.cmd_queue_size = size;
+        f.cmd_queue_size = Some(size);
         f
     }
 
@@ -213,23 +207,23 @@ impl Options {
         #[cfg(feature = "usb")]
         self.canonicalize_inner(
             &[
-                OptionPieceDiscriminants::Usb,
-                OptionPieceDiscriminants::UsbVidPid,
-                OptionPieceDiscriminants::UsbPath,
+                ConfigPieceDiscriminants::Usb,
+                ConfigPieceDiscriminants::UsbVidPid,
+                ConfigPieceDiscriminants::UsbPath,
             ],
-            OptionPieceDiscriminants::NoUsb,
+            ConfigPieceDiscriminants::NoUsb,
         );
     }
 
     fn canonicalize_inner(
         &mut self,
-        opt_in: &[OptionPieceDiscriminants],
-        opt_out: OptionPieceDiscriminants,
+        opt_in: &[ConfigPieceDiscriminants],
+        opt_out: ConfigPieceDiscriminants,
     ) {
         let mut opt_in_at = vec![];
         let mut remove_at = vec![];
         for (idx, p) in self.pieces.iter().enumerate() {
-            let kind = OptionPieceDiscriminants::from(p);
+            let kind = ConfigPieceDiscriminants::from(p);
             if opt_in.contains(&kind) {
                 opt_in_at.push(idx);
             }
@@ -247,19 +241,19 @@ impl Options {
     }
 }
 
-impl ValidatedOptions {
+impl ValidatedConfig {
     pub(crate) fn is_usb(&self) -> bool {
         self.pieces.iter().any(|p| {
             matches!(
                 p,
-                OptionPiece::UsbVidPid { .. } | OptionPiece::UsbPath { .. } | OptionPiece::Usb
+                ConfigPiece::UsbVidPid { .. } | ConfigPiece::UsbPath { .. } | ConfigPiece::Usb
             )
         })
     }
 
     pub(crate) fn manufacturers_contains(&self) -> impl Iterator<Item = &str> {
         self.pieces.iter().filter_map(|p| {
-            if let OptionPiece::ManufacturerContains { substring } = p {
+            if let ConfigPiece::ManufacturerContains { substring } = p {
                 Some(substring.as_str())
             } else {
                 None
@@ -269,7 +263,7 @@ impl ValidatedOptions {
 
     pub(crate) fn products_contains(&self) -> impl Iterator<Item = &str> {
         self.pieces.iter().filter_map(|p| {
-            if let OptionPiece::ProductContains { substring } = p {
+            if let ConfigPiece::ProductContains { substring } = p {
                 Some(substring.as_str())
             } else {
                 None
@@ -279,7 +273,7 @@ impl ValidatedOptions {
 
     pub(crate) fn serials_eq(&self) -> impl Iterator<Item = &str> {
         self.pieces.iter().filter_map(|p| {
-            if let OptionPiece::SerialEq { serial } = p {
+            if let ConfigPiece::SerialEq { serial } = p {
                 Some(serial.as_str())
             } else {
                 None
@@ -289,7 +283,7 @@ impl ValidatedOptions {
 
     pub(crate) fn user_labels_eq(&self) -> impl Iterator<Item = &str> {
         self.pieces.iter().filter_map(|p| {
-            if let OptionPiece::UserLabelEq { user_label } = p {
+            if let ConfigPiece::UserLabelEq { user_label } = p {
                 Some(user_label.as_str())
             } else {
                 None
@@ -299,7 +293,7 @@ impl ValidatedOptions {
 
     pub(crate) fn implements_api(&self) -> impl Iterator<Item = (&str, &VersionReq)> {
         self.pieces.iter().filter_map(|p| {
-            if let OptionPiece::ImplementsApi {
+            if let ConfigPiece::ImplementsApi {
                 api_gid,
                 version_req,
             } = p
@@ -323,10 +317,10 @@ mod tests {
     // it would break the mess with device selection process.
     #[test]
     fn usb() {
-        let f = Options::new().validate().unwrap();
+        let f = ClientConfig::new().validate().unwrap();
         assert_eq!(f.is_usb(), false); // unless opted-in, interface is not considered
 
-        let f = Options::new()
+        let f = ClientConfig::new()
             .usb_vid_pid(0x1, 0x2)
             .usb()
             .validate()
@@ -334,22 +328,22 @@ mod tests {
         assert_eq!(
             f.pieces,
             vec![
-                OptionPiece::UsbVidPid { vid: 0x1, pid: 0x2 },
-                OptionPiece::Usb
+                ConfigPiece::UsbVidPid { vid: 0x1, pid: 0x2 },
+                ConfigPiece::Usb
             ]
         );
         assert_eq!(f.is_usb(), true);
 
-        let f = Options::new().usb().validate().unwrap();
-        assert_eq!(f.pieces, vec![OptionPiece::Usb]);
+        let f = ClientConfig::new().usb().validate().unwrap();
+        assert_eq!(f.pieces, vec![ConfigPiece::Usb]);
         assert_eq!(f.is_usb(), true);
 
-        let f = Options::new().usb().no_usb().validate().unwrap();
+        let f = ClientConfig::new().usb().no_usb().validate().unwrap();
         assert_eq!(f.pieces, vec![]);
         assert_eq!(f.is_usb(), false);
 
-        let f = Options::new().usb().no_usb().usb().validate().unwrap();
-        assert_eq!(f.pieces, vec![OptionPiece::Usb]);
+        let f = ClientConfig::new().usb().no_usb().usb().validate().unwrap();
+        assert_eq!(f.pieces, vec![ConfigPiece::Usb]);
         assert_eq!(f.is_usb(), true);
     }
 }

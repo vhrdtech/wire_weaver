@@ -24,10 +24,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "wire_weaver",
- "wire_weaver_client_common",
- "wire_weaver_usb_host",
- "ww_client_server",
+ "wire_weaver_client",
  "ww_gpio",
  "ww_self",
  "ww_si",
@@ -186,10 +183,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "wire_weaver",
- "wire_weaver_client_common",
- "wire_weaver_usb_host",
- "ww_client_server",
+ "wire_weaver_client",
  "ww_self",
 ]
 
@@ -222,10 +216,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "wire_weaver",
- "wire_weaver_client_common",
- "wire_weaver_usb_host",
- "ww_client_server",
+ "wire_weaver_client",
  "ww_self",
 ]
 
@@ -1351,7 +1342,7 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -1597,7 +1588,7 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -2072,7 +2063,7 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -2179,7 +2170,7 @@ version = "0.1.0"
 dependencies = [
  "tokio",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -2405,7 +2396,7 @@ dependencies = [
  "tracing-subscriber",
  "traits_api",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -2453,10 +2444,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uart_api",
- "wire_weaver",
- "wire_weaver_client_common",
- "wire_weaver_usb_host",
- "ww_client_server",
+ "wire_weaver_client",
  "ww_si",
  "ww_uart",
 ]
@@ -2879,25 +2867,8 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
- "wire_weaver_client_common",
  "wire_weaver_net_host",
  "wire_weaver_usb_host",
- "ww_client_server",
- "ww_self",
- "ww_version",
-]
-
-[[package]]
-name = "wire_weaver_client_common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hex",
- "nusb",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
- "wire_weaver",
  "ww_client_server",
  "ww_self",
  "ww_version",
@@ -2954,7 +2925,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "wire_weaver_client_common",
  "wire_weaver_udp_link",
 ]
 
@@ -2984,7 +2954,6 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
- "wire_weaver_client_common",
  "wire_weaver_usb_link",
  "ww_client_server",
 ]
@@ -3116,7 +3085,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "wire_weaver",
- "wire_weaver_client_common",
+ "wire_weaver_client",
  "ww_gpio",
  "ww_si",
 ]

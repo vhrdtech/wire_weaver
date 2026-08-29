@@ -7,7 +7,7 @@ mod tests {
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver_client_common::{
+    use wire_weaver_client::{
         Command, CommandSender, DeviceFilter, DeviceApiInfo, OnError,
     };
     use ww_client_server::{Event, EventKind, Request};
@@ -100,7 +100,7 @@ mod tests {
     }
 
     mod std_async_client {
-        use wire_weaver_client_common::CommandSender;
+        use wire_weaver_client::CommandSender;
 
         pub struct StdAsyncClient {
             pub cmd_tx: CommandSender,
@@ -182,7 +182,7 @@ mod tests {
                                 };
                                 Ok(data)
                             }
-                            Err(e) => Err(wire_weaver_client_common::Error::RemoteError(
+                            Err(e) => Err(wire_weaver_client::Error::RemoteError(
                                 e.make_owned(),
                             )),
                         };

@@ -4,8 +4,8 @@ use std::fmt::{Debug, Display, Formatter};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
-use wire_weaver_client_common::StreamEvent;
-use wire_weaver_client_common::rx_dispatcher::StreamUpdateReceiver;
+use wire_weaver_client::StreamEvent;
+use wire_weaver_client::rx_dispatcher::StreamUpdateReceiver;
 use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSideband};
 
 pub struct Promise<T> {

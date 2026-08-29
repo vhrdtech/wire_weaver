@@ -56,7 +56,7 @@ pub enum ClientModel {
     /// Currently NOT working.
     Raw,
     /// Prepare ww_client_server::Request, convert it to RequestOwned and
-    /// send through wire_weaver_client_common::CommandSender to a worker thread.
+    /// send through wire_weaver_client::CommandSender to a worker thread.
     /// Generates std, sync + async code that allocates.
     StdFullClient,
     /// Similar to StdFullClient, but uses different addressing mode starting from traits, and not API root.
@@ -97,7 +97,7 @@ pub fn gen_client(
         config.model,
         ClientModel::StdFullClient | ClientModel::StdTraitClient
     ) {
-        quote! { #[allow(unused_imports)] use wire_weaver_client_common::ww_client_server::PathKind; }
+        quote! { #[allow(unused_imports)] use wire_weaver_client::ww_client_server::PathKind; }
     } else {
         quote! {}
     };
@@ -138,9 +138,9 @@ pub fn gen_client(
         #[allow(unused_imports)]
         use wire_weaver::{ww_version, ValidIndicesOwned};
         #[allow(unused_imports)]
-        use wire_weaver_client_common::StreamEvent;
+        use wire_weaver_client::StreamEvent;
         #[allow(unused_imports)]
-        use wire_weaver_client_common::ww_client_server::StreamSideband;
+        use wire_weaver_client::ww_client_server::StreamSideband;
         #additional_use
 
         #hl_init
@@ -230,10 +230,10 @@ fn client_structs_recursive(
     };
     let full = &gid_paths.0;
     let attachment = quote! {
-        pub fn attachment(&self) -> wire_weaver_client_common::Attachment {
+        pub fn attachment(&self) -> wire_weaver_client::Attachment {
             let mut cmd_tx = self.cmd_tx.clone();
             cmd_tx.set_base_path(#index_chain);
-            wire_weaver_client_common::Attachment::new(
+            wire_weaver_client::Attachment::new(
                 cmd_tx,
                 #full.make_owned(),
                 #trait_name.to_string()
@@ -259,7 +259,7 @@ fn client_structs_recursive(
         quote! {
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
-                pub cmd_tx: &'i wire_weaver_client_common::CommandSender,
+                pub cmd_tx: &'i wire_weaver_client::CommandSender,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -390,7 +390,7 @@ fn level_method(
         let path_kind = path_kind(path_mode, gid_paths);
         quote! {
             #lm
-            pub fn #read_fn_name(&self) -> wire_weaver_client_common::PreparedRead<ValidIndicesOwned> {
+            pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<ValidIndicesOwned> {
                 #index_chain_push_pre
                 let path_kind = #path_kind;
                 self.cmd_tx.prepare_read(path_kind)
@@ -422,7 +422,7 @@ fn handle_method(
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
         #(#docs)*
-        pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client_common::PreparedCall<#output_ty> {
+        pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client::PreparedCall<#output_ty> {
             let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
             #args_ser
             #index_chain_push
@@ -456,7 +456,7 @@ fn handle_property(
             quote! { () }
         };
         quote! {
-            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client_common::PreparedWrite<Result<(), #user_result_ty>> {
+            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<Result<(), #user_result_ty>> {
                 let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
                 let value = #prop_name.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
                 #index_chain_push
@@ -474,7 +474,7 @@ fn handle_property(
     ) {
         let read_fn_name = Ident::new(&format!("read_{}", prop_name), Span::call_site());
         quote! {
-            pub fn #read_fn_name(&self) -> wire_weaver_client_common::PreparedRead<#ty> {
+            pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd_tx.prepare_read(path_kind)
@@ -524,7 +524,7 @@ fn handle_stream(
                 quote! { prepare_stream_blocking }
             };
             quote! {
-                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Stream<#ty_def>, wire_weaver_client_common::Error> {
+                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::Stream<#ty_def>, wire_weaver_client::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
                     let stream = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
@@ -539,7 +539,7 @@ fn handle_stream(
                 quote! { prepare_sink_blocking }
             };
             quote! {
-                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client_common::Sink<#ty_def>, wire_weaver_client_common::Error> {
+                pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::Sink<#ty_def>, wire_weaver_client::Error> {
                     #index_chain_push
                     let path_kind = #path_kind;
                     let sink = self.cmd_tx.#prepare_fn(path_kind) #maybe_await ?;
@@ -627,9 +627,9 @@ fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
     };
     quote! {
         pub #maybe_async fn #fn_name(
-                filter: wire_weaver_client_common::DeviceFilter,
-                config: wire_weaver_client_common::ClientConfig,
-        ) -> Result<Self, wire_weaver_client_common::Error> {
+                filter: wire_weaver_client::DeviceFilter,
+                config: wire_weaver_client::ClientConfig,
+        ) -> Result<Self, wire_weaver_client::Error> {
             Self::#raw_connect_fn(
                 filter,
                 #api_crate_name::#full_gid_const,
@@ -657,15 +657,15 @@ fn usb_connect_fn(is_async: bool) -> TokenStream {
     };
     quote! {
         pub #maybe_async fn #connect_fn(
-            filter: wire_weaver_client_common::DeviceFilter,
+            filter: wire_weaver_client::DeviceFilter,
             api_version: wire_weaver::ww_version::FullVersion<'static>,
-            on_error: wire_weaver_client_common::OnError,
+            on_error: wire_weaver_client::OnError,
             local_timeout: std::time::Duration,
             cmd_queue_size: Option<usize>
-        ) -> Result<Self, wire_weaver_client_common::Error> {
+        ) -> Result<Self, wire_weaver_client::Error> {
             use tokio::sync::mpsc;
             let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
-            let mut cmd_tx = wire_weaver_client_common::CommandSender::new(transport_cmd_tx);
+            let mut cmd_tx = wire_weaver_client::CommandSender::new(transport_cmd_tx);
             cmd_tx.set_local_timeout(local_timeout);
             tokio::spawn(async move {
                 wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
@@ -708,22 +708,22 @@ fn connect_disconnect_methods(usb_connect: bool, api_bundle: &ApiBundleOwned) ->
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub async fn disconnect(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub async fn disconnect(&mut self) -> Result<(), wire_weaver_client::Error> {
             self.cmd_tx.disconnect().await
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub fn disconnect_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub fn disconnect_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
             self.cmd_tx.disconnect_blocking()
         }
 
         /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client::Error> {
             self.cmd_tx.disconnect_keep_streams().await
         }
 
         /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client_common::Error> {
+        pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
             self.cmd_tx.disconnect_keep_streams_blocking()
         }
     }

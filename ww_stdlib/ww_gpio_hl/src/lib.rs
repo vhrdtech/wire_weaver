@@ -7,11 +7,11 @@ pub use ww_gpio;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("client error: '{:?}'", .0)]
-    Client(#[from] wire_weaver_client_common::Error),
+    Client(#[from] wire_weaver_client::Error),
     #[error("ww_gpio error: '{:?}'", .0)]
     Gpio(ww_gpio::Error),
     #[error(transparent)]
-    Stream(#[from] wire_weaver_client_common::StreamError),
+    Stream(#[from] wire_weaver_client::StreamError),
     #[error("expected ww_gpio::Gpio trait, got: '{}'", .0)]
     IncompatibleTrait(String),
     #[error("usage: '{}'", .0)]

@@ -2,8 +2,8 @@ use crate::ww::BankClient;
 use crate::Error;
 use std::sync::Arc;
 use wire_weaver::ValidIndicesOwned;
-use wire_weaver_client_common::promise::{Promise, PromiseState};
-use wire_weaver_client_common::Attachment;
+use wire_weaver_client::promise::{Promise, PromiseState};
+use wire_weaver_client::Attachment;
 use ww_gpio::{Level, Mode, Pull, Speed};
 
 pub struct BankPromise {

@@ -1,14 +1,14 @@
 use std::any::Any;
 
-use wire_weaver_client_common::Error;
+use wire_weaver_client::Error;
 use wire_weaver_usb_host::nusb::{self, MaybeFuture};
 
 use crate::{
+    config::{ConfigPiece, ValidatedConfig},
     device_info::DeviceInfo,
-    options::{OptionPiece, Options, ValidatedOptions},
 };
 
-pub(crate) fn connect_blocking(f: &ValidatedOptions) -> Result<Option<()>, Error> {
+pub(crate) fn connect_blocking(f: &ValidatedConfig) -> Result<Option<()>, Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
     let devices = nusb::list_devices()
         .wait()
@@ -38,9 +38,9 @@ pub(crate) fn connect_blocking(f: &ValidatedOptions) -> Result<Option<()>, Error
     }
 }
 
-fn vid_pid_match(pieces: &[OptionPiece], info: &nusb::DeviceInfo) -> bool {
+fn vid_pid_match(pieces: &[ConfigPiece], info: &nusb::DeviceInfo) -> bool {
     pieces.iter().any(|p| {
-        if let OptionPiece::UsbVidPid { vid, pid } = p {
+        if let ConfigPiece::UsbVidPid { vid, pid } = p {
             info.vendor_id() == *vid && info.product_id() == *pid
         } else {
             false
@@ -48,9 +48,9 @@ fn vid_pid_match(pieces: &[OptionPiece], info: &nusb::DeviceInfo) -> bool {
     })
 }
 
-fn port_chain_match(pieces: &[OptionPiece], info: &nusb::DeviceInfo) -> bool {
+fn port_chain_match(pieces: &[ConfigPiece], info: &nusb::DeviceInfo) -> bool {
     pieces.iter().any(|p| {
-        if let OptionPiece::UsbPath { bus_id, port_chain } = p {
+        if let ConfigPiece::UsbPath { bus_id, port_chain } = p {
             info.bus_id() == bus_id && info.port_chain() == port_chain
         } else {
             false

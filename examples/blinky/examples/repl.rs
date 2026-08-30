@@ -1,5 +1,5 @@
 use anyhow::Result;
-use blinky::{Blinky, DeviceFilter};
+use blinky::Blinky;
 use clap::Parser;
 use clap_repl::reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory};
 use clap_repl::{ClapEditor, ReadCommandOutput};
@@ -47,8 +47,7 @@ async fn handle_command(device: &mut Blinky, cmd: Command) -> Result<()> {
 }
 
 async fn connect_to_device() -> Result<Blinky> {
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let device = Blinky::connect(filter, Default::default()).await?;
+    let device = Blinky::new().connect().await?;
     Ok(device)
 }
 

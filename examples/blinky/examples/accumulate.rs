@@ -1,13 +1,12 @@
-use anyhow::Result;
-use blinky::{Blinky, DeviceFilter};
 use std::time::Duration;
 
+use blinky::Blinky;
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut driver = Blinky::connect(filter, Default::default()).await?;
+    let mut driver = Blinky::new().connect().await?;
 
     // For methods with unit return type _forget option is available - no response will be sent from device
     driver.led_on().call_forget().await?;

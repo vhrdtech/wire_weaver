@@ -51,7 +51,7 @@ pub enum ClientModel {
     /// Currently NOT working.
     Raw,
     /// Prepare ww_client_server::Request, convert it to RequestOwned and
-    /// send through wire_weaver_client::CommandSender to a worker thread.
+    /// send through wire_weaver_client::Commander to a worker thread.
     /// Generates std, sync + async code that allocates.
     StdFullClient,
     /// Similar to StdFullClient, but uses different addressing mode starting from traits, and not API root.
@@ -254,7 +254,7 @@ fn client_structs_recursive(
         quote! {
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
-                pub cmd: &'i wire_weaver_client::CommandSender,
+                pub cmd: &'i wire_weaver_client::Commander,
             }
 
             impl<'i> #client_struct_name<'i> {
@@ -660,7 +660,7 @@ fn ser_args(
 //         ) -> Result<Self, wire_weaver_client::Error> {
 //             use tokio::sync::mpsc;
 //             let (transport_cmd, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
-//             let mut cmd = wire_weaver_client::CommandSender::new(transport_cmd);
+//             let mut cmd = wire_weaver_client::Commander::new(transport_cmd);
 //             cmd.set_local_timeout(local_timeout);
 //             tokio::spawn(async move {
 //                 wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;

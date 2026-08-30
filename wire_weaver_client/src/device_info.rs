@@ -21,6 +21,7 @@ pub struct ApiInfo {
     pub signature: UserApiSignature,
 }
 
+#[derive(Debug)]
 pub struct ConnectionInfo {
     pub result: Result<DeviceApiInfo, anyhow::Error>,
 }

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 tokio = { version = "1", features = ["sync", "rt"] }
 uart_api = { path = "../uart_api" }
+wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_uart = { workspace = true, features = ["std"] }

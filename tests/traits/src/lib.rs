@@ -7,9 +7,9 @@ mod tests {
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver_client::{
-        Command, CommandSender, DeviceFilter, DeviceApiInfo, OnError,
-    };
+    use wire_weaver_client::Commander;
+    use wire_weaver_client::internal::ConnectionInfo;
+    use wire_weaver_client::{DeviceApiInfo, internal::Command};
     use ww_client_server::{Event, EventKind, Request};
 
     #[derive(Default)]
@@ -99,17 +99,27 @@ mod tests {
         }
     }
 
-    mod std_async_client {
-        use wire_weaver_client::CommandSender;
+    mod std_client {
+        use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
-        pub struct StdAsyncClient {
-            pub cmd_tx: CommandSender,
+        pub struct StdClient {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for StdClient {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn from_cmd(cmd: Commander) -> Self {
+                Self { cmd }
+            }
         }
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                traits_api :: Traits for super::StdAsyncClient,
-                client = "full_client",
+                traits_api :: Traits for super::StdClient,
+                client = "std_client",
                 // debug_to_file = "../../target/tests_traits_client.rs"
             );
         }
@@ -154,7 +164,10 @@ mod tests {
                 match cmd {
                     Command::Connect { connected_tx, .. } => {
                         if let Some(tx) = connected_tx {
-                            tx.send(Ok(DeviceApiInfo::empty())).unwrap();
+                            tx.send(ConnectionInfo {
+                                result: Ok(DeviceApiInfo::empty()),
+                            })
+                            .unwrap();
                         }
                         continue;
                     }
@@ -182,9 +195,7 @@ mod tests {
                                 };
                                 Ok(data)
                             }
-                            Err(e) => Err(wire_weaver_client::Error::RemoteError(
-                                e.make_owned(),
-                            )),
+                            Err(e) => Err(wire_weaver_client::Error::RemoteError(e.make_owned())),
                         };
                         if let Some((done_tx, _timeout)) = done_tx {
                             done_tx.send(r).unwrap();
@@ -204,7 +215,8 @@ mod tests {
             )
             .await
             .expect("connect");
-        let client = std_async_client::StdAsyncClient { cmd_tx };
+        let cmd = Commander::new(cmd_tx);
+        let client = std_client::StdClient { cmd };
         tokio::time::sleep(Duration::from_millis(10)).await;
 
         client.g1().m1().call().await.unwrap();

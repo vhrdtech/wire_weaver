@@ -1,5 +1,5 @@
 pub use wire_weaver_client::ClientConfig;
-use wire_weaver_client::{Commander, WwClient};
+use wire_weaver_client::{Commander, DeviceApiInfo, WwClient};
 
 pub struct Blinky {
     cmd: Commander,
@@ -16,9 +16,9 @@ impl WwClient for Blinky {
 }
 
 impl Blinky {
-    // pub fn info(&self) -> &DeviceApiInfo {
-    //     self.cmd_tx.info()
-    // }
+    pub fn info(&self) -> &DeviceApiInfo {
+        self.cmd.info()
+    }
 }
 
 mod api_client {

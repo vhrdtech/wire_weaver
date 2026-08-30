@@ -24,6 +24,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "wire_weaver",
  "wire_weaver_client",
  "ww_gpio",
  "ww_self",
@@ -183,6 +184,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "wire_weaver",
  "wire_weaver_client",
  "ww_self",
 ]
@@ -216,6 +218,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "wire_weaver",
  "wire_weaver_client",
  "ww_self",
 ]
@@ -2362,6 +2365,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uart_api",
+ "wire_weaver",
  "wire_weaver_client",
  "ww_si",
  "ww_uart",

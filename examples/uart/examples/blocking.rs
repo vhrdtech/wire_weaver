@@ -1,7 +1,6 @@
-use anyhow::Result;
-use uart::{DeviceFilter, UartBridge};
+use uart::UartBridge;
 
-fn main() -> Result<()> {
+fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -9,8 +8,7 @@ fn main() -> Result<()> {
         .build()?;
     let _guard = runtime.enter();
 
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = UartBridge::connect_blocking(filter, Default::default())?;
+    let mut device = UartBridge::new().connect_blocking()?;
 
     let mut uart0_rx = device.uart(0).rx_blocking()?;
     let chunk = uart0_rx.recv_blocking()?;

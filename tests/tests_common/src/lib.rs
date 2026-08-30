@@ -1,6 +1,9 @@
 use tokio::sync::mpsc::Receiver;
 use wire_weaver::prelude::*;
-use wire_weaver_client::{Command, DeviceApiInfo};
+use wire_weaver_client::{
+    DeviceApiInfo,
+    internal::{Command, ConnectionInfo},
+};
 use ww_client_server::{Event, EventKind, Request};
 
 pub struct DummyTx;
@@ -36,7 +39,10 @@ pub async fn test_event_loop(
         match cmd {
             Command::Connect { connected_tx, .. } => {
                 if let Some(tx) = connected_tx {
-                    tx.send(Ok(DeviceApiInfo::empty())).unwrap();
+                    tx.send(ConnectionInfo {
+                        result: Ok(DeviceApiInfo::empty()),
+                    })
+                    .unwrap();
                 }
                 continue;
             }
@@ -58,9 +64,7 @@ pub async fn test_event_loop(
                         };
                         Ok(data)
                     }
-                    Err(e) => Err(wire_weaver_client::Error::RemoteError(
-                        e.make_owned(),
-                    )),
+                    Err(e) => Err(wire_weaver_client::Error::RemoteError(e.make_owned())),
                 };
                 if let Some((done_tx, _timeout)) = done_tx {
                     done_tx.send(r).unwrap();

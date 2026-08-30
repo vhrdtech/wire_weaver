@@ -1,13 +1,11 @@
-use all_gpio::{AllGpio, DeviceFilter};
-use anyhow::Result;
+use all_gpio::AllGpio;
 use futures::future::join_all;
 use std::time::Instant;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let mut device = AllGpio::connect(filter, Default::default()).await?;
+    let mut device = AllGpio::new().connect().await?;
     let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 

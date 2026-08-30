@@ -1,8 +1,7 @@
-use anyhow::Result;
 use blinky::Blinky;
 use std::time::Duration;
 
-fn main() -> Result<()> {
+fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -11,7 +10,7 @@ fn main() -> Result<()> {
         .build()?;
     let _guard = runtime.enter();
 
-    let mut driver = Blinky::new();
+    let mut driver = Blinky::new().connect_blocking()?;
 
     println!("Turning LED on");
     driver.led_on().blocking_call()?;

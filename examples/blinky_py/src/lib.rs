@@ -1,4 +1,4 @@
-use blinky::{Blinky, DeviceFilter};
+use blinky::Blinky;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
@@ -28,8 +28,7 @@ impl Device {
 
     pub fn connect(&mut self) -> PyResult<()> {
         let _guard = self.runtime.enter();
-        let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-        match Blinky::connect_blocking(filter, Default::default()) {
+        match Blinky::new().connect_blocking() {
             Ok(d) => {
                 self.drv = Some(d);
                 Ok(())

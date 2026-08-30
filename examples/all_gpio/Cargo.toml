@@ -7,6 +7,7 @@ edition = "2024"
 all_gpio_api = { path = "../all_gpio_api" }
 futures = "0.3"
 tokio = { version = "1", features = ["sync", "rt"] }
+wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }

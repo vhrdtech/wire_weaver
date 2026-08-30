@@ -1,10 +1,10 @@
 use crate::Error;
 use wire_weaver::prelude::*;
-use wire_weaver_client::{Attachment, CommandSender};
+use wire_weaver_client::{Attachment, Commander};
 
 #[derive(Clone)]
 pub(crate) struct BankClient {
-    cmd_tx: CommandSender,
+    cmd: Commander,
 }
 
 impl BankClient {
@@ -17,18 +17,18 @@ impl BankClient {
                 attachment.trait_name()
             )));
         }
-        let cmd_tx = attachment.cmd_tx_take();
-        Ok(Self { cmd_tx })
+        let cmd = attachment.cmd_tx_take();
+        Ok(Self { cmd })
     }
 }
 
 pub(crate) struct GpioClient {
-    cmd_tx: CommandSender,
+    cmd: Commander,
 }
 
 impl GpioClient {
-    pub(crate) fn new(cmd_tx: CommandSender) -> Self {
-        Self { cmd_tx }
+    pub(crate) fn new(cmd: Commander) -> Self {
+        Self { cmd }
     }
 }
 

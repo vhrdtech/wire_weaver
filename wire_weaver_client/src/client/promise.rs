@@ -72,6 +72,14 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    pub fn done(value: T, marker: &'static str) -> Self {
+        Self {
+            state: StateInner::Done(Some(value)),
+            marker,
+            seen: false,
+        }
+    }
+
     pub fn error(error: Error, marker: &'static str) -> Self {
         Self {
             state: StateInner::Err(error),

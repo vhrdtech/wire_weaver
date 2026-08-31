@@ -37,10 +37,10 @@ impl Introspect {
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<ApiBundleOwned> {
-        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs)? {
+        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
             return Ok(bundle);
         }
-        debug!("not found in cache, downloading from device...");
+        self.cache_miss_msg();
         let bundle = self.download().await?;
 
         Ok(bundle)
@@ -53,10 +53,10 @@ impl Introspect {
     ///
     /// See also: [Introspect::download_blocking]
     pub fn get_blocking(self) -> Result<ApiBundleOwned> {
-        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs)? {
+        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
             return Ok(bundle);
         }
-        debug!("not found in cache, downloading from device...");
+        self.cache_miss_msg();
         let bundle = self.download_blocking()?;
 
         Ok(bundle)
@@ -97,18 +97,26 @@ impl Introspect {
 
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn download_promise(self) -> Promise<ApiBundleOwned> {
+        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
+            return Promise::done(bundle, "introspect");
+        }
+        self.cache_miss_msg();
         Promise::new_introspect(self.transport_cmd_tx, "introspect")
+    }
+
+    fn cache_miss_msg(&self) {
+        debug!("not found in cache, downloading from device...");
     }
 }
 
-fn get_from_cache(no_docs: &ApiHash, with_docs: &ApiHash) -> Result<Option<ApiBundleOwned>> {
+fn get_from_cache(no_docs: &ApiHash, with_docs: &ApiHash) -> Option<ApiBundleOwned> {
     match get_from_cache_inner(no_docs, with_docs) {
-        Ok(Some(bundle)) => Ok(Some(bundle)),
+        Ok(Some(bundle)) => Some(bundle),
         Err(e) => {
             warn!("Failed to read API bundle from cache: {e:?}");
-            Ok(None)
+            None
         }
-        Ok(None) => Ok(None),
+        Ok(None) => None,
     }
 }
 
@@ -118,7 +126,6 @@ fn get_from_cache_inner(no_docs: &ApiHash, with_docs: &ApiHash) -> Result<Option
     } else {
         format!("{}+docs.ron", with_docs.to_string())
     };
-    debug!("{hash}");
     let local_registry_path = std::env::home_dir()
         .ok_or(anyhow!("no home directory"))?
         .join(".wire_weaver");
@@ -134,7 +141,6 @@ fn get_from_cache_inner(no_docs: &ApiHash, with_docs: &ApiHash) -> Result<Option
             debug!("got API bundle from cache");
             return Ok(Some(api_bundle));
         }
-        debug!("{entry:?}");
     }
     Ok(None)
 }

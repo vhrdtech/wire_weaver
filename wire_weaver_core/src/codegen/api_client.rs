@@ -2,7 +2,7 @@
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
 use crate::codegen::api_common::args_structs;
 use crate::codegen::index_chain::IndexChain;
-use crate::codegen::server::introspect::introspect_prepare;
+use crate::codegen::server::introspect::{IntrospectTs, introspect_prepare};
 use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
@@ -602,121 +602,48 @@ fn ser_args(
     }
 }
 
-// fn connect_fn(is_async: bool, api_bundle: &ApiBundleOwned) -> TokenStream {
-//     let maybe_async = maybe_quote(is_async, quote! { async });
-//     let maybe_await = maybe_quote(is_async, quote! { .await });
-//     let fn_name = if is_async {
-//         quote! { connect }
-//     } else {
-//         quote! { connect_blocking }
-//     };
-//     let api_crate_name = api_bundle.root.crate_name(api_bundle).unwrap();
-//     let trait_name = api_bundle.root.trait_name.to_case(Case::Constant);
-//     let full_gid_const = format!("{trait_name}_FULL_GID");
-//     let full_gid_const = Ident::new(&full_gid_const, Span::call_site());
-//     let api_crate_name = Ident::new(api_crate_name, Span::call_site());
-//     let raw_connect_fn = if is_async {
-//         quote! { connect_raw }
-//     } else {
-//         quote! { connect_raw_blocking }
-//     };
-//     quote! {
-//         pub #maybe_async fn #fn_name(
-//                 filter: wire_weaver_client::DeviceFilter,
-//                 config: wire_weaver_client::ClientConfig,
-//         ) -> Result<Self, wire_weaver_client::Error> {
-//             Self::#raw_connect_fn(
-//                 filter,
-//                 #api_crate_name::#full_gid_const,
-//                 config.on_error,
-//                 std::time::Duration::from_secs(1),
-//                 Some(config.cmd_queue_size),
-//             )
-//             #maybe_await
-//         }
-//     }
-// }
-
-// fn usb_connect_fn(is_async: bool) -> TokenStream {
-//     let maybe_async = maybe_quote(is_async, quote! { async });
-//     let maybe_await = maybe_quote(is_async, quote! { .await });
-//     let cmd_connect_fn = if is_async {
-//         quote! { connect }
-//     } else {
-//         quote! { connect_blocking }
-//     };
-//     let connect_fn = if is_async {
-//         quote! { connect_raw }
-//     } else {
-//         quote! { connect_raw_blocking }
-//     };
-//     quote! {
-//         pub #maybe_async fn #connect_fn(
-//             filter: wire_weaver_client::DeviceFilter,
-//             api_version: wire_weaver::ww_version::FullVersion<'static>,
-//             on_error: wire_weaver_client::OnError,
-//             local_timeout: std::time::Duration,
-//             cmd_queue_size: Option<usize>
-//         ) -> Result<Self, wire_weaver_client::Error> {
-//             use tokio::sync::mpsc;
-//             let (transport_cmd, transport_cmd_rx) = mpsc::channel(cmd_queue_size.unwrap_or(8192));
-//             let mut cmd = wire_weaver_client::Commander::new(transport_cmd);
-//             cmd.set_local_timeout(local_timeout);
-//             tokio::spawn(async move {
-//                 wire_weaver_usb_host::usb_worker(transport_cmd_rx).await;
-//             });
-//             cmd.#cmd_connect_fn(filter, api_version.into(), on_error)#maybe_await?;
-//             cmd.set_client_introspect_bytes(Self::introspect_bytes(), Self::api_signature());
-//             Ok(Self {
-//                 cmd,
-//             })
-//         }
-//     }
-// }
-
 fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
-    let (ww_self_bytes_const, api_signature_bytes) = introspect_prepare(api_bundle);
-    // let (usb_connect_fn_raw, usb_connect_blocking_raw) = if usb_connect {
-    //     (usb_connect_fn(true), usb_connect_fn(false))
-    // } else {
-    //     (quote! {}, quote! {})
-    // };
-    // let (connect_fn, connect_fn_blocking) = if usb_connect {
-    //     (connect_fn(true, api_bundle), connect_fn(false, api_bundle))
-    // } else {
-    //     (quote! {}, quote! {})
-    // };
+    let IntrospectTs {
+        introspect_bytes,
+        no_docs_hash,
+        with_docs_hash,
+    } = introspect_prepare(api_bundle, true);
     quote! {
         pub fn new() -> wire_weaver_client::PreparedConnection<Self> {
             let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect(Self::introspect_bytes(), Self::api_signature());
+            let config = config.introspect(Self::introspect_bytes(), Self::api_hash_no_docs(), Self::api_hash_with_docs());
             wire_weaver_client::PreparedConnection::new(config)
         }
 
         pub fn config<C: Fn(wire_weaver_client::ClientConfig) -> wire_weaver_client::ClientConfig>(c: C) -> wire_weaver_client::PreparedConnection<Self> {
             let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect(Self::introspect_bytes(), Self::api_signature());
+            let config = config.introspect(Self::introspect_bytes(), Self::api_hash_no_docs(), Self::api_hash_with_docs());
             let config = c(config);
             wire_weaver_client::PreparedConnection::new(config)
         }
 
         fn introspect_bytes() -> &'static [u8] {
-            const WW_SELF_BYTES: #ww_self_bytes_const;
+            const WW_SELF_BYTES: #introspect_bytes;
             &WW_SELF_BYTES
         }
 
-        fn api_signature() -> &'static [u8] {
-            const WW_API_SIGNATURE_BYTES: #api_signature_bytes;
-            &WW_API_SIGNATURE_BYTES
+        fn api_hash_no_docs() -> &'static [u8] {
+            const WW_API_HASH_NO_DOCS: #no_docs_hash;
+            &WW_API_HASH_NO_DOCS
+        }
+
+        fn api_hash_with_docs() -> &'static [u8] {
+            const WW_API_HASH_WITH_DOCS: #with_docs_hash;
+            &WW_API_HASH_WITH_DOCS
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub async fn disconnect(&mut self) -> Result<(), wire_weaver_client::Error> {
+        pub async fn disconnect(&self) -> Result<(), wire_weaver_client::Error> {
             self.cmd.disconnect().await
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub fn disconnect_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
+        pub fn disconnect_blocking(&self) -> Result<(), wire_weaver_client::Error> {
             self.cmd.disconnect_blocking()
         }
 

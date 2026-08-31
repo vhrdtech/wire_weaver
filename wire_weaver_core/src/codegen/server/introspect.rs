@@ -8,24 +8,32 @@ use ww_self::ApiBundleOwned;
 pub(crate) fn introspect(
     api_bundle: &ApiBundleOwned,
     enabled: bool,
+    include_docs: bool,
     use_async: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
     // let mut api_bundle_no_docs = api_bundle.clone();
     // visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
 
-    let (ww_self_bytes_const, api_signature) = introspect_prepare(api_bundle);
-    let api_signature = quote! { pub const WW_API_SIGNATURE: #api_signature; };
+    let IntrospectTs {
+        introspect_bytes,
+        no_docs_hash,
+        with_docs_hash,
+    } = introspect_prepare(api_bundle, include_docs);
+    let api_hash = quote! {
+        pub const WW_API_HASH_DOCS: #with_docs_hash;
+        pub const WW_API_HASH_NO_DOCS: #no_docs_hash;
+    };
     if !use_async {
         // TODO: sync variant of MessageSink
-        return (quote! {}, api_signature);
+        return (quote! {}, api_hash);
     }
     let es0 = error_seq.next();
     let es1 = error_seq.next();
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
-                pub const WW_SELF_BYTES: #ww_self_bytes_const;
+                pub const WW_SELF_BYTES: #introspect_bytes;
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
                     let event = Event {
                         seq: request.seq,
@@ -62,30 +70,89 @@ pub(crate) fn introspect(
             }
         }
     };
-    (handle_introspect, api_signature)
+    (handle_introspect, api_hash)
 }
 
-pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned) -> (TokenStream, TokenStream) {
+pub(crate) struct IntrospectTs {
+    pub(crate) introspect_bytes: TokenStream,
+    pub(crate) no_docs_hash: TokenStream,
+    pub(crate) with_docs_hash: TokenStream,
+}
+
+pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool) -> IntrospectTs {
+    let mut api_bundle_cloned = api_bundle.clone();
+    let mut contains_docs = ContainsDocs::default();
+    ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut contains_docs);
+
     let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
-    let bytes = api_bundle.to_ww_bytes(&mut scratch).unwrap();
-    let bytes_len = bytes.len();
-    let ww_self_bytes_const = quote! {
-        [u8; #bytes_len] = [ #(#bytes),* ]
-    };
+    let mut scratch2 = [0u8; 16_384]; // TODO: use Vec based BufWriter here
+    if contains_docs.contains {
+        ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut DropDocs {});
+        let api_no_docs = api_bundle_cloned;
+        let api_with_docs = api_bundle;
 
-    // TODO: calculate api signature properly
-    let sha256 = sha2::Sha256::digest(bytes);
-    let short_hash = &sha256[..8];
-    let api_signature = quote! { [u8; 8] = [ #(#short_hash),* ]};
-    crate::local_registry::cache_api_bundle(api_bundle, short_hash);
+        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false, &mut scratch);
+        let (with_docs_bytes, with_docs_hash) =
+            ser_hash_and_cache(api_with_docs, true, &mut scratch2);
 
-    (ww_self_bytes_const, api_signature)
+        let introspect_bytes = if include_docs {
+            bytes_to_ts(with_docs_bytes)
+        } else {
+            bytes_to_ts(no_docs_bytes)
+        };
+        IntrospectTs {
+            introspect_bytes,
+            no_docs_hash,
+            with_docs_hash,
+        }
+    } else {
+        let api_no_docs = api_bundle;
+        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false, &mut scratch);
+        IntrospectTs {
+            introspect_bytes: bytes_to_ts(no_docs_bytes),
+            no_docs_hash,
+            with_docs_hash: bytes_to_ts(&[]),
+        }
+    }
 }
 
-// struct DropDocs {}
-//
-// impl ww_self::visitor::VisitMut for DropDocs {
-//     fn visit_doc(&mut self, doc: &mut String) {
-//         *doc = String::new();
-//     }
-// }
+fn ser_hash_and_cache<'i>(
+    api_bundle: &ApiBundleOwned,
+    contains_docs: bool,
+    scratch: &'i mut [u8],
+) -> (&'i [u8], TokenStream) {
+    let api_bytes = api_bundle.to_ww_bytes(scratch).unwrap();
+    // TODO: calculate api signature properly?
+    let hash = sha2::Sha256::digest(api_bytes);
+    let hash = &hash[..8];
+    crate::local_registry::cache_api_bundle(api_bundle, contains_docs, hash);
+    (api_bytes, bytes_to_ts(hash))
+}
+
+fn bytes_to_ts(bytes: &[u8]) -> TokenStream {
+    let bytes_len = bytes.len();
+    quote! {
+        [u8; #bytes_len] = [ #(#bytes),* ]
+    }
+}
+
+struct DropDocs {}
+
+impl ww_self::visitor::VisitMut for DropDocs {
+    fn visit_doc(&mut self, docs: &mut Vec<String>) {
+        docs.clear();
+    }
+}
+
+#[derive(Default)]
+struct ContainsDocs {
+    contains: bool,
+}
+
+impl ww_self::visitor::VisitMut for ContainsDocs {
+    fn visit_doc(&mut self, docs: &mut Vec<String>) {
+        if !docs.is_empty() {
+            self.contains = true;
+        }
+    }
+}

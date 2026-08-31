@@ -6,8 +6,7 @@ mod tests {
     use tokio::sync::mpsc;
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
-    use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
-    use wire_weaver_client::{CommandSender, DeviceFilter, OnError, TypedStreamEvent};
+    use wire_weaver_client::{Commander, TypedStreamEvent};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -143,17 +142,27 @@ mod tests {
         }
     }
 
-    mod std_async_client {
-        use wire_weaver_client::CommandSender;
+    mod std_client {
+        use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
-        pub struct StdAsyncClient {
-            pub cmd_tx: CommandSender,
+        pub struct StdClient {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for StdClient {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn from_cmd(cmd: Commander) -> Self {
+                Self { cmd }
+            }
         }
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                streams_api :: Streams for super::StdAsyncClient,
-                client = "full_client",
+                streams_api :: Streams for super::StdClient,
+                client = "std_client",
                 // debug_to_file = "../../target/tests_streams_client.rs"
             );
         }
@@ -175,26 +184,18 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn std_async_client_driving_no_std_sync_server() {
         tracing_subscriber::fmt::init();
-        let (transport_cmd_tx, transport_cmd_rx) = mpsc::channel(128);
+        let (cmd_tx, cmd_rx) = mpsc::channel(128);
         let (notify_tx, _notify_rx) = mpsc::unbounded_channel::<usize>();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
 
         let data_clone = data.clone();
         let server = no_std_sync_server::NoStdSyncServer { data: data_clone };
         tokio::spawn(async move {
-            tests_common::test_event_loop(transport_cmd_rx, server, DummyTx {}).await;
+            tests_common::test_event_loop(cmd_rx, server, DummyTx {}).await;
         });
 
-        let mut cmd_tx = CommandSender::new(transport_cmd_tx);
-        cmd_tx
-            .connect(
-                DeviceFilter::vhrd_usb_can(),
-                FullVersionOwned::new("test".into(), VersionOwned::new(0, 1, 0)),
-                OnError::ExitImmediately,
-            )
-            .await
-            .expect("connect");
-        let client = std_async_client::StdAsyncClient { cmd_tx };
+        let cmd = Commander::new(cmd_tx);
+        let client = std_client::StdClient { cmd };
         tokio::time::sleep(Duration::from_millis(10)).await;
 
         let mut rx = client.plain_stream().await.expect("successful stream open");

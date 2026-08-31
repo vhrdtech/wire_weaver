@@ -419,7 +419,8 @@ where
             link_version,
             api_model_version,
             user_api_version,
-            user_api_signature,
+            api_hash_no_docs,
+            api_hash_with_docs,
             packet_accumulation_time_us,
         }) => {
             let connected_device_info = DeviceApiInfo {
@@ -441,7 +442,8 @@ where
                     ),
                 ),
                 user_api_version,
-                user_api_signature: user_api_signature.into(),
+                user_api_hash_no_docs: api_hash_no_docs.into(),
+                user_api_hash_with_docs: api_hash_with_docs.into(),
             };
             info!(
                 "Connected device: {connected_device_info:?}, acc_window = {}us",

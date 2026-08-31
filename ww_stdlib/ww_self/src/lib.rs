@@ -40,6 +40,8 @@ pub struct ApiBundle<'i> {
     pub traits: RefVec<'i, ApiLevelLocation<'i>>,
     /// Deduplicated array of all external dependencies, referred to by [TypeDefinitionSource::GlobalFull].
     pub ext_crates: RefVec<'i, FullVersion<'i>>,
+    // Hash of ApiBundle with docs present (for a bundle with no docs) and vice versa.
+    // pub toggle_doc_hash: ApiHash<'i>,
 }
 
 #[derive_shrink_wrap]
@@ -337,3 +339,12 @@ pub enum Fields<'i> {
     Unnamed(RefVec<'i, Field<'i>>),
     Unit,
 }
+
+// #[derive_shrink_wrap]
+// #[final_structure]
+// #[derive(Clone, Debug)]
+// #[owned = "std"]
+// #[serde = "serde"]
+// pub struct ApiHash<'i> {
+//     pub bytes: RefVec<'i, u8>,
+// }

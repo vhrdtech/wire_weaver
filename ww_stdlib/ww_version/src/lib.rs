@@ -352,6 +352,13 @@ impl FullVersionOwned {
             version: self.version.as_ref(),
         }
     }
+
+    pub fn filename_friendly(&self) -> String {
+        format!(
+            "{}_{}_{}_{}",
+            self.crate_id, self.version.major.0, self.version.minor.0, self.version.patch.0
+        )
+    }
 }
 
 #[cfg(test)]

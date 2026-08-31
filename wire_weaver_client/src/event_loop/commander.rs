@@ -2,8 +2,8 @@ use crate::Error;
 use crate::Introspect;
 use crate::PreparedCall;
 use crate::Stream;
+use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
-use crate::device_info::UserApiSignature;
 use crate::event_loop::command::Command;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
@@ -17,7 +17,6 @@ use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
-use ww_self::ApiBundleOwned;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 // TODO: in tests dispatcher command can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
@@ -42,7 +41,8 @@ pub struct Commander {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     default_timeout: Duration,
     pub(crate) connected_device: DeviceApiInfo,
-    inrtospect: Option<(Box<ApiBundleOwned>, UserApiSignature)>,
+    /// Client API and types, client signature
+    client_introspect: Option<IntrospectBundle>,
 }
 
 pub(crate) struct TransportCommander {
@@ -58,7 +58,7 @@ impl Commander {
             gid_map: HashMap::new(),
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             connected_device: DeviceApiInfo::empty(),
-            inrtospect: None,
+            client_introspect: None,
         }
     }
 
@@ -68,49 +68,6 @@ impl Commander {
     pub fn set_local_timeout(&mut self, timeout: Duration) {
         self.default_timeout = timeout;
     }
-
-    // pub async fn connect(
-    //     &mut self,
-    //     filter: DeviceFilter,
-    //     user_protocol_version: FullVersionOwned,
-    //     on_error: OnError,
-    // ) -> Result<(), Error> {
-    //     let (connected_tx, connected_rx) = oneshot::channel();
-    //     self.transport_cmd_tx
-    //         .send(Command::Connect {
-    //             filter: Box::new(filter),
-    //             client_version: Box::new(user_protocol_version),
-    //             on_error,
-    //             connected_tx: Some(connected_tx),
-    //         })
-    //         .await
-    //         .map_err(|_| Error::EventLoopNotRunning)?;
-    //     let connection_result = connected_rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-    //     self.connected_device = connection_result?;
-    //     Ok(())
-    // }
-
-    // pub fn connect_blocking(
-    //     &mut self,
-    //     filter: DeviceFilter,
-    //     user_protocol_version: FullVersionOwned,
-    //     on_error: OnError,
-    // ) -> Result<(), Error> {
-    //     let (connected_tx, connected_rx) = oneshot::channel();
-    //     self.transport_cmd_tx
-    //         .blocking_send(Command::Connect {
-    //             filter: Box::new(filter),
-    //             client_version: Box::new(user_protocol_version),
-    //             on_error,
-    //             connected_tx: Some(connected_tx),
-    //         })
-    //         .map_err(|_| Error::EventLoopNotRunning)?;
-    //     let connection_result = connected_rx
-    //         .blocking_recv()
-    //         .map_err(|_| Error::EventLoopNotRunning)?;
-    //     self.connected_device = connection_result?;
-    //     Ok(())
-    // }
 
     pub async fn send(&self, command: Command) -> Result<(), Error> {
         // TODO: Add command tx limit?
@@ -318,10 +275,11 @@ impl Commander {
     }
 
     pub fn introspect(&self) -> Introspect {
-        Introspect::new(TransportCommander::new(
-            self.transport_cmd_tx.clone(),
-            self.default_timeout,
-        ))
+        Introspect::new(
+            TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout),
+            self.connected_device.user_api_hash_no_docs.clone(),
+            self.connected_device.user_api_hash_with_docs.clone(),
+        )
     }
 
     pub fn base_path(&self) -> Option<&Vec<UNib32>> {
@@ -336,12 +294,8 @@ impl Commander {
         &self.connected_device
     }
 
-    pub(crate) fn set_introspect_data(
-        &mut self,
-        api_bundle: Box<ApiBundleOwned>,
-        signature: UserApiSignature,
-    ) {
-        self.inrtospect = Some((api_bundle, signature));
+    pub(crate) fn set_introspect_bundle(&mut self, introspect_bundle: IntrospectBundle) {
+        self.client_introspect = Some(introspect_bundle);
     }
 
     // pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
@@ -351,13 +305,9 @@ impl Commander {
     //     ));
     // }
 
-    // pub fn print_version_report(&self) {
-    //     let Some((_api_bundle, api_signature)) = &self.client_api else {
-    //         println!("No client introspect data available");
-    //         return;
-    //     };
-    //     println!("Client api signature: {}", hex::encode(api_signature));
-    // }
+    pub fn device_api_info(&self) -> &DeviceApiInfo {
+        &self.connected_device
+    }
 
     fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {

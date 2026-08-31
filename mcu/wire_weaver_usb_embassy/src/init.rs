@@ -84,7 +84,8 @@ pub fn usb_init<
     state: B,
     timings: UsbTimings,
     user_api_version: FullVersion<'static>,
-    user_api_signature: &'static [u8],
+    user_api_hash_no_docs: &'static [u8],
+    user_api_hash_with_docs: &'static [u8],
     api_model_version: CompactVersion,
     config_mut: C,
 ) -> (
@@ -138,7 +139,8 @@ pub fn usb_init<
     let (tx, rx) = ww.split(); // TODO: do not split?
     let link = WireWeaverUsbLink::new_device(
         user_api_version,
-        user_api_signature,
+        user_api_hash_no_docs,
+        user_api_hash_with_docs,
         api_model_version,
         timings.packet_accumulation_time.as_micros() as u16,
         tx,

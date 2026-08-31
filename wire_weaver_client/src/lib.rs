@@ -8,6 +8,7 @@ pub(crate) mod event_loop;
 mod tracing;
 
 pub use client::attachment::Attachment;
+pub use client::dyn_client::DynClient;
 pub use client::introspect::Introspect;
 pub use client::multi_read::MultiRead;
 pub use client::prepared_call::PreparedCall;
@@ -35,7 +36,7 @@ pub use ww_version;
 
 pub mod internal {
     pub use crate::device_info::ConnectionInfo;
-    pub use crate::event_loop::command::Command;
+    pub use crate::event_loop::command::{Command, TestProgress};
 }
 
 pub trait WwClient {

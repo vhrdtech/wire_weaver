@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
-use wire_weaver_core::codegen::api_server::GenServerConfigRaw;
+use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, IntrospectMode};
 use wire_weaver_core::load_dep;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
@@ -61,6 +61,17 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
 
     // generate server code if requested
     if args.ext.server {
+        let introspect_mode = match args.ext.introspect.as_str() {
+            "disabled" => IntrospectMode::Disabled,
+            "" => IntrospectMode::Disabled,
+            "no_docs" => IntrospectMode::NoDocs,
+            "with_docs" => IntrospectMode::WithDocs,
+            u => {
+                return Err(format!(
+                    "Unknown introspect mode '{u}', supported: \"disabled\" or \"\", \"no_docs\" and \"with_docs\""
+                ));
+            }
+        };
         let ts = gen_server(
             &api_bundle,
             GenServerConfigRaw {
@@ -69,7 +80,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 method_model,
                 property_model,
                 server_struct_path: args.context_ident.clone(),
-                generate_introspect: args.ext.introspect,
+                introspect_mode,
                 multi_req: args.ext.multi_req,
             },
         );

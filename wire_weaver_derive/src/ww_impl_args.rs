@@ -36,7 +36,7 @@ pub(crate) struct ImplExtArgs {
     pub(crate) debug_to_file: String,
 
     #[darling(default)]
-    pub(crate) introspect: bool,
+    pub(crate) introspect: String,
 
     #[darling(default)]
     pub(crate) multi_req: bool,

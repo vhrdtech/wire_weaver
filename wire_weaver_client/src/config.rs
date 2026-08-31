@@ -1,4 +1,4 @@
-use std::{net::IpAddr, time::Duration};
+use std::{net::IpAddr, sync::Arc, time::Duration};
 
 use anyhow::{Result, bail};
 use semver::VersionReq;
@@ -7,7 +7,7 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_version::{FullVersionOwned, VersionOwned};
 
-use crate::device_info::UserApiSignature;
+use crate::device_info::ApiHash;
 
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
@@ -29,7 +29,7 @@ pub struct ClientConfig {
     pieces: Vec<ConfigPiece>,
     priority: String,
     cmd_queue_size: Option<usize>,
-    introspect: Option<(Vec<u8>, UserApiSignature)>,
+    introspect: Option<(Vec<u8>, ApiHash, ApiHash)>,
     default_timeout: Option<Duration>,
     client_version: Option<Box<FullVersionOwned>>,
 }
@@ -40,7 +40,14 @@ pub(crate) struct ValidatedConfig {
     pub(crate) cmd_queue_size: usize,
     pub(crate) default_timeout: Duration,
     pub(crate) client_version: Box<FullVersionOwned>,
-    pub(crate) introspect: Option<(Box<ApiBundleOwned>, UserApiSignature)>,
+    pub(crate) introspect: Option<IntrospectBundle>,
+}
+
+#[derive(Clone)]
+pub(crate) struct IntrospectBundle {
+    pub(crate) api_bundle: Arc<ApiBundleOwned>,
+    pub(crate) hash_no_docs: ApiHash,
+    pub(crate) hash_with_docs: ApiHash,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -143,9 +150,13 @@ impl ClientConfig {
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
         // s.canonicalize();
-        let introspect = if let Some((ww_self_bytes, signature)) = s.introspect {
+        let introspect = if let Some((ww_self_bytes, hash_no_docs, hash_with_docs)) = s.introspect {
             let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
-            Some((Box::new(api_bundle), signature))
+            Some(IntrospectBundle {
+                api_bundle: Arc::new(api_bundle),
+                hash_no_docs,
+                hash_with_docs,
+            })
         } else {
             None
         };
@@ -210,9 +221,18 @@ impl ClientConfig {
         f
     }
 
-    pub fn introspect(self, signature: &[u8], ww_self_bytes: &[u8]) -> Self {
+    pub fn introspect(
+        self,
+        ww_self_bytes: &[u8],
+        hash_no_docs: &[u8],
+        hash_with_docs: &[u8],
+    ) -> Self {
         let mut c = self;
-        c.introspect = Some((ww_self_bytes.to_vec(), UserApiSignature(signature.to_vec())));
+        c.introspect = Some((
+            ww_self_bytes.to_vec(),
+            ApiHash(hash_no_docs.to_vec()),
+            ApiHash(hash_with_docs.to_vec()),
+        ));
         c
     }
 

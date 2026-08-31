@@ -156,8 +156,8 @@ fn create_commander(
     let mut commander = Commander::new(cmd_tx);
     commander.set_local_timeout(config.default_timeout);
     commander.connected_device = device_api_info;
-    if let Some((api_bundle, signature)) = config.introspect {
-        commander.set_introspect_data(api_bundle, signature);
+    if let Some(introspect_bundle) = config.introspect {
+        commander.set_introspect_bundle(introspect_bundle);
     }
     commander
 }

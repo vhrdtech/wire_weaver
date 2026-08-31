@@ -31,10 +31,16 @@ pub struct GenServerConfig {
     /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
     pub server_struct_path: String,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
-    pub generate_introspect: bool,
+    pub introspect_mode: IntrospectMode,
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
+}
+
+pub enum IntrospectMode {
+    Disabled,
+    NoDocs,
+    WithDocs,
 }
 
 /// API server code generation configuration.
@@ -53,7 +59,7 @@ pub struct GenServerConfigRaw {
     /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
     pub server_struct_path: Path,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
-    pub generate_introspect: bool,
+    pub introspect_mode: IntrospectMode,
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
@@ -67,7 +73,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             method_model: config.method_model,
             property_model: config.property_model,
             server_struct_path: super::util::str_to_path(&config.server_struct_path),
-            generate_introspect: config.generate_introspect,
+            introspect_mode: config.introspect_mode,
             multi_req: config.multi_req,
         }
     }
@@ -106,9 +112,15 @@ pub fn gen_server(
         property_model: &config.property_model,
         multi_req: config.multi_req,
     };
+    let (introspect_enabled, include_docs) = match config.introspect_mode {
+        IntrospectMode::Disabled => (false, false),
+        IntrospectMode::NoDocs => (true, false),
+        IntrospectMode::WithDocs => (true, true),
+    };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
-        config.generate_introspect,
+        introspect_enabled,
+        include_docs,
         cx.use_async,
         &mut error_seq,
     );

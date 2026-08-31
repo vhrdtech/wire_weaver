@@ -1,5 +1,5 @@
 use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
-use crate::{PacketSink, PacketSource, CRC_KIND};
+use crate::{CRC_KIND, PacketSink, PacketSource};
 use shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::MessageSink;
 
@@ -73,8 +73,11 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             },
             api_model_version: self.api_model_version,
             user_api_version: self.user_api_version_dev.clone(),
-            user_api_signature: shrink_wrap::RefVec::Slice {
-                slice: self.user_api_signature,
+            hash_no_docs: shrink_wrap::RefVec::Slice {
+                slice: self.hash_no_docs,
+            },
+            hash_with_docs: shrink_wrap::RefVec::Slice {
+                slice: self.hash_with_docs,
             },
             dev_max_message_len: max_message_size,
             packet_accumulation_time_us: self.packet_accumulation_time_us,

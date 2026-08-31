@@ -1,13 +1,17 @@
+use blinky::Blinky;
+use wire_weaver_client::{DynClient, WwClient};
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let filter = DeviceFilter::usb_vid_pid(0xc0de, 0xcafe);
-    let device =
-        wire_weaver_usb_host::util::connect_runtime_api(filter, Default::default()).await?;
-    device.print_version_report();
+    let device = DynClient::from_config(Blinky::default_config())
+        .connect()
+        .await?;
+    println!("{:?}", device.device_api_info());
 
-    let api_bundle = device.introspect().download().await?;
+    // can use .download to force download, .get will try local cache
+    let api_bundle = device.introspect().get().await?;
     println!("{:#?}", api_bundle);
 
     device.disconnect().await?;

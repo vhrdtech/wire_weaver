@@ -24,7 +24,7 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 regex = "1.12"
 relative-path = "2.0"
-ron = "0.12"
+ron.workspace = true
 semver.workspace = true
 sha2 = "0.11"
 shrink_wrap.workspace = true

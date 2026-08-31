@@ -16,11 +16,12 @@ strum_macros.workspace = true
 ww_version = { workspace = true, features = ["std"] }
 wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
 ww_client_server = { workspace = true, features = ["std"] }
-ww_self = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["std", "serde"] }
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 hex = "0.4"
 tracing = "0.1"
 cfg-if = "1"
+ron.workspace = true
 futures-lite = "2.6"
 either = "1"
 iceoryx2 = { version = "0.8", optional = true }

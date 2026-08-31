@@ -4,16 +4,20 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{error, info};
-use wire_weaver_usb_host::wire_weaver_client::{Command, CommandSender, TestProgress};
+use wire_weaver_client::{
+    DynClient,
+    internal::{Command, TestProgress},
+};
 
 pub(crate) async fn usb_loopback(
-    device: &mut CommandSender,
+    device: &DynClient,
     duration_sec: u32,
     packet_size: String,
 ) -> Result<()> {
     let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
     let packet_size = packet_size.parse::<usize>().ok();
     device
+        .cmd()
         .send(Command::LoopbackTest {
             test_duration: Duration::from_secs(duration_sec as u64),
             packet_size,

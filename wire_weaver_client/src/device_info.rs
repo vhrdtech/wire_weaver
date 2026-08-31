@@ -18,7 +18,7 @@ pub struct DeviceInfo {
 pub struct ApiInfo {
     pub gid: String,
     pub version: Version,
-    pub signature: UserApiSignature,
+    pub signature: ApiHash,
 }
 
 #[derive(Debug)]
@@ -36,12 +36,13 @@ pub struct DeviceApiInfo {
     pub api_model_version: FullVersionOwned,
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
-    pub user_api_signature: UserApiSignature,
+    pub user_api_hash_no_docs: ApiHash,
+    pub user_api_hash_with_docs: ApiHash,
 }
 
 /// First 8 bytes for SHA256 of ww_self bytes without doc comments
 #[derive(Clone, Default)]
-pub struct UserApiSignature(pub Vec<u8>);
+pub struct ApiHash(pub Vec<u8>);
 
 impl DeviceApiInfo {
     pub fn empty() -> Self {
@@ -50,20 +51,27 @@ impl DeviceApiInfo {
             max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            user_api_signature: Default::default(),
+            user_api_hash_no_docs: Default::default(),
+            user_api_hash_with_docs: Default::default(),
         }
     }
 }
 
-impl Debug for UserApiSignature {
+impl Debug for ApiHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", hex::encode(&self.0))
     }
 }
 
-impl From<Vec<u8>> for UserApiSignature {
+impl From<Vec<u8>> for ApiHash {
     fn from(hash: Vec<u8>) -> Self {
-        UserApiSignature(hash)
+        ApiHash(hash)
+    }
+}
+
+impl ApiHash {
+    pub fn to_string(&self) -> String {
+        hex::encode(&self.0)
     }
 }
 

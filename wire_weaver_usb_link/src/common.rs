@@ -18,7 +18,9 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     #[cfg(any(feature = "device", test))]
     pub(crate) user_api_version_dev: FullVersion<'static>,
     #[cfg(any(feature = "device", test))]
-    pub(crate) user_api_signature: &'static [u8],
+    pub(crate) hash_no_docs: &'static [u8],
+    #[cfg(any(feature = "device", test))]
+    pub(crate) hash_with_docs: &'static [u8],
     #[cfg(any(feature = "device", test))]
     pub(crate) api_model_version: CompactVersion,
     #[cfg(any(feature = "device", test))]
@@ -98,7 +100,9 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             #[cfg(any(feature = "device", test))]
             api_model_version: CompactVersion::new(ww_global::GlobalTypeId::new(0), 0, 0, 0),
             #[cfg(any(feature = "device", test))]
-            user_api_signature: b"",
+            hash_no_docs: b"",
+            #[cfg(any(feature = "device", test))]
+            hash_with_docs: b"",
             #[cfg(any(feature = "device", test))]
             packet_accumulation_time_us: 0,
 
@@ -122,7 +126,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     #[cfg(any(feature = "device", test))]
     pub fn new_device(
         user_api_version: FullVersion<'static>,
-        user_api_signature: &'static [u8],
+        hash_no_docs: &'static [u8],
+        hash_with_docs: &'static [u8],
         api_model_version: CompactVersion,
         packet_accumulation_time_us: u16,
         tx: T,
@@ -138,7 +143,8 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             user_api_version_host: user_api_version.make_owned(),
 
             api_model_version,
-            user_api_signature,
+            hash_no_docs,
+            hash_with_docs,
             packet_accumulation_time_us,
 
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
@@ -276,7 +282,9 @@ struct DeviceInfo<'i> {
     /// User API and data types version on the device side
     user_api_version: FullVersion<'i>,
     /// First 8 bytes for SHA256 of ww_self bytes without doc comments
-    user_api_signature: RefVec<'i, u8>,
+    hash_no_docs: RefVec<'i, u8>,
+    /// First 8 bytes for SHA256 of ww_self bytes with doc comments or empty if no docs
+    hash_with_docs: RefVec<'i, u8>,
     /// Maximum length message that device can process
     dev_max_message_len: u32,
     /// Configures host side to use the same value

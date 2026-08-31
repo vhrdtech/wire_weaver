@@ -62,7 +62,7 @@ mod server_impl {
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        introspect = true,
+        introspect = "with_docs",
         debug_to_file = "./target/generated_blinky_server.rs"
     );
 }
@@ -127,7 +127,8 @@ async fn main(spawner: embassy_executor::Spawner) {
         UsbTimings::fs_higher_speed(),
         // UsbTimings::fs_lower_latency(),
         blinky_api::BLINKY_API_FULL_GID,
-        &server_impl::WW_API_SIGNATURE,
+        &server_impl::WW_API_HASH_NO_DOCS,
+        &server_impl::WW_API_HASH_DOCS,
         ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());

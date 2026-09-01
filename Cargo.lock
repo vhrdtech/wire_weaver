@@ -3084,6 +3084,7 @@ name = "ww_version"
 version = "0.1.1"
 dependencies = [
  "defmt",
+ "hex",
  "hex-literal",
  "semver",
  "serde",

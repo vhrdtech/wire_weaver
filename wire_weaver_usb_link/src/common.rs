@@ -2,7 +2,7 @@ use crate::{MIN_MESSAGE_SIZE, ReceiverStats, SenderStats};
 use shrink_wrap::ww_repr;
 use strum_macros::FromRepr;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::CompactVersion;
+use wire_weaver::ww_version::{ApiHashPair, CompactVersion};
 
 // Packs and unpacks messages to/from one or more USB packets.
 // Message size is only limited by remote end buffer size (and u32::MAX, which is unlikely to be the case).
@@ -18,9 +18,7 @@ pub struct WireWeaverUsbLink<'i, T, R> {
     #[cfg(any(feature = "device", test))]
     pub(crate) user_api_version_dev: FullVersion<'static>,
     #[cfg(any(feature = "device", test))]
-    pub(crate) hash_no_docs: &'static [u8],
-    #[cfg(any(feature = "device", test))]
-    pub(crate) hash_with_docs: &'static [u8],
+    pub(crate) user_api_hash: ApiHashPair<'static>,
     #[cfg(any(feature = "device", test))]
     pub(crate) api_model_version: CompactVersion,
     #[cfg(any(feature = "device", test))]
@@ -100,9 +98,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             #[cfg(any(feature = "device", test))]
             api_model_version: CompactVersion::new(ww_global::GlobalTypeId::new(0), 0, 0, 0),
             #[cfg(any(feature = "device", test))]
-            hash_no_docs: b"",
-            #[cfg(any(feature = "device", test))]
-            hash_with_docs: b"",
+            user_api_hash: ApiHashPair::empty(),
             #[cfg(any(feature = "device", test))]
             packet_accumulation_time_us: 0,
 
@@ -126,8 +122,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
     #[cfg(any(feature = "device", test))]
     pub fn new_device(
         user_api_version: FullVersion<'static>,
-        hash_no_docs: &'static [u8],
-        hash_with_docs: &'static [u8],
+        user_api_hash: ApiHashPair<'static>,
         api_model_version: CompactVersion,
         packet_accumulation_time_us: u16,
         tx: T,
@@ -143,8 +138,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             user_api_version_host: user_api_version.make_owned(),
 
             api_model_version,
-            hash_no_docs,
-            hash_with_docs,
+            user_api_hash,
             packet_accumulation_time_us,
 
             remote_max_message_size: MIN_MESSAGE_SIZE as u32,
@@ -282,9 +276,7 @@ struct DeviceInfo<'i> {
     /// User API and data types version on the device side
     user_api_version: FullVersion<'i>,
     /// First 8 bytes for SHA256 of ww_self bytes without doc comments
-    hash_no_docs: RefVec<'i, u8>,
-    /// First 8 bytes for SHA256 of ww_self bytes with doc comments or empty if no docs
-    hash_with_docs: RefVec<'i, u8>,
+    hash: ApiHashPair<'i>,
     /// Maximum length message that device can process
     dev_max_message_len: u32,
     /// Configures host side to use the same value

@@ -611,13 +611,13 @@ fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
     quote! {
         pub fn new() -> wire_weaver_client::PreparedConnection<Self> {
             let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect(Self::introspect_bytes(), Self::api_hash_no_docs(), Self::api_hash_with_docs());
+            let config = config.introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned());
             wire_weaver_client::PreparedConnection::new(config)
         }
 
         pub fn config<C: Fn(wire_weaver_client::ClientConfig) -> wire_weaver_client::ClientConfig>(c: C) -> wire_weaver_client::PreparedConnection<Self> {
             let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect(Self::introspect_bytes(), Self::api_hash_no_docs(), Self::api_hash_with_docs());
+            let config = config.introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned());
             let config = c(config);
             wire_weaver_client::PreparedConnection::new(config)
         }
@@ -627,14 +627,14 @@ fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
             &WW_SELF_BYTES
         }
 
-        fn api_hash_no_docs() -> &'static [u8] {
+        fn api_hash() -> wire_weaver::ww_version::ApiHashPair<'static> {
             const WW_API_HASH_NO_DOCS: #no_docs_hash;
-            &WW_API_HASH_NO_DOCS
-        }
-
-        fn api_hash_with_docs() -> &'static [u8] {
             const WW_API_HASH_WITH_DOCS: #with_docs_hash;
-            &WW_API_HASH_WITH_DOCS
+            use wire_weaver::ww_version::ApiHash;
+            wire_weaver::ww_version::ApiHashPair {
+                no_docs: ApiHash::new(&WW_API_HASH_NO_DOCS),
+                with_docs: ApiHash::new(&WW_API_HASH_WITH_DOCS),
+            }
         }
 
         /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.

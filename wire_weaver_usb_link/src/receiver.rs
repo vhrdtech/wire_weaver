@@ -36,8 +36,7 @@ pub enum MessageKind {
         link_version: wire_weaver::ww_version::CompactVersion,
         api_model_version: wire_weaver::ww_version::CompactVersion,
         user_api_version: wire_weaver::ww_version::FullVersionOwned,
-        api_hash_no_docs: Vec<u8>,
-        api_hash_with_docs: Vec<u8>,
+        api_hash: wire_weaver::ww_version::ApiHashPairOwned,
         packet_accumulation_time_us: u16,
     },
     Disconnect(DisconnectReason),
@@ -218,8 +217,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                         let link_version = device_info.dev_link_version;
                         let api_model_version = device_info.api_model_version;
                         let user_api_version = device_info.user_api_version.make_owned();
-                        let api_hash_no_docs = device_info.hash_no_docs.to_vec();
-                        let api_hash_with_docs = device_info.hash_with_docs.to_vec();
+                        let api_hash = device_info.hash.make_owned();
                         let packet_accumulation_time_us = device_info.packet_accumulation_time_us;
                         self.continue_with_new_packet();
                         return Ok(MessageKind::DeviceInfo {
@@ -227,8 +225,7 @@ impl<T: PacketSink, R: PacketSource> WireWeaverUsbLink<'_, T, R> {
                             link_version,
                             api_model_version,
                             user_api_version,
-                            api_hash_no_docs,
-                            api_hash_with_docs,
+                            api_hash,
                             packet_accumulation_time_us,
                         });
                     }

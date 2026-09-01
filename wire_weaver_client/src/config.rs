@@ -5,9 +5,7 @@ use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
-use ww_version::{FullVersionOwned, VersionOwned};
-
-use crate::device_info::ApiHash;
+use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
@@ -29,25 +27,25 @@ pub struct ClientConfig {
     pieces: Vec<ConfigPiece>,
     priority: String,
     cmd_queue_size: Option<usize>,
-    introspect: Option<(Vec<u8>, ApiHash, ApiHash)>,
+    introspect_client: Option<(Vec<u8>, ApiHashPairOwned)>,
     default_timeout: Option<Duration>,
     client_version: Option<Box<FullVersionOwned>>,
 }
 
 pub(crate) struct ValidatedConfig {
     pub(crate) pieces: Vec<ConfigPiece>,
+    #[allow(dead_code)] // TODO: implement connection priority
     priority: Vec<InterfaceKind>,
     pub(crate) cmd_queue_size: usize,
     pub(crate) default_timeout: Duration,
     pub(crate) client_version: Box<FullVersionOwned>,
-    pub(crate) introspect: Option<IntrospectBundle>,
+    pub(crate) introspect_client: Option<IntrospectBundle>,
 }
 
-#[derive(Clone)]
-pub(crate) struct IntrospectBundle {
-    pub(crate) api_bundle: Arc<ApiBundleOwned>,
-    pub(crate) hash_no_docs: ApiHash,
-    pub(crate) hash_with_docs: ApiHash,
+#[derive(Clone, Debug)]
+pub struct IntrospectBundle {
+    pub api_bundle: Arc<ApiBundleOwned>,
+    pub api_hash: ApiHashPairOwned,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -57,10 +55,10 @@ pub(crate) enum InterfaceKind {
     Udp,
     Ipc,
     InProcess,
-    Can,
-    Uart,
-    I2c,
-    Rtt,
+    // Can,
+    // Uart,
+    // I2c,
+    // Rtt,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumDiscriminants)]
@@ -93,16 +91,21 @@ pub(crate) enum ConfigPiece {
     NoUdp,
 
     /// Connect to a device running in another process via IPC interface (iceoryx2).
+    /// Can be used for testing purposes or to create virtual devices.
+    IpcPath { path: String },
+    /// Connect to a device running in another process via IPC interface (iceoryx2).
+    /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
     /// Server claims USB interface, clients connect to it via ipc or network.
-    /// Can also be used for testing purposes or to create virtual devices.
+    UsbOverIpc,
+    /// Consider IPC as a connection interface.
     Ipc,
     /// Negate previous IPC related filters or exclude IPC from the interfaces to try.
     NoIpc,
 
     /// Connec to a device running in the same process via lock-free channel.
     /// Can be used for testing purposes or to create virtual devices.
-    InProcess,
+    InProcessPath { path: String },
     /// Negate previous InProcess related filters or exclude InProcess from the interfaces to try.
     NoInProcess,
 
@@ -150,12 +153,11 @@ impl ClientConfig {
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
         // s.canonicalize();
-        let introspect = if let Some((ww_self_bytes, hash_no_docs, hash_with_docs)) = s.introspect {
+        let introspect_client = if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
             let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
             Some(IntrospectBundle {
                 api_bundle: Arc::new(api_bundle),
-                hash_no_docs,
-                hash_with_docs,
+                api_hash,
             })
         } else {
             None
@@ -175,7 +177,7 @@ impl ClientConfig {
             cmd_queue_size,
             default_timeout: s.default_timeout.unwrap_or(crate::DEFAULT_REQUEST_TIMEOUT),
             client_version,
-            introspect,
+            introspect_client,
         })
     }
 
@@ -221,18 +223,9 @@ impl ClientConfig {
         f
     }
 
-    pub fn introspect(
-        self,
-        ww_self_bytes: &[u8],
-        hash_no_docs: &[u8],
-        hash_with_docs: &[u8],
-    ) -> Self {
+    pub fn introspect_client(self, ww_self_bytes: &[u8], api_hash: ApiHashPairOwned) -> Self {
         let mut c = self;
-        c.introspect = Some((
-            ww_self_bytes.to_vec(),
-            ApiHash(hash_no_docs.to_vec()),
-            ApiHash(hash_with_docs.to_vec()),
-        ));
+        c.introspect_client = Some((ww_self_bytes.to_vec(), api_hash));
         c
     }
 
@@ -296,6 +289,18 @@ impl ValidatedConfig {
         let mut interfaces = vec![];
         if self.is_usb() {
             interfaces.push(InterfaceKind::Usb);
+        }
+        if self.is_websocket() {
+            interfaces.push(InterfaceKind::WebSocket);
+        }
+        if self.is_udp() {
+            interfaces.push(InterfaceKind::Udp);
+        }
+        if self.is_ipc() {
+            interfaces.push(InterfaceKind::Ipc);
+        }
+        if self.is_in_process() {
+            interfaces.push(InterfaceKind::InProcess);
         }
         // TODO: sort by priority
         interfaces

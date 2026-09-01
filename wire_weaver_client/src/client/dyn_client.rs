@@ -1,5 +1,6 @@
 use crate::{
-    ClientConfig, Commander, DeviceApiInfo, Error, Introspect, PreparedConnection, WwClient,
+    ClientConfig, Commander, DeviceApiInfo, Error, PreparedConnection, WwClient,
+    config::IntrospectBundle,
 };
 
 /// Dynamic client that can work with any device.
@@ -33,8 +34,12 @@ impl DynClient {
         &self.cmd
     }
 
-    pub fn introspect(&self) -> Introspect {
-        self.cmd.introspect()
+    pub fn client_introspect(&self) -> Option<&IntrospectBundle> {
+        self.cmd.client_introspect()
+    }
+
+    pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
+        self.cmd.device_introspect()
     }
 
     /// Get information about the connected device (API version, link version, max messages size, etc.)
@@ -52,3 +57,10 @@ impl DynClient {
         self.cmd.disconnect_blocking()
     }
 }
+
+// this will panic due to trying to block a runtime thread
+// impl Drop for DynClient {
+//     fn drop(&mut self) {
+//         _ = self.disconnect_blocking();
+//     }
+// }

@@ -5,7 +5,7 @@ use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_usb::driver::Driver;
 use embassy_usb::{Builder, Config, UsbDevice};
 use wire_weaver::{
-    ww_version::{CompactVersion, FullVersion},
+    ww_version::{ApiHashPair, CompactVersion, FullVersion},
     WireWeaverAsyncApiBackend,
 };
 use wire_weaver_usb_link::WireWeaverUsbLink;
@@ -84,8 +84,7 @@ pub fn usb_init<
     state: B,
     timings: UsbTimings,
     user_api_version: FullVersion<'static>,
-    user_api_hash_no_docs: &'static [u8],
-    user_api_hash_with_docs: &'static [u8],
+    user_api_hash: ApiHashPair<'static>,
     api_model_version: CompactVersion,
     config_mut: C,
 ) -> (
@@ -139,8 +138,7 @@ pub fn usb_init<
     let (tx, rx) = ww.split(); // TODO: do not split?
     let link = WireWeaverUsbLink::new_device(
         user_api_version,
-        user_api_hash_no_docs,
-        user_api_hash_with_docs,
+        user_api_hash,
         api_model_version,
         timings.packet_accumulation_time.as_micros() as u16,
         tx,

@@ -339,12 +339,3 @@ pub enum Fields<'i> {
     Unnamed(RefVec<'i, Field<'i>>),
     Unit,
 }
-
-// #[derive_shrink_wrap]
-// #[final_structure]
-// #[derive(Clone, Debug)]
-// #[owned = "std"]
-// #[serde = "serde"]
-// pub struct ApiHash<'i> {
-//     pub bytes: RefVec<'i, u8>,
-// }

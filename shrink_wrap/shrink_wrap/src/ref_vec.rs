@@ -8,7 +8,7 @@ use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkW
 ///
 /// Generic overy any type `T` that implements [SerializeShrinkWrap] + [DeserializeShrinkWrap].
 /// Including other vectors, user defined structs with dynamic size, etc.
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
     Slice {

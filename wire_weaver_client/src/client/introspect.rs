@@ -2,31 +2,26 @@ use std::fs;
 
 use crate::Promise;
 use crate::Stream;
-use crate::device_info::ApiHash;
 use crate::event_loop::commander::TransportCommander;
+use anyhow::bail;
 use anyhow::{Result, anyhow};
 use tracing::debug;
 use tracing::warn;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 use ww_self::ApiBundleOwned;
+use ww_version::ApiHashPairOwned;
 
 pub struct Introspect {
     transport_cmd_tx: TransportCommander,
-    hash_no_docs: ApiHash,
-    hash_with_docs: ApiHash,
+    hash: ApiHashPairOwned,
 }
 
 impl Introspect {
-    pub(crate) fn new(
-        transport_cmd_tx: TransportCommander,
-        hash_no_docs: ApiHash,
-        hash_with_docs: ApiHash,
-    ) -> Self {
+    pub(crate) fn new(transport_cmd_tx: TransportCommander, hash: ApiHashPairOwned) -> Self {
         Introspect {
             transport_cmd_tx,
-            hash_no_docs,
-            hash_with_docs,
+            hash,
         }
     }
 
@@ -37,7 +32,7 @@ impl Introspect {
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<ApiBundleOwned> {
-        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
+        if let Some(bundle) = get_from_cache(&self.hash) {
             return Ok(bundle);
         }
         self.cache_miss_msg();
@@ -53,7 +48,7 @@ impl Introspect {
     ///
     /// See also: [Introspect::download_blocking]
     pub fn get_blocking(self) -> Result<ApiBundleOwned> {
-        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
+        if let Some(bundle) = get_from_cache(&self.hash) {
             return Ok(bundle);
         }
         self.cache_miss_msg();
@@ -75,6 +70,7 @@ impl Introspect {
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes().await?;
+        println!("got {} bytes", ww_self_bytes.len());
         let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
         Ok(api_bundle)
     }
@@ -97,7 +93,7 @@ impl Introspect {
 
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn download_promise(self) -> Promise<ApiBundleOwned> {
-        if let Some(bundle) = get_from_cache(&self.hash_no_docs, &self.hash_with_docs) {
+        if let Some(bundle) = get_from_cache(&self.hash) {
             return Promise::done(bundle, "introspect");
         }
         self.cache_miss_msg();
@@ -109,8 +105,8 @@ impl Introspect {
     }
 }
 
-fn get_from_cache(no_docs: &ApiHash, with_docs: &ApiHash) -> Option<ApiBundleOwned> {
-    match get_from_cache_inner(no_docs, with_docs) {
+fn get_from_cache(hash: &ApiHashPairOwned) -> Option<ApiBundleOwned> {
+    match get_from_cache_inner(hash) {
         Ok(Some(bundle)) => Some(bundle),
         Err(e) => {
             warn!("Failed to read API bundle from cache: {e:?}");
@@ -120,12 +116,16 @@ fn get_from_cache(no_docs: &ApiHash, with_docs: &ApiHash) -> Option<ApiBundleOwn
     }
 }
 
-fn get_from_cache_inner(no_docs: &ApiHash, with_docs: &ApiHash) -> Result<Option<ApiBundleOwned>> {
-    let hash = if with_docs.0.is_empty() {
-        format!("{}.ron", no_docs.to_string())
+fn get_from_cache_inner(hash: &ApiHashPairOwned) -> Result<Option<ApiBundleOwned>> {
+    if hash.no_docs.hash.is_empty() {
+        bail!("Empty hash, cannot lookup");
+    }
+    let hash = if hash.with_docs.hash.is_empty() {
+        format!("{}.ron", hash.no_docs.to_string())
     } else {
-        format!("{}+docs.ron", with_docs.to_string())
+        format!("{}+docs.ron", hash.with_docs.to_string())
     };
+
     let local_registry_path = std::env::home_dir()
         .ok_or(anyhow!("no home directory"))?
         .join(".wire_weaver");
@@ -138,7 +138,7 @@ fn get_from_cache_inner(no_docs: &ApiHash, with_docs: &ApiHash) -> Result<Option
         if file_name.contains(&hash) {
             let contents = fs::read_to_string(entry.path())?;
             let api_bundle: ApiBundleOwned = ron::from_str(&contents)?;
-            debug!("got API bundle from cache");
+            debug!("got API bundle from cache: {file_name}");
             return Ok(Some(api_bundle));
         }
     }

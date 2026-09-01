@@ -1,10 +1,10 @@
-use std::{any::Any, marker::PhantomData};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 #[cfg(feature = "usb")]
 use crate::config::InterfaceKind;
 use crate::{
     Commander, WwClient,
-    config::{ClientConfig, ValidatedConfig},
+    config::{ClientConfig, IntrospectBundle, ValidatedConfig},
     device_info::DeviceApiInfo,
     event_loop::command::Command,
 };
@@ -38,11 +38,9 @@ impl<T: WwClient> PreparedConnection<T> {
                     Ok(Some(h)) => {
                         match try_connect(&cmd_tx, h, config.client_version.clone()).await {
                             Ok(device_api_info) => {
-                                return Ok(T::from_cmd(create_commander(
-                                    config,
-                                    cmd_tx,
-                                    device_api_info,
-                                )));
+                                return Ok(T::from_cmd(
+                                    create_commander(config, cmd_tx, device_api_info).await,
+                                ));
                             }
                             Err(e) => {
                                 error!(
@@ -72,7 +70,7 @@ impl<T: WwClient> PreparedConnection<T> {
                     Ok(Some(h)) => {
                         match try_connect_blocking(&cmd_tx, h, config.client_version.clone()) {
                             Ok(device_api_info) => {
-                                return Ok(T::from_cmd(create_commander(
+                                return Ok(T::from_cmd(create_commander_blocking(
                                     config,
                                     cmd_tx,
                                     device_api_info,
@@ -148,16 +146,58 @@ fn try_connect_blocking(
     Ok(device_api_info)
 }
 
-fn create_commander(
+fn create_commander_inner(
     config: ValidatedConfig,
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,
 ) -> Commander {
     let mut commander = Commander::new(cmd_tx);
     commander.set_local_timeout(config.default_timeout);
+    if let Some(introspect_client) = config.introspect_client {
+        if introspect_client.api_hash.no_docs == device_api_info.user_api_hash.no_docs {
+            // connected device API is exactly the same as client, no need to download or look for cached one
+            commander.set_device_introspect(introspect_client.clone());
+        }
+        commander.set_client_introspect(introspect_client);
+    }
     commander.connected_device = device_api_info;
-    if let Some(introspect_bundle) = config.introspect {
-        commander.set_introspect_bundle(introspect_bundle);
+    commander
+}
+
+/// NOTE: keep in sync with [create_commander_blocking]
+async fn create_commander(
+    config: ValidatedConfig,
+    cmd_tx: mpsc::Sender<Command>,
+    device_api_info: DeviceApiInfo,
+) -> Commander {
+    let device_api_hash = device_api_info.user_api_hash.clone();
+    let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
+    if commander.device_introspect().is_none() {
+        if let Ok(api_bundle) = commander.introspect().get().await {
+            commander.set_device_introspect(IntrospectBundle {
+                api_bundle: Arc::new(api_bundle),
+                api_hash: device_api_hash,
+            });
+        }
+    }
+    commander
+}
+
+/// NOTE: keep in sync with [create_commander]
+fn create_commander_blocking(
+    config: ValidatedConfig,
+    cmd_tx: mpsc::Sender<Command>,
+    device_api_info: DeviceApiInfo,
+) -> Commander {
+    let device_api_hash = device_api_info.user_api_hash.clone();
+    let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
+    if commander.device_introspect().is_none() {
+        if let Ok(api_bundle) = commander.introspect().get_blocking() {
+            commander.set_device_introspect(IntrospectBundle {
+                api_bundle: Arc::new(api_bundle),
+                api_hash: device_api_hash,
+            });
+        }
     }
     commander
 }

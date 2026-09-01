@@ -4,8 +4,14 @@ use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
 pub use ww_global::GlobalTypeId;
 
+mod api_hash;
+
 #[cfg(feature = "semver")]
 pub use semver;
+
+pub use api_hash::{ApiHash, ApiHashPair};
+#[cfg(feature = "std")]
+pub use api_hash::{ApiHashOwned, ApiHashPairOwned};
 
 /// SemVer version as defined by <https://semver.org> in ShrinkWrap format.
 /// The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.

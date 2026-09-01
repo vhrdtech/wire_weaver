@@ -41,8 +41,10 @@ pub struct Commander {
     gid_map: HashMap<FullVersionOwned, CompactVersion>,
     default_timeout: Duration,
     pub(crate) connected_device: DeviceApiInfo,
-    /// Client API and types, client signature
+    /// Client API and types, client signature. None if DynClient.
     client_introspect: Option<IntrospectBundle>,
+    /// Device API and types, client signature. None if device has introspect disabled and there is no cache for it.
+    device_introspect: Option<IntrospectBundle>,
 }
 
 pub(crate) struct TransportCommander {
@@ -59,6 +61,7 @@ impl Commander {
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             connected_device: DeviceApiInfo::empty(),
             client_introspect: None,
+            device_introspect: None,
         }
     }
 
@@ -277,8 +280,7 @@ impl Commander {
     pub fn introspect(&self) -> Introspect {
         Introspect::new(
             TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout),
-            self.connected_device.user_api_hash_no_docs.clone(),
-            self.connected_device.user_api_hash_with_docs.clone(),
+            self.connected_device.user_api_hash.clone(),
         )
     }
 
@@ -294,8 +296,20 @@ impl Commander {
         &self.connected_device
     }
 
-    pub(crate) fn set_introspect_bundle(&mut self, introspect_bundle: IntrospectBundle) {
-        self.client_introspect = Some(introspect_bundle);
+    pub(crate) fn set_client_introspect(&mut self, client_bundle: IntrospectBundle) {
+        self.client_introspect = Some(client_bundle);
+    }
+
+    pub fn client_introspect(&self) -> Option<&IntrospectBundle> {
+        self.client_introspect.as_ref()
+    }
+
+    pub(crate) fn set_device_introspect(&mut self, device_bundle: IntrospectBundle) {
+        self.device_introspect = Some(device_bundle);
+    }
+
+    pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
+        self.device_introspect.as_ref()
     }
 
     // pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {

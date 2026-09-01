@@ -12,17 +12,21 @@ pub(crate) fn introspect(
     use_async: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
-    // let mut api_bundle_no_docs = api_bundle.clone();
-    // visit_api_bundle_mut(&mut api_bundle_no_docs, &mut DropDocs {});
-
     let IntrospectTs {
         introspect_bytes,
         no_docs_hash,
         with_docs_hash,
     } = introspect_prepare(api_bundle, include_docs);
     let api_hash = quote! {
-        pub const WW_API_HASH_DOCS: #with_docs_hash;
-        pub const WW_API_HASH_NO_DOCS: #no_docs_hash;
+        pub fn api_hash() -> wire_weaver::ww_version::ApiHashPair<'static> {
+            pub const WW_API_HASH_NO_DOCS: #no_docs_hash;
+            pub const WW_API_HASH_WITH_DOCS: #with_docs_hash;
+            use wire_weaver::ww_version::ApiHash;
+            wire_weaver::ww_version::ApiHashPair {
+                no_docs: ApiHash::new(&WW_API_HASH_NO_DOCS),
+                with_docs: ApiHash::new(&WW_API_HASH_WITH_DOCS),
+            }
+        }
     };
     if !use_async {
         // TODO: sync variant of MessageSink

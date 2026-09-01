@@ -1,6 +1,7 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 use semver::Version;
+use ww_version::{ApiHashOwned, ApiHashPairOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use crate::config::ValidatedConfig;
@@ -18,7 +19,7 @@ pub struct DeviceInfo {
 pub struct ApiInfo {
     pub gid: String,
     pub version: Version,
-    pub signature: ApiHash,
+    pub signature: ApiHashOwned,
 }
 
 #[derive(Debug)]
@@ -28,21 +29,16 @@ pub struct ConnectionInfo {
 
 #[derive(Clone, Debug)]
 pub struct DeviceApiInfo {
-    /// Link carries API model messages.
+    /// Link carries API model messages (e.g., wire_weaver_usb_link).
     pub link_version: FullVersionOwned,
     /// Maximum message size supported by the device.
     pub max_message_size: usize,
-    /// API model defines what operations can be performed (call, write, etc.).
+    /// API model defines what operations can be performed (call, write, etc. from e.g., ww_client_server).
     pub api_model_version: FullVersionOwned,
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
-    pub user_api_hash_no_docs: ApiHash,
-    pub user_api_hash_with_docs: ApiHash,
+    pub user_api_hash: ApiHashPairOwned,
 }
-
-/// First 8 bytes for SHA256 of ww_self bytes without doc comments
-#[derive(Clone, Default)]
-pub struct ApiHash(pub Vec<u8>);
 
 impl DeviceApiInfo {
     pub fn empty() -> Self {
@@ -51,27 +47,11 @@ impl DeviceApiInfo {
             max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
-            user_api_hash_no_docs: Default::default(),
-            user_api_hash_with_docs: Default::default(),
+            user_api_hash: ApiHashPairOwned {
+                no_docs: ApiHashOwned { hash: vec![] },
+                with_docs: ApiHashOwned { hash: vec![] },
+            },
         }
-    }
-}
-
-impl Debug for ApiHash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
-    }
-}
-
-impl From<Vec<u8>> for ApiHash {
-    fn from(hash: Vec<u8>) -> Self {
-        ApiHash(hash)
-    }
-}
-
-impl ApiHash {
-    pub fn to_string(&self) -> String {
-        hex::encode(&self.0)
     }
 }
 

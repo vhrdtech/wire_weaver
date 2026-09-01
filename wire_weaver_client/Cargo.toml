@@ -18,7 +18,7 @@ wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
-hex = "0.4"
+hex = { workspace = true, features = ["std"] }
 tracing = "0.1"
 cfg-if = "1"
 ron.workspace = true

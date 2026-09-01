@@ -73,12 +73,7 @@ impl<'i, T: PacketSink, R: PacketSource> WireWeaverUsbLink<'i, T, R> {
             },
             api_model_version: self.api_model_version,
             user_api_version: self.user_api_version_dev.clone(),
-            hash_no_docs: shrink_wrap::RefVec::Slice {
-                slice: self.hash_no_docs,
-            },
-            hash_with_docs: shrink_wrap::RefVec::Slice {
-                slice: self.hash_with_docs,
-            },
+            hash: self.user_api_hash,
             dev_max_message_len: max_message_size,
             packet_accumulation_time_us: self.packet_accumulation_time_us,
         };

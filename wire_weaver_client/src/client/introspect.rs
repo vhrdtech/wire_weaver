@@ -31,14 +31,12 @@ impl Introspect {
     /// Additionally, if introspect data with doc strings is available in the cache, it will be loaded instead.
     ///
     /// See also: [Introspect::download]
-    pub async fn get(self) -> Result<ApiBundleOwned> {
+    pub async fn get(self) -> Result<Option<ApiBundleOwned>> {
         if let Some(bundle) = get_from_cache(&self.hash) {
-            return Ok(bundle);
+            return Ok(Some(bundle));
         }
         self.cache_miss_msg();
-        let bundle = self.download().await?;
-
-        Ok(bundle)
+        self.download().await
     }
 
     /// Load introspect data from local cache at `~/.wire_weaver/` if available.
@@ -47,20 +45,18 @@ impl Introspect {
     /// Additionally, if introspect data with doc strings is available in the cache, it will be loaded instead.
     ///
     /// See also: [Introspect::download_blocking]
-    pub fn get_blocking(self) -> Result<ApiBundleOwned> {
+    pub fn get_blocking(self) -> Result<Option<ApiBundleOwned>> {
         if let Some(bundle) = get_from_cache(&self.hash) {
-            return Ok(bundle);
+            return Ok(Some(bundle));
         }
         self.cache_miss_msg();
-        let bundle = self.download_blocking()?;
-
-        Ok(bundle)
+        self.download_blocking()
     }
 
     /// Download introspect data from a remote device.
     ///
     /// See also [Introspect::get] that uses local cache.
-    pub async fn download(self) -> Result<ApiBundleOwned> {
+    pub async fn download(self) -> Result<Option<ApiBundleOwned>> {
         // TODO: set introspect download data timeout
         let rx = self.transport_cmd_tx.send_introspect(None).await?;
         let mut stream = Stream {
@@ -70,15 +66,17 @@ impl Introspect {
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes().await?;
-        println!("got {} bytes", ww_self_bytes.len());
+        if ww_self_bytes.is_empty() {
+            return Ok(None);
+        }
         let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
-        Ok(api_bundle)
+        Ok(Some(api_bundle))
     }
 
     /// Download introspect data from a remote device.
     ///
     /// See also [Introspect::get_blocking] that uses local cache.
-    pub fn download_blocking(self) -> Result<ApiBundleOwned> {
+    pub fn download_blocking(self) -> Result<Option<ApiBundleOwned>> {
         let rx = self.transport_cmd_tx.send_introspect_blocking(None)?;
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
@@ -87,8 +85,11 @@ impl Introspect {
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes_blocking()?;
+        if ww_self_bytes.is_empty() {
+            return Ok(None);
+        }
         let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
-        Ok(api_bundle)
+        Ok(Some(api_bundle))
     }
 
     #[must_use = "Promise does nothing, unless it is polled"]

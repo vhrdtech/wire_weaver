@@ -173,7 +173,7 @@ async fn create_commander(
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() {
-        if let Ok(api_bundle) = commander.introspect().get().await {
+        if let Ok(Some(api_bundle)) = commander.introspect().get().await {
             commander.set_device_introspect(IntrospectBundle {
                 api_bundle: Arc::new(api_bundle),
                 api_hash: device_api_hash,
@@ -192,7 +192,7 @@ fn create_commander_blocking(
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() {
-        if let Ok(api_bundle) = commander.introspect().get_blocking() {
+        if let Ok(Some(api_bundle)) = commander.introspect().get_blocking() {
             commander.set_device_introspect(IntrospectBundle {
                 api_bundle: Arc::new(api_bundle),
                 api_hash: device_api_hash,

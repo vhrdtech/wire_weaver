@@ -13,8 +13,8 @@ async fn main() -> anyhow::Result<()> {
     let introspect_bundle = device.device_introspect().unwrap();
     println!("{:#?}", introspect_bundle);
 
-    let force_downloaded = device.cmd().introspect().download().await?;
-    println!("{:#?}", force_downloaded);
+    // let force_downloaded = device.cmd().introspect().download().await?;
+    // println!("{:#?}", force_downloaded);
 
     device.disconnect().asynch().await?;
     Ok(())

@@ -108,37 +108,37 @@ mod tests {
         }
 
         fn valid_indices_root_array_of_streams(&mut self) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_gpio(&mut self) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_periph(&mut self) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_subgroup_array_of_streams(&mut self) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_gpio_array_of_streams(
             &mut self,
             _index: [UNib32; 1],
         ) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_periph_channel(&mut self, _index: [UNib32; 1]) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_periph_channel_array_of_streams(
             &mut self,
             _index: [UNib32; 2],
         ) -> ValidIndices<'_> {
-            ValidIndices::Range(0..255)
+            ValidIndices::range_u32(0..255)
         }
     }
 

@@ -71,18 +71,18 @@ mod tests {
             }
 
             fn valid_indices_root_gpio(&mut self) -> ValidIndices<'_> {
-                ValidIndices::Range(0..255)
+                ValidIndices::range_u32(0..255)
             }
 
             fn valid_indices_root_periph(&mut self) -> ValidIndices<'_> {
-                ValidIndices::Range(0..255)
+                ValidIndices::range_u32(0..255)
             }
 
             fn valid_indices_root_periph_channel(
                 &mut self,
                 _index: [UNib32; 1],
             ) -> ValidIndices<'_> {
-                ValidIndices::Range(0..255)
+                ValidIndices::range_u32(0..255)
             }
         }
 

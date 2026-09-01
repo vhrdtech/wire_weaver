@@ -65,7 +65,7 @@ mod tests {
             }
 
             fn valid_indices_root_array_of_streams(&self) -> ValidIndices<'_> {
-                ValidIndices::Range(0..255)
+                ValidIndices::range_u32(0..255)
             }
 
             fn finish(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {

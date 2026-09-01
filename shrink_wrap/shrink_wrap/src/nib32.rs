@@ -7,7 +7,7 @@ use crate::{
 
 /// Variable length encoded u32 based on nibbles.
 /// Each nibble carries 1 bit indicating whether there are more nibbles + 3 bits from the original number.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]

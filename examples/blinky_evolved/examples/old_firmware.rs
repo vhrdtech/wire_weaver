@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
     let err = r.unwrap_err();
     println!("led_toggle() failed: {err}");
 
-    device.disconnect().await?;
+    device.disconnect().asynch().await?;
 
     Ok(())
 }

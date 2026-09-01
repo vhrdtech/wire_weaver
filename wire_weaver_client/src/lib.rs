@@ -13,6 +13,7 @@ pub use client::introspect::Introspect;
 pub use client::multi_read::MultiRead;
 pub use client::prepared_call::PreparedCall;
 pub use client::prepared_connection::PreparedConnection;
+pub use client::prepared_disconnect::PreparedDisconnect;
 pub use client::prepared_read::PreparedRead;
 pub use client::prepared_write::PreparedWrite;
 pub use client::promise::{Promise, PromiseState};

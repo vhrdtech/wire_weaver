@@ -637,25 +637,10 @@ fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
             }
         }
 
-        /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub async fn disconnect(&self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd.disconnect().await
+        /// Disconnect from a device, call `.asynch().await`, `.blocking()` or other methods in the returned PreparedDisconnect`, `.blocking()` or other methods in the returned PreparedDisconnect.
+        pub fn disconnect(&self) -> wire_weaver_client::PreparedDisconnect {
+            self.cmd.disconnect()
         }
-
-        /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-        pub fn disconnect_blocking(&self) -> Result<(), wire_weaver_client::Error> {
-            self.cmd.disconnect_blocking()
-        }
-
-        // /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        // pub async fn disconnect_keep_streams(&mut self) -> Result<(), wire_weaver_client::Error> {
-        //     self.cmd.disconnect_keep_streams().await
-        // }
-
-        // /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
-        // pub fn disconnect_keep_streams_blocking(&mut self) -> Result<(), wire_weaver_client::Error> {
-        //     self.cmd.disconnect_keep_streams_blocking()
-        // }
     }
 }
 

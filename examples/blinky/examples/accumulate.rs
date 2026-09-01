@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     // since we do not await for any responses, wait a bit to allow requests to be sent
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    device.disconnect().await?;
+    device.disconnect().asynch().await?;
 
     Ok(())
 }

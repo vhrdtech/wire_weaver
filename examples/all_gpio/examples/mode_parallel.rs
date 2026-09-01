@@ -30,6 +30,6 @@ async fn main() -> anyhow::Result<()> {
     // takes 55ms compared to mode example on USB Full Speed
     // 38ms on USB High Speed
     println!("took {} ms", now.elapsed().as_millis());
-    device.disconnect().await?;
+    device.disconnect().asynch().await?;
     Ok(())
 }

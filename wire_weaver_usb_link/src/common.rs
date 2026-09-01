@@ -255,18 +255,6 @@ pub enum Op {
     Disconnect = 15,
 }
 
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[derive_shrink_wrap]
-#[ww_repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum DisconnectReason {
-    ApplicationCrash,
-    RequestByUser,
-    IncompatibleVersion,
-    Other(u8),
-    Unknown,
-}
-
 #[derive_shrink_wrap]
 struct DeviceInfo<'i> {
     /// This crate version on the device side

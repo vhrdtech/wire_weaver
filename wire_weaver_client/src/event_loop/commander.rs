@@ -1,6 +1,7 @@
 use crate::Error;
 use crate::Introspect;
 use crate::PreparedCall;
+use crate::PreparedDisconnect;
 use crate::Stream;
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
@@ -401,50 +402,8 @@ impl Commander {
         }
     }
 
-    pub async fn disconnect(&self) -> Result<(), Error> {
-        let (tx, rx) = oneshot::channel::<()>();
-        self.transport_cmd_tx
-            .send(Command::DisconnectAndExit {
-                disconnected_tx: Some(tx),
-            })
-            .await
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(())
-    }
-
-    pub fn disconnect_blocking(&self) -> Result<(), Error> {
-        let (tx, rx) = oneshot::channel::<()>();
-        self.transport_cmd_tx
-            .blocking_send(Command::DisconnectAndExit {
-                disconnected_tx: Some(tx),
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        rx.blocking_recv().map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(())
-    }
-
-    pub async fn disconnect_keep_streams(&self) -> Result<(), Error> {
-        let (tx, rx) = oneshot::channel::<()>();
-        self.transport_cmd_tx
-            .send(Command::DisconnectKeepStreams {
-                disconnected_tx: Some(tx),
-            })
-            .await
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        rx.await.map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(())
-    }
-
-    pub fn disconnect_keep_streams_blocking(&self) -> Result<(), Error> {
-        let (tx, rx) = oneshot::channel::<()>();
-        self.transport_cmd_tx
-            .blocking_send(Command::DisconnectKeepStreams {
-                disconnected_tx: Some(tx),
-            })
-            .map_err(|_| Error::EventLoopNotRunning)?;
-        rx.blocking_recv().map_err(|_| Error::EventLoopNotRunning)?;
-        Ok(())
+    pub fn disconnect(&self) -> PreparedDisconnect {
+        PreparedDisconnect::new(self.transport_cmd_tx.clone())
     }
 }
 
@@ -830,5 +789,22 @@ impl TransportCommander {
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(stream_event_rx)
+    }
+}
+
+// this will panic due to trying to block a runtime thread
+// impl Drop for DynClient {
+//     fn drop(&mut self) {
+//         _ = self.disconnect_blocking();
+//     }
+// }
+
+impl Drop for Commander {
+    fn drop(&mut self) {
+        _ = self
+            .disconnect()
+            .reason(wire_weaver::DisconnectReason::CommanderDropped)
+            .forget();
+        std::thread::sleep(Duration::from_millis(50));
     }
 }

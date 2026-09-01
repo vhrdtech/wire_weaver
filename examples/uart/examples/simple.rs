@@ -11,6 +11,6 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    device.disconnect().await?;
+    device.disconnect().asynch().await?;
     Ok(())
 }

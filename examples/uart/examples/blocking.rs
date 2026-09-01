@@ -14,6 +14,6 @@ fn main() -> anyhow::Result<()> {
     let chunk = uart0_rx.recv_blocking()?;
     println!("{:02?}", chunk.bytes);
 
-    device.disconnect_blocking()?;
+    device.disconnect().blocking()?;
     Ok(())
 }

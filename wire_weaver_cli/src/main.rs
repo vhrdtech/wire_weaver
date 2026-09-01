@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     }
 
     if let Some(device) = device {
-        device.disconnect().await?;
+        device.disconnect().asynch().await?;
     }
 
     Ok(())

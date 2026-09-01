@@ -1,5 +1,5 @@
 use crate::{
-    ClientConfig, Commander, DeviceApiInfo, Error, PreparedConnection, WwClient,
+    ClientConfig, Commander, DeviceApiInfo, PreparedConnection, PreparedDisconnect, WwClient,
     config::IntrospectBundle,
 };
 
@@ -47,20 +47,7 @@ impl DynClient {
         self.cmd.device_api_info()
     }
 
-    /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-    pub async fn disconnect(&self) -> Result<(), Error> {
-        self.cmd.disconnect().await
-    }
-
-    /// Send disconnect command to a device and wait for it to go through, then stop the even loop and drop all remaining streams or requests.
-    pub fn disconnect_blocking(&self) -> Result<(), Error> {
-        self.cmd.disconnect_blocking()
+    pub fn disconnect(&self) -> PreparedDisconnect {
+        self.cmd().disconnect()
     }
 }
-
-// this will panic due to trying to block a runtime thread
-// impl Drop for DynClient {
-//     fn drop(&mut self) {
-//         _ = self.disconnect_blocking();
-//     }
-// }

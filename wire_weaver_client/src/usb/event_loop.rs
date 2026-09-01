@@ -205,7 +205,9 @@ async fn wait_for_connection_and_queue_commands(
             Command::RegisterTracer { trace_event_tx } => {
                 state.common.tracers.push(trace_event_tx);
             }
-            Command::DisconnectKeepStreams { disconnected_tx } => {
+            Command::DisconnectKeepStreams {
+                disconnected_tx, ..
+            } => {
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
@@ -213,7 +215,9 @@ async fn wait_for_connection_and_queue_commands(
                     EventLoopExitReason::DisconnectKeepStreamsCommand,
                 ));
             }
-            Command::DisconnectAndExit { disconnected_tx } => {
+            Command::DisconnectAndExit {
+                disconnected_tx, ..
+            } => {
                 if let Some(tx) = disconnected_tx {
                     let _ = tx.send(());
                 }
@@ -401,7 +405,7 @@ where
                 Ok(EventLoopSpinResult::Continue)
             } else {
                 if reason == DisconnectReason::IncompatibleVersion
-                    || reason == DisconnectReason::ApplicationCrash
+                    || reason == DisconnectReason::CommanderDropped
                 {
                     error!("Received Disconnect({reason:?}), exiting");
                 } else {
@@ -518,10 +522,13 @@ where
         Command::RegisterTracer { trace_event_tx } => {
             state.common.tracers.push(trace_event_tx);
         }
-        Command::DisconnectKeepStreams { disconnected_tx } => {
+        Command::DisconnectKeepStreams {
+            disconnected_tx,
+            reason,
+        } => {
             info!("Disconnecting on user request (but keeping streams ready for re-use)");
             state.common.trace_disconnect("client request", true);
-            link.send_disconnect(DisconnectReason::RequestByUser)
+            link.send_disconnect(reason)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             // wait for Disconnect op to be actually sent out
@@ -532,10 +539,13 @@ where
             }
             return Ok(EventLoopSpinResult::DisconnectKeepStreams);
         }
-        Command::DisconnectAndExit { disconnected_tx } => {
+        Command::DisconnectAndExit {
+            disconnected_tx,
+            reason,
+        } => {
             info!("Disconnecting and stopping USB event loop on user request");
             state.common.trace_disconnect("client request", false);
-            link.send_disconnect(DisconnectReason::RequestByUser)
+            link.send_disconnect(reason)
                 .await
                 .map_err(|e| Error::Transport(format!("{:?}", e)))?;
             // wait for Disconnect op to be actually sent out

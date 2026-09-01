@@ -1,6 +1,7 @@
-use crate::common::{DisconnectReason, Error, Op, WireWeaverUsbLink};
+use crate::common::{Error, Op, WireWeaverUsbLink};
 use crate::{CRC_KIND, PacketSink, PacketSource};
 use shrink_wrap::SerializeShrinkWrap;
+use wire_weaver::DisconnectReason;
 use wire_weaver::MessageSink;
 
 /// Can be used to monitor how many messages, packets, and bytes were sent since link setup.

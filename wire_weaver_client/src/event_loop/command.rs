@@ -2,6 +2,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
+use wire_weaver::DisconnectReason;
 use ww_client_server::PathKindOwned;
 use ww_version::FullVersionOwned;
 
@@ -45,6 +46,7 @@ pub enum Command {
     /// and streams will stop. Use when shutting down the whole application.
     DisconnectAndExit {
         disconnected_tx: Option<oneshot::Sender<()>>,
+        reason: DisconnectReason,
     },
 
     /// Complete outstanding requests (but ignore new ones)? Then, close the device connection but keep the worker task running.
@@ -52,6 +54,7 @@ pub enum Command {
     /// Alternatively, it's also possible to connect to a different device, without other parts noticing.
     DisconnectKeepStreams {
         disconnected_tx: Option<oneshot::Sender<()>>,
+        reason: DisconnectReason,
     },
 
     /// All incoming messages from a device and all outgoing commands will be sent to this channel.
@@ -111,10 +114,11 @@ pub enum TestProgress {
 }
 
 impl Command {
-    pub fn disconnect_and_exit() -> (Self, oneshot::Receiver<()>) {
+    pub fn disconnect_and_exit(reason: DisconnectReason) -> (Self, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
         let cmd = Command::DisconnectAndExit {
             disconnected_tx: Some(tx),
+            reason,
         };
         (cmd, rx)
     }

@@ -10,10 +10,12 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     println!("{:?}", device.device_api_info());
 
-    // can use .download to force download, .get will try local cache
-    let api_bundle = device.introspect().get().await?;
-    println!("{:#?}", api_bundle);
+    let introspect_bundle = device.device_introspect().unwrap();
+    println!("{:#?}", introspect_bundle);
 
-    device.disconnect().await?;
+    let force_downloaded = device.cmd().introspect().download().await?;
+    println!("{:#?}", force_downloaded);
+
+    device.disconnect().asynch().await?;
     Ok(())
 }

@@ -1,9 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod disconnect_reason;
 mod rpc;
 mod test;
 mod valid_indices;
 
+pub use disconnect_reason::DisconnectReason;
 pub use rpc::{GetResult, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;

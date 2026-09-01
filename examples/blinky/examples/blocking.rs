@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     println!("Turning LED off");
     device.led_off().blocking_call()?;
 
-    device.disconnect_blocking()?;
+    device.disconnect().blocking()?;
 
     Ok(())
 }

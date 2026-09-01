@@ -10,17 +10,17 @@ fn main() -> anyhow::Result<()> {
         .build()?;
     let _guard = runtime.enter();
 
-    let mut driver = Blinky::new().connect_blocking()?;
+    let device = Blinky::new().connect_blocking()?;
 
     println!("Turning LED on");
-    driver.led_on().blocking_call()?;
+    device.led_on().blocking_call()?;
 
     std::thread::sleep(Duration::from_secs(1));
 
     println!("Turning LED off");
-    driver.led_off().blocking_call()?;
+    device.led_off().blocking_call()?;
 
-    driver.disconnect_blocking()?;
+    device.disconnect_blocking()?;
 
     Ok(())
 }

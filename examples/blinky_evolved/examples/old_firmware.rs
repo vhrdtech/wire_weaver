@@ -4,7 +4,7 @@ use blinky_evolved::Blinky;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let mut device = Blinky::new().connect().await?;
+    let device = Blinky::new().connect().await?;
 
     println!("Device info: {:?}", device.info());
 

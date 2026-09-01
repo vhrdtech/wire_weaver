@@ -5,7 +5,7 @@ use std::time::Instant;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
-    let mut device = AllGpio::new().connect().await?;
+    let device = AllGpio::new().connect().await?;
     let ports = device.port_valid_indices().read().await?;
     let now = Instant::now();
 

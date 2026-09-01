@@ -215,6 +215,91 @@ impl ClientConfig {
         f
     }
 
+    /// Select WebSocket device by IP:PORT/PATH
+    pub fn websocket_addr(self, addr: IpAddr, port: u16, path: String) -> Self {
+        let mut f = self;
+        f.pieces
+            .push(ConfigPiece::WebSocketAddr { addr, port, path });
+        f
+    }
+
+    /// Consider WebSocket devices as a potential connection targets
+    pub fn websocket(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::WebSocket);
+        f
+    }
+
+    /// Do not consider WebSocket devices as a potential connection targets
+    pub fn no_websocket(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::NoWebSocket);
+        f
+    }
+
+    /// Select UDP device by IP:PORT
+    pub fn udp_addr(self, addr: IpAddr, port: u16) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::UdpAddr { addr, port });
+        f
+    }
+
+    /// Consider UDP devices as a potential connection targets
+    pub fn udp(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Udp);
+        f
+    }
+
+    /// Do not consider UDP devices as a potential connection targets
+    pub fn no_udp(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::NoUdp);
+        f
+    }
+
+    /// Select IPC node by path
+    pub fn ipc_path(self, path: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::IpcPath { path });
+        f
+    }
+
+    /// Select IPC node by USB device it multiplexes
+    pub fn usb_over_ipc(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::UsbOverIpc);
+        f
+    }
+
+    /// Consider IPC devices as a potential connection targets
+    pub fn ipc(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Ipc);
+        f
+    }
+
+    /// Do not consider IPC devices as a potential connection targets
+    pub fn no_ipc(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::NoIpc);
+        f
+    }
+
+    /// Select in-process node by path
+    pub fn in_process_path(self, path: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::InProcessPath { path });
+        f
+    }
+
+    /// Do not consider IPC devices as a potential connection targets
+    pub fn no_in_process(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::NoInProcess);
+        f
+    }
+
     /// CommandSender queue size, limits the amount of simulatenous requests in-flight.
     /// Default is 8192, using more than 65_534 will lead to blocking if reached.
     pub fn cmd_queue_size(self, size: usize) -> Self {
@@ -233,6 +318,46 @@ impl ClientConfig {
         let mut c = self;
         c.default_timeout = Some(timeout);
         c
+    }
+
+    /// Filter out a device with the specified serial number. Ignoring case.
+    pub fn serial_eq(self, serial: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::SerialEq { serial });
+        f
+    }
+
+    /// Filter out a device with the specified user label. Ignoring case.
+    /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
+    pub fn user_label_eq(self, user_label: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::UserLabelEq { user_label });
+        f
+    }
+
+    /// Filter out a device whose manufacturer string contains the substring. Igoring case.
+    pub fn manufacturer_contains(self, substring: String) -> Self {
+        let mut f = self;
+        f.pieces
+            .push(ConfigPiece::ManufacturerContains { substring });
+        f
+    }
+
+    /// Filter out a device whose product string contains the substring. Ignoring case.
+    pub fn product_contains(self, substring: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::ProductContains { substring });
+        f
+    }
+
+    /// Filter out a device that implements specified WireWeaver API.
+    pub fn implements_api(self, api_gid: String, version_req: VersionReq) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::ImplementsApi {
+            api_gid,
+            version_req,
+        });
+        f
     }
 
     // pub(crate) fn canonicalize(&mut self) {
@@ -282,6 +407,44 @@ impl ValidatedConfig {
                 ConfigPieceDiscriminants::Usb,
             ],
             ConfigPieceDiscriminants::NoUsb,
+        )
+    }
+
+    pub(crate) fn is_websocket(&self) -> bool {
+        self.is_opted_in(
+            &[
+                ConfigPieceDiscriminants::WebSocketAddr,
+                ConfigPieceDiscriminants::WebSocket,
+            ],
+            ConfigPieceDiscriminants::NoWebSocket,
+        )
+    }
+
+    pub(crate) fn is_udp(&self) -> bool {
+        self.is_opted_in(
+            &[
+                ConfigPieceDiscriminants::UdpAddr,
+                ConfigPieceDiscriminants::Udp,
+            ],
+            ConfigPieceDiscriminants::NoUdp,
+        )
+    }
+
+    pub(crate) fn is_ipc(&self) -> bool {
+        self.is_opted_in(
+            &[
+                ConfigPieceDiscriminants::IpcPath,
+                ConfigPieceDiscriminants::UsbOverIpc,
+                ConfigPieceDiscriminants::Ipc,
+            ],
+            ConfigPieceDiscriminants::NoIpc,
+        )
+    }
+
+    pub(crate) fn is_in_process(&self) -> bool {
+        self.is_opted_in(
+            &[ConfigPieceDiscriminants::InProcessPath],
+            ConfigPieceDiscriminants::NoInProcess,
         )
     }
 

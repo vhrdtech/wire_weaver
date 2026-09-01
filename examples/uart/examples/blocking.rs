@@ -8,7 +8,7 @@ fn main() -> anyhow::Result<()> {
         .build()?;
     let _guard = runtime.enter();
 
-    let mut device = UartBridge::new().connect_blocking()?;
+    let device = UartBridge::new().connect_blocking()?;
 
     let mut uart0_rx = device.uart(0).rx_blocking()?;
     let chunk = uart0_rx.recv_blocking()?;

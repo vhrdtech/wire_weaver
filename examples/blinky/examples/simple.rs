@@ -6,7 +6,7 @@ use std::time::Duration;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let mut device = Blinky::new().connect().await?;
+    let device = Blinky::new().connect().await?;
 
     println!("Turning LED on");
     device.led_on().call().await?;

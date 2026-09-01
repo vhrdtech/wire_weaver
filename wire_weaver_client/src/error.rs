@@ -41,6 +41,8 @@ pub enum Error {
     Other(String),
     #[error("More than one devices matched the provided filter: {:#?}", .0)]
     AmbiguousDeviceChoice(Vec<DeviceInfo>),
+    #[error("Multi request: '{}'", .0)]
+    MultiReq(String),
 }
 
 impl From<wire_weaver::shrink_wrap::Error> for Error {

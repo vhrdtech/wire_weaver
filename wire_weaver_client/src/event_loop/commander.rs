@@ -415,7 +415,7 @@ impl TransportCommander {
         }
     }
 
-    async fn send_message_expect_response(
+    pub(crate) async fn send_message_expect_response(
         &self,
         bytes: Vec<u8>,
         done_tx: ResponseSender,
@@ -430,7 +430,7 @@ impl TransportCommander {
             .map_err(|_| Error::EventLoopNotRunning)
     }
 
-    fn send_message_expect_response_blocking(
+    pub(crate) fn send_message_expect_response_blocking(
         &self,
         bytes: Vec<u8>,
         done_tx: ResponseSender,

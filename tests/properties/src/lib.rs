@@ -1,17 +1,19 @@
 #[cfg(test)]
 mod tests {
-    use properties_api::{Custom, CustomOwned, Inner, InnerOwned};
+    use properties_api::{CustomOwned, InnerOwned};
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
     use tests_common::DummyTx;
     use tokio::sync::mpsc;
     use wire_weaver::shrink_wrap::RefVec;
-    use wire_weaver_client::Commander;
+    use wire_weaver_client::{Commander, Error, MultiRead};
+    use ww_client_server::ErrorKindOwned;
 
     #[derive(Default)]
     struct SharedTestData {
         x: u8,
         y_changed: u8,
+        custom: CustomOwned,
     }
 
     mod no_std_sync_server {
@@ -20,7 +22,7 @@ mod tests {
         use std::sync::{Arc, RwLock};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
-        use wire_weaver::{MessageSink, SetResult};
+        use wire_weaver::{MessageSink, SetResult, Unimplemented};
 
         pub struct NoStdSyncServer {
             pub data: Arc<RwLock<SharedTestData>>,
@@ -51,7 +53,17 @@ mod tests {
             }
 
             fn set_custom(&mut self, custom: Custom<'_>) -> SetResult<()> {
+                let custom = custom.make_owned();
+                self.data.write().unwrap().custom = custom;
                 Set
+            }
+
+            fn set_absent(&mut self, _value: u8) -> SetResult<()> {
+                Unimplemented.into()
+            }
+
+            fn get_absent(&mut self) -> GetResult<u8, ()> {
+                Unimplemented.into()
             }
         }
 
@@ -61,6 +73,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "x=get_set, y=value_on_changed",
+                multi_req = true
                 // debug_to_file = "../target/tests_properties_server.rs" // uncomment if you want to see the resulting AST and generated code
             );
         }
@@ -156,7 +169,19 @@ mod tests {
         client.write_y(0xCC).write().await.unwrap();
         assert_eq!(data.read().unwrap().y_changed, 1);
 
-        let expected_custom = CustomOwned {
+        let absent = client.read_absent().read().await;
+        let Error::RemoteError(e) = absent.unwrap_err() else {
+            panic!("Expected RemoteError");
+        };
+        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+
+        let set_absent = client.write_absent(0).write().await;
+        let Error::RemoteError(e) = set_absent.unwrap_err() else {
+            panic!("Expected RemoteError");
+        };
+        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+
+        let mut expected_custom = CustomOwned {
             z: 123,
             inner: vec![
                 InnerOwned {
@@ -171,5 +196,28 @@ mod tests {
         };
         let custom = client.read_custom().read().await.unwrap();
         assert_eq!(custom, expected_custom);
+
+        expected_custom.z = 63;
+        expected_custom.inner.push(InnerOwned {
+            u: 255,
+            v: "xy".to_string(),
+        });
+        client
+            .write_custom(expected_custom.clone())
+            .write()
+            .await
+            .unwrap();
+        assert_eq!(data.read().unwrap().custom, expected_custom);
+
+        let multi_read = (client.read_x(), client.read_absent())
+            .multi_read()
+            .await
+            .unwrap();
+        let x = multi_read.0.unwrap();
+        // let y = multi_read.1.unwrap();
+        let e = multi_read.1.unwrap_err();
+        assert_eq!(x, 0xAA);
+        // assert_eq!(y, 0xCC);
+        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
     }
 }

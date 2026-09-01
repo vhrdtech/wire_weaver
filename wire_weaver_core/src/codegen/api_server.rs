@@ -154,7 +154,25 @@ pub fn gen_server(
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
     let maybe_use_ser_shrink_wrap = maybe_quote_cl(cx.multi_req, || quote! { false, });
-    // let maybe_use_write = maybe_quote_cl(cx.multi_req, || quote! { true, });
+    let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&maybe_await));
+    let written_ok_variant = if cx.multi_req {
+        quote! { WrittenOk(Option<EventKindBuilder>) }
+    } else {
+        quote! { WrittenOk(EventKindBuilder) }
+    };
+    let finalize_event_kind = if cx.multi_req {
+        // normal requests create EventKindBuilder reserving a discriminant and return it wrapped in Some()
+        // multi requests do nothing and simply write to wr
+        quote! {
+            if let Some(event_kind_builder) = event_kind_builder {
+                event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+            }
+        }
+    } else {
+        quote! {
+            event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+        }
+    };
     quote! {
         #args_structs
 
@@ -179,7 +197,7 @@ pub fn gen_server(
         #api_signature
 
         enum WrAction {
-            WrittenOk,
+            #written_ok_variant,
             WrittenErr,
             Deferred
         }
@@ -225,16 +243,16 @@ pub fn gen_server(
 
                 let path = &path_arr[..path_len];
                 let mut iter = path.iter();
-                let before_event_kind = wr.save_state();
-                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+                let before_process = wr.save_state();
                 match &request.kind {
+                    #maybe_multi_req
                     _ => {
                         match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap msg_tx)#maybe_await {
-                            Ok(WrAction::WrittenOk) => {
+                            Ok(WrAction::WrittenOk(event_kind_builder)) => {
                                 if request.seq == 0 {
                                     return Ok(&[])
                                 }
-                                event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+                                #finalize_event_kind
                                 event_builder.finish(true, &mut wr);
                                 wr.finish_and_take()
                             }
@@ -246,56 +264,13 @@ pub fn gen_server(
                                 Ok(&[])
                             }
                             Err(e) => {
-                                wr.restore_state(before_event_kind); // handler could have started to write to wr but failed
+                                wr.restore_state(before_process); // handler could have started to write to wr but failed
                                 wr.write(&e)?;
                                 event_builder.finish(false, &mut wr);
                                 wr.finish_and_take()
                             }
                         }
                     }
-                    RequestKind::MultiCall {
-                        multi_idx,
-                        in_each_array_id,
-                        ..
-                    } | RequestKind::MultiRead {
-                        multi_idx,
-                        in_each_array_id,
-                    } | RequestKind::MultiWrite {
-                        multi_idx,
-                        in_each_array_id,
-                        ..
-                    } => {
-                        todo!()
-                        // let (mut builder, mut wr) =
-                        //     shrink_wrap::either_any_vec::EitherAnyVecBuilder::new(scratch_event);
-                        // for index_or_glob in multi_idx.iter() {
-                        //     path_arr[path_len] = index_or_glob;
-                        //     let path_len = if let Some(resource_id) = in_each_array_id {
-                        //         path_arr[path_len + 1] = ResourceIndexKind::Index(resource_id.0);
-                        //         path_len + 2
-                        //     } else {
-                        //         path_len + 1
-                        //     };
-                        //     let path = &path_arr[..path_len];
-                        //     let mut iter = path.iter();
-                        //     let marker = builder.write_item_start(&mut wr)?;
-                        //     match self
-                        //         .process_root(path, &mut iter, &request, scratch_args, &mut wr, msg_tx)
-                        //         .await
-                        //     {
-                        //         Ok(r) => {
-                        //             builder.write_item_finish(marker, true, &mut wr);
-                        //         }
-                        //         Err(e) => {
-                        //             // nothing was written to wr
-                        //             wr.write(&e)?;
-                        //             builder.write_item_finish(marker, false, &mut wr);
-                        //         }
-                        //     }
-                        // }
-                        // let data = builder.finish_and_take(wr)?;
-                    }
-
                 }
             }
 
@@ -305,6 +280,70 @@ pub fn gen_server(
         }
 
         #stream_send_methods
+    }
+}
+
+fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
+    quote! {
+        RequestKind::MultiCall {
+            multi_idx,
+            in_each_array_id,
+            ..
+        } | RequestKind::MultiRead {
+            multi_idx,
+            in_each_array_id,
+        } | RequestKind::MultiWrite {
+            multi_idx,
+            in_each_array_id,
+            ..
+        } => {
+            let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+            let mut either_any_builder = wire_weaver::shrink_wrap::either_any_vec::EitherAnyVecBuilder::new(&mut wr);
+            for index_or_glob in multi_idx.iter() {
+                path_arr[path_len] = index_or_glob;
+                let path = if let Some(resource_id) = *in_each_array_id {
+                    path_arr[path_len + 1] = resource_id;
+                    &path_arr[..path_len + 2]
+                } else {
+                    &path_arr[..path_len + 1]
+                };
+                // let path = &path_arr[..path_len];
+                let mut iter = path.iter();
+                let marker = either_any_builder.write_item_start(&mut wr)?;
+                let request = Request {
+                    seq: request.seq,
+                    path_kind: PathKind::Absolute { path: RefVec::Slice { slice: &[] } },
+                    kind: RequestKind::Read
+                };
+                match self
+                    .process_root(path, &mut iter, &request, &mut wr, true, msg_tx)
+                    #maybe_await
+                {
+                    Ok(WrAction::WrittenOk(_)) => {
+                        either_any_builder.write_item_finish(marker, true, &mut wr);
+                    }
+                    Ok(WrAction::WrittenErr) => {
+                        either_any_builder.write_item_finish(marker, false, &mut wr);
+                    }
+                    Ok(WrAction::Deferred) => { // TODO: return error here?
+                        todo!()
+                    }
+                    Err(e) => {
+                        wr.restore_state(before_process); // handler could have started to write to wr but failed
+                        wr.write(&e)?;
+                        event_builder.finish(false, &mut wr);
+                        return wr.finish_and_take();
+                    }
+                }
+            }
+            if request.seq == 0 {
+                return Ok(&[])
+            }
+            either_any_builder.finish(&mut wr);
+            event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+            event_builder.finish(true, &mut wr);
+            wr.finish_and_take()
+        }
     }
 }
 
@@ -467,6 +506,7 @@ fn level_matchers(
             };
             let es = error_seq.next();
             let ser_indices = ser_value(cx.multi_req, quote! { indices }, error_seq);
+            let ev_kind_builder = cx.prepare_event_kind_builder();
             quote! {
                 match path_iter.next().copied() {
                     Some(index) => {
@@ -478,8 +518,9 @@ fn level_matchers(
                     None => {
                         if let RequestKind::Read /* ValidIndices */ = request.kind {
                             let indices = self.#valid_indices(#maybe_index_chain_arg);
+                            #ev_kind_builder
                             #ser_indices
-                            Ok(WrAction::WrittenOk)
+                            Ok(WrAction::WrittenOk(event_kind_builder))
                         } else {
                             Err(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))
                         }
@@ -549,6 +590,24 @@ fn level_matcher(
     }
 }
 
+impl ApiServerCGContext<'_> {
+    fn prepare_event_kind_builder(&self) -> TokenStream {
+        if self.multi_req {
+            quote! {
+                let event_kind_builder = if use_write {
+                    None
+                } else {
+                    Some(EventKindBuilder::new(wr).map_err(|_| Error::new(0, ErrorKind::ResponseSerFailed))?)
+                };
+            }
+        } else {
+            quote! {
+                let event_kind_builder = EventKindBuilder::new(wr).map_err(|_| Error::new(0, ErrorKind::ResponseSerFailed))?;
+            }
+        }
+    }
+}
+
 fn handle_method(
     api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
@@ -580,17 +639,19 @@ fn handle_method(
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let es = error_seq.next();
     let ser_output = ser_value(cx.multi_req, quote! { output }, error_seq);
+    let ev_kind_builder = cx.prepare_event_kind_builder();
     quote! {
         match &request.kind {
             RequestKind::Call { #maybe_args } => {
                 #args_des
                 match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
                     RpcResult::Ready(output) => {
+                        #ev_kind_builder
                         if request.seq != 0 {
                             #maybe_enforce_ty
                             #ser_output
                         }
-                        Ok(WrAction::WrittenOk)
+                        Ok(WrAction::WrittenOk(event_kind_builder))
                     },
                     RpcResult::Deferred => {
                         Ok(WrAction::Deferred)
@@ -656,12 +717,14 @@ fn handle_property(
                         Span::call_site(),
                     );
                     let es = error_seq.next();
+                    let ev_kind_builder = cx.prepare_event_kind_builder();
                     quote! {
                         let mut rd = BufReader::new(data.as_slice());
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         match self.#set_property(#maybe_index_chain_arg value)#maybe_await {
                             SetResult::Set => {
-                                Ok(WrAction::WrittenOk)
+                                #ev_kind_builder
+                                Ok(WrAction::WrittenOk(event_kind_builder))
                             },
                             SetResult::SetError(user_err) => {
                                 // if request.seq != 0 {
@@ -681,14 +744,16 @@ fn handle_property(
                         Span::call_site(),
                     );
                     let es = error_seq.next();
+                    let ev_kind_builder = cx.prepare_event_kind_builder();
                     quote! {
+                        #ev_kind_builder
                         let mut rd = BufReader::new(data.as_slice());
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         if self.#prefixed_ident #maybe_index_chain_indices != value {
                             self.#prefixed_ident #maybe_index_chain_indices = value;
                             self.#changed_property(#maybe_index_chain_arg)#maybe_await;
                         }
-                        Ok(WrAction::WrittenOk)
+                        Ok(WrAction::WrittenOk(event_kind_builder))
                     }
                 }
             };
@@ -710,6 +775,7 @@ fn handle_property(
         || {
             let es = error_seq.next();
             let ser_value = ser_value(cx.multi_req, quote! { value }, error_seq);
+            let ev_kind_builder = cx.prepare_event_kind_builder();
             let get_and_ser_property = match property_model_pick {
                 PropertyModelKind::GetSet => {
                     let get_property = Ident::new(
@@ -719,25 +785,28 @@ fn handle_property(
                     quote! {
                         match self.#get_property(#maybe_index_chain_arg)#maybe_await {
                             GetResult::Value(value) => {
+                                #ev_kind_builder
                                 let value: #enforce_ty = value;
                                 #ser_value
-                                Ok(WrAction::WrittenOk)
+                                Ok(WrAction::WrittenOk(event_kind_builder))
                             }
                             GetResult::GetError(user_err) => {
                                 #ser_user_err
                                 Ok(WrAction::WrittenErr)
                             }
                             GetResult::Unimplemented => {
-                                Err(Error::unimplemented(#es))
+                                wr.write(&Error::unimplemented(#es)).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                                Ok(WrAction::WrittenErr)
                             }
                         }
                     }
                 }
                 PropertyModelKind::ValueOnChanged => {
                     quote! {
+                        #ev_kind_builder
                         let value: &#enforce_ty = &self.#prefixed_ident #maybe_index_chain_indices;
                         #ser_value
-                        Ok(WrAction::WrittenOk)
+                        Ok(WrAction::WrittenOk(event_kind_builder))
                     }
                 }
             };
@@ -777,14 +846,16 @@ fn handle_stream(
         ident.span(),
     );
     let es = err_seq.next();
+    let ev_kind_builder = cx.prepare_event_kind_builder();
     let handle_sideband = quote! {
         // user fn returns Option<StreamSideband>
         let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call *sideband)#maybe_await;
         match r {
             Some(sideband) => {
+                #ev_kind_builder
                 wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
                 wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-                Ok(WrAction::WrittenOk)
+                Ok(WrAction::WrittenOk(event_kind_builder))
             }
             None => {
                 Ok(WrAction::Deferred)
@@ -830,11 +901,13 @@ fn handle_stream(
             }
             _ => other_des(),
         };
+        let ev_kind_builder = cx.prepare_event_kind_builder();
         quote! {
             RequestKind::Write { data } => {
                 #des_data
                 self.#write(#maybe_index_chain_call #arg)#maybe_await;
-                Ok(WrAction::WrittenOk) // TODO: ?? do not send acknowledgements on stream writes
+                #ev_kind_builder
+                Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
             }
             RequestKind::StreamSideband { sideband } => {
                 #handle_sideband

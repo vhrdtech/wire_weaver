@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+use crate::DeserializeShrinkWrapOwned;
 use crate::buf_writer::BufWriterState;
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
@@ -75,18 +77,15 @@ impl<'i> EitherAnyVec<'i> {
 }
 
 impl EitherAnyVecBuilder {
-    pub fn new(buf: &mut [u8]) -> Result<(Self, BufWriter<'_>), Error> {
-        let wr = BufWriter::new(buf);
+    pub fn new(wr: &BufWriter<'_>) -> Self {
+        // let wr = BufWriter::new(buf);
         // let unsized_builder = UnsizedBuilder::new(&mut wr)?;
         let items = wr.save_state();
-        Ok((
-            Self {
-                // unsized_builder,
-                flags: None,
-                items,
-            },
-            wr,
-        ))
+        Self {
+            // unsized_builder,
+            flags: None,
+            items,
+        }
     }
 
     fn write_flag(
@@ -169,6 +168,10 @@ impl EitherAnyVecBuilder {
         Ok(())
     }
 
+    pub fn finish(self, wr: &mut BufWriter<'_>) {
+        wr.restore_state(self.items);
+    }
+
     /// Finalize the BufWriter and get result bytes
     pub fn finish_and_take(self, mut wr: BufWriter<'_>) -> Result<&[u8], Error> {
         wr.restore_state(self.items);
@@ -179,7 +182,8 @@ impl EitherAnyVecBuilder {
 
 impl<'i> EitherAnyVecWriter<'i> {
     pub fn new(data: &'i mut [u8]) -> Result<Self, Error> {
-        let (builder, wr) = EitherAnyVecBuilder::new(data)?;
+        let wr = BufWriter::new(data);
+        let builder = EitherAnyVecBuilder::new(&wr);
         let data = wr.deinit();
         Ok(Self { data, builder })
     }
@@ -245,6 +249,26 @@ impl<'i> EitherAnyVecIter<'i> {
     pub fn next<L: DeserializeShrinkWrap<'i>, R: DeserializeShrinkWrap<'i>>(
         &mut self,
     ) -> Result<Either<L, R>, Error> {
+        if self.read_flag()? {
+            Ok(Either::Right(self.rd.read()?))
+        } else {
+            Ok(Either::Left(self.rd.read()?))
+        }
+    }
+
+    /// Read the next flag and deserialize either `L` or `R` type.
+    #[cfg(feature = "std")]
+    pub fn next_owned<L: DeserializeShrinkWrapOwned, R: DeserializeShrinkWrapOwned>(
+        &mut self,
+    ) -> Result<Either<L, R>, Error> {
+        if self.read_flag()? {
+            Ok(Either::Right(self.rd.read_owned()?))
+        } else {
+            Ok(Either::Left(self.rd.read_owned()?))
+        }
+    }
+
+    fn read_flag(&mut self) -> Result<bool, Error> {
         let replenish_flags = if let Some(flags) = self.flags {
             flags.bits_left() == 0
         } else {
@@ -263,11 +287,7 @@ impl<'i> EitherAnyVecIter<'i> {
                 .read_bool()
                 .unwrap_unchecked()
         };
-        if is_r {
-            Ok(Either::Right(self.rd.read()?))
-        } else {
-            Ok(Either::Left(self.rd.read()?))
-        }
+        Ok(is_r)
     }
 }
 
@@ -446,7 +466,8 @@ mod tests {
     #[test]
     fn result_vec_write_builder() {
         let mut buf = [0u8; 64];
-        let (mut builder, mut wr) = EitherAnyVecBuilder::new(&mut buf).unwrap();
+        let mut wr = BufWriter::new(&mut buf);
+        let mut builder = EitherAnyVecBuilder::new(&wr);
 
         let marker = builder.write_item_start(&mut wr).unwrap();
         let is_right = write_with_buf_writer(&mut wr, vec![0xAA, 0xBB, 0xCC]);

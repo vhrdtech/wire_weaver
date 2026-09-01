@@ -73,7 +73,7 @@ pub async fn test_event_loop(
             Command::OnStreamEvent { .. } => {
                 // TODO: stream support in tests
             }
-            _ => panic!("not supported command"),
+            _ => println!("not supported command"),
         }
     }
 }

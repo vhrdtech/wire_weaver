@@ -153,9 +153,9 @@ pub enum RequestKind<'i> {
 #[derive(Clone, Debug)]
 #[owned = "std"]
 pub enum MultiIndex<'i> {
-    All,
-    Range(Range<u32>),
-    List(RefVec<'i, u32>),
+    // All,
+    Range(Range<UNib32>),
+    List(RefVec<'i, UNib32>),
     Mask32(u32),
 }
 
@@ -539,7 +539,7 @@ impl MultiArgs<'_> {
 impl MultiIndex<'_> {
     pub fn make_owned(&self) -> Result<MultiIndexOwned, shrink_wrap::Error> {
         match self {
-            MultiIndex::All => Ok(MultiIndexOwned::All),
+            // MultiIndex::All => Ok(MultiIndexOwned::All),
             MultiIndex::Range(r) => Ok(MultiIndexOwned::Range(r.clone())),
             MultiIndex::List(list) => Ok(MultiIndexOwned::List(
                 list.iter().collect::<Result<Vec<_>, _>>()?,

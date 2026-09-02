@@ -301,8 +301,9 @@ where
             // resend GetDeviceInfo, might not be needed as packets should not get silently lost (apart from the very first), but just in case
             Duration::from_millis(50)
         };
-        // TODO: !!! Call prune as well here
-        let timer = tokio::time::sleep(duration);
+        let next_timeout = rx_dispatcher.prune_next_timeout();
+        let timeout_timer = tokio::time::sleep(next_timeout);
+        let ping_timer = tokio::time::sleep(duration);
         tokio::select! {
             message = link.receive_message(&mut state.message_rx) => {
                 match handle_message(message, link, state, rx_dispatcher).await? {
@@ -325,7 +326,7 @@ where
                     EventLoopSpinResult::DisconnectAndExit => return Ok(EventLoopExitReason::DisconnectCommand)
                 }
             }
-            _ = timer => {
+            _ = ping_timer => {
                 if !state.common.link_up {
                     if link_setup_retries > 0 {
                         warn!("resending GetDeviceInfo after no answer received from device");
@@ -360,6 +361,9 @@ where
                     }
                     next_tx_ping_instant = Instant::now() + ping_period;
                 }
+            }
+            _ = timeout_timer => {
+                rx_dispatcher.prune_next_timeout();
             }
         }
     }

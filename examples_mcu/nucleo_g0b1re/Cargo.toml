@@ -41,7 +41,6 @@ usb = ["dep:embassy-usb"]
 nucleo_g0b1re = ["embassy-stm32/stm32g0b1re"]
 b129a_cannify = ["embassy-stm32/stm32g0b1ce"]
 
-# to solve "can't find crate for test on IntelliJ"
 [[bin]]
 name = "nucleo_g0b1re_usb_blinky"
 path = "src/bin/usb_blinky.rs"

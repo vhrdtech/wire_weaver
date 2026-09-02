@@ -1,0 +1,13 @@
+# List all available targets
+default:
+    @just --list
+
+# Supported boards: rp2; Supported binaries: usb_blinky and others from src/bin
+run board bin *args:
+    just "run-{{board}}-{{bin}}" {{args}}
+
+run-rp2-blinky *args:
+    cargo run --bin rp2_blinky {{args}}
+
+run-rp2-usb_blinky *args:
+    cargo run --bin rp2_usb_blinky --features "usb" {{args}}

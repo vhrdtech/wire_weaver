@@ -1,4 +1,3 @@
-use either::Either;
 use tokio::sync::oneshot;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, UNib32,

@@ -27,8 +27,7 @@ impl<'d, D: Driver<'d>, B: WireWeaverAsyncApiBackend> UsbServer<'d, D, B> {
                     &mut self.link,
                     &mut self.call_publish_rx,
                     self.rx_message,
-                    self.scratch_args,
-                    self.scratch_event,
+                    self.scratch,
                     &self.timings,
                 )
                 .await
@@ -56,8 +55,7 @@ async fn api_loop<'d, D: Driver<'d>>(
     link: &mut WireWeaverUsbLink<'d, super::Sender<'d, D>, super::Receiver<'d, D>>,
     call_publish_rx: &mut Receiver<'d, CriticalSectionRawMutex, (), 1>,
     rx_message_buf: &mut [u8],
-    scratch_args: &mut [u8],
-    scratch_event: &mut [u8],
+    scratch: &mut [u8],
     timings: &UsbTimings,
 ) -> Result<(), LinkError<EndpointError, EndpointError>> {
     info!("waiting for link setup...");
@@ -67,7 +65,6 @@ async fn api_loop<'d, D: Driver<'d>>(
         link.remote_max_message_size()
     );
 
-    let mut scratch_err = [0u8; 32];
     let mut packet_started_instant: Option<Instant> = None;
     let mut next_ping_instant = Instant::now() + timings.ww_ping_period;
     loop {
@@ -132,9 +129,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                         .process_bytes(
                             link,
                             message,
-                            scratch_args,
-                            scratch_event,
-                            &mut scratch_err,
+                            scratch,
                         )
                         .await
                     {
@@ -183,7 +178,7 @@ async fn api_loop<'d, D: Driver<'d>>(
                 // notification from user code to call send_updates() on the backend
                 let packets_sent_prev = link.sender_stats().packets_sent;
                 backend
-                    .send_updates(link, scratch_args, scratch_event)
+                    .send_updates(link, scratch)
                     .await;
                 if link.is_tx_queue_empty() {
                     packet_started_instant = None;

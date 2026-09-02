@@ -125,18 +125,10 @@ mod tests {
                 fn process_request_bytes<'a>(
                     &mut self,
                     bytes: &[u8],
-                    scratch_args: &'a mut [u8],
-                    scratch_event: &'a mut [u8],
-                    scratch_err: &'a mut [u8],
+                    scratch: &'a mut [u8],
                     msg_tx: &mut impl MessageSink,
                 ) -> Result<&'a [u8], ShrinkWrapError> {
-                    self.process_request_bytes(
-                        bytes,
-                        scratch_args,
-                        scratch_event,
-                        scratch_err,
-                        msg_tx,
-                    )
+                    self.process_request_bytes(bytes, scratch, msg_tx)
                 }
             }
         }

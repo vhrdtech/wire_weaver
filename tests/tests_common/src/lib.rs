@@ -18,9 +18,7 @@ pub trait TestProcessEvents {
     fn process_request_bytes<'a>(
         &mut self,
         bytes: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
         msg_tx: &mut impl MessageSink,
     ) -> Result<&'a [u8], ShrinkWrapError>;
 }
@@ -30,9 +28,7 @@ pub async fn test_event_loop(
     mut server: impl TestProcessEvents,
     mut msg_tx: impl MessageSink,
 ) {
-    let mut s1 = [0u8; 512];
-    let mut s2 = [0u8; 512];
-    let mut se = [0u8; 128];
+    let mut scratch = [0u8; 512];
 
     let mut seq = 1;
     while let Some(cmd) = cmd_rx.recv().await {
@@ -50,7 +46,7 @@ pub async fn test_event_loop(
                 Request::set_seq(&mut bytes, seq);
                 seq += 1;
                 let r = server
-                    .process_request_bytes(&bytes, &mut s1, &mut s2, &mut se, &mut msg_tx)
+                    .process_request_bytes(&bytes, &mut scratch, &mut msg_tx)
                     .expect("process_request");
                 if r.is_empty() {
                     continue;

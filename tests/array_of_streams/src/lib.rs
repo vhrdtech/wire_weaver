@@ -25,12 +25,10 @@ mod tests {
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
-                scratch_args: &'a mut [u8],
-                scratch_event: &'a mut [u8],
-                scratch_err: &'a mut [u8],
+                scratch: &'a mut [u8],
                 msg_tx: &mut impl MessageSink,
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch_args, scratch_event, scratch_err, msg_tx)
+                self.process_request_bytes(bytes, scratch, msg_tx)
             }
         }
     }
@@ -145,32 +143,31 @@ mod tests {
     #[test]
     fn stream_paths_are_correct() {
         let v = &[1u8, 2, 3][..];
-        let mut s1 = [0u8; 512];
-        let mut s2 = [0u8; 512];
+        let mut scratch = [0u8; 512];
 
         let root = api_impl::stream_data_ser();
-        let update = root.stream(&v, &mut s1, &mut s2).unwrap();
+        let update = root.stream(&v, &mut scratch).unwrap();
         check_path(update, &[0]);
-        let update = root.array_of_streams(10, &v, &mut s1, &mut s2).unwrap();
+        let update = root.array_of_streams(10, &v, &mut scratch).unwrap();
         check_path(update, &[1, 10]);
 
         let subgroup = root.subgroup();
-        let update = subgroup.stream(&v, &mut s1, &mut s2).unwrap();
+        let update = subgroup.stream(&v, &mut scratch).unwrap();
         check_path(update, &[2, 0]);
-        let update = subgroup.array_of_streams(11, &v, &mut s1, &mut s2).unwrap();
+        let update = subgroup.array_of_streams(11, &v, &mut scratch).unwrap();
         check_path(update, &[2, 1, 11]);
 
         let gpio = root.gpio(123);
-        let update = gpio.stream(&v, &mut s1, &mut s2).unwrap();
+        let update = gpio.stream(&v, &mut scratch).unwrap();
         check_path(update, &[3, 123, 0]);
-        let update = gpio.array_of_streams(12, &v, &mut s1, &mut s2).unwrap();
+        let update = gpio.array_of_streams(12, &v, &mut scratch).unwrap();
         check_path(update, &[3, 123, 1, 12]);
 
         let periph = root.periph(255);
         let channel = periph.channel(1023);
-        let update = channel.stream(&v, &mut s1, &mut s2).unwrap();
+        let update = channel.stream(&v, &mut scratch).unwrap();
         check_path(update, &[4, 255, 0, 1023, 0]);
-        let update = channel.array_of_streams(13, &v, &mut s1, &mut s2).unwrap();
+        let update = channel.array_of_streams(13, &v, &mut scratch).unwrap();
         check_path(update, &[4, 255, 0, 1023, 1, 13]);
     }
 

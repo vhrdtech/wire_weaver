@@ -17,8 +17,7 @@ pub struct UsbServer<'d, D: Driver<'d>, B> {
     pub(crate) state: B,
     pub(crate) timings: UsbTimings,
     pub(crate) rx_message: &'d mut [u8],
-    pub(crate) scratch_args: &'d mut [u8],
-    pub(crate) scratch_event: &'d mut [u8],
+    pub(crate) scratch: &'d mut [u8],
 }
 
 pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
@@ -33,10 +32,8 @@ pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: us
     rx_message: [u8; MAX_MESSAGE_LEN],
     /// Used to prepare USB packets for transmission
     tx: [u8; MAX_USB_PACKET_LEN],
-    /// Used to serialize arguments of methods
-    scratch_args: [u8; MAX_MESSAGE_LEN],
-    /// Used to serialize final event out of arguments and other pieces
-    scratch_event: [u8; MAX_MESSAGE_LEN],
+    /// Used to serialize ww_client_server events
+    scratch: [u8; MAX_MESSAGE_LEN],
     call_publish: Channel<CriticalSectionRawMutex, (), 1>,
 }
 
@@ -52,8 +49,7 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
             rx: [0u8; MAX_USB_PACKET_LEN],
             rx_message: [0u8; MAX_MESSAGE_LEN],
             tx: [0u8; MAX_USB_PACKET_LEN],
-            scratch_args: [0u8; MAX_MESSAGE_LEN],
-            scratch_event: [0u8; MAX_MESSAGE_LEN],
+            scratch: [0u8; MAX_MESSAGE_LEN],
             call_publish: Channel::new(),
         }
     }
@@ -154,8 +150,7 @@ pub fn usb_init<
             state,
             timings,
             rx_message: &mut buffers.rx_message,
-            scratch_args: &mut buffers.scratch_args,
-            scratch_event: &mut buffers.scratch_event,
+            scratch: &mut buffers.scratch,
             call_publish_rx: buffers.call_publish.receiver(),
         },
         buffers.call_publish.sender(),

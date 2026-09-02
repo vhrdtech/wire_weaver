@@ -208,15 +208,13 @@ pub fn gen_server(
             pub #maybe_async fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
-                scratch_args: &'a mut [u8],
-                scratch_event: &'a mut [u8],
-                scratch_err: &'a mut [u8],
+                scratch: &'a mut [u8],
                 msg_tx: &mut impl wire_weaver::MessageSink,
             ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd)?;
 
-                let mut wr = BufWriter::new(scratch_event);
+                let mut wr = BufWriter::new(scratch);
                 let event_builder = EventBuilder::new(request.seq, &mut wr)?;
 
                 // TODO: handle trait paths on server side

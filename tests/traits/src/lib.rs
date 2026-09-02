@@ -153,9 +153,7 @@ mod tests {
         let data_clone = data.clone();
         tokio::spawn(async move {
             let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
-            let mut s1 = [0u8; 512];
-            let mut s2 = [0u8; 512];
-            let mut se = [0u8; 128];
+            let mut scratch = [0u8; 512];
 
             let mut seq = 1;
             while let Some(cmd) = cmd_rx.recv().await {
@@ -173,13 +171,7 @@ mod tests {
                         Request::set_seq(&mut bytes, seq);
                         seq += 1;
                         let r = server
-                            .process_request_bytes(
-                                &bytes,
-                                &mut s1,
-                                &mut s2,
-                                &mut se,
-                                &mut dummy_msg_tx,
-                            )
+                            .process_request_bytes(&bytes, &mut scratch, &mut dummy_msg_tx)
                             .expect("process_request");
                         if r.is_empty() {
                             continue;

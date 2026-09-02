@@ -66,20 +66,23 @@ pub(crate) fn stream_ser_methods_recursive(
             quote! { 'a }
         };
 
-        let bytes_to_container = if no_alloc {
-            quote! { TailBytes(value_bytes) }
-        } else {
-            quote! { TailBytesOwned(Vec::from(value_bytes)) }
-        };
+        // let bytes_to_container = if no_alloc {
+        //     quote! { TailBytes(value_bytes) }
+        // } else {
+        //     quote! { TailBytesOwned(Vec::from(value_bytes)) }
+        // };
 
         let (value_ty, value_ser) = if ty.is_byte_slice(bundle).unwrap() {
-            (quote! { [u8] }, quote! { let value_bytes = value; })
+            (
+                quote! { [u8] },
+                quote! {
+                    wr.write(&TailBytes(value))?;
+                },
+            )
         } else {
             let ty_def = ty_def(bundle, ty, !no_alloc, TyPos::Arg).unwrap();
             let value_ser = quote! {
-                let mut wr = BufWriter::new(scratch_value);
                 value.ser_shrink_wrap(&mut wr)?;
-                let value_bytes = wr.finish_and_take()?;
             };
 
             (quote! { #ty_def }, value_ser)
@@ -91,20 +94,20 @@ pub(crate) fn stream_ser_methods_recursive(
                 &self,
                 #maybe_index_arg
                 value: & #value_ty,
-                scratch_value: &mut [u8],
-                scratch_event: &'a mut [u8]
+                scratch: &'a mut [u8],
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                #value_ser
+                let mut wr = BufWriter::new(scratch);
+                let event_builder = EventBuilder::new(0, &mut wr)?;
+                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
 
-                let mut wr = BufWriter::new(scratch_event);
-                let data = #bytes_to_container;
                 #let_index_chain
                 let path = RefVec::Slice { slice: &index_chain };
-                let event = Event {
-                    seq: 0,
-                    result: Ok(EventKind::StreamData { path, data })
-                };
-                event.ser_shrink_wrap(&mut wr)?;
+                wr.write(&path)?;
+
+                #value_ser
+
+                event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamData, &mut wr);
+                event_builder.finish(true, &mut wr);
                 wr.finish_and_take()
             }
         });

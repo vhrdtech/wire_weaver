@@ -27,22 +27,22 @@ check-mcu:
 check-examples-mcu:
     @just header "Checking examples-mcu"
     @just check-examples-mcu-qemu
-    @just check-examples-mcu-usb-nucleo-h743zi2
-    @just check-examples-mcu-usb-stm32g0b1cetxn
-    @just check-examples-mcu-usb-stm32h725ig
+    @just check-examples-mcu-nucleo-h743zi2
+    @just check-examples-mcu-stm32g0b1cetxn
+    @just check-examples-mcu-stm32h725ig
 
 [working-directory('examples_mcu/mcu_qemu')]
 check-examples-mcu-qemu:
     @just header "Checking mcu_qemu"
     @cargo check
 
-[working-directory('examples_mcu/usb_nucleo_h743zi2')]
-check-examples-mcu-usb-nucleo-h743zi2:
+[working-directory('examples_mcu/nucleo_h743zi2')]
+check-examples-mcu-nucleo-h743zi2:
     @just header "Checking usb_nucleo_h743zi2"
     @cargo check
 
-[working-directory('examples_mcu/usb_nucleo_h743zi2')]
-upload-examples-mcu-usb-nucleo-h743zi2:
+[working-directory('examples_mcu/nucleo_h743zi2')]
+upload-examples-mcu-nucleo-h743zi2:
     mx3 fw upload --bin blinky --release --rename usb_nucleo_h743zi2_blinky
     mx3 fw upload --bin all_gpio --release --rename usb_nucleo_h743zi2_all_gpio
 

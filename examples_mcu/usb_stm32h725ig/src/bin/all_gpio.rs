@@ -39,11 +39,9 @@ impl WireWeaverAsyncApiBackend for ServerState {
         &mut self,
         msg_tx: &mut impl MessageSink,
         data: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch_args, scratch_event, scratch_err, msg_tx)
+        self.process_request_bytes(data, scratch, msg_tx)
             .await
     }
 
@@ -62,7 +60,7 @@ mod server_impl {
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        introspect = true,
+        introspect = "no_docs",
         debug_to_file = "./target/generated_all_gpio_server.rs"
     );
 }
@@ -154,7 +152,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         UsbTimings::hs_higher_speed(),
         // UsbTimings::hs_lower_latency(),
         all_gpio_api::ALL_GPIO_API_FULL_GID,
-        &server_impl::WW_API_SIGNATURE,
+        server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
@@ -437,11 +435,11 @@ impl ServerState {
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
-        ValidIndices::Range(0..self.bank.len() as u32)
+        ValidIndices::range_u32(0..self.bank.len() as u32)
     }
 
     fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_> {
         let _pin_idx = index[0].0 as usize;
-        ValidIndices::Range(0..16)
+        ValidIndices::range_u32(0..16)
     }
 }

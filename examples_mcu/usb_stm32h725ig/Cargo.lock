@@ -1983,6 +1983,7 @@ name = "ww_version"
 version = "0.1.1"
 dependencies = [
  "defmt 1.1.1",
+ "hex",
  "semver 1.0.28",
  "serde",
  "shrink_wrap",

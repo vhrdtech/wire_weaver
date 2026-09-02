@@ -39,11 +39,9 @@ impl WireWeaverAsyncApiBackend for ServerState {
         &mut self,
         msg_tx: &mut impl MessageSink,
         data: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch_args, scratch_event, scratch_err, msg_tx)
+        self.process_request_bytes(data, scratch, msg_tx)
             .await
     }
 

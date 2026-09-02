@@ -16,26 +16,17 @@ use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Sp
 fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
 
-    let mut scratch_args = [0u8; 512];
-    let mut scratch_event = [0u8; 512];
-    let mut scratch_err = [0u8; 32];
+    let mut scratch = [0u8; 512];
     let mut server = ServerState {};
 
-    let r = api_server::stream_data_ser().port(0).pin(7).event(
-        &IoPinEvent::RisingEdge,
-        &mut scratch_args,
-        &mut scratch_event,
-    );
+    let r = api_server::stream_data_ser()
+        .port(0)
+        .pin(7)
+        .event(&IoPinEvent::RisingEdge, &mut scratch);
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
-    let r = server.process_request_bytes(
-        &event,
-        &mut scratch_args,
-        &mut scratch_event,
-        &mut scratch_err,
-        &mut DummyTx {},
-    );
+    let r = server.process_request_bytes(&event, &mut scratch, &mut DummyTx {});
     writeln!(stdout, "{r:?}").unwrap();
 
     // exit QEMU
@@ -180,11 +171,11 @@ impl ServerState {
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
-        ValidIndices::Range(0..8)
+        ValidIndices::range_u32(0..8)
     }
 
     fn valid_indices_root_port_pin(&mut self, _index: [UNib32; 1]) -> ValidIndices<'_> {
-        ValidIndices::Range(0..16)
+        ValidIndices::range_u32(0..16)
     }
 }
 

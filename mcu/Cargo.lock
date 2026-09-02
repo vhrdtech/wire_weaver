@@ -1130,6 +1130,7 @@ name = "ww_version"
 version = "0.1.1"
 dependencies = [
  "defmt",
+ "hex",
  "semver",
  "serde",
  "shrink_wrap",

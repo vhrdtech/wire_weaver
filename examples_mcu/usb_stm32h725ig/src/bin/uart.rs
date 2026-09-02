@@ -73,7 +73,7 @@ mod server_impl {
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        introspect = true,
+        introspect = "no_docs",
         debug_to_file = "./target/generated_uart_server.rs"
     );
 }
@@ -83,23 +83,20 @@ impl WireWeaverAsyncApiBackend for ServerState {
         &mut self,
         msg_tx: &mut impl MessageSink,
         data: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch_args, scratch_event, scratch_err, msg_tx)
+        self.process_request_bytes(data, scratch, msg_tx)
             .await
     }
 
     async fn send_updates(
         &mut self,
         sink: &mut impl MessageSink,
-        scratch_value: &mut [u8],
-        scratch_event: &mut [u8],
+        scratch: &mut [u8],
     ) {
-        self.send_received_bytes(0, scratch_value, scratch_event, sink)
+        self.send_received_bytes(0, scratch, sink)
             .await;
-        self.send_received_bytes(1, scratch_value, scratch_event, sink)
+        self.send_received_bytes(1, scratch, sink)
             .await;
     }
 
@@ -110,7 +107,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
 
 impl ServerState {
     pub fn valid_indices_root_uart(&mut self) -> ValidIndices<'_> {
-        ValidIndices::Range(0..0)
+        ValidIndices::range_u32(0..0)
     }
 
     async fn sideband_uart_rx(
@@ -125,8 +122,7 @@ impl ServerState {
     async fn send_received_bytes(
         &mut self,
         index: usize,
-        scratch_value: &mut [u8],
-        scratch_event: &mut [u8],
+        scratch: &mut [u8],
         sink: &mut impl MessageSink,
     ) {
         if let Ok(rg) = self.rx_consumer[index].read() {
@@ -136,8 +132,7 @@ impl ServerState {
                     timestamp: None,
                     bytes: RefVec::new_bytes(&rg),
                 },
-                scratch_value,
-                scratch_event,
+                scratch,
             );
             rg.release();
             if let Ok(stream_data_event) = stream_data_event {
@@ -453,7 +448,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         UsbTimings::hs_higher_speed(),
         // UsbTimings::hs_lower_latency(),
         uart_api::UART_BRIDGE_FULL_GID,
-        &server_impl::WW_API_SIGNATURE,
+        server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());

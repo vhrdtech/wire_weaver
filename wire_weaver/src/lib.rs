@@ -42,19 +42,16 @@ pub trait WireWeaverAsyncApiBackend {
         &mut self,
         sink: &mut impl MessageSink,
         data: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
 
     fn send_updates(
         &mut self,
         sink: &mut impl MessageSink,
-        scratch_value: &mut [u8],
-        scratch_event: &mut [u8],
+        scratch: &mut [u8],
     ) -> impl Future<Output = ()> {
         let _ = sink;
-        let (_, _) = (scratch_value, scratch_event);
+        let _ = scratch;
         core::future::ready(())
     }
 

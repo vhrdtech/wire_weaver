@@ -40,11 +40,9 @@ impl WireWeaverAsyncApiBackend for ServerState {
         &mut self,
         msg_tx: &mut impl MessageSink,
         data: &[u8],
-        scratch_args: &'a mut [u8],
-        scratch_event: &'a mut [u8],
-        scratch_err: &'a mut [u8],
+        scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch_args, scratch_event, scratch_err, msg_tx)
+        self.process_request_bytes(data, scratch, msg_tx)
             .await
     }
 
@@ -63,7 +61,7 @@ mod server_impl {
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        introspect = true,
+        introspect = "no_docs",
         debug_to_file = "./target/generated_blinky_server.rs"
     );
 }
@@ -168,7 +166,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         UsbTimings::hs_higher_speed(),
         // UsbTimings::hs_lower_latency(),
         blinky_api::BLINKY_API_FULL_GID,
-        &server_impl::WW_API_SIGNATURE,
+        server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());

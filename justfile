@@ -41,6 +41,11 @@ check-examples-mcu-usb-nucleo-h743zi2:
     @just header "Checking usb_nucleo_h743zi2"
     @cargo check
 
+[working-directory('examples_mcu/usb_nucleo_h743zi2')]
+upload-examples-mcu-usb-nucleo-h743zi2:
+    mx3 fw upload --bin blinky --release --rename usb_nucleo_h743zi2_blinky
+    mx3 fw upload --bin all_gpio --release --rename usb_nucleo_h743zi2_all_gpio
+
 [working-directory('examples_mcu/usb_stm32g0b1cetxn')]
 check-examples-mcu-usb-stm32g0b1cetxn:
     @just header "Checking usb_stm32g0b1cetxn"
@@ -53,7 +58,10 @@ check-examples-mcu-usb-stm32h725ig:
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 upload-examples-mcu-usb-stm32h725ig:
-    mx3 fw upload --bin uart --rename usb_b135_uart
+    mx3 fw upload --bin uart --release --rename usb_b135_uart
+
+pre-commit:
+    cargo sort -w
 
 # Serve the documentation localy
 [group('docs')]

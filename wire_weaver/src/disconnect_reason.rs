@@ -6,6 +6,7 @@ use shrink_wrap::prelude::*;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum DisconnectReason {
     CommanderDropped,
+    ApplicationCrash,
     RequestByUser,
     IncompatibleVersion,
     Other(u8),

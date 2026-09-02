@@ -21,7 +21,7 @@ pub mod prelude {
     pub use crate::rpc::GetResult::{GetError, Value};
     pub use crate::rpc::RpcResult::{Deferred, Ready};
     pub use crate::rpc::SetResult::{Set, SetError};
-    pub use crate::rpc::{GetResult, RpcResult, SetResult};
+    pub use crate::rpc::{GetResult, RpcResult, SetResult, Unimplemented};
     pub use crate::valid_indices::ValidIndices;
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;

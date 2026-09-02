@@ -7,42 +7,46 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
-[dependencies]
-anyhow.workspace = true
-thiserror = "2.0"
-semver.workspace = true
-strum.workspace = true
-strum_macros.workspace = true
-ww_version = { workspace = true, features = ["std"] }
-wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
-ww_client_server = { workspace = true, features = ["std"] }
-ww_self = { workspace = true, features = ["std", "serde"] }
-tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
-hex = { workspace = true, features = ["std"] }
-tracing = "0.1"
-cfg-if = "1"
-ron.workspace = true
-futures-lite = "2.6"
-either = "1"
-iceoryx2 = { version = "0.8", optional = true }
-iceoryx2-bb-container = { version = "0.8", optional = true }
-nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?
-rand = "0.10"
-wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["host"], optional = true }
-
 [features]
 default = ["usb"]
 # default = ["usb", "net"]
 usb = ["dep:wire_weaver_usb_link"] # connect to devices via USB (using nusb)
 net = [] # connect to devices via WebSockets or UDP
-can = [] # connect to devices via CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
+can = [
+] # connect to devices via CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
 rtt = [] # connect to devices via RTT over JTAG/SWD
-i2c = [] # connect to devices via I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
-uart = [] # connect to devices via UART using USB or Ethernet to UART bridges or system provided serial ports
-ipc = [] # connect to devices via inter-process communication channel (using iceoryx2)
+i2c = [
+] # connect to devices via I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
+uart = [
+] # connect to devices via UART using USB or Ethernet to UART bridges or system provided serial ports
+ipc = [
+] # connect to devices via inter-process communication channel (using iceoryx2)
 in_process = [] # connect to virtual devices via in-process channel
 
 usb-tracing = [
     "dep:iceoryx2",
     "dep:iceoryx2-bb-container",
 ] # stream all USB packets over iceoryx2 to debugger
+
+[dependencies]
+anyhow.workspace = true
+cfg-if = "1"
+either = "1"
+futures-lite = "2.6"
+hex = { workspace = true, features = ["std"] }
+iceoryx2 = { version = "0.8", optional = true }
+iceoryx2-bb-container = { version = "0.8", optional = true }
+nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?
+rand = "0.10"
+ron.workspace = true
+semver.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+thiserror = "2.0"
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
+tracing = "0.1"
+wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
+wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["host"], optional = true }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["std", "serde"] }
+ww_version = { workspace = true, features = ["std"] }

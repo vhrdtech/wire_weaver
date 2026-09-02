@@ -29,16 +29,16 @@ license = "MIT"
 [workspace.dependencies]
 anyhow = "1"
 defmt = "1.1"
+hex = { version = "0.4", default-features = false }
 proc-macro2 = "1.0"
 quote = "1.0"
+ron = "0.12"
+semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 shrink_wrap = { path = "./shrink_wrap/shrink_wrap", default-features = false }
 shrink_wrap_core = { path = "./shrink_wrap/shrink_wrap_core" }
 strum = "0.28"
 strum_macros = "0.28"
-hex = { version = "0.4", default-features = false }
-ron = "0.12"
-semver = "1.0"
 syn = { version = "3", features = ["full", "extra-traits"] }
 #shrink_wrap = { version = "0.1.2", default-features = false }
 #shrink_wrap_core = { version = "0.2.0" }

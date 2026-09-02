@@ -1,8 +1,8 @@
 [project]
-site_url = "https://www.example.com/"
-site_name = "Donguru"
+site_url = "https://ww.vhrd.tech/"
+site_name = "WireWeaver"
 site_description = "Wire format and API code generator with rich type system and no alloc for embedded systems"
-# site_author = "Your name"
+site_author = "Roman Isaikin"
 
 copyright = "Copyright &copy; 2026 vhrdtech"
 
@@ -40,18 +40,23 @@ nav = [
         "std_library/ww_date_time.md",
         "std_library/ww_version.md",
         "std_library/ww_numeric.md",
-        "std_library/ww_self.md",
         "std_library/ww_si.md",
         "std_library/ww_client_server.md",
-        "std_library/ww_dfu.md",
         "std_library/ww_can_bus.md",
-        "std_library/ww_log_baremetal.md"
+        "std_library/ww_dfu.md",
+        "std_library/ww_log_baremetal.md",
+        "std_library/ww_self.md",
         ]
     },
     {
         "Transport protocols" = [
             "transport/overview.md",
-            "transport/usb.md"
+            "transport/usb.md",
+            "transport/ws.md",
+            "transport/udp.md",
+            "transport/ipc.md",
+            "transport/in_process.md",
+            "transport/can.md"
         ]
     },
     {
@@ -122,16 +127,16 @@ toggle.name = "Switch to light mode"
 media = "(prefers-color-scheme: light)"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
-primary = "teal"
-accent = "teal"
+primary = "blue"
+accent = "blue"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
-primary = "teal"
-accent = "teal"
+primary = "blue"
+accent = "blue"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"

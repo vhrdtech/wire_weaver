@@ -11,3 +11,6 @@ run-rp2-blinky *args:
 
 run-rp2-usb_blinky *args:
     cargo run --bin rp2_usb_blinky --features "usb" {{args}}
+
+run-rp2-ww_rtt *args:
+    cargo run --bin rp2_ww_rtt --no-default-features --features="rtt_target"

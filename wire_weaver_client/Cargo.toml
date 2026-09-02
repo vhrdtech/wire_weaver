@@ -10,18 +10,14 @@ license.workspace = true
 [features]
 default = ["usb"]
 # default = ["usb", "net"]
-usb = ["dep:wire_weaver_usb_link"] # connect to devices via USB (using nusb)
-net = [] # connect to devices via WebSockets or UDP
-can = [
-] # connect to devices via CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
-rtt = [] # connect to devices via RTT over JTAG/SWD
-i2c = [
-] # connect to devices via I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
-uart = [
-] # connect to devices via UART using USB or Ethernet to UART bridges or system provided serial ports
-ipc = [
-] # connect to devices via inter-process communication channel (using iceoryx2)
-in_process = [] # connect to virtual devices via in-process channel
+usb = ["dep:wire_weaver_usb_link"] # USB (using nusb)
+net = [] # WebSockets or UDP
+can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
+rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
+i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
+uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
+ipc = [] # inter-process communication channel (using iceoryx2)
+in_process = [] # in-process channel
 
 usb-tracing = [
     "dep:iceoryx2",
@@ -37,6 +33,7 @@ hex = { workspace = true, features = ["std"] }
 iceoryx2 = { version = "0.8", optional = true }
 iceoryx2-bb-container = { version = "0.8", optional = true }
 nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?
+probe-rs = { version = "0.32", default-featuers = false, features = ["builtin-targets", "cmsisdap_v1", "builtin-formats"], optional = true }
 rand = "0.10"
 ron.workspace = true
 semver.workspace = true

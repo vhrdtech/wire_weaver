@@ -28,7 +28,8 @@ embassy-futures = { version = "0.1.2" }
 #embassy-futures = { path = "../../embassy/embassy-futures" }
 
 defmt = "1.1"
-defmt-rtt = { version = "1.3", features = ["disable-blocking-mode"] }
+defmt-rtt = { version = "1.3", features = ["disable-blocking-mode"], optional = true }
+rtt-target = { version = "0.6", features = ["defmt"], optional = true }
 panic-probe = { version = "1.0", features = ["print-defmt"] }
 static_cell = "2.1"
 
@@ -39,6 +40,9 @@ wire_weaver = { path = "../../wire_weaver", default-features = false, features =
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 
 [features]
+default = ["defmt_rtt"]
+defmt_rtt = ["dep:defmt-rtt"]
+rtt_target = ["dep:rtt-target"]
 usb = ["dep:embassy-usb"]
 
 [[bin]]
@@ -52,6 +56,14 @@ bench = false
 name = "rp2_usb_blinky"
 path = "src/bin/usb_blinky.rs"
 required-features = ["usb"]
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "rp2_ww_rtt"
+path = "src/bin/ww_rtt.rs"
+required-features = ["rtt_target"]
 test = false
 doctest = false
 bench = false

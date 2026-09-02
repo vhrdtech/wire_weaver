@@ -93,7 +93,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         blinky_api::BLINKY_API_FULL_GID,
         server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
-        |config| {
+        |_config| {
             // config.serial_number = Some();
         },
     );

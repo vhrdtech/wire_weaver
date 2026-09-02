@@ -67,10 +67,12 @@ pub(crate) enum ConfigPiece {
     UsbVidPid { vid: u16, pid: u16 },
     /// Connect to a USB device at the specified path (bus_number + port chain)
     UsbPath { bus_id: String, port_chain: Vec<u8> },
-    /// Connect to a USB device, other filter pieces are required to select which one.
+    /// Connect to a USB device using WireWeaver protocol, other filter pieces are required to select which one.
     Usb,
     /// Negate previous USB related filters or exclude USB from the interfaces to try.
-    NoUsb,
+    /// Note that this excludes WireWeaver USB protocol, but not other adapters working over it:
+    /// `.usb_vid_pid(1, 2).no_ww_usb().can()` will try to connect over CAN Bus using USB-CAN bridge
+    NoWwUsb,
 
     /// Connect to a networked device via WebSocket
     WebSocketAddr {
@@ -103,11 +105,19 @@ pub(crate) enum ConfigPiece {
     /// Negate previous IPC related filters or exclude IPC from the interfaces to try.
     NoIpc,
 
-    /// Connec to a device running in the same process via lock-free channel.
+    /// Connect to a device running in the same process via lock-free channel.
     /// Can be used for testing purposes or to create virtual devices.
     InProcessPath { path: String },
     /// Negate previous InProcess related filters or exclude InProcess from the interfaces to try.
     NoInProcess,
+
+    /// Connect to a device over RTT over JTAG/SWD.
+    /// Select which adapter to use using USB filters if there are several of them.
+    Rtt {
+        target: String,
+        protocol: (),
+        speed_hz: Option<u32>,
+    },
 
     /// Filter out a device with the specified serial number. Ignoring case.
     SerialEq { serial: String },
@@ -209,9 +219,9 @@ impl ClientConfig {
     }
 
     /// Do not consider USB devices as a potential connection targets
-    pub fn no_usb(self) -> Self {
+    pub fn no_ww_usb(self) -> Self {
         let mut f = self;
-        f.pieces.push(ConfigPiece::NoUsb);
+        f.pieces.push(ConfigPiece::NoWwUsb);
         f
     }
 
@@ -297,6 +307,16 @@ impl ClientConfig {
     pub fn no_in_process(self) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::NoInProcess);
+        f
+    }
+    /// Select in-process node by path
+    pub fn rtt(self, target: String, speed_hz: Option<u32>) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Rtt {
+            target,
+            protocol: (),
+            speed_hz,
+        });
         f
     }
 
@@ -406,7 +426,7 @@ impl ValidatedConfig {
                 ConfigPieceDiscriminants::UsbVidPid,
                 ConfigPieceDiscriminants::Usb,
             ],
-            ConfigPieceDiscriminants::NoUsb,
+            ConfigPieceDiscriminants::NoWwUsb,
         )
     }
 
@@ -579,14 +599,19 @@ mod tests {
         assert_eq!(f.pieces, vec![ConfigPiece::Usb]);
         assert_eq!(f.is_usb(), true);
 
-        let f = ClientConfig::new().usb().no_usb().validate().unwrap();
-        assert_eq!(f.pieces, vec![ConfigPiece::Usb, ConfigPiece::NoUsb]);
+        let f = ClientConfig::new().usb().no_ww_usb().validate().unwrap();
+        assert_eq!(f.pieces, vec![ConfigPiece::Usb, ConfigPiece::NoWwUsb]);
         assert_eq!(f.is_usb(), false);
 
-        let f = ClientConfig::new().usb().no_usb().usb().validate().unwrap();
+        let f = ClientConfig::new()
+            .usb()
+            .no_ww_usb()
+            .usb()
+            .validate()
+            .unwrap();
         assert_eq!(
             f.pieces,
-            vec![ConfigPiece::Usb, ConfigPiece::NoUsb, ConfigPiece::Usb]
+            vec![ConfigPiece::Usb, ConfigPiece::NoWwUsb, ConfigPiece::Usb]
         );
         assert_eq!(f.is_usb(), true);
     }

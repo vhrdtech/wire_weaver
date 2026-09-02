@@ -106,3 +106,20 @@ impl From<&nusb::DeviceInfo> for DeviceInfo {
         }
     }
 }
+
+#[cfg(feature = "rtt")]
+impl From<&probe_rs::probe::DebugProbeInfo> for DeviceInfo {
+    fn from(info: &probe_rs::probe::DebugProbeInfo) -> Self {
+        DeviceInfo {
+            manufacturer: "".into(),
+            product: info.identifier.clone(),
+            serials: info
+                .serial_number
+                .clone()
+                .map(|s| vec![s])
+                .unwrap_or_default(),
+            user_label: "".into(),
+            api: None,
+        }
+    }
+}

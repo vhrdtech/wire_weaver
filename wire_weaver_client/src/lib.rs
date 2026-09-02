@@ -26,6 +26,9 @@ pub use event_loop::commander::Commander;
 #[cfg(feature = "usb")]
 mod usb;
 
+#[cfg(feature = "rtt")]
+mod rtt;
+
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
 pub type SeqTy = u16;

@@ -82,7 +82,11 @@ async fn main(spawner: embassy_executor::Spawner) {
     let p = embassy_stm32::init(Config::default());
     info!("RCC and RAM init done");
 
+    #[cfg(feature = "b129a_cannify")]
     let led = Output::new(p.PB14, Level::Low, Speed::Low);
+    #[cfg(feature = "nucleo_g0b1re")]
+    let led = Output::new(p.PA5, Level::Low, Speed::Low);
+
     let state = ServerState { led };
 
     let driver = Driver::new(p.USB, Irqs, p.PA12, p.PA11);

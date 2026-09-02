@@ -1,0 +1,13 @@
+# List all available targets
+default:
+    @just --list
+
+# Supported boards: nucleo, b129a; Supported binaries: usb_blinky and others from src/bin
+run board bin *args:
+    just "run-{{board}}-{{bin}}" {{args}}
+
+run-nucleo-usb_blinky *args:
+    cargo run --bin nucleo_g0b1re_usb_blinky --features "usb" {{args}}
+
+run-b129a-usb_blinky *args:
+    cargo run --bin nucleo_g0b1re_usb_blinky --no-default-features --features "usb,b129a_cannify" {{args}}

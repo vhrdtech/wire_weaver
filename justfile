@@ -46,7 +46,7 @@ upload-examples-mcu-nucleo-h743zi2:
     mx3 fw upload --bin blinky --release --rename usb_nucleo_h743zi2_blinky
     mx3 fw upload --bin all_gpio --release --rename usb_nucleo_h743zi2_all_gpio
 
-[working-directory('examples_mcu/usb_stm32g0b1cetxn')]
+[working-directory('examples_mcu/nucleo_g0b1re')]
 check-examples-mcu-usb-stm32g0b1cetxn:
     @just header "Checking usb_stm32g0b1cetxn"
     @cargo check

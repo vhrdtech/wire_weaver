@@ -1,24 +1,40 @@
-# STM32G0B1CETxN examples
+# Nucleo G0B1RE examples
 
-> This is an example project with several binaries for the STM32G0B1CETxN MCUs. This project uses `embassy` and
-> `embassy-usb` so it can easily be adapted to other STM32G0 boards or different families.
+> This is an example project with several binaries for the STM32G0B1RE MCU found on a Nucleo board.
+> `embassy` is used, so it can easily be adapted to other STM32G0 boards or different families.
+
+## How to run examples
+
+Use `just <board_name> <bin_name>` for convenience
+
+## Supported boards
+
+### Nucleo G0B1RE
+
+Enabled as default. Note that it doesn't have physical USB port for USB examples, but it can be connected externally.
+
+```bash
+just run nucleo usb_blinky
+```
+
+Optionally pass `--release`:
+
+```bash
+just run nucleo usb_blinky --release
+```
+
+### CANnify B129A
+
+Board with STM32G0B1CE, USB and CAN Bus transceiver on board.
+
+```bash
+just run b129a usb_blinky
+```
 
 ## Pinout
 
-* PA11/PA12 => USB
-* PB14 => LED
-
-## MCU Info
-
-* Family: STM32G0
-* Line: STM32G0x1
-* Die: DIE467
-* Device ID: 1127
-* Packages:
-    * STM32G0B1CETx: LQFP48 (48 pins)
-    * STM32G0B1CETxN: LQFP48 (48 pins)
-    * STM32G0B1CEUx: UFQFPN48 (48 pins)
-    * STM32G0B1CEUxN: UFQFPN48 (48 pins)
+* PA11 => USB_DN / PA12 => USB_DP
+* PB14 (b129a) PA5 (nucleo) => LED
 
 ## Documentation
 

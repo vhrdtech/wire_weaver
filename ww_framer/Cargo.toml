@@ -5,3 +5,7 @@ edition = "2024"
 
 [dependencies]
 shrink_wrap.workspace = true
+
+[features]
+large = []
+very_large = []

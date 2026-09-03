@@ -17,7 +17,7 @@ enum State {
     WroteN(usize),
 }
 
-impl<'i, H: Head, C: Checksum, T: Tail> Tx<'i, H, C, T>
+impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> Tx<'i, H, C, T>
 where
     H::UserKind: Copy,
 {
@@ -111,7 +111,9 @@ where
         }
     }
 
-    /// Get next assembled frame or empty slice if called again without writing new messages.
+    /// Get next assembled frame size or 0 if called again without writing new messages.
+    /// Frame bytes can be obtained via `&Self::buf()[..len]`.
+    /// 
     /// Note that frame can be shorter than the maximum, as at least head + length + 1 byte must fit.
     /// Or if called before whole frame is accumulated to lower delays.
     ///
@@ -120,9 +122,15 @@ where
     ///
     /// For stream media, frame is simply next chunk of bytes to send. On real hardware having a
     /// chunk is more efficient than an actual stream of bytes, as it can be fed into DMA.
-    pub fn flush(&'i mut self) -> &'i [u8] {
+    pub fn flush(&mut self) -> usize {
         let len = self.wr.pos().0;
         self.wr.reset();
-        &self.wr.buf()[..len]
+        len
+    }
+
+    /// Get a reference to the internal buffer.
+    /// Call `flush()` first to get the length of the frame.
+    pub fn buf(&self) -> &[u8] {
+        self.wr.buf()
     }
 }

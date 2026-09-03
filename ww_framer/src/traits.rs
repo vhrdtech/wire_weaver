@@ -44,11 +44,12 @@ pub trait Tail {
 /// Without this information and if CRC is not used on all messages only length is left.
 ///
 /// For stream media, only Full can be returned from [Head::read] and not serialized.
+#[repr(u8)]
 pub enum MessageKind {
-    Full,
-    Start,
-    Continue,
-    End,
+    Full = 0,
+    Start = 1,
+    Continue = 2,
+    End = 3,
 }
 
 pub enum WrError {

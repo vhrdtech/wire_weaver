@@ -23,6 +23,10 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 );
 
 /// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
+///
+/// Smallest size:
+/// - 4B (seq, empty Absolute path - root req, Kind with no data)
+/// - 5B (seq, path len 1 <= 7, Kind with 1B args)
 #[derive_shrink_wrap]
 #[owned = "std"]
 #[derive(Debug)]
@@ -37,6 +41,11 @@ pub struct Request<'i> {
     /// Action being requested
     pub kind: RequestKind<'i>,
 }
+
+/// Request sequence number.
+/// Serialized as 1 byte if <= 127, 2 bytes if <= 16384
+#[derive(Debug)]
+pub struct Seq(u32);
 
 /// Path to a resource.
 /// 3 modes of addressing are supported:

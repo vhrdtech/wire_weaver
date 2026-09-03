@@ -242,6 +242,17 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
+    // /// Align to byte and skip some bytes without writing anything.
+    // /// Note that buffer is not initialized to zero, so these bytes might have any values from previous BufWriter usage.
+    // pub fn skip(&mut self, bytes: usize) -> Result<(), Error> {
+    //     self.align_byte();
+    //     if self.bytes_left() < bytes {
+    //         return Err(Error::OutOfBoundsWriteRawSlice);
+    //     }
+    //     self.byte_idx += bytes;
+    //     Ok(())
+    // }
+
     // Write variable length slice, with length written to the back of the buffer.
     // pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
     //     let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
@@ -405,6 +416,10 @@ impl<'i> BufWriter<'i> {
 
     /// Return the buffer, note that buffer is not set to zero and might contain old data.
     pub fn deinit(self) -> &'i mut [u8] {
+        self.buf
+    }
+
+    pub fn buf(&'i self) -> &'i [u8] {
         self.buf
     }
 

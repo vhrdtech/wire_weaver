@@ -13,6 +13,7 @@ members = [
     "wire_weaver_derive",
     "wire_weaver_udp_link",
     "wire_weaver_usb_link",
+    "ww_framer",
     "ww_stdlib/*",
 ]
 

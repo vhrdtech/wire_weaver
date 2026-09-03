@@ -45,6 +45,7 @@ pub trait Tail {
 ///
 /// For stream media, only Full can be returned from [Head::read] and not serialized.
 #[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageKind {
     Full = 0,
     Start = 1,
@@ -52,11 +53,13 @@ pub enum MessageKind {
     End = 3,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WrError {
     OutOfBounds,
     TooBig,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RdError {
     NeedMoreData,
     BadHead,
@@ -97,5 +100,11 @@ impl Tail for NopTail {
 impl From<shrink_wrap::Error> for WrError {
     fn from(_: shrink_wrap::Error) -> Self {
         WrError::OutOfBounds
+    }
+}
+
+impl From<shrink_wrap::Error> for RdError {
+    fn from(_: shrink_wrap::Error) -> Self {
+        RdError::NeedMoreData
     }
 }

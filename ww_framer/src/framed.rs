@@ -72,22 +72,63 @@ impl Head for U2Head {
     }
 
     fn read(rd: &mut BufReader<'_>) -> Result<(MessageKind, Self::UserKind, usize), RdError> {
-        todo!()
+        let kind = rd.read_un8(2)?;
+        let kind = match kind {
+            0 => MessageKind::Full,
+            1 => MessageKind::Start,
+            2 => MessageKind::Continue,
+            _ => MessageKind::End,
+        };
+        let user_kind = rd.read_un8(2)?;
+        let user_kind = if user_kind <= 2 {
+            unsafe { Nibble::new(user_kind).unwrap_unchecked() }
+        } else {
+            rd.read_nib()?
+        };
+        let three_bit_len = !rd.read_bool()?;
+        if three_bit_len {
+            let len = rd.read_un8(3)?;
+            if len == 0 {
+                return Ok((kind, user_kind, 0));
+            } else {
+                return Ok((kind, user_kind, len as usize + 3));
+            }
+        }
+        let ten_bit_len = !rd.read_bool()?;
+        if ten_bit_len {
+            let len = rd.read_un16(10)?;
+            return Ok((kind, user_kind, len as usize));
+        }
+        #[cfg(feature = "large")]
+        let seventeen_bit_len = !rd.read_bool()?;
+        #[cfg(feature = "large")]
+        if seventeen_bit_len {
+            let len = rd.read_un32(17)?;
+            return Ok((kind, user_kind, len as usize));
+        }
+        #[cfg(feature = "very_large")]
+        let twenty_four_bit_len = !rd.read_bool()?;
+        #[cfg(feature = "very_large")]
+        if twenty_four_bit_len {
+            let len = rd.read_un32(24)?;
+            return Ok((kind, user_kind, len as usize));
+        }
+        Err(RdError::BadLength)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use shrink_wrap::Nibble;
+    use shrink_wrap::{BufReader, BufWriter, Nibble};
 
     use crate::{
         Tx,
         framed::U2Head,
-        traits::{NopChecksum, NopTail},
+        traits::{Head, MessageKind, NopChecksum, NopTail},
     };
 
     #[test]
-    fn framed_sanity() {
+    fn sanity() {
         let mut buf = [0u8; 4];
         let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
 
@@ -124,5 +165,52 @@ mod tests {
         assert_eq!(tx.write(Nibble::max(), &msg3), Ok(true));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b1111_1111, 0, 0xBB, 0xCC]);
+    }
+
+    #[test]
+    fn split_message_with_continue() {
+        let mut buf = [0u8; 4];
+        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
+        let msg7 = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0xAB];
+
+        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(false));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[0b0100_0100, 0xAA, 0xBB, 0xCC]);
+
+        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(false));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[0b1000_0000, 0xDD, 0xEE, 0xFF]);
+
+        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(true));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[0b1100_0000, 0xAB]);
+    }
+
+    #[test]
+    fn round_trip() {
+        let cases = [
+            (MessageKind::Full, Nibble::zero(), 0usize),
+            (MessageKind::Full, Nibble::new(3).unwrap(), 0),
+            (MessageKind::Start, Nibble::zero(), 4),
+            (MessageKind::Continue, Nibble::new(2).unwrap(), 7),
+            (MessageKind::End, Nibble::new(1).unwrap(), 10),
+            (MessageKind::Full, Nibble::max(), 4),
+            (MessageKind::Start, Nibble::max(), 11),
+            (MessageKind::Continue, Nibble::max(), 1023),
+        ];
+
+        for (kind, user_kind, len) in cases {
+            let mut buf = [0u8; 5];
+            let mut wr = BufWriter::new(&mut buf[..]);
+            U2Head::write(kind, user_kind, len, &mut wr).unwrap();
+            let raw = wr.finish().unwrap();
+
+            let mut rd = BufReader::new(raw);
+            let (rt_kind, rt_user_kind, rt_len) = U2Head::read(&mut rd).unwrap();
+
+            assert_eq!(rt_kind, kind);
+            assert_eq!(rt_user_kind, user_kind);
+            assert_eq!(rt_len, len);
+        }
     }
 }

@@ -45,6 +45,10 @@ where
                 match H::write(MessageKind::Full, user_kind, message.len(), &mut self.wr) {
                     Ok(_) => {}
                     Err(WrError::OutOfBounds) => {
+                        if self.wr.pos().0 == 0 {
+                            // too small assembly buffer that head doesn't fit even at the beginning
+                            return Err(());
+                        }
                         self.wr.restore_state(at_gap);
                         return Ok(false);
                     }
@@ -57,6 +61,9 @@ where
                 self.wr.align_byte();
                 let buf_left = self.wr.bytes_left();
                 if buf_left == 0 {
+                    if self.wr.pos().0 == 0 {
+                        return Err(());
+                    }
                     // at least head + length + 1 byte must fit, otherwise use next frame
                     self.wr.restore_state(at_gap);
                     Ok(false)
@@ -113,7 +120,7 @@ where
 
     /// Get next assembled frame size or 0 if called again without writing new messages.
     /// Frame bytes can be obtained via `&Self::buf()[..len]`.
-    /// 
+    ///
     /// Note that frame can be shorter than the maximum, as at least head + length + 1 byte must fit.
     /// Or if called before whole frame is accumulated to lower delays.
     ///

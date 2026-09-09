@@ -17,7 +17,7 @@ all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false 
 
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]
-name = "ww_gpio"
+name = "qemu-ww-gpio"
 path = "src/bin/ww_gpio.rs"
 test = false
 doctest = false

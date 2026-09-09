@@ -34,17 +34,23 @@ ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false }
 
-# to solve "can't find crate for test on IntelliJ"
 [[bin]]
-name = "blinky"
+name = "nucleo-h743zi2-blinky"
 path = "src/bin/blinky.rs"
 test = false
 doctest = false
 bench = false
 
 [[bin]]
-name = "all_gpio"
+name = "nucleo-h743zi2-all-gpio"
 path = "src/bin/all_gpio.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "nucleo-h743zi2-no-introspect"
+path = "src/bin/no_introspect.rs"
 test = false
 doctest = false
 bench = false

@@ -42,7 +42,7 @@ nucleo_g0b1re = ["embassy-stm32/stm32g0b1re"]
 b129a_cannify = ["embassy-stm32/stm32g0b1ce"]
 
 [[bin]]
-name = "nucleo_g0b1re_usb_blinky"
+name = "nucleo-g0b1re-usb-blinky"
 path = "src/bin/usb_blinky.rs"
 required-features = ["usb"]
 test = false

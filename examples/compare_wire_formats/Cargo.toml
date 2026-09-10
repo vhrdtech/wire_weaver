@@ -1,5 +1,5 @@
 [package]
-name = "compare_wire_formats"
+name = "compare-wire-formats"
 version.workspace = true
 authors.workspace = true
 description.workspace = true

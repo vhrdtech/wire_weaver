@@ -4,20 +4,20 @@ use shrink_wrap::{BufReader, BufWriter, Nibble};
 
 use crate::traits::{Head, MessageKind, RdError, WrError};
 
-/// Head that encodes message kind, 2 or 4 bits of user kind and length up to 24 bits (16MiB)
+/// Head that encodes message kind, 2 or 8 bits of user kind and length up to 24 bits (16MiB)
 /// in as little as 1 byte.
 ///
 /// Most common cases (data messages):
 /// - `mmuu_0lll` - 1 byte; length ∈ {0, 4, 5, 6, 7, 8, 9, 10} - `common case`
 /// - `mmuu_10ll llll_llll` - 2 bytes; length < 1KiB - `common case`
-/// - `mmuu_110l llll_llll llll_llll` - 3 bytes; length < 128KiB
-/// - `mmuu_1110 llll_llll llll_llll llll_llll` - 4 bytes; length < 16MiB
+/// - `mmuu_110l llll_llll llll_llll` - 3 bytes; length < 128KiB (feature "large")
+/// - `mmuu_1110 llll_llll llll_llll llll_llll` - 4 bytes; length < 16MiB (feature "very_large")
 ///
 /// Less common cases (link setup, diagnostics, etc.):
-/// - `mm11_uuuu 0lll` - 1.5 bytes, aligned to next byte later on, for each case below
-/// - `mm11_uuuu 10ll_llll llll` - 2.5 bytes
-/// - `mm11_uuuu 110l_llll llll_llll llll` - 3.5 bytes
-/// - `mm11_uuuu 1110_llll llll_llll llll_llll llll` - 4.5 bytes
+/// - `mm11_uuuu uuuu_0lll` - 2 bytes, aligned to next byte later on, for each case below
+/// - `mm11_uuuu uuuu_10ll llll_llll` - 3 bytes
+/// - `mm11_uuuu uuuu_110l llll_llll llll_llll` - 4 bytes
+/// - `mm11_uuuu uuuu_1110 llll_llll llll_llll llll_llll` - 5 bytes
 ///
 /// Where `u` - user_kind, `l` - length, `m` - framer bits ([MessageKind](crate::traits::MessageKind))
 /// For all lengths that does not fit into the smallest form, next one is used.
@@ -28,7 +28,7 @@ use crate::traits::{Head, MessageKind, RdError, WrError};
 pub struct U2Head {}
 
 impl Head for U2Head {
-    type UserKind = Nibble;
+    type UserKind = u8;
 
     fn write(
         kind: MessageKind,
@@ -37,11 +37,11 @@ impl Head for U2Head {
         wr: &mut BufWriter<'_>,
     ) -> Result<(), WrError> {
         wr.write_un8(2, kind as u8)?;
-        if user_kind.value() <= 2 {
-            wr.write_un8(2, user_kind.value())?;
+        if user_kind <= 2 {
+            wr.write_un8(2, user_kind)?;
         } else {
             wr.write_un8(2, 0b11)?;
-            wr.write_nib(user_kind)?;
+            wr.write_un8(8, user_kind)?;
         }
         if len == 0 {
             wr.write_nib(Nibble::zero())?;
@@ -81,9 +81,9 @@ impl Head for U2Head {
         };
         let user_kind = rd.read_un8(2)?;
         let user_kind = if user_kind <= 2 {
-            unsafe { Nibble::new(user_kind).unwrap_unchecked() }
+            user_kind
         } else {
-            rd.read_nib()?
+            rd.read_un8(8)?
         };
         let three_bit_len = !rd.read_bool()?;
         if three_bit_len {
@@ -119,7 +119,7 @@ impl Head for U2Head {
 
 #[cfg(test)]
 mod tests {
-    use shrink_wrap::{BufReader, BufWriter, Nibble};
+    use shrink_wrap::{BufReader, BufWriter};
 
     use crate::{
         Tx,
@@ -132,19 +132,19 @@ mod tests {
         let mut buf = [0u8; 4];
         let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
 
-        assert_eq!(tx.write(Nibble::zero(), &[]), Ok(true));
+        assert_eq!(tx.write(0, &[]), Ok(true));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b0000_0000]);
 
-        assert_eq!(tx.write(Nibble::max(), &[]), Ok(true));
+        assert_eq!(tx.write(255, &[]), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b0011_1111, 0]);
+        assert_eq!(&tx.buf()[..len], &[0b0011_1111, 0b1111_0000]);
 
         let msg4 = &[0xAA, 0xBB, 0xCC, 0xDD][..];
-        assert_eq!(tx.write(Nibble::zero(), msg4), Ok(false));
+        assert_eq!(tx.write(0, msg4), Ok(false));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b0100_0001, 0xAA, 0xBB, 0xCC]);
-        assert_eq!(tx.write(Nibble::zero(), msg4), Ok(true));
+        assert_eq!(tx.write(0, msg4), Ok(true));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b1100_0000, 0xDD]);
     }
@@ -155,16 +155,16 @@ mod tests {
         let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
         let msg3 = [0xAA, 0xBB, 0xCC];
 
-        assert_eq!(tx.write(Nibble::max(), &msg3), Ok(false));
+        assert_eq!(tx.write(255, &msg3), Ok(false));
         let len = tx.flush();
         assert_eq!(
             &tx.buf()[..len],
-            &[0b0111_1111, 0b1000_0000, 0b0011_0000, 0xAA]
+            &[0b0111_1111, 0b1111_1000, 0b0000_0011, 0xAA]
         );
 
-        assert_eq!(tx.write(Nibble::max(), &msg3), Ok(true));
+        assert_eq!(tx.write(255, &msg3), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1111_1111, 0, 0xBB, 0xCC]);
+        assert_eq!(&tx.buf()[..len], &[0b1111_1111, 0b1111_0000, 0xBB, 0xCC]);
     }
 
     #[test]
@@ -173,15 +173,15 @@ mod tests {
         let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
         let msg7 = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0xAB];
 
-        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(false));
+        assert_eq!(tx.write(0, &msg7), Ok(false));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b0100_0100, 0xAA, 0xBB, 0xCC]);
 
-        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(false));
+        assert_eq!(tx.write(0, &msg7), Ok(false));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b1000_0000, 0xDD, 0xEE, 0xFF]);
 
-        assert_eq!(tx.write(Nibble::zero(), &msg7), Ok(true));
+        assert_eq!(tx.write(0, &msg7), Ok(true));
         let len = tx.flush();
         assert_eq!(&tx.buf()[..len], &[0b1100_0000, 0xAB]);
     }
@@ -189,14 +189,14 @@ mod tests {
     #[test]
     fn round_trip() {
         let cases = [
-            (MessageKind::Full, Nibble::zero(), 0usize),
-            (MessageKind::Full, Nibble::new(3).unwrap(), 0),
-            (MessageKind::Start, Nibble::zero(), 4),
-            (MessageKind::Continue, Nibble::new(2).unwrap(), 7),
-            (MessageKind::End, Nibble::new(1).unwrap(), 10),
-            (MessageKind::Full, Nibble::max(), 4),
-            (MessageKind::Start, Nibble::max(), 11),
-            (MessageKind::Continue, Nibble::max(), 1023),
+            (MessageKind::Full, 0, 0usize),
+            (MessageKind::Full, 3, 0),
+            (MessageKind::Start, 0, 4),
+            (MessageKind::Continue, 2, 7),
+            (MessageKind::End, 1, 10),
+            (MessageKind::Full, 255, 4),
+            (MessageKind::Start, 255, 11),
+            (MessageKind::Continue, 255, 1023),
         ];
 
         for (kind, user_kind, len) in cases {

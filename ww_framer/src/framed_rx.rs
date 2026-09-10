@@ -4,7 +4,7 @@ use shrink_wrap::BufReader;
 
 use crate::traits::{Checksum, Head, MessageKind, RdError, Tail};
 
-pub struct Rx<'i, H: Head, C, T> {
+pub struct FramedRx<'i, H: Head, C, T> {
     /// Holds up two one maximum Message size + one maximum input packet size (e.g., USB packet)
     ///
     /// For example if assembly_buf is 1024B, and maximum re-assembled message is 512, it could be
@@ -47,7 +47,7 @@ enum State<U> {
     },
 }
 
-impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> Rx<'i, H, C, T>
+impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> FramedRx<'i, H, C, T>
 where
     H::UserKind: Copy + PartialEq,
 {
@@ -56,7 +56,7 @@ where
     pub fn new(assembly_buf: &'i mut [u8]) -> Self {
         // to catch obviously way too small buffers, can't know user message size here
         debug_assert!(assembly_buf.len() >= H::MIN_FRAME_SIZE);
-        Rx {
+        FramedRx {
             assembly_buf,
             staging_pos: 0,
             staging_end: 0,
@@ -324,12 +324,12 @@ enum Step {
 
 #[cfg(test)]
 mod tests {
-    use super::Rx;
+    use super::FramedRx;
     use crate::Tx;
     use crate::framed::U2Head;
     use crate::traits::{NopChecksum, NopTail};
 
-    type TestRx<'i> = Rx<'i, U2Head, NopChecksum, NopTail>;
+    type TestRx<'i> = FramedRx<'i, U2Head, NopChecksum, NopTail>;
     type TestTx<'i> = Tx<'i, U2Head, NopChecksum, NopTail>;
 
     /// Stage one frame and assert exactly `expected` messages come out of it.

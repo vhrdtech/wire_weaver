@@ -25,7 +25,7 @@ where
     /// Buffer must be exactly the length of the maximum frame (or DMA size).
     /// TODO: min buffer size
     pub fn new(assembly_buf: &'i mut [u8]) -> Self {
-        debug_assert!(assembly_buf.len() >= 4);
+        debug_assert!(assembly_buf.len() >= H::MIN_FRAME_SIZE);
         Tx {
             wr: BufWriter::new(assembly_buf),
             state: State::Gap,
@@ -41,12 +41,14 @@ where
     /// Empty messages can be sent as well if an implementation requires it.
     pub fn write(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
         let at_gap = self.wr.save_state();
+        // if nothing fits even into an empty frame, the message can never be sent
+        let at_frame_start = self.wr.pos().0 == 0;
         match self.state {
             State::Gap => {
                 match H::write(MessageKind::Full, user_kind, message.len(), &mut self.wr) {
                     Ok(_) => {}
                     Err(WrError::OutOfBounds) => {
-                        if self.wr.pos().0 == 0 {
+                        if at_frame_start {
                             // too small assembly buffer that head doesn't fit even at the beginning
                             return Err(());
                         }
@@ -62,7 +64,8 @@ where
                 self.wr.align_byte();
                 let buf_left = self.wr.bytes_left();
                 if buf_left == 0 {
-                    if self.wr.pos().0 == 0 {
+                    if at_frame_start {
+                        self.wr.restore_state(at_gap);
                         return Err(());
                     }
                     // at least head + length + 1 byte must fit, otherwise use next frame
@@ -89,14 +92,23 @@ where
                 // if Continue message spans till end of frame anyway, no need to serialize real length here
                 if H::write(MessageKind::Continue, user_kind, 0, &mut self.wr).is_err() {
                     self.wr.restore_state(at_gap);
+                    if at_frame_start {
+                        self.state = State::Gap;
+                        return Err(());
+                    }
                     return Ok(false);
                 }
                 self.wr.align_byte();
                 let message_left = message.len() - n; // TODO: guard agains user giving different message here or not?
                 let buf_left = self.wr.bytes_left();
                 if buf_left == 0 {
-                    // at least head + length + 1 byte must fit, otherwise use next frame
                     self.wr.restore_state(at_gap);
+                    if at_frame_start {
+                        // head alone fills the whole frame, message can never progress
+                        self.state = State::Gap;
+                        return Err(());
+                    }
+                    // at least head + length + 1 byte must fit, otherwise use next frame
                     Ok(false)
                 } else if buf_left < message_left + C::LEN_BYTES_SPLIT + T::LEN_BYTES {
                     _ = self.wr.write_raw_slice(&message[n..n + buf_left]);
@@ -140,5 +152,39 @@ where
     /// Call `flush()` first to get the length of the frame.
     pub fn buf(&self) -> &[u8] {
         self.wr.buf()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Tx;
+    use crate::framed::U2Head;
+    use crate::traits::{NopChecksum, NopTail};
+
+    #[test]
+    fn head_filling_whole_frame_is_an_error_not_empty_frame() {
+        // extended user kind + 17-bit length = 4 byte head, same as the frame
+        let mut buf = [0u8; 4];
+        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
+        let msg = [0u8; 1024];
+        assert_eq!(tx.write(255, &msg), Err(()));
+        assert_eq!(tx.flush(), 0);
+        // tx is still usable afterwards
+        assert_eq!(tx.write(0, &[]), Ok(true));
+        assert_eq!(tx.flush(), 1);
+    }
+
+    #[test]
+    fn head_not_fitting_mid_frame_uses_next_frame() {
+        let mut buf = [0u8; 4];
+        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
+        // fill 3 bytes of the frame with two empty messages (1 + 2 byte heads)
+        assert_eq!(tx.write(0, &[]), Ok(true));
+        assert_eq!(tx.write(255, &[]), Ok(true));
+        // extended user kind + 10-bit length head is 3 bytes, only 1 left: use next frame, not an error
+        assert_eq!(tx.write(255, &[3]), Ok(false));
+        assert_eq!(tx.flush(), 3);
+        assert_eq!(tx.write(255, &[3]), Ok(true));
+        assert_eq!(tx.flush(), 4);
     }
 }

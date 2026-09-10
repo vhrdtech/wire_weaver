@@ -38,6 +38,7 @@ where
     /// Call repeatedly with the same message until Ok(true) is returned.
     /// While getting Ok(false), call [Self::flush] and send out the frame, before calling write again.
     /// Err(()) means the message is too large.
+    /// Empty messages can be sent as well if an implementation requires it.
     pub fn write(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
         let at_gap = self.wr.save_state();
         match self.state {

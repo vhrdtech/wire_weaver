@@ -1,11 +1,11 @@
 #![no_std]
 
 pub mod framed;
-pub mod rx;
+pub mod framed_rx;
 pub mod traits;
 pub mod tx;
 
-pub use rx::Rx;
+pub use framed_rx::FramedRx;
 pub use tx::Tx;
 
 #[cfg(all(feature = "very_large", not(feature = "large")))]

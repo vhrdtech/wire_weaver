@@ -1,0 +1,20 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+ww_framer = { path = "../ww_framer", features = ["large", "very_large"] }
+
+[[bin]]
+name = "framer-tx-rx"
+path = "src/framer_tx_rx.rs"
+test = false
+doc = false
+bench = false

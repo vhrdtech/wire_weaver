@@ -73,3 +73,12 @@ build-docs:
 
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
+
+# Install dependencies for fuzzing
+deps-ext:
+    cargo install cargo-fuzz
+
+# Fuzz ww_framer
+[working-directory('fuzz')]
+fuzz-framer:
+    cargo +nightly fuzz run framer-tx-rx

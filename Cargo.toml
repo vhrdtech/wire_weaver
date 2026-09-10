@@ -16,6 +16,7 @@ members = [
     "ww_framer",
     "ww_link",
     "ww_stdlib/*",
+    "fuzz",
 ]
 
 exclude = ["examples_mcu", "tests/usb_link", "wire_weaver_tool"]

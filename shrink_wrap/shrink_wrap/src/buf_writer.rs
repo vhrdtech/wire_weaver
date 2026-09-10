@@ -77,11 +77,6 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    #[deprecated]
-    pub fn write_u4(&mut self, val: u8) -> Result<(), Error> {
-        self.write_nib(Nibble::new_masked(val))
-    }
-
     /// Align to nibble and write one [Nibble], 4 lower bits are used, and higher bits are ignored.
     /// Note that there is a method write_un8(4, val), that will also write 4 bits to the buffer,
     /// but will use an alignment of 1 bit instead.
@@ -525,7 +520,10 @@ pub struct U16RevPos(usize);
 
 #[cfg(test)]
 mod tests {
-    use crate::{BufWriter, Nibble};
+    use crate::{
+        BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, Nibble,
+        SerializeShrinkWrap,
+    };
     use hex_literal::hex;
 
     #[test]
@@ -692,5 +690,346 @@ mod tests {
             buf,
             hex!("88 5CFE 0000F0FF 7B00000000000080 00010000000000000000000000000080")
         );
+    }
+
+    #[test]
+    fn floats() {
+        let mut buf = [0u8; 16];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_f32(1.5f32).unwrap();
+        wr.write_f64(-2.5f64).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(&buf[0..4], &1.5f32.to_bits().to_le_bytes());
+        assert_eq!(&buf[4..12], &(-2.5f64).to_bits().to_le_bytes());
+    }
+
+    #[test]
+    fn write_bool_out_of_bounds() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        for _ in 0..8 {
+            wr.write_bool(true).unwrap();
+        }
+        assert_eq!(wr.write_bool(true), Err(Error::OutOfBoundsWriteBool));
+    }
+
+    #[test]
+    fn write_nib_out_of_bounds() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_nib(Nibble::new_masked(1)).unwrap();
+        wr.write_nib(Nibble::new_masked(2)).unwrap();
+        assert_eq!(
+            wr.write_nib(Nibble::new_masked(3)),
+            Err(Error::OutOfBoundsWriteU4)
+        );
+    }
+
+    #[test]
+    fn write_nib_masked_matches_write_nib() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_nib_masked(0xFA).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[0b1010_0000]);
+    }
+
+    #[test]
+    fn write_u8_out_of_bounds() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0x11).unwrap();
+        assert_eq!(wr.write_u8(0x22), Err(Error::OutOfBoundsWriteU8));
+    }
+
+    #[test]
+    fn write_u16_rev_out_of_bounds() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        assert!(matches!(wr.write_u16_rev(5), Err(Error::OutOfBoundsRev)));
+    }
+
+    #[test]
+    fn u16_rev_pos_matches_write() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.u16_rev_pos().0, 4);
+        let pos = wr.write_u16_rev(1).unwrap();
+        assert_eq!(pos.0, 2);
+        assert_eq!(wr.u16_rev_pos().0, 2);
+    }
+
+    #[test]
+    fn update_u16_rev_success() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        let pos = wr.write_u16_rev(0xAABB).unwrap();
+        wr.update_u16_rev(pos, 0x1234).unwrap();
+        assert_eq!(&wr.buf()[2..4], &[0x34, 0x12]);
+    }
+
+    #[test]
+    fn update_u16_rev_out_of_bounds() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        let pos = wr.u16_rev_pos();
+        assert_eq!(wr.update_u16_rev(pos, 1), Err(Error::OutOfBoundsRev));
+    }
+
+    #[test]
+    fn write_raw_slice_out_of_bounds() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(
+            wr.write_raw_slice(&[1, 2, 3]),
+            Err(Error::OutOfBoundsWriteRawSlice)
+        );
+    }
+
+    #[test]
+    fn fill_nibbles_fills_remaining_buffer() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.fill_nibbles(0xA);
+        assert_eq!(wr.buf(), &[0xAA, 0xAA, 0xAA, 0xAA]);
+    }
+
+    #[test]
+    fn fill_nibbles_noop_when_full() {
+        let mut buf = [0x11u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0x11).unwrap();
+        wr.fill_nibbles(0xA);
+        assert_eq!(wr.buf(), &[0x11]);
+    }
+
+    #[test]
+    fn fill_bytes_noop_when_full() {
+        let mut buf = [0x11u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0x11).unwrap();
+        wr.fill_bytes(0xCC);
+        assert_eq!(wr.buf(), &[0x11]);
+    }
+
+    #[test]
+    fn write_bytes_direct() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_bytes(&[1, 2, 3]).unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[1, 2, 3, 0x03]);
+    }
+
+    #[test]
+    fn write_bytes_too_long() {
+        let data = vec![0u8; u16::MAX as usize + 1];
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.write_bytes(&data), Err(Error::VecTooLong));
+    }
+
+    #[test]
+    fn write_str_direct() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_str("ab").unwrap();
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[b'a', b'b', 0x02]);
+    }
+
+    #[test]
+    fn write_str_too_long() {
+        let data = "a".repeat(u16::MAX as usize + 1);
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.write_str(&data), Err(Error::StrTooLong));
+    }
+
+    /// Minimal Unsized type used to exercise [BufWriter::write] and [UnsizedBuilder].
+    struct DummyUnsized(u8);
+
+    impl SerializeShrinkWrap for DummyUnsized {
+        const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+        fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+            wr.write_u8(self.0)
+        }
+    }
+
+    impl<'i> DeserializeShrinkWrap<'i> for DummyUnsized {
+        const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+        fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+            Ok(DummyUnsized(rd.read_u8()?))
+        }
+    }
+
+    #[test]
+    fn write_unsized_round_trip() {
+        let mut buf = [0u8; 16];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write(&DummyUnsized(0xAB)).unwrap();
+        let bytes = wr.finish().unwrap();
+        let mut rd = BufReader::new(bytes);
+        let decoded: DummyUnsized = rd.read().unwrap();
+        assert_eq!(decoded.0, 0xAB);
+    }
+
+    #[test]
+    fn encode_nib16_rev_noop_when_to_before_from() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        let earlier = wr.u16_rev_pos(); // 8, less consumed
+        wr.write_u16_rev(1).unwrap();
+        let later = wr.u16_rev_pos(); // 6, more consumed
+        // Passing them swapped (to.0 < from.0) must be a no-op.
+        assert!(wr.encode_nib16_rev(earlier, later).is_ok());
+    }
+
+    #[test]
+    fn encode_nib16_rev_noop_when_equal() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        let pos = wr.u16_rev_pos();
+        assert!(wr.encode_nib16_rev(pos, pos).is_ok());
+    }
+
+    #[test]
+    fn finish_and_take_returns_slice() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0xAB).unwrap();
+        let bytes = wr.finish_and_take().unwrap();
+        assert_eq!(bytes, &[0xAB]);
+    }
+
+    #[test]
+    fn deinit_returns_buffer() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0xAB).unwrap();
+        let raw = wr.deinit();
+        assert_eq!(raw, &[0xAB, 0, 0, 0]);
+    }
+
+    #[test]
+    fn buf_accessor() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0xAB).unwrap();
+        assert_eq!(wr.buf(), &[0xAB, 0, 0, 0]);
+    }
+
+    #[test]
+    fn align_nibble_noop_at_boundary() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_nib(Nibble::new_masked(0xA)).unwrap();
+        wr.align_nibble();
+        assert_eq!(wr.pos(), (0, 3));
+    }
+
+    #[test]
+    fn align_nibble_from_lower_bits() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        for _ in 0..5 {
+            wr.write_bool(true).unwrap();
+        }
+        assert_eq!(wr.pos(), (0, 2));
+        wr.align_nibble();
+        assert_eq!(wr.pos(), (1, 7));
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[0b1111_1000]);
+    }
+
+    #[test]
+    fn bytes_left_partial_byte() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.bytes_left(), 4);
+        wr.write_bool(true).unwrap();
+        assert_eq!(wr.bytes_left(), 3);
+    }
+
+    #[test]
+    fn nibbles_left_at_nibble_boundary() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.nibbles_left(), 4);
+        wr.write_nib(Nibble::new_masked(0xA)).unwrap();
+        assert_eq!(wr.nibbles_left(), 3);
+    }
+
+    #[test]
+    fn pos_tracks_progress() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.pos(), (0, 7));
+        wr.write_bool(true).unwrap();
+        assert_eq!(wr.pos(), (0, 6));
+        // write_u8 aligns to the next byte first (abandoning the rest of the current one),
+        // then writes into it, so byte_idx advances by two here, not one.
+        wr.write_u8(0xFF).unwrap();
+        assert_eq!(wr.pos(), (2, 7));
+    }
+
+    #[test]
+    fn save_restore_state_updates_flag() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        let state_before_flag = wr.save_state();
+        wr.write_bool(false).unwrap(); // placeholder flag
+        wr.write_u8(0x42).unwrap();
+        let state_after = wr.save_state();
+        wr.restore_state(state_before_flag);
+        wr.write_bool(true).unwrap(); // update flag to its real value
+        wr.restore_state(state_after); // resume where we left off
+        let buf = wr.finish().unwrap();
+        assert_eq!(buf, &[0b1000_0000, 0x42]);
+    }
+
+    #[test]
+    fn reset_clears_progress() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_u8(0xAB).unwrap();
+        wr.reset();
+        assert_eq!(wr.pos(), (0, 7));
+        assert_eq!(wr.bytes_left(), 4);
+        wr.write_u8(0xCD).unwrap();
+        assert_eq!(wr.finish().unwrap(), &[0xCD]);
+    }
+
+    #[test]
+    fn buf_writer_state_bits_in_byte_left() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.save_state().bits_in_byte_left(), 8);
+        wr.write_bool(true).unwrap();
+        assert_eq!(wr.save_state().bits_in_byte_left(), 7);
+        wr.write_u8(0).unwrap();
+        assert_eq!(wr.save_state().bits_in_byte_left(), 0);
+    }
+
+    /// Unsized type whose body is bigger than u16::MAX bytes, used to exercise
+    /// [UnsizedBuilder::finish]'s ItemTooLong error path.
+    struct HugeUnsized;
+
+    impl SerializeShrinkWrap for HugeUnsized {
+        const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+        fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+            let data = vec![0u8; u16::MAX as usize + 1];
+            wr.write_raw_slice(&data)
+        }
+    }
+
+    #[test]
+    fn write_unsized_item_too_long() {
+        let mut buf = vec![0u8; u16::MAX as usize + 16];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.write(&HugeUnsized), Err(Error::ItemTooLong));
     }
 }

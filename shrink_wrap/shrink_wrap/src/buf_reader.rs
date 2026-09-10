@@ -412,7 +412,7 @@ impl<'i> BufReader<'i> {
 
 #[cfg(test)]
 mod tests {
-    use crate::BufReader;
+    use crate::{BufReader, BufWriter, Error, UNib32};
     use hex_literal::hex;
 
     #[test]
@@ -618,5 +618,192 @@ mod tests {
         assert_eq!(rd.read_i32(), Ok(-1_048_576));
         assert_eq!(rd.read_i64(), Ok(i64::MIN + 123));
         assert_eq!(rd.read_i128(), Ok(i128::MIN + 256));
+    }
+
+    #[test]
+    fn read_bool_out_of_bounds() {
+        let mut rd = BufReader::new(&[]);
+        assert_eq!(rd.read_bool(), Err(Error::OutOfBoundsReadBool));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn nib_reads_and_out_of_bounds() {
+        let buf = [0xAB];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_nib_value(), Ok(0xA));
+        assert_eq!(rd.read_u4(), Ok(0xB));
+        // both nibbles consumed, nothing left to read
+        assert_eq!(rd.read_nib(), Err(Error::OutOfBoundsReadU4));
+    }
+
+    #[test]
+    fn align_nibble_mid_byte() {
+        // bit_idx ends up at 5 (> 3), align_nibble() should snap it to 3
+        // without advancing to the next byte.
+        let buf = [0b1111_0101];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_bool(), Ok(true));
+        assert_eq!(rd.read_nib_value(), Ok(0b0101));
+    }
+
+    #[test]
+    fn read_u8_out_of_bounds() {
+        let mut rd = BufReader::new(&[]);
+        assert_eq!(rd.read_u8(), Err(Error::OutOfBoundsReadU8));
+    }
+
+    #[test]
+    fn read_raw_slice_out_of_bounds() {
+        let buf = [1, 2];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_raw_slice(3), Err(Error::OutOfBoundsReadRawSlice));
+    }
+
+    #[test]
+    fn split_out_of_bounds() {
+        let buf = [1, 2];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.split(3), Err(Error::OutOfBoundsSplit(UNib32(3))));
+    }
+
+    #[test]
+    fn bytes_var_len() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_bytes(&[1, 2, 3]).unwrap();
+        let buf = wr.finish().unwrap();
+
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_bytes(), Ok(&[1u8, 2, 3][..]));
+    }
+
+    #[test]
+    fn str_round_trip_and_malformed_utf8() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_str("hi").unwrap();
+        let buf = wr.finish().unwrap();
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_str(), Ok("hi"));
+
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        // 0xFF is not valid UTF-8 on its own
+        wr.write_bytes(&[0xFF]).unwrap();
+        let buf = wr.finish().unwrap();
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_str(), Err(Error::MalformedUtf8));
+    }
+
+    #[test]
+    fn read_generic_sized_and_unsized() {
+        let mut buf = [0u8; 16];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write(&true).unwrap();
+        wr.write(&Box::new(42u32)).unwrap();
+        let buf = wr.finish().unwrap();
+
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read::<bool>(), Ok(true));
+        assert_eq!(rd.read::<Box<u32>>(), Ok(Box::new(42)));
+    }
+
+    #[test]
+    fn read_owned_generic_sized_and_unsized() {
+        let mut buf = [0u8; 16];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write(&true).unwrap();
+        wr.write(&Box::new(42u32)).unwrap();
+        let buf = wr.finish().unwrap();
+
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_owned::<bool>(), Ok(true));
+        assert_eq!(
+            rd.read_owned::<Box<u32>>(),
+            Ok(Box::new(42))
+        );
+    }
+
+    #[test]
+    fn pos_tracks_progress() {
+        let buf = [0xAB, 0xCD];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.pos(), (0, 7));
+        rd.read_nib().unwrap();
+        assert_eq!(rd.pos(), (0, 3));
+        rd.read_nib().unwrap();
+        assert_eq!(rd.pos(), (1, 7));
+    }
+
+    #[test]
+    fn nibbles_in_byte_left_all_cases() {
+        let buf = [1, 2, 3];
+
+        // (false, bit_idx == 7) -> 2: not the last byte, nothing read from it yet.
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.nibbles_in_byte_left(), 2);
+
+        // (false, bit_idx == 3) -> 1: not the last byte, one nibble already read.
+        rd.read_nib().unwrap();
+        assert_eq!(rd.nibbles_in_byte_left(), 1);
+
+        // (false, _) default -> 0: not the last byte, mid-bit position.
+        let mut rd = BufReader::new(&buf);
+        rd.read_bool().unwrap();
+        rd.read_bool().unwrap();
+        assert_eq!(rd.nibbles_in_byte_left(), 0);
+
+        // (true, bit_idx == 7, is_at_bit7_rev == false) -> 2: last byte, untouched.
+        let mut rd = BufReader::new(&buf);
+        rd.read_u16().unwrap();
+        assert_eq!(rd.nibbles_in_byte_left(), 2);
+
+        // (true, bit_idx == 7, is_at_bit7_rev == true) -> 1.
+        rd.read_u4_rev().unwrap();
+        assert_eq!(rd.nibbles_in_byte_left(), 1);
+    }
+
+    #[test]
+    fn bits_in_byte_left_low_bit_idx() {
+        // Exercises the is_at_bit7_rev branch of bits_in_byte_left() when bit_idx < 3.
+        let buf = [1, 2, 3];
+        let mut rd = BufReader::new(&buf);
+        rd.read_u16().unwrap();
+        rd.read_un8(5).unwrap();
+        rd.read_u4_rev().unwrap();
+        assert_eq!(rd.bits_in_byte_left(), 0);
+    }
+
+    #[test]
+    fn bytes_left_zero_mid_last_byte() {
+        // left == 0 before the is_at_bit7_rev check is applied.
+        let buf = [1];
+        let mut rd = BufReader::new(&buf);
+        rd.read_nib().unwrap();
+        assert_eq!(rd.bytes_left(), 0);
+    }
+
+    #[test]
+    fn read_u4_rev_out_of_bounds() {
+        let buf = [0xAB];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_u4_rev(), Ok(0xB));
+        assert_eq!(rd.read_u4_rev(), Ok(0xA));
+        // both the forward and reverse cursors now point at the same spot, nothing left
+        assert_eq!(rd.read_u4_rev(), Err(Error::OutOfBoundsRev));
+    }
+
+    #[test]
+    fn align_nibble_low_bits_advances_byte() {
+        // bit_idx ends up at 2 (< 3), align_nibble() should advance to the next byte
+        // and reset bit_idx to 7, instead of snapping within the current byte.
+        let buf = [0xFF, 0xAB];
+        let mut rd = BufReader::new(&buf);
+        for _ in 0..5 {
+            rd.read_bool().unwrap();
+        }
+        assert_eq!(rd.read_nib_value(), Ok(0xA));
     }
 }

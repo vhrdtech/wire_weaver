@@ -2,6 +2,7 @@ use shrink_wrap::{BufReader, BufWriter};
 
 pub trait Head {
     type UserKind;
+    const MIN_FRAME_SIZE: usize;
 
     /// Implementation details:
     /// - On kind != MessageKind::Full, implementation can skip user_kind and len.

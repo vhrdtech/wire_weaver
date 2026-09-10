@@ -29,6 +29,12 @@ pub struct U2Head {}
 
 impl Head for U2Head {
     type UserKind = u8;
+    #[cfg(all(not(feature = "large"), not(feature = "very_large")))]
+    const MIN_FRAME_SIZE: usize = 4;
+    #[cfg(all(feature = "large", not(feature = "very_large")))]
+    const MIN_FRAME_SIZE: usize = 5;
+    #[cfg(all(feature = "large", feature = "very_large"))]
+    const MIN_FRAME_SIZE: usize = 6;
 
     fn write(
         kind: MessageKind,
@@ -56,13 +62,13 @@ impl Head for U2Head {
             wr.write_un16(10, len as u16)?;
             return Ok(());
         }
-        #[cfg(feature = "large")]
+        #[cfg(any(feature = "large", test))]
         if len < 131_072 {
             wr.write_un8(3, 0b110)?;
             wr.write_un32(17, len as u32)?;
             return Ok(());
         }
-        #[cfg(feature = "very_large")]
+        #[cfg(any(feature = "very_large", test))]
         if len < 16_777_216 {
             wr.write_nib(unsafe { Nibble::new(0b1110).unwrap_unchecked() })?;
             wr.write_un32(24, len as u32)?;
@@ -99,16 +105,16 @@ impl Head for U2Head {
             let len = rd.read_un16(10)?;
             return Ok((kind, user_kind, len as usize));
         }
-        #[cfg(feature = "large")]
+        #[cfg(any(feature = "large", test))]
         let seventeen_bit_len = !rd.read_bool()?;
-        #[cfg(feature = "large")]
+        #[cfg(any(feature = "large", test))]
         if seventeen_bit_len {
             let len = rd.read_un32(17)?;
             return Ok((kind, user_kind, len as usize));
         }
-        #[cfg(feature = "very_large")]
+        #[cfg(any(feature = "very_large", test))]
         let twenty_four_bit_len = !rd.read_bool()?;
-        #[cfg(feature = "very_large")]
+        #[cfg(any(feature = "very_large", test))]
         if twenty_four_bit_len {
             let len = rd.read_un32(24)?;
             return Ok((kind, user_kind, len as usize));

@@ -44,6 +44,7 @@ pub struct Request<'i> {
 
 /// Request sequence number.
 /// Serialized as 1 byte if <= 127, 2 bytes if <= 16384
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Seq(u32);
 

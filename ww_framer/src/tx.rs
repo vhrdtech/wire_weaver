@@ -89,8 +89,10 @@ where
                 }
             }
             State::WroteN(n) => {
-                // if Continue message spans till end of frame anyway, no need to serialize real length here
-                if H::write(MessageKind::Continue, user_kind, 0, &mut self.wr).is_err() {
+                let message_left = message.len() - n; // TODO: guard agains user giving different message here or not?
+                // Continue and End carry the remaining length, so that receiver can skip an End
+                // whose Start was lost and continue with the rest of the frame
+                if H::write(MessageKind::Continue, user_kind, message_left, &mut self.wr).is_err() {
                     self.wr.restore_state(at_gap);
                     if at_frame_start {
                         self.state = State::Gap;
@@ -99,7 +101,6 @@ where
                     return Ok(false);
                 }
                 self.wr.align_byte();
-                let message_left = message.len() - n; // TODO: guard agains user giving different message here or not?
                 let buf_left = self.wr.bytes_left();
                 if buf_left == 0 {
                     self.wr.restore_state(at_gap);
@@ -122,7 +123,7 @@ where
                     // last bytes of message fit, change kind to End
                     // receiver already knows total length of a message, so it can correctly read only the remaining bytes
                     self.wr.restore_state(at_gap);
-                    _ = H::write(MessageKind::End, user_kind, 0, &mut self.wr);
+                    _ = H::write(MessageKind::End, user_kind, message_left, &mut self.wr);
                     self.wr.restore_state(after_msg);
                     self.state = State::Gap;
                     Ok(true)

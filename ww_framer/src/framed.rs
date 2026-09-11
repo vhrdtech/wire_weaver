@@ -152,7 +152,8 @@ mod tests {
         assert_eq!(&tx.buf()[..len], &[0b0100_0001, 0xAA, 0xBB, 0xCC]);
         assert_eq!(tx.write(0, msg4), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1100_0000, 0xDD]);
+        // End carries remaining length (1), which needs a 10-bit form
+        assert_eq!(&tx.buf()[..len], &[0b1100_1000, 0b0000_0001, 0xDD]);
     }
 
     #[test]
@@ -168,9 +169,20 @@ mod tests {
             &[0b0111_1111, 0b1111_1000, 0b0000_0011, 0xAA]
         );
 
+        // remaining = 2 needs a 3 byte head with extended user kind, only 1 payload byte fits
+        assert_eq!(tx.write(255, &msg3), Ok(false));
+        let len = tx.flush();
+        assert_eq!(
+            &tx.buf()[..len],
+            &[0b1011_1111, 0b1111_1000, 0b0000_0010, 0xBB]
+        );
+
         assert_eq!(tx.write(255, &msg3), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1111_1111, 0b1111_0000, 0xBB, 0xCC]);
+        assert_eq!(
+            &tx.buf()[..len],
+            &[0b1111_1111, 0b1111_1000, 0b0000_0001, 0xCC]
+        );
     }
 
     #[test]
@@ -185,11 +197,13 @@ mod tests {
 
         assert_eq!(tx.write(0, &msg7), Ok(false));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1000_0000, 0xDD, 0xEE, 0xFF]);
+        // Continue with remaining = 4
+        assert_eq!(&tx.buf()[..len], &[0b1000_0001, 0xDD, 0xEE, 0xFF]);
 
         assert_eq!(tx.write(0, &msg7), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1100_0000, 0xAB]);
+        // End with remaining = 1
+        assert_eq!(&tx.buf()[..len], &[0b1100_1000, 0b0000_0001, 0xAB]);
     }
 
     #[test]

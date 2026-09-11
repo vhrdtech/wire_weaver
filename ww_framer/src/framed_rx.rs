@@ -229,9 +229,22 @@ where
                 };
                 Step::Next
             }
-            (State::Gap, MessageKind::Continue | MessageKind::End) => {
-                // lost Start, skip
+            (State::Gap, MessageKind::Continue) => {
+                // lost Start; Continue spans till the end of the frame, nothing else to recover
                 Step::SkipFrame
+            }
+            (State::Gap, MessageKind::End) => {
+                // lost Start; skip just this message and carry on with the rest of the frame
+                let rest = len + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
+                if rest > frame_left {
+                    return if self.can_ever_fit(0, head_len, rest) {
+                        Step::NeedMoreData
+                    } else {
+                        Step::SkipFrame
+                    };
+                }
+                self.staging_pos = payload_start + rest;
+                Step::Next
             }
             (
                 &State::Assembling {
@@ -243,7 +256,12 @@ where
             ) => {
                 // Continue extends till the end of the frame
                 let remaining = total - assembled;
-                if uk != user_kind || frame_left == 0 || frame_left >= remaining {
+                if uk != user_kind || len != remaining {
+                    // some frame in between was lost, this Continue belongs to another message
+                    self.state = State::Gap;
+                    return Step::SkipFrame;
+                }
+                if frame_left == 0 || frame_left >= remaining {
                     self.state = State::Gap;
                     return Step::SkipFrame;
                 }
@@ -266,9 +284,11 @@ where
                 MessageKind::End,
             ) => {
                 let remaining = total - assembled;
-                if uk != user_kind {
+                if uk != user_kind || len != remaining {
+                    // some frame in between was lost, this End belongs to another message:
+                    // drop what was assembled and re-process it from Gap (skips just this message)
                     self.state = State::Gap;
-                    return Step::SkipFrame;
+                    return Step::Next;
                 }
                 let rest = remaining + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
                 if rest > frame_left {
@@ -348,14 +368,21 @@ mod tests {
         assert_eq!(rx.message(), None, "extra message after frame {frame:02x?}");
     }
 
-    // Head bytes (see U2Head docs): mm uu 0lll
+    // Head bytes (see U2Head docs): mm uu 0lll, or mm uu 10ll llll_llll for len ∉ {0, 4..=10}.
+    // Continue / End carry the *remaining* length.
     const FULL_EMPTY: u8 = 0b0000_0000;
     const FULL_4: u8 = 0b0000_0001;
     const START_4: u8 = 0b0100_0001;
     const START_7: u8 = 0b0100_0100;
-    const CONTINUE: u8 = 0b1000_0000;
-    const END: u8 = 0b1100_0000;
-    const CONTINUE_UK1: u8 = 0b1001_0000;
+    const CONT_4: u8 = 0b1000_0001;
+    const CONT_4_UK1: u8 = 0b1001_0001;
+    /// followed by a byte with the remaining length (1..=3)
+    const CONT_SMALL: u8 = 0b1000_1000;
+    const END_4: u8 = 0b1100_0001;
+    const END_5: u8 = 0b1100_0010;
+    const END_9: u8 = 0b1100_0110;
+    /// followed by a byte with the remaining length (1..=3)
+    const END_SMALL: u8 = 0b1100_1000;
 
     #[test]
     fn empty_and_extended_user_kind() {
@@ -389,7 +416,11 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_4, 0xAA, 0xBB, 0xCC], &[]);
-        feed(&mut rx, &[END, 0xDD], &[(0, &[0xAA, 0xBB, 0xCC, 0xDD])]);
+        feed(
+            &mut rx,
+            &[END_SMALL, 1, 0xDD],
+            &[(0, &[0xAA, 0xBB, 0xCC, 0xDD])],
+        );
     }
 
     #[test]
@@ -397,8 +428,8 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[CONTINUE, 4, 5, 6], &[]);
-        feed(&mut rx, &[END, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
+        feed(&mut rx, &[CONT_4, 4, 5, 6], &[]);
+        feed(&mut rx, &[END_SMALL, 1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
     }
 
     #[test]
@@ -408,7 +439,7 @@ mod tests {
         feed(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed(
             &mut rx,
-            &[END, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8],
+            &[END_SMALL, 1, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8],
             &[(0, &[1, 2, 3, 4]), (0, &[]), (0, &[5, 6, 7, 8])],
         );
     }
@@ -418,7 +449,7 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[FULL_EMPTY, START_4, 1, 2], &[(0, &[])]);
-        feed(&mut rx, &[END, 3, 4], &[(0, &[1, 2, 3, 4])]);
+        feed(&mut rx, &[END_SMALL, 2, 3, 4], &[(0, &[1, 2, 3, 4])]);
     }
 
     #[test]
@@ -428,19 +459,34 @@ mod tests {
         feed(&mut rx, &[0b0111_1111, 0b1111_1000, 0b0000_0011, 0xAA], &[]);
         feed(
             &mut rx,
-            &[0b1111_1111, 0b1111_0000, 0xBB, 0xCC],
+            &[0b1111_1111, 0b1111_1000, 0b0000_0010, 0xBB, 0xCC],
             &[(255, &[0xAA, 0xBB, 0xCC])],
         );
     }
 
     #[test]
-    fn lost_start_skips_frame() {
+    fn lost_start_continue_skips_frame() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
-        feed(&mut rx, &[CONTINUE, 1, 2, 3], &[]);
-        feed(&mut rx, &[END, 4], &[]);
+        feed(&mut rx, &[CONT_4, 1, 2, 3], &[]);
+        feed(&mut rx, &[END_SMALL, 1, 4], &[]);
         // link recovers afterwards
         feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
+    }
+
+    #[test]
+    fn lost_start_end_skips_only_that_message() {
+        let mut buf = [0u8; 16];
+        let mut rx = TestRx::new(&mut buf);
+        // Start frame lost, End arrives with other messages after it in the same frame
+        feed(
+            &mut rx,
+            &[END_SMALL, 2, 3, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8, START_4, 1, 2],
+            &[(0, &[]), (0, &[5, 6, 7, 8])],
+        );
+        feed(&mut rx, &[END_SMALL, 2, 3, 4], &[(0, &[1, 2, 3, 4])]);
+        // End with 4 remaining uses a 1 byte head
+        feed(&mut rx, &[END_4, 1, 2, 3, 4, FULL_EMPTY], &[(0, &[])]);
     }
 
     #[test]
@@ -453,7 +499,28 @@ mod tests {
         // Start after lost End is re-processed as well
         feed(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed(&mut rx, &[START_4, 9, 8, 7], &[]);
-        feed(&mut rx, &[END, 6], &[(0, &[9, 8, 7, 6])]);
+        feed(&mut rx, &[END_SMALL, 1, 6], &[(0, &[9, 8, 7, 6])]);
+    }
+
+    #[test]
+    fn lost_middle_frame_detected_by_remaining_length() {
+        let mut buf = [0u8; 16];
+        let mut rx = TestRx::new(&mut buf);
+        // Continue frame lost: End says 1 remaining, but 4 are expected
+        feed(&mut rx, &[START_7, 1, 2, 3], &[]);
+        feed(&mut rx, &[END_SMALL, 1, 7, FULL_EMPTY], &[(0, &[])]);
+        assert_eq!(rx.free(), 16);
+
+        // Continue frame lost: next Continue says 2 remaining, 4 expected (skips the whole frame)
+        feed(&mut rx, &[START_7, 1, 2, 3], &[]);
+        feed(&mut rx, &[CONT_SMALL, 2, 5], &[]);
+        assert_eq!(rx.free(), 16);
+        feed(&mut rx, &[END_SMALL, 1, 6, FULL_EMPTY], &[(0, &[])]);
+
+        // Start frame of another message lost and Continue/End of the first one lost:
+        // End with mismatched length is skipped, frame continues
+        feed(&mut rx, &[START_7, 1, 2, 3], &[]);
+        feed(&mut rx, &[END_SMALL, 2, 9, 9, FULL_4, 5, 6, 7, 8], &[(0, &[5, 6, 7, 8])]);
     }
 
     #[test]
@@ -461,9 +528,9 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[CONTINUE_UK1, 4, 5, 6], &[]);
-        feed(&mut rx, &[END, 7], &[]);
-        feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[CONT_4_UK1, 4, 5, 6], &[]);
+        // End of the dropped message is skipped, but the Full after it is delivered
+        feed(&mut rx, &[END_SMALL, 1, 7, FULL_EMPTY], &[(0, &[])]);
     }
 
     #[test]
@@ -476,8 +543,8 @@ mod tests {
         feed(&mut rx, &[START_4], &[]);
         // Continue that would complete the message
         feed(&mut rx, &[START_4, 1, 2], &[]);
-        feed(&mut rx, &[CONTINUE, 3, 4], &[]);
-        feed(&mut rx, &[END, 4], &[]);
+        feed(&mut rx, &[CONT_SMALL, 2, 3, 4], &[]);
+        feed(&mut rx, &[END_SMALL, 1, 4], &[]);
         assert_eq!(rx.free(), 16);
     }
 
@@ -512,8 +579,8 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[END, 4, 5], &[]);
-        assert_eq!(rx.free(), 10); // 3 assembled + [END, 4, 5] kept
+        feed(&mut rx, &[END_4, 4, 5], &[]);
+        assert_eq!(rx.free(), 10); // 3 assembled + [END_4, 4, 5] kept
         feed(&mut rx, &[6], &[]);
         feed(
             &mut rx,
@@ -539,7 +606,7 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         // Start len = 8: assembled(3) + End head(1) + remaining(5) = 9 > 8
         feed(&mut rx, &[0b0100_0101, 1, 2, 3], &[]);
-        feed(&mut rx, &[END, 4, 5], &[]);
+        feed(&mut rx, &[END_5, 4, 5], &[]);
         assert_eq!(rx.free(), 8);
         feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
     }
@@ -550,7 +617,8 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         // Start, len = 11: 0b0100_1000, 0b0000_1011
         feed(&mut rx, &[0b0100_1000, 0b0000_1011, 1, 2], &[]);
-        feed(&mut rx, &[END, 3], &[]);
+        // End with 9 remaining can't fit either
+        feed(&mut rx, &[END_9, 3], &[]);
         assert_eq!(rx.free(), 8);
     }
 
@@ -588,9 +656,9 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         assert_eq!(rx.free(), 13);
-        feed(&mut rx, &[CONTINUE, 4, 5, 6], &[]);
+        feed(&mut rx, &[CONT_4, 4, 5, 6], &[]);
         assert_eq!(rx.free(), 10);
-        feed(&mut rx, &[END, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
+        feed(&mut rx, &[END_SMALL, 1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
         assert_eq!(rx.free(), 16);
     }
 

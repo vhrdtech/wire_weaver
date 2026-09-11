@@ -5,7 +5,9 @@ pub trait Head {
     const MIN_FRAME_SIZE: usize;
 
     /// Implementation details:
-    /// - On kind != MessageKind::Full, implementation can skip user_kind and len.
+    /// - For [MessageKind::Full] and [MessageKind::Start], len is the total message length.
+    /// - For [MessageKind::Continue] and [MessageKind::End], len is the remaining message length,
+    ///   so that a receiver can skip an End whose Start was lost and continue with the rest of the frame.
     /// - [MessageKind::Full] can be re-written to [MessageKind::Start] and serialized length must not change.
     /// - [MessageKind::Continue] can be re-written to [MessageKind::End] and serialized length must not change.
     fn write(

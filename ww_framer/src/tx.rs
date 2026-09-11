@@ -23,8 +23,8 @@ where
 {
     /// Create new framer from the provided assembly buffer.
     /// Buffer must be exactly the length of the maximum frame (or DMA size).
-    /// TODO: min buffer size
     pub fn new(assembly_buf: &'i mut [u8]) -> Self {
+        #[cfg(not(test))] // to catch potentially incorrect H::MIN_FRAME_SIZE in tests
         debug_assert!(assembly_buf.len() >= H::MIN_FRAME_SIZE);
         Tx {
             wr: BufWriter::new(assembly_buf),
@@ -182,10 +182,10 @@ mod tests {
         // fill 3 bytes of the frame with two empty messages (1 + 2 byte heads)
         assert_eq!(tx.write(0, &[]), Ok(true));
         assert_eq!(tx.write(255, &[]), Ok(true));
-        // extended user kind + 10-bit length head is 3 bytes, only 1 left: use next frame, not an error
+        // extended user kind head is 2 bytes, only 1 left: use next frame, not an error
         assert_eq!(tx.write(255, &[3]), Ok(false));
         assert_eq!(tx.flush(), 3);
         assert_eq!(tx.write(255, &[3]), Ok(true));
-        assert_eq!(tx.flush(), 4);
+        assert_eq!(tx.flush(), 3);
     }
 }

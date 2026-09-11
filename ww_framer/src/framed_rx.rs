@@ -368,21 +368,21 @@ mod tests {
         assert_eq!(rx.message(), None, "extra message after frame {frame:02x?}");
     }
 
-    // Head bytes (see U2Head docs): mm uu 0lll, or mm uu 10ll llll_llll for len ∉ {0, 4..=10}.
+    // Head bytes (see U2Head docs): mm uu 0lll, or mm uu 10ll llll_llll for len ∉ 0..=7.
     // Continue / End carry the *remaining* length.
     const FULL_EMPTY: u8 = 0b0000_0000;
-    const FULL_4: u8 = 0b0000_0001;
-    const START_4: u8 = 0b0100_0001;
-    const START_7: u8 = 0b0100_0100;
-    const CONT_4: u8 = 0b1000_0001;
-    const CONT_4_UK1: u8 = 0b1001_0001;
-    /// followed by a byte with the remaining length (1..=3)
-    const CONT_SMALL: u8 = 0b1000_1000;
-    const END_4: u8 = 0b1100_0001;
-    const END_5: u8 = 0b1100_0010;
-    const END_9: u8 = 0b1100_0110;
-    /// followed by a byte with the remaining length (1..=3)
-    const END_SMALL: u8 = 0b1100_1000;
+    const FULL_4: u8 = 0b0000_0100;
+    const START_4: u8 = 0b0100_0100;
+    const START_7: u8 = 0b0100_0111;
+    const CONT_2: u8 = 0b1000_0010;
+    const CONT_4: u8 = 0b1000_0100;
+    const CONT_4_UK1: u8 = 0b1001_0100;
+    const END_1: u8 = 0b1100_0001;
+    const END_2: u8 = 0b1100_0010;
+    const END_4: u8 = 0b1100_0100;
+    const END_5: u8 = 0b1100_0101;
+    /// len = 9, doesn't fit the 3-bit form, uses the 10-bit one instead
+    const END_9: [u8; 2] = [0b1100_1000, 0b0000_1001];
 
     #[test]
     fn empty_and_extended_user_kind() {
@@ -406,7 +406,7 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         feed(
             &mut rx,
-            &[FULL_4, 1, 2, 3, 4, FULL_EMPTY, 0b0001_0001, 5, 6, 7, 8],
+            &[FULL_4, 1, 2, 3, 4, FULL_EMPTY, 0b0001_0100, 5, 6, 7, 8],
             &[(0, &[1, 2, 3, 4]), (0, &[]), (1, &[5, 6, 7, 8])],
         );
     }
@@ -416,11 +416,7 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_4, 0xAA, 0xBB, 0xCC], &[]);
-        feed(
-            &mut rx,
-            &[END_SMALL, 1, 0xDD],
-            &[(0, &[0xAA, 0xBB, 0xCC, 0xDD])],
-        );
+        feed(&mut rx, &[END_1, 0xDD], &[(0, &[0xAA, 0xBB, 0xCC, 0xDD])]);
     }
 
     #[test]
@@ -429,7 +425,7 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         feed(&mut rx, &[CONT_4, 4, 5, 6], &[]);
-        feed(&mut rx, &[END_SMALL, 1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
+        feed(&mut rx, &[END_1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
     }
 
     #[test]
@@ -439,7 +435,7 @@ mod tests {
         feed(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed(
             &mut rx,
-            &[END_SMALL, 1, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8],
+            &[END_1, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8],
             &[(0, &[1, 2, 3, 4]), (0, &[]), (0, &[5, 6, 7, 8])],
         );
     }
@@ -449,17 +445,17 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[FULL_EMPTY, START_4, 1, 2], &[(0, &[])]);
-        feed(&mut rx, &[END_SMALL, 2, 3, 4], &[(0, &[1, 2, 3, 4])]);
+        feed(&mut rx, &[END_2, 3, 4], &[(0, &[1, 2, 3, 4])]);
     }
 
     #[test]
     fn split_extended_user_kind() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
-        feed(&mut rx, &[0b0111_1111, 0b1111_1000, 0b0000_0011, 0xAA], &[]);
+        feed(&mut rx, &[0b0111_1111, 0b1111_0011, 0xAA], &[]);
         feed(
             &mut rx,
-            &[0b1111_1111, 0b1111_1000, 0b0000_0010, 0xBB, 0xCC],
+            &[0b1111_1111, 0b1111_0010, 0xBB, 0xCC],
             &[(255, &[0xAA, 0xBB, 0xCC])],
         );
     }
@@ -469,7 +465,7 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         feed(&mut rx, &[CONT_4, 1, 2, 3], &[]);
-        feed(&mut rx, &[END_SMALL, 1, 4], &[]);
+        feed(&mut rx, &[END_1, 4], &[]);
         // link recovers afterwards
         feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
     }
@@ -481,10 +477,10 @@ mod tests {
         // Start frame lost, End arrives with other messages after it in the same frame
         feed(
             &mut rx,
-            &[END_SMALL, 2, 3, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8, START_4, 1, 2],
+            &[END_2, 3, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8, START_4, 1, 2],
             &[(0, &[]), (0, &[5, 6, 7, 8])],
         );
-        feed(&mut rx, &[END_SMALL, 2, 3, 4], &[(0, &[1, 2, 3, 4])]);
+        feed(&mut rx, &[END_2, 3, 4], &[(0, &[1, 2, 3, 4])]);
         // End with 4 remaining uses a 1 byte head
         feed(&mut rx, &[END_4, 1, 2, 3, 4, FULL_EMPTY], &[(0, &[])]);
     }
@@ -499,7 +495,7 @@ mod tests {
         // Start after lost End is re-processed as well
         feed(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed(&mut rx, &[START_4, 9, 8, 7], &[]);
-        feed(&mut rx, &[END_SMALL, 1, 6], &[(0, &[9, 8, 7, 6])]);
+        feed(&mut rx, &[END_1, 6], &[(0, &[9, 8, 7, 6])]);
     }
 
     #[test]
@@ -508,19 +504,23 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         // Continue frame lost: End says 1 remaining, but 4 are expected
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[END_SMALL, 1, 7, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 7, FULL_EMPTY], &[(0, &[])]);
         assert_eq!(rx.free(), 16);
 
         // Continue frame lost: next Continue says 2 remaining, 4 expected (skips the whole frame)
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[CONT_SMALL, 2, 5], &[]);
+        feed(&mut rx, &[CONT_2, 5], &[]);
         assert_eq!(rx.free(), 16);
-        feed(&mut rx, &[END_SMALL, 1, 6, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 6, FULL_EMPTY], &[(0, &[])]);
 
         // Start frame of another message lost and Continue/End of the first one lost:
         // End with mismatched length is skipped, frame continues
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[END_SMALL, 2, 9, 9, FULL_4, 5, 6, 7, 8], &[(0, &[5, 6, 7, 8])]);
+        feed(
+            &mut rx,
+            &[END_2, 9, 9, FULL_4, 5, 6, 7, 8],
+            &[(0, &[5, 6, 7, 8])],
+        );
     }
 
     #[test]
@@ -530,7 +530,7 @@ mod tests {
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         feed(&mut rx, &[CONT_4_UK1, 4, 5, 6], &[]);
         // End of the dropped message is skipped, but the Full after it is delivered
-        feed(&mut rx, &[END_SMALL, 1, 7, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 7, FULL_EMPTY], &[(0, &[])]);
     }
 
     #[test]
@@ -543,8 +543,8 @@ mod tests {
         feed(&mut rx, &[START_4], &[]);
         // Continue that would complete the message
         feed(&mut rx, &[START_4, 1, 2], &[]);
-        feed(&mut rx, &[CONT_SMALL, 2, 3, 4], &[]);
-        feed(&mut rx, &[END_SMALL, 1, 4], &[]);
+        feed(&mut rx, &[CONT_2, 3, 4], &[]);
+        feed(&mut rx, &[END_1, 4], &[]);
         assert_eq!(rx.free(), 16);
     }
 
@@ -604,8 +604,8 @@ mod tests {
     fn end_that_can_never_fit_is_skipped() {
         let mut buf = [0u8; 8];
         let mut rx = TestRx::new(&mut buf);
-        // Start len = 8: assembled(3) + End head(1) + remaining(5) = 9 > 8
-        feed(&mut rx, &[0b0100_0101, 1, 2, 3], &[]);
+        // Start len = 8 (0b0100_1000, 0b0000_1000): assembled(3) + End head(1) + remaining(5) = 9 > 8
+        feed(&mut rx, &[0b0100_1000, 0b0000_1000, 1, 2, 3], &[]);
         feed(&mut rx, &[END_5, 4, 5], &[]);
         assert_eq!(rx.free(), 8);
         feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
@@ -618,7 +618,7 @@ mod tests {
         // Start, len = 11: 0b0100_1000, 0b0000_1011
         feed(&mut rx, &[0b0100_1000, 0b0000_1011, 1, 2], &[]);
         // End with 9 remaining can't fit either
-        feed(&mut rx, &[END_9, 3], &[]);
+        feed(&mut rx, &[END_9[0], END_9[1], 3], &[]);
         assert_eq!(rx.free(), 8);
     }
 
@@ -658,7 +658,7 @@ mod tests {
         assert_eq!(rx.free(), 13);
         feed(&mut rx, &[CONT_4, 4, 5, 6], &[]);
         assert_eq!(rx.free(), 10);
-        feed(&mut rx, &[END_SMALL, 1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
+        feed(&mut rx, &[END_1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
         assert_eq!(rx.free(), 16);
     }
 
@@ -673,7 +673,7 @@ mod tests {
             (3, &[9, 8, 7, 6, 5]),
         ];
 
-        let mut tx_buf = [0u8; 4];
+        let mut tx_buf = [0u8; 6];
         let mut tx = TestTx::new(&mut tx_buf);
         let mut rx_buf = [0u8; 32];
         let mut rx = TestRx::new(&mut rx_buf);

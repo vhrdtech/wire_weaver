@@ -74,10 +74,8 @@ where
     /// Call with a next received frame, then call [Self::reassemble] and
     /// [Self::message] in a loop until getting None.
     ///
-    /// Frame boundaries are significant (Start / Continue messages extend till the end of a frame),
-    /// so for framed media with split messages, [Self::reassemble] must be called after each frame.
-    /// Bytes of an incomplete message (e.g. head or checksum not yet fully received) are kept
-    /// and the next staged frame is appended to them.
+    /// Note that frame sizes are significant and must be preserved, not all frames are of maximum length.
+    /// This is trivial in, e.g., USB, CAN.
     ///
     /// Returns Err(()) if there is not enough space.
     pub fn stage(&mut self, frame: &[u8]) -> Result<(), ()> {
@@ -200,10 +198,12 @@ where
                 let message = &self.assembly_buf[payload_start..payload_start + len];
                 let mut rd =
                     BufReader::new(&self.assembly_buf[payload_start + len..self.staging_end]);
-                match C::read(message, false, &mut rd).and_then(|_| T::read(&mut rd)) {
-                    Ok(_) => {}
-                    Err(RdError::NeedMoreData) => return Step::NeedMoreData,
-                    Err(_) => return Step::SkipFrame,
+                // checksum and tail are fixed length and already checked to be present
+                if C::read(message, false, &mut rd)
+                    .and_then(|_| T::read(&mut rd))
+                    .is_err()
+                {
+                    return Step::SkipFrame;
                 }
                 rd.align_byte();
                 self.staging_pos = payload_start + len + rd.pos().0;
@@ -237,11 +237,8 @@ where
                 // lost Start; skip just this message and carry on with the rest of the frame
                 let rest = len + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
                 if rest > frame_left {
-                    return if self.can_ever_fit(0, head_len, rest) {
-                        Step::NeedMoreData
-                    } else {
-                        Step::SkipFrame
-                    };
+                    // End must fit into one frame
+                    return Step::SkipFrame;
                 }
                 self.staging_pos = payload_start + rest;
                 Step::Next
@@ -292,25 +289,22 @@ where
                 }
                 let rest = remaining + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
                 if rest > frame_left {
-                    return if self.can_ever_fit(assembled, head_len, rest) {
-                        Step::NeedMoreData
-                    } else {
-                        self.state = State::Gap;
-                        Step::SkipFrame
-                    };
+                    // End must fit into one frame together with checksum and tail
+                    self.state = State::Gap;
+                    return Step::SkipFrame;
                 }
                 self.assembly_buf
                     .copy_within(payload_start..payload_start + remaining, assembled);
                 let after_payload = payload_start + remaining;
                 let message = &self.assembly_buf[..total];
                 let mut rd = BufReader::new(&self.assembly_buf[after_payload..self.staging_end]);
-                match C::read(message, true, &mut rd).and_then(|_| T::read(&mut rd)) {
-                    Ok(_) => {}
-                    Err(RdError::NeedMoreData) => return Step::NeedMoreData,
-                    Err(_) => {
-                        self.state = State::Gap;
-                        return Step::SkipFrame;
-                    }
+                // checksum and tail are fixed length and already checked to be present
+                if C::read(message, true, &mut rd)
+                    .and_then(|_| T::read(&mut rd))
+                    .is_err()
+                {
+                    self.state = State::Gap;
+                    return Step::SkipFrame;
                 }
                 rd.align_byte();
                 self.staging_pos = after_payload + rd.pos().0;

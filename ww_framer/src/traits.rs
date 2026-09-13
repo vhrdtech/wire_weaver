@@ -21,6 +21,11 @@ pub trait Head {
 
 // Message bytes
 
+/// Checksum written after message bytes (byte aligned).
+///
+/// Must be of fixed length: [Checksum::read] must consume exactly [Checksum::LEN_BYTES_FULL] or
+/// [Checksum::LEN_BYTES_SPLIT] bytes, so that a receiver can tell upfront whether a whole message
+/// is present in a frame.
 pub trait Checksum {
     /// For messages that fit fully into one frame, can be 0.
     /// No need for this checksum for media, whose frames are already checked (USB, CAN, etc.)
@@ -33,6 +38,10 @@ pub trait Checksum {
     fn read(message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError>;
 }
 
+/// Tail written after checksum (byte aligned), e.g. a frame delimiter for stream media.
+///
+/// Must be of fixed length: [Tail::read] must consume exactly [Tail::LEN_BYTES] bytes, so that
+/// a receiver can tell upfront whether a whole message is present in a frame.
 pub trait Tail {
     const LEN_BYTES: usize;
 
@@ -40,6 +49,10 @@ pub trait Tail {
     fn read(rd: &mut BufReader<'_>) -> Result<(), RdError>;
 }
 
+/// Start and Continue messages extend till the end of a frame. End must fit into one frame
+/// together with checksum and tail, otherwise Continue is used and the rest is sent in the
+/// next frame.
+///
 /// When frames are CRC checked and with known length (USB, CAN, etc.), knowing
 /// what kind of message is ahead can prevent returning wrong ones.
 /// For example if one frame is lost (not applicable to USB in theory), then the next received might contain data that
@@ -97,6 +110,26 @@ impl Tail for NopTail {
 
     fn read(_rd: &mut BufReader<'_>) -> Result<(), RdError> {
         Ok(())
+    }
+}
+
+/// 1 byte tail
+pub struct ByteTail<const BYTE: u8>;
+
+impl<const BYTE: u8> Tail for ByteTail<BYTE> {
+    const LEN_BYTES: usize = 1;
+
+    fn write(wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+        wr.write_u8(BYTE)?;
+        Ok(())
+    }
+
+    fn read(rd: &mut BufReader<'_>) -> Result<(), RdError> {
+        if rd.read_u8()? == BYTE {
+            Ok(())
+        } else {
+            Err(RdError::BadTail)
+        }
     }
 }
 

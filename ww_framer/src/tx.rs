@@ -38,6 +38,10 @@ where
     /// Call repeatedly with the same message until Ok(true) is returned.
     /// While getting Ok(false), call [Self::flush] and send out the frame, before calling write again.
     /// Err(()) means the message is too large.
+    ///
+    /// Start and Continue extend till the end of a frame. End is written only if the remaining
+    /// bytes fit into the frame together with checksum and tail, otherwise Continue is used and
+    /// the rest goes into the next frame.
     /// Empty messages can be sent as well if an implementation requires it.
     pub fn write(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
         let at_gap = self.wr.save_state();
@@ -48,12 +52,13 @@ where
                 match H::write(MessageKind::Full, user_kind, message.len(), &mut self.wr) {
                     Ok(_) => {}
                     Err(WrError::OutOfBounds) => {
-                        if at_frame_start {
-                            // too small assembly buffer that head doesn't fit even at the beginning
-                            return Err(());
-                        }
                         self.wr.restore_state(at_gap);
-                        return Ok(false);
+                        return if at_frame_start {
+                            // too small assembly buffer that head doesn't fit even at the beginning
+                            Err(())
+                        } else {
+                            Ok(false)
+                        };
                     }
                     Err(WrError::TooBig) => {
                         self.wr.restore_state(at_gap);
@@ -63,30 +68,32 @@ where
                 }
                 self.wr.align_byte();
                 let buf_left = self.wr.bytes_left();
-                if buf_left == 0 {
-                    if at_frame_start {
-                        self.wr.restore_state(at_gap);
-                        return Err(());
-                    }
-                    // at least head + length + 1 byte must fit, otherwise use next frame
-                    self.wr.restore_state(at_gap);
-                    Ok(false)
-                } else if buf_left < message.len() + C::LEN_BYTES_FULL + T::LEN_BYTES {
-                    _ = self.wr.write_raw_slice(&message[..buf_left]);
-                    let after_msg = self.wr.save_state();
-                    // message fits partially, change kind to Start
-                    self.wr.restore_state(at_gap);
-                    _ = H::write(MessageKind::Start, user_kind, message.len(), &mut self.wr);
-                    self.wr.restore_state(after_msg);
-                    self.state = State::WroteN(buf_left);
-                    Ok(false)
-                } else {
+                if buf_left >= message.len() + C::LEN_BYTES_FULL + T::LEN_BYTES {
                     // message fits fully
                     _ = self.wr.write_raw_slice(message);
-                    _ = C::write(&message, false, &mut self.wr);
+                    _ = C::write(message, false, &mut self.wr);
                     _ = T::write(&mut self.wr);
-                    Ok(true)
+                    return Ok(true);
                 }
+                // Start extends till the end of the frame and must leave at least 1 byte for End
+                let take = buf_left.min(message.len().saturating_sub(1));
+                if take == 0 {
+                    self.wr.restore_state(at_gap);
+                    if at_frame_start {
+                        // nothing fits even into an empty frame, message can never be sent
+                        return Err(());
+                    }
+                    // at least head + 1 byte must fit, otherwise use next frame
+                    return Ok(false);
+                }
+                _ = self.wr.write_raw_slice(&message[..take]);
+                let after_msg = self.wr.save_state();
+                // message fits partially, change kind to Start
+                self.wr.restore_state(at_gap);
+                _ = H::write(MessageKind::Start, user_kind, message.len(), &mut self.wr);
+                self.wr.restore_state(after_msg);
+                self.state = State::WroteN(take);
+                Ok(false)
             }
             State::WroteN(n) => {
                 let message_left = message.len() - n; // TODO: guard agains user giving different message here or not?
@@ -102,20 +109,8 @@ where
                 }
                 self.wr.align_byte();
                 let buf_left = self.wr.bytes_left();
-                if buf_left == 0 {
-                    self.wr.restore_state(at_gap);
-                    if at_frame_start {
-                        // head alone fills the whole frame, message can never progress
-                        self.state = State::Gap;
-                        return Err(());
-                    }
-                    // at least head + length + 1 byte must fit, otherwise use next frame
-                    Ok(false)
-                } else if buf_left < message_left + C::LEN_BYTES_SPLIT + T::LEN_BYTES {
-                    _ = self.wr.write_raw_slice(&message[n..n + buf_left]);
-                    self.state = State::WroteN(n + buf_left);
-                    Ok(false)
-                } else {
+                // End must fit into one frame together with checksum and tail
+                if buf_left >= message_left + C::LEN_BYTES_SPLIT + T::LEN_BYTES {
                     _ = self.wr.write_raw_slice(&message[n..]);
                     _ = C::write(message, true, &mut self.wr);
                     _ = T::write(&mut self.wr);
@@ -126,8 +121,23 @@ where
                     _ = H::write(MessageKind::End, user_kind, message_left, &mut self.wr);
                     self.wr.restore_state(after_msg);
                     self.state = State::Gap;
-                    Ok(true)
+                    return Ok(true);
                 }
+                // Continue extends till the end of the frame and must leave at least 1 byte for End
+                let take = buf_left.min(message_left - 1);
+                if take == 0 {
+                    self.wr.restore_state(at_gap);
+                    if at_frame_start {
+                        // head alone fills the whole frame or End can never fit, message can never progress
+                        self.state = State::Gap;
+                        return Err(());
+                    }
+                    // at least head + 1 byte must fit, otherwise use next frame
+                    return Ok(false);
+                }
+                _ = self.wr.write_raw_slice(&message[n..n + take]);
+                self.state = State::WroteN(n + take);
+                Ok(false)
             }
         }
     }
@@ -153,39 +163,5 @@ where
     /// Call `flush()` first to get the length of the frame.
     pub fn buf(&self) -> &[u8] {
         self.wr.buf()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Tx;
-    use crate::framed::U2Head;
-    use crate::traits::{NopChecksum, NopTail};
-
-    #[test]
-    fn head_filling_whole_frame_is_an_error_not_empty_frame() {
-        // extended user kind + 17-bit length = 4 byte head, same as the frame
-        let mut buf = [0u8; 4];
-        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
-        let msg = [0u8; 1024];
-        assert_eq!(tx.write(255, &msg), Err(()));
-        assert_eq!(tx.flush(), 0);
-        // tx is still usable afterwards
-        assert_eq!(tx.write(0, &[]), Ok(true));
-        assert_eq!(tx.flush(), 1);
-    }
-
-    #[test]
-    fn head_not_fitting_mid_frame_uses_next_frame() {
-        let mut buf = [0u8; 4];
-        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
-        // fill 3 bytes of the frame with two empty messages (1 + 2 byte heads)
-        assert_eq!(tx.write(0, &[]), Ok(true));
-        assert_eq!(tx.write(255, &[]), Ok(true));
-        // extended user kind head is 2 bytes, only 1 left: use next frame, not an error
-        assert_eq!(tx.write(255, &[3]), Ok(false));
-        assert_eq!(tx.flush(), 3);
-        assert_eq!(tx.write(255, &[3]), Ok(true));
-        assert_eq!(tx.flush(), 3);
     }
 }

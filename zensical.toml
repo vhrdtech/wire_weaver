@@ -51,6 +51,7 @@ nav = [
     {
         "Transport protocols" = [
             "transport/overview.md",
+            "transport/ww_framer.md",
             "transport/usb.md",
             "transport/ws.md",
             "transport/udp.md",

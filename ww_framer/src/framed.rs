@@ -121,7 +121,8 @@ mod tests {
     use crate::{
         Tx,
         framed::U2Head,
-        traits::{Head, MessageKind, NopChecksum, NopTail},
+        tests::common::*,
+        traits::{Head, MessageKind, NopChecksum, NopTail, RdError, WrError},
     };
 
     #[test]
@@ -131,23 +132,20 @@ mod tests {
 
         assert_eq!(tx.write(0, &[]), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b0000_0000]);
+        assert_eq!(&tx.buf()[..len], &[FULL_0]);
 
         assert_eq!(tx.write(255, &[]), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b0011_1111, 0b1111_0000]);
+        assert_eq!(&tx.buf()[..len], &FULL_0_UK255);
 
         let msg4 = &[0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF][..];
         assert_eq!(tx.write(0, msg4), Ok(false));
         let len = tx.flush();
-        assert_eq!(
-            &tx.buf()[..len],
-            &[0b0100_0110, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE]
-        );
+        assert_eq!(&tx.buf()[..len], &[START_6, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE]);
         assert_eq!(tx.write(0, msg4), Ok(true));
         let len = tx.flush();
         // End carries remaining length (1), which now fits the smallest 3-bit form
-        assert_eq!(&tx.buf()[..len], &[0b1100_0001, 0xFF]);
+        assert_eq!(&tx.buf()[..len], &[END_1, 0xFF]);
     }
 
     #[test]
@@ -161,13 +159,13 @@ mod tests {
         let len = tx.flush();
         assert_eq!(
             &tx.buf()[..len],
-            &[0b0111_1111, 0b1111_0101, 0xAA, 0xBB, 0xCC, 0xDD]
+            &[START_5_UK255[0], START_5_UK255[1], 0xAA, 0xBB, 0xCC, 0xDD]
         );
 
         // remaining = 1, still fits the 2-byte head
         assert_eq!(tx.write(255, &msg3), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[0b1111_1111, 0b1111_0001, 0xEE]);
+        assert_eq!(&tx.buf()[..len], &[END_1_UK255[0], END_1_UK255[1], 0xEE]);
     }
 
     #[test]
@@ -180,21 +178,18 @@ mod tests {
         let len = tx.flush();
         assert_eq!(
             &tx.buf()[..len],
-            &[0b0100_1000, 0b0000_1010, 0xAA, 0xBB, 0xCC, 0xDD]
+            &[START_10[0], START_10[1], 0xAA, 0xBB, 0xCC, 0xDD]
         );
 
         assert_eq!(tx.write(0, &msg7), Ok(false));
         let len = tx.flush();
-        // Continue with remaining = 4
-        assert_eq!(
-            &tx.buf()[..len],
-            &[0b1000_0110, 0xEE, 0xFF, 0xAB, 0xAC, 0xAD]
-        );
+        // Continue with remaining = 6
+        assert_eq!(&tx.buf()[..len], &[CONT_6, 0xEE, 0xFF, 0xAB, 0xAC, 0xAD]);
 
         assert_eq!(tx.write(0, &msg7), Ok(true));
         let len = tx.flush();
         // End with remaining = 1
-        assert_eq!(&tx.buf()[..len], &[0b1100_0001, 0xAE]);
+        assert_eq!(&tx.buf()[..len], &[END_1, 0xAE]);
     }
 
     #[test]
@@ -223,5 +218,81 @@ mod tests {
             assert_eq!(rt_user_kind, user_kind);
             assert_eq!(rt_len, len);
         }
+    }
+
+    #[test]
+    fn round_trip_large_lengths() {
+        // 17-bit (feature "large") and 24-bit (feature "very_large") forms
+        let cases = [
+            (MessageKind::Full, 0, 1024usize),
+            (MessageKind::Start, 2, 131_071),
+            (MessageKind::Continue, 255, 65_536),
+            (MessageKind::End, 0, 131_072),
+            (MessageKind::Full, 1, 1_000_000),
+            (MessageKind::Start, 255, 16_777_215),
+        ];
+
+        for (kind, user_kind, len) in cases {
+            let mut buf = [0u8; 8];
+            let mut wr = BufWriter::new(&mut buf[..]);
+            U2Head::write(kind, user_kind, len, &mut wr).unwrap();
+            let raw = wr.finish().unwrap();
+
+            let mut rd = BufReader::new(raw);
+            let (rt_kind, rt_user_kind, rt_len) = U2Head::read(&mut rd).unwrap();
+
+            assert_eq!(rt_kind, kind);
+            assert_eq!(rt_user_kind, user_kind);
+            assert_eq!(rt_len, len);
+        }
+    }
+
+    #[test]
+    fn write_seventeen_bit_len_encoding() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf[..]);
+        // Full, user_kind 0, len 1024 = 0b1_0000_0000_0000_0000 => `mmuu_110l llll_llll llll_llll`
+        U2Head::write(MessageKind::Full, 0, 1024, &mut wr).unwrap();
+        let raw = wr.finish().unwrap();
+        assert_eq!(raw, &FULL_1024);
+    }
+
+    #[test]
+    fn write_twenty_four_bit_len_encoding() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf[..]);
+        // Full, user_kind 0, len 131_072 = 0x02_0000 => `mmuu_1110 llll_llll llll_llll llll_llll`
+        U2Head::write(MessageKind::Full, 0, 131_072, &mut wr).unwrap();
+        let raw = wr.finish().unwrap();
+        assert_eq!(raw, &FULL_131072);
+    }
+
+    #[test]
+    fn write_too_big() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf[..]);
+        assert_eq!(
+            U2Head::write(MessageKind::Full, 0, 16_777_216, &mut wr),
+            Err(WrError::TooBig)
+        );
+
+        let mut wr = BufWriter::new(&mut buf[..]);
+        assert_eq!(
+            U2Head::write(MessageKind::End, 255, usize::MAX, &mut wr),
+            Err(WrError::TooBig)
+        );
+    }
+
+    #[test]
+    fn read_bad_length() {
+        // Full, user_kind 0, then 0b1111 length prefix => no valid length form
+        let raw = [FULL_BAD_LEN, 0, 0, 0, 0];
+        let mut rd = BufReader::new(&raw);
+        assert_eq!(U2Head::read(&mut rd), Err(RdError::BadLength));
+
+        // Extended user kind followed by 0b1111 length prefix
+        let raw = [FULL_BAD_LEN_UK255[0], FULL_BAD_LEN_UK255[1], 0, 0, 0];
+        let mut rd = BufReader::new(&raw);
+        assert_eq!(U2Head::read(&mut rd), Err(RdError::BadLength));
     }
 }

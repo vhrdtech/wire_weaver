@@ -2,6 +2,7 @@
 
 pub mod framed;
 pub mod framed_rx;
+mod tests;
 pub mod traits;
 pub mod tx;
 

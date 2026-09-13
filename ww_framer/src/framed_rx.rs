@@ -341,10 +341,29 @@ mod tests {
     use super::FramedRx;
     use crate::Tx;
     use crate::framed::U2Head;
-    use crate::traits::{NopChecksum, NopTail};
+    use crate::tests::common::*;
+    use crate::traits::{ByteTail, NopChecksum, NopTail};
 
     type TestRx<'i> = FramedRx<'i, U2Head, NopChecksum, NopTail>;
     type TestTx<'i> = Tx<'i, U2Head, NopChecksum, NopTail>;
+
+    type CheckedRx<'i> = FramedRx<'i, U2Head, XorChecksum, ByteTail<0xEE>>;
+
+    /// Same as [feed], but for [CheckedRx].
+    fn feed_checked(rx: &mut CheckedRx<'_>, frame: &[u8], expected: &[(u8, &[u8])]) {
+        rx.stage(frame).unwrap();
+        for (i, (kind, msg)) in expected.iter().enumerate() {
+            rx.reassemble();
+            let got = rx.message();
+            assert_eq!(
+                got,
+                Some((*kind, *msg)),
+                "message #{i} of frame {frame:02x?}"
+            );
+        }
+        rx.reassemble();
+        assert_eq!(rx.message(), None, "extra message after frame {frame:02x?}");
+    }
 
     /// Stage one frame and assert exactly `expected` messages come out of it.
     fn feed(rx: &mut TestRx<'_>, frame: &[u8], expected: &[(u8, &[u8])]) {
@@ -362,28 +381,12 @@ mod tests {
         assert_eq!(rx.message(), None, "extra message after frame {frame:02x?}");
     }
 
-    // Head bytes (see U2Head docs): mm uu 0lll, or mm uu 10ll llll_llll for len ∉ 0..=7.
-    // Continue / End carry the *remaining* length.
-    const FULL_EMPTY: u8 = 0b0000_0000;
-    const FULL_4: u8 = 0b0000_0100;
-    const START_4: u8 = 0b0100_0100;
-    const START_7: u8 = 0b0100_0111;
-    const CONT_2: u8 = 0b1000_0010;
-    const CONT_4: u8 = 0b1000_0100;
-    const CONT_4_UK1: u8 = 0b1001_0100;
-    const END_1: u8 = 0b1100_0001;
-    const END_2: u8 = 0b1100_0010;
-    const END_4: u8 = 0b1100_0100;
-    const END_5: u8 = 0b1100_0101;
-    /// len = 9, doesn't fit the 3-bit form, uses the 10-bit one instead
-    const END_9: [u8; 2] = [0b1100_1000, 0b0000_1001];
-
     #[test]
     fn empty_and_extended_user_kind() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
-        feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
-        feed(&mut rx, &[0b0011_1111, 0b1111_0000], &[(255, &[])]);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
+        feed(&mut rx, &FULL_0_UK255, &[(255, &[])]);
         assert_eq!(rx.free(), 16);
     }
 
@@ -400,7 +403,7 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         feed(
             &mut rx,
-            &[FULL_4, 1, 2, 3, 4, FULL_EMPTY, 0b0001_0100, 5, 6, 7, 8],
+            &[FULL_4, 1, 2, 3, 4, FULL_0, FULL_4_UK1, 5, 6, 7, 8],
             &[(0, &[1, 2, 3, 4]), (0, &[]), (1, &[5, 6, 7, 8])],
         );
     }
@@ -429,7 +432,7 @@ mod tests {
         feed(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed(
             &mut rx,
-            &[END_1, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8],
+            &[END_1, 4, FULL_0, FULL_4, 5, 6, 7, 8],
             &[(0, &[1, 2, 3, 4]), (0, &[]), (0, &[5, 6, 7, 8])],
         );
     }
@@ -438,7 +441,7 @@ mod tests {
     fn full_followed_by_start_in_same_frame() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
-        feed(&mut rx, &[FULL_EMPTY, START_4, 1, 2], &[(0, &[])]);
+        feed(&mut rx, &[FULL_0, START_4, 1, 2], &[(0, &[])]);
         feed(&mut rx, &[END_2, 3, 4], &[(0, &[1, 2, 3, 4])]);
     }
 
@@ -446,10 +449,10 @@ mod tests {
     fn split_extended_user_kind() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
-        feed(&mut rx, &[0b0111_1111, 0b1111_0011, 0xAA], &[]);
+        feed(&mut rx, &[START_3_UK255[0], START_3_UK255[1], 0xAA], &[]);
         feed(
             &mut rx,
-            &[0b1111_1111, 0b1111_0010, 0xBB, 0xCC],
+            &[END_2_UK255[0], END_2_UK255[1], 0xBB, 0xCC],
             &[(255, &[0xAA, 0xBB, 0xCC])],
         );
     }
@@ -461,7 +464,7 @@ mod tests {
         feed(&mut rx, &[CONT_4, 1, 2, 3], &[]);
         feed(&mut rx, &[END_1, 4], &[]);
         // link recovers afterwards
-        feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
     }
 
     #[test]
@@ -471,12 +474,12 @@ mod tests {
         // Start frame lost, End arrives with other messages after it in the same frame
         feed(
             &mut rx,
-            &[END_2, 3, 4, FULL_EMPTY, FULL_4, 5, 6, 7, 8, START_4, 1, 2],
+            &[END_2, 3, 4, FULL_0, FULL_4, 5, 6, 7, 8, START_4, 1, 2],
             &[(0, &[]), (0, &[5, 6, 7, 8])],
         );
         feed(&mut rx, &[END_2, 3, 4], &[(0, &[1, 2, 3, 4])]);
         // End with 4 remaining uses a 1 byte head
-        feed(&mut rx, &[END_4, 1, 2, 3, 4, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_4, 1, 2, 3, 4, FULL_0], &[(0, &[])]);
     }
 
     #[test]
@@ -498,14 +501,14 @@ mod tests {
         let mut rx = TestRx::new(&mut buf);
         // Continue frame lost: End says 1 remaining, but 4 are expected
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
-        feed(&mut rx, &[END_1, 7, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 7, FULL_0], &[(0, &[])]);
         assert_eq!(rx.free(), 16);
 
         // Continue frame lost: next Continue says 2 remaining, 4 expected (skips the whole frame)
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         feed(&mut rx, &[CONT_2, 5], &[]);
         assert_eq!(rx.free(), 16);
-        feed(&mut rx, &[END_1, 6, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 6, FULL_0], &[(0, &[])]);
 
         // Start frame of another message lost and Continue/End of the first one lost:
         // End with mismatched length is skipped, frame continues
@@ -524,7 +527,7 @@ mod tests {
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         feed(&mut rx, &[CONT_4_UK1, 4, 5, 6], &[]);
         // End of the dropped message is skipped, but the Full after it is delivered
-        feed(&mut rx, &[END_1, 7, FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[END_1, 7, FULL_0], &[(0, &[])]);
     }
 
     #[test]
@@ -547,18 +550,14 @@ mod tests {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
         // payload split across chunks
-        feed(&mut rx, &[FULL_EMPTY, FULL_4, 1, 2], &[(0, &[])]);
+        feed(&mut rx, &[FULL_0, FULL_4, 1, 2], &[(0, &[])]);
         assert_eq!(rx.free(), 13); // incomplete message compacted to the start
-        feed(
-            &mut rx,
-            &[3, 4, FULL_EMPTY],
-            &[(0, &[1, 2, 3, 4]), (0, &[])],
-        );
+        feed(&mut rx, &[3, 4, FULL_0], &[(0, &[1, 2, 3, 4]), (0, &[])]);
         assert_eq!(rx.free(), 16);
 
         // head split across chunks (extended user kind, 2 byte head)
-        feed(&mut rx, &[0b0011_1111], &[]);
-        feed(&mut rx, &[0b1111_0000], &[(255, &[])]);
+        feed(&mut rx, &[FULL_0_UK255[0]], &[]);
+        feed(&mut rx, &[FULL_0_UK255[1]], &[(255, &[])]);
 
         // byte by byte
         for b in [FULL_4, 1, 2, 3] {
@@ -569,51 +568,34 @@ mod tests {
     }
 
     #[test]
-    fn partial_end_waits_for_more_data() {
+    fn partial_end_drops_message_and_skips_frame() {
         let mut buf = [0u8; 16];
         let mut rx = TestRx::new(&mut buf);
+        // End must fit into one frame, otherwise Continue must have been used
         feed(&mut rx, &[START_7, 1, 2, 3], &[]);
         feed(&mut rx, &[END_4, 4, 5], &[]);
-        assert_eq!(rx.free(), 10); // 3 assembled + [END_4, 4, 5] kept
-        feed(&mut rx, &[6], &[]);
-        feed(
-            &mut rx,
-            &[7, FULL_EMPTY],
-            &[(0, &[1, 2, 3, 4, 5, 6, 7]), (0, &[])],
-        );
         assert_eq!(rx.free(), 16);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
     }
 
     #[test]
     fn full_that_can_never_fit_is_skipped() {
         let mut buf = [0u8; 8];
         let mut rx = TestRx::new(&mut buf);
-        // Full, len = 11: 0b0000_1000, 0b0000_1011
-        feed(&mut rx, &[0b0000_1000, 0b0000_1011, 1, 2], &[]);
+        feed(&mut rx, &[FULL_11[0], FULL_11[1], 1, 2], &[]);
         assert_eq!(rx.free(), 8);
-        feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
-    }
-
-    #[test]
-    fn end_that_can_never_fit_is_skipped() {
-        let mut buf = [0u8; 8];
-        let mut rx = TestRx::new(&mut buf);
-        // Start len = 8 (0b0100_1000, 0b0000_1000): assembled(3) + End head(1) + remaining(5) = 9 > 8
-        feed(&mut rx, &[0b0100_1000, 0b0000_1000, 1, 2, 3], &[]);
-        feed(&mut rx, &[END_5, 4, 5], &[]);
-        assert_eq!(rx.free(), 8);
-        feed(&mut rx, &[FULL_EMPTY], &[(0, &[])]);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
     }
 
     #[test]
     fn message_too_big_for_buffer() {
         let mut buf = [0u8; 8];
         let mut rx = TestRx::new(&mut buf);
-        // Start, len = 11: 0b0100_1000, 0b0000_1011
-        feed(&mut rx, &[0b0100_1000, 0b0000_1011, 1, 2], &[]);
-        // End with 9 remaining can't fit either
+        feed(&mut rx, &[START_11[0], START_11[1], 1, 2], &[]);
+        // End with 9 remaining is skipped as well (lost Start, doesn't fit into the frame)
         feed(&mut rx, &[END_9[0], END_9[1], 3], &[]);
         assert_eq!(rx.free(), 8);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
     }
 
     #[test]
@@ -623,7 +605,7 @@ mod tests {
         assert_eq!(rx.stage(&[0u8; 9]), Err(()));
         rx.stage(&[0u8; 8]).unwrap();
         assert_eq!(rx.free(), 0);
-        assert_eq!(rx.stage(&[FULL_EMPTY]), Err(()));
+        assert_eq!(rx.stage(&[FULL_0]), Err(()));
         for _ in 0..8 {
             rx.reassemble();
             assert_eq!(rx.message(), Some((0, &[][..])));
@@ -631,7 +613,7 @@ mod tests {
         rx.reassemble();
         assert_eq!(rx.message(), None);
         // several Full messages can be staged before reassembling
-        rx.stage(&[FULL_EMPTY, FULL_EMPTY]).unwrap();
+        rx.stage(&[FULL_0, FULL_0]).unwrap();
         rx.stage(&[FULL_4, 1, 2, 3, 4]).unwrap();
         for _ in 0..2 {
             rx.reassemble();
@@ -654,6 +636,114 @@ mod tests {
         assert_eq!(rx.free(), 10);
         feed(&mut rx, &[END_1, 7], &[(0, &[1, 2, 3, 4, 5, 6, 7])]);
         assert_eq!(rx.free(), 16);
+    }
+
+    #[test]
+    fn bad_head_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = TestRx::new(&mut buf);
+        // 0b1111 length prefix is not a valid form, rest of the frame is skipped
+        feed(&mut rx, &[FULL_BAD_LEN, 1, 2, FULL_0], &[]);
+        assert_eq!(rx.free(), 16);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
+    }
+
+    #[test]
+    fn lost_start_partial_end_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = TestRx::new(&mut buf);
+        // Start frame lost and End doesn't fit into the frame: skip it
+        feed(&mut rx, &[END_4, 1, 2], &[]);
+        assert_eq!(rx.free(), 16);
+        feed(&mut rx, &[FULL_0], &[(0, &[])]);
+    }
+
+    // 1 ^ 2 ^ 3 ^ 4
+    const XOR_1234: u8 = 4;
+    const TAIL: u8 = 0xEE;
+
+    #[test]
+    fn checksum_and_tail_round_trip() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        feed_checked(
+            &mut rx,
+            &[FULL_4, 1, 2, 3, 4, XOR_1234, TAIL, FULL_0, 0, TAIL],
+            &[(0, &[1, 2, 3, 4]), (0, &[])],
+        );
+        feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
+        feed_checked(
+            &mut rx,
+            &[END_1, 4, XOR_1234, TAIL, FULL_0, 0, TAIL],
+            &[(0, &[1, 2, 3, 4]), (0, &[])],
+        );
+        assert_eq!(rx.free(), 16);
+    }
+
+    #[test]
+    fn full_checksum_mismatch_or_bad_tail_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        // wrong checksum, rest of the frame is skipped
+        feed_checked(
+            &mut rx,
+            &[FULL_4, 1, 2, 3, 4, 0x00, TAIL, FULL_0, 0, TAIL],
+            &[],
+        );
+        assert_eq!(rx.free(), 16);
+        // bad tail
+        feed_checked(
+            &mut rx,
+            &[FULL_4, 1, 2, 3, 4, XOR_1234, 0x00, FULL_0, 0, TAIL],
+            &[],
+        );
+        assert_eq!(rx.free(), 16);
+        // link recovers afterwards
+        feed_checked(&mut rx, &[FULL_0, 0, TAIL], &[(0, &[])]);
+    }
+
+    #[test]
+    fn partial_full_with_checksum_and_tail_waits_for_more_data() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        // payload present, but checksum and tail not yet
+        feed_checked(&mut rx, &[FULL_4, 1, 2, 3, 4], &[]);
+        assert_eq!(rx.free(), 11);
+        feed_checked(&mut rx, &[XOR_1234], &[]);
+        feed_checked(
+            &mut rx,
+            &[TAIL, FULL_0, 0, TAIL],
+            &[(0, &[1, 2, 3, 4]), (0, &[])],
+        );
+        assert_eq!(rx.free(), 16);
+    }
+
+    #[test]
+    fn end_checksum_mismatch_or_bad_tail_drops_message_and_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        // wrong checksum
+        feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
+        feed_checked(&mut rx, &[END_1, 4, 0x00, TAIL, FULL_0, 0, TAIL], &[]);
+        // assembled bytes are dropped as well
+        assert_eq!(rx.free(), 16);
+        // bad tail
+        feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
+        feed_checked(&mut rx, &[END_1, 4, XOR_1234, 0x00, FULL_0, 0, TAIL], &[]);
+        assert_eq!(rx.free(), 16);
+        // link recovers afterwards
+        feed_checked(&mut rx, &[FULL_0, 0, TAIL], &[(0, &[])]);
+    }
+
+    #[test]
+    fn end_without_checksum_and_tail_drops_message_and_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
+        // payload present, but checksum and tail not: End must fit into one frame
+        feed_checked(&mut rx, &[END_1, 4], &[]);
+        assert_eq!(rx.free(), 16);
+        feed_checked(&mut rx, &[FULL_0, 0, TAIL], &[(0, &[])]);
     }
 
     #[test]

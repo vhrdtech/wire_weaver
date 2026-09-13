@@ -4,16 +4,17 @@
 It is `no_std`, allocation-free and is meant to sit between the serialized bytes produced by
 [shrink_wrap](../serdes/shrink_wrap.md) and a physical link (USB, CAN, UART, UDP, etc.).
 
-A *frame* is whatever the underlying medium can carry as one unit: a 64 B USB bulk packet, a 64 B CAN FD frame,
-a DMA buffer for UART, and so on. A *message* is what the application cares about: a request, a reply, a stream item.
+A _frame_ is whatever the underlying medium can carry as one unit: a 512B USB bulk packet, a 8B CAN frame,
+a DMA buffer for UART, and so on. A _message_ is what the application cares about: a request, a reply, a stream item.
 The two rarely have the same size, which is exactly the problem this crate solves:
 
-* several **small messages** are packed into one frame, so that the link is not wasted on padding;
-* a **large message** is split across as many frames as needed and re-assembled on the receiver;
-* a frame **does not have to be full** before it is sent — flush early to trade bandwidth for latency.
+- several **small messages** are packed into one frame, so that the link is not wasted on padding;
+- a **large message** is split across as many frames as needed and re-assembled on the receiver;
+- a frame **does not have to be full** before it is sent — flush early to trade bandwidth for latency.
 
 !!! note
-    Understanding the framer is optional. Client (`wire_weaver_client`)
+
+    Understanding the framer is optional. Client (`wire_weaver_client`) and server
     use it internally. Read on if you are implementing your own link, debugging bytes on the wire or just curious.
 
 ## Model
@@ -36,13 +37,14 @@ The two rarely have the same size, which is exactly the problem this crate solve
 Each message inside a frame is preceded by a small **head** that carries three things:
 
 | Field       | Meaning                                                                                              |
-|-------------|------------------------------------------------------------------------------------------------------|
-| `kind`      | `Full`, `Start`, `Continue` or `End` — whether the message fits in this frame or is split             |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `kind`      | `Full`, `Start`, `Continue` or `End` — whether the message fits in this frame or is split            |
 | `user_kind` | Small integer chosen by the caller (sub-channel: e.g. `0` = data, `1` = control, `255` = link setup) |
 | `len`       | Total message length for `Full` / `Start`, **remaining** length for `Continue` / `End`               |
 
 Optionally a **checksum** over the message and a **tail** may follow the payload. Both are traits and default to
 no-ops (`NopChecksum`, `NopTail`), because frame-based media like USB and CAN already check frame integrity.
+See [Checksum and tail](#checksum-and-tail) for an example with both enabled.
 
 The three pieces are generic parameters:
 
@@ -58,8 +60,7 @@ type LinkRx<'a> = FramedRx<'a, U2Head, NopChecksum, NopTail>;
 ## Head layout (`U2Head`)
 
 `U2Head` is the head implementation shipped for framed media. It is bit-packed with `shrink_wrap` and takes
-**one byte** in the most common case. After the head, the writer aligns to the next byte so the payload can be
-copied with `memcpy` / DMA.
+**one byte** in the most common case.
 
 ### Common form: 1 byte
 
@@ -73,9 +74,9 @@ copied with `memcpy` / DMA.
                         └─ 0 = short length follows
 ```
 
-* `mm` — `MessageKind`: `00` Full, `01` Start, `10` Continue, `11` End.
-* `uu` — `user_kind` `0..=2` stored as-is. `11` means "extended user kind follows" (see below).
-* `lll` — length **0..=7** as is.
+- `mm` — `MessageKind`: `00` Full, `01` Start, `10` Continue, `11` End.
+- `uu` — `user_kind` `0..=2` stored as-is. `11` means "extended user kind follows" (see below).
+- `lll` — length **0..=7** as is.
 
 ### Longer lengths
 
@@ -127,13 +128,13 @@ Example — `Full`, `user_kind = 7`, 4-byte payload:
 
 ### Head summary
 
-| `kind`   | `user_kind` | `len`        | Head size              |
-|----------|-------------|--------------|------------------------|
-| any      | 0..=2       | 0..=7        | 1 byte                 |
-| any      | 0..=2       | < 1 KiB      | 2 bytes                |
-| any      | 0..=2       | < 128 KiB    | 3 bytes (`large`)      |
-| any      | 0..=2       | < 16 MiB     | 4 bytes (`very_large`) |
-| any      | 3..=255     | as above     | +1 byte                |
+| `kind` | `user_kind` | `len`     | Head size              |
+| ------ | ----------- | --------- | ---------------------- |
+| any    | 0..=2       | 0..=7     | 1 byte                 |
+| any    | 0..=2       | < 1 KiB   | 2 bytes                |
+| any    | 0..=2       | < 128 KiB | 3 bytes (`large`)      |
+| any    | 0..=2       | < 16 MiB  | 4 bytes (`very_large`) |
+| any    | 3..=255     | as above  | +1 byte                |
 
 ## Multiple small messages in one frame
 
@@ -251,6 +252,13 @@ Timeline of `write` return values: `Ok(false)`, `Ok(false)`, `Ok(false)`, `Ok(tr
 Note that frames 1 and 2 use a 2-byte head because the remaining length (14, 8) exceeds 7, leaving only 6 payload
 bytes per frame; the final `End` fits in one byte. With a realistic 64-byte frame this overhead is negligible.
 
+!!! note "`End` always fits in one frame"
+
+    `Start` and `Continue` extend to the end of a frame, but `End` (together with the checksum and tail, if any)
+    is written only if it fits **completely** into the current frame. Otherwise the framer writes a `Continue`
+    instead and the rest goes into the next frame. `Start` and `Continue` also always leave at least one byte
+    for the `End`. This keeps the receiver simple: it never has to hold a half-received `End` across frames.
+
 On the receiving side `stage` + `reassemble` must be called **per frame**, because frame boundaries carry meaning
 (`Start`/`Continue` extend to the end of the frame). The message is copied into the front of the receive buffer as
 pieces arrive and delivered once `End` is processed:
@@ -283,28 +291,162 @@ Frame B is 7 bytes — shorter than the maximum — see the [next section](#send
 
 `FramedRx` tolerates the failure modes of a lossy or restarted link:
 
-* `Continue` with no `Start` in progress → rest of frame skipped (it spans to the frame end anyway).
-* `End` with no `Start` in progress → its remaining length says how many bytes to skip; **only that message** is
+- `Continue` with no `Start` in progress → rest of frame skipped (it spans to the frame end anyway).
+- `End` with no `Start` in progress → its remaining length says how many bytes to skip; **only that message** is
   dropped and the rest of the frame is decoded normally.
-* `Continue`/`End` whose remaining length does not match what the receiver expects → a frame in between was lost;
+- `Continue`/`End` whose remaining length does not match what the receiver expects → a frame in between was lost;
   the partial message is dropped.
-* `Full`/`Start` while assembling → the partial message is dropped, the new one is processed (an `End` was lost).
-* `user_kind` changes mid-message → dropped.
-* A `Start` or `Continue` that does *not* extend to the frame end, or a message larger than the receive buffer → skipped.
-* Head, payload or checksum cut between two `stage` calls (stream media, byte-by-byte UART) → kept and completed
-  by the next `stage`.
+- `Full`/`Start` while assembling → the partial message is dropped, the new one is processed (an `End` was lost).
+- `user_kind` changes mid-message → dropped.
+- A `Start` or `Continue` that does _not_ extend to the frame end, an `End` that does not fit into the frame
+  together with checksum and tail, or a message larger than the receive buffer → skipped.
+- Checksum mismatch or bad tail → the message is dropped and the rest of the frame is skipped.
+- Head or payload of a `Full` message cut between two `stage` calls (stream media, byte-by-byte UART) → kept and
+  completed by the next `stage`.
 
 After any of these the framer is back in a clean state and the next valid message is decoded normally.
+
+## Checksum and tail
+
+After the payload of a `Full` or `End` message, the framer writes the `Checksum` and then the `Tail`, both
+byte-aligned. `Start` and `Continue` carry neither — the checksum covers the **whole** re-assembled message and is
+verified once, when the `End` arrives.
+
+```
+ ┌──────┬─────────────────┬──────────┬──────┐
+ │ head │     payload     │ checksum │ tail │      Full / End
+ └──────┴─────────────────┴──────────┴──────┘
+ ┌──────┬───────────────────────────────────┐
+ │ head │  payload … till the end of frame  │      Start / Continue
+ └──────┴───────────────────────────────────┘
+```
+
+Both must be **fixed length**: `read` has to consume exactly `LEN_BYTES_*` bytes. The receiver uses these constants
+to decide upfront whether a whole message is present in a frame, and `Tx` uses them to decide whether an `End` fits.
+
+The checksum length is configured separately for `Full` and split messages. On USB or CAN a `Full` message is
+already protected by the frame CRC, while a split one spans several frames and a lost frame in between would not
+be detected by the medium alone — so a typical setup is _no_ checksum for `Full` and a small one for split messages.
+
+Example: CRC-8 (poly `0x07`) for split messages only, and a `0x7E` end marker after every message:
+
+```rust
+use shrink_wrap::{BufReader, BufWriter};
+use ww_framer::traits::{Checksum, RdError, Tail, WrError};
+
+struct Crc8;
+
+impl Checksum for Crc8 {
+    const LEN_BYTES_FULL: usize = 0;   // frame CRC is enough for Full messages
+    const LEN_BYTES_SPLIT: usize = 1;
+
+    fn write(message: &[u8], is_split: bool, wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+        if is_split {
+            wr.write_u8(crc8(message))?;
+        }
+        Ok(())
+    }
+
+    fn read(message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError> {
+        if is_split && rd.read_u8()? != crc8(message) {
+            return Err(RdError::ChecksumMismatch);
+        }
+        Ok(())
+    }
+}
+
+struct EndMarker;
+
+impl Tail for EndMarker {
+    const LEN_BYTES: usize = 1;
+
+    fn write(wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+        wr.write_u8(0x7E)?;
+        Ok(())
+    }
+
+    fn read(rd: &mut BufReader<'_>) -> Result<(), RdError> {
+        if rd.read_u8()? == 0x7E { Ok(()) } else { Err(RdError::BadTail) }
+    }
+}
+
+type LinkTx<'a> = Tx<'a, U2Head, Crc8, EndMarker>;
+type LinkRx<'a> = FramedRx<'a, U2Head, Crc8, EndMarker>;
+```
+
+`message` passed to `Checksum::write` / `read` is always the **complete** message, even for `End`, so the CRC does
+not need to be incremental.
+
+### Small messages
+
+Two `Full` messages in a 16-byte frame — no checksum (`LEN_BYTES_FULL = 0`), tail after each:
+
+```
+ byte:  0   1  2  3  4   5    6   7  8   9
+      ┌────┬───────────┬────┬────┬─────┬────┐
+      │ 04 │01 02 03 04│ 7E │ 12 │11 12│ 7E │
+      └────┴───────────┴────┴────┴─────┴────┘
+       head  payload   tail head  payl. tail
+       ────────┬───────────  ────────┬───────
+           message A             message B
+
+ 0x04 = 00 00 0 100   Full, uk=0, len=4
+ 0x12 = 00 01 0 010   Full, uk=1, len=2
+```
+
+### Split message
+
+The 20-byte message from [above](#large-message-spanning-multiple-frames) over 8-byte frames. Frames 0–2 are
+identical to the no-checksum case; only the `End` frame grows by two bytes:
+
+```
+ frame 0     48 14 01 02 03 04 05 06        Start, total = 20
+ frame 1     88 0E 07 08 09 0A 0B 0C        Continue, remaining = 14
+ frame 2     88 08 0D 0E 0F 10 11 12        Continue, remaining = 8
+
+ frame 3 (End, remaining = 2)
+ ┌────┬────┬────┬────┬────┐
+ │ C2 │ 13 │ 14 │ 99 │ 7E │
+ └────┴────┴────┴────┴────┘
+  head [18..20]  crc8 tail       0x99 = CRC-8 over all 20 bytes
+```
+
+### `End` that would not fit stays `Continue`
+
+A 12-byte message over 8-byte frames. After frame 0 there are 6 bytes left, which _would_ fit into a frame with a
+1-byte head — but not together with CRC and tail (1 + 6 + 1 + 1 = 9 > 8). So frame 1 is a `Continue` with 5 bytes,
+leaving one for the `End`:
+
+```
+ frame 0 (Start, total = 12)
+ ┌────┬────┬────┬────┬────┬────┬────┬────┐
+ │ 48 │ 0C │ 01 │ 02 │ 03 │ 04 │ 05 │ 06 │
+ └────┴────┴────┴────┴────┴────┴────┴────┘
+
+ frame 1 (Continue, remaining = 6) — 6 of 8 bytes used
+ ┌────┬────┬────┬────┬────┬────┐
+ │ 86 │ 07 │ 08 │ 09 │ 0A │ 0B │
+ └────┴────┴────┴────┴────┴────┘
+  0x86 = 10 00 0 110   Continue, uk=0, remaining = 6
+
+ frame 2 (End, remaining = 1)
+ ┌────┬────┬────┬────┐
+ │ C1 │ 0C │ FF │ 7E │
+ └────┴────┴────┴────┘
+  head [11] crc8 tail       0xFF = CRC-8 over all 12 bytes
+```
+
+Frame 1 is sent short instead of being filled with a byte that would force `End` to span two frames.
 
 ## Sending a partial frame early (latency)
 
 `Tx` never sends anything by itself: it only fills the assembly buffer. `flush()` returns how many bytes are
-currently in it and rewinds to the start. That means the caller decides *when* a frame goes out:
+currently in it and rewinds to the start. That means the caller decides _when_ a frame goes out:
 
-* **Throughput-oriented**: keep calling `write` until it returns `Ok(false)`, then flush. Frames are as full as
+- **Throughput-oriented**: keep calling `write` until it returns `Ok(false)`, then flush. Frames are as full as
   possible, per-frame overhead is minimal.
-* **Latency-oriented**: flush as soon as there is nothing more to send *right now*, even if the frame is mostly
-  empty. The message reaches the other side immediately instead of waiting for enough traffic to fill the frame.
+- **Latency-oriented**: flush as soon as there is nothing more to send _right now_, even if the frame is mostly
+  empty. The message is sent out immediately instead of waiting for enough traffic to fill the frame.
 
 ```rust
 let mut buf = [0u8; 64];                      // USB full-speed bulk packet
@@ -324,7 +466,7 @@ usb.write(&tx.buf()[..len]).await;            // short packet goes out now
 ```
 
 A typical embedded loop is a hybrid: drain the outgoing queue into the frame, and flush when the queue is empty
-*or* the frame is full — whichever comes first. This gives full frames under load and minimal latency when idle.
+_or_ the frame is full — whichever comes first. This gives full frames under load and minimal latency when idle.
 
 ```rust
 loop {
@@ -346,11 +488,13 @@ loop {
 ```
 
 !!! warning "Frame length must be preserved"
+
     A frame shorter than the maximum is fine, but the receiver must get exactly the bytes that were flushed,
     as one unit, because `Start`/`Continue` payloads are defined as "till the end of the frame". USB and CAN
     guarantee this. For stream media (UART, TCP) the framer is not yet ready.
 
 !!! note "Frames can also be short for another reason"
+
     If the remaining space in a frame is too small to fit even a head plus one payload byte, `write` returns
     `Ok(false)` without touching the frame, and the message starts at the beginning of the next one.
     Such a frame is a byte or two shorter than the maximum.
@@ -359,22 +503,22 @@ loop {
 
 ### `Tx<H, C, T>`
 
-| Method | Description |
-|--------|-------------|
-| `new(buf)` | Wrap an assembly buffer. Its length **is** the maximum frame size (e.g. the DMA / endpoint size). |
+| Method                                      | Description                                                                                                                                                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `new(buf)`                                  | Wrap an assembly buffer. Its length **is** the maximum frame size (e.g. the DMA / endpoint size).                                                                                                                                          |
 | `write(user_kind, msg) -> Result<bool, ()>` | Append a message. `Ok(true)` — fully written. `Ok(false)` — frame is full, `flush()` and call again with the **same** message. `Err(())` — the message can never be sent (too large for the head encoding, or head alone fills the frame). |
-| `flush() -> usize` | Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written. |
-| `buf() -> &[u8]` | The assembly buffer. Frame bytes are `&buf()[..len]` right after `flush()`. |
+| `flush() -> usize`                          | Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written.                                                                                                                                               |
+| `buf() -> &[u8]`                            | The assembly buffer. Frame bytes are `&buf()[..len]` right after `flush()`.                                                                                                                                                                |
 
 ### `FramedRx<H, C, T>`
 
-| Method | Description |
-|--------|-------------|
-| `new(buf)` | Wrap a receive buffer. Must hold at least one maximum re-assembled message **plus** one maximum frame. |
-| `stage(frame) -> Result<(), ()>` | Copy a received frame in. `Err(())` if `free()` is too small. |
-| `free() -> usize` | Bytes available for staging. |
-| `reassemble()` | Process staged bytes until a message is ready or the frame is exhausted. Also discards the previously returned message. |
-| `message() -> Option<(UserKind, &[u8])>` | The ready message, if any. Valid until the next `reassemble()`. |
+| Method                                   | Description                                                                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `new(buf)`                               | Wrap a receive buffer. Must hold at least one maximum re-assembled message **plus** one maximum frame.                  |
+| `stage(frame) -> Result<(), ()>`         | Copy a received frame in. `Err(())` if `free()` is too small.                                                           |
+| `free() -> usize`                        | Bytes available for staging.                                                                                            |
+| `reassemble()`                           | Process staged bytes until a message is ready or the frame is exhausted. Also discards the previously returned message. |
+| `message() -> Option<(UserKind, &[u8])>` | The ready message, if any. Valid until the next `reassemble()`.                                                         |
 
 Intended receive loop:
 
@@ -392,17 +536,19 @@ loop {
 Everything above is generic over three traits in `ww_framer::traits`, so a different medium can plug in its own
 encoding without touching the packing/splitting logic:
 
-| Trait | Purpose | Provided implementations |
-|-------|---------|--------------------------|
-| `Head` | Serialize / parse `(MessageKind, user_kind, len)`; declares `MIN_FRAME_SIZE` | `framed::U2Head` |
-| `Checksum` | Optional checksum after each message, separately configurable for `Full` and split messages | `NopChecksum` |
-| `Tail` | Optional fixed bytes after each message (e.g. an end marker for stream media) | `NopTail` |
+| Trait      | Purpose                                                                                                  | Provided implementations       |
+| ---------- | -------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MIN_FRAME_SIZE`                             | `framed::U2Head`               |
+| `Checksum` | Optional fixed-length checksum after each message, separately configurable for `Full` and split messages | `NopChecksum`, `Crc8`, `Crc16` |
+| `Tail`     | Optional fixed-length bytes after each message (e.g. an end marker for stream media)                     | `NopTail`, `ByteTail`          |
+
+See [Checksum and tail](#checksum-and-tail) for an example implementation of the last two.
 
 ### Cargo features
 
-| Feature | Effect |
-|---------|--------|
-| `large` | Enables the 3-byte head form: messages up to 128 KiB |
+| Feature      | Effect                                                                 |
+| ------------ | ---------------------------------------------------------------------- |
+| `large`      | Enables the 3-byte head form: messages up to 128 KiB                   |
 | `very_large` | Enables the 4-byte head form: messages up to 16 MiB (requires `large`) |
 
 Without either feature, the maximum message size is 1023 bytes and the head is at most 2 bytes (3 with an extended
@@ -410,4 +556,6 @@ user kind), which is what most microcontroller links need.
 
 ## Testing and Fuzzing
 
-Framer is fully covered by unit tests.
+This framer implementation is used for all transport media supported by `wire_weaver`.
+It is thus very important that it is correct.
+This is ensured by complete unit tests coverage and fuzzing.

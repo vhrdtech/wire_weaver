@@ -199,14 +199,17 @@ where
                 let mut rd =
                     BufReader::new(&self.assembly_buf[payload_start + len..self.staging_end]);
                 // checksum and tail are fixed length and already checked to be present
-                if C::read(message, false, &mut rd)
-                    .and_then(|_| T::read(&mut rd))
-                    .is_err()
-                {
-                    return Step::SkipFrame;
+                match C::read(message, false, &mut rd).and_then(|_| T::read(&mut rd)) {
+                    Ok(_) => {}
+                    Err(RdError::ChecksumMismatch) => {
+                        // frames are protected by the medium, so this is not corruption, but
+                        // e.g. a stale message: skip just this one and carry on with the frame
+                        self.staging_pos = payload_start + rest;
+                        return Step::Next;
+                    }
+                    Err(_) => return Step::SkipFrame,
                 }
-                rd.align_byte();
-                self.staging_pos = payload_start + len + rd.pos().0;
+                self.staging_pos = payload_start + rest;
                 self.state = State::Ready {
                     user_kind,
                     start: payload_start,
@@ -299,15 +302,22 @@ where
                 let message = &self.assembly_buf[..total];
                 let mut rd = BufReader::new(&self.assembly_buf[after_payload..self.staging_end]);
                 // checksum and tail are fixed length and already checked to be present
-                if C::read(message, true, &mut rd)
-                    .and_then(|_| T::read(&mut rd))
-                    .is_err()
-                {
-                    self.state = State::Gap;
-                    return Step::SkipFrame;
+                match C::read(message, true, &mut rd).and_then(|_| T::read(&mut rd)) {
+                    Ok(_) => {}
+                    Err(RdError::ChecksumMismatch) => {
+                        // frames are protected by the medium, so this is not corruption, but a
+                        // lost or reordered frame of this message: drop what was assembled,
+                        // skip just this End and carry on with the rest of the frame
+                        self.state = State::Gap;
+                        self.staging_pos = payload_start + rest;
+                        return Step::Next;
+                    }
+                    Err(_) => {
+                        self.state = State::Gap;
+                        return Step::SkipFrame;
+                    }
                 }
-                rd.align_byte();
-                self.staging_pos = after_payload + rd.pos().0;
+                self.staging_pos = payload_start + rest;
                 self.state = State::Ready {
                     user_kind,
                     start: 0,
@@ -681,17 +691,23 @@ mod tests {
     }
 
     #[test]
-    fn full_checksum_mismatch_or_bad_tail_skips_frame() {
+    fn full_checksum_mismatch_skips_only_that_message() {
         let mut buf = [0u8; 16];
         let mut rx = CheckedRx::new(&mut buf);
-        // wrong checksum, rest of the frame is skipped
+        // wrong checksum: frame itself is fine (protected by the medium), so just skip the message
         feed_checked(
             &mut rx,
             &[FULL_4, 1, 2, 3, 4, 0x00, TAIL, FULL_0, 0, TAIL],
-            &[],
+            &[(0, &[])],
         );
         assert_eq!(rx.free(), 16);
-        // bad tail
+    }
+
+    #[test]
+    fn full_bad_tail_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
+        // bad tail means the frame can't be trusted, rest of it is skipped
         feed_checked(
             &mut rx,
             &[FULL_4, 1, 2, 3, 4, XOR_1234, 0x00, FULL_0, 0, TAIL],
@@ -719,15 +735,25 @@ mod tests {
     }
 
     #[test]
-    fn end_checksum_mismatch_or_bad_tail_drops_message_and_skips_frame() {
+    fn end_checksum_mismatch_drops_message_and_skips_only_it() {
         let mut buf = [0u8; 16];
         let mut rx = CheckedRx::new(&mut buf);
-        // wrong checksum
+        // wrong checksum: a frame of this message was lost or reordered, drop it,
+        // but the Full after it in the same frame is still delivered
         feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
-        feed_checked(&mut rx, &[END_1, 4, 0x00, TAIL, FULL_0, 0, TAIL], &[]);
+        feed_checked(
+            &mut rx,
+            &[END_1, 4, 0x00, TAIL, FULL_0, 0, TAIL],
+            &[(0, &[])],
+        );
         // assembled bytes are dropped as well
         assert_eq!(rx.free(), 16);
-        // bad tail
+    }
+
+    #[test]
+    fn end_bad_tail_drops_message_and_skips_frame() {
+        let mut buf = [0u8; 16];
+        let mut rx = CheckedRx::new(&mut buf);
         feed_checked(&mut rx, &[START_4, 1, 2, 3], &[]);
         feed_checked(&mut rx, &[END_1, 4, XOR_1234, 0x00, FULL_0, 0, TAIL], &[]);
         assert_eq!(rx.free(), 16);

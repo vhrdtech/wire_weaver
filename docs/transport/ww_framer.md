@@ -300,7 +300,10 @@ Frame B is 7 bytes — shorter than the maximum — see the [next section](#send
 - `user_kind` changes mid-message → dropped.
 - A `Start` or `Continue` that does _not_ extend to the frame end, an `End` that does not fit into the frame
   together with checksum and tail, or a message larger than the receive buffer → skipped.
-- Checksum mismatch or bad tail → the message is dropped and the rest of the frame is skipped.
+- Checksum mismatch → **only that message** is dropped, the rest of the frame is decoded normally. Frames are
+  already protected by the medium, so a bad checksum on a split message means a frame of it was lost or reordered,
+  not that the bytes at hand are corrupt.
+- Bad tail → the frame cannot be trusted, the message is dropped and the rest of the frame is skipped.
 - Head or payload of a `Full` message cut between two `stage` calls (stream media, byte-by-byte UART) → kept and
   completed by the next `stage`.
 

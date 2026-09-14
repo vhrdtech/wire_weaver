@@ -8,5 +8,6 @@ shrink_wrap.workspace = true
 crc = "3.4"
 
 [features]
+std = ["shrink_wrap/std"]
 large = []
 very_large = []

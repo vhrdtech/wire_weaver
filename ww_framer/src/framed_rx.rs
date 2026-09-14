@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::ops::Range;
 
 use shrink_wrap::BufReader;
 
@@ -28,6 +29,37 @@ pub struct FramedRx<'i, H: Head, C, T> {
     _phantom_t: PhantomData<T>,
 }
 
+/// Everything [FramedRx] holds apart from the assembly buffer itself, see [FramedRx::into_parts].
+///
+/// Allows to temporarily give the buffer back to its owner and re-create [FramedRx] later with
+/// [FramedRx::from_parts], e.g. to implement an owned variant without duplicating the logic.
+#[derive(Copy, Clone)]
+pub struct FramedRxState<U> {
+    staging_pos: usize,
+    staging_end: usize,
+    state: State<U>,
+}
+
+impl<U: Copy> FramedRxState<U> {
+    /// Same as [FramedRx::message_range], without re-creating [FramedRx].
+    pub fn message_range(&self) -> Option<(U, Range<usize>)> {
+        match self.state {
+            State::Ready {
+                user_kind,
+                start,
+                len,
+            } => Some((user_kind, start..start + len)),
+            _ => None,
+        }
+    }
+
+    /// Index one past the last staged byte, `assembly_buf.len() - staged_end()` bytes are free.
+    pub fn staged_end(&self) -> usize {
+        self.staging_end
+    }
+}
+
+#[derive(Copy, Clone)]
 enum State<U> {
     /// No message is being assembled, nothing is ready.
     Gap,
@@ -63,6 +95,27 @@ where
             state: State::Gap,
             _phantom_c: PhantomData,
             _phantom_t: PhantomData,
+        }
+    }
+
+    /// Re-create framer from the same assembly buffer and state previously obtained from [Self::into_parts].
+    pub fn from_parts(assembly_buf: &'i mut [u8], parts: FramedRxState<H::UserKind>) -> Self {
+        FramedRx {
+            assembly_buf,
+            staging_pos: parts.staging_pos,
+            staging_end: parts.staging_end,
+            state: parts.state,
+            _phantom_c: PhantomData,
+            _phantom_t: PhantomData,
+        }
+    }
+
+    /// Release the assembly buffer, keeping all the state needed to continue later with [Self::from_parts].
+    pub fn into_parts(self) -> FramedRxState<H::UserKind> {
+        FramedRxState {
+            staging_pos: self.staging_pos,
+            staging_end: self.staging_end,
+            state: self.state,
         }
     }
 
@@ -129,14 +182,18 @@ where
     /// }
     /// ```
     pub fn message(&self) -> Option<(H::UserKind, &[u8])> {
-        match self.state {
-            State::Ready {
-                user_kind,
-                start,
-                len,
-            } => Some((user_kind, &self.assembly_buf[start..start + len])),
-            _ => None,
+        self.message_range()
+            .map(|(user_kind, range)| (user_kind, &self.assembly_buf[range]))
+    }
+
+    /// Same as [Self::message], but returns the location of a ready message inside the assembly buffer.
+    pub fn message_range(&self) -> Option<(H::UserKind, Range<usize>)> {
+        FramedRxState {
+            staging_pos: self.staging_pos,
+            staging_end: self.staging_end,
+            state: self.state,
         }
+        .message_range()
     }
 
     /// Reset staging area to right after assembled bytes, when frame is fully processed.

@@ -226,7 +226,10 @@ mod tests {
 
         assert_eq!(tx.write(0, &msg), Ok(false));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[START_10[0], START_10[1], 1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            &tx.buf()[..len],
+            &[START_10[0], START_10[1], 1, 2, 3, 4, 5, 6]
+        );
 
         // remaining 4 bytes + 2 byte crc fit into 8 byte frame with 1 byte head
         assert_eq!(tx.write(0, &msg), Ok(true));
@@ -241,7 +244,12 @@ mod tests {
             let messages: [(u8, &[u8]); 4] = [
                 (0, &[]),
                 (1, &[0xAA, 0xBB, 0xCC, 0xDD]),
-                (2, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]),
+                (
+                    2,
+                    &[
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    ],
+                ),
                 (255, &[9, 8, 7]),
             ];
             let mut tx_buf = [0u8; 8];

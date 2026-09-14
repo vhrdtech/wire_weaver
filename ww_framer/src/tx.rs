@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use shrink_wrap::BufWriter;
+use shrink_wrap::{BufWriter, buf_writer::BufWriterState};
 
 use crate::traits::{Checksum, Head, MessageKind, Tail, WrError};
 
@@ -12,9 +12,27 @@ pub struct Tx<'i, H, C, T> {
     _phantom_t: PhantomData<T>,
 }
 
+#[derive(Copy, Clone)]
 enum State {
     Gap,
     WroteN(usize),
+}
+
+/// Everything [Tx] holds apart from the assembly buffer itself, see [Tx::into_parts].
+///
+/// Allows to temporarily give the buffer back to its owner and re-create [Tx] later with
+/// [Tx::from_parts], e.g. to implement an owned variant without duplicating the logic.
+#[derive(Copy, Clone)]
+pub struct TxState {
+    wr: BufWriterState,
+    state: State,
+}
+
+impl TxState {
+    /// Same as [Tx::is_empty], without re-creating [Tx].
+    pub fn is_empty(&self) -> bool {
+        self.wr.pos().0 == 0
+    }
 }
 
 impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> Tx<'i, H, C, T>
@@ -33,6 +51,32 @@ where
             _phantom_c: PhantomData,
             _phantom_t: PhantomData,
         }
+    }
+
+    /// Re-create framer from the same assembly buffer and state previously obtained from [Self::into_parts].
+    pub fn from_parts(assembly_buf: &'i mut [u8], parts: TxState) -> Self {
+        let mut wr = BufWriter::new(assembly_buf);
+        wr.restore_state(parts.wr);
+        Tx {
+            wr,
+            state: parts.state,
+            _phantom_h: PhantomData,
+            _phantom_c: PhantomData,
+            _phantom_t: PhantomData,
+        }
+    }
+
+    /// Release the assembly buffer, keeping all the state needed to continue later with [Self::from_parts].
+    pub fn into_parts(self) -> TxState {
+        TxState {
+            wr: self.wr.save_state(),
+            state: self.state,
+        }
+    }
+
+    /// Whether the current frame has no bytes written into it yet.
+    pub fn is_empty(&self) -> bool {
+        self.wr.pos().0 == 0
     }
 
     /// Call repeatedly with the same message until Ok(true) is returned.

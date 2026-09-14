@@ -4,30 +4,22 @@ use nusb::transfer::{
     Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
 };
 use nusb::{Endpoint, Interface};
-use std::time::Duration;
 use tokio::sync::mpsc;
-use tokio::time::timeout;
 use tracing::{debug, error, trace, warn};
 
 pub(crate) struct Sink {
     buf_pool: Vec<Buffer>,
+    /// Buffer taken out by [Self::wait_ready], consumed by [Self::submit]
+    ready: Option<Buffer>,
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
     max_packet_size: usize,
     marker: &'static str,
 }
 
-pub(crate) const ERR_WRITE_PACKET_TIMEOUT: u32 = u32::MAX; // TODO: try to replace TransferError with own type to avoid piggy-backing on nusb error
-
-// In the current implementation rx and tx flows are not completely separate from each other.
-// Hence, the following can happen:
-// 1. Host starts to send a lot of requests in many USB packets, while sending it is not awaiting the incoming packets.
-// 2. Slave starts to process and answer, awaiting on a packet being sent, while not awaiting incoming packets as well.
-// 3. Host tries to send a packet and times out with an error.
-// 4. Host's rx queue gets full.
-// 5. Slave attempt to send a packet also times out.
-// It could be that 3-5 happens in one way or the other.
-// TODO: USB RX and TX need to be completely decoupled.
+// Rx and tx are fully decoupled: rx is always polled by the event loop, tx is a two-step
+// reserve (cancel-safe await) + submit (sync), so that a slow device can never stall receiving.
+// Backpressure is applied by not accepting commands while tx is backed up.
 const TX_QUEUE_SIZE: usize = 4;
 const RX_QUEUE_SIZE: usize = 64;
 
@@ -61,6 +53,7 @@ impl Sink {
         });
         Ok(Sink {
             buf_pool,
+            ready: None,
             submit_tx,
             completion_rx,
             max_packet_size,
@@ -70,21 +63,34 @@ impl Sink {
 }
 
 impl Sink {
-    pub async fn write_packet(&mut self, data: &[u8]) -> Result<(), TransferError> {
-        let mut buf = if let Some(buf) = self.buf_pool.pop() {
-            buf
-        } else {
-            match timeout(Duration::from_millis(500), self.completion_rx.recv()).await {
-                Ok(Some(completion)) => {
-                    completion.status?; // return early if transfer failed
-                    completion.buffer
+    /// Wait until a tx buffer is available, then [Self::submit] can be called without blocking.
+    /// Cancel-safe: dropping the future loses nothing. Returns immediately if already ready.
+    /// Never times out on its own — the event loop's peer timeout decides when a device is gone.
+    pub async fn wait_ready(&mut self) -> Result<(), TransferError> {
+        if self.ready.is_some() {
+            return Ok(());
+        }
+        if let Some(buf) = self.buf_pool.pop() {
+            self.ready = Some(buf);
+            return Ok(());
+        }
+        match self.completion_rx.recv().await {
+            Some(completion) => {
+                if let Err(e) = completion.status {
+                    self.buf_pool.push(completion.buffer);
+                    return Err(e);
                 }
-                Ok(None) => return Err(TransferError::Disconnected),
-                // If device boots, but then ends up in an endless loop or in HardFault, USB device is still detected by the host,
-                // but no transfers go through. I.e. USB peripheral continues to answer to host requests, so it appears connected.
-                // Ideally device should reset USB its peripheral (or otherwise cause it to stop) in HardFault to drop from the bus.
-                Err(_) => return Err(TransferError::Unknown(ERR_WRITE_PACKET_TIMEOUT)),
+                self.ready = Some(completion.buffer);
+                Ok(())
             }
+            None => Err(TransferError::Disconnected),
+        }
+    }
+
+    /// Submit a transfer using the buffer obtained by [Self::wait_ready]. Synchronous.
+    pub fn submit(&mut self, data: &[u8]) -> Result<(), TransferError> {
+        let Some(mut buf) = self.ready.take() else {
+            return Err(TransferError::Unknown(0)); // wait_ready was not called
         };
         buf.clear();
         if data.len() > buf.capacity() {
@@ -97,34 +103,24 @@ impl Sink {
             self.buf_pool.push(buf);
             return Err(TransferError::InvalidArgument);
         }
-        // theoretically, can use obtained buffer inside a closure, to fill it without copying
         buf.extend_from_slice(data);
-        if self.submit_tx.send(buf).await.is_err() {
-            warn!("{}: submit channel dropped", self.marker);
-            return Err(TransferError::Disconnected);
+        // exactly TX_QUEUE_SIZE buffers exist and the channel holds TX_QUEUE_SIZE, so this never fills
+        match self.submit_tx.try_send(buf) {
+            Ok(()) => {
+                trace!("submitted packet: {}: {:02x?}", data.len(), data);
+                Ok(())
+            }
+            Err(mpsc::error::TrySendError::Full(buf)) => {
+                self.buf_pool.push(buf);
+                Err(TransferError::Unknown(0))
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                warn!("{}: submit channel dropped", self.marker);
+                Err(TransferError::Disconnected)
+            }
         }
-        trace!("submitted packet: {}: {:02x?}", data.len(), data);
-        Ok(())
     }
 }
-
-// impl Sink {
-// Wait for all previously submitted transfer to be actually completed
-// Does not really work, if interface is dropped, transfer don't make it through
-// pub async fn flush(&mut self) -> Result<(), TransferError> {
-//     loop {
-//         match self.completion_rx.try_recv() {
-//             Ok(completion) => {
-//                 println!("flush got one");
-//                 completion.status?; // error out on first previous transfer error
-//                 self.buf_pool.push(completion.buffer);
-//             }
-//             Err(TryRecvError::Empty) => break Ok(()),
-//             Err(TryRecvError::Disconnected) => break Err(TransferError::Disconnected),
-//         }
-//     }
-// }
-// }
 
 async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
     mut ep: Endpoint<EpType, Dir>,
@@ -203,20 +199,24 @@ impl Source {
 }
 
 impl Source {
+    /// Cancel-safe: the only await is on the completion channel.
     pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
         match self.completion_rx.recv().await {
             Some(completion) => {
-                completion.status?;
                 let buf = completion.buffer;
                 let len = buf.len();
-                data[..len].copy_from_slice(&buf);
-                trace!("received packet: {}: {:02x?}", len, &data[..len]);
-                if self.submit_tx.send(buf).await.is_err() {
-                    warn!("{}: submit channel dropped", self.marker);
-                    Err(TransferError::Disconnected)
-                } else {
-                    Ok(len)
+                let status = completion.status;
+                if status.is_ok() {
+                    data[..len].copy_from_slice(&buf);
+                    trace!("received packet: {}: {:02x?}", len, &data[..len]);
                 }
+                // resubmit even on error, so that rx keeps flowing; exactly RX_QUEUE_SIZE buffers exist
+                if self.submit_tx.try_send(buf).is_err() {
+                    warn!("{}: submit channel dropped or full", self.marker);
+                    return Err(TransferError::Disconnected);
+                }
+                status?;
+                Ok(len)
             }
             None => Err(TransferError::Disconnected),
         }

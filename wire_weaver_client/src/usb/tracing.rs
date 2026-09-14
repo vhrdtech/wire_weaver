@@ -14,11 +14,14 @@ mod imp {
         pub data: StaticVec<u8, 1024>,
     }
 
-    pub struct Tracer {
+    struct Inner {
         _node: Node<Service>,
         tx: Publisher<Service, UsbPacket, ()>,
         rx: Publisher<Service, UsbPacket, ()>,
     }
+
+    #[derive(Clone)]
+    pub struct Tracer(std::sync::Arc<Inner>);
 
     impl Tracer {
         pub fn new(di: &nusb::DeviceInfo) -> anyhow::Result<Self> {
@@ -31,19 +34,19 @@ mod imp {
                     .open_or_create()?;
                 Ok(service.publisher_builder().create()?)
             };
-            Ok(Tracer {
+            Ok(Tracer(std::sync::Arc::new(Inner {
                 tx: publisher("tx")?,
                 rx: publisher("rx")?,
                 _node: node,
-            })
+            })))
         }
 
         pub fn tx(&self, frame: &[u8]) {
-            Self::publish(&self.tx, frame);
+            Self::publish(&self.0.tx, frame);
         }
 
         pub fn rx(&self, frame: &[u8]) {
-            Self::publish(&self.rx, frame);
+            Self::publish(&self.0.rx, frame);
         }
 
         fn publish(publisher: &Publisher<Service, UsbPacket, ()>, frame: &[u8]) {
@@ -62,6 +65,7 @@ mod imp {
 
 #[cfg(not(feature = "usb-tracing"))]
 mod imp {
+    #[derive(Clone)]
     pub struct Tracer;
 
     impl Tracer {

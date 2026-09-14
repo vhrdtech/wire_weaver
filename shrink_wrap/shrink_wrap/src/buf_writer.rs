@@ -33,6 +33,13 @@ pub struct BufWriterState {
     len_bytes: usize,
 }
 
+impl BufWriterState {
+    /// Position (byte index, bit index) at the time of [BufWriter::save_state].
+    pub fn pos(&self) -> (usize, u8) {
+        (self.byte_idx, self.bit_idx)
+    }
+}
+
 /// Builder-style serialization token for 'Unsized' types.
 pub struct UnsizedBuilder {
     size_slot_pos: U16RevPos,

@@ -12,13 +12,13 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/api/methods/">
+        <link rel="canonical" href="https://ww.vhrd.tech/transport/ww_link/">
       
       
-        <link rel="prev" href="../overview/">
+        <link rel="prev" href="../ww_framer/">
       
       
-        <link rel="next" href="../properties/">
+        <link rel="next" href="../usb/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Methods - WireWeaver</title>
+        <title>Link layer - WireWeaver</title>
       
     
     
@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#methods" class="md-skip">
+        <a href="#link-layer" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Methods
+              Link layer
             
           </span>
         </div>
@@ -255,8 +255,6 @@
   
   
   
-    
-  
   
     
       
@@ -283,8 +281,8 @@
     
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
           
   
   API
@@ -371,6 +369,8 @@
   
   
   
+    
+  
   
     
       
@@ -397,8 +397,8 @@
     
     
     
-      <li class="md-tabs__item">
-        <a href="../../transport/overview/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../overview/" class="md-tabs__link">
           
   
   Transport protocols
@@ -657,10 +657,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -686,22 +684,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -718,7 +713,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -735,7 +730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
+      <a href="../../api/overview/" class="md-nav__link">
         
   
   
@@ -759,36 +754,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
         
   
   
@@ -803,99 +772,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#server-side" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Server side
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Server side">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#async" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        async
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sync" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        sync
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#deferred" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        deferred
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#resource-names-mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Resource names mapping
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#client-side" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Client side
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -908,7 +784,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../properties/" class="md-nav__link">
+      <a href="../../api/properties/" class="md-nav__link">
         
   
   
@@ -935,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../streams/" class="md-nav__link">
+      <a href="../../api/streams/" class="md-nav__link">
         
   
   
@@ -962,7 +838,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../traits/" class="md-nav__link">
+      <a href="../../api/traits/" class="md-nav__link">
         
   
   
@@ -989,7 +865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../arrays/" class="md-nav__link">
+      <a href="../../api/arrays/" class="md-nav__link">
         
   
   
@@ -1016,7 +892,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../addressing/" class="md-nav__link">
+      <a href="../../api/addressing/" class="md-nav__link">
         
   
   
@@ -1043,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
+      <a href="../../api/versioning/" class="md-nav__link">
         
   
   
@@ -1070,7 +946,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../folder_structure/" class="md-nav__link">
+      <a href="../../api/folder_structure/" class="md-nav__link">
         
   
   
@@ -1567,8 +1443,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -1594,19 +1472,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1623,7 +1504,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1640,7 +1521,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -1667,7 +1548,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/ww_framer/" class="md-nav__link">
+      <a href="../ww_framer/" class="md-nav__link">
         
   
   
@@ -1691,10 +1572,36 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../transport/ww_link/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Link layer
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1709,6 +1616,132 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-it-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where it sits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What you get
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What you get">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#framer-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Framer configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encoding-and-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Encoding and decoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Constants
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Session lifecycle
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relation-to-other-crates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Relation to other crates
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1721,7 +1754,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/usb/" class="md-nav__link">
+      <a href="../usb/" class="md-nav__link">
         
   
   
@@ -1748,7 +1781,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/ws.md" class="md-nav__link">
+      <a href="../ws.md" class="md-nav__link">
         
   
   
@@ -1775,7 +1808,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/udp.md" class="md-nav__link">
+      <a href="../udp.md" class="md-nav__link">
         
   
   
@@ -1802,7 +1835,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/ipc.md" class="md-nav__link">
+      <a href="../ipc.md" class="md-nav__link">
         
   
   
@@ -1829,7 +1862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/in_process.md" class="md-nav__link">
+      <a href="../in_process.md" class="md-nav__link">
         
   
   
@@ -1856,7 +1889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/can.md" class="md-nav__link">
+      <a href="../can.md" class="md-nav__link">
         
   
   
@@ -2129,22 +2162,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#server-side" class="md-nav__link">
+  <a href="#where-it-sits" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Server side
+        Where it sits
       </span>
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Server side">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What you get
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What you get">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#async" class="md-nav__link">
+  <a href="#framer-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        async
+        Framer configuration
       </span>
     </span>
   </a>
@@ -2152,10 +2196,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sync" class="md-nav__link">
+  <a href="#messages" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        sync
+        Messages
       </span>
     </span>
   </a>
@@ -2163,10 +2207,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#deferred" class="md-nav__link">
+  <a href="#encoding-and-decoding" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        deferred
+        Encoding and decoding
       </span>
     </span>
   </a>
@@ -2174,10 +2218,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#resource-names-mapping" class="md-nav__link">
+  <a href="#constants" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Resource names mapping
+        Constants
       </span>
     </span>
   </a>
@@ -2190,10 +2234,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#client-side" class="md-nav__link">
+  <a href="#session-lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Client side
+        Session lifecycle
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relation-to-other-crates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Relation to other crates
       </span>
     </span>
   </a>
@@ -2271,7 +2337,7 @@
           
   
   <span class="md-ellipsis">
-    API
+    Transport protocols
   </span>
 
         </a>
@@ -2291,86 +2357,262 @@
   
 
 
-<h1 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h1>
-<p>Methods can be defined as follows:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_brightness</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">temperature</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f32</span><span class="p">;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_type</span><span class="p">(</span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">State</span><span class="p">);</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_ret_type</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">UserType</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">}</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="cp">#[derive_shrink_wrap]</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="cp">#[ww_repr(unib32)]</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">State</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="n">Off</span><span class="p">,</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="n">On</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">}</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="cp">#[derive_shrink_wrap]</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="cp">#[owned = </span><span class="s">&quot;std&quot;</span><span class="cp">]</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">UserType</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="n">c</span><span class="p">:</span><span class="w"> </span><span class="nc">SomeOtherType</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">}</span>
+<h1 id="link-layer">Link layer<a class="headerlink" href="#link-layer" title="Permanent link">&para;</a></h1>
+<p><code>ww_link</code> is the thin protocol that sits between <a href="../ww_framer/">ww_framer</a> and the application messages
+(<a href="../../std_library/ww_client_server/">ww_client_server</a> requests/events). It answers the questions that the framer
+deliberately leaves open:</p>
+<ul>
+<li><strong>who is on the other end</strong> — versions, API hash, buffer sizes are exchanged before any data flows;</li>
+<li><strong>is the peer still alive</strong> — periodic pings and a peer timeout;</li>
+<li><strong>how does a session end</strong> — an explicit <code>Disconnect</code> with a reason, instead of silence;</li>
+<li><strong>what goes on which sub-channel</strong> — user data vs. link control messages.</li>
+</ul>
+<p>It is <code>no_std</code>, allocation-free and does <strong>no IO of its own</strong>: it only defines messages and how they are encoded.
+Driving the framer, timers and the actual medium is left to the event loop on each side
+(<code>wire_weaver_client</code> on the host, TBD on the device).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As with the framer, you don't need this to <em>use</em> WireWeaver: connect with <code>wire_weaver_client</code> and things work.
+Read on if you are implementing a new transport, porting the device side or looking at raw frames.</p>
+</div>
+<h2 id="where-it-sits">Where it sits<a class="headerlink" href="#where-it-sits" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> ┌───────────────────────────────────────────┐
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> │ user API (generated code)                 │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> ├───────────────────────────────────────────┤
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a> │ ww_client_server   Request / Event bytes  │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a> ├───────────────────────────────────────────┤
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a> │ ww_link            Data / Ping / Setup …  │  ◄── this page
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a> ├───────────────────────────────────────────┤
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a> │ ww_framer          messages ⇄ frames      │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a> ├───────────────────────────────────────────┤
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a> │ medium             USB, UART, CAN, UDP …  │
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a> └───────────────────────────────────────────┘
 </span></code></pre></div>
-<p>Any number of arguments are supported, and they can be of any type supported
-by <a href="https://crates.io/crates/shrink_wrap">ShrinkWrap</a>.</p>
-<h2 id="server-side">Server side<a class="headerlink" href="#server-side" title="Permanent link">&para;</a></h2>
-<p>Server side is responsible for deserializing requests from clients and dispatching them to user-provided functions.
-On a high level, this is the process that takes place:</p>
-<ol>
-<li>Incoming byte array is deserialized into <code>ww_client_server::Request</code>.</li>
-<li>Resource path contained in the <code>Request</code> is used to reach appropriate resource (or <code>BadPath</code> error is sent back).</li>
-<li>Depending on the resource kind, appropriate actions are handled (Call, Read, Write, etc.).</li>
-<li>User defined request types are deserialized (method arguments, sink data, property set values).</li>
-<li>User provided action is called.</li>
-<li>User defined types are serialized (method return types, stream data, property get values).</li>
-<li>Response is serialized and sent back to client.</li>
-</ol>
-<p>Generated code can be of two flavors - <code>async</code> and <code>sync</code>. The only difference is that each user action is <code>await</code>'ed in
-the async version.</p>
-<p>Additionally, there is <code>deferred</code> mode that can be turned on for user-selected methods. It works with both sync and
-async versions and allows to immediately return from the user handler and send an answer later. For example
-<code>move_motor(x: f32) -&gt; Result&lt;(), Error&gt;</code> method can take a long time to finish, without deferred, it would block all
-other API resources.</p>
-<h3 id="async">async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h3>
-<p>On the server side, this is how generated server code is tied with user provided implementation:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">api</span><span class="p">::{</span><span class="n">State</span><span class="p">,</span><span class="w"> </span><span class="n">UserType</span><span class="p">};</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">struct</span><span class="w"> </span><span class="nc">ServerState</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="c1">// any user data required for the server to function (e.g, peripherals, channels)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">impl</span><span class="w"> </span><span class="n">ServerState</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* do things */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_brightness</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">temperature</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f32</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mf">20.0</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_type</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">State</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">user_ret_type</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">UserType</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">}</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">mod</span><span class="w"> </span><span class="nn">server_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_api</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="s">&quot;../../api/src/lib.rs&quot;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">api</span><span class="p">::</span><span class="n">MyDevice</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ServerState</span><span class="p">,</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">}</span>
+<p><code>ww_link</code> uses the framer's <code>user_kind</code> field to tag each message. Values <code>0..=2</code> are <strong>data channels</strong> and take the
+compact 1-byte head; everything above is a <strong>control message</strong> and costs one extra head byte, which is fine because
+control traffic is rare.</p>
+<h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">&para;</a></h2>
+<h3 id="framer-configuration">Framer configuration<a class="headerlink" href="#framer-configuration" title="Permanent link">&para;</a></h3>
+<p><code>ww_link</code> messages are independent of how they are framed — the protocol logic only deals with
+<code>(kind, payload)</code> pairs, and each transport picks the <a href="../ww_framer/">ww_framer</a> head
+/ checksum / tail that suits its medium. For convenience a default configuration is provided:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">Head</span><span class="p">,</span><span class="w"> </span><span class="n">Checksum</span><span class="p">,</span><span class="w"> </span><span class="n">Tail</span><span class="p">};</span><span class="w">  </span><span class="c1">// U2Head, CRC-16/IBM-SDLC per message, no tail</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">Tx</span><span class="p">,</span><span class="w"> </span><span class="n">Rx</span><span class="p">};</span><span class="w">                </span><span class="c1">// borrowed, no_std: Tx&lt;&#39;a&gt;, Rx&lt;&#39;a&gt;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">TxOwned</span><span class="p">,</span><span class="w"> </span><span class="n">RxOwned</span><span class="p">};</span><span class="w">      </span><span class="c1">// feature &quot;std&quot;: buffers are Vec&lt;u8&gt;</span>
 </span></code></pre></div>
-<p><code>ww_api</code> proc-macro invocation will implement <code>async fn process_request_bytes(..) -&gt; Result&lt;..&gt;</code> function, which takes
-in request bytes,
-deserializes and processes them and eventually calls one of the methods on self.</p>
-<h3 id="sync">sync<a class="headerlink" href="#sync" title="Permanent link">&para;</a></h3>
-<p>By setting <code>use_async = false</code> a blocking implementation is generated. And there is also a possibility to
-return values later, via a provided request id (for example if executing a method and getting a result takes a long
-time).</p>
-<h3 id="deferred">deferred<a class="headerlink" href="#deferred" title="Permanent link">&para;</a></h3>
-<h3 id="resource-names-mapping">Resource names mapping<a class="headerlink" href="#resource-names-mapping" title="Permanent link">&para;</a></h3>
-<p>In order to avoid complex shared data structures and allocation on <code>no_std</code>, all API levels are squished into one.</p>
-<h2 id="client-side">Client side<a class="headerlink" href="#client-side" title="Permanent link">&para;</a></h2>
+<p>This is what USB uses. A medium with its own integrity check might drop the checksum,
+a stream medium (UART) would add a tail for synchronization, and so on — the link messages stay the same.
+Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
+size). Both ends of a link must of course agree on the configuration.</p>
+<h3 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Message</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="n">Data</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">   </span><span class="c1">// channel 0..=2</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">Nop</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">GetDeviceInfo</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">DeviceInfo</span><span class="p">(</span><span class="n">DeviceInfo</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">),</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="n">LinkSetup</span><span class="p">(</span><span class="n">LinkSetup</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">),</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">LinkReady</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="n">Ping</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="n">GetStats</span><span class="p">,</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="n">Stats</span><span class="p">(</span><span class="o">&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]),</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="n">Loopback</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">repeat</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">seq</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="n">Disconnect</span><span class="p">(</span><span class="n">DisconnectReason</span><span class="p">),</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Direction</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Data</code></td>
+<td>both</td>
+<td>Application bytes, opaque to the link. Channel <code>0</code> carries <code>ww_client_server</code>; <code>1</code> and <code>2</code> are free for future use.</td>
+</tr>
+<tr>
+<td><code>Nop</code></td>
+<td>both</td>
+<td>Ignored by the receiver. Sent first after connecting so that a lost first packet (e.g., USB toggle mismatch) doesn't eat something important.</td>
+</tr>
+<tr>
+<td><code>GetDeviceInfo</code></td>
+<td>host → device</td>
+<td>Start of link setup.</td>
+</tr>
+<tr>
+<td><code>DeviceInfo</code></td>
+<td>device → host</td>
+<td>Link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window.</td>
+</tr>
+<tr>
+<td><code>LinkSetup</code></td>
+<td>host → device</td>
+<td>Host user API version and max message length the host accepts.</td>
+</tr>
+<tr>
+<td><code>LinkReady</code></td>
+<td>device → host</td>
+<td>Setup accepted, <code>Data</code> may flow.</td>
+</tr>
+<tr>
+<td><code>Ping</code></td>
+<td>both</td>
+<td>Keep-alive, sent when nothing else was sent for <code>PING_INTERVAL_MS</code> (3 s).</td>
+</tr>
+<tr>
+<td><code>GetStats</code> / <code>Stats</code></td>
+<td>host ↔ device</td>
+<td>Reserved for link statistics, payload not defined yet.</td>
+</tr>
+<tr>
+<td><code>Loopback</code></td>
+<td>both</td>
+<td>Test helper: the peer echoes <code>data</code> back <code>repeat</code> times with increasing <code>seq</code>.</td>
+</tr>
+<tr>
+<td><code>Disconnect</code></td>
+<td>both</td>
+<td>Session over; carries a <code>DisconnectReason</code> (<code>RequestByUser</code>, <code>CommanderDropped</code>, <code>IncompatibleVersion</code>, <code>ApplicationCrash</code>, …).</td>
+</tr>
+</tbody>
+</table>
+<p>Every message has a <code>Kind</code> (<code>#[repr(u8)]</code>, <code>Message::kind()</code>, <code>Kind::from_repr()</code>) which is exactly the framer
+<code>user_kind</code> it travels under.</p>
+<h3 id="encoding-and-decoding">Encoding and decoding<a class="headerlink" href="#encoding-and-decoding" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// sending: Message → (user_kind, payload) → framer</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">128</span><span class="p">];</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">payload</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Message</span><span class="p">::</span><span class="n">Ping</span><span class="p">.</span><span class="n">encode</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">payload</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">// receiving: framer → (user_kind, payload) → Message</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">payload</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">message</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">Message</span><span class="p">::</span><span class="n">decode</span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">payload</span><span class="p">)</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">        </span><span class="n">Message</span><span class="p">::</span><span class="n">Data</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* hand to ww_client_server */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="n">Message</span><span class="p">::</span><span class="n">Ping</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">        </span><span class="n">Message</span><span class="p">::</span><span class="n">Disconnect</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* tear down */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Data</code>, <code>Stats</code> and <code>Loopback</code> payloads are borrowed straight from the framer buffer — no copies. <code>DeviceInfo</code> and
+<code>LinkSetup</code> are <code>shrink_wrap</code> structs and are deserialized on demand; with the <code>std</code> feature <code>DeviceInfoOwned</code> /
+<code>LinkSetupOwned</code> are available too.</p>
+<p>Errors are deliberately small:</p>
+<table>
+<thead>
+<tr>
+<th><code>Error</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UnknownKind(u8)</code></td>
+<td><code>user_kind</code> is not a <code>Kind</code> — ignore, likely a newer peer</td>
+</tr>
+<tr>
+<td><code>Malformed(Kind)</code></td>
+<td>payload didn't deserialize — a leftover from a previous session or version mismatch</td>
+</tr>
+<tr>
+<td><code>ScratchTooSmall</code></td>
+<td><code>encode</code> was given a buffer too small for <code>DeviceInfo</code> / <code>LinkSetup</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="constants">Constants<a class="headerlink" href="#constants" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PING_INTERVAL_MS</code></td>
+<td>3000</td>
+<td>Send <code>Ping</code> if nothing else went out for this long</td>
+</tr>
+<tr>
+<td><code>PEER_TIMEOUT_MS</code></td>
+<td>10 000</td>
+<td>Consider the peer gone if nothing was received for this long</td>
+</tr>
+</tbody>
+</table>
+<p>Also re-exported for convenience: <code>DisconnectReason</code>, <code>CompactVersion</code>, <code>FullVersion</code>, <code>ApiHashPair</code>
+(and <code>*Owned</code> variants under <code>std</code>).</p>
+<h2 id="session-lifecycle">Session lifecycle<a class="headerlink" href="#session-lifecycle" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a> host                                       device
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a> ────                                       ──────
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a> Nop                     ───────────►
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a> GetDeviceInfo           ───────────►
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                         ◄───────────       DeviceInfo { versions, hash, max_len, acc_time }
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>   (check user API compatibility)
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a> LinkSetup { version, max_len }  ──►
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                         ◄───────────       LinkReady
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a> ── link up ──────────────────────────────────────
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a> Data / Ping             ◄──────────►       Data / Ping
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a> ── either side ──────────────────────────────────
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a> Disconnect(reason)      ───────────►
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                         ◄─────────── OR: Disconnect(reason)
+</span></code></pre></div>
+<p>Rules the reference event loop follows (and a new transport should too):</p>
+<ul>
+<li><code>GetDeviceInfo</code> is retried every 50 ms, up to 5 times; then link setup is considered failed.</li>
+<li>The host refuses the connection if <code>DeviceInfo.user_api_version</code> is not protocol-compatible with the
+  generated client API (see <a href="../../std_library/ww_version/">ww_version</a>). A device may likewise reply with
+  <code>Disconnect(IncompatibleVersion)</code> after <code>LinkSetup</code>.</li>
+<li>Introspection and dynamic clients are also supported, both from Python and GUI.
+  Great for debugging and quick tests.</li>
+<li><code>Data</code> accumulates into the current frame for <code>packet_accumulation_time_us</code> (as requested by the device) before
+  being flushed; control messages are flushed immediately.</li>
+<li><code>Data</code> received before <code>LinkReady</code> and <code>Disconnect</code> received while not connected are ignored — they are
+  stragglers from a previous session.</li>
+<li>Nothing received for <code>PEER_TIMEOUT_MS</code> → the host disconnects with an error.</li>
+<li>Each side sends <code>Disconnect</code> on the way out when it can, but must not rely on the peer doing so.</li>
+</ul>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(none)</em></td>
+<td><code>no_std</code>, borrowed <code>Tx</code>/<code>Rx</code>, borrowed <code>DeviceInfo</code>/<code>LinkSetup</code>.</td>
+</tr>
+<tr>
+<td><code>std</code></td>
+<td>Adds <code>TxOwned</code>/<code>RxOwned</code> (heap buffers), <code>DeviceInfoOwned</code>/<code>LinkSetupOwned</code>, owned version types. Used by <code>wire_weaver_client</code>.</td>
+</tr>
+<tr>
+<td><code>defmt</code></td>
+<td><code>defmt::Format</code> on <code>Kind</code>, <code>Error</code>, <code>DeviceInfo</code>, <code>LinkSetup</code> for embedded logging.</td>
+</tr>
+</tbody>
+</table>
+<p>Framer features <code>large</code> and <code>very_large</code> are enabled unconditionally, so messages up to 16 MiB can be described by
+the head; actual limits are negotiated via <code>dev_max_message_len</code> / <code>host_max_message_len</code>.</p>
+<h2 id="relation-to-other-crates">Relation to other crates<a class="headerlink" href="#relation-to-other-crates" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../ww_framer/">ww_framer</a> — packs <code>ww_link</code> messages into frames; <code>ww_link</code> only picks its parameters.</li>
+<li><code>wire_weaver_client</code> — host event loop: owns framers, timers, retries and the state machine above.</li>
+<li><code>wire_weaver_usb_link</code> — current device-side implementation; being migrated onto <code>ww_framer</code> + <code>ww_link</code>.</li>
+<li><a href="../usb/">USB</a>, <a href="../ws/">WebSocket</a>, <a href="../udp/">UDP</a> — transports that carry frames.</li>
+</ul>
 
 
 
@@ -2410,7 +2652,7 @@ time).</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../overview/" class="md-footer__link md-footer__link--prev" aria-label="Previous: High-level overview">
+          <a href="../ww_framer/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Framer">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2420,20 +2662,20 @@ time).</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                High-level overview
+                Framer
               </div>
             </div>
           </a>
         
         
           
-          <a href="../properties/" class="md-footer__link md-footer__link--next" aria-label="Next: Properties">
+          <a href="../usb/" class="md-footer__link md-footer__link--next" aria-label="Next: Usb">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Properties
+                Usb
               </div>
             </div>
             <div class="md-footer__button md-icon">

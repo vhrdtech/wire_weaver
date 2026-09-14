@@ -1,0 +1,3455 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wire format and API code generator with rich type system and no alloc for embedded systems">
+      
+      
+        <meta name="author" content="Roman Isaikin">
+      
+      
+        <link rel="canonical" href="https://ww.vhrd.tech/transport/ww_framer/">
+      
+      
+        <link rel="prev" href="../overview/">
+      
+      
+        <link rel="next" href="../usb/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.62">
+    
+    
+      
+        <title>Framer - WireWeaver</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ce62732f.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#framer" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="WireWeaver" class="md-header__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            WireWeaver
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Framer
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../serdes/shrink_wrap/" class="md-tabs__link">
+          
+  
+  SerDes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../evolution/rules/" class="md-tabs__link">
+          
+  
+  Evolution
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../std_library/overview/" class="md-tabs__link">
+          
+  
+  Standard library
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../overview/" class="md-tabs__link">
+          
+  
+  Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/examples/" class="md-tabs__link">
+          
+  
+  Examples and templates
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev_tool/" class="md-tabs__link">
+          
+  
+  Dev tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="WireWeaver" class="md-nav__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    WireWeaver
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SerDes
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  SerDes
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/shrink_wrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wire format
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/derive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Derive
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  API
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  High-level overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/traits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Traits (levels)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/arrays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/addressing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resources addressing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versioning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/folder_structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Folder structure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Evolution
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution rules
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/checker_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Checker tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Standard library
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Standard library
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_date_time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_date_time
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_version
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_numeric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_numeric
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_si/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_client_server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_client_server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_can_bus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_log_baremetal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_log_baremetal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_self/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_self
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport protocols
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Transport protocols
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#head-layout-u2head" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head layout (<code>U2Head</code>)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Head layout (U2Head)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-form-1-byte" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Common form: 1 byte
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#longer-lengths" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Longer lengths
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extended-user-kind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Extended user kind
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-small-messages-in-one-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Multiple small messages in one frame
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#large-message-spanning-multiple-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Large message spanning multiple frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Large message spanning multiple frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#split-message-followed-by-small-ones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Split message followed by small ones
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receiver-robustness" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Receiver robustness
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checksum-and-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checksum and tail
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checksum and tail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ready-made-crcs-ww_framercrc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ready-made CRCs: <code>ww_framer::crc</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hand-rolled-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hand-rolled example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#small-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Small messages
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Split message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-that-would-not-fit-stays-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>End</code> that would not fit stays <code>Continue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sending-a-partial-frame-early-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sending a partial frame early (latency)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        API summary
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API summary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#txh-c-t" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Tx&lt;H, C, T&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#framedrxh-c-t" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>FramedRx&lt;H, C, T&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#traits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Traits
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cargo-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cargo features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-and-fuzzing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing and Fuzzing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Usb
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ws.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  none
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../udp.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  none
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ipc.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  none
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../in_process.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  none
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../can.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  none
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Examples and templates
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  wire_weaver_template repo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev tools
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Dev tools
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev GUI tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#head-layout-u2head" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head layout (<code>U2Head</code>)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Head layout (U2Head)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-form-1-byte" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Common form: 1 byte
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#longer-lengths" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Longer lengths
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extended-user-kind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Extended user kind
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-small-messages-in-one-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Multiple small messages in one frame
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#large-message-spanning-multiple-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Large message spanning multiple frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Large message spanning multiple frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#split-message-followed-by-small-ones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Split message followed by small ones
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receiver-robustness" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Receiver robustness
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checksum-and-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checksum and tail
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checksum and tail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ready-made-crcs-ww_framercrc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ready-made CRCs: <code>ww_framer::crc</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hand-rolled-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hand-rolled example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#small-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Small messages
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Split message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-that-would-not-fit-stays-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>End</code> that would not fit stays <code>Continue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sending-a-partial-frame-early-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sending a partial frame early (latency)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        API summary
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API summary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#txh-c-t" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Tx&lt;H, C, T&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#framedrxh-c-t" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>FramedRx&lt;H, C, T&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#traits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Traits
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cargo-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cargo features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-and-fuzzing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing and Fuzzing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../overview/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Transport protocols
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="framer">Framer<a class="headerlink" href="#framer" title="Permanent link">&para;</a></h1>
+<p><code>ww_framer</code> packs variable-length <strong>messages</strong> into fixed-size <strong>frames</strong> and unpacks them back on the other side.
+It is <code>no_std</code>, allocation-free and is meant to sit between the serialized bytes produced by
+<a href="../../serdes/shrink_wrap/">shrink_wrap</a> and a physical link (USB, CAN, UART, UDP, etc.).</p>
+<p>A <em>frame</em> is whatever the underlying medium can carry as one unit: a 512B USB bulk packet, a 8B CAN frame,
+a DMA buffer for UART, and so on. A <em>message</em> is what the application cares about: a request, a reply, a stream item.
+The two rarely have the same size, which is exactly the problem this crate solves:</p>
+<ul>
+<li>several <strong>small messages</strong> are packed into one frame, so that the link is not wasted on padding;</li>
+<li>a <strong>large message</strong> is split across as many frames as needed and re-assembled on the receiver;</li>
+<li>a frame <strong>does not have to be full</strong> before it is sent — flush early to trade bandwidth for latency.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Understanding the framer is optional. Client (<code>wire_weaver_client</code>) and server
+use it internally. Read on if you are implementing your own link, debugging bytes on the wire or just curious.</p>
+</div>
+<h2 id="model">Model<a class="headerlink" href="#model" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> application               ww_framer                   medium
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> ──────────────            ──────────────────          ─────────────────
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> message A ─┐                                          ┌─ frame 1 ─┐
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a> message B ─┼── Tx::write ─► [ hA A hB B hC C… ] ── ►  │ hA A hB B │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a> message C ─┘                                          └───────────┘
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                                       ┌─ frame 2 ─┐
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                                                       │ hC C  …   │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                                                       └───────────┘
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a> medium                    ww_framer                   application
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a> frame 1 ──► FramedRx::stage ─► reassemble ─► message() ──► A, B
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a> frame 2 ──► FramedRx::stage ─► reassemble ─► message() ──► C
+</span></code></pre></div>
+<p>Each message inside a frame is preceded by a small <strong>head</strong> that carries three things:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>Full</code>, <code>Start</code>, <code>Continue</code> or <code>End</code> — whether the message fits in this frame or is split</td>
+</tr>
+<tr>
+<td><code>user_kind</code></td>
+<td>Small integer chosen by the caller (sub-channel: e.g. <code>0</code> = data, <code>1</code> = control, <code>255</code> = link setup)</td>
+</tr>
+<tr>
+<td><code>len</code></td>
+<td>Total message length for <code>Full</code> / <code>Start</code>, <strong>remaining</strong> length for <code>Continue</code> / <code>End</code></td>
+</tr>
+</tbody>
+</table>
+<p>Optionally a <strong>checksum</strong> over the message and a <strong>tail</strong> may follow the payload. Both are traits and default to
+no-ops (<code>NopChecksum</code>, <code>NopTail</code>), because frame-based media like USB and CAN already check frame integrity.
+See <a href="#checksum-and-tail">Checksum and tail</a> for an example with both enabled.</p>
+<p>The three pieces are generic parameters:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::{</span><span class="n">Tx</span><span class="p">,</span><span class="w"> </span><span class="n">FramedRx</span><span class="p">};</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">framed</span><span class="p">::</span><span class="n">U2Head</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">traits</span><span class="p">::{</span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="p">};</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<h2 id="head-layout-u2head">Head layout (<code>U2Head</code>)<a class="headerlink" href="#head-layout-u2head" title="Permanent link">&para;</a></h2>
+<p><code>U2Head</code> is the head implementation shipped for framed media. It is bit-packed with <code>shrink_wrap</code> and takes
+<strong>one byte</strong> in the most common case.</p>
+<h3 id="common-form-1-byte">Common form: 1 byte<a class="headerlink" href="#common-form-1-byte" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a> bit:   7   6   5   4   3   2   1   0
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      ┌───┬───┬───┬───┬───┬───┬───┬───┐
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      │ m   m │ u   u │ 0 │ l   l   l │
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      └───┴───┴───┴───┴───┴───┴───┴───┘
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        kind    user    ▲   3-bit length
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                kind    │
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                        └─ 0 = short length follows
+</span></code></pre></div>
+<ul>
+<li><code>mm</code> — <code>MessageKind</code>: <code>00</code> Full, <code>01</code> Start, <code>10</code> Continue, <code>11</code> End.</li>
+<li><code>uu</code> — <code>user_kind</code> <code>0..=2</code> stored as-is. <code>11</code> means "extended user kind follows" (see below).</li>
+<li><code>lll</code> — length <strong>0..=7</strong> as is.</li>
+</ul>
+<h3 id="longer-lengths">Longer lengths<a class="headerlink" href="#longer-lengths" title="Permanent link">&para;</a></h3>
+<p>If the length does not fit into the smallest form, the next one is used. Each form starts with a unary prefix
+that tells the reader how many length bits to expect:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a> length &lt; 1 KiB (2 bytes)
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a> ┌────────┬────────┐
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a> │mmuu10ll│llllllll│      10 bits of length
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a> └────────┴────────┘
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a> length &lt; 128 KiB (3 bytes, feature &quot;large&quot;)
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a> ┌────────┬────────┬────────┐
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a> │mmuu110l│llllllll│llllllll│      17 bits of length
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a> └────────┴────────┴────────┘
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a> length &lt; 16 MiB (4 bytes, feature &quot;very_large&quot;)
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a> ┌────────┬────────┬────────┬────────┐
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a> │mmuu1110│llllllll│llllllll│llllllll│      24 bits of length
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a> └────────┴────────┴────────┴────────┘
+</span></code></pre></div>
+<h3 id="extended-user-kind">Extended user kind<a class="headerlink" href="#extended-user-kind" title="Permanent link">&para;</a></h3>
+<p><code>user_kind &gt;= 3</code> sets <code>uu = 11</code> and appends a full 8-bit user kind before the length. This is meant for rare
+messages (link setup, diagnostics), where an extra byte does not matter:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a> ┌────────┬────────┐
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a> │mm11uuuu│uuuu0lll│                  user_kind = 8 bits, 3-bit length
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a> └────────┴────────┘
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a> ┌────────┬────────┬────────┐
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a> │mm11uuuu│uuuu10ll│llllllll│         user_kind = 8 bits, 10-bit length
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a> └────────┴────────┴────────┴─ ...    and so on for 17 / 24 bit lengths
+</span></code></pre></div>
+<p>Example — <code>Full</code>, <code>user_kind = 7</code>, 4-byte payload:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a> 0x30       0x74       01 02 03 04
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a> 0011 0000  0111 0100  ─────────────
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a> ││││ └┴┴┴──┴┴┴┘ ││││  user_kind = 0000_0111 = 7
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a> ││└┘            ││││  11 = extended user kind follows
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a> └┘              ││││  00 = Full
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                 │└┴┘  100 =&gt; len = 4
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                 └───  0 = short length
+</span></code></pre></div>
+<h3 id="head-summary">Head summary<a class="headerlink" href="#head-summary" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th><code>kind</code></th>
+<th><code>user_kind</code></th>
+<th><code>len</code></th>
+<th>Head size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>any</td>
+<td>0..=2</td>
+<td>0..=7</td>
+<td>1 byte</td>
+</tr>
+<tr>
+<td>any</td>
+<td>0..=2</td>
+<td>&lt; 1 KiB</td>
+<td>2 bytes</td>
+</tr>
+<tr>
+<td>any</td>
+<td>0..=2</td>
+<td>&lt; 128 KiB</td>
+<td>3 bytes (<code>large</code>)</td>
+</tr>
+<tr>
+<td>any</td>
+<td>0..=2</td>
+<td>&lt; 16 MiB</td>
+<td>4 bytes (<code>very_large</code>)</td>
+</tr>
+<tr>
+<td>any</td>
+<td>3..=255</td>
+<td>as above</td>
+<td>+1 byte</td>
+</tr>
+</tbody>
+</table>
+<h2 id="multiple-small-messages-in-one-frame">Multiple small messages in one frame<a class="headerlink" href="#multiple-small-messages-in-one-frame" title="Permanent link">&para;</a></h2>
+<p>Messages are appended back-to-back, each with its own head. Nothing is padded between them and no separators are
+needed — the receiver reads a head, knows the length, skips the payload, reads the next head.</p>
+<p>Three messages written into a 16-byte frame:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LinkTx</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">);</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mh">0x02</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04</span><span class="p">]);</span><span class="w">        </span><span class="c1">// Ok(true)  — fits</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="mh">0x11</span><span class="p">,</span><span class="w"> </span><span class="mh">0x12</span><span class="p">,</span><span class="w"> </span><span class="mh">0x13</span><span class="p">,</span><span class="w"> </span><span class="mh">0x14</span><span class="p">,</span><span class="w"> </span><span class="mh">0x15</span><span class="p">]);</span><span class="w">  </span><span class="c1">// Ok(true)  — fits</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="mh">0x21</span><span class="p">,</span><span class="w"> </span><span class="mh">0x22</span><span class="p">]);</span><span class="w">                    </span><span class="c1">// Ok(true)  — fits</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">flush</span><span class="p">();</span><span class="w">                          </span><span class="c1">// 14</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tx</span><span class="p">.</span><span class="n">buf</span><span class="p">()[</span><span class="o">..</span><span class="n">len</span><span class="p">];</span>
+</span></code></pre></div>
+<p>Resulting frame (14 of 16 bytes used):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a> byte:  0   1  2  3  4   5   6  7  8  9  10  11  12 13
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>      ┌────┬───────────┬────┬──────────────┬────┬───────┐
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>      │ 04 │01 02 03 04│ 15 │11 12 13 14 15│ 22 │ 21 22 │
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>      └────┴───────────┴────┴──────────────┴────┴───────┘
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>       head  payload    head   payload      head payload
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>       ─────────┬──────  ────────┬─────────  ─────┬─────
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>            message A         message B      message C
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a> 0x04 = 00 00 0 100   Full, uk=0, len=4
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a> 0x15 = 00 01 0 101   Full, uk=1, len=5
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a> 0x22 = 00 10 0 010   Full, uk=2, len=2
+</span></code></pre></div>
+<p><code>write</code> returns <code>Ok(true)</code> when the whole message has been consumed, so a producer loop can simply keep
+writing until it gets <code>Ok(false)</code> (frame full, flush it) or runs out of messages (flush what is there).</p>
+<p>The receiver yields them one at a time:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rx_buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">64</span><span class="p">];</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LinkRx</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">rx_buf</span><span class="p">);</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">rx</span><span class="p">.</span><span class="n">stage</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="n">rx</span><span class="p">.</span><span class="n">reassemble</span><span class="p">();</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">message</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="c1">// (0, &amp;[01 02 03 04]) then (1, &amp;[11 12 13 14 15]) then (2, &amp;[21 22])</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Full</code> messages are returned <strong>in place</strong> from the staged frame — no copy is made.</p>
+<h2 id="large-message-spanning-multiple-frames">Large message spanning multiple frames<a class="headerlink" href="#large-message-spanning-multiple-frames" title="Permanent link">&para;</a></h2>
+<p>When a message does not fit into what is left of the current frame, the framer writes as much as it can, changes
+the head kind from <code>Full</code> to <code>Start</code>, and returns <code>Ok(false)</code>. The caller flushes the frame, sends it and calls
+<code>write</code> again <strong>with the same message</strong>. Continuation frames carry a <code>Continue</code> head, the last one an <code>End</code> head.</p>
+<p>The <code>Start</code> head carries the <strong>total</strong> length. <code>Continue</code> and <code>End</code> heads carry the <strong>remaining</strong> length — how many
+bytes of the message are still to come, counting from this head. <code>Start</code> and <code>Continue</code> payloads always extend to
+the end of the frame, so the receiver knows how many bytes each of them brings without any extra field; the
+remaining length is there to detect lost frames and to skip an <code>End</code> whose <code>Start</code> was never seen
+(see <a href="#receiver-robustness">Receiver robustness</a>).</p>
+<p>A 20-byte message over 8-byte frames:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">8</span><span class="p">];</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LinkTx</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">);</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">20</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">array</span><span class="p">::</span><span class="n">from_fn</span><span class="p">(</span><span class="o">|</span><span class="n">i</span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">done</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">msg</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">flush</span><span class="p">();</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="n">send</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tx</span><span class="p">.</span><span class="n">buf</span><span class="p">()[</span><span class="o">..</span><span class="n">len</span><span class="p">]);</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">done</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a> frame 0 (Start, total = 20)
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a> ┌────┬────┬────┬────┬────┬────┬────┬────┐
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a> │ 48 │ 14 │ 01 │ 02 │ 03 │ 04 │ 05 │ 06 │
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a> └────┴────┴────┴────┴────┴────┴────┴────┘
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>  ──head─── ────── payload[0..6] ────────
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  0x48 0x14 = 01 00 10 00 | 00010100    Start, uk=0, 10-bit len = 20
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a> frame 1 (Continue, remaining = 14)
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a> ┌────┬────┬────┬────┬────┬────┬────┬────┐
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a> │ 88 │ 0E │ 07 │ 08 │ 09 │ 0A │ 0B │ 0C │
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a> └────┴────┴────┴────┴────┴────┴────┴────┘
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>  ──head─── ───────── payload[6..12] ────
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>  0x88 0x0E = 10 00 10 00 | 00001110    Continue, uk=0, 10-bit len = 14
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a> frame 2 (Continue, remaining = 8)
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a> ┌────┬────┬────┬────┬────┬────┬────┬────┐
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a> │ 88 │ 08 │ 0D │ 0E │ 0F │ 10 │ 11 │ 12 │
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a> └────┴────┴────┴────┴────┴────┴────┴────┘
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>  ──head─── ───────── payload[12..18] ───
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>  0x88 0x08 = 10 00 10 00 | 00001000    Continue, uk=0, 10-bit len = 8
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a> frame 3 (End, remaining = 2)
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a> ┌────┬────┬────┐
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a> │ C2 │ 13 │ 14 │
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a> └────┴────┴────┘
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>  head  [18..20]
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>  0xC2 = 11 00 0 010    End, uk=0, len = 2
+</span></code></pre></div>
+<p>Timeline of <code>write</code> return values: <code>Ok(false)</code>, <code>Ok(false)</code>, <code>Ok(false)</code>, <code>Ok(true)</code>.</p>
+<p>Note that frames 1 and 2 use a 2-byte head because the remaining length (14, 8) exceeds 7, leaving only 6 payload
+bytes per frame; the final <code>End</code> fits in one byte. With a realistic 64-byte frame this overhead is negligible.</p>
+<div class="admonition note">
+<p class="admonition-title"><code>End</code> always fits in one frame</p>
+<p><code>Start</code> and <code>Continue</code> extend to the end of a frame, but <code>End</code> (together with the checksum and tail, if any)
+is written only if it fits <strong>completely</strong> into the current frame. Otherwise the framer writes a <code>Continue</code>
+instead and the rest goes into the next frame. <code>Start</code> and <code>Continue</code> also always leave at least one byte
+for the <code>End</code>. This keeps the receiver simple: it never has to hold a half-received <code>End</code> across frames.</p>
+</div>
+<p>On the receiving side <code>stage</code> + <code>reassemble</code> must be called <strong>per frame</strong>, because frame boundaries carry meaning
+(<code>Start</code>/<code>Continue</code> extend to the end of the frame). The message is copied into the front of the receive buffer as
+pieces arrive and delivered once <code>End</code> is processed:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a> after frame 0:   [01 02 03 04 05 06 ........................]  assembling  6/20
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a> after frame 1:   [01 02 03 04 05 06 07 08 09 0A 0B 0C ......]  assembling 12/20
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a> after frame 2:   [01 .. 0C 0D 0E 0F 10 11 12 ...............]  assembling 18/20
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a> after frame 3:   [01 .. 14]  ─► message() = Some((0, &amp;[1..=20]))
+</span></code></pre></div>
+<h3 id="split-message-followed-by-small-ones">Split message followed by small ones<a class="headerlink" href="#split-message-followed-by-small-ones" title="Permanent link">&para;</a></h3>
+<p>An <code>End</code> does not have to be alone in a frame. Whatever is left after it is used for the next messages, exactly as in
+the <a href="#multiple-small-messages-in-one-frame">small-messages case</a>. 10-byte message over 8-byte frames, then a 1-byte
+message on <code>user_kind = 1</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a> frame A                                    frame B
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a> ┌────┬────┬────┬────┬────┬────┬────┬────┐  ┌────┬────┬────┬────┬────┬────┬────┐
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a> │ 48 │ 0A │ 01 │ 02 │ 03 │ 04 │ 05 │ 06 │  │ C4 │ 07 │ 08 │ 09 │ 0A │ 11 │ 55 │
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a> └────┴────┴────┴────┴────┴────┴────┴────┘  └────┴────┴────┴────┴────┴────┴────┘
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>  Start ──── payload[0..6] ──────────────    End  ─ [6..10] ───────── head payload
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>  total=10                                   rem=4                    Full uk=1 len=1
+</span></code></pre></div>
+<p>Frame B is 7 bytes — shorter than the maximum — see the <a href="#sending-a-partial-frame-early-latency">next section</a>.</p>
+<h3 id="receiver-robustness">Receiver robustness<a class="headerlink" href="#receiver-robustness" title="Permanent link">&para;</a></h3>
+<p><code>FramedRx</code> tolerates the failure modes of a lossy or restarted link:</p>
+<ul>
+<li><code>Continue</code> with no <code>Start</code> in progress → rest of frame skipped (it spans to the frame end anyway).</li>
+<li><code>End</code> with no <code>Start</code> in progress → its remaining length says how many bytes to skip; <strong>only that message</strong> is
+  dropped and the rest of the frame is decoded normally.</li>
+<li><code>Continue</code>/<code>End</code> whose remaining length does not match what the receiver expects → a frame in between was lost;
+  the partial message is dropped.</li>
+<li><code>Full</code>/<code>Start</code> while assembling → the partial message is dropped, the new one is processed (an <code>End</code> was lost).</li>
+<li><code>user_kind</code> changes mid-message → dropped.</li>
+<li>A <code>Start</code> or <code>Continue</code> that does <em>not</em> extend to the frame end, an <code>End</code> that does not fit into the frame
+  together with checksum and tail, or a message larger than the receive buffer → skipped.</li>
+<li>Checksum mismatch → <strong>only that message</strong> is dropped, the rest of the frame is decoded normally. Frames are
+  already protected by the medium, so a bad checksum on a split message means a frame of it was lost or reordered,
+  not that the bytes at hand are corrupt.</li>
+<li>Bad tail → the frame cannot be trusted, the message is dropped and the rest of the frame is skipped.</li>
+<li>Head or payload of a <code>Full</code> message cut between two <code>stage</code> calls (stream media, byte-by-byte UART) → kept and
+  completed by the next <code>stage</code>.</li>
+</ul>
+<p>After any of these the framer is back in a clean state and the next valid message is decoded normally.</p>
+<h2 id="checksum-and-tail">Checksum and tail<a class="headerlink" href="#checksum-and-tail" title="Permanent link">&para;</a></h2>
+<p>After the payload of a <code>Full</code> or <code>End</code> message, the framer writes the <code>Checksum</code> and then the <code>Tail</code>, both
+byte-aligned. <code>Start</code> and <code>Continue</code> carry neither — the checksum covers the <strong>whole</strong> re-assembled message and is
+verified once, when the <code>End</code> arrives.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a> ┌──────┬─────────────────┬──────────┬──────┐
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a> │ head │     payload     │ checksum │ tail │      Full / End
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a> └──────┴─────────────────┴──────────┴──────┘
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a> ┌──────┬───────────────────────────────────┐
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a> │ head │  payload … till the end of frame  │      Start / Continue
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a> └──────┴───────────────────────────────────┘
+</span></code></pre></div>
+<p>Both must be <strong>fixed length</strong>: <code>read</code> has to consume exactly <code>LEN_BYTES_*</code> bytes. The receiver uses these constants
+to decide upfront whether a whole message is present in a frame, and <code>Tx</code> uses them to decide whether an <code>End</code> fits.</p>
+<p>The checksum length is configured separately for <code>Full</code> and split messages. On USB or CAN a <code>Full</code> message is
+already protected by the frame CRC, while a split one spans several frames and a lost frame in between would not
+be detected by the medium alone — so a typical setup is <em>no</em> checksum for <code>Full</code> and a small one for split messages.</p>
+<h3 id="ready-made-crcs-ww_framercrc">Ready-made CRCs: <code>ww_framer::crc</code><a class="headerlink" href="#ready-made-crcs-ww_framercrc" title="Permanent link">&para;</a></h3>
+<p>Instead of hand-rolling a checksum, use <code>CrcChecksum&lt;A, FULL&gt;</code> built on the <a href="https://docs.rs/crc">crc</a> crate.
+<code>A</code> selects both the <strong>width</strong> (u8 / u16 / u32 / u64, written little endian) and the <strong>algorithm</strong>; the lookup table
+is computed at compile time. <code>FULL</code> (default <code>false</code>) controls whether <code>Full</code> messages are checksummed too:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">crc</span><span class="p">::{</span><span class="n">CrcChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">Crc16Usb</span><span class="p">,</span><span class="w"> </span><span class="n">Crc32IsoHdlc</span><span class="p">};</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1">// 2-byte CRC-16/USB on split messages only — the usual choice for USB / CAN</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc16Usb</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1">// 4-byte CRC-32 on every message — for media without its own frame CRC</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">type</span><span class="w"> </span><span class="nc">StreamTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc32IsoHdlc</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">EndMarker</span><span class="o">&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Width</th>
+<th>Algorithm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Crc8Smbus</code></td>
+<td>1 byte</td>
+<td>CRC-8/SMBUS, poly <code>0x07</code></td>
+</tr>
+<tr>
+<td><code>Crc16Usb</code></td>
+<td>2 bytes</td>
+<td>CRC-16/USB, poly <code>0x8005</code> reflected</td>
+</tr>
+<tr>
+<td><code>Crc16IbmSdlc</code></td>
+<td>2 bytes</td>
+<td>CRC-16/X-25 (HDLC, PPP), poly <code>0x1021</code></td>
+</tr>
+<tr>
+<td><code>Crc32IsoHdlc</code></td>
+<td>4 bytes</td>
+<td>CRC-32 (zlib, Ethernet), poly <code>0x04C11DB7</code></td>
+</tr>
+</tbody>
+</table>
+<p>Any other algorithm from the <code>crc</code> catalog is a three-line impl:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">crc</span><span class="p">::</span><span class="n">CrcAlgorithm</span><span class="p">;</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Crc8Autosar</span><span class="p">;</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">impl</span><span class="w"> </span><span class="n">CrcAlgorithm</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Crc8Autosar</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">u8</span><span class="p">;</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">CRC</span><span class="p">:</span><span class="w"> </span><span class="nc">crc</span><span class="p">::</span><span class="n">Crc</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="p">::</span><span class="n">Crc</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">crc</span><span class="p">::</span><span class="n">CRC_8_AUTOSAR</span><span class="p">);</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="p">}</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkChecksum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc8Autosar</span><span class="o">&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<h3 id="hand-rolled-example">Hand-rolled example<a class="headerlink" href="#hand-rolled-example" title="Permanent link">&para;</a></h3>
+<p>The traits are small enough to implement directly. CRC-8 (poly <code>0x07</code>) for split messages only, and a <code>0x7E</code> end
+marker after every message:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::{</span><span class="n">BufReader</span><span class="p">,</span><span class="w"> </span><span class="n">BufWriter</span><span class="p">};</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">traits</span><span class="p">::{</span><span class="n">Checksum</span><span class="p">,</span><span class="w"> </span><span class="n">RdError</span><span class="p">,</span><span class="w"> </span><span class="n">Tail</span><span class="p">,</span><span class="w"> </span><span class="n">WrError</span><span class="p">};</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Crc8</span><span class="p">;</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">Checksum</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Crc8</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LEN_BYTES_FULL</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">   </span><span class="c1">// frame CRC is enough for Full messages</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LEN_BYTES_SPLIT</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">wr</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">WrError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">is_split</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">            </span><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="n">crc8</span><span class="p">(</span><span class="n">message</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">rd</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufReader</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RdError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">is_split</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">rd</span><span class="p">.</span><span class="n">read_u8</span><span class="p">()</span><span class="o">?</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">crc8</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">RdError</span><span class="p">::</span><span class="n">ChecksumMismatch</span><span class="p">);</span>
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="p">}</span>
+</span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="k">struct</span><span class="w"> </span><span class="nc">EndMarker</span><span class="p">;</span>
+</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a>
+</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="k">impl</span><span class="w"> </span><span class="n">Tail</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">EndMarker</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LEN_BYTES</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a>
+</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="n">wr</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">WrError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="w">        </span><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="mh">0x7E</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a><span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>
+</span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">rd</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufReader</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RdError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">rd</span><span class="p">.</span><span class="n">read_u8</span><span class="p">()</span><span class="o">?</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mh">0x7E</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(())</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">RdError</span><span class="p">::</span><span class="n">BadTail</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-38"><a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a><span class="p">}</span>
+</span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a>
+</span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">Crc8</span><span class="p">,</span><span class="w"> </span><span class="n">EndMarker</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">Crc8</span><span class="p">,</span><span class="w"> </span><span class="n">EndMarker</span><span class="o">&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>message</code> passed to <code>Checksum::write</code> / <code>read</code> is always the <strong>complete</strong> message, even for <code>End</code>, so the CRC does
+not need to be incremental.</p>
+<h3 id="small-messages">Small messages<a class="headerlink" href="#small-messages" title="Permanent link">&para;</a></h3>
+<p>Two <code>Full</code> messages in a 16-byte frame — no checksum (<code>LEN_BYTES_FULL = 0</code>), tail after each:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a> byte:  0   1  2  3  4   5    6   7  8   9
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>      ┌────┬───────────┬────┬────┬─────┬────┐
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>      │ 04 │01 02 03 04│ 7E │ 12 │11 12│ 7E │
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>      └────┴───────────┴────┴────┴─────┴────┘
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>       head  payload   tail head  payl. tail
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>       ────────┬───────────  ────────┬───────
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>           message A             message B
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a> 0x04 = 00 00 0 100   Full, uk=0, len=4
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a> 0x12 = 00 01 0 010   Full, uk=1, len=2
+</span></code></pre></div>
+<h3 id="split-message">Split message<a class="headerlink" href="#split-message" title="Permanent link">&para;</a></h3>
+<p>The 20-byte message from <a href="#large-message-spanning-multiple-frames">above</a> over 8-byte frames. Frames 0–2 are
+identical to the no-checksum case; only the <code>End</code> frame grows by two bytes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a> frame 0     48 14 01 02 03 04 05 06        Start, total = 20
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a> frame 1     88 0E 07 08 09 0A 0B 0C        Continue, remaining = 14
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a> frame 2     88 08 0D 0E 0F 10 11 12        Continue, remaining = 8
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a> frame 3 (End, remaining = 2)
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a> ┌────┬────┬────┬────┬────┐
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a> │ C2 │ 13 │ 14 │ 99 │ 7E │
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a> └────┴────┴────┴────┴────┘
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>  head [18..20]  crc8 tail       0x99 = CRC-8 over all 20 bytes
+</span></code></pre></div>
+<h3 id="end-that-would-not-fit-stays-continue"><code>End</code> that would not fit stays <code>Continue</code><a class="headerlink" href="#end-that-would-not-fit-stays-continue" title="Permanent link">&para;</a></h3>
+<p>A 12-byte message over 8-byte frames. After frame 0 there are 6 bytes left, which <em>would</em> fit into a frame with a
+1-byte head — but not together with CRC and tail (1 + 6 + 1 + 1 = 9 &gt; 8). So frame 1 is a <code>Continue</code> with 5 bytes,
+leaving one for the <code>End</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a> frame 0 (Start, total = 12)
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a> ┌────┬────┬────┬────┬────┬────┬────┬────┐
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a> │ 48 │ 0C │ 01 │ 02 │ 03 │ 04 │ 05 │ 06 │
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a> └────┴────┴────┴────┴────┴────┴────┴────┘
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a> frame 1 (Continue, remaining = 6) — 6 of 8 bytes used
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a> ┌────┬────┬────┬────┬────┬────┐
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a> │ 86 │ 07 │ 08 │ 09 │ 0A │ 0B │
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a> └────┴────┴────┴────┴────┴────┘
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>  0x86 = 10 00 0 110   Continue, uk=0, remaining = 6
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a> frame 2 (End, remaining = 1)
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a> ┌────┬────┬────┬────┐
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a> │ C1 │ 0C │ FF │ 7E │
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a> └────┴────┴────┴────┘
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>  head [11] crc8 tail       0xFF = CRC-8 over all 12 bytes
+</span></code></pre></div>
+<p>Frame 1 is sent short instead of being filled with a byte that would force <code>End</code> to span two frames.</p>
+<h2 id="sending-a-partial-frame-early-latency">Sending a partial frame early (latency)<a class="headerlink" href="#sending-a-partial-frame-early-latency" title="Permanent link">&para;</a></h2>
+<p><code>Tx</code> never sends anything by itself: it only fills the assembly buffer. <code>flush()</code> returns how many bytes are
+currently in it and rewinds to the start. That means the caller decides <em>when</em> a frame goes out:</p>
+<ul>
+<li><strong>Throughput-oriented</strong>: keep calling <code>write</code> until it returns <code>Ok(false)</code>, then flush. Frames are as full as
+  possible, per-frame overhead is minimal.</li>
+<li><strong>Latency-oriented</strong>: flush as soon as there is nothing more to send <em>right now</em>, even if the frame is mostly
+  empty. The message is sent out immediately instead of waiting for enough traffic to fill the frame.</li>
+</ul>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">64</span><span class="p">];</span><span class="w">                      </span><span class="c1">// USB full-speed bulk packet</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LinkTx</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">);</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="mh">0xAA</span><span class="p">,</span><span class="w"> </span><span class="mh">0xBB</span><span class="p">,</span><span class="w"> </span><span class="mh">0xCC</span><span class="p">,</span><span class="w"> </span><span class="mh">0xDD</span><span class="p">]);</span><span class="w">       </span><span class="c1">// Ok(true)</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">flush</span><span class="p">();</span><span class="w">                         </span><span class="c1">// 5, not 64</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="n">usb</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tx</span><span class="p">.</span><span class="n">buf</span><span class="p">()[</span><span class="o">..</span><span class="n">len</span><span class="p">]).</span><span class="k">await</span><span class="p">;</span><span class="w">            </span><span class="c1">// short packet goes out now</span>
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a> assembly buffer (64 B)
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a> ┌────┬────┬────┬────┬────┬─────────────────────────────────────── ─ ─ ─ ┐
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a> │ 04 │ AA │ BB │ CC │ DD │             59 bytes unused                  │
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a> └────┴────┴────┴────┴────┴─────────────────────────────────────── ─ ─ ─ ┘
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>  ◄──── sent: 5 bytes ────►◄───────────────── not sent ──────────────────►
+</span></code></pre></div>
+<p>A typical embedded loop is a hybrid: drain the outgoing queue into the frame, and flush when the queue is empty
+<em>or</em> the frame is full — whichever comes first. This gives full frames under load and minimal latency when idle.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">pending</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">queue</span><span class="p">.</span><span class="n">peek</span><span class="p">();</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">uk</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pending</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">        </span><span class="k">match</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">uk</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">            </span><span class="nb">Ok</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span><span class="w">  </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">queue</span><span class="p">.</span><span class="n">pop</span><span class="p">();</span><span class="w"> </span><span class="n">pending</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">queue</span><span class="p">.</span><span class="n">peek</span><span class="p">();</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="c1">// fully written, next</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">            </span><span class="nb">Ok</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">break</span><span class="p">,</span><span class="w">                                   </span><span class="c1">// frame full, ship it</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">            </span><span class="nb">Err</span><span class="p">(())</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">queue</span><span class="p">.</span><span class="n">pop</span><span class="p">();</span><span class="w"> </span><span class="n">pending</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">queue</span><span class="p">.</span><span class="n">peek</span><span class="p">();</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="c1">// too big, drop</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">flush</span><span class="p">();</span>
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">        </span><span class="n">link</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tx</span><span class="p">.</span><span class="n">buf</span><span class="p">()[</span><span class="o">..</span><span class="n">len</span><span class="p">]).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">        </span><span class="n">queue</span><span class="p">.</span><span class="n">wait_non_empty</span><span class="p">().</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Frame length must be preserved</p>
+<p>A frame shorter than the maximum is fine, but the receiver must get exactly the bytes that were flushed,
+as one unit, because <code>Start</code>/<code>Continue</code> payloads are defined as "till the end of the frame". USB and CAN
+guarantee this. For stream media (UART, TCP) the framer is not yet ready.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Frames can also be short for another reason</p>
+<p>If the remaining space in a frame is too small to fit even a head plus one payload byte, <code>write</code> returns
+<code>Ok(false)</code> without touching the frame, and the message starts at the beginning of the next one.
+Such a frame is a byte or two shorter than the maximum.</p>
+</div>
+<h2 id="api-summary">API summary<a class="headerlink" href="#api-summary" title="Permanent link">&para;</a></h2>
+<h3 id="txh-c-t"><code>Tx&lt;H, C, T&gt;</code><a class="headerlink" href="#txh-c-t" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>new(buf)</code></td>
+<td>Wrap an assembly buffer. Its length <strong>is</strong> the maximum frame size (e.g. the DMA / endpoint size).</td>
+</tr>
+<tr>
+<td><code>write(user_kind, msg) -&gt; Result&lt;bool, ()&gt;</code></td>
+<td>Append a message. <code>Ok(true)</code> — fully written. <code>Ok(false)</code> — frame is full, <code>flush()</code> and call again with the <strong>same</strong> message. <code>Err(())</code> — the message can never be sent (too large for the head encoding, or head alone fills the frame).</td>
+</tr>
+<tr>
+<td><code>flush() -&gt; usize</code></td>
+<td>Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written.</td>
+</tr>
+<tr>
+<td><code>buf() -&gt; &amp;[u8]</code></td>
+<td>The assembly buffer. Frame bytes are <code>&amp;buf()[..len]</code> right after <code>flush()</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="framedrxh-c-t"><code>FramedRx&lt;H, C, T&gt;</code><a class="headerlink" href="#framedrxh-c-t" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>new(buf)</code></td>
+<td>Wrap a receive buffer. Must hold at least one maximum re-assembled message <strong>plus</strong> one maximum frame.</td>
+</tr>
+<tr>
+<td><code>stage(frame) -&gt; Result&lt;(), ()&gt;</code></td>
+<td>Copy a received frame in. <code>Err(())</code> if <code>free()</code> is too small.</td>
+</tr>
+<tr>
+<td><code>free() -&gt; usize</code></td>
+<td>Bytes available for staging.</td>
+</tr>
+<tr>
+<td><code>reassemble()</code></td>
+<td>Process staged bytes until a message is ready or the frame is exhausted. Also discards the previously returned message.</td>
+</tr>
+<tr>
+<td><code>message() -&gt; Option&lt;(UserKind, &amp;[u8])&gt;</code></td>
+<td>The ready message, if any. Valid until the next <code>reassemble()</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Intended receive loop:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">rx</span><span class="p">.</span><span class="n">stage</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">    </span><span class="n">rx</span><span class="p">.</span><span class="n">reassemble</span><span class="p">();</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">message</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">    </span><span class="n">handle</span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">);</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h3>
+<p>Everything above is generic over three traits in <code>ww_framer::traits</code>, so a different medium can plug in its own
+encoding without touching the packing/splitting logic:</p>
+<table>
+<thead>
+<tr>
+<th>Trait</th>
+<th>Purpose</th>
+<th>Provided implementations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Head</code></td>
+<td>Serialize / parse <code>(MessageKind, user_kind, len)</code>; declares <code>MIN_FRAME_SIZE</code></td>
+<td><code>framed::U2Head</code></td>
+</tr>
+<tr>
+<td><code>Checksum</code></td>
+<td>Optional fixed-length checksum after each message, separately configurable for <code>Full</code> and split messages</td>
+<td><code>NopChecksum</code>, <code>crc::CrcChecksum</code></td>
+</tr>
+<tr>
+<td><code>Tail</code></td>
+<td>Optional fixed-length bytes after each message (e.g. an end marker for stream media)</td>
+<td><code>NopTail</code>, <code>ByteTail</code></td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="#checksum-and-tail">Checksum and tail</a> for an example implementation of the last two.</p>
+<h3 id="cargo-features">Cargo features<a class="headerlink" href="#cargo-features" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>large</code></td>
+<td>Enables the 3-byte head form: messages up to 128 KiB</td>
+</tr>
+<tr>
+<td><code>very_large</code></td>
+<td>Enables the 4-byte head form: messages up to 16 MiB (requires <code>large</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Without either feature, the maximum message size is 1023 bytes and the head is at most 2 bytes (3 with an extended
+user kind), which is what most microcontroller links need.</p>
+<h2 id="testing-and-fuzzing">Testing and Fuzzing<a class="headerlink" href="#testing-and-fuzzing" title="Permanent link">&para;</a></h2>
+<p>This framer implementation is used for all transport media supported by <code>wire_weaver</code>.
+It is thus very important that it is correct.
+This is ensured by complete unit tests coverage and fuzzing.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../overview/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../usb/" class="md-footer__link md-footer__link--next" aria-label="Next: Usb">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Usb
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 vhrdtech
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/vhrdtech" target="_blank" rel="noopener" title="vhrdtech on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/vhrdtech/" target="_blank" rel="noopener" title="vhrdtech on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://vhrd.tech" target="_blank" rel="noopener" title="vhrd.tech website" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

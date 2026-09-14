@@ -7,4 +7,15 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[features]
+default = []
+std = ["shrink_wrap/std", "ww_version/std", "ww_framer/std", "wire_weaver/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt", "wire_weaver/defmt"]
+
 [dependencies]
+defmt = { version = "1.0", optional = true }
+shrink_wrap.workspace = true
+wire_weaver.workspace = true
+ww_framer = { workspace = true, features = ["large", "very_large"] }
+ww_global.workspace = true
+ww_version.workspace = true

@@ -128,6 +128,20 @@ pub struct DeviceInfo<'i> {
     pub packet_accumulation_time_us: u16,
 }
 
+#[cfg(feature = "std")]
+impl DeviceInfo<'_> {
+    pub fn make_owned(&self) -> DeviceInfoOwned {
+        DeviceInfoOwned {
+            dev_link_version: self.dev_link_version,
+            api_model_version: self.api_model_version,
+            user_api_version: self.user_api_version.make_owned(),
+            hash: self.hash.make_owned(),
+            dev_max_message_len: self.dev_max_message_len,
+            packet_accumulation_time_us: self.packet_accumulation_time_us,
+        }
+    }
+}
+
 /// Sent from host to device after receiving [DeviceInfo].
 #[derive_shrink_wrap]
 #[derive(Debug, Clone)]

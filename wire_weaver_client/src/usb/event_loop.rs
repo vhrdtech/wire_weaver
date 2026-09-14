@@ -1,12 +1,7 @@
-//! Async USB wrapper around the sans-IO [Core]: owns the command channel, nusb endpoints,
-//! the framer and timers, and only shuffles [Input]s in and [Output]s out.
-//!
-//! Rx and tx are decoupled: the receive path is always polled, and a slow device only ever
-//! results in commands not being accepted (backpressure onto the [Commander](crate::Commander)),
-//! never in receiving stopping. Otherwise, a half-duplex device (one that does not read while it
-//! is blocked writing) and a half-duplex host deadlock as soon as both directions fill up.
+//! Async USB wrapper around the sans-IO [TxCore] / [RxCore]: two tasks, one per direction, each
+//! owning its endpoint and framer. Rx never waits on tx, so a half-duplex device cannot deadlock the host;
+//! backpressure to the [Commander](crate::Commander) is simply the tx task being blocked in a write.
 
-use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use nusb::descriptors::TransferType;
@@ -17,31 +12,29 @@ use tracing::{debug, trace, warn};
 use super::tracing::Tracer;
 use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
-use crate::event_loop::command::Command;
-use crate::event_loop::core::{Core, Input, MAX_MESSAGE_SIZE, Output};
+use crate::event_loop::command::{Command, EventLoopExitReason};
+use crate::event_loop::core::{
+    MAX_MESSAGE_SIZE, RxCore, RxInput, RxOutput, ToRx, ToTx, TxCore, TxInput, TxOutput,
+};
 use crate::event_loop::framing::Framing;
 
-/// USB packets are checked by the hardware, but a CRC over each split message still catches
+/// USB packets are checked by the hardware, but a CRC over each message still catches
 /// packets lost or reordered on re-connection.
 type UsbFraming = Framing<ww_link::Head, ww_link::Checksum, ww_link::Tail>;
 
-/// Stop accepting commands while this many frames are waiting to be sent.
-const TX_HIGH_WATERMARK: usize = 16;
-/// How long to try sending the last frames (Disconnect) to a device on exit.
-const EXIT_FLUSH_TIMEOUT: Duration = Duration::from_millis(200);
+/// Give the last (Disconnect) transfer a chance to actually go out before endpoints are dropped.
+const EXIT_LINGER: Duration = Duration::from_millis(3);
 
 /// Packet tx half, implemented for nusb and for a mock in tests.
-pub(crate) trait TxEndpoint {
-    /// Cancel-safe. After Ok, [Self::submit] will not block.
-    async fn wait_ready(&mut self) -> Result<(), String>;
-    /// Synchronous, only after [Self::wait_ready] returned Ok.
-    fn submit(&mut self, frame: &[u8]) -> Result<(), String>;
+pub(crate) trait TxEndpoint: Send + 'static {
+    fn write_packet(&mut self, frame: &[u8]) -> impl Future<Output = Result<(), String>> + Send;
 }
 
 /// Packet rx half.
-pub(crate) trait RxEndpoint {
+pub(crate) trait RxEndpoint: Send + 'static {
     /// Cancel-safe.
-    async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, String>;
+    fn read_packet(&mut self, buf: &mut [u8])
+    -> impl Future<Output = Result<usize, String>> + Send;
 }
 
 pub(crate) struct Opened<Tx, Rx> {
@@ -63,80 +56,101 @@ pub async fn usb_worker(cmd_rx: mpsc::Receiver<Command>) {
     debug!("usb worker exited");
 }
 
-struct Link<Tx, Rx> {
-    tx: Tx,
-    rx: Rx,
-    framing: UsbFraming,
-    /// Frames waiting for a tx buffer
-    pending_tx: VecDeque<Vec<u8>>,
+pub(crate) async fn worker<C: Connector>(cmd_rx: mpsc::Receiver<Command>, connector: C) {
+    let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel::<ToRx>();
+    let (to_tx_tx, to_tx_rx) = mpsc::unbounded_channel::<ToTx>();
+    // rx endpoint is opened by the tx task (it handles Connect) and handed over
+    let (rx_ep_tx, rx_ep_rx) = mpsc::channel::<(C::Rx, usize)>(1);
+
+    let rx_task = tokio::spawn(rx_task::<C::Rx>(rx_ep_rx, to_rx_rx, to_tx_tx));
+    let (tx_core_result, cmd_rx) = tx_task(cmd_rx, connector, to_tx_rx, to_rx_tx, rx_ep_tx).await;
+    let rx_core = match rx_task.await {
+        Ok(rx_core) => rx_core,
+        Err(e) => {
+            warn!("rx task panicked: {e}");
+            RxCore::new()
+        }
+    };
+
+    let (tx_core, result) = tx_core_result;
+    let (exited_tx, residual) = tx_core.into_residual(cmd_rx, rx_core.into_connected_tx(), result);
+    if let Some(tx) = exited_tx {
+        _ = tx.send(residual);
+    }
 }
 
-enum Step {
-    Cmd(Option<Command>),
-    Timer,
-    TxReady(Result<(), String>),
-    Rx(Result<usize, String>),
-}
-
-pub(crate) async fn worker<C: Connector>(mut cmd_rx: mpsc::Receiver<Command>, mut connector: C) {
-    let mut core = Core::new();
-    let mut link: Option<Link<C::Tx, C::Rx>> = None;
-    let mut rx_buf = vec![0u8; 1024];
+async fn tx_task<C: Connector>(
+    mut cmd_rx: mpsc::Receiver<Command>,
+    mut connector: C,
+    mut from_rx: mpsc::UnboundedReceiver<ToTx>,
+    to_rx: mpsc::UnboundedSender<ToRx>,
+    rx_ep_tx: mpsc::Sender<(C::Rx, usize)>,
+) -> (
+    (TxCore, anyhow::Result<EventLoopExitReason>),
+    mpsc::Receiver<Command>,
+) {
+    let mut core = TxCore::new();
+    let mut ep: Option<(C::Tx, UsbFraming)> = None;
     let mut frames: Vec<Vec<u8>> = vec![];
 
     let result = loop {
-        // Drain outputs first (synchronous), do not feed new inputs until done
+        // Drain outputs first, do not feed new inputs until done.
+        // Awaiting writes here is fine: rx runs on its own task.
         let mut exit = None;
         while let Some(output) = core.poll_output() {
             match output {
-                Output::Connect(handle) => match connector.connect(handle) {
+                TxOutput::Connect(handle) => match connector.connect(handle) {
                     Ok(o) => {
-                        link = Some(Link {
-                            tx: o.tx,
-                            rx: o.rx,
-                            framing: UsbFraming::new(o.max_packet_size, MAX_MESSAGE_SIZE),
-                            pending_tx: VecDeque::new(),
-                        });
-                        core.handle(Instant::now(), Input::TransportUp);
+                        ep = Some((o.tx, UsbFraming::new(o.max_packet_size, MAX_MESSAGE_SIZE)));
+                        if rx_ep_tx.try_send((o.rx, o.max_packet_size)).is_err() {
+                            core.handle(
+                                Instant::now(),
+                                TxInput::TransportError("rx task is gone".into()),
+                            );
+                        } else {
+                            core.handle(Instant::now(), TxInput::TransportUp);
+                        }
                     }
-                    Err(e) => core.handle(Instant::now(), Input::TransportError(e)),
+                    Err(e) => core.handle(Instant::now(), TxInput::TransportError(e)),
                 },
-                Output::Send { kind, payload } => {
-                    let Some(l) = link.as_mut() else {
+                TxOutput::Send { kind, payload } => {
+                    let Some((_, framing)) = ep.as_mut() else {
                         warn!("Send without transport, dropping");
                         continue;
                     };
-                    if let Err(e) = l.framing.write(kind, &payload, &mut frames) {
+                    if let Err(e) = framing.write(kind, &payload, &mut frames) {
                         // Core is responsible for not sending oversized messages, so this is a bug or a
                         // wrong frame size, not something the device did
-                        core.handle(Instant::now(), Input::TransportError(e.to_string()));
-                    }
-                    l.pending_tx.extend(frames.drain(..));
-                }
-                Output::Flush => {
-                    if let Some(l) = link.as_mut() {
-                        l.framing.flush(&mut frames);
-                        l.pending_tx.extend(frames.drain(..));
+                        core.handle(Instant::now(), TxInput::TransportError(e.to_string()));
                     }
                 }
-                Output::Exit(result) => {
+                TxOutput::Flush => {
+                    if let Some((_, framing)) = ep.as_mut() {
+                        framing.flush(&mut frames);
+                    }
+                }
+                TxOutput::ToRx(msg) => {
+                    if to_rx.send(msg).is_err() {
+                        // rx task exited; it would have sent PeerGone first, which is queued in from_rx
+                    }
+                }
+                TxOutput::Exit(result) => {
                     exit = Some(result);
                     break;
                 }
             }
+            if let Some((tx, _)) = ep.as_mut()
+                && let Err(e) = write_frames(tx, &mut frames).await
+            {
+                frames.clear();
+                core.handle(Instant::now(), TxInput::TransportError(e));
+            }
         }
         if let Some(result) = exit {
-            if let Some(mut l) = link.take() {
-                l.framing.flush(&mut frames);
-                l.pending_tx.extend(frames.drain(..));
-                if tokio::time::timeout(EXIT_FLUSH_TIMEOUT, flush_pending(&mut l))
-                    .await
-                    .is_err()
-                {
-                    warn!("device did not accept the last frames on exit");
-                }
-                // give the last (Disconnect) transfer a chance to actually go out before endpoints are dropped
-                tokio::time::sleep(Duration::from_millis(3)).await;
+            if let Some((mut tx, mut framing)) = ep.take() {
+                framing.flush(&mut frames);
+                _ = write_frames(&mut tx, &mut frames).await;
+                tokio::time::sleep(EXIT_LINGER).await;
             }
             break result;
         }
@@ -148,77 +162,111 @@ pub(crate) async fn worker<C: Connector>(mut cmd_rx: mpsc::Receiver<Command>, mu
                 None => std::future::pending().await,
             }
         };
-
-        let step = match link.as_mut() {
-            Some(l) => {
-                let has_tx = !l.pending_tx.is_empty();
-                let accept_cmds = l.pending_tx.len() < TX_HIGH_WATERMARK;
-                tokio::select! {
-                    // rx first: it must never starve
-                    biased;
-                    r = l.rx.read_packet(&mut rx_buf) => Step::Rx(r),
-                    r = l.tx.wait_ready(), if has_tx => Step::TxReady(r),
-                    _ = timer => Step::Timer,
-                    cmd = cmd_rx.recv(), if accept_cmds => Step::Cmd(cmd),
-                }
-            }
-            None => {
-                tokio::select! {
-                    cmd = cmd_rx.recv() => Step::Cmd(cmd),
-                    _ = timer => Step::Timer,
-                }
-            }
-        };
-
-        let now = Instant::now();
-        match step {
-            Step::Cmd(Some(cmd)) => core.handle(now, Input::Command(cmd)),
-            Step::Cmd(None) => core.handle(now, Input::CommanderDropped),
-            Step::Timer => core.handle(now, Input::Timer),
-            Step::TxReady(Err(e)) => core.handle(now, Input::TransportError(e)),
-            Step::TxReady(Ok(())) => {
-                if let Some(l) = link.as_mut()
-                    && let Some(frame) = l.pending_tx.pop_front()
-                {
-                    trace!("tx frame: {}: {frame:02x?}", frame.len());
-                    if let Err(e) = l.tx.submit(&frame) {
-                        core.handle(now, Input::TransportError(e));
-                    }
-                }
-            }
-            Step::Rx(Err(e)) => core.handle(now, Input::TransportError(e)),
-            Step::Rx(Ok(len)) => {
-                let frame = &rx_buf[..len];
-                trace!("rx frame: {len}: {frame:02x?}");
-                if let Some(l) = link.as_mut() {
-                    if let Err(e) = l.framing.stage(frame) {
-                        warn!("{e}, dropping frame");
-                    }
-                    while let Some((kind, payload)) = l.framing.next_message() {
-                        core.handle(now, Input::Message { kind, payload });
-                    }
-                }
-            }
+        tokio::select! {
+            msg = from_rx.recv() => match msg {
+                Some(msg) => core.handle(Instant::now(), TxInput::FromRx(msg)),
+                None => core.handle(Instant::now(), TxInput::TransportError("rx task is gone".into())),
+            },
+            cmd = cmd_rx.recv() => match cmd {
+                Some(cmd) => core.handle(Instant::now(), TxInput::Command(cmd)),
+                None => core.handle(Instant::now(), TxInput::CommanderDropped),
+            },
+            _ = timer => core.handle(Instant::now(), TxInput::Timer),
         }
     };
-    drop(link);
-
-    let (exited_tx, residual) = core.into_residual(cmd_rx, result);
-    if let Some(tx) = exited_tx {
-        _ = tx.send(residual);
-    }
+    drop(ep); // closes the device from tx side, rx read then fails or is stopped by ToRx::Stop
+    ((core, result), cmd_rx)
 }
 
-async fn flush_pending<Tx: TxEndpoint, Rx>(l: &mut Link<Tx, Rx>) {
-    while let Some(frame) = l.pending_tx.pop_front() {
-        if l.tx.wait_ready().await.is_err() {
-            return;
-        }
+async fn write_frames<T: TxEndpoint>(tx: &mut T, frames: &mut Vec<Vec<u8>>) -> Result<(), String> {
+    for frame in frames.drain(..) {
         trace!("tx frame: {}: {frame:02x?}", frame.len());
-        if l.tx.submit(&frame).is_err() {
-            return;
+        tx.write_packet(&frame).await?;
+    }
+    Ok(())
+}
+
+async fn rx_task<R: RxEndpoint>(
+    mut ep_rx: mpsc::Receiver<(R, usize)>,
+    mut from_tx: mpsc::UnboundedReceiver<ToRx>,
+    to_tx: mpsc::UnboundedSender<ToTx>,
+) -> RxCore {
+    let mut core = RxCore::new();
+    let mut ep: Option<(R, UsbFraming)> = None;
+    let mut buf = vec![0u8; 1024];
+
+    loop {
+        // Everything tx told us goes in first, see RxCore docs on ordering
+        let mut exit = false;
+        while let Ok(msg) = from_tx.try_recv() {
+            core.handle(Instant::now(), RxInput::FromTx(msg));
+        }
+        while let Some(output) = core.poll_output() {
+            match output {
+                RxOutput::ToTx(msg) => _ = to_tx.send(msg),
+                RxOutput::Exit => exit = true,
+            }
+        }
+        if exit {
+            break;
+        }
+
+        let deadline = core.poll_timeout();
+        let timer = async {
+            match deadline {
+                Some(at) => tokio::time::sleep_until(at.into()).await,
+                None => std::future::pending().await,
+            }
+        };
+        let waiting_for_ep = ep.is_none();
+        let read = async {
+            match ep.as_mut() {
+                Some((r, _)) => r.read_packet(&mut buf).await,
+                None => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            // rx endpoint arrives with the first Connect; a later one replaces after a re-connect
+            new_ep = ep_rx.recv(), if waiting_for_ep => match new_ep {
+                Some((r, max_packet_size)) => ep = Some((r, UsbFraming::new(max_packet_size, MAX_MESSAGE_SIZE))),
+                None => {
+                    // tx task is gone without saying Stop (should not happen), exit
+                    break;
+                }
+            },
+            msg = from_tx.recv() => match msg {
+                Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                None => break,
+            },
+            r = read => {
+                let now = Instant::now();
+                match r {
+                    Ok(len) => {
+                        let frame = &buf[..len];
+                        trace!("rx frame: {len}: {frame:02x?}");
+                        let (_, framing) = ep.as_mut().expect("read only when ep is Some");
+                        if let Err(e) = framing.stage(frame) {
+                            warn!("{e}, dropping frame");
+                        }
+                        // drain tx messages before decoding, so that Expect precedes its answer
+                        while let Ok(msg) = from_tx.try_recv() {
+                            core.handle(now, RxInput::FromTx(msg));
+                        }
+                        while let Some((kind, payload)) = framing.next_message() {
+                            core.handle(now, RxInput::Message { kind, payload });
+                        }
+                    }
+                    Err(e) => {
+                        ep = None;
+                        core.handle(now, RxInput::TransportError(e));
+                    }
+                }
+            }
+            _ = timer => core.handle(Instant::now(), RxInput::Timer),
         }
     }
+    drop(ep);
+    core
 }
 
 // nusb implementation
@@ -266,28 +314,31 @@ impl Connector for NusbConnector {
 }
 
 impl TxEndpoint for NusbTx {
-    async fn wait_ready(&mut self) -> Result<(), String> {
-        self.sink
-            .wait_ready()
-            .await
-            .map_err(describe_transfer_error)
-    }
-
-    fn submit(&mut self, frame: &[u8]) -> Result<(), String> {
-        self.tracer.tx(frame);
-        self.sink.submit(frame).map_err(describe_transfer_error)
+    fn write_packet(&mut self, frame: &[u8]) -> impl Future<Output = Result<(), String>> + Send {
+        async move {
+            self.tracer.tx(frame);
+            self.sink
+                .write_packet(frame)
+                .await
+                .map_err(describe_transfer_error)
+        }
     }
 }
 
 impl RxEndpoint for NusbRx {
-    async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, String> {
-        let len = self
-            .source
-            .read_packet(buf)
-            .await
-            .map_err(describe_transfer_error)?;
-        self.tracer.rx(&buf[..len]);
-        Ok(len)
+    fn read_packet(
+        &mut self,
+        buf: &mut [u8],
+    ) -> impl Future<Output = Result<usize, String>> + Send {
+        async move {
+            let len = self
+                .source
+                .read_packet(buf)
+                .await
+                .map_err(describe_transfer_error)?;
+            self.tracer.rx(&buf[..len]);
+            Ok(len)
+        }
     }
 }
 
@@ -303,8 +354,8 @@ mod tests {
     //! The mock device below is deliberately half-duplex (does not read while blocked writing),
     //! rx/tx channel depths mimic nusb queue sizes. Nothing here is timing dependent.
     //!
-    //! To see the failure: make the host await `wait_ready` inside the `Output::Send` arm (as the old
-    //! loop did) and remove `biased` from the select — the test then hangs deterministically.
+    //! To see the failure: run rx and tx on one task (e.g., `select!` over cmd_rx and read_packet with
+    //! writes awaited inline, as the old loop did) — the test then hangs deterministically.
 
     use super::*;
     use crate::device_info::ConnectionInfo;
@@ -326,30 +377,14 @@ mod tests {
     /// Same thing happens with tiny replies and 512 B USB packets (~80 requests per packet).
     const REPLY_LEN: usize = 600;
 
-    struct MockTx {
-        ch: mpsc::Sender<Vec<u8>>,
-        permit: Option<mpsc::OwnedPermit<Vec<u8>>>,
-    }
+    struct MockTx(mpsc::Sender<Vec<u8>>);
 
     impl TxEndpoint for MockTx {
-        async fn wait_ready(&mut self) -> Result<(), String> {
-            if self.permit.is_none() {
-                let p = self
-                    .ch
-                    .clone()
-                    .reserve_owned()
-                    .await
-                    .map_err(|_| "closed".to_string())?;
-                self.permit = Some(p);
-            }
-            Ok(())
-        }
-        fn submit(&mut self, frame: &[u8]) -> Result<(), String> {
-            self.permit
-                .take()
-                .expect("wait_ready first")
-                .send(frame.to_vec());
-            Ok(())
+        async fn write_packet(&mut self, frame: &[u8]) -> Result<(), String> {
+            self.0
+                .send(frame.to_vec())
+                .await
+                .map_err(|_| "closed".to_string())
         }
     }
 
@@ -455,10 +490,7 @@ mod tests {
             cmd_rx,
             MockConnector {
                 opened: Some(Opened {
-                    tx: MockTx {
-                        ch: host_tx,
-                        permit: None,
-                    },
+                    tx: MockTx(host_tx),
                     rx: MockRx(host_rx),
                     max_packet_size: PKT,
                 }),
@@ -516,6 +548,9 @@ mod tests {
             .await
             .unwrap();
         disconnected_rx.await.unwrap();
-        worker.await.unwrap();
+        tokio::time::timeout(Duration::from_secs(5), worker)
+            .await
+            .expect("worker did not exit")
+            .unwrap();
     }
 }

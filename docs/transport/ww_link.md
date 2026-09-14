@@ -168,6 +168,56 @@ Rules the reference event loop follows (and a new transport should too):
 - Nothing received for `PEER_TIMEOUT_MS` → the host disconnects with an error.
 - Each side sends `Disconnect` on the way out when it can, but must not rely on the peer doing so.
 
+## How the host runs it
+
+`ww_link` itself is just messages. The host side (`wire_weaver_client`) drives them with two small
+**sans-IO state machines** — one per direction — that contain all the protocol logic but do no IO, own no
+timers and hold no channels. A thin per-transport wrapper supplies those.
+
+```
+                 commands                              frames
+ Commander ───────────────► TxCore ──► Send / Flush ──► framer ──► medium
+                              ▲  │
+                         ToTx │  │ ToRx          (plain enums, ferried by the wrapper)
+                              │  ▼
+ responses, streams ◄──── RxCore ◄── (kind, payload) ◄── framer ◄── medium
+```
+
+**Tx** handles every command, drives link setup (Nop → GetDeviceInfo with retries → LinkSetup), decides when
+to flush the accumulated frame, sends pings and allocates request IDs.
+**Rx** decodes messages, does the version check, routes responses and stream data to waiting callers, times out
+requests and detects a silent peer.
+
+Both are fed inputs (`Command`, `Message`, `Timer`, ...) with an explicit `now`, and hand back outputs
+(`Send`, `Flush`, `Connect`, `Exit`) plus a few messages for the other half:
+
+- rx → tx: `DeviceInfo` accepted, `LinkReady`, request ID `Freed`, `PeerGone`
+- tx → rx: `Expect` this response, subscribe to a stream, `TransportUp`, `Stop`
+
+### Why two halves
+
+A device is usually **half-duplex**: it reads a packet, answers, and does not read again until the answer is
+written out. If the host behaves the same way — awaiting a write while not reading — both sides eventually block
+on each other as soon as a burst of requests produces more replies than the host has receive buffers for. It
+shows up as a stall followed by a write timeout, and is hard to reproduce on real hardware.
+
+Running rx and tx as **independent tasks** removes the cycle: the host always drains what the device writes, so
+the device always gets back to reading, so host writes always complete. Backpressure falls out for free — a slow
+device just means the tx task is parked in a write, so the command channel fills up and
+`Commander::send().await` waits. No watermarks, no prioritised selects.
+
+### What the split buys
+
+- **Testable without a runtime or hardware.** Both cores are exercised in unit tests by hand-advancing time and
+  ferrying `ToTx`/`ToRx` between them; the half-duplex deadlock has a regression test against a mock device.
+- **One protocol implementation, any wrapper.** The async USB wrapper is ~200 lines of plumbing. A blocking
+  transport is two `std::thread`s: tx does `blocking_recv` on commands plus a timer, rx does a read with timeout.
+  No `select!` at all.
+- **Framing is the wrapper's choice.** Cores speak `(kind, payload)`; USB uses `U2Head` + CRC-16, another medium
+  can pick differently or skip framing if it already delivers whole messages.
+- **Mirrors the device side.** Embedded implementations already run separate rx/tx tasks, so porting the device
+  onto `ww_link` follows the same shape.
+
 ## Features
 
 | Feature  | Effect                                                                                                                          |
@@ -182,6 +232,8 @@ the head; actual limits are negotiated via `dev_max_message_len` / `host_max_mes
 ## Relation to other crates
 
 - [ww_framer](ww_framer.md) — packs `ww_link` messages into frames; `ww_link` only picks its parameters.
-- `wire_weaver_client` — host event loop: owns framers, timers, retries and the state machine above.
+- `wire_weaver_client` — host event loop: two sans-IO state machines (tx: commands, setup retries, accumulation,
+  ping, seq allocation; rx: decoding, version check, dispatcher, peer timeout) run as independent tasks so that
+  receiving is never blocked by a write.
 - `wire_weaver_usb_link` — current device-side implementation; being migrated onto `ww_framer` + `ww_link`.
 - [USB](usb.md), [WebSocket](ws.md), [UDP](udp.md) — transports that carry frames.

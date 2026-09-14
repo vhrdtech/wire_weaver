@@ -9,17 +9,13 @@ use tracing::{debug, error, trace, warn};
 
 pub(crate) struct Sink {
     buf_pool: Vec<Buffer>,
-    /// Buffer taken out by [Self::wait_ready], consumed by [Self::submit]
-    ready: Option<Buffer>,
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
     max_packet_size: usize,
     marker: &'static str,
 }
 
-// Rx and tx are fully decoupled: rx is always polled by the event loop, tx is a two-step
-// reserve (cancel-safe await) + submit (sync), so that a slow device can never stall receiving.
-// Backpressure is applied by not accepting commands while tx is backed up.
+// Rx and tx are used from two independent tasks, so a slow device can never stall receiving.
 const TX_QUEUE_SIZE: usize = 4;
 const RX_QUEUE_SIZE: usize = 64;
 
@@ -53,7 +49,6 @@ impl Sink {
         });
         Ok(Sink {
             buf_pool,
-            ready: None,
             submit_tx,
             completion_rx,
             max_packet_size,
@@ -63,34 +58,23 @@ impl Sink {
 }
 
 impl Sink {
-    /// Wait until a tx buffer is available, then [Self::submit] can be called without blocking.
-    /// Cancel-safe: dropping the future loses nothing. Returns immediately if already ready.
-    /// Never times out on its own — the event loop's peer timeout decides when a device is gone.
-    pub async fn wait_ready(&mut self) -> Result<(), TransferError> {
-        if self.ready.is_some() {
-            return Ok(());
-        }
-        if let Some(buf) = self.buf_pool.pop() {
-            self.ready = Some(buf);
-            return Ok(());
-        }
-        match self.completion_rx.recv().await {
-            Some(completion) => {
-                if let Err(e) = completion.status {
-                    self.buf_pool.push(completion.buffer);
-                    return Err(e);
+    /// Waits for a free transfer buffer when all are in flight. Never times out on its own —
+    /// the event loop's peer timeout decides when a device is gone.
+    /// Not cancel-safe: do not use inside `select!`.
+    pub async fn write_packet(&mut self, data: &[u8]) -> Result<(), TransferError> {
+        let mut buf = if let Some(buf) = self.buf_pool.pop() {
+            buf
+        } else {
+            match self.completion_rx.recv().await {
+                Some(completion) => {
+                    if let Err(e) = completion.status {
+                        self.buf_pool.push(completion.buffer);
+                        return Err(e);
+                    }
+                    completion.buffer
                 }
-                self.ready = Some(completion.buffer);
-                Ok(())
+                None => return Err(TransferError::Disconnected),
             }
-            None => Err(TransferError::Disconnected),
-        }
-    }
-
-    /// Submit a transfer using the buffer obtained by [Self::wait_ready]. Synchronous.
-    pub fn submit(&mut self, data: &[u8]) -> Result<(), TransferError> {
-        let Some(mut buf) = self.ready.take() else {
-            return Err(TransferError::Unknown(0)); // wait_ready was not called
         };
         buf.clear();
         if data.len() > buf.capacity() {

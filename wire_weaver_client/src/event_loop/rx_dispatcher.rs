@@ -70,7 +70,9 @@ pub(crate) struct RxDispatcher {
     is_connected: bool,
     response_map: HashMap<SeqTy, (ResponseSenderWrapper, Instant)>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
-    next_seq: SeqTy,
+    /// Seq numbers whose requests completed, timed out or were cancelled since the last [Self::take_freed].
+    /// The tx side allocates seq numbers and needs to know when they can be reused.
+    freed: Vec<SeqTy>,
 }
 
 struct ResponseSenderWrapper(Option<ResponseSender>);
@@ -86,7 +88,7 @@ impl ResponseSenderWrapper {
 }
 
 impl RxDispatcher {
-    pub fn handle_cmd(&mut self, cmd: DispatcherCommand) {
+    pub fn handle_cmd(&mut self, now: Instant, cmd: DispatcherCommand) {
         trace!("cmd: {:?}", cmd);
         match cmd {
             DispatcherCommand::OnReturn {
@@ -94,7 +96,7 @@ impl RxDispatcher {
                 done_tx,
                 timeout,
             } => {
-                self.respond_later(seq, done_tx, timeout);
+                self.respond_later(now, seq, done_tx, timeout);
             }
             DispatcherCommand::OnStreamEvent {
                 path_kind,
@@ -111,22 +113,18 @@ impl RxDispatcher {
         }
     }
 
-    pub fn next_seq(&mut self) -> Option<SeqTy> {
-        for _ in 0..SeqTy::MAX {
-            if self.next_seq == 0 {
-                self.next_seq = 1;
-            }
-            let seq = self.next_seq;
-            self.next_seq = seq.wrapping_add(1);
-            if self.response_map.contains_key(&seq) {
-                continue;
-            }
-            return Some(seq);
-        }
-        None
+    /// Seq numbers that became reusable since the last call.
+    pub fn take_freed(&mut self) -> Vec<SeqTy> {
+        std::mem::take(&mut self.freed)
     }
 
-    fn respond_later(&mut self, seq: SeqTy, done_tx: ResponseSender, timeout: Duration) {
+    fn respond_later(
+        &mut self,
+        now: Instant,
+        seq: SeqTy,
+        done_tx: ResponseSender,
+        timeout: Duration,
+    ) {
         if seq == 0 {
             _ = done_tx.send(Err(Error::User(
                 "Requests with seq == 0 will not be answered".into(),
@@ -137,7 +135,7 @@ impl RxDispatcher {
             _ = done_tx.send(Err(Error::Disconnected));
             return;
         }
-        let prune_at = Instant::now() + timeout;
+        let prune_at = now + timeout;
         let replaced = self
             .response_map
             .insert(seq, (ResponseSenderWrapper(Some(done_tx)), prune_at));
@@ -145,20 +143,27 @@ impl RxDispatcher {
             _ = done_tx.send(Err(Error::User(
                 "Seq used for this request was used again".into(),
             )));
+            // the seq is still in use by the new request, so it is not freed here
         }
     }
 
     /// Time out all requests that are due at `now` (or within [IGNORE_TIMER_DURATION] of it).
     pub fn prune(&mut self, now: Instant) {
-        self.response_map.retain(|seq, (done_tx, prune_at)| {
-            let till_prune = prune_at.saturating_duration_since(now);
-            if till_prune < IGNORE_TIMER_DURATION {
+        let due: Vec<SeqTy> = self
+            .response_map
+            .iter()
+            .filter(|(_, (_, prune_at))| {
+                prune_at.saturating_duration_since(now) < IGNORE_TIMER_DURATION
+            })
+            .map(|(seq, _)| *seq)
+            .collect();
+        for seq in due {
+            if let Some((mut done_tx, _)) = self.response_map.remove(&seq) {
                 _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
-                return false;
+                self.freed.push(seq);
             }
-            true
-        });
+        }
     }
 
     /// Earliest instant at which [Self::prune] has something to do, None if no requests are outstanding.
@@ -208,7 +213,7 @@ impl RxDispatcher {
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::Value { data } => {
-                    if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
+                    if let Some((mut done_tx, _)) = self.take_response(event.seq) {
                         let return_or_value_bytes = data.as_slice().to_vec();
                         if done_tx.send(Ok(return_or_value_bytes)).is_err() {
                             warn!("failed to send done notification: {:?}", &event.seq);
@@ -218,7 +223,7 @@ impl RxDispatcher {
                     }
                 }
                 EventKind::Written => {
-                    if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
+                    if let Some((mut done_tx, _)) = self.take_response(event.seq) {
                         if done_tx.send(Ok(vec![])).is_err() {
                             warn!("failed to send written notification: {:?}", &event.seq);
                         }
@@ -253,7 +258,7 @@ impl RxDispatcher {
                 }
             },
             Err(e) => {
-                if let Some((mut done_tx, _)) = self.response_map.remove(&event.seq) {
+                if let Some((mut done_tx, _)) = self.take_response(event.seq) {
                     _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
                 } else {
                     warn!("unknown seq {:?} for remote err {e:?}", &event.seq);
@@ -262,10 +267,19 @@ impl RxDispatcher {
         }
     }
 
+    fn take_response(&mut self, seq: SeqTy) -> Option<(ResponseSenderWrapper, Instant)> {
+        let r = self.response_map.remove(&seq);
+        if r.is_some() {
+            self.freed.push(seq);
+        }
+        r
+    }
+
     fn cancel_all_requests(&mut self) {
         trace!("canceling all requests");
-        for (_, (mut done_tx, _)) in self.response_map.drain() {
+        for (seq, (mut done_tx, _)) in self.response_map.drain() {
             _ = done_tx.send(Err(Error::Disconnected));
+            self.freed.push(seq);
         }
     }
 

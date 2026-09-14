@@ -143,9 +143,10 @@ where
     fn compact(&mut self) {
         let base = match self.state {
             State::Gap => 0,
+            // doesn't happen in framed mode, only possible in stream on partially available Head
             State::Assembling { assembled, .. } => assembled,
-            // keep in-place message intact, compaction happens once it is consumed
-            State::Ready { .. } => return,
+            // reassemble() consumes Ready on entry and returns immediately
+            State::Ready { .. } => unreachable!(),
         };
         self.staging_pos = base;
         self.staging_end = base;
@@ -157,7 +158,8 @@ where
         let base = match self.state {
             State::Gap => 0,
             State::Assembling { assembled, .. } => assembled,
-            State::Ready { .. } => return,
+            // reassemble() consumes Ready on entry and returns immediately
+            State::Ready { .. } => unreachable!(),
         };
         if self.staging_pos > base {
             self.assembly_buf
@@ -330,7 +332,8 @@ where
                 self.state = State::Gap;
                 Step::Next
             }
-            (State::Ready { .. }, _) => unreachable!("Ready is consumed at reassemble() start"),
+            // Ready is consumed at reassemble() start
+            (State::Ready { .. }, _) => unreachable!(),
         }
     }
 }
@@ -552,6 +555,24 @@ mod tests {
         feed(&mut rx, &[START_4, 1, 2], &[]);
         feed(&mut rx, &[CONT_2, 3, 4], &[]);
         feed(&mut rx, &[END_1, 4], &[]);
+        assert_eq!(rx.free(), 16);
+    }
+
+    // this is for potential stream implementation, can't happen on framed
+    #[test]
+    fn partial_end_head_while_assembling_waits_for_more_data() {
+        let mut buf = [0u8; 16];
+        let mut rx = TestRx::new(&mut buf);
+        feed(&mut rx, &[START_3_UK255[0], START_3_UK255[1], 0xAA], &[]);
+        assert_eq!(rx.free(), 15);
+        // extended user kind End head cut in two: first byte is kept after assembled bytes
+        feed(&mut rx, &[END_2_UK255[0]], &[]);
+        assert_eq!(rx.free(), 14);
+        feed(
+            &mut rx,
+            &[END_2_UK255[1], 0xBB, 0xCC],
+            &[(255, &[0xAA, 0xBB, 0xCC])],
+        );
         assert_eq!(rx.free(), 16);
     }
 

@@ -331,7 +331,46 @@ The checksum length is configured separately for `Full` and split messages. On U
 already protected by the frame CRC, while a split one spans several frames and a lost frame in between would not
 be detected by the medium alone — so a typical setup is _no_ checksum for `Full` and a small one for split messages.
 
-Example: CRC-8 (poly `0x07`) for split messages only, and a `0x7E` end marker after every message:
+### Ready-made CRCs: `ww_framer::crc`
+
+Instead of hand-rolling a checksum, use `CrcChecksum<A, FULL>` built on the [crc](https://docs.rs/crc) crate.
+`A` selects both the **width** (u8 / u16 / u32 / u64, written little endian) and the **algorithm**; the lookup table
+is computed at compile time. `FULL` (default `false`) controls whether `Full` messages are checksummed too:
+
+```rust
+use ww_framer::crc::{CrcChecksum, Crc16Usb, Crc32IsoHdlc};
+
+// 2-byte CRC-16/USB on split messages only — the usual choice for USB / CAN
+type LinkTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc16Usb>, NopTail>;
+
+// 4-byte CRC-32 on every message — for media without its own frame CRC
+type StreamTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc32IsoHdlc, true>, EndMarker>;
+```
+
+| Type           | Width   | Algorithm                                  |
+| -------------- | ------- | ------------------------------------------ |
+| `Crc8Smbus`    | 1 byte  | CRC-8/SMBUS, poly `0x07`                   |
+| `Crc16Usb`     | 2 bytes | CRC-16/USB, poly `0x8005` reflected        |
+| `Crc16IbmSdlc` | 2 bytes | CRC-16/X-25 (HDLC, PPP), poly `0x1021`     |
+| `Crc32IsoHdlc` | 4 bytes | CRC-32 (zlib, Ethernet), poly `0x04C11DB7` |
+
+Any other algorithm from the `crc` catalog is a three-line impl:
+
+```rust
+use ww_framer::crc::CrcAlgorithm;
+
+struct Crc8Autosar;
+impl CrcAlgorithm for Crc8Autosar {
+    type Width = u8;
+    const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
+}
+type LinkChecksum = CrcChecksum<Crc8Autosar>;
+```
+
+### Hand-rolled example
+
+The traits are small enough to implement directly. CRC-8 (poly `0x07`) for split messages only, and a `0x7E` end
+marker after every message:
 
 ```rust
 use shrink_wrap::{BufReader, BufWriter};
@@ -539,11 +578,11 @@ loop {
 Everything above is generic over three traits in `ww_framer::traits`, so a different medium can plug in its own
 encoding without touching the packing/splitting logic:
 
-| Trait      | Purpose                                                                                                  | Provided implementations       |
-| ---------- | -------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MIN_FRAME_SIZE`                             | `framed::U2Head`               |
-| `Checksum` | Optional fixed-length checksum after each message, separately configurable for `Full` and split messages | `NopChecksum`, `Crc8`, `Crc16` |
-| `Tail`     | Optional fixed-length bytes after each message (e.g. an end marker for stream media)                     | `NopTail`, `ByteTail`          |
+| Trait      | Purpose                                                                                                  | Provided implementations          |
+| ---------- | -------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MIN_FRAME_SIZE`                             | `framed::U2Head`                  |
+| `Checksum` | Optional fixed-length checksum after each message, separately configurable for `Full` and split messages | `NopChecksum`, `crc::CrcChecksum` |
+| `Tail`     | Optional fixed-length bytes after each message (e.g. an end marker for stream media)                     | `NopTail`, `ByteTail`             |
 
 See [Checksum and tail](#checksum-and-tail) for an example implementation of the last two.
 

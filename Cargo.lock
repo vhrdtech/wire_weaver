@@ -3595,6 +3595,7 @@ dependencies = [
 name = "ww_framer"
 version = "0.1.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
 ]
 

@@ -2,19 +2,17 @@
 
 use arbitrary::Unstructured;
 use libfuzzer_sys::fuzz_target;
-use ww_framer::{
-    FramedRx, Tx,
-    framed::U2Head,
-    traits::{NopChecksum, NopTail},
-};
+use ww_framer::{FramedRx, Tx, framed::U2Head, traits::NopTail};
 
 const MAX_FRAMES: usize = 512;
 const MAX_SMALL_MSG: usize = 32;
-const MAX_LARGE_MSG: usize = 1024;
+const MAX_LARGE_MSG: usize = 1024 + 128;
 const MIN_FRAME: usize = 6; // 4 enough with default features, 5 for "large", 6 for "very_large" (U2Head)
 const MAX_FRAME: usize = 1024;
 /// max message + max frame + some headroom
-const RX_BUF: usize = MAX_LARGE_MSG + MAX_FRAME + 16;
+const RX_BUF: usize = MAX_LARGE_MSG + MAX_FRAME;
+// type CHECKSUM = ww_framer::traits::NopChecksum;
+type CHECKSUM = ww_framer::crc::CrcChecksum<ww_framer::crc::Crc16IbmSdlc>;
 
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
@@ -24,7 +22,7 @@ fuzz_target!(|data: &[u8]| {
 
     // ---------- Tx side: generate messages, collect frames ----------
     let mut tx_buf = vec![0u8; frame_size];
-    let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut tx_buf);
+    let mut tx = Tx::<U2Head, CHECKSUM, NopTail>::new(&mut tx_buf);
 
     let mut expected: Vec<(u8, Vec<u8>)> = Vec::new();
     let mut frames: Vec<Vec<u8>> = Vec::new();
@@ -35,8 +33,7 @@ fuzz_target!(|data: &[u8]| {
         for _ in 0..batch {
             let user_kind: u8 = u.arbitrary().unwrap_or(0);
             let len: usize = if u.ratio(1, 16).unwrap_or(false) {
-                u.int_in_range(MAX_LARGE_MSG..=MAX_LARGE_MSG + 128)
-                    .unwrap_or(0)
+                u.int_in_range(1024..=MAX_LARGE_MSG).unwrap_or(0)
             } else {
                 u.int_in_range(0..=MAX_SMALL_MSG).unwrap_or(0)
             };
@@ -83,7 +80,7 @@ fuzz_target!(|data: &[u8]| {
 
     // ---------- Rx side: deliver frames in bursts, compare ----------
     let mut rx_buf = vec![0u8; RX_BUF];
-    let mut rx = FramedRx::<U2Head, NopChecksum, NopTail>::new(&mut rx_buf);
+    let mut rx = FramedRx::<U2Head, CHECKSUM, NopTail>::new(&mut rx_buf);
 
     let mut received = 0usize;
     let mut frame_idx = 0usize;

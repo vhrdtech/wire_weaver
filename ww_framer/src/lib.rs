@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod crc;
 pub mod framed;
 pub mod framed_rx;
 mod tests;

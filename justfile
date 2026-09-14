@@ -81,4 +81,4 @@ deps-ext:
 # Fuzz ww_framer
 [working-directory('fuzz')]
 fuzz-framer:
-    cargo +nightly fuzz run framer-tx-rx
+    cargo +nightly fuzz run framer-tx-rx -- -max_len=32768

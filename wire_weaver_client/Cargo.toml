@@ -45,5 +45,6 @@ tracing = "0.1"
 wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_link = { path = "../ww_link", features = ["std"] }
+ww_framer = { workspace = true, features = ["std", "large"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }

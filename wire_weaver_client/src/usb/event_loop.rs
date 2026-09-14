@@ -1,5 +1,5 @@
-//! Async USB wrapper around the sans-IO [Core]: owns the command channel, nusb endpoints
-//! and timers, and only shuffles [Input]s in and [Output]s out.
+//! Async USB wrapper around the sans-IO [Core]: owns the command channel, nusb endpoints,
+//! the framer and timers, and only shuffles [Input]s in and [Output]s out.
 
 use std::time::{Duration, Instant};
 
@@ -12,13 +12,18 @@ use tracing::{debug, trace, warn};
 use super::tracing::Tracer;
 use super::ww_nusb::{ERR_WRITE_PACKET_TIMEOUT, Sink, Source};
 use crate::event_loop::command::Command;
-use crate::event_loop::core::{Core, Input, Output};
+use crate::event_loop::core::{Core, Input, MAX_MESSAGE_SIZE, Output};
+use crate::event_loop::framing::Framing;
 
-/// nusb endpoints, present only while connected.
+/// USB packets are checked by the hardware, but a CRC over each split message still catches
+/// packets lost or reordered on re-connection.
+type UsbFraming = Framing<ww_link::Head, ww_link::Checksum, ww_link::Tail>;
+
+/// nusb endpoints and framer, present only while connected.
 struct Transport {
     sink: Sink,
     source: Source,
-    max_packet_size: usize,
+    framing: UsbFraming,
     tracer: Tracer,
     _device: nusb::Device,
 }
@@ -28,41 +33,57 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
     let mut core = Core::new();
     let mut transport: Option<Transport> = None;
     let mut rx_buf = vec![0u8; 1024];
+    let mut frames: Vec<Vec<u8>> = vec![];
 
     let result = loop {
         // Drain outputs first, do not feed new inputs until done
         let mut exit = None;
         while let Some(output) = core.poll_output() {
             // match is split from the await below, so that non-Send `handle` is not held across it
-            let frame = match output {
+            match output {
                 Output::Connect(handle) => {
                     match connect(handle) {
                         Ok(t) => {
-                            let frame_size = t.max_packet_size;
                             transport = Some(t);
-                            core.handle(Instant::now(), Input::TransportUp { frame_size });
+                            core.handle(Instant::now(), Input::TransportUp);
                         }
                         Err(e) => core.handle(Instant::now(), Input::TransportError(e)),
                     }
                     continue;
                 }
-                Output::SendFrame(frame) => frame,
+                Output::Send { kind, payload } => {
+                    let Some(t) = transport.as_mut() else {
+                        warn!("Send without transport, dropping");
+                        continue;
+                    };
+                    if let Err(e) = t.framing.write(kind, &payload, &mut frames) {
+                        // Core is responsible for not sending oversized messages, so this is a bug or a
+                        // wrong frame size, not something the device did
+                        core.handle(Instant::now(), Input::TransportError(e.to_string()));
+                        continue;
+                    }
+                }
+                Output::Flush => {
+                    if let Some(t) = transport.as_mut() {
+                        t.framing.flush(&mut frames);
+                    }
+                }
                 Output::Exit(result) => {
                     exit = Some(result);
                     break;
                 }
-            };
-            let Some(t) = transport.as_mut() else {
-                warn!("SendFrame without transport, dropping");
-                continue;
-            };
-            t.tracer.tx(&frame);
-            if let Err(e) = t.sink.write_packet(&frame).await {
-                let e = describe_transfer_error(e);
+            }
+            if let Some(t) = transport.as_mut()
+                && let Err(e) = send_frames(t, &mut frames).await
+            {
                 core.handle(Instant::now(), Input::TransportError(e));
             }
         }
         if let Some(result) = exit {
+            if let Some(t) = transport.as_mut() {
+                t.framing.flush(&mut frames);
+                _ = send_frames(t, &mut frames).await;
+            }
             // give the last (Disconnect) transfer a chance to actually go out before endpoints are dropped
             tokio::time::sleep(Duration::from_millis(3)).await;
             transport = None;
@@ -92,10 +113,19 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
             frame = frame => {
                 match frame {
                     Ok(len) => {
-                        if let Some(t) = &transport {
-                            t.tracer.rx(&rx_buf[..len]);
+                        let frame = &rx_buf[..len];
+                        trace!("rx frame: {len}: {frame:02x?}");
+                        let now = Instant::now();
+                        // transport is Some, otherwise this branch would be pending
+                        if let Some(t) = transport.as_mut() {
+                            t.tracer.rx(frame);
+                            if let Err(e) = t.framing.stage(frame) {
+                                warn!("{e}, dropping frame");
+                            }
+                            while let Some((kind, payload)) = t.framing.next_message() {
+                                core.handle(now, Input::Message { kind, payload });
+                            }
                         }
-                        core.handle(Instant::now(), Input::Frame(&rx_buf[..len]))
                     }
                     Err(e) => core.handle(Instant::now(), Input::TransportError(describe_transfer_error(e))),
                 }
@@ -114,6 +144,18 @@ pub async fn usb_worker(mut cmd_rx: mpsc::Receiver<Command>) {
     debug!("usb worker exited");
 }
 
+async fn send_frames(t: &mut Transport, frames: &mut Vec<Vec<u8>>) -> Result<(), String> {
+    for frame in frames.drain(..) {
+        trace!("tx frame: {}: {frame:02x?}", frame.len());
+        t.tracer.tx(&frame);
+        t.sink
+            .write_packet(&frame)
+            .await
+            .map_err(describe_transfer_error)?;
+    }
+    Ok(())
+}
+
 fn connect(handle: Box<dyn std::any::Any + Send>) -> Result<Transport, String> {
     let di = handle
         .downcast::<DeviceInfo>()
@@ -129,7 +171,7 @@ fn connect(handle: Box<dyn std::any::Any + Send>) -> Result<Transport, String> {
     Ok(Transport {
         sink,
         source,
-        max_packet_size: dev.max_packet_size,
+        framing: UsbFraming::new(dev.max_packet_size, MAX_MESSAGE_SIZE),
         tracer,
         _device: dev.device,
     })

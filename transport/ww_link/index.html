@@ -1717,6 +1717,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-host-runs-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How the host runs it
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How the host runs it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-two-halves" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why two halves
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-split-buys" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the split buys
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2245,6 +2284,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-host-runs-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How the host runs it
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How the host runs it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-two-halves" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why two halves
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-split-buys" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the split buys
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2581,6 +2659,48 @@ size). Both ends of a link must of course agree on the configuration.</p>
 <li>Nothing received for <code>PEER_TIMEOUT_MS</code> → the host disconnects with an error.</li>
 <li>Each side sends <code>Disconnect</code> on the way out when it can, but must not rely on the peer doing so.</li>
 </ul>
+<h2 id="how-the-host-runs-it">How the host runs it<a class="headerlink" href="#how-the-host-runs-it" title="Permanent link">&para;</a></h2>
+<p><code>ww_link</code> itself is just messages. The host side (<code>wire_weaver_client</code>) drives them with two small
+<strong>sans-IO state machines</strong> — one per direction — that contain all the protocol logic but do no IO, own no
+timers and hold no channels. A thin per-transport wrapper supplies those.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>                 commands                              frames
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a> Commander ───────────────► TxCore ──► Send / Flush ──► framer ──► medium
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                              ▲  │
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                         ToTx │  │ ToRx          (plain enums, ferried by the wrapper)
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>                              │  ▼
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a> responses, streams ◄──── RxCore ◄── (kind, payload) ◄── framer ◄── medium
+</span></code></pre></div>
+<p><strong>Tx</strong> handles every command, drives link setup (Nop → GetDeviceInfo with retries → LinkSetup), decides when
+to flush the accumulated frame, sends pings and allocates request IDs.
+<strong>Rx</strong> decodes messages, does the version check, routes responses and stream data to waiting callers, times out
+requests and detects a silent peer.</p>
+<p>Both are fed inputs (<code>Command</code>, <code>Message</code>, <code>Timer</code>, ...) with an explicit <code>now</code>, and hand back outputs
+(<code>Send</code>, <code>Flush</code>, <code>Connect</code>, <code>Exit</code>) plus a few messages for the other half:</p>
+<ul>
+<li>rx → tx: <code>DeviceInfo</code> accepted, <code>LinkReady</code>, request ID <code>Freed</code>, <code>PeerGone</code></li>
+<li>tx → rx: <code>Expect</code> this response, subscribe to a stream, <code>TransportUp</code>, <code>Stop</code></li>
+</ul>
+<h3 id="why-two-halves">Why two halves<a class="headerlink" href="#why-two-halves" title="Permanent link">&para;</a></h3>
+<p>A device is usually <strong>half-duplex</strong>: it reads a packet, answers, and does not read again until the answer is
+written out. If the host behaves the same way — awaiting a write while not reading — both sides eventually block
+on each other as soon as a burst of requests produces more replies than the host has receive buffers for. It
+shows up as a stall followed by a write timeout, and is hard to reproduce on real hardware.</p>
+<p>Running rx and tx as <strong>independent tasks</strong> removes the cycle: the host always drains what the device writes, so
+the device always gets back to reading, so host writes always complete. Backpressure falls out for free — a slow
+device just means the tx task is parked in a write, so the command channel fills up and
+<code>Commander::send().await</code> waits. No watermarks, no prioritised selects.</p>
+<h3 id="what-the-split-buys">What the split buys<a class="headerlink" href="#what-the-split-buys" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Testable without a runtime or hardware.</strong> Both cores are exercised in unit tests by hand-advancing time and
+  ferrying <code>ToTx</code>/<code>ToRx</code> between them; the half-duplex deadlock has a regression test against a mock device.</li>
+<li><strong>One protocol implementation, any wrapper.</strong> The async USB wrapper is ~200 lines of plumbing. A blocking
+  transport is two <code>std::thread</code>s: tx does <code>blocking_recv</code> on commands plus a timer, rx does a read with timeout.
+  No <code>select!</code> at all.</li>
+<li><strong>Framing is the wrapper's choice.</strong> Cores speak <code>(kind, payload)</code>; USB uses <code>U2Head</code> + CRC-16, another medium
+  can pick differently or skip framing if it already delivers whole messages.</li>
+<li><strong>Mirrors the device side.</strong> Embedded implementations already run separate rx/tx tasks, so porting the device
+  onto <code>ww_link</code> follows the same shape.</li>
+</ul>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2609,7 +2729,9 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
 <h2 id="relation-to-other-crates">Relation to other crates<a class="headerlink" href="#relation-to-other-crates" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../ww_framer/">ww_framer</a> — packs <code>ww_link</code> messages into frames; <code>ww_link</code> only picks its parameters.</li>
-<li><code>wire_weaver_client</code> — host event loop: owns framers, timers, retries and the state machine above.</li>
+<li><code>wire_weaver_client</code> — host event loop: two sans-IO state machines (tx: commands, setup retries, accumulation,
+  ping, seq allocation; rx: decoding, version check, dispatcher, peer timeout) run as independent tasks so that
+  receiving is never blocked by a write.</li>
 <li><code>wire_weaver_usb_link</code> — current device-side implementation; being migrated onto <code>ww_framer</code> + <code>ww_link</code>.</li>
 <li><a href="../usb/">USB</a>, <a href="../ws/">WebSocket</a>, <a href="../udp/">UDP</a> — transports that carry frames.</li>
 </ul>

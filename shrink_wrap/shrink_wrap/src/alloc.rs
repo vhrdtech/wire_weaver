@@ -1,6 +1,6 @@
 use crate::{
-    BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error,
-    SerializeShrinkWrap,
+    BufReader, BufWriter, BufWriterOwned, DeserializeShrinkWrap, DeserializeShrinkWrapOwned,
+    ElementSize, Error, SerializeShrinkWrap, SerializeShrinkWrapOwned,
 };
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Vec<T> {
@@ -11,6 +11,21 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Vec<T> {
             return Err(Error::VecTooLong);
         };
         wr.write_u16_rev(len_u16)?;
+        for item in self {
+            wr.write(item)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for Vec<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        let Ok(len_u32) = u32::try_from(self.len()) else {
+            return Err(Error::VecTooLong);
+        };
+        wr.write_u32_rev(len_u32)?;
         for item in self {
             wr.write(item)?;
         }
@@ -66,6 +81,14 @@ impl SerializeShrinkWrap for String {
     }
 }
 
+impl SerializeShrinkWrapOwned for String {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        wr.write_str(self.as_str())
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for String {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
@@ -87,6 +110,14 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Box<T> {
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         T::ser_shrink_wrap(self, wr)
+    }
+}
+
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for Box<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        T::ser_shrink_wrap_owned(self, wr)
     }
 }
 

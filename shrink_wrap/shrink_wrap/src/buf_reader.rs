@@ -720,10 +720,7 @@ mod tests {
 
         let mut rd = BufReader::new(buf);
         assert_eq!(rd.read_owned::<bool>(), Ok(true));
-        assert_eq!(
-            rd.read_owned::<Box<u32>>(),
-            Ok(Box::new(42))
-        );
+        assert_eq!(rd.read_owned::<Box<u32>>(), Ok(Box::new(42)));
     }
 
     #[test]

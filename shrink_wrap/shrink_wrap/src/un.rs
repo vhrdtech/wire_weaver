@@ -53,6 +53,15 @@ macro_rules! un {
                 }
             }
 
+            #[cfg(feature = "std")]
+            impl crate::SerializeShrinkWrapOwned for [<U $bits>] {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
+                fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+                    wr.[<write_un $base_bits>]($bits, self.0)
+                }
+            }
+
             impl<'i> DeserializeShrinkWrap<'i> for [<U $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
 
@@ -227,6 +236,15 @@ macro_rules! signed_un {
                 }
             }
 
+            #[cfg(feature = "std")]
+            impl crate::SerializeShrinkWrapOwned for [<I $bits>] {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
+                fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+                    wr.[<write_un $base_bits>]($bits, self.0 as [<u $base_bits>])
+                }
+            }
+
             impl<'i> DeserializeShrinkWrap<'i> for [<I $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
 
@@ -310,6 +328,15 @@ impl SerializeShrinkWrap for UN {
     }
 }
 
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for UN {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, _wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        todo!()
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for UN {
     const ELEMENT_SIZE: ElementSize = <UN as SerializeShrinkWrap>::ELEMENT_SIZE;
 
@@ -330,6 +357,15 @@ impl SerializeShrinkWrap for IN {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), Error> {
+        todo!()
+    }
+}
+
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for IN {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, _wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
         todo!()
     }
 }

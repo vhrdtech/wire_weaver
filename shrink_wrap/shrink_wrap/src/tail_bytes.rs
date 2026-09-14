@@ -23,6 +23,15 @@ impl SerializeShrinkWrap for TailBytes<'_> {
     }
 }
 
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for TailBytes<'_> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        wr.write_raw_slice(self.0)
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for TailBytes<'i> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
@@ -79,6 +88,15 @@ impl SerializeShrinkWrap for TailBytesOwned {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut crate::prelude::BufWriter) -> Result<(), Error> {
+        wr.write_raw_slice(self.0.as_slice())
+    }
+}
+
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for TailBytesOwned {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
         wr.write_raw_slice(self.0.as_slice())
     }
 }

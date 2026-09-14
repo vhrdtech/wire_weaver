@@ -58,6 +58,28 @@ where
     }
 }
 
+#[cfg(feature = "std")]
+impl<'i, T> crate::SerializeShrinkWrapOwned for RefBox<'i, T>
+where
+    T: crate::SerializeShrinkWrapOwned + DeserializeShrinkWrap<'i>,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        match self {
+            RefBox::Ref { value } => {
+                value.ser_shrink_wrap_owned(wr)?;
+            }
+            RefBox::Buf { buf } => {
+                let mut rd = *buf;
+                let value = T::des_shrink_wrap(&mut rd)?;
+                value.ser_shrink_wrap_owned(wr)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefBox<'i, T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 

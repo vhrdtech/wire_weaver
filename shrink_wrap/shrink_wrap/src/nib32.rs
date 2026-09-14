@@ -110,6 +110,15 @@ impl SerializeShrinkWrap for UNib32 {
     }
 }
 
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for UNib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        wr.write_unib32(self.0)
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for UNib32 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 

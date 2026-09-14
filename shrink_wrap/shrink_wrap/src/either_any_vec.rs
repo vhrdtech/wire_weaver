@@ -234,6 +234,15 @@ impl<'i> SerializeShrinkWrap for EitherAnyVec<'i> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<'i> crate::SerializeShrinkWrapOwned for EitherAnyVec<'i> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        wr.write_raw_slice(self.data)
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for EitherAnyVec<'i> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 

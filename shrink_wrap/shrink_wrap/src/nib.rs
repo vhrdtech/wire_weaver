@@ -56,6 +56,15 @@ impl SerializeShrinkWrap for Nibble {
     }
 }
 
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for Nibble {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        wr.write_nib(*self)
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for Nibble {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
 

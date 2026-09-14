@@ -169,6 +169,36 @@ where
     }
 }
 
+#[cfg(feature = "std")]
+impl<'i, T> crate::SerializeShrinkWrapOwned for RefVec<'i, T>
+where
+    T: crate::SerializeShrinkWrapOwned + DeserializeShrinkWrap<'i> + Clone,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        match self {
+            RefVec::Slice { slice, .. } => {
+                let Ok(elements_count) = u32::try_from(slice.len()) else {
+                    return Err(Error::VecTooLong);
+                };
+                wr.write_u32_rev(elements_count)?;
+                for item in slice.iter() {
+                    wr.write(item)?;
+                }
+            }
+            RefVec::Buf { elements_count, .. } => {
+                wr.write_u32_rev(*elements_count)?;
+                for item in self.iter() {
+                    let item = item?;
+                    wr.write(&item)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 

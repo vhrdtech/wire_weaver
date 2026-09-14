@@ -7,6 +7,10 @@ pub use buf_reader::BufReader;
 use core::fmt::{Display, Formatter};
 pub mod buf_writer;
 pub use buf_writer::BufWriter;
+#[cfg(feature = "std")]
+pub mod buf_writer_owned;
+#[cfg(feature = "std")]
+pub use buf_writer_owned::BufWriterOwned;
 pub mod nib32;
 pub use crate::nib32::UNib32;
 pub mod ref_box;
@@ -16,6 +20,8 @@ pub use ref_vec::{RefVec, RefVecIter};
 pub mod either_any_vec;
 pub mod traits;
 pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
+#[cfg(feature = "std")]
+pub use traits::SerializeShrinkWrapOwned;
 pub use traits::{
     DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
 };
@@ -86,10 +92,14 @@ pub mod prelude {
     pub use crate::any_on_stack::AnyOnStack;
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
+    #[cfg(feature = "std")]
+    pub use crate::buf_writer_owned::BufWriterOwned;
     pub use crate::nib::Nibble;
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;
     pub use crate::ref_vec::{RefVec, RefVecIter};
+    #[cfg(feature = "std")]
+    pub use crate::traits::SerializeShrinkWrapOwned;
     pub use crate::traits::{
         DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
     };

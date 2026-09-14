@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+use crate::BufWriterOwned;
 use crate::{BufReader, BufWriter, Error};
 use paste::paste;
 
@@ -25,17 +27,20 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
     }
 }
 
-// pub trait SerializeShrinkWrapOwned {
-//     const ELEMENT_SIZE: ElementSize;
+/// Same as [SerializeShrinkWrap], but serializes into a growable [BufWriterOwned] and without
+/// the `u16::MAX` limit on lengths and Unsized object sizes.
+#[cfg(feature = "std")]
+pub trait SerializeShrinkWrapOwned {
+    const ELEMENT_SIZE: ElementSize;
 
-//     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error>;
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error>;
 
-//     fn to_ww_bytes_owned(&self, buf: &mut Vec) -> Result<(), Error> {
-//         let mut wr = BufWriter::new(buf);
-//         self.ser_shrink_wrap(&mut wr)?;
-//         wr.finish_and_take()
-//     }
-// }
+    fn to_ww_bytes_owned(&self) -> Result<Vec<u8>, Error> {
+        let mut wr = BufWriterOwned::new();
+        self.ser_shrink_wrap_owned(&mut wr)?;
+        wr.finish_and_take()
+    }
+}
 
 pub trait DeserializeShrinkWrapOwned: Sized {
     const ELEMENT_SIZE: ElementSize;
@@ -139,6 +144,15 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for &T {
     }
 }
 
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for &T {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        <T as SerializeShrinkWrapOwned>::ser_shrink_wrap_owned(self, wr)
+    }
+}
+
 impl ElementSize {
     pub const fn add(&self, other: ElementSize) -> ElementSize {
         // Order is very important here, size requirement is bumped from Sized to SelfDescribing to Unsized.
@@ -182,6 +196,15 @@ impl SerializeShrinkWrap for ElementSize {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for ElementSize {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 2 };
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        wr.write_un8(2, self.discriminant())
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for ElementSize {
     const ELEMENT_SIZE: ElementSize = <Self as SerializeShrinkWrap>::ELEMENT_SIZE;
 
@@ -215,6 +238,15 @@ impl SerializeShrinkWrap for bool {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for bool {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 1 };
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        wr.write_bool(*self)
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for bool {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 1 };
 
@@ -238,6 +270,15 @@ macro_rules! impl_serialize {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                    wr.[<write_ $sign $bits>](*self)
+                }
+            }
+
+            #[cfg(feature = "std")]
+            impl SerializeShrinkWrapOwned for [<$sign $bits>] {
+                const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+
+                fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
                     wr.[<write_ $sign $bits>](*self)
                 }
             }
@@ -303,10 +344,28 @@ impl SerializeShrinkWrap for &'_ [u8] {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for &'_ [u8] {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        wr.write_bytes(self)
+    }
+}
+
 impl SerializeShrinkWrap for &'_ str {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_str(self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for &'_ str {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write_str(self)
     }
 }
@@ -323,6 +382,21 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        match self {
+            Some(val) => {
+                wr.write_bool(true)?;
+                wr.write(val)
+            }
+            None => wr.write_bool(false),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for Option<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         match self {
             Some(val) => {
                 wr.write_bool(true)?;
@@ -363,6 +437,26 @@ impl<T: SerializeShrinkWrap, E: SerializeShrinkWrap> SerializeShrinkWrap for Res
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        match self {
+            Ok(val) => {
+                wr.write_bool(true)?;
+                wr.write(val)
+            }
+            Err(err) => {
+                wr.write_bool(false)?;
+                wr.write(err)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned, E: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned
+    for Result<T, E>
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         match self {
             Ok(val) => {
                 wr.write_bool(true)?;
@@ -419,6 +513,16 @@ macro_rules! impl_tuple {
                 }
             }
 
+            #[cfg(feature = "std")]
+            impl<$($types: SerializeShrinkWrapOwned),*> SerializeShrinkWrapOwned for ($($types),*) {
+                const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+                fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+                    $(wr.write(&self.$indices)?;)*
+                    Ok(())
+                }
+            }
+
             impl<'i, $($types: DeserializeShrinkWrap<'i>),*> DeserializeShrinkWrap<'i>
                 for ($($types),*)
             {
@@ -462,6 +566,18 @@ impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        for elem in self {
+            wr.write(elem)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<const N: usize, T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for [T; N] {
+    const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         for elem in self {
             wr.write(elem)?;
         }
@@ -516,6 +632,15 @@ impl SerializeShrinkWrap for () {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for () {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+
+    fn ser_shrink_wrap_owned(&self, _wr: &mut BufWriterOwned) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
 impl<'i> DeserializeShrinkWrap<'i> for () {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
 
@@ -536,6 +661,17 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write(&self.start)?;
+        wr.write(&self.end)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::Range<T> {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write(&self.start)?;
         wr.write(&self.end)?;
         Ok(())
@@ -566,6 +702,17 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::RangeInclusive<T
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write(self.start())?;
+        wr.write(self.end())?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::RangeInclusive<T> {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write(self.start())?;
         wr.write(self.end())?;
         Ok(())

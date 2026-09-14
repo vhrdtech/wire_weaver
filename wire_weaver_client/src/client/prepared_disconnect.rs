@@ -1,5 +1,5 @@
 use tokio::sync::{mpsc, oneshot};
-use wire_weaver_usb_link::DisconnectReason;
+use wire_weaver::DisconnectReason;
 
 use crate::{Error, internal::Command};
 

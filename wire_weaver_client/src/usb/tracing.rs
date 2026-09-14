@@ -1,73 +1,76 @@
-use iceoryx2::port::publisher::Publisher;
-use iceoryx2::prelude::ZeroCopySend;
-use iceoryx2::service::ipc_threadsafe::Service;
-use iceoryx2_bb_container::vector::{StaticVec, Vector};
-use wire_weaver_usb_link::{PacketSink, PacketSource};
+//! Stream all USB packets over iceoryx2 to a debugger (feature `usb-tracing`).
 
-#[derive(ZeroCopySend, Debug)]
-#[repr(C)]
-pub struct UsbPacket {
-    pub ep: u8,
-    pub data: StaticVec<u8, 1024>,
-}
+#[cfg(feature = "usb-tracing")]
+mod imp {
+    use iceoryx2::port::publisher::Publisher;
+    use iceoryx2::prelude::*;
+    use iceoryx2::service::ipc_threadsafe::Service;
+    use iceoryx2_bb_container::vector::{StaticVec, Vector};
 
-pub(crate) struct SinkTrace<B> {
-    publisher: Publisher<Service, UsbPacket, ()>,
-    inner: B,
-}
+    #[derive(ZeroCopySend, Debug)]
+    #[repr(C)]
+    pub struct UsbPacket {
+        pub ep: u8,
+        pub data: StaticVec<u8, 1024>,
+    }
 
-pub(crate) struct SourceTrace<B> {
-    publisher: Publisher<Service, UsbPacket, ()>,
-    inner: B,
-}
+    pub struct Tracer {
+        _node: Node<Service>,
+        tx: Publisher<Service, UsbPacket, ()>,
+        rx: Publisher<Service, UsbPacket, ()>,
+    }
 
-impl<B: PacketSink + Send + Sync> SinkTrace<B> {
-    pub(crate) fn new(publisher: Publisher<Service, UsbPacket, ()>, inner: B) -> Self {
-        Self { publisher, inner }
+    impl Tracer {
+        pub fn new(di: &nusb::DeviceInfo) -> anyhow::Result<Self> {
+            let node = NodeBuilder::new().create::<Service>()?;
+            let name = format!("WireWeaver/UsbTrace/{}-{:?}", di.bus_id(), di.port_chain());
+            let publisher = |suffix: &str| -> anyhow::Result<_> {
+                let service = node
+                    .service_builder(&ServiceName::new(format!("{name}/{suffix}").as_str())?)
+                    .publish_subscribe::<UsbPacket>()
+                    .open_or_create()?;
+                Ok(service.publisher_builder().create()?)
+            };
+            Ok(Tracer {
+                tx: publisher("tx")?,
+                rx: publisher("rx")?,
+                _node: node,
+            })
+        }
+
+        pub fn tx(&self, frame: &[u8]) {
+            Self::publish(&self.tx, frame);
+        }
+
+        pub fn rx(&self, frame: &[u8]) {
+            Self::publish(&self.rx, frame);
+        }
+
+        fn publish(publisher: &Publisher<Service, UsbPacket, ()>, frame: &[u8]) {
+            let Ok(packet) = publisher.loan_uninit() else {
+                return;
+            };
+            let mut data = StaticVec::new();
+            if data.resize(frame.len(), 0).is_err() {
+                return;
+            }
+            data[..frame.len()].copy_from_slice(frame);
+            _ = packet.write_payload(UsbPacket { ep: 0, data }).send();
+        }
     }
 }
 
-impl<B: PacketSource + Send + Sync> SourceTrace<B> {
-    pub(crate) fn new(publisher: Publisher<Service, UsbPacket, ()>, inner: B) -> Self {
-        Self { publisher, inner }
+#[cfg(not(feature = "usb-tracing"))]
+mod imp {
+    pub struct Tracer;
+
+    impl Tracer {
+        pub fn new(_di: &nusb::DeviceInfo) -> anyhow::Result<Self> {
+            Ok(Tracer)
+        }
+        pub fn tx(&self, _frame: &[u8]) {}
+        pub fn rx(&self, _frame: &[u8]) {}
     }
 }
 
-impl<B: PacketSink> PacketSink for SinkTrace<B> {
-    type Error = B::Error;
-
-    async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        let packet = self.publisher.loan_uninit().unwrap();
-        let mut data_trace = StaticVec::new();
-        data_trace.resize(data.len(), 0).unwrap();
-        data_trace[..data.len()].copy_from_slice(data);
-        let packet = packet.write_payload(UsbPacket {
-            ep: 0,
-            data: data_trace,
-        });
-        packet.send().unwrap();
-
-        self.inner.write_packet(data).await
-    }
-}
-
-impl<B: PacketSource> PacketSource for SourceTrace<B> {
-    type Error = B::Error;
-
-    async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
-        let len = self.inner.read_packet(data).await?;
-        let packet = self.publisher.loan_uninit().unwrap();
-        let mut data_trace = StaticVec::new();
-        data_trace.resize(len, 0).unwrap();
-        data_trace[..len].copy_from_slice(&data[..len]);
-        let packet = packet.write_payload(UsbPacket {
-            ep: 0,
-            data: data_trace,
-        });
-        packet.send().unwrap();
-
-        Ok(len)
-    }
-
-    async fn wait_usb_connection(&mut self) {}
-}
+pub(crate) use imp::Tracer;

@@ -3434,8 +3434,8 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
- "wire_weaver_usb_link",
  "ww_client_server",
+ "ww_link",
  "ww_self",
  "ww_version",
 ]
@@ -3650,6 +3650,14 @@ dependencies = [
 [[package]]
 name = "ww_link"
 version = "0.4.0"
+dependencies = [
+ "defmt",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_framer",
+ "ww_global",
+ "ww_version",
+]
 
 [[package]]
 name = "ww_ll"

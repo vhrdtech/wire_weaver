@@ -52,6 +52,7 @@ syn = { version = "3", features = ["full", "extra-traits"] }
 
 wire_weaver = { path = "./wire_weaver", default-features = false }
 wire_weaver_client = { path = "./wire_weaver_client" }
+ww_framer = { path = "./ww_framer", default-features = false }
 wire_weaver_usb_embassy = { path = "./mcu/wire_weaver_usb_embassy" }
 wire_weaver_usb_link = { path = "./wire_weaver_usb_link", default-features = false }
 ww_client_server = { path = "./ww_stdlib/ww_client_server", default-features = false }

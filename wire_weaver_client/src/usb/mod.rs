@@ -1,44 +1,9 @@
 mod connect;
 
 mod event_loop;
-mod loopback;
 mod ww_nusb;
 
-#[cfg(feature = "usb-tracing")]
 pub mod tracing;
 // pub mod util;
 
 pub(crate) use connect::{try_connect, try_connect_blocking};
-
-use nusb::transfer::TransferError;
-use std::fmt::Debug;
-
-const MAX_MESSAGE_SIZE: usize = 2048;
-
-#[derive(thiserror::Error, Debug, Clone)]
-pub enum UsbError {
-    #[error("nusb error: {}", .0)]
-    Nusb(String),
-    #[error("WireWeaverUsbLink error: {:?}", .0)]
-    Link(wire_weaver_usb_link::Error<TransferError, TransferError>),
-    // #[error("nusb::watch_devices() iterator returned None")]
-    // WatcherReturnedNone,
-}
-
-impl From<nusb::Error> for UsbError {
-    fn from(value: nusb::Error) -> Self {
-        UsbError::Nusb(format!("{:?}", value))
-    }
-}
-
-impl From<wire_weaver_usb_link::Error<TransferError, TransferError>> for UsbError {
-    fn from(value: wire_weaver_usb_link::Error<TransferError, TransferError>) -> Self {
-        UsbError::Link(value)
-    }
-}
-
-impl Into<String> for UsbError {
-    fn into(self) -> String {
-        format!("{:?}", self)
-    }
-}

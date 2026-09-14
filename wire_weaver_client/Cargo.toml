@@ -10,7 +10,7 @@ license.workspace = true
 [features]
 default = ["usb"]
 # default = ["usb", "net"]
-usb = ["dep:wire_weaver_usb_link"] # USB (using nusb)
+usb = [] # USB (using nusb)
 net = [] # WebSockets or UDP
 can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
 rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
@@ -43,7 +43,7 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 tracing = "0.1"
 wire_weaver = { version = "0.4.0", path = "../wire_weaver" }
-wire_weaver_usb_link = { version = "0.1.0", path = "../wire_weaver_usb_link", features = ["host"], optional = true }
 ww_client_server = { workspace = true, features = ["std"] }
+ww_link = { path = "../ww_link", features = ["std"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }

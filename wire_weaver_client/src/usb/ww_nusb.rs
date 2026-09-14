@@ -1,4 +1,4 @@
-//! Handle packet sending and receiving between nusb and wire_weaver_usb_link
+//! Handle packet sending and receiving between nusb and the event loop
 
 use nusb::transfer::{
     Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
@@ -8,7 +8,6 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, error, trace, warn};
-use wire_weaver_usb_link::{PacketSink, PacketSource};
 
 pub(crate) struct Sink {
     buf_pool: Vec<Buffer>,
@@ -70,10 +69,8 @@ impl Sink {
     }
 }
 
-impl PacketSink for Sink {
-    type Error = TransferError;
-
-    async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+impl Sink {
+    pub async fn write_packet(&mut self, data: &[u8]) -> Result<(), TransferError> {
         let mut buf = if let Some(buf) = self.buf_pool.pop() {
             buf
         } else {
@@ -205,10 +202,8 @@ impl Source {
     }
 }
 
-impl PacketSource for Source {
-    type Error = TransferError;
-
-    async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+impl Source {
+    pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
         match self.completion_rx.recv().await {
             Some(completion) => {
                 completion.status?;
@@ -226,6 +221,4 @@ impl PacketSource for Source {
             None => Err(TransferError::Disconnected),
         }
     }
-
-    async fn wait_usb_connection(&mut self) {}
 }

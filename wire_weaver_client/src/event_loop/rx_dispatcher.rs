@@ -148,28 +148,25 @@ impl RxDispatcher {
         }
     }
 
-    pub fn prune_next_timeout(&mut self) -> Duration {
-        let now = Instant::now();
-        let mut min: Option<Duration> = None;
+    /// Time out all requests that are due at `now` (or within [IGNORE_TIMER_DURATION] of it).
+    pub fn prune(&mut self, now: Instant) {
         self.response_map.retain(|seq, (done_tx, prune_at)| {
-            let till_prune = prune_at
-                .checked_duration_since(now)
-                .unwrap_or(Duration::from_millis(0));
+            let till_prune = prune_at.saturating_duration_since(now);
             if till_prune < IGNORE_TIMER_DURATION {
                 _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
                 return false;
             }
-            if let Some(prev_min) = &min {
-                if till_prune < *prev_min {
-                    min = Some(till_prune);
-                }
-            } else {
-                min = Some(till_prune);
-            }
             true
         });
-        min.unwrap_or(Duration::from_secs(1))
+    }
+
+    /// Earliest instant at which [Self::prune] has something to do, None if no requests are outstanding.
+    pub fn next_prune_at(&self) -> Option<Instant> {
+        self.response_map
+            .values()
+            .map(|(_, prune_at)| *prune_at)
+            .min()
     }
 
     pub fn handle_msg(&mut self, msg: DispatcherMessage) {

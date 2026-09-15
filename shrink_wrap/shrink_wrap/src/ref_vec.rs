@@ -1,6 +1,6 @@
 use core::fmt::{Debug, Formatter};
 
-use crate::buf_writer::U16RevPos;
+use crate::buf_writer::RevPos;
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
@@ -16,16 +16,8 @@ pub enum RefVec<'i, T> {
     },
     Buf {
         buf: BufReader<'i>,
-        elements_count: u32,
+        elements_count: usize,
     },
-    // Iterator { ?
-    //     it: I
-    // },
-    // Gen { ?
-    //     gen: F,
-    //     len_elements: usize,
-    //     // element_size: ElementSize,
-    // },
 }
 
 pub enum RefVecIter<'i, T> {
@@ -35,13 +27,13 @@ pub enum RefVecIter<'i, T> {
     },
     Buf {
         buf: BufReader<'i>,
-        elements_count: u32,
-        pos: u32,
+        elements_count: usize,
+        pos: usize,
     },
 }
 
 pub struct RefVecU8Builder {
-    element_count_pos: U16RevPos,
+    element_count_pos: RevPos,
     byte_pos: usize,
 }
 
@@ -53,7 +45,7 @@ impl<T> RefVec<'_, T> {
     pub fn len(&self) -> usize {
         match self {
             RefVec::Slice { slice, .. } => slice.len(),
-            RefVec::Buf { elements_count, .. } => *elements_count as usize,
+            RefVec::Buf { elements_count, .. } => *elements_count,
         }
     }
 
@@ -96,11 +88,9 @@ impl<'i> RefVec<'i, u8> {
 
     pub fn ser_shrink_wrap_vec_u8(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let len = self.len();
-        let Ok(element_count_u16) = u16::try_from(len) else {
-            return Err(Error::VecTooLong);
-        };
+        let element_count = len;
         // len == size in bytes when serialized, so this works
-        wr.write_u16_rev(element_count_u16)?;
+        wr.write_rev_len(element_count)?;
         match self {
             RefVec::Slice { slice, .. } => {
                 wr.write_raw_slice(slice)?;
@@ -125,7 +115,7 @@ impl<'i> RefVec<'i, u8> {
                 let mut buf = *buf;
                 // RefVec::Buf is created during deserialization, at which point it is checked that there
                 // are actually element_count bytes available, see DeserializeShrinkWrap below.
-                buf.read_raw_slice(*elements_count as usize).unwrap_or(&[])
+                buf.read_raw_slice(*elements_count).unwrap_or(&[])
             }
         }
     }
@@ -146,19 +136,14 @@ where
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
             RefVec::Slice { slice, .. } => {
-                let Ok(elements_count) = u16::try_from(slice.len()) else {
-                    return Err(Error::VecTooLong);
-                };
-                wr.write_u16_rev(elements_count)?;
+                let elements_count = slice.len();
+                wr.write_rev_len(elements_count)?;
                 for item in slice.iter() {
                     wr.write(item)?;
                 }
             }
             RefVec::Buf { elements_count, .. } => {
-                let Ok(elements_count) = u16::try_from(*elements_count) else {
-                    return Err(Error::VecTooLong);
-                };
-                wr.write_u16_rev(elements_count)?;
+                wr.write_rev_len(*elements_count)?;
                 for item in self.iter() {
                     let item = item?;
                     wr.write(&item)?;
@@ -179,16 +164,14 @@ where
     fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
         match self {
             RefVec::Slice { slice, .. } => {
-                let Ok(elements_count) = u32::try_from(slice.len()) else {
-                    return Err(Error::VecTooLong);
-                };
-                wr.write_u32_rev(elements_count)?;
+                let elements_count = slice.len();
+                wr.write_rev_len(elements_count)?;
                 for item in slice.iter() {
                     wr.write(item)?;
                 }
             }
             RefVec::Buf { elements_count, .. } => {
-                wr.write_u32_rev(*elements_count)?;
+                wr.write_rev_len(*elements_count)?;
                 for item in self.iter() {
                     let item = item?;
                     wr.write(&item)?;
@@ -203,7 +186,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        let elements_count = rd.read_unib32_rev()?;
+        let elements_count = rd.read_rev_len()?;
 
         #[cfg(feature = "defmt-extended")]
         defmt::trace!("Vec element count: {}", elements_count);
@@ -312,7 +295,7 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
 impl RefVecU8Builder {
     pub fn new(wr: &mut BufWriter<'_>) -> Result<Self, Error> {
         wr.align_byte();
-        let element_count_pos = wr.write_u16_rev(0)?;
+        let element_count_pos = wr.write_rev_len(0)?;
         let byte_pos = wr.pos().0;
         Ok(Self {
             element_count_pos,
@@ -322,14 +305,12 @@ impl RefVecU8Builder {
 
     pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
         // T might have written several nib16_rev's as well, encode and place them after type's data
-        wr.encode_nib16_rev(wr.u16_rev_pos(), self.element_count_pos)?;
+        wr.encode_len_fifo(wr.rev_len_pos(), self.element_count_pos)?;
         // e.g., enum, only one nib discriminant is written => need to align
         wr.align_byte();
         let size_bytes = wr.pos().0 - self.byte_pos;
-        let Ok(elements_count) = u16::try_from(size_bytes) else {
-            return Err(Error::VecTooLong);
-        };
-        wr.update_u16_rev(self.element_count_pos, elements_count)
+        let elements_count = size_bytes;
+        wr.update_rev_len(self.element_count_pos, elements_count)
     }
 }
 

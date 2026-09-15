@@ -135,9 +135,9 @@ impl DeserializeShrinkWrapOwned for UNib32 {
     }
 }
 
-impl Into<u32> for UNib32 {
-    fn into(self) -> u32 {
-        self.0
+impl From<UNib32> for u32 {
+    fn from(value: UNib32) -> Self {
+        value.0
     }
 }
 
@@ -243,12 +243,12 @@ mod test {
     }
 
     #[inline]
-    fn test_reversed(num: u16) {
+    fn test_reversed(num: usize) {
         const SIZE: usize = 8;
         let mut buf = [0u8; SIZE];
         let mut wr = BufWriter::new(&mut buf);
         // UNib32(num).write_reversed(&mut wr).unwrap();
-        wr.write_u16_rev(num).unwrap();
+        wr.write_rev_len(num).unwrap();
         // assert_eq!(SIZE * 2 - wr.nibbles_left(), nib_count);
         let buf = wr.finish().unwrap();
         let mut rd = BufReader::new(buf);

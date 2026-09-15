@@ -7,10 +7,7 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Vec<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        let Ok(len_u16) = u16::try_from(self.len()) else {
-            return Err(Error::VecTooLong);
-        };
-        wr.write_u16_rev(len_u16)?;
+        wr.write_rev_len(self.len())?;
         for item in self {
             wr.write(item)?;
         }
@@ -22,10 +19,7 @@ impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for Vec<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
-        let Ok(len_u32) = u32::try_from(self.len()) else {
-            return Err(Error::VecTooLong);
-        };
-        wr.write_u32_rev(len_u32)?;
+        wr.write_rev_len(self.len())?;
         for item in self {
             wr.write(item)?;
         }
@@ -37,7 +31,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Vec<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        let elements_count = rd.read_unib32_rev()?;
+        let elements_count = rd.read_rev_len()?;
 
         #[cfg(feature = "defmt-extended")]
         defmt::trace!("Vec element count: {}", elements_count);
@@ -57,7 +51,7 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for Vec<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-        let elements_count = rd.read_unib32_rev()?;
+        let elements_count = rd.read_rev_len()?;
 
         #[cfg(feature = "defmt-extended")]
         defmt::trace!("Vec element count: {}", elements_count);

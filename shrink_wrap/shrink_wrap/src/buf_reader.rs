@@ -115,7 +115,7 @@ impl<'i> BufReader<'i> {
     }
 
     /// Read a number encoded with UNib32 backward encoding, from the back of the buffer.
-    pub fn read_unib32_rev(&mut self) -> Result<u32, Error> {
+    pub fn read_rev_len(&mut self) -> Result<usize, Error> {
         let value = UNib32::read_reversed(self)?.0;
 
         #[cfg(feature = "defmt-extended")]
@@ -123,7 +123,7 @@ impl<'i> BufReader<'i> {
         #[cfg(feature = "tracing-extended")]
         tracing::trace!("read_unib32_rev() = {}", value);
 
-        Ok(value)
+        Ok(value as usize)
     }
 
     /// Align to byte and read u32 in Little Endian.
@@ -225,13 +225,13 @@ impl<'i> BufReader<'i> {
 
     /// Read length of the u8 slice from the back of the buffer and then the slice itself
     pub fn read_bytes(&mut self) -> Result<&'i [u8], Error> {
-        let len_bytes = self.read_unib32_rev()? as usize;
+        let len_bytes = self.read_rev_len()?;
         self.read_raw_slice(len_bytes)
     }
 
     /// Read length of the string from the back of the buffer and then the string itself
     pub fn read_str(&mut self) -> Result<&'i str, Error> {
-        let len_bytes = self.read_unib32_rev()? as usize;
+        let len_bytes = self.read_rev_len()?;
         let str_bytes = self.read_raw_slice(len_bytes)?;
         core::str::from_utf8(str_bytes).map_err(|_| Error::MalformedUtf8)
     }
@@ -248,7 +248,7 @@ impl<'i> BufReader<'i> {
         if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
             #[cfg(feature = "tracing-extended")]
             tracing::trace!("reading Unsized object");
-            let size = self.read_unib32_rev()? as usize;
+            let size = self.read_rev_len()?;
             let mut rd_split = self.split(size)?;
             T::des_shrink_wrap(&mut rd_split)
         } else {
@@ -264,7 +264,7 @@ impl<'i> BufReader<'i> {
         if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
             #[cfg(feature = "tracing-extended")]
             tracing::trace!("reading Unsized object");
-            let size = self.read_unib32_rev()? as usize;
+            let size = self.read_rev_len()?;
             let mut rd_split = self.split(size)?;
             T::des_shrink_wrap_owned(&mut rd_split)
         } else {
@@ -502,17 +502,17 @@ mod tests {
         let mut rd = BufReader::new(&buf);
         assert_eq!(rd.bytes_left(), 4);
 
-        let value = rd.read_unib32_rev().unwrap();
+        let value = rd.read_rev_len().unwrap();
         assert_eq!(value, 5);
 
         assert_eq!(rd.read_u8().unwrap(), 0xaa);
 
-        let value = rd.read_unib32_rev().unwrap();
+        let value = rd.read_rev_len().unwrap();
         assert_eq!(value, 3);
 
         assert_eq!(rd.read_u8().unwrap(), 0x12);
 
-        let value = rd.read_unib32_rev().unwrap();
+        let value = rd.read_rev_len().unwrap();
         assert_eq!(value, 8);
         assert_eq!(rd.bytes_left(), 0);
     }
@@ -521,9 +521,9 @@ mod tests {
     fn u4_rev_overlap() {
         let buf = [0x10, 0x81];
         let mut rd = BufReader::new(&buf);
-        let n = rd.read_unib32_rev().unwrap();
+        let n = rd.read_rev_len().unwrap();
         assert_eq!(n, 1);
-        let mut rd_split = rd.split(n as usize).unwrap();
+        let mut rd_split = rd.split(n).unwrap();
         let byte = rd_split.read_u8().unwrap();
         assert_eq!(byte, 0x10);
         let b = rd.read_bool().unwrap();
@@ -534,9 +534,9 @@ mod tests {
     fn u4_rev_overlap_nib() {
         let buf = [0x10, 0xA1];
         let mut rd = BufReader::new(&buf);
-        let n = rd.read_unib32_rev().unwrap();
+        let n = rd.read_rev_len().unwrap();
         assert_eq!(n, 1);
-        let mut rd_split = rd.split(n as usize).unwrap();
+        let mut rd_split = rd.split(n).unwrap();
         let byte = rd_split.read_u8().unwrap();
         assert_eq!(byte, 0x10);
         assert_eq!(rd.nibbles_left(), 1);
@@ -548,7 +548,7 @@ mod tests {
     fn un_rev_overlap() {
         let buf = hex!("20 52 B9 6C 03");
         let mut rd = BufReader::new(&buf);
-        assert_eq!(rd.read_unib32_rev(), Ok(3));
+        assert_eq!(rd.read_rev_len(), Ok(3));
         assert_eq!(rd.read_un8(3), Ok(1));
         assert_eq!(rd.read_bool(), Ok(false));
         assert_eq!(rd.read_unib32(), Ok(0));

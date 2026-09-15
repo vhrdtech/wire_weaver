@@ -116,7 +116,7 @@ impl ValueOwned {
 
 fn read(rd: &mut BufReader, ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<ValueOwned> {
     if ty.is_unsized(api_bundle)? {
-        let len = rd.read_unib32_rev()?;
+        let len = rd.read_rev_len()?;
         let mut rd = rd.split(len as usize)?;
         from_shrink_wrap_inner(&mut rd, ty, api_bundle)
     } else {
@@ -141,7 +141,7 @@ fn from_shrink_wrap_inner(
         // TypeOwned::Flag => {}
         TypeOwned::String => Ok(ValueOwned::String(rd.read_str()?.to_string())),
         TypeOwned::Vec(inner_ty) => {
-            let len = rd.read_unib32_rev()?;
+            let len = rd.read_rev_len()?;
             let mut items = vec![];
             for _ in 0..len {
                 let value = read(rd, inner_ty, api_bundle)?;

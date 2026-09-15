@@ -21,7 +21,7 @@ pub struct BufWriter<'i> {
     byte_idx: usize,
     /// Next bit to write to, starts from 7
     bit_idx: u8,
-    /// Buffer length from the front, shrinks when write_u16_rev() is used.
+    /// Buffer length from the front, shrinks when [Self::write_rev_len()] is used.
     len_bytes: usize,
 }
 
@@ -42,7 +42,7 @@ impl BufWriterState {
 
 /// Builder-style serialization token for 'Unsized' types.
 pub struct UnsizedBuilder {
-    size_slot_pos: U16RevPos,
+    size_slot_pos: RevPos,
     unsized_start_idx: usize,
 }
 
@@ -139,32 +139,40 @@ impl<'i> BufWriter<'i> {
         UNib32(val).write_forward(self)
     }
 
-    /// Write u16 to the back of the buffer, later when [BufWriter::encode_nib16_rev()] or [BufWriter::finish()]
+    /// Write len to the back of the buffer, later when [BufWriter::encode_len_fifo()] or [BufWriter::finish()]
     /// are called, all the numbers will be encoded to UNib32 reverse encoding.
-    pub fn write_u16_rev(&mut self, val: u16) -> Result<U16RevPos, Error> {
+    ///
+    /// NOTE: currently BufWriter uses u16 numbers, so maximum length of an object is 65_535.
+    /// BufWriterOwned uses u32, so this limit does not apply there.
+    /// This might be changed in the future, but for now 65K on no alloc seems acceptable.
+    pub fn write_rev_len(&mut self, len: usize) -> Result<RevPos, Error> {
+        let Ok(len) = u16::try_from(len) else {
+            return Err(Error::LenTooLong);
+        };
         if self.bytes_left() < 2 {
             return Err(Error::OutOfBoundsRev);
         }
-        let val_be = val.to_le_bytes();
+        let val_be = len.to_le_bytes();
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
         #[cfg(feature = "tracing-extended")]
         tracing::trace!("written u16 rev = {val} at pos = {}", self.len_bytes);
-        Ok(U16RevPos(self.len_bytes))
+        Ok(RevPos(self.len_bytes))
     }
 
-    /// See [BufWriter::encode_nib16_rev()] on how this function is used.
-    pub fn u16_rev_pos(&self) -> U16RevPos {
-        U16RevPos(self.len_bytes)
+    /// See [BufWriter::encode_len_fifo()] on how this function is used.
+    pub fn rev_len_pos(&self) -> RevPos {
+        RevPos(self.len_bytes)
     }
 
     /// Update previously written u16 value in the back of the buffer, using the obtained index.
-    pub fn update_u16_rev(&mut self, pos: U16RevPos, val: u16) -> Result<(), Error> {
+    pub fn update_rev_len(&mut self, pos: RevPos, len: usize) -> Result<(), Error> {
         if pos.0 + 1 >= self.buf.len() {
             return Err(Error::OutOfBoundsRev);
         }
-        let val_be = val.to_le_bytes();
+        let len = u16::try_from(len).map_err(|_| Error::LenTooLong)?;
+        let val_be = len.to_le_bytes();
         self.buf[pos.0] = val_be[0];
         self.buf[pos.0 + 1] = val_be[1];
         #[cfg(feature = "tracing-extended")]
@@ -247,7 +255,7 @@ impl<'i> BufWriter<'i> {
     // Write variable length slice, with length written to the back of the buffer.
     // pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
     //     let len = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-    //     self.write_u16_rev(len)?;
+    //     self.write_rev_len(len)?;
     //     self.write_raw_slice(val)
     // }
 
@@ -270,15 +278,13 @@ impl<'i> BufWriter<'i> {
 
     /// Write variable length slice to the buffer. Length will be written to the back.
     pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
-        let len_bytes = u16::try_from(val.len()).map_err(|_| Error::VecTooLong)?;
-        self.write_u16_rev(len_bytes)?;
+        self.write_rev_len(val.len())?;
         self.write_raw_slice(val)
     }
 
     /// Write variable length string to the buffer. Length will be written to the back.
     pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
-        let len_bytes = u16::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-        self.write_u16_rev(len_bytes)?;
+        self.write_rev_len(val.len())?;
         self.write_raw_slice(val.as_bytes())
     }
 
@@ -320,26 +326,26 @@ impl<'i> BufWriter<'i> {
     /// let mut buf = [0u8; 128];
     /// let mut wr = BufWriter::new(&mut buf);
     ///
-    /// let size_slot_pos = wr.write_u16_rev(0).unwrap(); // reserve u16_rev slot in the back of the buffer
+    /// let size_slot_pos = wr.write_rev_len(0).unwrap(); // reserve u16_rev slot in the back of the buffer
     /// let unsized_start_bytes = wr.pos().0; // remember current position in bytes
     /// // Write an object of unknown size, potentially containing more objects with variable length,
     /// // which in turn will write more u16_rev numbers to the back of the buffer.
     /// let unsized_object = vec![1u8, 2, 3];
     /// wr.write(&unsized_object).unwrap();
     /// // Encode u16_rev numbers written by the object itself to UNib32 reverse encoding, if any
-    /// wr.encode_nib16_rev(wr.u16_rev_pos(), size_slot_pos).unwrap();
+    /// wr.encode_len_fifo(wr.rev_len_pos(), size_slot_pos).unwrap();
     /// wr.align_byte(); // Variable sized objects must be byte aligned, because length is in bytes and to not shift the whole buffer by less than one byte
     /// // Calculate the size of the variable length object + all the u16_rev numbers it might have used in Nib16 reverse encoding.
     /// let size_bytes = wr.pos().0 - unsized_start_bytes;
     /// let size_bytes = u16::try_from(size_bytes).unwrap();
     /// assert_eq!(size_bytes, 4);
     /// // Update the original slot with an actual size.
-    /// wr.update_u16_rev(size_slot_pos, size_bytes).unwrap();
+    /// wr.update_rev_len(size_slot_pos, size_bytes).unwrap();
     /// let buf = wr.finish().unwrap();
     /// assert_eq!(buf, &[1, 2, 3, 3, 4]);
     /// println!("{buf:02x?}");
     ///```
-    pub fn encode_nib16_rev(&mut self, from: U16RevPos, to: U16RevPos) -> Result<(), Error> {
+    pub fn encode_len_fifo(&mut self, from: RevPos, to: RevPos) -> Result<(), Error> {
         if to.0 < from.0 {
             return Ok(());
         }
@@ -385,7 +391,7 @@ impl<'i> BufWriter<'i> {
         // self.align_byte();
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
         if reverse_u16_written > 0 {
-            self.encode_nib16_rev(U16RevPos(self.len_bytes), U16RevPos(self.buf.len()))?;
+            self.encode_len_fifo(RevPos(self.len_bytes), RevPos(self.buf.len()))?;
         } else {
             self.align_byte();
         }
@@ -499,7 +505,7 @@ impl UnsizedBuilder {
         // ensure start_idx below is on a byte boundary
         wr.align_byte();
         // reserve one size slot
-        let size_slot_pos = wr.write_u16_rev(0)?;
+        let size_slot_pos = wr.write_rev_len(0)?;
         let unsized_start_idx = wr.pos().0;
         Ok(UnsizedBuilder {
             size_slot_pos,
@@ -509,21 +515,18 @@ impl UnsizedBuilder {
 
     pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
         // T might have written several nib16_rev's as well, encode and place them after type's data
-        wr.encode_nib16_rev(wr.u16_rev_pos(), self.size_slot_pos)?;
+        wr.encode_len_fifo(wr.rev_len_pos(), self.size_slot_pos)?;
         // e.g., enum, only one nib discriminant is written => need to align
         wr.align_byte();
         let size_bytes = wr.pos().0 - self.unsized_start_idx;
-        let Ok(size_bytes) = u16::try_from(size_bytes) else {
-            return Err(Error::ItemTooLong);
-        };
         // write actual Unsized size, it will be encoded later, by the parent write method or when finish is called
-        wr.update_u16_rev(self.size_slot_pos, size_bytes)?;
+        wr.update_rev_len(self.size_slot_pos, size_bytes)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct U16RevPos(usize);
+pub struct RevPos(usize);
 
 #[cfg(test)]
 mod tests {
@@ -579,8 +582,8 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
-        wr.write_u16_rev(3).unwrap();
-        wr.write_u16_rev(5).unwrap();
+        wr.write_rev_len(3).unwrap();
+        wr.write_rev_len(5).unwrap();
         assert_eq!(wr.bytes_left(), 0);
         assert_eq!(&wr.buf, &[0xAA, 0xCC, 5, 0, 3, 0]);
         assert_eq!(wr.finish().unwrap(), &[0xAA, 0xCC, 0b0101_0011]);
@@ -592,9 +595,9 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
-        wr.write_u16_rev(3).unwrap();
-        wr.write_u16_rev(5).unwrap();
-        wr.write_u16_rev(7).unwrap();
+        wr.write_rev_len(3).unwrap();
+        wr.write_rev_len(5).unwrap();
+        wr.write_rev_len(7).unwrap();
         assert_eq!(wr.bytes_left(), 1);
         assert_eq!(&wr.buf, &[0xAA, 0xCC, 0, 7, 0, 5, 0, 3, 0]);
         assert_eq!(
@@ -608,7 +611,7 @@ mod tests {
         let mut buf = [0; 9];
         let mut wr = BufWriter::new(&mut buf);
         wr.write_unib32(2).unwrap();
-        wr.write_u16_rev(5).unwrap();
+        wr.write_rev_len(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
     }
 
@@ -647,7 +650,7 @@ mod tests {
     fn u4_rev_overlap() {
         let mut buf = [0u8; 64];
         let mut wr = BufWriter::new(&mut buf);
-        wr.write_u16_rev(1).unwrap();
+        wr.write_rev_len(1).unwrap();
         wr.write_u8(0x10).unwrap();
         wr.write_bool(true).unwrap();
         let buf = wr.finish().unwrap();
@@ -658,7 +661,7 @@ mod tests {
     fn un_rev_overlap() {
         let mut buf = [0u8; 64];
         let mut wr = BufWriter::new(&mut buf);
-        wr.write_u16_rev(3).unwrap();
+        wr.write_rev_len(3).unwrap();
         wr.write_un8(3, 1).unwrap();
         wr.write_bool(false).unwrap();
         wr.write_unib32(0).unwrap();
@@ -750,37 +753,37 @@ mod tests {
     }
 
     #[test]
-    fn write_u16_rev_out_of_bounds() {
+    fn write_rev_len_out_of_bounds() {
         let mut buf = [0u8; 1];
         let mut wr = BufWriter::new(&mut buf);
-        assert!(matches!(wr.write_u16_rev(5), Err(Error::OutOfBoundsRev)));
+        assert!(matches!(wr.write_rev_len(5), Err(Error::OutOfBoundsRev)));
     }
 
     #[test]
-    fn u16_rev_pos_matches_write() {
+    fn rev_len_pos_matches_write() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        assert_eq!(wr.u16_rev_pos().0, 4);
-        let pos = wr.write_u16_rev(1).unwrap();
+        assert_eq!(wr.rev_len_pos().0, 4);
+        let pos = wr.write_rev_len(1).unwrap();
         assert_eq!(pos.0, 2);
-        assert_eq!(wr.u16_rev_pos().0, 2);
+        assert_eq!(wr.rev_len_pos().0, 2);
     }
 
     #[test]
-    fn update_u16_rev_success() {
+    fn update_rev_len_success() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        let pos = wr.write_u16_rev(0xAABB).unwrap();
-        wr.update_u16_rev(pos, 0x1234).unwrap();
+        let pos = wr.write_rev_len(0xAABB).unwrap();
+        wr.update_rev_len(pos, 0x1234).unwrap();
         assert_eq!(&wr.buf()[2..4], &[0x34, 0x12]);
     }
 
     #[test]
-    fn update_u16_rev_out_of_bounds() {
+    fn update_rev_len_out_of_bounds() {
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        let pos = wr.u16_rev_pos();
-        assert_eq!(wr.update_u16_rev(pos, 1), Err(Error::OutOfBoundsRev));
+        let pos = wr.rev_len_pos();
+        assert_eq!(wr.update_rev_len(pos, 1), Err(Error::OutOfBoundsRev));
     }
 
     #[test]
@@ -833,7 +836,7 @@ mod tests {
         let data = vec![0u8; u16::MAX as usize + 1];
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        assert_eq!(wr.write_bytes(&data), Err(Error::VecTooLong));
+        assert_eq!(wr.write_bytes(&data), Err(Error::LenTooLong));
     }
 
     #[test]
@@ -850,7 +853,7 @@ mod tests {
         let data = "a".repeat(u16::MAX as usize + 1);
         let mut buf = [0u8; 4];
         let mut wr = BufWriter::new(&mut buf);
-        assert_eq!(wr.write_str(&data), Err(Error::StrTooLong));
+        assert_eq!(wr.write_str(&data), Err(Error::LenTooLong));
     }
 
     /// Minimal Unsized type used to exercise [BufWriter::write] and [UnsizedBuilder].
@@ -887,19 +890,19 @@ mod tests {
     fn encode_nib16_rev_noop_when_to_before_from() {
         let mut buf = [0u8; 8];
         let mut wr = BufWriter::new(&mut buf);
-        let earlier = wr.u16_rev_pos(); // 8, less consumed
-        wr.write_u16_rev(1).unwrap();
-        let later = wr.u16_rev_pos(); // 6, more consumed
+        let earlier = wr.rev_len_pos(); // 8, less consumed
+        wr.write_rev_len(1).unwrap();
+        let later = wr.rev_len_pos(); // 6, more consumed
         // Passing them swapped (to.0 < from.0) must be a no-op.
-        assert!(wr.encode_nib16_rev(earlier, later).is_ok());
+        assert!(wr.encode_len_fifo(earlier, later).is_ok());
     }
 
     #[test]
     fn encode_nib16_rev_noop_when_equal() {
         let mut buf = [0u8; 8];
         let mut wr = BufWriter::new(&mut buf);
-        let pos = wr.u16_rev_pos();
-        assert!(wr.encode_nib16_rev(pos, pos).is_ok());
+        let pos = wr.rev_len_pos();
+        assert!(wr.encode_len_fifo(pos, pos).is_ok());
     }
 
     #[test]
@@ -1037,6 +1040,6 @@ mod tests {
     fn write_unsized_item_too_long() {
         let mut buf = vec![0u8; u16::MAX as usize + 16];
         let mut wr = BufWriter::new(&mut buf);
-        assert_eq!(wr.write(&HugeUnsized), Err(Error::ItemTooLong));
+        assert_eq!(wr.write(&HugeUnsized), Err(Error::LenTooLong));
     }
 }

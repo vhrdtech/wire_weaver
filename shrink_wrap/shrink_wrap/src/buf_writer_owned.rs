@@ -7,7 +7,7 @@ const ONE_MORE_NIBBLE: u8 = 0b1000;
 ///
 /// Differences from [BufWriter](crate::BufWriter):
 /// * The byte buffer grows as needed, so forward writes never fail with out-of-bounds errors.
-/// * Reverse (length) numbers are kept in a separate `Vec<u32>` stack instead of the back of the byte buffer,
+/// * Reverse (length) numbers are kept in a separate `Vec<u32>` FIFO instead of the back of the byte buffer,
 ///   so lengths are not limited to `u16::MAX`.
 /// * No `save_state` / `restore_state`: with an allocator available, simply serialize into a
 ///   temporary writer instead.
@@ -27,19 +27,19 @@ pub struct BufWriterOwned {
     byte_idx: usize,
     /// Next bit to write to, starts from 7
     bit_idx: u8,
-    /// Stack of numbers to be encoded in UNib32 reverse encoding.
+    /// FIFO of numbers to be encoded in UNib32 reverse encoding.
     rev: Vec<u32>,
 }
 
 /// Builder-style serialization token for 'Unsized' types.
 pub struct UnsizedBuilderOwned {
-    size_slot_pos: U32RevPos,
+    size_slot_pos: RevPos,
     unsized_start_idx: usize,
 }
 
-/// Index of a number in the reverse stack of [BufWriterOwned].
+/// Index of a number in the reverse FIFO of [BufWriterOwned].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct U32RevPos(usize);
+pub struct RevPos(usize);
 
 impl BufWriterOwned {
     /// Create a new empty BufWriterOwned.
@@ -216,27 +216,27 @@ impl BufWriterOwned {
         Ok(())
     }
 
-    /// Push u32 to the reverse stack, later when [encode_nib32_rev](Self::encode_nib32_rev) or [finish](Self::finish)
+    /// Push u32 to the reverse FIFO, later when [encode_len_fifo](Self::encode_len_fifo) or [finish](Self::finish)
     /// are called, all the numbers will be encoded to UNib32 reverse encoding.
-    pub fn write_u32_rev(&mut self, val: u32) -> Result<U32RevPos, Error> {
-        self.rev.push(val);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("written u32 rev = {val} at pos = {}", self.rev.len() - 1);
-        Ok(U32RevPos(self.rev.len() - 1))
+    pub fn write_rev_len(&mut self, len: usize) -> Result<RevPos, Error> {
+        let len = u32::try_from(len).map_err(|_| Error::LenTooLong)?;
+        self.rev.push(len);
+        Ok(RevPos(self.rev.len() - 1))
     }
 
-    /// Current top of the reverse stack (index of the next number to be pushed).
+    /// Current top of the reverse FIFO (index of the next number to be pushed).
     /// See [encode_nib32_rev](Self::encode_nib32_rev) on how this function is used.
-    pub fn u32_rev_pos(&self) -> U32RevPos {
-        U32RevPos(self.rev.len())
+    pub fn rev_len_pos(&self) -> RevPos {
+        RevPos(self.rev.len())
     }
 
-    /// Update previously pushed u32 value in the reverse stack, using the obtained index.
-    pub fn update_u32_rev(&mut self, pos: U32RevPos, val: u32) -> Result<(), Error> {
+    /// Update previously pushed u32 value in the reverse FIFO, using the obtained index.
+    pub fn update_rev_len(&mut self, pos: RevPos, len: usize) -> Result<(), Error> {
         let Some(slot) = self.rev.get_mut(pos.0) else {
             return Err(Error::OutOfBoundsRev);
         };
-        *slot = val;
+        let len = u32::try_from(len).map_err(|_| Error::LenTooLong)?;
+        *slot = len;
         #[cfg(feature = "tracing-extended")]
         tracing::trace!("updated u32 rev at pos{} = {val}", pos.0);
         Ok(())
@@ -302,23 +302,21 @@ impl BufWriterOwned {
         Ok(())
     }
 
-    /// Write variable length slice to the buffer. Length will be pushed to the reverse stack.
+    /// Write variable length slice to the buffer. Length will be pushed to the reverse FIFO.
     pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), Error> {
-        let len_bytes = u32::try_from(val.len()).map_err(|_| Error::VecTooLong)?;
-        self.write_u32_rev(len_bytes)?;
+        self.write_rev_len(val.len())?;
         self.write_raw_slice(val)
     }
 
-    /// Write variable length string to the buffer. Length will be pushed to the reverse stack.
+    /// Write variable length string to the buffer. Length will be pushed to the reverse FIFO.
     pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
-        let len_bytes = u32::try_from(val.len()).map_err(|_| Error::StrTooLong)?;
-        self.write_u32_rev(len_bytes)?;
+        self.write_rev_len(val.len())?;
         self.write_raw_slice(val.as_bytes())
     }
 
     /// Write any value that implements [SerializeShrinkWrapOwned].
     ///
-    /// If the value is Unsized, then size is calculated and pushed to the reverse stack as u32,
+    /// If the value is Unsized, then size is calculated and pushed to the reverse FIFO as u32,
     /// which is later encoded to reverse UNib32.
     ///
     /// Note that for serializing root structs or enums, it's better to call ser_shrink_wrap_owned directly,
@@ -339,9 +337,9 @@ impl BufWriterOwned {
         Ok(())
     }
 
-    /// Encode numbers from the reverse stack with indices in `to.0 + 1 .. from.0` (i.e. everything pushed
+    /// Encode numbers from the reverse FIFO with indices in `to.0 + 1 .. from.0` (i.e. everything pushed
     /// after slot `to`, up to but not including `from`) into UNib32 reverse encoding at the current position,
-    /// newest first, and remove them from the stack. Slot `to` itself is left untouched.
+    /// newest first, and remove them from the FIFO. Slot `to` itself is left untouched.
     /// No-op if `from.0 <= to.0 + 1`.
     ///
     /// This operation allows preserving backwards and forwards compatibility:
@@ -353,10 +351,10 @@ impl BufWriterOwned {
     /// use shrink_wrap::BufWriterOwned;
     /// let mut wr = BufWriterOwned::new();
     ///
-    /// let size_slot_pos = wr.write_u32_rev(0).unwrap(); // reserve a size slot in the reverse stack
+    /// let size_slot_pos = wr.write_u32_rev(0).unwrap(); // reserve a size slot in the reverse FIFO
     /// let unsized_start_bytes = wr.pos().0; // remember current position in bytes
     /// // Write an object of unknown size, potentially containing more objects with variable length,
-    /// // which in turn will push more numbers to the reverse stack.
+    /// // which in turn will push more numbers to the reverse FIFO.
     /// wr.write_bytes(&[1u8, 2, 3]).unwrap();
     /// // Encode numbers pushed by the object itself to UNib32 reverse encoding, if any
     /// wr.encode_nib32_rev(wr.u32_rev_pos(), size_slot_pos).unwrap();
@@ -368,14 +366,14 @@ impl BufWriterOwned {
     /// let buf = wr.finish().unwrap();
     /// assert_eq!(buf, &[1, 2, 3, 3, 4]);
     /// ```
-    pub fn encode_nib32_rev(&mut self, from: U32RevPos, to: U32RevPos) -> Result<(), Error> {
+    pub fn encode_len_fifo(&mut self, from: RevPos, to: RevPos) -> Result<(), Error> {
         if from.0 <= to.0 {
             return Ok(());
         }
         self.encode_rev_range(to.0 + 1, from.0)
     }
 
-    /// Encode reverse stack entries with indices in `start..end` (newest first) and remove them.
+    /// Encode reverse FIFO entries with indices in `start..end` (newest first) and remove them.
     fn encode_rev_range(&mut self, start: usize, end: usize) -> Result<(), Error> {
         let end = end.min(self.rev.len());
         if start >= end {
@@ -402,7 +400,7 @@ impl BufWriterOwned {
         Ok(())
     }
 
-    /// Encode all the remaining numbers in the reverse stack, align to byte and return the slice containing written data.
+    /// Encode all the remaining numbers in the reverse FIFO, align to byte and return the slice containing written data.
     ///
     /// The writer is not reset, call [reset](Self::reset) before re-using it.
     pub fn finish(&mut self) -> Result<&[u8], Error> {
@@ -414,13 +412,13 @@ impl BufWriterOwned {
         Ok(&self.buf)
     }
 
-    /// Encode all the remaining numbers in the reverse stack, align to byte and return the Vec containing written data.
+    /// Encode all the remaining numbers in the reverse FIFO, align to byte and return the Vec containing written data.
     pub fn finish_and_take(mut self) -> Result<Vec<u8>, Error> {
         self.finish()?;
         Ok(self.buf)
     }
 
-    /// Return the underlying buffer without encoding the reverse stack.
+    /// Return the underlying buffer without encoding the reverse FIFO.
     pub fn deinit(self) -> Vec<u8> {
         self.buf
     }
@@ -466,7 +464,7 @@ impl UnsizedBuilderOwned {
         // ensure start_idx below is on a byte boundary
         wr.align_byte();
         // reserve one size slot
-        let size_slot_pos = wr.write_u32_rev(0)?;
+        let size_slot_pos = wr.write_rev_len(0)?;
         let unsized_start_idx = wr.pos().0;
         Ok(UnsizedBuilderOwned {
             size_slot_pos,
@@ -476,15 +474,12 @@ impl UnsizedBuilderOwned {
 
     pub fn finish(self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         // T might have pushed several rev numbers as well, encode and place them after type's data
-        wr.encode_nib32_rev(wr.u32_rev_pos(), self.size_slot_pos)?;
+        wr.encode_len_fifo(wr.rev_len_pos(), self.size_slot_pos)?;
         // e.g., enum, only one nib discriminant is written => need to align
         wr.align_byte();
         let size_bytes = wr.pos().0 - self.unsized_start_idx;
-        let Ok(size_bytes) = u32::try_from(size_bytes) else {
-            return Err(Error::ItemTooLong);
-        };
         // write actual Unsized size, it will be encoded later, by the parent or when finish is called
-        wr.update_u32_rev(self.size_slot_pos, size_bytes)?;
+        wr.update_rev_len(self.size_slot_pos, size_bytes)?;
         Ok(())
     }
 }
@@ -527,8 +522,8 @@ mod tests {
         let mut wr = BufWriterOwned::new();
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
-        wr.write_u32_rev(3).unwrap();
-        wr.write_u32_rev(5).unwrap();
+        wr.write_rev_len(3).unwrap();
+        wr.write_rev_len(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0xAA, 0xCC, 0b0101_0011]);
     }
 
@@ -537,9 +532,9 @@ mod tests {
         let mut wr = BufWriterOwned::new();
         wr.write_u8(0xAA).unwrap();
         wr.write_u8(0xCC).unwrap();
-        wr.write_u32_rev(3).unwrap();
-        wr.write_u32_rev(5).unwrap();
-        wr.write_u32_rev(7).unwrap();
+        wr.write_rev_len(3).unwrap();
+        wr.write_rev_len(5).unwrap();
+        wr.write_rev_len(7).unwrap();
         assert_eq!(
             wr.finish().unwrap(),
             &[0xAA, 0xCC, 0b0000_0111, 0b0101_0011]
@@ -550,7 +545,7 @@ mod tests {
     fn rev_smallest() {
         let mut wr = BufWriterOwned::new();
         wr.write_unib32(2).unwrap();
-        wr.write_u32_rev(5).unwrap();
+        wr.write_rev_len(5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x25]);
     }
 
@@ -584,7 +579,7 @@ mod tests {
     #[test]
     fn un_rev_overlap() {
         let mut wr = BufWriterOwned::new();
-        wr.write_u32_rev(3).unwrap();
+        wr.write_rev_len(3).unwrap();
         wr.write_un8(3, 1).unwrap();
         wr.write_bool(false).unwrap();
         wr.write_unib32(0).unwrap();
@@ -654,28 +649,28 @@ mod tests {
     #[test]
     fn update_u32_rev() {
         let mut wr = BufWriterOwned::new();
-        let pos = wr.write_u32_rev(0xAABB).unwrap();
-        wr.update_u32_rev(pos, 5).unwrap();
+        let pos = wr.write_rev_len(0xAABB).unwrap();
+        wr.update_rev_len(pos, 5).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0x05]);
     }
 
     #[test]
     fn update_u32_rev_out_of_bounds() {
         let mut wr = BufWriterOwned::new();
-        let pos = wr.u32_rev_pos();
-        assert_eq!(wr.update_u32_rev(pos, 1), Err(Error::OutOfBoundsRev));
+        let pos = wr.rev_len_pos();
+        assert_eq!(wr.update_rev_len(pos, 1), Err(Error::OutOfBoundsRev));
     }
 
     #[test]
     fn encode_nib32_rev_noop_when_swapped_or_equal() {
         let mut wr = BufWriterOwned::new();
-        let earlier = wr.u32_rev_pos();
-        wr.write_u32_rev(1).unwrap();
-        let later = wr.u32_rev_pos();
-        wr.encode_nib32_rev(earlier, later).unwrap();
-        wr.encode_nib32_rev(later, later).unwrap();
+        let earlier = wr.rev_len_pos();
+        wr.write_rev_len(1).unwrap();
+        let later = wr.rev_len_pos();
+        wr.encode_len_fifo(earlier, later).unwrap();
+        wr.encode_len_fifo(later, later).unwrap();
         assert_eq!(wr.buf(), &[]);
-        assert_eq!(wr.u32_rev_pos(), later);
+        assert_eq!(wr.rev_len_pos(), later);
     }
 
     #[test]
@@ -691,7 +686,7 @@ mod tests {
         assert_eq!(bytes, &[0xAB, 1, 2, 0x02, 0xCD, 0x04]);
 
         let mut rd = BufReader::new(bytes);
-        let size = rd.read_unib32_rev().unwrap() as usize;
+        let size = rd.read_rev_len().unwrap() as usize;
         let mut inner = rd.split(size).unwrap();
         assert_eq!(inner.read_u8().unwrap(), 0xAB);
         assert_eq!(inner.read_bytes().unwrap(), &[1, 2]);
@@ -765,18 +760,18 @@ mod tests {
 
         wr.write_bool(true).unwrap();
         wro.write_bool(true).unwrap();
-        wr.write_u16_rev(7).unwrap();
-        wro.write_u32_rev(7).unwrap();
+        wr.write_rev_len(7).unwrap();
+        wro.write_rev_len(7).unwrap();
         wr.write_un16(11, 0x5A5).unwrap();
         wro.write_un16(11, 0x5A5).unwrap();
         wr.write_unib32(1234).unwrap();
         wro.write_unib32(1234).unwrap();
         wr.write_str("hello").unwrap();
         wro.write_str("hello").unwrap();
-        wr.write_u16_rev(0).unwrap();
-        wro.write_u32_rev(0).unwrap();
-        wr.write_u16_rev(65535).unwrap();
-        wro.write_u32_rev(65535).unwrap();
+        wr.write_rev_len(0).unwrap();
+        wro.write_rev_len(0).unwrap();
+        wr.write_rev_len(65535).unwrap();
+        wro.write_rev_len(65535).unwrap();
         wr.write_nib_masked(0xF).unwrap();
         wro.write_nib_masked(0xF).unwrap();
 
@@ -785,12 +780,23 @@ mod tests {
 
     #[test]
     fn reversed_round_trip() {
-        for num in [0u32, 1, 7, 8, 63, 64, 65_535, 65_536, 1 << 20, u32::MAX] {
+        for num in [
+            0,
+            1,
+            7,
+            8,
+            63,
+            64,
+            65_535,
+            65_536,
+            1 << 20,
+            u32::MAX as usize,
+        ] {
             let mut wr = BufWriterOwned::new();
-            wr.write_u32_rev(num).unwrap();
+            wr.write_rev_len(num).unwrap();
             let bytes = wr.finish().unwrap();
             let mut rd = BufReader::new(bytes);
-            assert_eq!(rd.read_unib32_rev(), Ok(num));
+            assert_eq!(rd.read_rev_len(), Ok(num));
         }
         let _ = UNib32(0);
     }
@@ -799,7 +805,7 @@ mod tests {
     fn reset_keeps_working() {
         let mut wr = BufWriterOwned::new();
         wr.write_u8(0xAB).unwrap();
-        wr.write_u32_rev(1).unwrap();
+        wr.write_rev_len(1).unwrap();
         wr.reset();
         assert_eq!(wr.pos(), (0, 7));
         wr.write_u8(0xCD).unwrap();

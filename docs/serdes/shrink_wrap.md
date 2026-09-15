@@ -9,13 +9,13 @@ It is targeting both microcontroller and host usage.
 
 Features:
 
-* 1-bit, 4-bit and 1-byte alignment
-* Support all the types listed on the [types page](../types.md)
-* `no_std` without allocator support (even with types like String and Vec, for both reading and writing)
-* `std` support (standard Vec and String are used)
-* Zero-copy deserialization
-* Self-referential types
-* Built-in mechanism for backwards and forwards compatibility
+- 1-bit, 4-bit and 1-byte alignment
+- Support all the types listed on the [types page](../types.md)
+- `no_std` without allocator support (even with types like String and Vec, for both reading and writing)
+- `std` support (standard Vec and String are used)
+- Zero-copy deserialization
+- Self-referential types
+- Built-in mechanism for backwards and forwards compatibility
 
 Used in auto-generated serdes and API code and it can be used stand-alone as well.
 Note that understanding how use serdes system manually is optional, as most of the code is automatically generated.
@@ -23,7 +23,7 @@ Feel free to continue to the [next step](#next-step).
 
 ## High-level overview
 
-Main idea behind the wire format is a stack of sizes that is kept in the back of the buffer. This not only allows to do
+Main idea behind the wire format is a FIFO of sizes that is kept in the back of the buffer. This not only allows to do
 serialization in one pass, but also avoid unnecessary copying.
 
 Let's see how this works on a simple example: serialize two strings of arbitrary length into a byte buffer.

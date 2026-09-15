@@ -63,18 +63,18 @@ mod imp {
     }
 }
 
-#[cfg(not(feature = "usb-tracing"))]
-mod imp {
-    #[derive(Clone)]
-    pub struct Tracer;
+// #[cfg(not(feature = "usb-tracing"))]
+// mod imp {
+//     #[derive(Clone)]
+//     pub struct Tracer;
 
-    impl Tracer {
-        pub fn new(_di: &nusb::DeviceInfo) -> anyhow::Result<Self> {
-            Ok(Tracer)
-        }
-        pub fn tx(&self, _frame: &[u8]) {}
-        pub fn rx(&self, _frame: &[u8]) {}
-    }
-}
+//     impl Tracer {
+//         pub fn new(_di: &nusb::DeviceInfo) -> anyhow::Result<Self> {
+//             Ok(Tracer)
+//         }
+//         pub fn tx(&self, _frame: &[u8]) {}
+//         pub fn rx(&self, _frame: &[u8]) {}
+//     }
+// }
 
-pub(crate) use imp::Tracer;
+// pub(crate) use imp::Tracer;

@@ -39,7 +39,7 @@ pub(crate) enum TxOutput {
     /// a partially filled one is kept until [TxOutput::Flush].
     Send {
         kind: u8,
-        payload: Vec<u8>,
+        message: Vec<u8>,
     },
     /// Send the current frame now, even if not full. No-op when there is nothing pending.
     Flush,
@@ -311,7 +311,7 @@ impl TxCore {
         self.tracers.request(&bytes);
         self.output.push_back(TxOutput::Send {
             kind: ww_link::Kind::Data0 as u8,
-            payload: bytes,
+            message: bytes,
         });
         if self.unflushed_since.is_none() {
             self.unflushed_since = Some(now);
@@ -445,7 +445,7 @@ impl TxCore {
             .map_err(|e| Error::Transport(format!("{e:?}")))?;
         self.output.push_back(TxOutput::Send {
             kind,
-            payload: payload.to_vec(),
+            message: payload.to_vec(),
         });
         Ok(())
     }

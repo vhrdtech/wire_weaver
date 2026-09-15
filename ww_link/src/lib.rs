@@ -19,19 +19,17 @@ pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
 pub use wire_weaver::DisconnectReason;
 
+// Framer configuration for USB
 /// Framer head used by the link.
-pub type Head = U2Head;
+pub type UsbHead = U2Head;
 /// Split messages are protected with CRC-16 to detect lost frames, Full ones rely on the medium.
-pub type Checksum = CrcChecksum<Crc16IbmSdlc>;
+/// This might not be needed though.
+pub type UsbChecksum = CrcChecksum<Crc16IbmSdlc>;
 /// Frame based media (USB, CAN, etc.) do not need a delimiter.
-pub type Tail = NopTail;
+pub type UsbTail = NopTail;
 
-pub type Tx<'i> = ww_framer::Tx<'i, Head, Checksum, Tail>;
-pub type Rx<'i> = ww_framer::FramedRx<'i, Head, Checksum, Tail>;
-#[cfg(feature = "std")]
-pub type TxOwned = ww_framer::TxOwned<Head, Checksum, Tail>;
-#[cfg(feature = "std")]
-pub type RxOwned = ww_framer::FramedRxOwned<Head, Checksum, Tail>;
+// pub type UsbTx<'i> = ww_framer::Tx<'i, UsbHead, UsbChecksum, UsbTail>;
+// pub type UsbRx<'i> = ww_framer::FramedRx<'i, UsbHead, UsbChecksum, UsbTail>;
 
 /// How often to send [Kind::Ping] when there is no other traffic.
 pub const PING_INTERVAL_MS: u64 = 3000;

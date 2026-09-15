@@ -183,16 +183,30 @@ impl Source {
 }
 
 impl Source {
+    // /// Cancel-safe: the only await is on the completion channel.
+    // pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
+    //     let mut len = 0;
+    //     self.read_packet_with(|p| {
+    //         len = p.len();
+    //         data[..p.len()].copy_from_slice(p);
+    //     })
+    //     .await?;
+    //     Ok(len)
+    // }
+
     /// Cancel-safe: the only await is on the completion channel.
-    pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
+    pub async fn read_packet_with<F: FnMut(&[u8])>(
+        &mut self,
+        mut f: F,
+    ) -> Result<(), TransferError> {
         match self.completion_rx.recv().await {
             Some(completion) => {
                 let buf = completion.buffer;
                 let len = buf.len();
                 let status = completion.status;
                 if status.is_ok() {
-                    data[..len].copy_from_slice(&buf);
-                    trace!("received packet: {}: {:02x?}", len, &data[..len]);
+                    trace!("received packet: {}: {:02x?}", len, &buf[..len]);
+                    f(&buf[..len]);
                 }
                 // resubmit even on error, so that rx keeps flowing; exactly RX_QUEUE_SIZE buffers exist
                 if self.submit_tx.try_send(buf).is_err() {
@@ -200,7 +214,7 @@ impl Source {
                     return Err(TransferError::Disconnected);
                 }
                 status?;
-                Ok(len)
+                Ok(())
             }
             None => Err(TransferError::Disconnected),
         }

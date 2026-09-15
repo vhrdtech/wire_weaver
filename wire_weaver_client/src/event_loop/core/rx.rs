@@ -29,7 +29,7 @@ pub(crate) enum RxInput<'i> {
     /// One de-framed link message: framer `user_kind` and payload.
     Message {
         kind: u8,
-        payload: &'i [u8],
+        message: &'i [u8],
     },
     /// Read failed.
     TransportError(String),
@@ -91,7 +91,10 @@ impl RxCore {
 
     pub fn handle(&mut self, now: Instant, input: RxInput<'_>) {
         let r = match input {
-            RxInput::Message { kind, payload } => self.on_message(now, kind, payload),
+            RxInput::Message {
+                kind,
+                message: payload,
+            } => self.on_message(now, kind, payload),
             RxInput::TransportError(e) => {
                 self.tracers.error(&e);
                 Err(anyhow!(Error::Transport(e)))

@@ -47,12 +47,12 @@ control traffic is rare.
 / checksum / tail that suits its medium. For convenience a default configuration is provided:
 
 ```rust
-use ww_link::{Head, Checksum, Tail};  // U2Head, CRC-16/IBM-SDLC per message, no tail
-use ww_link::{Tx, Rx};                // borrowed, no_std: Tx<'a>, Rx<'a>
-use ww_link::{TxOwned, RxOwned};      // feature "std": buffers are Vec<u8>
+use ww_link::{UsbHead, UsbChecksum, UsbTail};  // U2Head, CRC-16/IBM-SDLC per message, no tail
+type UsbTx<'a> = ww_framer::Tx<'a, UsbHead, UsbChecksum, UsbTail>;
+type UsbRx<'a> = ww_framer::FramedRx<'a, UsbHead, UsbChecksum, UsbTail>;
 ```
 
-This is what USB uses. A medium with its own integrity check might drop the checksum,
+This is what USB uses (`TxOwned`/`FramedRxOwned` variants with the `std` feature of `ww_framer`). A medium with its own integrity check might drop the checksum,
 a stream medium (UART) would add a tail for synchronization, and so on — the link messages stay the same.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.
@@ -220,11 +220,11 @@ device just means the tx task is parked in a write, so the command channel fills
 
 ## Features
 
-| Feature  | Effect                                                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| _(none)_ | `no_std`, borrowed `Tx`/`Rx`, borrowed `DeviceInfo`/`LinkSetup`.                                                                |
-| `std`    | Adds `TxOwned`/`RxOwned` (heap buffers), `DeviceInfoOwned`/`LinkSetupOwned`, owned version types. Used by `wire_weaver_client`. |
-| `defmt`  | `defmt::Format` on `Kind`, `Error`, `DeviceInfo`, `LinkSetup` for embedded logging.                                             |
+| Feature  | Effect                                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| _(none)_ | `no_std`, borrowed `Tx`/`Rx`, borrowed `DeviceInfo`/`LinkSetup`.                                               |
+| `std`    | Adds `DeviceInfoOwned`/`LinkSetupOwned` (+ `make_owned()`), owned version types. Used by `wire_weaver_client`. |
+| `defmt`  | `defmt::Format` on `Kind`, `Error`, `DeviceInfo`, `LinkSetup` for embedded logging.                            |
 
 Framer features `large` and `very_large` are enabled unconditionally, so messages up to 16 MiB can be described by
 the head; actual limits are negotiated via `dev_max_message_len` / `host_max_message_len`.

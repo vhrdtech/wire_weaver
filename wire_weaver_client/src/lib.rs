@@ -31,7 +31,9 @@ mod rtt;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
-const DEFAULT_MAX_MESSAGE_SIZE: usize = 16_384;
+/// Maximum ww_client_server message this host can receive; advertised to a device during link setup
+/// and used to size rx assembly buffers.
+pub(crate) const DEFAULT_MAX_MESSAGE_SIZE: usize = 16_384;
 pub type SeqTy = u16;
 pub use error::Error;
 

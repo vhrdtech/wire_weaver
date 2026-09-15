@@ -9,7 +9,8 @@ use tracing::{debug, error, info, trace, warn};
 use ww_link::{DisconnectReason, LinkSetup, Message};
 use ww_version::{FullVersionOwned, VersionOwned};
 
-use super::{MAX_MESSAGE_SIZE, ToRx, ToTx, Tracers, is_due};
+use super::{ToRx, ToTx, Tracers, is_due};
+use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{Command, EventLoopExitReason, EventLoopResidual, TestProgress};
 use crate::{Error, SeqTy};
@@ -53,6 +54,8 @@ pub(crate) enum TxOutput {
 enum Phase {
     /// No transport, waiting for [Command::Connect]
     Idle,
+    /// Exited (or connect failed); this core is done and a new event loop must be started to connect again
+    Exited,
     /// [TxOutput::Connect] emitted, waiting for the transport
     Connecting,
     /// Sending GetDeviceInfo until rx reports DeviceInfo
@@ -104,12 +107,12 @@ impl TxCore {
         TxCore {
             phase: Phase::Idle,
             output: VecDeque::new(),
-            scratch: vec![0u8; MAX_MESSAGE_SIZE],
+            scratch: vec![0u8; DEFAULT_MAX_MESSAGE_SIZE],
             tracers: Tracers::default(),
             exited_tx: None,
             client_version: None,
             frame_accumulation_time: Duration::from_millis(1),
-            device_max_message_len: MAX_MESSAGE_SIZE,
+            device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
             link_setup_retries_left: LINK_SETUP_RETRIES,
             next_link_setup_retry_at: None,
             unflushed_since: None,
@@ -158,7 +161,7 @@ impl TxCore {
             .into_iter()
             .flatten()
             .min(),
-            Phase::Idle | Phase::Connecting | Phase::LinkSetup => None,
+            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => None,
         }
     }
 
@@ -194,11 +197,16 @@ impl TxCore {
                 failed_tx,
             } => {
                 if self.phase != Phase::Idle {
-                    warn!("ignoring Connect while already connected");
+                    // proper way to re-connect to the same device, or another one, is to tear down this event loop
+                    // then take the residual and start a new one, sending a connect command there
+                    let why = if self.phase == Phase::Exited {
+                        "event loop already exited, start a new one to connect again"
+                    } else {
+                        "already connected"
+                    };
+                    warn!("ignoring Connect: {why}");
                     if let Some(tx) = connected_tx {
-                        _ = tx.send(crate::device_info::ConnectionInfo::err(anyhow!(
-                            "already connected"
-                        )));
+                        _ = tx.send(crate::device_info::ConnectionInfo::err(anyhow!(why)));
                     }
                     return Ok(Flow::Continue);
                 }
@@ -349,7 +357,7 @@ impl TxCore {
                     .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)));
                 self.send(&Message::LinkSetup(LinkSetup {
                     host_user_version: client_version.as_ref(),
-                    host_max_message_len: MAX_MESSAGE_SIZE as u32,
+                    host_max_message_len: DEFAULT_MAX_MESSAGE_SIZE as u32,
                 }))?;
                 self.flush(now);
             }
@@ -410,7 +418,7 @@ impl TxCore {
                     self.flush(now);
                 }
             }
-            Phase::Idle | Phase::Connecting | Phase::LinkSetup => {}
+            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => {}
         }
         Ok(Flow::Continue)
     }
@@ -485,7 +493,7 @@ impl TxCore {
             Ok(r) => debug!("tx exiting with: {r:?}"),
             Err(e) => error!("tx exiting with: {e:?}"),
         }
-        self.phase = Phase::Idle;
+        self.phase = Phase::Exited;
         self.unflushed_since = None;
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;

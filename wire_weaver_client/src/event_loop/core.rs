@@ -38,18 +38,13 @@ use ww_link::DeviceInfoOwned;
 use crate::SeqTy;
 use crate::event_loop::command::Command;
 use crate::event_loop::command::EventLoopExitReason;
-use crate::event_loop::framing::MessageRx;
-use crate::event_loop::framing::MessageTx;
-use crate::event_loop::framing::Transport;
 use crate::event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender};
+use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
 use crate::tracing::tracing::TraceEvent;
 use ww_client_server::PathKindOwned;
 
 pub(crate) use rx::{RxCore, RxInput, RxOutput};
 pub(crate) use tx::{TxCore, TxInput, TxOutput};
-
-/// Maximum ww_client_server message this host can receive, advertised to a device during link setup.
-pub(crate) const MAX_MESSAGE_SIZE: usize = 2048;
 
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
 const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
@@ -285,7 +280,6 @@ async fn rx_task<T: Transport>(
     let mut core = RxCore::new();
     let mut msg_rx_rx = Some(msg_rx_rx);
     let mut msg_rx: Option<T::Rx> = None;
-    let mut buf = vec![0u8; crate::DEFAULT_MAX_MESSAGE_SIZE];
 
     loop {
         // Everything tx told us goes in first, see RxCore docs on ordering
@@ -303,13 +297,6 @@ async fn rx_task<T: Transport>(
             break;
         }
 
-        let msg_rx_rx = async {
-            match msg_rx_rx.take() {
-                Some(msg_rx_rx) => msg_rx_rx.await,
-                None => std::future::pending().await,
-            }
-        };
-        let waiting_for_msg_rx = msg_rx.is_none();
         let deadline = core.poll_timeout();
         let timer = async {
             match deadline {
@@ -317,36 +304,49 @@ async fn rx_task<T: Transport>(
                 None => std::future::pending().await,
             }
         };
-        let read_message = async {
-            match msg_rx.as_mut() {
-                Some(r) => r.read_message(&mut buf).await,
-                None => std::future::pending().await,
+        let Some(rx) = msg_rx.as_mut() else {
+            // Not connected yet: only tx can change that, by handing over the rx half
+            let Some(rx_rx) = msg_rx_rx.take() else {
+                // transport failed earlier, nothing to read from anymore; tx will say Stop
+                match from_tx.recv().await {
+                    Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                    None => break,
+                }
+                continue;
+            };
+            tokio::select! {
+                r = rx_rx => match r {
+                    Ok(r) => msg_rx = Some(r),
+                    // tx task is gone without saying Stop (should not happen), exit
+                    Err(_) => break,
+                },
+                msg = from_tx.recv() => match msg {
+                    Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                    None => break,
+                },
+                _ = timer => core.handle(Instant::now(), RxInput::Timer),
             }
+            continue;
         };
         tokio::select! {
-            // msg_rx arrives after a successfull Connect
-            r = msg_rx_rx, if waiting_for_msg_rx => match r {
-                Ok(r) => msg_rx = Some(r),
-                Err(_) => {
-                    // tx task is gone without saying Stop (should not happen), exit
-                    break;
-                }
-            },
             msg = from_tx.recv() => match msg {
                 Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
                 None => break,
             },
-            r = read_message => {
+            r = rx.read_message() => {
                 let now = Instant::now();
                 match r {
-                    Ok((kind, len)) => {
-                        let message = &buf[..len];
-                        trace!("rx msg kind={kind} len={len}: {message:02x?}");
+                    Ok((kind, message)) => {
+                        trace!("rx msg kind={kind} len={}: {message:02x?}", message.len());
+                        // Expect for this answer may have arrived while we were reading
+                        while let Ok(msg) = from_tx.try_recv() {
+                            core.handle(now, RxInput::FromTx(msg));
+                        }
                         core.handle(now, RxInput::Message { kind, message });
                     }
                     Err(e) => {
-                        msg_rx = None;
                         core.handle(now, RxInput::TransportError(e));
+                        // rx core exits on transport error; outputs are handled at the top of the loop
                     }
                 }
             }
@@ -356,6 +356,7 @@ async fn rx_task<T: Transport>(
     drop(msg_rx);
     core
 }
+
 #[cfg(test)]
 mod tests {
     //! Both cores driven together through an in-test bridge, no runtime, hand-advanced time.
@@ -521,7 +522,10 @@ mod tests {
         else {
             panic!()
         };
-        assert_eq!(setup.host_max_message_len, MAX_MESSAGE_SIZE as u32);
+        assert_eq!(
+            setup.host_max_message_len,
+            crate::DEFAULT_MAX_MESSAGE_SIZE as u32
+        );
         assert_eq!(setup.host_user_version.crate_id, "test");
         assert_eq!(
             p.tx.poll_timeout(),

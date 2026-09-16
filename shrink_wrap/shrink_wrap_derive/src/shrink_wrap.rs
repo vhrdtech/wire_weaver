@@ -1,9 +1,10 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Span, TokenStream};
 use quote::TokenStreamExt;
 use shrink_wrap_core::ast::{ItemEnum, ItemStruct};
 use shrink_wrap_core::transform::take_owned_attr;
-use syn::parse::Parse;
 use syn::{File, Item, parse2};
+
+use crate::args::Args;
 
 // TODO: move owned = "" to derive_shrink_warp attribute macro args?
 pub fn shrink_wrap_attr(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -98,30 +99,5 @@ fn has_lifetimes(item: &Item) -> bool {
         Item::Enum(item_enum) => item_enum.generics.lifetimes().next().is_some(),
         Item::Struct(item_struct) => item_struct.generics.lifetimes().next().is_some(),
         _ => false,
-    }
-}
-
-struct Args {
-    discriminants_enum: bool,
-}
-
-impl Parse for Args {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut discriminants_enum = false;
-        while !input.is_empty() {
-            let ident: Ident = input.parse()?;
-            match ident.to_string().as_str() {
-                "discriminants" => {
-                    discriminants_enum = true;
-                }
-                u => {
-                    return Err(syn::Error::new(
-                        ident.span(),
-                        format!("unsupported directive '{u}'"),
-                    ));
-                }
-            }
-        }
-        Ok(Args { discriminants_enum })
     }
 }

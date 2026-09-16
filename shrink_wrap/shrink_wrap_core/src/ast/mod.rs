@@ -10,4 +10,5 @@ pub(crate) mod value;
 
 pub use item_enum::ItemEnum;
 pub use item_struct::ItemStruct;
+pub use object_size::ObjectSize;
 pub use repr::Repr;

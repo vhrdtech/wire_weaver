@@ -50,6 +50,20 @@ pub struct FullVersion<'i> {
     // TODO: Add type name
 }
 
+#[derive_shrink_wrap(
+    final_structure,
+    owned(feature = "std"),
+    derive(PartialEq, Eq, Clone, Hash),
+    derive_borrowed(Copy),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
+pub struct FullVersionTest<'i> {
+    pub crate_id: &'i str,
+    pub version: Version<'i>,
+    // TODO: Add type name
+}
+
 /// Compact version for traits-based requests that are made often or through limited bandwidth interfaces.
 /// Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 #[derive_shrink_wrap]

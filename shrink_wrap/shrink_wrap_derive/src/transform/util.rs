@@ -10,7 +10,7 @@ use proc_macro2::{Ident, Span};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-pub enum FieldPathRoot {
+pub(crate) enum FieldPathRoot {
     NamedField(Ident),
     EnumVariant(Ident),
     Argument(Ident),
@@ -19,7 +19,7 @@ pub enum FieldPathRoot {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-pub enum FieldSelector {
+pub(crate) enum FieldSelector {
     NamedField(Ident),
     Tuple(u32),
     Array(usize),
@@ -29,13 +29,13 @@ pub enum FieldSelector {
 }
 
 #[derive(Debug)]
-pub struct FieldPath {
+pub(crate) struct FieldPath {
     root: FieldPathRoot,
     selectors: Vec<FieldSelector>,
 }
 
 impl FieldPath {
-    pub fn new(root: FieldPathRoot) -> Self {
+    pub(crate) fn new(root: FieldPathRoot) -> Self {
         FieldPath {
             root,
             selectors: vec![],
@@ -43,18 +43,18 @@ impl FieldPath {
     }
 
     #[allow(dead_code)]
-    pub fn push(&mut self, selector: FieldSelector) {
+    pub(crate) fn push(&mut self, selector: FieldSelector) {
         self.selectors.push(selector);
     }
 
-    pub fn clone_and_push(&self, selector: FieldSelector) -> Self {
+    pub(crate) fn clone_and_push(&self, selector: FieldSelector) -> Self {
         FieldPath {
             root: self.root.clone(),
             selectors: self.selectors.iter().cloned().chain([selector]).collect(),
         }
     }
 
-    pub fn flag_ident(&self) -> Ident {
+    pub(crate) fn flag_ident(&self) -> Ident {
         match &self.root {
             FieldPathRoot::NamedField(ident) | FieldPathRoot::Argument(ident) => {
                 let ident = ident.to_string();
@@ -76,7 +76,7 @@ impl FieldPath {
 }
 
 /// Create flags for Result or Option fields without explicitly defined ones.
-pub fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
+pub(crate) fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
     let mut fields_without_flags = vec![];
     for (idx, f) in fields.iter().enumerate() {
         let is_flag_ty = matches!(f.ty, Type::Result(_, _) | Type::Option(_, _));
@@ -123,7 +123,7 @@ pub(crate) fn create_tuple_flags(fields: &[Type]) -> Vec<Type> {
 }
 
 /// Check that using stack for flags will work
-pub fn check_flag_order(fields: &[Field]) -> Result<(), String> {
+pub(crate) fn check_flag_order(fields: &[Field]) -> Result<(), String> {
     let mut flags_stack = vec![];
     for field in fields.iter() {
         match &field.ty {
@@ -167,7 +167,7 @@ pub fn check_flag_order(fields: &[Field]) -> Result<(), String> {
 //     })
 // }
 
-pub fn transform_field(
+pub(crate) fn transform_field(
     def_order_idx: u32,
     field: &syn::Field,
     path: &FieldPath,

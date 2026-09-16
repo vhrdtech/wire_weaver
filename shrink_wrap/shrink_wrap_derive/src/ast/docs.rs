@@ -4,29 +4,29 @@ use std::fmt::{Display, Formatter};
 use syn::LitStr;
 
 #[derive(Clone, Debug)]
-pub struct Docs {
+pub(crate) struct Docs {
     docs: Vec<LitStr>,
 }
 
 impl Docs {
-    pub fn empty() -> Docs {
+    pub(crate) fn empty() -> Docs {
         Docs { docs: Vec::new() }
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.docs.is_empty()
     }
 
-    pub fn push(&mut self, s: LitStr) {
+    pub(crate) fn push(&mut self, s: LitStr) {
         self.docs.push(LitStr::new(s.value().trim(), s.span()));
     }
 
-    pub fn push_str(&mut self, s: impl AsRef<str>) {
+    pub(crate) fn push_str(&mut self, s: impl AsRef<str>) {
         self.docs
             .push(LitStr::new(s.as_ref().trim(), Span::call_site()));
     }
 
-    pub fn first_line(&self) -> Option<String> {
+    pub(crate) fn first_line(&self) -> Option<String> {
         self.docs.first().map(|s| s.value())
     }
 }

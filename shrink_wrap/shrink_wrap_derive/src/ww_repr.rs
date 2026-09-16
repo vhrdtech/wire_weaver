@@ -1,7 +1,8 @@
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::quote;
-use shrink_wrap_core::ast::Repr;
 use syn::{Expr, ItemEnum, Lit, Meta, parse2};
+
+use crate::ast::repr::Repr;
 
 pub fn ww_repr(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut attr = attr.into_iter();

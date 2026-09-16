@@ -8,30 +8,30 @@ use proc_macro2::{Ident, Span};
 use syn::LitStr;
 
 #[derive(Clone, Debug)]
-pub struct ItemStruct {
-    pub docs: Docs,
-    pub derive_borrowed: Vec<Path>,
-    pub derive_owned: Vec<Path>,
-    pub size_assumption: Option<ObjectSize>,
-    pub ident: Ident,
-    pub fields: Vec<Field>,
-    pub cfg: Option<Cfg>,
-    pub defmt: Option<CfgAttrDefmt>,
-    pub serde: Option<CfgAttrSerde>,
+pub(crate) struct ItemStruct {
+    pub(crate) docs: Docs,
+    pub(crate) derive_borrowed: Vec<Path>,
+    pub(crate) derive_owned: Vec<Path>,
+    pub(crate) size_assumption: Option<ObjectSize>,
+    pub(crate) ident: Ident,
+    pub(crate) fields: Vec<Field>,
+    pub(crate) cfg: Option<Cfg>,
+    pub(crate) defmt: Option<CfgAttrDefmt>,
+    pub(crate) serde: Option<CfgAttrSerde>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Field {
-    pub docs: Docs,
-    pub id: u32,
-    pub ident: Ident,
-    pub ty: Type,
-    pub since: Option<Version>,
-    pub default: Option<Value>,
+pub(crate) struct Field {
+    pub(crate) docs: Docs,
+    pub(crate) id: u32,
+    pub(crate) ident: Ident,
+    pub(crate) ty: Type,
+    pub(crate) since: Option<Version>,
+    pub(crate) default: Option<Value>,
 }
 
 impl ItemStruct {
-    pub fn to_owned(&self, feature: LitStr) -> Self {
+    pub(crate) fn to_owned(&self, feature: LitStr) -> Self {
         let mut owned = self.clone();
         owned.ident = Ident::new(format!("{}Owned", self.ident).as_str(), self.ident.span());
         owned.cfg = Some(Cfg(feature));
@@ -43,7 +43,7 @@ impl ItemStruct {
         owned
     }
 
-    pub fn potential_lifetimes(&self) -> bool {
+    pub(crate) fn potential_lifetimes(&self) -> bool {
         for field in &self.fields {
             if field.ty.potential_lifetimes() {
                 return true;
@@ -54,7 +54,7 @@ impl ItemStruct {
 }
 
 impl Field {
-    pub fn new(id: u32, ident: &str, ty: Type) -> Self {
+    pub(crate) fn new(id: u32, ident: &str, ty: Type) -> Self {
         Self {
             docs: Docs::empty(),
             id,

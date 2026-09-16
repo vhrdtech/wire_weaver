@@ -3,14 +3,14 @@ use quote::{ToTokens, quote};
 use syn::LitStr;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Version {
-    pub major: u32,
-    pub minor: u32,
-    pub patch: u32,
+pub(crate) struct Version {
+    pub(crate) major: u32,
+    pub(crate) minor: u32,
+    pub(crate) patch: u32,
 }
 
 #[derive(Clone, Debug)]
-pub struct Cfg(pub LitStr);
+pub(crate) struct Cfg(pub(crate) LitStr);
 
 impl ToTokens for Cfg {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -20,7 +20,7 @@ impl ToTokens for Cfg {
 }
 
 #[derive(Clone, Debug)]
-pub struct CfgAttrDefmt(pub LitStr);
+pub(crate) struct CfgAttrDefmt(pub(crate) LitStr);
 
 impl ToTokens for CfgAttrDefmt {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -30,7 +30,7 @@ impl ToTokens for CfgAttrDefmt {
 }
 
 #[derive(Clone, Debug)]
-pub struct CfgAttrSerde(pub LitStr);
+pub(crate) struct CfgAttrSerde(pub(crate) LitStr);
 
 impl ToTokens for CfgAttrSerde {
     fn to_tokens(&self, tokens: &mut TokenStream) {

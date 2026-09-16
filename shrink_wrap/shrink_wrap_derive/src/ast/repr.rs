@@ -1,5 +1,5 @@
 #[derive(Copy, Clone, Debug, Default)]
-pub enum Repr {
+pub(crate) enum Repr {
     /// Variable length, nibble based and nibble aligned
     #[default]
     UNib32,
@@ -16,7 +16,7 @@ pub enum Repr {
 }
 
 impl Repr {
-    pub fn parse_str(s: &str) -> Option<Self> {
+    pub(crate) fn parse_str(s: &str) -> Option<Self> {
         if s == "unib32" || s == "UNib32" {
             return Some(Repr::UNib32);
         }
@@ -37,7 +37,7 @@ impl Repr {
         }
     }
 
-    pub fn max_discriminant(&self) -> u32 {
+    pub(crate) fn max_discriminant(&self) -> u32 {
         match self {
             Repr::U(bits) => {
                 if *bits == 32 {
@@ -54,7 +54,7 @@ impl Repr {
         }
     }
 
-    pub fn required_bits(&self) -> u8 {
+    pub(crate) fn required_bits(&self) -> u8 {
         match self {
             Repr::U(bits) => *bits,
             Repr::UNib32 => 32,
@@ -65,7 +65,7 @@ impl Repr {
         }
     }
 
-    pub fn std_bits(&self) -> u8 {
+    pub(crate) fn std_bits(&self) -> u8 {
         match &self {
             Repr::Nibble => 8,
             Repr::U8 => 8,

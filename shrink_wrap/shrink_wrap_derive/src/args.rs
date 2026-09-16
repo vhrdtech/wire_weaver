@@ -1,7 +1,9 @@
 use proc_macro2::{Ident, TokenStream};
-use shrink_wrap_core::ast::{ObjectSize, Repr};
 use syn::parse::{Parse, ParseStream};
 use syn::{Path, Token};
+
+use crate::ast::object_size::ObjectSize;
+use crate::ast::repr::Repr;
 
 #[allow(dead_code)]
 pub(crate) struct Args {

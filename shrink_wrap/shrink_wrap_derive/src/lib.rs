@@ -1,7 +1,10 @@
 use proc_macro::TokenStream;
 
 mod args;
+mod ast;
+mod codegen;
 mod shrink_wrap;
+mod transform;
 mod ww_repr;
 
 /// Use Rust definition of an enum or struct to derive `SerializeShrinkWrap` and `DeserializeShrinkWrap`

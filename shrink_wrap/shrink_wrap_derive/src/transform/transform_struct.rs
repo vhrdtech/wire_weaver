@@ -1,19 +1,22 @@
 use crate::ast::item_struct::Field;
+use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
 use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
 use crate::ast::value::Value;
-use crate::ast::ItemStruct;
 use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
     take_derive_borrowed_attr, take_derive_owned_attr, take_serde_attr, take_size_assumption,
 };
 use crate::transform::util::{
-    check_flag_order, create_flags, transform_field, FieldPath, FieldPathRoot,
+    FieldPath, FieldPathRoot, check_flag_order, create_flags, transform_field,
 };
 
 impl ItemStruct {
-    pub fn from_syn(item_struct: &syn::ItemStruct, add_evolve_docs: bool) -> Result<Self, String> {
+    pub(crate) fn from_syn(
+        item_struct: &syn::ItemStruct,
+        add_evolve_docs: bool,
+    ) -> Result<Self, String> {
         let mut fields = vec![];
         let mut explicit_flags = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
@@ -59,7 +62,7 @@ impl ItemStruct {
     }
 }
 
-pub fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), String> {
+pub(crate) fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), String> {
     let mut set_to_default_false = vec![];
     let mut default_found = false;
     let mut default_is_not_last = false;
@@ -99,7 +102,7 @@ pub fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), String> {
 }
 
 /// Change IsOk to IsSome for explicit flags, as a full field list is needed to determine which one to use.
-pub fn change_is_ok_to_is_some(fields: &mut [Field]) {
+pub(crate) fn change_is_ok_to_is_some(fields: &mut [Field]) {
     let mut flip = vec![];
     for (idx, f) in fields.iter().enumerate() {
         let Type::IsOk(ident) = &f.ty else { continue };

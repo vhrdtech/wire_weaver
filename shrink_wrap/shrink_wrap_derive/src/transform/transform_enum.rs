@@ -1,6 +1,6 @@
+use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
-use crate::ast::ItemEnum;
 use crate::transform::docs_util::add_notes;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
@@ -9,12 +9,15 @@ use crate::transform::syn_util::{
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
-    check_flag_order, create_flags, create_tuple_flags, transform_field, FieldPath, FieldPathRoot,
+    FieldPath, FieldPathRoot, check_flag_order, create_flags, create_tuple_flags, transform_field,
 };
 use syn::{Expr, Lit};
 
 impl ItemEnum {
-    pub fn from_syn(item_enum: &syn::ItemEnum, add_evolve_docs: bool) -> Result<Self, String> {
+    pub(crate) fn from_syn(
+        item_enum: &syn::ItemEnum,
+        add_evolve_docs: bool,
+    ) -> Result<Self, String> {
         let mut variants = vec![];
         let mut current_discriminant: u32 = 0;
         let mut max_discriminant: u32 = 0;

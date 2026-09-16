@@ -4,7 +4,7 @@ use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};
 
-pub fn transform_type(
+pub(crate) fn transform_type(
     ty: syn::Type,
     _attrs: Option<&mut Vec<Attribute>>,
     path: &FieldPath,
@@ -244,7 +244,7 @@ fn transform_type_ref_box(path_segment: &PathSegment, path: &FieldPath) -> Resul
     Ok(Type::RefBox(Box::new(inner_ty)))
 }
 
-pub fn transform_return_type(ty: ReturnType, path: &FieldPath) -> Result<Option<Type>, String> {
+pub(crate) fn transform_return_type(ty: ReturnType, path: &FieldPath) -> Result<Option<Type>, String> {
     match ty {
         ReturnType::Default => Ok(None),
         ReturnType::Type(_, ty) => Ok(Some(transform_type(*ty, None, path)?)),

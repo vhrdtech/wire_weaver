@@ -5,20 +5,20 @@ use std::ops::Deref;
 use syn::{Lit, LitInt};
 
 #[derive(Clone)]
-pub enum FieldPath {
+pub(crate) enum FieldPath {
     Ref(TokenStream),
     Value(TokenStream),
 }
 
 impl FieldPath {
-    pub fn by_ref(self) -> TokenStream {
+    pub(crate) fn by_ref(self) -> TokenStream {
         match self {
             FieldPath::Ref(path) => path,
             FieldPath::Value(path) => quote! { &#path },
         }
     }
 
-    pub fn by_value(self) -> TokenStream {
+    pub(crate) fn by_value(self) -> TokenStream {
         match self {
             FieldPath::Ref(path) => quote! { *#path },
             FieldPath::Value(path) => path,
@@ -40,7 +40,7 @@ impl FieldPath {
 }
 
 impl Type {
-    pub fn def(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn def(&self, no_alloc: bool) -> TokenStream {
         match self {
             Type::Bool => quote! { bool },
             Type::Nibble => quote! { Nibble },
@@ -129,7 +129,7 @@ impl Type {
     }
 
     // TODO: make arg_pos_def2 behavior default one
-    pub fn arg_pos_def(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn arg_pos_def(&self, no_alloc: bool) -> TokenStream {
         match self {
             Type::String => {
                 if no_alloc {
@@ -157,7 +157,7 @@ impl Type {
         }
     }
 
-    pub fn arg_pos_def2(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn arg_pos_def2(&self, no_alloc: bool) -> TokenStream {
         if self.potential_lifetimes() && !no_alloc {
             let mut ty_owned = self.clone();
             ty_owned.make_owned();
@@ -167,7 +167,7 @@ impl Type {
         }
     }
 
-    pub fn buf_write(
+    pub(crate) fn buf_write(
         &self,
         field_path: FieldPath,
         no_alloc: bool,
@@ -286,7 +286,7 @@ impl Type {
         tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
     }
 
-    pub fn buf_read(
+    pub(crate) fn buf_read(
         &self,
         variable_name: &Ident,
         _no_alloc: bool,
@@ -376,7 +376,7 @@ impl Type {
         tokens.append_all(quote! { let #variable_name: #enforce_ty = rd.#read_fn() #handle_err; })
     }
 
-    pub fn is_byte_slice(&self) -> bool {
+    pub(crate) fn is_byte_slice(&self) -> bool {
         let Type::Vec(inner) = self else {
             return false;
         };

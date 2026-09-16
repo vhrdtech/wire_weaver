@@ -2,7 +2,7 @@ use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value {
+pub(crate) enum Value {
     None,
     Bool(bool),
     F32(f32),
@@ -20,7 +20,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn ts(&self) -> TokenStream {
+    pub(crate) fn ts(&self) -> TokenStream {
         match self {
             Value::None => quote! { None },
             Value::Bool(value) => {

@@ -1,10 +1,12 @@
 use proc_macro2::{Span, TokenStream};
 use quote::TokenStreamExt;
-use shrink_wrap_core::ast::{ItemEnum, ItemStruct};
-use shrink_wrap_core::transform::take_owned_attr;
 use syn::{File, Item, parse2};
 
-use crate::args::Args;
+use crate::{
+    args::Args,
+    ast::{item_enum::ItemEnum, item_struct::ItemStruct},
+    transform::syn_util::take_owned_attr,
+};
 
 // TODO: move owned = "" to derive_shrink_warp attribute macro args?
 pub fn shrink_wrap_attr(attr: TokenStream, item: TokenStream) -> TokenStream {

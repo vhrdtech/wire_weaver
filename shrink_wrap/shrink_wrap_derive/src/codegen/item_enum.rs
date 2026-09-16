@@ -1,16 +1,15 @@
-use crate::ast::item_enum::{Fields, Variant};
+use crate::ast::item_enum::{Fields, ItemEnum, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
-use crate::ast::ItemEnum;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes_scaffold, strings_to_derive};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{ToTokens, TokenStreamExt, quote};
 use syn::{Lit, LitInt};
 
 impl ItemEnum {
-    pub fn def_rust(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn def_rust(&self, no_alloc: bool) -> TokenStream {
         let enum_name = &self.ident;
         let variants = CGEnumFieldsDef {
             variants: &self.variants,
@@ -56,7 +55,7 @@ impl ItemEnum {
         ts
     }
 
-    pub fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
+    pub(crate) fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
         let enum_name = &self.ident;
         let enum_ser = CGEnumSer {
             item_enum: self,
@@ -138,7 +137,7 @@ impl ItemEnum {
     }
 }
 
-pub fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
+pub(crate) fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
     if no_alloc && item_enum.potential_lifetimes() {
         quote!(<'i>)
     } else {
@@ -151,7 +150,7 @@ pub fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
 //     Ident::new(ty.as_str(), Span::call_site())
 // }
 
-pub fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
+pub(crate) fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
     let enum_name = &item_enum.ident;
     let native_repr = item_enum.native_repr();
     quote! {
@@ -381,7 +380,7 @@ impl Variant {
         ))
     }
 
-    pub fn is_unit(&self) -> bool {
+    pub(crate) fn is_unit(&self) -> bool {
         matches!(self.fields, Fields::Unit)
     }
 }

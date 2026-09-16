@@ -4,7 +4,7 @@ use proc_macro2::Ident;
 
 // TODO: Convert to struct and add span
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Type {
+pub(crate) enum Type {
     Bool,
 
     Nibble,
@@ -63,7 +63,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn potential_lifetimes(&self) -> bool {
+    pub(crate) fn potential_lifetimes(&self) -> bool {
         match self {
             Type::String | Type::Vec(_) | Type::RefBox(_) => true,
             Type::Result(_, ok_err_ty) => {
@@ -85,7 +85,7 @@ impl Type {
         }
     }
 
-    pub fn make_owned(&mut self) {
+    pub(crate) fn make_owned(&mut self) {
         match self {
             Type::External(path, potential_lifetimes) => {
                 // Type::Unsized(path, potential_lifetimes) | Type::Sized(path, potential_lifetimes) => {
@@ -117,7 +117,7 @@ impl Type {
         }
     }
 
-    pub fn visit_external_types<F: FnMut(&Path, bool)>(&self, f: &mut F) {
+    pub(crate) fn visit_external_types<F: FnMut(&Path, bool)>(&self, f: &mut F) {
         match self {
             Type::External(path, potential_lifetimes) => {
                 f(path, *potential_lifetimes);
@@ -148,7 +148,7 @@ impl Type {
         }
     }
 
-    pub fn visit_external_types_mut<F: FnMut(&mut Path, bool)>(&mut self, f: &mut F) {
+    pub(crate) fn visit_external_types_mut<F: FnMut(&mut Path, bool)>(&mut self, f: &mut F) {
         match self {
             Type::External(path, potential_lifetimes) => {
                 f(path, *potential_lifetimes);
@@ -179,7 +179,7 @@ impl Type {
         }
     }
 
-    pub fn prepend_ext_paths(&self, ident: &Ident) -> Type {
+    pub(crate) fn prepend_ext_paths(&self, ident: &Ident) -> Type {
         let mut ty = self.clone();
         ty.visit_external_types_mut(&mut |path, _| {
             path.prepend(ident);
@@ -188,7 +188,7 @@ impl Type {
     }
 
     /// Return ElementSize if it is known. None is returned for Unsized.
-    pub fn element_size(&self) -> Option<ObjectSize> {
+    pub(crate) fn element_size(&self) -> Option<ObjectSize> {
         let size_bits = match self {
             Type::Bool => 1,
             Type::Nibble => 4,

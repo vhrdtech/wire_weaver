@@ -8,13 +8,13 @@ use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
 #[allow(clippy::ptr_arg)]
-pub fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
+pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     // TODO: implement id's
     None
 }
 
 /// Take `#[since = "X.Y"]` attribute and return the Version
-pub fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<Version>, String> {
+pub(crate) fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<Version>, String> {
     let attr_idx = attrs
         .iter()
         .enumerate()
@@ -142,7 +142,7 @@ pub(crate) fn take_size_assumption(attrs: &mut Vec<syn::Attribute>) -> Option<Ob
     }
 }
 
-pub fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
+pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     let mut docs = Docs::empty();
     for attr in attrs.iter() {
         if !attr.path().is_ident("doc") {
@@ -162,7 +162,7 @@ pub fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     docs
 }
 
-pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String> {
+pub(crate) fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String> {
     let (attr_idx, _) = attrs
         .iter()
         .enumerate()
@@ -196,7 +196,7 @@ pub fn take_ww_repr_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Repr, String
 //     Ok(Some(config))
 // }
 
-pub fn take_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
+pub(crate) fn take_owned_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<LitStr>, String> {
     take_attr_inner(attrs, "owned")
 }
 
@@ -264,7 +264,7 @@ fn take_derive_inner(attrs: &mut Vec<syn::Attribute>, ident: &'static str) -> Ve
     derive
 }
 
-pub fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>) {
+pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>) {
     for a in attrs {
         // ignore #[shrink_warp(...)] in after #[derive(ShrinkWrap)]
         if a.path().is_ident("shrink_wrap") {

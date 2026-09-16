@@ -9,38 +9,38 @@ use proc_macro2::{Ident, Span};
 use syn::LitStr;
 
 #[derive(Clone, Debug)]
-pub struct ItemEnum {
-    pub docs: Docs,
-    pub derive_borrowed: Vec<Path>,
-    pub derive_owned: Vec<Path>,
-    pub size_assumption: Option<ObjectSize>,
-    pub repr: Repr,
-    pub explicit_ww_repr: bool,
-    pub ident: Ident,
-    pub variants: Vec<Variant>,
-    pub cfg: Option<Cfg>,
-    pub defmt: Option<CfgAttrDefmt>,
-    pub serde: Option<CfgAttrSerde>,
+pub(crate) struct ItemEnum {
+    pub(crate) docs: Docs,
+    pub(crate) derive_borrowed: Vec<Path>,
+    pub(crate) derive_owned: Vec<Path>,
+    pub(crate) size_assumption: Option<ObjectSize>,
+    pub(crate) repr: Repr,
+    pub(crate) explicit_ww_repr: bool,
+    pub(crate) ident: Ident,
+    pub(crate) variants: Vec<Variant>,
+    pub(crate) cfg: Option<Cfg>,
+    pub(crate) defmt: Option<CfgAttrDefmt>,
+    pub(crate) serde: Option<CfgAttrSerde>,
 }
 
 #[derive(Clone, Debug)]
-pub enum Fields {
+pub(crate) enum Fields {
     Named(Vec<Field>),
     Unnamed(Vec<Type>),
     Unit,
 }
 
 #[derive(Clone, Debug)]
-pub struct Variant {
-    pub docs: Docs,
-    pub ident: Ident,
-    pub fields: Fields,
-    pub discriminant: u32,
-    pub since: Option<Version>,
+pub(crate) struct Variant {
+    pub(crate) docs: Docs,
+    pub(crate) ident: Ident,
+    pub(crate) fields: Fields,
+    pub(crate) discriminant: u32,
+    pub(crate) since: Option<Version>,
 }
 
 impl ItemEnum {
-    pub fn to_owned(&self, feature: LitStr) -> Self {
+    pub(crate) fn to_owned(&self, feature: LitStr) -> Self {
         let mut owned = self.clone();
         owned.ident = Ident::new(format!("{}Owned", self.ident).as_str(), self.ident.span());
         owned.cfg = Some(Cfg(feature));
@@ -64,7 +64,7 @@ impl ItemEnum {
         owned
     }
 
-    pub fn potential_lifetimes(&self) -> bool {
+    pub(crate) fn potential_lifetimes(&self) -> bool {
         for variant in &self.variants {
             if variant.potential_lifetimes() {
                 return true;
@@ -73,7 +73,7 @@ impl ItemEnum {
         false
     }
 
-    pub fn native_repr(&self) -> Ident {
+    pub(crate) fn native_repr(&self) -> Ident {
         match self.repr {
             Repr::U(bits) => {
                 let ty = if bits <= 8 {
@@ -94,7 +94,7 @@ impl ItemEnum {
         }
     }
 
-    pub fn to_discriminants(&self) -> Self {
+    pub(crate) fn to_discriminants(&self) -> Self {
         ItemEnum {
             docs: Docs::empty(),
             derive_borrowed: vec![],
@@ -120,7 +120,7 @@ impl ItemEnum {
 }
 
 impl Variant {
-    pub fn potential_lifetimes(&self) -> bool {
+    pub(crate) fn potential_lifetimes(&self) -> bool {
         match &self.fields {
             Fields::Named(fields) => {
                 for field in fields {

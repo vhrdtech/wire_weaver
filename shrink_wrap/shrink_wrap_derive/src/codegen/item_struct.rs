@@ -1,14 +1,14 @@
 use crate::ast::item_struct::Field;
+use crate::ast::item_struct::ItemStruct;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
-use crate::ast::ItemStruct;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{serdes_scaffold, strings_to_derive};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{ToTokens, TokenStreamExt, quote};
 
 impl ItemStruct {
-    pub fn def_rust(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn def_rust(&self, no_alloc: bool) -> TokenStream {
         let ident = &self.ident;
         let fields = CGStructFieldsDef {
             fields: &self.fields,
@@ -49,7 +49,7 @@ impl ItemStruct {
         ts
     }
 
-    pub fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
+    pub(crate) fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
         let struct_name = &self.ident;
         let struct_ser = CGStructSer {
             item_struct: self,

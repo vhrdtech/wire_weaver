@@ -6,7 +6,7 @@ use syn::{LitInt, LitStr};
 /// Object size from shrink_wrap crate, copied here to decouple the two. Generated code refers to the shrink_wrap one.
 /// Extensive description is in shrink_wrap.
 #[derive(Copy, Clone, Debug)]
-pub enum ObjectSize {
+pub(crate) enum ObjectSize {
     Unsized,
     UnsizedFinalStructure,
     SelfDescribing,
@@ -29,7 +29,7 @@ impl ToTokens for ObjectSize {
 }
 
 impl ObjectSize {
-    pub fn sum_recursively(&self, sizes: Vec<Ident>) -> TokenStream {
+    pub(crate) fn sum_recursively(&self, sizes: Vec<Ident>) -> TokenStream {
         if sizes.is_empty() {
             quote! { #self }
         } else {
@@ -38,7 +38,7 @@ impl ObjectSize {
         }
     }
 
-    pub fn assert_element_size(&self, ident: &Ident, cfg: &Option<Cfg>) -> TokenStream {
+    pub(crate) fn assert_element_size(&self, ident: &Ident, cfg: &Option<Cfg>) -> TokenStream {
         let size_ts = match self {
             ObjectSize::Unsized => quote! { Unsized },
             ObjectSize::UnsizedFinalStructure => quote! { UnsizedFinalStructure },
@@ -69,7 +69,7 @@ impl ObjectSize {
     }
 
     /// IMPORTANT: this method must be a copy of the one in shrink_wrap
-    pub fn add(&self, other: ObjectSize) -> ObjectSize {
+    pub(crate) fn add(&self, other: ObjectSize) -> ObjectSize {
         // Order is very important here, size requirement is bumped from Sized to SelfDescribing to Unsized.
         // UFS is a bit tricky, it is "contagious", so that Vec<T> with T Unsized is UFS.
         // Note that structs and enums cannot accidentally become UFS, because by default they are Unsized, and no sum operations are
@@ -89,7 +89,7 @@ impl ObjectSize {
         }
     }
 
-    pub fn is_unsized(&self) -> bool {
+    pub(crate) fn is_unsized(&self) -> bool {
         matches!(self, ObjectSize::Unsized)
     }
 }

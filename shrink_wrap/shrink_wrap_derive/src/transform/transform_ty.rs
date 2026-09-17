@@ -2,7 +2,7 @@ use crate::ast::path::Path;
 use crate::ast::ty::Type;
 use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
-use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment, ReturnType};
+use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment};
 
 pub(crate) fn transform_type(
     ty: syn::Type,
@@ -242,11 +242,4 @@ fn transform_type_ref_box(path_segment: &PathSegment, path: &FieldPath) -> Resul
     };
     let inner_ty = transform_type(inner_ty.clone(), None, path)?;
     Ok(Type::RefBox(Box::new(inner_ty)))
-}
-
-pub(crate) fn transform_return_type(ty: ReturnType, path: &FieldPath) -> Result<Option<Type>, String> {
-    match ty {
-        ReturnType::Default => Ok(None),
-        ReturnType::Type(_, ty) => Ok(Some(transform_type(*ty, None, path)?)),
-    }
 }

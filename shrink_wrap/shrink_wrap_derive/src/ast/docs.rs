@@ -13,9 +13,9 @@ impl Docs {
         Docs { docs: Vec::new() }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.docs.is_empty()
-    }
+    // pub(crate) fn is_empty(&self) -> bool {
+    //     self.docs.is_empty()
+    // }
 
     pub(crate) fn push(&mut self, s: LitStr) {
         self.docs.push(LitStr::new(s.value().trim(), s.span()));
@@ -26,9 +26,9 @@ impl Docs {
             .push(LitStr::new(s.as_ref().trim(), Span::call_site()));
     }
 
-    pub(crate) fn first_line(&self) -> Option<String> {
-        self.docs.first().map(|s| s.value())
-    }
+    // pub(crate) fn first_line(&self) -> Option<String> {
+    //     self.docs.first().map(|s| s.value())
+    // }
 }
 
 impl ToTokens for Docs {

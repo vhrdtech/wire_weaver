@@ -50,7 +50,7 @@ impl Type {
             Type::U32 | Type::ULeb32 => quote! { u32 },
             Type::U64 | Type::ULeb64 => quote! { u64 },
             Type::U128 | Type::ULeb128 => quote! { u128 },
-            Type::I4 | Type::I8 => quote! { i8 },
+            Type::I8 => quote! { i8 },
             Type::I16 => quote! { i16 },
             Type::I32 | Type::ILeb32 => quote! { i32 },
             Type::I64 | Type::ILeb64 => quote! { i64 },
@@ -128,45 +128,6 @@ impl Type {
         }
     }
 
-    // TODO: make arg_pos_def2 behavior default one
-    pub(crate) fn arg_pos_def(&self, no_alloc: bool) -> TokenStream {
-        match self {
-            Type::String => {
-                if no_alloc {
-                    quote! { &str }
-                } else {
-                    quote! { String }
-                }
-            }
-            Type::Vec(inner_ty) => {
-                let inner_ty = inner_ty.def(no_alloc);
-                if no_alloc {
-                    quote! { RefVec<'_, #inner_ty> }
-                } else {
-                    quote! { Vec<#inner_ty> }
-                }
-            }
-            Type::External(path, is_lifetime) => {
-                if *is_lifetime && no_alloc {
-                    quote! { #path<'_> }
-                } else {
-                    quote! { #path }
-                }
-            }
-            _ => self.def(no_alloc),
-        }
-    }
-
-    pub(crate) fn arg_pos_def2(&self, no_alloc: bool) -> TokenStream {
-        if self.potential_lifetimes() && !no_alloc {
-            let mut ty_owned = self.clone();
-            ty_owned.make_owned();
-            ty_owned.arg_pos_def(no_alloc)
-        } else {
-            self.arg_pos_def(no_alloc)
-        }
-    }
-
     pub(crate) fn buf_write(
         &self,
         field_path: FieldPath,
@@ -187,7 +148,6 @@ impl Type {
             Type::U32 => "write_u32",
             Type::U64 => "write_u64",
             Type::U128 => "write_u128",
-            Type::I4 => "write_i4",
             Type::I8 => "write_i8",
             Type::I16 => "write_i16",
             Type::I32 => "write_i32",
@@ -289,7 +249,6 @@ impl Type {
     pub(crate) fn buf_read(
         &self,
         variable_name: &Ident,
-        _no_alloc: bool,
         owned: bool,
         handle_err: TokenStream,
         enforce_ty: &TokenStream,
@@ -315,7 +274,6 @@ impl Type {
             Type::ULeb32 => unimplemented!("uleb32"),
             Type::ULeb64 => unimplemented!("uleb64"),
             Type::ULeb128 => unimplemented!("uleb128"),
-            Type::I4 => unimplemented!("i4"),
             Type::I8 => "read_i8",
             Type::I16 => "read_i16",
             Type::I32 => "read_i32",
@@ -374,12 +332,5 @@ impl Type {
         };
         let read_fn = Ident::new(read_fn, Span::call_site());
         tokens.append_all(quote! { let #variable_name: #enforce_ty = rd.#read_fn() #handle_err; })
-    }
-
-    pub(crate) fn is_byte_slice(&self) -> bool {
-        let Type::Vec(inner) = self else {
-            return false;
-        };
-        matches!(inner.as_ref(), Type::U8)
     }
 }

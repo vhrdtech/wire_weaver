@@ -1,39 +1,42 @@
+use crate::ast::docs::Docs;
 use crate::ast::item_struct::Field;
-use crate::ast::item_struct::ItemStruct;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::{serdes_scaffold, strings_to_derive};
-use proc_macro2::TokenStream;
+use crate::codegen::util::maybe_quote;
+use crate::codegen::util::serdes_scaffold;
+use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
+use syn::Path;
 
-impl ItemStruct {
-    pub(crate) fn def_rust(&self, no_alloc: bool) -> TokenStream {
+#[derive(Clone, Debug)]
+pub(crate) struct CGItemStruct<'i> {
+    pub(crate) docs: &'i Docs,
+    pub(crate) ident: &'i Ident,
+    pub(crate) fields: &'i [Field],
+    pub(crate) cfg: Option<&'i TokenStream>,
+    pub(crate) cfg_attr: &'i [TokenStream],
+    pub(crate) derive: &'i [Path],
+    pub(crate) size_assumption: Option<ObjectSize>,
+}
+
+impl<'i> CGItemStruct<'i> {
+    pub(crate) fn def_rust(&self, is_ref: bool) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let docs = &self.docs;
+        let derive = maybe_quote(!self.derive.is_empty(), || {
+            let d = self.derive.iter();
+            quote! { #[derive( #(#d),* )] }
+        });
+        let cfg_attr = self.cfg_attr.iter();
         let ident = &self.ident;
         let fields = CGStructFieldsDef {
             fields: &self.fields,
-            no_alloc,
+            is_ref,
         };
-        let lifetime = if no_alloc && self.potential_lifetimes() {
-            quote!(<'i>)
-        } else {
-            quote!()
-        };
-        let derive = if no_alloc {
-            strings_to_derive(&self.derive_borrowed)
-        } else {
-            strings_to_derive(&self.derive_owned)
-        };
-        let docs = &self.docs;
-        let cfg = &self.cfg;
-        let cfg_attr_defmt = &self.defmt;
-        let cfg_attr_serde = if lifetime.is_empty() {
-            &self.serde
-        } else {
-            &None
-        };
+        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, &self.cfg)
+            size.assert_element_size(&self.ident, self.cfg)
         } else {
             quote! {}
         };
@@ -41,36 +44,22 @@ impl ItemStruct {
             #cfg
             #docs
             #derive
-            #cfg_attr_defmt
-            #cfg_attr_serde
+            #(#[cfg_attr(#cfg_attr)])*
             pub struct #ident #lifetime { #fields }
             #assert_size
         };
         ts
     }
 
-    pub(crate) fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
+    pub(crate) fn serdes_rust(&self, is_ref: bool) -> TokenStream {
         let struct_name = &self.ident;
         let struct_ser = CGStructSer {
             item_struct: self,
-            no_alloc,
+            is_ref,
         };
         let struct_des = CGStructDes {
             item_struct: self,
-            no_alloc,
-            owned: false,
-        };
-        let (lifetime, struct_des_owned) = if no_alloc && self.potential_lifetimes() {
-            (quote!(<'i>), None)
-        } else if skip_owned {
-            (quote!(), None)
-        } else {
-            let struct_des_owned = CGStructDes {
-                item_struct: self,
-                no_alloc,
-                owned: true,
-            };
-            (quote!(), Some(struct_des_owned))
+            is_ref,
         };
 
         let mut unknown_unsized = vec![];
@@ -79,7 +68,7 @@ impl ItemStruct {
         if !matches!(sum, ObjectSize::Unsized) {
             // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
             // See ElementSize docs and comments on sum method.
-            for f in &self.fields {
+            for f in self.fields {
                 if let Some(size) = f.ty.element_size() {
                     sum = sum.add(size);
                 }
@@ -101,17 +90,16 @@ impl ItemStruct {
             struct_name,
             struct_ser,
             struct_des,
-            struct_des_owned,
-            lifetime,
-            &self.cfg,
+            self.cfg,
             element_size,
+            is_ref,
         )
     }
 }
 
 struct CGStructFieldsDef<'a> {
     fields: &'a [Field],
-    no_alloc: bool,
+    is_ref: bool,
 }
 
 impl ToTokens for CGStructFieldsDef<'_> {
@@ -121,7 +109,7 @@ impl ToTokens for CGStructFieldsDef<'_> {
                 continue;
             }
             let ident = &struct_field.ident;
-            let ty = struct_field.ty.def(self.no_alloc);
+            let ty = struct_field.ty.def(self.is_ref);
             let docs = &struct_field.docs;
             tokens.append_all(quote! {
                 #docs
@@ -132,23 +120,18 @@ impl ToTokens for CGStructFieldsDef<'_> {
 }
 
 struct CGStructSer<'a> {
-    item_struct: &'a ItemStruct,
-    no_alloc: bool,
+    item_struct: &'a CGItemStruct<'a>,
+    is_ref: bool,
 }
 
 struct CGStructDes<'a> {
-    item_struct: &'a ItemStruct,
-    no_alloc: bool,
-    owned: bool,
+    item_struct: &'a CGItemStruct<'a>,
+    is_ref: bool,
 }
 
 impl ToTokens for CGStructSer<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        // tokens.append_all(trace_extended_key_val(
-        //     "Serialize struct",
-        //     self.item_struct.ident.to_string().as_str(),
-        // ));
-        for struct_field in &self.item_struct.fields {
+        for struct_field in self.item_struct.fields {
             let field_name = &struct_field.ident;
             let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 FieldPath::Value(quote! {self})
@@ -156,13 +139,9 @@ impl ToTokens for CGStructSer<'_> {
                 // TODO: if field is already a reference, this is not quite correct, but this information is not used anymore
                 FieldPath::Value(quote! {self.#field_name})
             };
-            // tokens.append_all(trace_extended_key_val(
-            //     "Serialize struct field",
-            //     struct_field.ident.to_string().as_str(),
-            // ));
             struct_field
                 .ty
-                .buf_write(field_path, self.no_alloc, quote! { ? }, tokens);
+                .buf_write(field_path, self.is_ref, quote! { ? }, tokens);
         }
         tokens.append_all(quote! {
             Ok(())
@@ -173,29 +152,15 @@ impl ToTokens for CGStructSer<'_> {
 impl ToTokens for CGStructDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut field_names = vec![];
-        // tokens.append_all(trace_extended_key_val(
-        //     "Deserialize struct",
-        //     self.item_struct.ident.to_string().as_str(),
-        // ));
-        for struct_field in &self.item_struct.fields {
+        for struct_field in self.item_struct.fields {
             let field_name = &struct_field.ident;
             if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 field_names.push(field_name.clone());
             }
             let handle_eob = struct_field.handle_eob();
-            // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
-            // tokens.append_all(trace_extended_key_val(
-            //     "Deserialize struct field",
-            //     struct_field.ident.to_string().as_str(),
-            // ));
-            struct_field.ty.buf_read(
-                field_name,
-                self.no_alloc,
-                self.owned,
-                handle_eob,
-                &quote! { _ },
-                tokens,
-            );
+            struct_field
+                .ty
+                .buf_read(field_name, !self.is_ref, handle_eob, &quote! { _ }, tokens);
         }
         let struct_name = &self.item_struct.ident;
         tokens.append_all(quote! {
@@ -211,14 +176,8 @@ impl Field {
         match &self.default {
             None => quote!(?),
             Some(value) => {
-                let value = value.ts();
                 quote!(.unwrap_or(#value))
             }
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//
-// }

@@ -1,82 +1,106 @@
-use crate::ast::item_enum::{Fields, ItemEnum, Variant};
+use crate::ast::docs::Docs;
+use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::{serdes_scaffold, strings_to_derive};
+use crate::codegen::util::{maybe_quote, serdes_scaffold};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
-use syn::{Lit, LitInt};
+use syn::{Lit, LitInt, Path};
 
-impl ItemEnum {
-    pub(crate) fn def_rust(&self, no_alloc: bool) -> TokenStream {
+#[derive(Clone, Debug)]
+pub(crate) struct CGItemEnum<'i> {
+    pub(crate) docs: &'i Docs,
+    pub(crate) repr: Repr,
+    pub(crate) ident: &'i Ident,
+    pub(crate) variants: &'i [Variant],
+    pub(crate) cfg: Option<&'i TokenStream>,
+    pub(crate) cfg_attr: &'i [TokenStream],
+    pub(crate) derive: &'i [Path],
+    pub(crate) size_assumption: Option<ObjectSize>,
+}
+
+impl<'i> CGItemEnum<'i> {
+    pub(crate) fn native_repr(&self) -> Ident {
+        match self.repr {
+            Repr::U(bits) => {
+                let ty = if bits <= 8 {
+                    "u8"
+                } else if bits <= 16 {
+                    "u16"
+                } else if bits <= 32 {
+                    "u32"
+                } else {
+                    panic!("only up to u32 enum discriminants are currently supported");
+                };
+                Ident::new(ty, Span::call_site())
+            }
+            Repr::UNib32 | Repr::U32 => Ident::new("u32", Span::call_site()),
+            Repr::U8 => Ident::new("u8", Span::call_site()),
+            Repr::U16 => Ident::new("u16", Span::call_site()),
+            Repr::Nibble => Ident::new("u8", Span::call_site()),
+        }
+    }
+
+    pub(crate) fn def_rust(&self, is_ref: bool) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let docs = &self.docs;
+        let derive = maybe_quote(!self.derive.is_empty(), || {
+            let d = self.derive.iter();
+            quote! { #[derive( #(#d),* )] }
+        });
+        let cfg_attr = self.cfg_attr.iter();
         let enum_name = &self.ident;
         let variants = CGEnumFieldsDef {
             variants: &self.variants,
-            no_alloc,
+            is_ref,
         };
-        let lifetime = enum_lifetime(self, no_alloc);
-        let derive = if no_alloc {
-            strings_to_derive(&self.derive_borrowed)
-        } else {
-            strings_to_derive(&self.derive_owned)
-        };
-        let docs = &self.docs;
-        let cfg = &self.cfg;
-        let cfg_attr_defmt = &self.defmt;
-        let cfg_attr_serde = if lifetime.is_empty() {
-            &self.serde
-        } else {
-            &None
-        };
+        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, &self.cfg)
+            size.assert_element_size(&self.ident, self.cfg)
         } else {
             quote! {}
         };
-        // let base_ty = ww_discriminant_type(self);
         let native_repr = self.native_repr();
-        let enum_discriminant = enum_discriminant(self, lifetime.clone());
+
         let ts = quote! {
             #cfg
             #docs
             #derive
-            #cfg_attr_defmt
-            #cfg_attr_serde
+            #(#[cfg_attr(#cfg_attr)])*
             #[repr(#native_repr)]
-            // #[ww_repr(#base_ty)]
             pub enum #enum_name #lifetime { #variants }
 
             #assert_size
 
             #cfg
-            #enum_discriminant
         };
         ts
     }
 
-    pub(crate) fn serdes_rust(&self, no_alloc: bool, skip_owned: bool) -> TokenStream {
+    pub(crate) fn impl_discriminant(&self, is_ref: bool) -> TokenStream {
+        let enum_name = &self.ident;
+        let native_repr = self.native_repr();
+        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
+        quote! {
+            impl #lifetime #enum_name #lifetime {
+                pub fn discriminant(&self) -> #native_repr {
+                    unsafe { *<*const _>::from(self).cast::<#native_repr>() }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn serdes_rust(&self, is_ref: bool) -> TokenStream {
         let enum_name = &self.ident;
         let enum_ser = CGEnumSer {
             item_enum: self,
-            no_alloc,
+            is_ref,
         };
         let enum_des = CGEnumDes {
             item_enum: self,
-            no_alloc,
-            owned: false,
-        };
-        let (lifetime, enum_des_owned) = if no_alloc && self.potential_lifetimes() {
-            (quote!(<'i>), None)
-        } else if skip_owned {
-            (quote!(), None)
-        } else {
-            let enum_des_owned = CGEnumDes {
-                item_enum: self,
-                no_alloc,
-                owned: true,
-            };
-            (quote!(), Some(enum_des_owned))
+            is_ref,
         };
 
         let mut unknown_unsized = vec![];
@@ -88,7 +112,7 @@ impl ItemEnum {
             }
             // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
             // See ElementSize docs and comments on sum method.
-            for v in &self.variants {
+            for v in self.variants {
                 match &v.fields {
                     Fields::Named(named) => {
                         for f in named {
@@ -129,42 +153,16 @@ impl ItemEnum {
             enum_name,
             enum_ser,
             enum_des,
-            enum_des_owned,
-            lifetime,
-            &self.cfg,
+            self.cfg,
             element_size,
+            is_ref,
         )
-    }
-}
-
-pub(crate) fn enum_lifetime(item_enum: &ItemEnum, no_alloc: bool) -> TokenStream {
-    if no_alloc && item_enum.potential_lifetimes() {
-        quote!(<'i>)
-    } else {
-        quote!()
-    }
-}
-
-// fn ww_discriminant_type(item_enum: &ItemEnum) -> Ident {
-//     let ty = format!("u{}", item_enum.repr.required_bits());
-//     Ident::new(ty.as_str(), Span::call_site())
-// }
-
-pub(crate) fn enum_discriminant(item_enum: &ItemEnum, lifetime: TokenStream) -> TokenStream {
-    let enum_name = &item_enum.ident;
-    let native_repr = item_enum.native_repr();
-    quote! {
-        impl #lifetime #enum_name #lifetime {
-            pub fn discriminant(&self) -> #native_repr {
-                unsafe { *<*const _>::from(self).cast::<#native_repr>() }
-            }
-        }
     }
 }
 
 struct CGEnumFieldsDef<'a> {
     variants: &'a [Variant],
-    no_alloc: bool,
+    is_ref: bool,
 }
 
 impl ToTokens for CGEnumFieldsDef<'_> {
@@ -182,10 +180,8 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                     let fields_docs = fields_named.iter().map(|f| &f.docs).collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
                         fields_named.iter().map(|f| f.ident.clone()).collect();
-                    let field_types: Vec<TokenStream> = fields_named
-                        .iter()
-                        .map(|f| f.ty.def(self.no_alloc))
-                        .collect();
+                    let field_types: Vec<TokenStream> =
+                        fields_named.iter().map(|f| f.ty.def(self.is_ref)).collect();
                     quote!(#variant_docs #ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
                 }
                 Fields::Unnamed(fields_unnamed) => {
@@ -195,7 +191,7 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                         .collect::<Vec<_>>();
                     let field_types: Vec<TokenStream> = fields_unnamed
                         .iter()
-                        .map(|ty| ty.def(self.no_alloc))
+                        .map(|ty| ty.def(self.is_ref))
                         .collect();
                     quote!(#variant_docs #ident ( #(#field_types),* ) = #discriminant,)
                 }
@@ -206,15 +202,14 @@ impl ToTokens for CGEnumFieldsDef<'_> {
     }
 }
 
-struct CGEnumSer<'a> {
-    item_enum: &'a ItemEnum,
-    no_alloc: bool,
+struct CGEnumSer<'i> {
+    item_enum: &'i CGItemEnum<'i>,
+    is_ref: bool,
 }
 
-struct CGEnumDes<'a> {
-    item_enum: &'a ItemEnum,
-    no_alloc: bool,
-    owned: bool,
+struct CGEnumDes<'i> {
+    item_enum: &'i CGItemEnum<'i>,
+    is_ref: bool,
 }
 
 fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
@@ -253,7 +248,7 @@ impl ToTokens for CGEnumSer<'_> {
 
         let enum_name = &self.item_enum.ident;
         let mut ser_data_variants = quote! {};
-        for variant in &self.item_enum.variants {
+        for variant in self.item_enum.variants {
             match &variant.fields {
                 Fields::Named(fields_named) => {
                     let mut fields_names = vec![];
@@ -272,7 +267,7 @@ impl ToTokens for CGEnumSer<'_> {
                         // ));
                         field
                             .ty
-                            .buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
+                            .buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
                     }
                     let variant_name = &variant.ident;
                     ser_data_variants.append_all(
@@ -297,7 +292,7 @@ impl ToTokens for CGEnumSer<'_> {
                         //     "Serialize unnamed field",
                         //     field_name.to_string().as_str(),
                         // ));
-                        ty.buf_write(field_path, self.no_alloc, quote! { ? }, &mut ser);
+                        ty.buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
                     }
                     let variant_name = &variant.ident;
                     ser_data_variants.append_all(
@@ -348,8 +343,7 @@ impl ToTokens for CGEnumDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let known_variants = CGEnumVariantsDes {
             item_enum: self.item_enum,
-            no_alloc: self.no_alloc,
-            owned: self.owned,
+            is_ref: self.is_ref,
         };
         // tokens.append_all(trace_extended_key_val(
         //     "Deserialize enum",
@@ -366,10 +360,9 @@ impl ToTokens for CGEnumDes<'_> {
     }
 }
 
-struct CGEnumVariantsDes<'a> {
-    item_enum: &'a ItemEnum,
-    no_alloc: bool,
-    owned: bool,
+struct CGEnumVariantsDes<'i> {
+    item_enum: &'i CGItemEnum<'i>,
+    is_ref: bool,
 }
 
 impl Variant {
@@ -379,15 +372,11 @@ impl Variant {
             Span::call_site(),
         ))
     }
-
-    pub(crate) fn is_unit(&self) -> bool {
-        matches!(self.fields, Fields::Unit)
-    }
 }
 
 impl ToTokens for CGEnumVariantsDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        for variant in &self.item_enum.variants {
+        for variant in self.item_enum.variants {
             let discriminant = variant.discriminant_lit();
             let enum_name = &self.item_enum.ident;
             let variant_name = &variant.ident;
@@ -408,8 +397,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                         // ));
                         field.ty.buf_read(
                             field_name,
-                            self.no_alloc,
-                            self.owned,
+                            !self.is_ref,
                             handle_eob,
                             &quote! { _ },
                             &mut des_fields,
@@ -436,8 +424,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                         // ));
                         ty.buf_read(
                             &field_name,
-                            self.no_alloc,
-                            self.owned,
+                            !self.is_ref,
                             handle_eob,
                             &quote! { _ },
                             &mut des_fields,

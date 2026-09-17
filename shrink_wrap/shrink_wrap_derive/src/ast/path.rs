@@ -13,24 +13,11 @@ impl Path {
         }
     }
 
-    pub(crate) fn new_path(path: &str) -> Self {
-        Path {
-            segments: path
-                .split("::")
-                .map(|s| Ident::new(s, Span::call_site()))
-                .collect(),
-        }
-    }
-
     pub(crate) fn make_owned(&mut self) {
         if let Some(last_segment) = self.segments.last_mut() {
             *last_segment =
                 Ident::new(format!("{}Owned", last_segment).as_str(), Span::call_site());
         }
-    }
-
-    pub(crate) fn prepend(&mut self, segment: &Ident) {
-        self.segments.insert(0, segment.clone());
     }
 }
 

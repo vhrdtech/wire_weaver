@@ -88,14 +88,14 @@ pub(crate) fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
         let flag_ident = Ident::new(format!("_{}_flag", ident).as_str(), ident.span());
         let flag = Field {
             docs: Docs::empty(),
-            id: 0, // TODO: Adjust auto created flag IDs
+            _id: 0, // TODO: Adjust auto created flag IDs
             ident: flag_ident,
             ty: if is_result {
                 Type::IsOk(ident)
             } else {
                 Type::IsSome(ident)
             },
-            since: None,
+            _since: None,
             default: None,
         };
         fields.insert(pos + shift, flag);
@@ -208,10 +208,10 @@ pub(crate) fn transform_field(
         Ok((
             Field {
                 docs,
-                id,
+                _id: id,
                 ident,
                 ty: Type::IsOk(result_ident),
-                since: None,
+                _since: None,
                 default,
             },
             true,
@@ -220,10 +220,10 @@ pub(crate) fn transform_field(
         Ok((
             Field {
                 docs,
-                id,
+                _id: id,
                 ident,
                 ty,
-                since: take_since_attr(&mut field.attrs)?,
+                _since: take_since_attr(&mut field.attrs)?,
                 default,
             },
             false,

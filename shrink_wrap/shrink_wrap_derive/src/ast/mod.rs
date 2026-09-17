@@ -6,4 +6,3 @@ pub(crate) mod path;
 pub(crate) mod repr;
 pub(crate) mod ty;
 pub(crate) mod util;
-pub(crate) mod value;

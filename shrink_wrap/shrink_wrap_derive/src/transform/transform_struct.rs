@@ -1,22 +1,16 @@
+use quote::quote;
+use syn::parse2;
+
 use crate::ast::item_struct::Field;
 use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
-use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
-use crate::ast::value::Value;
-use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_borrowed_attr, take_derive_owned_attr, take_serde_attr, take_size_assumption,
-};
+use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_flag_order, create_flags, transform_field,
 };
 
 impl ItemStruct {
-    pub(crate) fn from_syn(
-        item_struct: &syn::ItemStruct,
-        add_evolve_docs: bool,
-    ) -> Result<Self, String> {
+    pub(crate) fn from_syn(item_struct: &syn::ItemStruct) -> Result<Self, String> {
         let mut fields = vec![];
         let mut explicit_flags = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
@@ -29,20 +23,11 @@ impl ItemStruct {
             fields.push(field);
         }
         let mut attrs = item_struct.attrs.clone();
-        let size_assumption = take_size_assumption(&mut attrs);
-        let mut docs = collect_docs_attrs(&mut attrs);
-        if add_evolve_docs {
-            add_notes(&mut docs, size_assumption, false);
-        }
+        let docs = collect_docs_attrs(&mut attrs);
+        // if add_evolve_docs {
+        //     add_notes(&mut docs, size_assumption, false);
+        // }
 
-        let derive = take_derive_attr(&mut attrs);
-        let mut derive_borrowed = take_derive_borrowed_attr(&mut attrs);
-        let mut derive_owned = take_derive_owned_attr(&mut attrs);
-        derive_borrowed.extend(derive.clone());
-        derive_owned.extend(derive);
-
-        let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
-        let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
         create_flags(&mut fields, &explicit_flags);
         check_flag_order(&fields)?;
@@ -50,14 +35,8 @@ impl ItemStruct {
         change_is_ok_to_is_some(&mut fields);
         Ok(ItemStruct {
             docs,
-            derive_borrowed,
-            derive_owned,
-            ident: item_struct.ident.clone(),
-            size_assumption,
+            // ident: item_struct.ident.clone(),
             fields,
-            cfg: None,
-            defmt,
-            serde,
         })
     }
 }
@@ -74,12 +53,8 @@ pub(crate) fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), Str
             continue;
         }
         default_found = true;
-        let Some(default) = &f.default else { continue };
-        if !matches!(f.ty, Type::Option(_, _)) {
-            return Err("#[default = ...] used on a type that is not Option<T>".into());
-        }
-        if default != &Value::None {
-            return Err("Unsupported default literal".into());
+        if !matches!(f.ty, Type::Option(_, _) | Type::Vec(_)) {
+            return Err("#[default = ...] used on a type that is not Option<T> or Vec<T>".into());
         }
         set_to_default_false.push(f.ident.clone());
     }
@@ -89,7 +64,8 @@ pub(crate) fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), Str
                 if flag_for_ident != &ident {
                     continue;
                 }
-                f.default = Some(Value::Bool(false)); // read is_some flag as false on EOB
+                let false_expr = parse2(quote! { false }).unwrap();
+                f.default = Some(false_expr); // read is_some flag as false on EOB
             } else if matches!(f.ty, Type::Option(_, _)) && f.ident == ident {
                 f.default = None; // TODO: Change to actual default value
             }

@@ -1,26 +1,14 @@
 use crate::ast::docs::Docs;
 use crate::ast::item_struct::Field;
-use crate::ast::object_size::ObjectSize;
-use crate::ast::path::Path;
-use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
-use crate::ast::util::{Cfg, CfgAttrDefmt, CfgAttrSerde, Version};
-use proc_macro2::{Ident, Span};
-use syn::LitStr;
+use crate::ast::util::Version;
+use proc_macro2::Ident;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ItemEnum {
     pub(crate) docs: Docs,
-    pub(crate) derive_borrowed: Vec<Path>,
-    pub(crate) derive_owned: Vec<Path>,
-    pub(crate) size_assumption: Option<ObjectSize>,
-    pub(crate) repr: Repr,
-    pub(crate) explicit_ww_repr: bool,
-    pub(crate) ident: Ident,
+    // pub(crate) ident: Ident,
     pub(crate) variants: Vec<Variant>,
-    pub(crate) cfg: Option<Cfg>,
-    pub(crate) defmt: Option<CfgAttrDefmt>,
-    pub(crate) serde: Option<CfgAttrSerde>,
 }
 
 #[derive(Clone, Debug)]
@@ -36,15 +24,18 @@ pub(crate) struct Variant {
     pub(crate) ident: Ident,
     pub(crate) fields: Fields,
     pub(crate) discriminant: u32,
-    pub(crate) since: Option<Version>,
+    pub(crate) _since: Option<Version>,
 }
 
 impl ItemEnum {
-    pub(crate) fn to_owned(&self, feature: LitStr) -> Self {
-        let mut owned = self.clone();
-        owned.ident = Ident::new(format!("{}Owned", self.ident).as_str(), self.ident.span());
-        owned.cfg = Some(Cfg(feature));
-        for v in &mut owned.variants {
+    pub(crate) fn to_discriminants(&mut self) {
+        for v in &mut self.variants {
+            v.fields = Fields::Unit;
+        }
+    }
+
+    pub(crate) fn make_owned(&mut self) {
+        for v in &mut self.variants {
             match &mut v.fields {
                 Fields::Named(named) => {
                     for f in named {
@@ -59,85 +50,5 @@ impl ItemEnum {
                 Fields::Unit => {}
             }
         }
-        owned.defmt = None;
-        owned.derive_owned = core::mem::take(&mut owned.derive_owned);
-        owned
-    }
-
-    pub(crate) fn potential_lifetimes(&self) -> bool {
-        for variant in &self.variants {
-            if variant.potential_lifetimes() {
-                return true;
-            }
-        }
-        false
-    }
-
-    pub(crate) fn native_repr(&self) -> Ident {
-        match self.repr {
-            Repr::U(bits) => {
-                let ty = if bits <= 8 {
-                    "u8"
-                } else if bits <= 16 {
-                    "u16"
-                } else if bits <= 32 {
-                    "u32"
-                } else {
-                    panic!("only up to u32 enum discriminants are currently supported");
-                };
-                Ident::new(ty, Span::call_site())
-            }
-            Repr::UNib32 | Repr::U32 => Ident::new("u32", Span::call_site()),
-            Repr::U8 => Ident::new("u8", Span::call_site()),
-            Repr::U16 => Ident::new("u16", Span::call_site()),
-            Repr::Nibble => Ident::new("u8", Span::call_site()),
-        }
-    }
-
-    pub(crate) fn to_discriminants(&self) -> Self {
-        ItemEnum {
-            docs: Docs::empty(),
-            derive_borrowed: vec![],
-            derive_owned: vec![],
-            size_assumption: None,
-            repr: self.repr,
-            explicit_ww_repr: self.explicit_ww_repr,
-            ident: Ident::new(&format!("{}Discriminants", self.ident), self.ident.span()),
-            variants: self
-                .variants
-                .iter()
-                .map(|v| {
-                    let mut v = v.clone();
-                    v.fields = Fields::Unit;
-                    v
-                })
-                .collect(),
-            cfg: None,
-            defmt: None,
-            serde: None,
-        }
-    }
-}
-
-impl Variant {
-    pub(crate) fn potential_lifetimes(&self) -> bool {
-        match &self.fields {
-            Fields::Named(fields) => {
-                for field in fields {
-                    if field.ty.potential_lifetimes() {
-                        return true;
-                    }
-                }
-            }
-            Fields::Unnamed(types) => {
-                for ty in types {
-                    if ty.potential_lifetimes() {
-                        return true;
-                    }
-                }
-            }
-            Fields::Unit => {}
-        }
-        false
     }
 }

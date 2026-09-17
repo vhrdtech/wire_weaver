@@ -19,8 +19,7 @@ pub(crate) enum Type {
     ULeb64,
     ULeb128,
 
-    // TODO: remove I4, add UB, IB
-    I4,
+    // TODO: remove add UB, IB
     I8,
     I16,
     I32,
@@ -63,28 +62,6 @@ pub(crate) enum Type {
 }
 
 impl Type {
-    pub(crate) fn potential_lifetimes(&self) -> bool {
-        match self {
-            Type::String | Type::Vec(_) | Type::RefBox(_) => true,
-            Type::Result(_, ok_err_ty) => {
-                ok_err_ty.0.potential_lifetimes() || ok_err_ty.1.potential_lifetimes()
-            }
-            Type::Option(_, some_ty) => some_ty.potential_lifetimes(),
-            Type::Tuple(types) => {
-                for ty in types {
-                    if ty.potential_lifetimes() {
-                        return true;
-                    }
-                }
-                false
-            }
-            Type::Array(_, ty) => ty.potential_lifetimes(),
-            Type::External(_, potential_lifetimes) => *potential_lifetimes,
-            // Type::Sized(_, potential_lifetimes) => *potential_lifetimes,
-            _ => false,
-        }
-    }
-
     pub(crate) fn make_owned(&mut self) {
         match self {
             Type::External(path, potential_lifetimes) => {
@@ -117,76 +94,6 @@ impl Type {
         }
     }
 
-    pub(crate) fn visit_external_types<F: FnMut(&Path, bool)>(&self, f: &mut F) {
-        match self {
-            Type::External(path, potential_lifetimes) => {
-                f(path, *potential_lifetimes);
-            }
-            Type::Option(_, some_ty) => {
-                some_ty.visit_external_types(f);
-            }
-            Type::Result(_, ok_err_ty) => {
-                let (ok_ty, err_ty) = &**ok_err_ty;
-                ok_ty.visit_external_types(f);
-                err_ty.visit_external_types(f);
-            }
-            Type::Array(_, ty) => {
-                ty.visit_external_types(f);
-            }
-            Type::Tuple(types) => {
-                for ty in types {
-                    ty.visit_external_types(f);
-                }
-            }
-            Type::Vec(ty) => {
-                ty.visit_external_types(f);
-            }
-            Type::RefBox(ty) => {
-                ty.visit_external_types(f);
-            }
-            _ => {}
-        }
-    }
-
-    pub(crate) fn visit_external_types_mut<F: FnMut(&mut Path, bool)>(&mut self, f: &mut F) {
-        match self {
-            Type::External(path, potential_lifetimes) => {
-                f(path, *potential_lifetimes);
-            }
-            Type::Option(_, some_ty) => {
-                some_ty.visit_external_types_mut(f);
-            }
-            Type::Result(_, ok_err_ty) => {
-                let (ok_ty, err_ty) = &mut **ok_err_ty;
-                ok_ty.visit_external_types_mut(f);
-                err_ty.visit_external_types_mut(f);
-            }
-            Type::Array(_, ty) => {
-                ty.visit_external_types_mut(f);
-            }
-            Type::Tuple(types) => {
-                for ty in types {
-                    ty.visit_external_types_mut(f);
-                }
-            }
-            Type::Vec(ty) => {
-                ty.visit_external_types_mut(f);
-            }
-            Type::RefBox(ty) => {
-                ty.visit_external_types_mut(f);
-            }
-            _ => {}
-        }
-    }
-
-    pub(crate) fn prepend_ext_paths(&self, ident: &Ident) -> Type {
-        let mut ty = self.clone();
-        ty.visit_external_types_mut(&mut |path, _| {
-            path.prepend(ident);
-        });
-        ty
-    }
-
     /// Return ElementSize if it is known. None is returned for Unsized.
     pub(crate) fn element_size(&self) -> Option<ObjectSize> {
         let size_bits = match self {
@@ -201,7 +108,6 @@ impl Type {
             Type::ULeb32 => return Some(ObjectSize::SelfDescribing),
             Type::ULeb64 => return Some(ObjectSize::SelfDescribing),
             Type::ULeb128 => return Some(ObjectSize::SelfDescribing),
-            Type::I4 => 4,
             Type::I8 => 8,
             Type::I16 => 16,
             Type::I32 => 32,

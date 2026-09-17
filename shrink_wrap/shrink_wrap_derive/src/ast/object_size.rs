@@ -1,4 +1,3 @@
-use crate::ast::util::Cfg;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, quote};
 use syn::{LitInt, LitStr};
@@ -38,7 +37,11 @@ impl ObjectSize {
         }
     }
 
-    pub(crate) fn assert_element_size(&self, ident: &Ident, cfg: &Option<Cfg>) -> TokenStream {
+    pub(crate) fn assert_element_size(
+        &self,
+        ident: &Ident,
+        cfg: Option<&TokenStream>,
+    ) -> TokenStream {
         let size_ts = match self {
             ObjectSize::Unsized => quote! { Unsized },
             ObjectSize::UnsizedFinalStructure => quote! { UnsizedFinalStructure },

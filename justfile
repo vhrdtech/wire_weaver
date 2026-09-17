@@ -60,6 +60,7 @@ upload-examples-mcu-usb-stm32h725ig:
 
 pre-commit:
     cargo sort -w
+    cargo clippy
 
 # Serve the documentation localy
 [group('docs')]

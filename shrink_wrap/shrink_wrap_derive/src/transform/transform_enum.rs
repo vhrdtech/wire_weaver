@@ -1,12 +1,6 @@
 use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, Variant};
-use crate::ast::util::{CfgAttrDefmt, CfgAttrSerde};
-use crate::transform::docs_util::add_notes;
-use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_defmt_attr, take_derive_attr,
-    take_derive_borrowed_attr, take_derive_owned_attr, take_serde_attr, take_since_attr,
-    take_size_assumption, take_ww_repr_attr,
-};
+use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_since_attr};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_flag_order, create_flags, create_tuple_flags, transform_field,
@@ -14,13 +8,10 @@ use crate::transform::util::{
 use syn::{Expr, Lit};
 
 impl ItemEnum {
-    pub(crate) fn from_syn(
-        item_enum: &syn::ItemEnum,
-        add_evolve_docs: bool,
-    ) -> Result<Self, String> {
+    pub(crate) fn from_syn(item_enum: &syn::ItemEnum) -> Result<Self, String> {
         let mut variants = vec![];
         let mut current_discriminant: u32 = 0;
-        let mut max_discriminant: u32 = 0;
+        // let mut max_discriminant: u32 = 0; TODO: check discriminant
         for variant in &item_enum.variants {
             let discriminant = match get_discriminant(variant)? {
                 Some(discriminant) => {
@@ -33,7 +24,7 @@ impl ItemEnum {
                     d
                 }
             };
-            max_discriminant = max_discriminant.max(discriminant);
+            // max_discriminant = max_discriminant.max(discriminant);
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             let fields = convert_fields(&variant.fields, &path)?;
             let mut attrs = variant.attrs.clone();
@@ -45,41 +36,24 @@ impl ItemEnum {
                 ident: variant.ident.clone(),
                 fields,
                 discriminant,
-                since,
+                _since: since,
             });
         }
         let mut attrs = item_enum.attrs.clone();
-        let repr = take_ww_repr_attr(&mut attrs)?;
-        if max_discriminant > repr.max_discriminant() {
-            return Err("Enum discriminant is not large enough".into());
-        }
-        let size_assumption = take_size_assumption(&mut attrs);
-        let mut docs = collect_docs_attrs(&mut attrs);
-        if add_evolve_docs {
-            add_notes(&mut docs, size_assumption, true);
-        }
+        // let repr = take_ww_repr_attr(&mut attrs)?;
+        // if max_discriminant > repr.max_discriminant() {
+        //     return Err("Enum discriminant is not large enough".into());
+        // }
+        let docs = collect_docs_attrs(&mut attrs);
+        // if add_evolve_docs {
+        //     add_notes(&mut docs, size_assumption, true); TODO: add docs back
+        // }
 
-        let derive = take_derive_attr(&mut attrs);
-        let mut derive_borrowed = take_derive_borrowed_attr(&mut attrs);
-        let mut derive_owned = take_derive_owned_attr(&mut attrs);
-        derive_borrowed.extend(derive.clone());
-        derive_owned.extend(derive);
-
-        let defmt = take_defmt_attr(&mut attrs)?.map(CfgAttrDefmt);
-        let serde = take_serde_attr(&mut attrs)?.map(CfgAttrSerde);
         collect_unknown_attributes(&mut attrs);
         Ok(ItemEnum {
             docs,
-            derive_borrowed,
-            derive_owned,
-            ident: item_enum.ident.clone(),
-            repr,
-            explicit_ww_repr: true,
+            // ident: item_enum.ident.clone(),
             variants,
-            size_assumption,
-            cfg: None,
-            defmt,
-            serde,
         })
     }
 }

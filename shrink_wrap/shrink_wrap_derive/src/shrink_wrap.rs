@@ -39,7 +39,7 @@ fn shrink_wrap_attr_inner(item: Item, args: Args) -> Result<TokenStream, String>
     let (ty_kind, name) = TyKind::from_item(&item)?;
     if matches!(ty_kind, TyKind::Ambiguous) && args.borrowed.is_none() && args.owned.is_none() {
         return Err(
-            "Ambiguous declaration, add `Ref` or `Owned` to type name, add borrowed or owned directive, or use PhantomData to capture a lifetime".into(),
+            "Ambiguous declaration, add `Owned` to type name, add borrowed or owned directive, or use PhantomData to capture a lifetime".into(),
         );
     }
     generate_inner(item, ty_kind, name, args)
@@ -51,8 +51,7 @@ fn generate_inner(
     name: String,
     args: Args,
 ) -> Result<TokenStream, String> {
-    let do_generate_borrowed =
-        matches!(ty_kind, TyKind::ExplicitRef | TyKind::ImpliedRef) | args.borrowed.is_some();
+    let do_generate_borrowed = matches!(ty_kind, TyKind::ImpliedRef) | args.borrowed.is_some();
     let ambiguous = matches!(ty_kind, TyKind::Ambiguous);
     let generate_borrowed = if do_generate_borrowed {
         Some(CGSeed::new(
@@ -69,8 +68,7 @@ fn generate_inner(
         None
     };
 
-    let generate_owned =
-        matches!(ty_kind, TyKind::ExplicitOwned | TyKind::ImpliedOwned) | args.owned.is_some();
+    let generate_owned = matches!(ty_kind, TyKind::ExplicitOwned) | args.owned.is_some();
     let generate_owned = if generate_owned {
         Some(CGSeed::new(
             item_name(name, ty_kind, false),
@@ -169,7 +167,7 @@ fn shrink_wrap_derive_inner(mut file: File) -> Result<TokenStream, String> {
     let (ty_kind, name) = TyKind::from_item(&item)?;
     if matches!(ty_kind, TyKind::Ambiguous) {
         return Err(
-            "Ambiguous declaration, add `Ref` or `Owned` to type name, use #[derive_shrink_wrap] attribute macro, or use PhantomData to capture a lifetime".into(),
+            "Ambiguous declaration, add `Owned` to type name, use #[derive_shrink_wrap] attribute macro, or use PhantomData to capture a lifetime".into(),
         );
     }
 
@@ -178,23 +176,15 @@ fn shrink_wrap_derive_inner(mut file: File) -> Result<TokenStream, String> {
 
 fn item_name(name: String, ty_kind: TyKind, is_ref: bool) -> Ident {
     let ident = match (ty_kind, is_ref) {
-        // E.g., `MyTypeRef<'i>` and generating borrowed code -> leave name as is
-        (TyKind::ExplicitRef, true) => name,
         // E.g., `MyTypeOwned` and generating owned code -> leave name as is
         (TyKind::ExplicitOwned, false) => name,
-        // E.g., `MyTypeOwned` and generating borrowed code -> replace Owned to Ref
-        (TyKind::ExplicitOwned, true) => name.replace("Owned", "Ref").to_string(),
-        // E.g., `MyTypeRef<'i>` and generating owned code -> replace Ref to Owned
-        (TyKind::ExplicitRef, false) => name.replace("Ref", "Owned").to_string(),
+        // E.g., `MyTypeOwned` and generating borrowed code -> strip the Owned suffix
+        (TyKind::ExplicitOwned, true) => name.strip_suffix("Owned").unwrap_or(&name).to_string(),
 
         // E.g., MyType<'i> and generating borrowed code -> leave name as is
         (TyKind::ImpliedRef, true) => name,
-        // E.g., MyType and generating owned code -> leave name as is
-        (TyKind::ImpliedOwned, false) => name,
         // E.g., MyType<'i> and generating owned code -> append Owned
         (TyKind::ImpliedRef, false) => format!("{name}Owned"),
-        // E.g., MyType and generating borrowed code -> append Ref
-        (TyKind::ImpliedOwned, true) => format!("{name}Ref"),
 
         // E.g., MyType with only plain types -> leave name as is + only one type definition is emitted
         (TyKind::Ambiguous, _) => name,
@@ -278,23 +268,17 @@ impl CGSeed {
 /// A type kind that determines what kind of code to generate
 #[derive(Copy, Clone)]
 enum TyKind {
-    /// Type name ends in `Ref` and no alloc types are used (String, Vec, etc.)
-    /// A hint that if owned type is requested, it's name will be with `Ref` part replaced to `Owned`
-    ExplicitRef,
     /// Type name ends in `Owned` and no ref types are used (&'i str, Type<'i>, etc.)
-    /// A hint that if borrowed type is requested, it's name will be with `Owned` part replaced to `Ref`
+    /// A hint that if borrowed type is requested, it's name will be with the `Owned` suffix stripped
     ExplicitOwned,
-    /// Type name does not end in either `Ref` or `Owned`, but type contains at least one reference
-    /// A hint that if owned type is requested, it's name will created by appending `Owned`
+    /// Type name does not end in `Owned`, but type contains at least one reference.
+    /// A hint that if owned type is requested, it's name will be created by appending `Owned`
     ImpliedRef,
-    /// Type name does not end in either `Ref` or `Owned`, but type contains only alloc types
-    /// A hint that if borrowed type is requested, it's name will created by appending `Ref`
-    ImpliedOwned,
-    /// Type name does not end in `Ref` or `Owned` and contains only plain types (u8, bool, etc.)
+    /// Type name does not end in `Owned` and contains only plain types (u8, bool, etc.)
     /// Have to specify whether borrowed or owned variant is wanted.
     /// In this case no new type is generated and both owned and borrowed traits are derived on one type if requested.
     Ambiguous,
-    // Mix of either `Ref` in type name and alloc types or the other way around
+    // Mix of a plain (non-`Owned`) type name and alloc types, or `Owned` type name and reference types
     // Confusing,
 }
 
@@ -305,13 +289,7 @@ impl TyKind {
             Item::Struct(item_struct) => item_struct.ident.to_string(),
             _ => return Err("Expected enum or struct".into()),
         };
-        let is_explicit_ref = name.ends_with("Ref");
         let is_explicit_owned = name.ends_with("Owned");
-        let name_hint = match (is_explicit_ref, is_explicit_owned) {
-            (true, false) => NameHint::Ref,
-            (false, true) => NameHint::Owned,
-            _ => NameHint::Absent,
-        };
         let types = collect_referenced_types(item);
         // const AMBIGUOUS_ERR: &str = "";
         if types.is_empty() {
@@ -320,27 +298,18 @@ impl TyKind {
         }
         let any_lifetimes = types.iter().any(|t| t.has_lifetime);
         let any_alloc_types = types.iter().any(|t| ALLOC_TYPES.contains(&t.name.as_str()));
-        match (name_hint, any_lifetimes, any_alloc_types) {
-            (NameHint::Ref, _, false) => Ok((Self::ExplicitRef, name)),
-            (NameHint::Owned, false, _) => Ok((Self::ExplicitOwned, name)),
-            (NameHint::Absent, true, false) => Ok((Self::ImpliedRef, name)),
-            (NameHint::Absent, false, true) => Ok((Self::ImpliedOwned, name)),
+        match (is_explicit_owned, any_lifetimes, any_alloc_types) {
+            (true, false, _) => Ok((Self::ExplicitOwned, name)),
+            (false, true, false) => Ok((Self::ImpliedRef, name)),
             (_, true, true) => Err(
                 "Both reference and owned types are mixed, use either one to not cause confusion"
                     .into(),
             ),
-            (NameHint::Ref, false, true) => Err("Type name ends in Ref, but owned types are used, either rename or use ref types".into()),
-            (NameHint::Owned, true, false) => Err("Type name ends in Owned, but reference types are used, either rename or use owned types".into()),
-            (NameHint::Absent, false, false) => Ok((Self::Ambiguous, name)),
+            (true, true, false) => Err("Type name ends in Owned, but reference types are used, either rename or use owned types".into()),
+            (false, false, true) => Err("Type contains owned types (String, Vec, Box, etc.), add `Owned` to the type name".into()),
+            (false, false, false) => Ok((Self::Ambiguous, name)),
         }
     }
-}
-
-#[derive(Copy, Clone)]
-enum NameHint {
-    Ref,
-    Owned,
-    Absent,
 }
 
 const ALLOC_TYPES: &[&str] = &["Vec", "String", "Box"];

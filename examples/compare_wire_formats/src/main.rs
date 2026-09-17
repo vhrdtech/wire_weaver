@@ -2,10 +2,10 @@ use serde::Serialize;
 use wire_weaver::prelude::*;
 
 #[derive_shrink_wrap(derive(Serialize))]
-struct Request {
+struct RequestOwned {
     pub seq: u16,
-    pub path_kind: PathKind,
-    pub kind: RequestKind,
+    pub path_kind: PathKindOwned,
+    pub kind: RequestKindOwned,
 
     // Relocate is_some flags here to avoid losing 7 bits on padding on each Option
     #[flag]
@@ -25,25 +25,25 @@ struct Request {
 }
 
 #[derive_shrink_wrap(derive(Serialize), ww_repr = nib)]
-enum PathKind {
+enum PathKindOwned {
     Absolute { path: Vec<UNib32> },
     GlobalCompact,
     GlobalFull,
 }
 
 #[derive_shrink_wrap(derive(Serialize), ww_repr = nib)]
-enum RequestKind {
+enum RequestKindOwned {
     Call { args: Vec<u8> },
     Read,
 }
 
 fn main() {
-    let req = Request {
+    let req = RequestOwned {
         seq: 1234,
-        path_kind: PathKind::Absolute {
+        path_kind: PathKindOwned::Absolute {
             path: vec![UNib32(0), UNib32(1), UNib32(2)],
         },
-        kind: RequestKind::Call {
+        kind: RequestKindOwned::Call {
             args: vec![0xAA, 0xBB, 0xCC],
         },
         dummy_a: Some(0xCC),

@@ -58,7 +58,7 @@ pub trait Memory32 {
     property!(ro access: Access);
 }
 
-#[derive_shrink_wrap(borrowed, ww_repr = u2, derive(Clone, Debug), sized)]
+#[derive_shrink_wrap(borrowed, derive(Clone, Debug), sized, ww_repr = u2)]
 pub enum Access {
     WriteOnly,
     ReadOnly,
@@ -66,7 +66,7 @@ pub enum Access {
     Custom(Nibble),
 }
 
-#[derive_shrink_wrap(borrowed, ww_repr = nib, derive(Clone, Debug), sized)]
+#[derive_shrink_wrap(borrowed, derive(Clone, Debug), sized, ww_repr = nib)]
 pub enum Error {
     WrongAddress,
     WatchNotSupported,

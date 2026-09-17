@@ -17,7 +17,7 @@ pub trait FirmwareInfo {
     stream!(bedrock_build_info: [u8]);
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u4, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u4)]
 pub enum CrcKind {
     Todo,
 }

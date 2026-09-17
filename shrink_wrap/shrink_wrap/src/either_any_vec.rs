@@ -399,7 +399,7 @@ mod tests {
         // 0x29, // size in bytes
     ];
 
-    #[derive_shrink_wrap(borrowed, ww_repr = nib, derive(Debug, PartialEq, Eq))]
+    #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib)]
     enum MyError {
         A,
         B,

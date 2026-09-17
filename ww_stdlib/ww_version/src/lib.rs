@@ -17,11 +17,11 @@ pub use api_hash::{ApiHashOwned, ApiHashPairOwned};
 /// The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.
 /// [VersionOwned] is automatically generated from this definition as well and uses String instead.
 #[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(PartialEq, Eq, Clone, Hash),
     derive_borrowed(Copy),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    owned(feature = "std"),
     final_structure
 )]
 pub struct Version<'i> {
@@ -39,11 +39,11 @@ pub struct Version<'i> {
 }
 
 #[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(PartialEq, Eq, Clone, Hash),
     derive_borrowed(Copy),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    owned(feature = "std"),
     final_structure
 )]
 pub struct FullVersion<'i> {
@@ -57,9 +57,9 @@ pub struct FullVersion<'i> {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    derive(PartialEq, Eq, Copy, Clone),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(PartialEq, Eq, Copy, Clone),
     final_structure
 )]
 pub struct CompactVersion {
@@ -73,9 +73,9 @@ pub struct CompactVersion {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    derive(PartialEq, Eq, Copy, Clone),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(PartialEq, Eq, Copy, Clone),
     final_structure
 )]
 pub struct VersionTriplet {

@@ -10,7 +10,12 @@ pub trait Uid {
     property!(ro source: UidSource<'i>);
 }
 
-#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"))]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug),
+    ww_repr = unib32
+)]
 enum UidKind<'i> {
     UniqueSequence,
     MACAddress,
@@ -18,7 +23,12 @@ enum UidKind<'i> {
     Other(&'i str),
 }
 
-#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"))]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug),
+    ww_repr = unib32
+)]
 enum UidSource<'i> {
     InternalIC,
     ExternalIC,

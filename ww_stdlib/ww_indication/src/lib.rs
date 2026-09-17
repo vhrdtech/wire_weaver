@@ -26,7 +26,7 @@ pub trait Indication {
     const NAMES: RefVec<'i, str>;
 }
 
-#[derive_shrink_wrap(borrowed, ww_repr = nib, derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
 // #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Mode {
     AllOff,
@@ -35,7 +35,7 @@ pub enum Mode {
 }
 
 /// Indicators brightness mode
-#[derive_shrink_wrap(borrowed, ww_repr = nib, derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
 // #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Brightness {
     /// Night mode, non-distracting
@@ -52,7 +52,7 @@ pub enum Brightness {
 
 /// Alert indicators brightness mode, relative to info indicators.
 /// (alert indicators cannot have brightness lower than info ones)
-#[derive_shrink_wrap(borrowed, ww_repr = nib, derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
 // #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum AlertBrightness {
     /// Highest setting of [Brightness](Brightness)
@@ -64,7 +64,7 @@ pub enum AlertBrightness {
     P4,
 }
 
-#[derive_shrink_wrap(ww_repr = nib, owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = nib)]
 // #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum TestMode<'name> {
     Off,

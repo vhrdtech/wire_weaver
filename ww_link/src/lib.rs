@@ -108,9 +108,9 @@ impl Kind {
 
 /// Sent from device to host in response to [Kind::GetDeviceInfo].
 #[derive_shrink_wrap(
-    derive(Debug, Clone),
     owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
 )]
 pub struct DeviceInfo<'i> {
     /// This crate version on the device side
@@ -143,9 +143,9 @@ impl DeviceInfo<'_> {
 
 /// Sent from host to device after receiving [DeviceInfo].
 #[derive_shrink_wrap(
-    derive(Debug, Clone),
     owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
 )]
 pub struct LinkSetup<'i> {
     /// User API and data types version on the host side

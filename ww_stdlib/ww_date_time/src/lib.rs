@@ -20,8 +20,8 @@ pub use chrono;
 /// * +24 bits for year <2025.
 #[derive_shrink_wrap(
     borrowed,
-    self_describing,
-    derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)
+    derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash),
+    self_describing
 )]
 pub struct DateTime {
     pub date: NaiveDate,
@@ -33,14 +33,24 @@ pub struct DateTime {
 
 /// Timezone information.
 /// UTC is preferred ant takes only 1 bit.
-#[derive_shrink_wrap(borrowed, ww_repr = u1, sized, derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[derive_shrink_wrap(
+    borrowed,
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    sized,
+    ww_repr = u1
+)]
 pub enum Timezone {
     UTC,
     Other(OtherTimezone),
 }
 
 /// Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.
-#[derive_shrink_wrap(borrowed, ww_repr = u3, sized, derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[derive_shrink_wrap(
+    borrowed,
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    sized,
+    ww_repr = u3
+)]
 pub enum OtherTimezone {
     Naive,
     FixedOffset {
@@ -57,8 +67,8 @@ pub enum OtherTimezone {
 /// * Maximum size is 37 bits.
 #[derive_shrink_wrap(
     borrowed,
-    self_describing,
-    derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)
+    derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash),
+    self_describing
 )]
 pub struct NaiveDate {
     /// -262_142 <= year <= 262_141

@@ -13,7 +13,13 @@ pub enum SIExpr<'i> {
     Div((RefBox<'i, SIExpr<'i>>, RefBox<'i, SIExpr<'i>>)),
 }
 
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = unib32, self_describing)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    self_describing,
+    ww_repr = unib32
+)]
 pub enum Prefix {
     Unit,
     Milli,
@@ -111,7 +117,7 @@ impl TryFrom<i8> for Prefix {
     }
 }
 
-#[derive_shrink_wrap(ww_repr = unib32, owned(feature = "std"), final_structure)]
+#[derive_shrink_wrap(owned(feature = "std"), final_structure, ww_repr = unib32)]
 pub enum BaseUnit<'i> {
     Unitless,
     Second,

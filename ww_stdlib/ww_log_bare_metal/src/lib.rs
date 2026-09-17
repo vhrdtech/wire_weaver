@@ -23,7 +23,7 @@ pub trait LogDefmt {
     fn reset_counters();
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u2, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u2)]
 pub enum DefmtFormat {
     Raw,
     Rzcobs,

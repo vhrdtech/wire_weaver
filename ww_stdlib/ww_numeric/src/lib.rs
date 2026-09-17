@@ -5,7 +5,15 @@ mod alloc;
 
 use shrink_wrap::prelude::*;
 
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = unib32, self_describing, derive(Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq, Eq),
+    self_describing,
+    ww_repr = unib32
+)]
 pub enum NumericBaseType {
     /// 4-bits (nibble), alignment of four-bits
     Nibble,
@@ -74,7 +82,13 @@ pub enum NumericBaseType {
 // It would be nice to create a separate SubType and ShiftScale for each base type,
 // disallowing any ambiguities and errors on type level, but it would be too many variants to handle everywhere
 /// Any of the base numeric types plus derived types: subtype, shift-scale.
-#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"), cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = unib32
+)]
 pub enum NumericAnyType<'i> {
     Base(NumericBaseType),
     SubType {
@@ -89,7 +103,13 @@ pub enum NumericAnyType<'i> {
     },
 }
 
-#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"), cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = unib32
+)]
 pub enum SubTypeKind<'i> {
     ValidRange {
         start: NumericValue,
@@ -104,7 +124,15 @@ pub enum SubTypeKind<'i> {
 ///
 /// Minimum size is 1 byte (u4, unib32 0..=7).
 /// u8 is 2 bytes, u32 - is 5 bytes, etc.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = unib32, self_describing, derive(Copy, Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Copy, Clone, Debug, PartialEq),
+    self_describing,
+    ww_repr = unib32
+)]
 pub enum NumericValue {
     Nibble(Nibble),
     U8(u8),

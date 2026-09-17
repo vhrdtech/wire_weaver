@@ -4,7 +4,12 @@ use shrink_wrap::prelude::*;
 
 /// List or range of available indices that can be used by a client.
 /// For each array of traits, streams, or properties, ValidIndices are provided by a user implementation on the server side.
-#[derive_shrink_wrap(ww_repr = u2, derive(Clone, Debug), owned(feature = "std"), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug),
+    ww_repr = u2
+)]
 pub enum ValidIndices<'i> {
     Range(Range<UNib32>),
     List(RefVec<'i, UNib32>),

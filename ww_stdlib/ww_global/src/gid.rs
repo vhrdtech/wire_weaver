@@ -3,9 +3,9 @@ use shrink_wrap::prelude::*;
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    derive(PartialEq, Eq, Copy, Clone),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(PartialEq, Eq, Copy, Clone),
     final_structure
 )]
 pub struct GlobalTypeId {

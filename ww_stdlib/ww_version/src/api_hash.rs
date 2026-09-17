@@ -15,10 +15,10 @@ use shrink_wrap::prelude::*;
 /// So it's beneficial to remove them, but still use full version when interacting with a device.
 /// Second hash allows to load full version from cache, while retaining compatibility guarantees.
 #[derive_shrink_wrap(
-    final_structure,
+    owned(feature = "std"),
     derive(Clone, Debug),
     derive_borrowed(Copy),
-    owned(feature = "std")
+    final_structure
 )]
 // #[serde = "serde"]
 pub struct ApiHashPair<'i> {
@@ -32,10 +32,10 @@ pub struct ApiHashPair<'i> {
 /// Hash of the [ApiBundle] used to compare if client and server API's are idential.
 /// See also [ApiHashPair]
 #[derive_shrink_wrap(
-    final_structure,
+    owned(feature = "std"),
     derive(Clone, PartialEq, Eq),
     derive_borrowed(Copy),
-    owned(feature = "std")
+    final_structure
 )]
 pub struct ApiHash<'i> {
     pub hash: RefVec<'i, u8>,

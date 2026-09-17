@@ -94,7 +94,12 @@ pub enum CANMode {
     Test,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = unib32, self_describing)]
+#[derive_shrink_wrap(
+    borrowed,
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    self_describing,
+    ww_repr = unib32
+)]
 pub enum CANError {
     NotInDisabled,
     /// Returned if tried to call any configuration method of an interface group,
@@ -165,31 +170,36 @@ struct CANFrame<'i> {
     data: RefVec<'i, u8>,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash), ww_repr = u2, sized)]
+#[derive_shrink_wrap(
+    borrowed,
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    sized,
+    ww_repr = u2
+)]
 enum CANId {
     Standard(U11),
     Extended(U29),
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = u2, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), sized, ww_repr = u2)]
 enum CANFrameKind {
     Classic { rtr: CANRtr },
     FD { brs: CANBrs, esi: CANEsi },
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u1)]
 pub enum CANRtr {
     DataFrame,
     RemoteFrame,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u1)]
 pub enum CANBrs {
     SameSpeed,
     SwitchForDataPhase,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u1)]
 pub enum CANEsi {
     Normal,
     ErrorPassive,
@@ -212,7 +222,7 @@ pub struct CANCapabilities {
     pub tt: bool,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u2, sized)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u2)]
 pub enum CANTerminationSwitchResult {
     /// If value was actually just switched in.
     Ok,

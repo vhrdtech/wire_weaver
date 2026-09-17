@@ -1,89 +1,341 @@
 # Derive
 
 Writing out serializing and deserializing code by hand would be very tedious and error-prone. So a procedural macro
-is provided that can create all the code.
+attribute, `#[derive_shrink_wrap(..)]`, is provided that generates all of it from a struct or enum definition.
+
+Besides `SerializeShrinkWrap` and `DeserializeShrinkWrap` (and their `..Owned` counterparts), the same attribute can:
+
+- Generate a borrowed (zero-copy) representation, an owned (`alloc`/`std`-based) representation, or both, from a
+  single field/variant definition (`&str` becomes `String`, `RefVec<'i, T>` becomes `Vec<T>`, etc).
+- Support `#[default = ..]` field attributes so newer and older versions of a type stay wire-compatible.
+- Let you trade away some forward compatibility for a smaller wire size, via `final_structure` / `self_describing` /
+  `sized`.
+
+This page goes through every argument the attribute accepts. All examples were checked against the current macro
+implementation, so they compile and run as shown.
 
 ## Prerequisites
 
 All examples below assume that wire_weaver dependency is added in Cargo.toml: `wire_weaver = "0.4.0"`.
 
-## Structs
-
-Simple example on how to automatically get serializing and deserializing code generated for a struct:
+## Quick start
 
 ```rust
 use wire_weaver::prelude::*;
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
 struct CoordV1 {
     x: u8,
-    y: u8
+    y: u8,
 }
 
 fn derive_on_struct() {
     let mut buf = [0u8; 64];
     let coord = CoordV1 { x: 0xAA, y: 0xCC };
-    let bytes = to_ww_bytes(&mut buf, &coord).unwrap();
+    let bytes = coord.to_ww_bytes(&mut buf).unwrap();
     assert_eq!(bytes, &[0xAA, 0xCC]);
+
+    let des = CoordV1::from_ww_bytes(bytes).unwrap();
+    assert_eq!(des, coord);
 }
 ```
 
-Let's evolve the type and try out the compatibility features:
+Two things to notice, both explained in detail below:
+
+- Regular derives (`Debug`, `PartialEq`, ...) are requested with a `derive(..)` _argument_ to `derive_shrink_wrap`,
+  not with a separate `#[derive(..)]` attribute. That's because `derive_shrink_wrap` can emit more than one item (a
+  borrowed struct and an owned struct) from one definition; a plain `#[derive(..)]` attribute would only ever decorate
+  whichever single item follows it in the source, not each generated type.
+- `CoordV1` has no lifetime and no `alloc` fields, so the macro cannot tell whether you meant a borrowed or an owned
+  type - that's why `borrowed` is spelled out explicitly here. See [Borrowed, owned, or both?](#borrowed-owned-or-both)
+  below.
+
+## Evolving types
+
+`#[default = ..]` on an `Option<T>` (or `Vec<T>`) field lets newer and older versions of a type read each other's
+data:
 
 ```rust
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct CoordV1 {
+    x: u8,
+    y: u8,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
 struct CoordV1_1 {
     x: u8,
     y: u8,
     #[default = None]
-    z: Option<u8>
+    z: Option<u8>,
 }
 
 fn evolved_struct() {
     let mut buf = [0u8; 64];
     let coord = CoordV1_1 { x: 0xAA, y: 0xCC, z: Some(0xFF) };
-    let bytes = to_ww_bytes(&mut buf, &coord).unwrap();
+    let bytes = coord.to_ww_bytes(&mut buf).unwrap();
     assert_eq!(bytes, &[0xAA, 0xCC, 0x80, 0xFF]);
+
     // newer type from older data
-    let coord: CoordV1_1 = from_ww_bytes(&[0xAA, 0xCC]).unwrap();
+    let coord: CoordV1_1 = CoordV1_1::from_ww_bytes(&[0xAA, 0xCC]).unwrap();
     assert_eq!(coord, CoordV1_1 { x: 0xAA, y: 0xCC, z: None });
+
     // older type from newer data
-    let old_coord: CoordV1 = from_ww_bytes(bytes).unwrap();
+    let old_coord: CoordV1 = CoordV1::from_ww_bytes(bytes).unwrap();
     assert_eq!(old_coord, CoordV1 { x: 0xAA, y: 0xCC });
 }
 ```
 
-## Zero-copy and owned types
+This works for as long as the type stays `Unsized` (the default - see [Size assumptions](#size-assumptions-final_structure-self_describing-sized)
+below). See [evolution rules](../evolution/rules.md) for the full picture, and the
+[evolution checker tool](../evolution/checker_tool.md) for automatically verifying compatibility across versions.
 
-Often there is a need to serialize owned type into a buffer and deserialize it as borrowed type on `no_std` without
-allocation or vice versa.
-Typing out two definitions, one using borrowed data (`RefVec<'i, T>`, `&'i str`, etc.) and one owned would be very
-error-prone.
-Thus, `derive_shrink_wrap` attribute macro supports `#[owned = "feature-name"]` argument, that will trigger automatic
-generation of owned type definition and respective serialization and deserialization code.
+## Borrowed, owned, or both?
 
-For example:
+Before looking at the individual arguments, it helps to know how `derive_shrink_wrap` decides what to generate,
+since several arguments (`borrowed`, `owned`, `derive_borrowed`, `cfg_attr_owned`, ...) only make sense in that
+context.
+
+The macro looks at the fields/variants of the type it's attached to and classifies it into one of three kinds:
+
+| Kind             | Detected when                                                                                                                   | What gets generated                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Implied borrowed | Any field has a lifetime (`&'i str`, `RefVec<'i, T>`, `UserType<'i>`, ...) and no `alloc` type (`String`, `Vec`, `Box`) is used | The type itself, as written, is the borrowed type. If `owned` is also requested, `{Name}Owned` is generated by mapping borrowed types to their owned equivalents (see [table](#type-mapping) below). |
+| Explicit owned   | The type's name ends in `Owned` and no field has a lifetime                                                                     | The type itself, as written, is the owned type. If `borrowed` is also requested, `{Name}` (with the `Owned` suffix stripped) is generated by mapping owned types back to borrowed ones.              |
+| Ambiguous        | Every field is a plain type (`u8`, `bool`, another plain type, ...) - no lifetimes, no `alloc` types                            | Exactly **one** type is emitted (no renaming). You must say whether it should implement the borrowed or the owned traits (or both) via the `borrowed`/`owned` arguments.                             |
+
+Mixing the two styles (a lifetime _and_ an `alloc` type, or an `Owned`-suffixed name that still has a lifetime) is a
+compile error asking you to pick one, since it would otherwise be ambiguous which type is "the" borrowed/owned one.
 
 ```rust
+// Implied borrowed: has a lifetime, no `owned` requested -> only `Coords<'i>` is generated.
 #[derive_shrink_wrap]
-#[owned = "std"]
-pub struct FullVersion<'i> {
-    pub crate_id: &'i str,
-    pub version: Version<'i>,
+struct Coords<'i> {
+    points: RefVec<'i, u8>,
+}
+
+// Ambiguous: no lifetime, no alloc type -> must say which trait(s) to derive.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct CoordV1 {
+    x: u8,
+    y: u8,
 }
 ```
 
-Will generate `FullVersionOwned` along with serdes code that matches borrowed variant bit-to-bit.
+The [zero-copy and owned types](#zero-copy-and-owned-types) section below has a full example of the borrowed+owned
+case.
+
+## Attribute arguments
+
+`#[derive_shrink_wrap(directive, directive, ..)]` accepts a comma separated list of directives. Order doesn't matter
+to the parser, but the codebase consistently writes them in this order (and so do the examples below):
+
+```text
+borrowed, owned, cfg_attr*, derive*, final_structure|self_describing|sized, ww_repr, discriminants
+```
+
+### `borrowed`, `borrowed(<cfg predicate>)`
+
+Requests generation of the borrowed type. Only needed for an [Ambiguous](#borrowed-owned-or-both) type (where it's
+otherwise not generated at all), or to gate an implied-borrowed type's generation behind a `cfg` predicate:
+
+```rust
+// Ambiguous type - `borrowed` is what makes generation happen at all.
+#[derive_shrink_wrap(borrowed)]
+struct Flags {
+    a: bool,
+    b: bool,
+}
+
+// Implied borrowed type - already generated unconditionally; `borrowed(..)` restricts *when*.
+#[derive_shrink_wrap(borrowed(feature = "defmt"), owned(feature = "std"))]
+struct Name<'i> {
+    value: &'i str,
+}
+```
+
+### `owned`, `owned(<cfg predicate>)`
+
+Enables generation of the owned type, converting borrowed fields to their owned equivalents (see the
+[type mapping](#type-mapping) table). Bare `owned` generates it unconditionally; `owned(<cfg predicate>)` gates it
+behind an arbitrary `cfg` predicate, most commonly a feature flag:
+
+```rust
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
+pub struct FullVersion<'i> {
+    pub crate_id: &'i str,
+}
+```
+
+behind `feature = "std"`, this additionally generates:
 
 ```rust
 #[cfg(feature = "std")]
+#[derive(Debug)]
 pub struct FullVersionOwned {
     pub crate_id: String,
-    pub version: VersionOwned,
 }
 ```
+
+along with matching `SerializeShrinkWrapOwned`/`DeserializeShrinkWrapOwned` impls that produce/consume the exact same
+bytes as the borrowed side.
+
+### `cfg_attr(..)`, `cfg_attr_owned(..)`, `cfg_attr_borrowed(..)`
+
+Splice a `#[cfg_attr(condition, attr, ..)]` verbatim onto the generated type(s) - the base one, the owned one only,
+or the borrowed one only, respectively. Can be repeated. The contents are captured as-is and not interpreted by
+`derive_shrink_wrap` itself, so any valid `cfg_attr` body works, e.g. for optional trait impls:
+
+```rust
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    cfg_attr_owned(feature = "serde", derive(serde::Serialize, serde::Deserialize)),
+    ww_repr = nib,
+    sized
+)]
+pub enum Level {
+    Low,
+    High,
+}
+```
+
+`defmt::Format` only ends up on `Level` (and only when the `defmt` feature is on), `serde`'s traits only on
+`LevelOwned` (and only behind `feature = "serde"`).
+
+### `derive(..)`, `derive_owned(..)`, `derive_borrowed(..)`
+
+Extra derives (paths, so `core::fmt::Debug` works too) added to the base / owned-only / borrowed-only generated type,
+exactly like Rust's own `#[derive(..)]`. `derive(..)` applies to whichever type(s) are actually generated; use
+`derive_owned`/`derive_borrowed` when a trait only makes sense (or only compiles) on one side - e.g. `Copy`, which a
+`String`/`Vec`-carrying owned type could never implement:
+
+```rust
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    derive(Debug, PartialEq),
+    derive_borrowed(Copy, Clone),
+    final_structure
+)]
+struct Version<'i> {
+    pub major: u8,
+    pub minor: u8,
+    pub patch: u8,
+    pub label: Option<&'i str>,
+}
+
+fn borrowed_is_copy() {
+    let v = Version { major: 1, minor: 2, patch: 3, label: None };
+    let v2 = v; // fine, `Version` is `Copy` (via `derive_borrowed`)
+    let _ = v; // still usable
+    let _ = v2;
+}
+```
+
+### Size assumptions: `final_structure`, `self_describing`, `sized`
+
+By default, every generated type is `Unsized`: its serialized size isn't known up front, so when it's nested inside
+another struct/enum, the parent stores a reverse-length for it (nibble-based, similar to UNib32, but in reverse order). This is what makes the
+[evolution example](#evolving-types) above work - fields can be added or removed later without breaking anyone.
+
+The three directives below (mutually exclusive - specifying more than one is a compile error) opt a type out of that
+flexibility in exchange for a smaller wire size. They map directly onto `shrink_wrap`'s `ElementSize`:
+
+| Directive         | `ElementSize`           | Meaning                                                                                                                                                              | Trade-off                                                                                                                 |
+| ----------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| _(none)_          | `Unsized`               | Size unknown, stored as a reverse length in the parent.                                                                                                              | Fully evolvable.                                                                                                          |
+| `final_structure` | `UnsizedFinalStructure` | Size still unknown, but the type is flattened onto its parent - no reverse length is stored for it at all; parent and this type share the same size-marker "budget". | Cannot be evolved, only the very first evolution can be marked `final_structure`, and it cannot be removed later.         |
+| `self_describing` | `SelfDescribing`        | No size is stored; a reader can tell where the value ends from the encoding itself (e.g. `UNib32`'s own variable-length encoding).                                   | No overhead, but only applicable to types whose encoding is inherently self-delimiting.                                   |
+| `sized`           | `Sized { size_bits }`   | Size is fixed and known at compile time (computed automatically from the fields - you don't specify a bit count). Nothing is stored for it, ever.                    | Cannot evolve at all: adding/removing/resizing a field changes the layout for every existing reader. Most compact option. |
+
+!!! tip
+
+    Even though a type can be `fnial_stucture` or `sized`, it can still be evolved. But only be reusing previously unused gaps, which by default are set to 0. For example if `bool` is followed by `u8`, 7 bits are left unused and skipped by readers, which can later be reclaimed.
+
+For an enum, this only concerns its _payload_; see [`ww_repr`](#ww_repr--repr-enums-only) below for the discriminant
+itself. Note that pairing an enum with `ww_repr` alone does **not** make it compact - without one of these three
+directives it stays `Unsized`, exactly like a struct:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u2)]
+enum SpeedUnsized { Slow, Medium, Fast, Turbo }
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u2, sized)]
+enum SpeedSized { Slow, Medium, Fast, Turbo }
+
+fn compact_vs_not() {
+    let mut buf = [0u8; 4];
+    // Sized, so (Slow, Turbo) packs into 2+2 = 4 bits of a single byte:
+    let bytes = (SpeedSized::Slow, SpeedSized::Turbo).to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(bytes, &[0x30]);
+
+    // Unsized, standalone, needs no reverse length here since nothing follows it -
+    // but as soon as it's nested next to another field, an extra size marker appears.
+    let mut buf2 = [0u8; 4];
+    let bytes2 = SpeedUnsized::Turbo.to_ww_bytes(&mut buf2).unwrap();
+    assert_eq!(bytes2, &[0xC0]);
+}
+```
+
+Whichever assumption you pick, the macro inserts a compile-time assertion checking that the type's _actual_ generated
+`ELEMENT_SIZE` matches the one you asked for - if a field turns out to make the type `Unsized` after all, the build
+fails instead of silently producing an incompatible layout.
+
+### `ww_repr = <repr>` (enums only)
+
+Sets the wire representation of an enum's discriminant. **Required** for every enum - structs must not set it.
+Accepted values: `u1`..`u32` (or `ub<N>` for arbitrary bit widths), `nib` (4-bit nibble), `unib32` (`UNib32`,
+variable-length, 1 or more nibbles), and the byte-aligned `u8`/`u16`/`u32`. Pick the smallest one that fits the number
+of variants you expect to ever need - it directly determines the discriminant's on-wire size (and, combined with
+`sized`, the whole enum's size):
+
+```rust
+// Fits in 2 bits (up to 4 variants) - future variants beyond 4 would be a breaking change.
+#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = u2, sized)]
+enum Pull { None, Up, Down, UpDown }
+
+// Variable-length - room to grow past the initial variant count without repr changes.
+#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = unib32, self_describing)]
+enum ErrorCode { NotFound, Timeout, /* ... */ }
+```
+
+Every generated enum also gets an inherent `fn discriminant(&self) -> <repr's native type>` method regardless of
+whether [`discriminants`](#discriminants-enums-only) is used.
+
+### `discriminants` (enums only)
+
+Additionally generates a fieldless `{Name}Discriminants` enum, carrying only the variants (no payloads) plus its own
+`.discriminant()` method. It's for the case where you need to commit to _which_ variant you're writing before you've
+built that variant's payload - e.g. a streaming/builder API that reserves space for the discriminant, keeps writing,
+and only decides the final variant afterward:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib, discriminants)]
+enum EventKind<'i> {
+    Value { data: RefVec<'i, u8> },
+    Written,
+}
+
+fn discriminant_ahead_of_time() {
+    // `EventKindDiscriminants` can be produced (and its wire discriminant read) without ever
+    // constructing an `EventKind::Value`'s `data` field.
+    let placeholder = EventKindDiscriminants::Value;
+    let full = EventKind::Value { data: RefVec::new_bytes(&[1, 2, 3]) };
+    assert_eq!(placeholder.discriminant(), full.discriminant());
+}
+```
+
+This is exactly how `ww_client_server`'s response builder writes a placeholder discriminant up front, then goes back
+and patches it in once the actual variant being sent is known.
+
+## Zero-copy and owned types
+
+Often there is a need to serialize an owned type into a buffer and deserialize it as a borrowed type on `no_std`
+without allocation, or vice versa. Typing out two definitions by hand - one using borrowed data (`RefVec<'i, T>`,
+`&'i str`, etc.) and one owned - would be very error-prone. `owned(<cfg predicate>)` (see
+[above](#owned-ownedcfg-predicate)) generates the owned definition and its serdes code automatically.
 
 Pseudo-code usage example:
 
@@ -94,10 +346,10 @@ fn round_trip() {
     let bytes = v.to_ww_bytes(&mut buf).unwrap();
 
     // on host, with allocator
-    let v_owned = FullVersionOwned::from_ww_bytes(bytes).unwrap();
+    let v_owned = FullVersionOwned::from_ww_bytes_owned(bytes).unwrap();
     assert_eq!(v.to_owned(), v_owned);
 
-    let bytes_from_owned = v_owned.to_ww_bytes(&mut buf2).unwrap();
+    let bytes_from_owned = v_owned.to_ww_bytes_owned().unwrap();
     assert_eq!(bytes, bytes_from_owned);
 
     // again on no_std
@@ -109,15 +361,11 @@ fn round_trip() {
 ### Type mapping
 
 | Borrowed type    | Owned equivalent |
-|------------------|------------------|
+| ---------------- | ---------------- |
 | `RefVec<'i, u8>` | `Vec<u8>`        |
 | `&'i str`        | `String`         |
 | `RefBox<'i, T>`  | `Box<T>`         |
 | `UserType<'i>`   | `UserTypeOwned`  |
-
-## Non-evolvable types
-
-final_structure, self_describing, sized
 
 # Next step
 

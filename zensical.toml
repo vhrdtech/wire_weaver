@@ -14,7 +14,8 @@ nav = [
     { "Home" = "index.md" },
     { "SerDes" = [
             "serdes/shrink_wrap.md",
-            "serdes/derive.md"
+            "serdes/derive.md",
+            "serdes/showcase.md"
         ]
     },
     { "API" = [

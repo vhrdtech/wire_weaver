@@ -252,7 +252,7 @@ flexibility in exchange for a smaller wire size. They map directly onto `shrink_
 
 !!! tip
 
-    Even though a type can be `fnial_stucture` or `sized`, it can still be evolved. But only be reusing previously unused gaps, which by default are set to 0. For example if `bool` is followed by `u8`, 7 bits are left unused and skipped by readers, which can later be reclaimed.
+    Even though a type can be `fnial_stucture` or `sized`, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if `bool` is followed by `u8`, 7 bits are left unused and skipped by readers, which can later be reclaimed.
 
 For an enum, this only concerns its _payload_; see [`ww_repr`](#ww_repr--repr-enums-only) below for the discriminant
 itself. Note that pairing an enum with `ww_repr` alone does **not** make it compact - without one of these three
@@ -265,6 +265,22 @@ enum SpeedUnsized { Slow, Medium, Fast, Turbo }
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u2, sized)]
 enum SpeedSized { Slow, Medium, Fast, Turbo }
 
+// Wraps a `Sized` field - its 2 bits are known up front, so a field placed right after it
+// can carry on packing into the very same byte.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct PayloadWithSized {
+    speed: SpeedSized,
+    after: bool,
+}
+
+// Wraps an `Unsized` field - its size isn't known up front, so the struct reserves a
+// reverse-length marker for it, and everything that follows starts fresh on the next byte.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct PayloadWithUnsized {
+    speed: SpeedUnsized,
+    after: bool,
+}
+
 fn compact_vs_not() {
     let mut buf = [0u8; 4];
     // Sized, so (Slow, Turbo) packs into 2+2 = 4 bits of a single byte:
@@ -276,6 +292,21 @@ fn compact_vs_not() {
     let mut buf2 = [0u8; 4];
     let bytes2 = SpeedUnsized::Turbo.to_ww_bytes(&mut buf2).unwrap();
     assert_eq!(bytes2, &[0xC0]);
+
+    // `SpeedSized` is 2 bits wide, so `after`'s bit packs right in after it, same byte:
+    // 0b11_1_00000 - Turbo (11), then `after` (1), then unused padding.
+    let mut buf3 = [0u8; 4];
+    let sized_payload = PayloadWithSized { speed: SpeedSized::Turbo, after: true };
+    let bytes3 = sized_payload.to_ww_bytes(&mut buf3).unwrap();
+    assert_eq!(bytes3, &[0xE0]);
+
+    // `SpeedUnsized` gives no such guarantee, so its byte gets padded on its own, and `after`
+    // starts a new byte (with a reverse-length marker for `speed` sharing its low bits):
+    let mut buf4 = [0u8; 4];
+    let unsized_payload = PayloadWithUnsized { speed: SpeedUnsized::Turbo, after: true };
+    let bytes4 = unsized_payload.to_ww_bytes(&mut buf4).unwrap();
+    assert_eq!(bytes4, &[0xC0, 0x81]);
+    // bool and reverse length end up in the same byte, and there are even 3 bits left, neat!
 }
 ```
 

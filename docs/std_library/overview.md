@@ -20,6 +20,7 @@ By default `std` feature is active providing owned types.
     * `NumericBaseType`: discrete, floating and fixed point number types
     * `NumericAnyType`: base types + subtype and shift-scale
 * ww_si - SI and derived values using `NumericValue` as storage
+* [ww_gpio](ww_gpio.md) - GPIO bank/pin traits: output/input level, mode, pull, speed, edge event stream
 * ww_client_server - `Request`, `RequestKind`, `Event`, `EventKind`, `Error` used for client-server API model.
 * ww_can_bus - CAN Bus types and API
 * ww_dfu - Firmware update API

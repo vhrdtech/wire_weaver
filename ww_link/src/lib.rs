@@ -107,10 +107,11 @@ impl Kind {
 }
 
 /// Sent from device to host in response to [Kind::GetDeviceInfo].
-#[derive_shrink_wrap]
-#[derive(Debug, Clone)]
-#[owned = "std"]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(
+    derive(Debug, Clone),
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+)]
 pub struct DeviceInfo<'i> {
     /// This crate version on the device side
     pub dev_link_version: CompactVersion,
@@ -141,10 +142,11 @@ impl DeviceInfo<'_> {
 }
 
 /// Sent from host to device after receiving [DeviceInfo].
-#[derive_shrink_wrap]
-#[derive(Debug, Clone)]
-#[owned = "std"]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(
+    derive(Debug, Clone),
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+)]
 pub struct LinkSetup<'i> {
     /// User API and data types version on the host side
     pub host_user_version: FullVersion<'i>,

@@ -426,6 +426,7 @@ fn handle_method(
         }
     }
 }
+
 fn handle_property(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
@@ -450,10 +451,19 @@ fn handle_property(
         } else {
             quote! { () }
         };
-        quote! {
-            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<Result<(), #user_result_ty>> {
+        let ser_value = if model.no_alloc() {
+            quote! {
                 let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
                 let value = #prop_name.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+            }
+        } else {
+            quote! {
+                let value = #prop_name.to_ww_bytes_owned().map_err(|e| e.into());
+            }
+        };
+        quote! {
+            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<Result<(), #user_result_ty>> {
+                #ser_value
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd.prepare_write(path_kind, value)
@@ -583,10 +593,16 @@ fn ser_args(
             .map(|arg| Ident::new(&arg.ident, Span::call_site()))
             .collect::<Vec<_>>();
 
-        // let maybe_to_vec = maybe_quote(!no_alloc, quote! { .to_vec() });
-        let args_ser = quote! {
-            let args = #args_struct_ident { #(#idents),* };
-            let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+        let args_ser = if no_alloc {
+            quote! {
+                let args = #args_struct_ident { #(#idents),* };
+                let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
+            }
+        } else {
+            quote! {
+                let args = #args_struct_ident { #(#idents),* };
+                let args_bytes = args.to_ww_bytes_owned().map_err(|e| e.into());
+            }
         };
         let tys: Result<Vec<TokenStream>, _> = args
             .iter()

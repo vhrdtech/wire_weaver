@@ -24,9 +24,7 @@ struct Datagram<'i> {
 
 pub const UDP_LINK_MAGIC: u32 = 0xDA7A_63A1;
 
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive_shrink_wrap(ww_repr = nib, derive(Clone, Debug, Eq, PartialEq))]
 enum Op<'i> {
     /// ww_client_server serialized Request
     RequestData { data: RefVec<'i, u8> },

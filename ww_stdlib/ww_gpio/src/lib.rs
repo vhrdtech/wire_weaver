@@ -72,22 +72,14 @@ pub trait Pin {
 }
 
 /// Digital output level - High and Low.
-#[derive_shrink_wrap]
-#[ww_repr(u1)]
-#[sized]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u1, sized, derive(Copy, Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
 pub enum Level {
     Low,
     High,
 }
 
 /// IO pin mode (Push-Pull, Open-Drain, Input, etc.)
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[sized]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = nib, sized, derive(Copy, Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
 pub enum Mode {
     PushPullOutput,
     OpenDrainOutput,
@@ -99,10 +91,13 @@ pub enum Mode {
 }
 
 /// GPIO error
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[derive(Clone, Debug)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    ww_repr = unib32,
+    derive(Clone, Debug),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+)]
 pub enum Error {
     UnsupportedMode,
     UnsupportedPull,
@@ -116,11 +111,7 @@ pub enum Error {
 }
 
 /// IO pin pull configuration (pull-up, pull-down, etc.)
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[sized]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u2, sized, derive(Copy, Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
 pub enum Pull {
     None,
     Up,
@@ -129,11 +120,7 @@ pub enum Pull {
 }
 
 /// IO pin drive strength configuration
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[sized]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = nib, sized, derive(Copy, Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
 pub enum Speed {
     Slow,
     Medium,
@@ -143,11 +130,7 @@ pub enum Speed {
 }
 
 /// IO pin asynchronous event (interrupt reason), sent via the [Gpio] `event` stream if enabled.
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[sized]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u2, sized, derive(Copy, Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)))]
 // TODO: Add optional timestamp?
 pub enum IoPinEvent {
     RisingEdge,
@@ -156,10 +139,11 @@ pub enum IoPinEvent {
 }
 
 /// List of enabled event sources for an IO pin (interrupts) that generate [IoPinEvent] stream.
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+)]
 pub struct IoPinEnabledEvents<'i> {
     pub rising: bool,
     pub falling: bool,
@@ -168,10 +152,11 @@ pub struct IoPinEnabledEvents<'i> {
 }
 
 /// GPIO bank capabilities: supported voltages, modes, custom modes, etc.
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[defmt = "defmt"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))
+)]
 pub struct BankCapabilities<'i> {
     pub voltage: RefVec<'i, Volt>,
 

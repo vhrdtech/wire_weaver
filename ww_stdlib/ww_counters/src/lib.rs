@@ -34,16 +34,14 @@ pub trait Counters {
 }
 
 /// u32 or u64 counter value
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(borrowed, ww_repr = nib)]
 pub enum CounterValue {
     U32(u32),
     U64(u64),
 }
 
 /// Counters implementation kind, can be used as a debugging hint.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(borrowed, ww_repr = nib)]
 pub enum CountersKind {
     /// RAM based counters, zeroed out on each boot.
     ResetOnBoot,
@@ -66,8 +64,7 @@ pub struct CounterMeta<'i> {
 }
 
 /// Provides a way to select multiple counter indices.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(borrowed, ww_repr = nib)]
 pub enum CountersFilter {
     All,
     /// Send only counter values with specified indices range.

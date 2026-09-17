@@ -9,6 +9,7 @@ repository.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver/api/addressing/"
 
 [features]
+std = ["shrink_wrap/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
 serde = ["dep:serde", "shrink_wrap/serde"]
 

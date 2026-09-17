@@ -14,11 +14,12 @@ use shrink_wrap::prelude::*;
 /// Doc strings can consume a lot of FLASH space, or there might not be a lot of it to begin with.
 /// So it's beneficial to remove them, but still use full version when interacting with a device.
 /// Second hash allows to load full version from cache, while retaining compatibility guarantees.
-#[derive_shrink_wrap]
-#[final_structure]
-#[derive(Clone, Debug)]
-#[derive_borrowed(Copy)]
-#[owned = "std"]
+#[derive_shrink_wrap(
+    final_structure,
+    derive(Clone, Debug),
+    derive_borrowed(Copy),
+    owned(feature = "std")
+)]
 // #[serde = "serde"]
 pub struct ApiHashPair<'i> {
     /// Hash of the [ApiBundle] with all the doc strings removed.
@@ -30,11 +31,12 @@ pub struct ApiHashPair<'i> {
 
 /// Hash of the [ApiBundle] used to compare if client and server API's are idential.
 /// See also [ApiHashPair]
-#[derive_shrink_wrap]
-#[final_structure]
-#[derive(Clone, PartialEq, Eq)]
-#[derive_borrowed(Copy)]
-#[owned = "std"]
+#[derive_shrink_wrap(
+    final_structure,
+    derive(Clone, PartialEq, Eq),
+    derive_borrowed(Copy),
+    owned(feature = "std")
+)]
 pub struct ApiHash<'i> {
     pub hash: RefVec<'i, u8>,
 }

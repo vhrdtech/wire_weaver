@@ -1,6 +1,6 @@
 use tokio::sync::oneshot;
 use wire_weaver::shrink_wrap::{
-    BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrap, UNib32,
+    BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32,
     either_any_vec::EitherAnyVec,
 };
 use ww_client_server::{MultiIndexOwned, RequestKindOwned};
@@ -73,11 +73,9 @@ where
             path_kind: ww_client_server::PathKindOwned::Absolute { path: vec![] },
             kind: req,
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        cmd.send_message_expect_response(req.to_vec(), done_tx, None)
-            .await?;
+        cmd.send_message_expect_response(req, done_tx, None).await?;
         let response = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)??;
         println!("{response:02x?}");
 

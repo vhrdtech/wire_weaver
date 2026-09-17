@@ -1,7 +1,6 @@
 use shrink_wrap::prelude::*;
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
 struct CoordV1 {
     x: u8,
     y: u8,

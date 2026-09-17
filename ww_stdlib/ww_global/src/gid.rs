@@ -1,10 +1,13 @@
 use shrink_wrap::prelude::*;
 
-#[derive_shrink_wrap]
-#[derive(PartialEq, Eq, Copy, Clone)]
-#[defmt = "defmt"]
-#[serde = "serde"]
-#[final_structure]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(PartialEq, Eq, Copy, Clone),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    final_structure
+)]
 pub struct GlobalTypeId {
     pub id: UNib32,
 }

@@ -19,6 +19,10 @@ pub(crate) struct CGItemEnum<'i> {
     pub(crate) cfg_attr: &'i [TokenStream],
     pub(crate) derive: &'i [Path],
     pub(crate) size_assumption: Option<ObjectSize>,
+    /// Set for a plain, lifetime-less type generated only because a `borrowed`/`owned` directive
+    /// was used to disambiguate it (see `TyKind::Ambiguous`). Such a type never gets a `<'i>`
+    /// generic, even on its "borrowed" (`is_ref: true`) side.
+    pub(crate) ambiguous: bool,
 }
 
 impl<'i> CGItemEnum<'i> {
@@ -56,9 +60,9 @@ impl<'i> CGItemEnum<'i> {
             variants: &self.variants,
             is_ref,
         };
-        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
+        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, self.cfg)
+            size.assert_element_size(&self.ident, self.cfg, is_ref)
         } else {
             quote! {}
         };
@@ -73,17 +77,17 @@ impl<'i> CGItemEnum<'i> {
             pub enum #enum_name #lifetime { #variants }
 
             #assert_size
-
-            #cfg
         };
         ts
     }
 
     pub(crate) fn impl_discriminant(&self, is_ref: bool) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let enum_name = &self.ident;
         let native_repr = self.native_repr();
-        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
+        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         quote! {
+            #cfg
             impl #lifetime #enum_name #lifetime {
                 pub fn discriminant(&self) -> #native_repr {
                     unsafe { *<*const _>::from(self).cast::<#native_repr>() }
@@ -147,7 +151,7 @@ impl<'i> CGItemEnum<'i> {
             let r#unsized = ObjectSize::Unsized;
             quote! { #r#unsized }
         } else {
-            sum.sum_recursively(unknown_unsized)
+            sum.sum_recursively(unknown_unsized, is_ref)
         };
         serdes_scaffold(
             enum_name,
@@ -156,6 +160,7 @@ impl<'i> CGItemEnum<'i> {
             self.cfg,
             element_size,
             is_ref,
+            is_ref && !self.ambiguous,
         )
     }
 }

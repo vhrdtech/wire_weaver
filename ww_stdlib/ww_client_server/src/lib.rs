@@ -27,9 +27,7 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 /// Smallest size:
 /// - 4B (seq, empty Absolute path - root req, Kind with no data)
 /// - 5B (seq, path len 1 <= 7, Kind with 1B args)
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Debug)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
     /// 0 means no answer is expected.
@@ -55,11 +53,7 @@ pub struct Seq(u32);
 /// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and its version is used as an ID
 ///
 /// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[final_structure]
-#[owned = "std"]
-#[derive(Debug, Clone)]
+#[derive_shrink_wrap(ww_repr = nib, final_structure, owned(feature = "std"), derive(Debug, Clone))]
 pub enum PathKind<'i> {
     /// Full path to a resource, regardless of whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },
@@ -82,11 +76,7 @@ pub enum PathKind<'i> {
 }
 
 /// Operation (call, read, write, etc.) to be performed on a resource.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[final_structure]
-#[owned = "std"]
-#[derive(Debug)]
+#[derive_shrink_wrap(ww_repr = nib, final_structure, owned(feature = "std"), derive(Debug))]
 pub enum RequestKind<'i> {
     /// Call a method with provided arguments.
     /// Expected to get [EventKind::Value], unless request ID is 0.
@@ -158,10 +148,7 @@ pub enum RequestKind<'i> {
 /// # Different resources at one API level
 /// Can make a MultiCall:: request to '0/3' (third pin in the array) with MultiIndex::List(0, 1).
 /// To call set_level(args0) and then set_mode(args1) in one request.
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(ww_repr = u2, derive(Clone, Debug), owned(feature = "std"))]
 pub enum MultiIndex<'i> {
     // All,
     Range(Range<UNib32>),
@@ -173,19 +160,14 @@ pub enum MultiIndex<'i> {
 /// Same can be used when all arguments are equal (e.g., calling set_mode(Output) for multiple pins).
 ///
 /// `Different` reuses a BufReader, while `Same` resets it to the beginning before processing a request.
-#[derive_shrink_wrap]
-#[ww_repr(u1)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(ww_repr = u1, derive(Clone, Debug), owned(feature = "std"))]
 pub enum MultiArgs<'i> {
     Same(RefVec<'i, u8>),
     Different(RefVec<'i, u8>),
 }
 
 /// Asynchronous result with a request ID, sent back from server to client, as a response to a Request or on stream or properties updates.
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Debug)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Event<'i> {
     /// Same event ID from Request.
     /// 0 for stream data updates.
@@ -195,11 +177,7 @@ pub struct Event<'i> {
 }
 
 /// Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.
-#[derive_shrink_wrap(discriminants)]
-#[ww_repr(nib)]
-#[final_structure]
-#[owned = "std"]
-#[derive(Debug)]
+#[derive_shrink_wrap(discriminants, ww_repr = nib, final_structure, owned(feature = "std"), derive(Debug))]
 pub enum EventKind<'i> {
     /// Sent in response to [RequestKind::Call] or [RequestKind::Read], unless request ID is 0.
     Value {
@@ -230,10 +208,7 @@ pub enum EventKind<'i> {
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
 /// Optional, user can choose to send stream updates without using the sideband channel.
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[final_structure]
-#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = nib, final_structure, derive(PartialEq, Eq, Debug, Copy, Clone))]
 pub enum StreamSideband {
     /// Sent if a stream was successfully opened
     Open,
@@ -247,10 +222,7 @@ pub enum StreamSideband {
     User(UNib32),
 }
 
-#[derive_shrink_wrap]
-#[final_structure]
-#[derive(Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(final_structure, derive(Debug), owned(feature = "std"))]
 pub struct Error<'i> {
     /// Unique error ID for each error in generated code. Can be used to map an error back to source code.
     err_seq: UNib32,
@@ -260,10 +232,7 @@ pub struct Error<'i> {
 
 /// Various errors that can occur during Request processing.
 /// TODO: Add shrink_wrap error here as well for more context
-#[derive_shrink_wrap(discriminants)]
-#[ww_repr(u8)]
-#[derive(Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(discriminants, ww_repr = u8, derive(Debug), owned(feature = "std"))]
 pub enum ErrorKind<'i> {
     /// Sent a RequestKind that doesn't make sense for a particular resource
     OperationNotSupported,

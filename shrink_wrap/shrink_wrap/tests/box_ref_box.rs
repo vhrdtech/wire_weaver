@@ -1,9 +1,7 @@
 use hex_literal::hex;
 use shrink_wrap::prelude::*;
 
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Debug, PartialEq)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq))]
 struct Linked<'i> {
     a: u8,
     next: Option<RefBox<'i, Linked<'i>>>,
@@ -29,10 +27,9 @@ fn box_ref_box() {
         a: 1,
         next: Some(Box::new(LinkedOwned { a: 2, next: None })),
     };
-    let mut buf2 = [0u8; 64];
-    let bytes_from_owned = linked_owned.to_ww_bytes(&mut buf2).unwrap();
+    let bytes_from_owned = linked_owned.to_ww_bytes_owned().unwrap();
     assert_eq!(bytes_from_owned, bytes);
 
-    let linked_des_to_owned = LinkedOwned::from_ww_bytes(bytes_from_owned).unwrap();
+    let linked_des_to_owned = LinkedOwned::from_ww_bytes_owned(&bytes_from_owned).unwrap();
     assert_eq!(linked_des_to_owned, linked_owned);
 }

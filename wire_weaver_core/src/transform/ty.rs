@@ -1,12 +1,12 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
-    util::{collect_docs, get_since_attr, use_tree_has_type},
+    util::{collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_has_type},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use shrink_wrap::{ElementSize, UNib32};
 use syn::{
-    parse_str, Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta,
-    PathArguments, PathSegment, Type, TypePath, UseTree,
+    Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta, PathArguments,
+    PathSegment, Type, TypePath, UseTree, parse_str,
 };
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
@@ -209,8 +209,8 @@ fn convert_item_enum(
         });
         discriminant += 1;
     }
-    let repr = get_repr(&item_enum.attrs, current_crate, scratch, &ty_name)?;
-    let size = get_size_assumption(&item_enum.attrs);
+    let repr = get_repr(&item_enum.attrs, current_crate, &ty_name)?;
+    let size = get_size_assumption(&item_enum.attrs, current_crate)?;
     let ty = TypeOwned::Enum(ItemEnumOwned {
         size,
         repr,
@@ -234,7 +234,7 @@ fn convert_item_struct(
     item_struct: &ItemStruct,
 ) -> Result<TypeOwned> {
     let fields = convert_fields(&item_struct.fields, current_crate, scratch)?;
-    let size = get_size_assumption(&item_struct.attrs);
+    let size = get_size_assumption(&item_struct.attrs, current_crate)?;
     let ty = TypeOwned::Struct(ItemStructOwned {
         size,
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
@@ -393,66 +393,17 @@ fn get_inner_angle_bracketed_ty<'i>(
     Ok(inner_ty)
 }
 
-fn get_repr(
-    attrs: &[Attribute],
-    current_crate: &CrateContext,
-    scratch: &mut Scratch,
-    enum_name: &str,
-) -> Result<Repr> {
-    let attr = attrs.iter().find(|a| a.path().is_ident("ww_repr")).ok_or(
-        anyhow!("ww_repr attribute is required for enum: {enum_name}")
-            .context(current_crate.err_context()),
-    )?;
-    let Meta::List(meta_list) = &attr.meta else {
-        return Err(
-            anyhow!("expected #[repr(u1..u32 / unib32 / nib)] for enum: {enum_name}")
-                .context(current_crate.err_context()),
-        );
-    };
-    let repr = meta_list.tokens.to_string();
-    let repr: PathSegment = parse_str(&repr)?;
-    let ty = convert_ty_path_segment(&repr, current_crate, scratch)?;
-    let TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base)) = ty else {
-        return Err(anyhow!(
-            "enum discriminant type is not a number: '{ty:?}' for enum: {enum_name}"
-        )
-        .context(current_crate.err_context()));
-    };
-    let repr = match base {
-        NumericBaseType::Nibble => Repr::Nibble,
-        NumericBaseType::UB(bits) => Repr::BitAligned(bits.0),
-        NumericBaseType::UNib32 => Repr::UNib32,
-        NumericBaseType::U8 => Repr::ByteAlignedU8,
-        NumericBaseType::U16 => Repr::ByteAlignedU16,
-        NumericBaseType::U32 => Repr::ByteAlignedU32,
-        u => {
-            return Err(
-                anyhow!("unsupported enum discriminant: '{u:?}' for enum: {enum_name}")
-                    .context(current_crate.err_context()),
-            );
-        }
-    };
-    Ok(repr)
+fn get_repr(attrs: &[Attribute], current_crate: &CrateContext, enum_name: &str) -> Result<Repr> {
+    let args = derive_shrink_wrap_args(attrs, current_crate)?;
+    args.ww_repr.ok_or_else(|| {
+        anyhow!("ww_repr directive is required for enum: {enum_name}")
+            .context(current_crate.err_context())
+    })
 }
 
-fn get_size_assumption(attrs: &[Attribute]) -> ElementSize {
-    if attrs.iter().find(|a| a.path().is_ident("sized")).is_some() {
-        ElementSize::Sized { size_bits: 0 }
-    } else if attrs
-        .iter()
-        .find(|a| a.path().is_ident("self_describing"))
-        .is_some()
-    {
-        ElementSize::SelfDescribing
-    } else if attrs
-        .iter()
-        .find(|a| a.path().is_ident("final_structure"))
-        .is_some()
-    {
-        ElementSize::UnsizedFinalStructure
-    } else {
-        ElementSize::Unsized
-    }
+fn get_size_assumption(attrs: &[Attribute], current_crate: &CrateContext) -> Result<ElementSize> {
+    let args = derive_shrink_wrap_args(attrs, current_crate)?;
+    Ok(args.size_assumption.unwrap_or(ElementSize::Unsized))
 }
 
 fn get_default_attr(

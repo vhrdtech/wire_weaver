@@ -31,9 +31,27 @@ pub fn args_structs(
             let is_lifetime = args
                 .iter()
                 .any(|arg| arg.ty.is_lifetime(api_bundle).unwrap());
-            let maybe_lifetime = maybe_quote(is_lifetime, quote! { <'i> });
+            // `ty_def` only ever keeps a real borrow around when rendering the alloc-free
+            // (`no_alloc`) fields; with alloc available every field is converted to its owned,
+            // lifetime-free form (see `user_ty_def`), regardless of `is_lifetime`.
+            let needs_lifetime = no_alloc && is_lifetime;
+            let maybe_lifetime = maybe_quote(needs_lifetime, quote! { <'i> });
+            // When none of the args end up needing a lifetime (e.g. all-plain scalar args, or
+            // alloc-based args that were converted to their owned form), the generated struct is
+            // otherwise ambiguous to derive_shrink_wrap - disambiguate it towards whichever
+            // representation this call site actually needs.
+            let disambiguate = maybe_quote(
+                !needs_lifetime,
+                if no_alloc {
+                    quote! { borrowed, }
+                } else {
+                    // The caller already committed to an alloc-capable target by asking for
+                    // `no_alloc = false`, so this doesn't need its own "std" cfg gate.
+                    quote! { owned, }
+                },
+            );
             defs.append_all(quote! {
-                #[derive_shrink_wrap]
+                #[derive_shrink_wrap(#disambiguate)]
                 struct #ident #maybe_lifetime {
                     #(#fields),*
                 }

@@ -18,6 +18,10 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) cfg_attr: &'i [TokenStream],
     pub(crate) derive: &'i [Path],
     pub(crate) size_assumption: Option<ObjectSize>,
+    /// Set for a plain, lifetime-less type generated only because a `borrowed`/`owned` directive
+    /// was used to disambiguate it (see `TyKind::Ambiguous`). Such a type never gets a `<'i>`
+    /// generic, even on its "borrowed" (`is_ref: true`) side.
+    pub(crate) ambiguous: bool,
 }
 
 impl<'i> CGItemStruct<'i> {
@@ -34,9 +38,9 @@ impl<'i> CGItemStruct<'i> {
             fields: &self.fields,
             is_ref,
         };
-        let lifetime = maybe_quote(is_ref, || quote! { <'i> });
+        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, self.cfg)
+            size.assert_element_size(&self.ident, self.cfg, is_ref)
         } else {
             quote! {}
         };
@@ -84,7 +88,7 @@ impl<'i> CGItemStruct<'i> {
             let r#unsized = ObjectSize::Unsized;
             quote! { #r#unsized }
         } else {
-            sum.sum_recursively(unknown_unsized)
+            sum.sum_recursively(unknown_unsized, is_ref)
         };
         serdes_scaffold(
             struct_name,
@@ -93,6 +97,7 @@ impl<'i> CGItemStruct<'i> {
             self.cfg,
             element_size,
             is_ref,
+            is_ref && !self.ambiguous,
         )
     }
 }

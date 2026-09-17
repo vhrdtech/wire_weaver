@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
-use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
@@ -457,10 +457,9 @@ impl TransportCommander {
                 args: TailBytesOwned(args),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+        self.send_message_expect_response(req, done_tx, timeout)
             .await?;
         Ok(done_rx)
     }
@@ -478,10 +477,9 @@ impl TransportCommander {
                 args: TailBytesOwned(args),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response_blocking(req, done_tx, timeout)?;
         Ok(done_rx)
     }
 
@@ -497,11 +495,10 @@ impl TransportCommander {
                 args: TailBytesOwned(args),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         self.cmd_tx
             .send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .await
@@ -521,11 +518,10 @@ impl TransportCommander {
                 args: TailBytesOwned(args),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         self.cmd_tx
             .blocking_send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -542,10 +538,9 @@ impl TransportCommander {
             path_kind,
             kind: RequestKindOwned::Read,
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+        self.send_message_expect_response(req, done_tx, timeout)
             .await?;
         Ok(done_rx)
     }
@@ -560,10 +555,9 @@ impl TransportCommander {
             path_kind,
             kind: RequestKindOwned::Read,
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response_blocking(req, done_tx, timeout)?;
         Ok(done_rx)
     }
 
@@ -580,10 +574,9 @@ impl TransportCommander {
                 data: TailBytesOwned(value),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+        self.send_message_expect_response(req, done_tx, timeout)
             .await?;
         Ok(done_rx)
     }
@@ -601,10 +594,9 @@ impl TransportCommander {
                 data: TailBytesOwned(value),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response_blocking(req, done_tx, timeout)?;
         Ok(done_rx)
     }
 
@@ -620,11 +612,10 @@ impl TransportCommander {
                 data: TailBytesOwned(value),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         self.cmd_tx
             .send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .await
@@ -644,11 +635,10 @@ impl TransportCommander {
                 data: TailBytesOwned(value),
             },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         self.cmd_tx
             .blocking_send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -666,10 +656,9 @@ impl TransportCommander {
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response(req.to_vec(), done_tx, timeout)
+        self.send_message_expect_response(req, done_tx, timeout)
             .await?;
         Ok(done_rx)
     }
@@ -685,10 +674,9 @@ impl TransportCommander {
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();
-        self.send_message_expect_response_blocking(req.to_vec(), done_tx, timeout)?;
+        self.send_message_expect_response_blocking(req, done_tx, timeout)?;
         Ok(done_rx)
     }
 
@@ -702,11 +690,10 @@ impl TransportCommander {
     //         path_kind,
     //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
     //     };
-    //     let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-    //     let req = req.to_ww_bytes(&mut scratch)?;
+    //     let req = req.to_ww_bytes_owned()?;
     //     self.cmd_tx
     //         .send(Command::SendMessage {
-    //             bytes: req.to_vec(),
+    //             bytes: req,
     //             done_tx: None,
     //         })
     //         .await
@@ -724,11 +711,10 @@ impl TransportCommander {
     //         path_kind,
     //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
     //     };
-    //     let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-    //     let req = req.to_ww_bytes(&mut scratch)?;
+    //     let req = req.to_ww_bytes_owned()?;
     //     self.cmd_tx
     //         .blocking_send(Command::SendMessage {
-    //             bytes: req.to_vec(),
+    //             bytes: req,
     //             done_tx: None,
     //         })
     //         .map_err(|_| Error::EventLoopNotRunning)?;
@@ -744,8 +730,7 @@ impl TransportCommander {
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (stream_event_tx, stream_event_rx) = mpsc::unbounded_channel();
         self.cmd_tx
             .send(Command::OnStreamEvent {
@@ -756,7 +741,7 @@ impl TransportCommander {
             .map_err(|_| Error::EventLoopNotRunning)?;
         self.cmd_tx
             .send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .await
@@ -773,8 +758,7 @@ impl TransportCommander {
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };
-        let mut scratch = [0u8; 1024]; // TODO: use Vec flavor or recycle?
-        let req = req.to_ww_bytes(&mut scratch)?;
+        let req = req.to_ww_bytes_owned()?;
         let (stream_event_tx, stream_event_rx) = mpsc::unbounded_channel();
         self.cmd_tx
             .blocking_send(Command::OnStreamEvent {
@@ -784,7 +768,7 @@ impl TransportCommander {
             .map_err(|_| Error::EventLoopNotRunning)?;
         self.cmd_tx
             .blocking_send(Command::SendMessage {
-                bytes: req.to_vec(),
+                bytes: req,
                 done_tx: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;

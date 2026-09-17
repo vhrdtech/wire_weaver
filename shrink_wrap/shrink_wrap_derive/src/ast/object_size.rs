@@ -28,11 +28,11 @@ impl ToTokens for ObjectSize {
 }
 
 impl ObjectSize {
-    pub(crate) fn sum_recursively(&self, sizes: Vec<Ident>) -> TokenStream {
+    pub(crate) fn sum_recursively(&self, sizes: Vec<Ident>, is_ref: bool) -> TokenStream {
         if sizes.is_empty() {
             quote! { #self }
         } else {
-            let sizes = sum_unknown(sizes);
+            let sizes = sum_unknown(sizes, is_ref);
             quote! { #self.add(#sizes) }
         }
     }
@@ -41,6 +41,7 @@ impl ObjectSize {
         &self,
         ident: &Ident,
         cfg: Option<&TokenStream>,
+        is_ref: bool,
     ) -> TokenStream {
         let size_ts = match self {
             ObjectSize::Unsized => quote! { Unsized },
@@ -56,16 +57,28 @@ impl ObjectSize {
         };
         let err_msg = format!("{} must be {size}", ident);
         let err_msg = LitStr::new(&err_msg, Span::call_site());
+        let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let (ser_trait, des_trait) = if is_ref {
+            (
+                quote! { SerializeShrinkWrap },
+                quote! { DeserializeShrinkWrap },
+            )
+        } else {
+            (
+                quote! { SerializeShrinkWrapOwned },
+                quote! { DeserializeShrinkWrapOwned },
+            )
+        };
         quote! {
             #cfg
             const _: () = assert!(
-                matches!(<#ident as SerializeShrinkWrap>::ELEMENT_SIZE, ElementSize::#size_ts),
+                matches!(<#ident as #ser_trait>::ELEMENT_SIZE, ElementSize::#size_ts),
                 #err_msg
             );
 
             #cfg
             const _: () = assert!(
-                matches!(<#ident as DeserializeShrinkWrap>::ELEMENT_SIZE, ElementSize::#size_ts),
+                matches!(<#ident as #des_trait>::ELEMENT_SIZE, ElementSize::#size_ts),
                 #err_msg
             );
         }
@@ -97,13 +110,18 @@ impl ObjectSize {
     }
 }
 
-fn sum_unknown(mut sizes: Vec<Ident>) -> TokenStream {
+fn sum_unknown(mut sizes: Vec<Ident>, is_ref: bool) -> TokenStream {
+    let ser_trait = if is_ref {
+        quote! { SerializeShrinkWrap }
+    } else {
+        quote! { SerializeShrinkWrapOwned }
+    };
     if let Some(ident) = sizes.pop() {
-        let inner = sum_unknown(sizes);
+        let inner = sum_unknown(sizes, is_ref);
         if inner.is_empty() {
-            quote! { <#ident as SerializeShrinkWrap>::ELEMENT_SIZE }
+            quote! { <#ident as #ser_trait>::ELEMENT_SIZE }
         } else {
-            quote! { <#ident as SerializeShrinkWrap>::ELEMENT_SIZE.add(#inner) }
+            quote! { <#ident as #ser_trait>::ELEMENT_SIZE.add(#inner) }
         }
     } else {
         TokenStream::new()

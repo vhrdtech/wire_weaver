@@ -23,10 +23,11 @@ pub const VERSION: VersionTriplet = VersionTriplet::new(0, 1, 1); // TODO: Fill 
 // TODO: add doc
 // TODO: add ufs
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct ApiBundle<'i> {
     /// [MAGIC] value
     pub magic: u32,
@@ -44,11 +45,12 @@ pub struct ApiBundle<'i> {
     // pub toggle_doc_hash: ApiHash<'i>,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = u2,
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum ApiLevelLocation<'i> {
     InLine {
         level: ApiLevel<'i>,
@@ -66,11 +68,12 @@ pub enum ApiLevelLocation<'i> {
     },
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = u2,
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum TypeLocation<'i> {
     InLine {
         ty: Type<'i>,
@@ -88,10 +91,11 @@ pub enum TypeLocation<'i> {
     // },
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct ApiLevel<'i> {
     pub docs: RefVec<'i, &'i str>,
     pub crate_idx: UNib32,
@@ -99,10 +103,11 @@ pub struct ApiLevel<'i> {
     pub items: RefVec<'i, ApiItem<'i>>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct ApiItem<'i> {
     pub id: UNib32,
     pub kind: ApiItemKind<'i>,
@@ -112,21 +117,25 @@ pub struct ApiItem<'i> {
     pub docs: RefVec<'i, &'i str>,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[self_describing]
-#[derive(Clone, Debug, PartialEq)]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    ww_repr = u2,
+    self_describing,
+    derive(Clone, Debug, PartialEq),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum Multiplicity {
     Flat,
     Array { index_type_idx: Option<UNib32> },
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = nib,
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum ApiItemKind<'i> {
     Method {
         args: RefVec<'i, Argument<'i>>,
@@ -147,20 +156,24 @@ pub enum ApiItemKind<'i> {
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct Argument<'i> {
     pub ident: &'i str,
     pub ty: Type<'i>,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u3)]
-#[sized]
-#[derive(Clone, Copy, Debug)]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    ww_repr = u3,
+    sized,
+    derive(Clone, Copy, Debug),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available
     Const,
@@ -172,11 +185,12 @@ pub enum PropertyAccess {
     WriteOnly,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = unib32,
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum Type<'i> {
     /// 1-bit, alignment of one-bit, same as `UB(UBits(1))` but serialized with only 1 nibble because bool is used very often.
     Bool,
@@ -219,11 +233,12 @@ pub enum Type<'i> {
     RangeInclusive(RefBox<'i, NumericBaseType>),
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = unib32,
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum Value<'i> {
     Bool(bool),
     Numeric(NumericValue),
@@ -244,21 +259,23 @@ pub enum Value<'i> {
     RangeInclusive(RangeInclusive<NumericValue>),
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    ww_repr = u2,
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum FieldsValue<'i> {
     Named(RefVec<'i, (&'i str, Value<'i>)>),
     Unnamed(RefVec<'i, Value<'i>>),
     Unit,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct ItemStruct<'i> {
     pub size: ElementSize,
     pub crate_idx: UNib32,
@@ -267,10 +284,11 @@ pub struct ItemStruct<'i> {
     pub fields: Fields<'i>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct Field<'i> {
     #[flag]
     since: bool,
@@ -284,10 +302,11 @@ pub struct Field<'i> {
     pub docs: RefVec<'i, &'i str>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub struct ItemEnum<'i> {
     pub size: ElementSize,
     pub repr: Repr,
@@ -297,11 +316,14 @@ pub struct ItemEnum<'i> {
     pub variants: RefVec<'i, Variant<'i>>,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u3)]
-#[sized]
-#[derive(Clone, Debug, PartialEq)]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    ww_repr = u3,
+    sized,
+    derive(Clone, Debug, PartialEq),
+    cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum Repr {
     /// One nibble with one nibble alignment
     Nibble,
@@ -317,10 +339,12 @@ pub enum Repr {
     ByteAlignedU32,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    derive(Clone, Debug, PartialEq),
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
+
 pub struct Variant<'i> {
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
@@ -329,11 +353,12 @@ pub struct Variant<'i> {
     pub since: Option<VersionTriplet>,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Clone, Debug, PartialEq)]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    ww_repr = u2,
+    derive(Clone, Debug, PartialEq),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize))
+)]
 pub enum Fields<'i> {
     Named(RefVec<'i, Field<'i>>),
     Unnamed(RefVec<'i, Field<'i>>),

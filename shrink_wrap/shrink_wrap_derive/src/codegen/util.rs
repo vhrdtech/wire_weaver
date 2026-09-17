@@ -8,35 +8,50 @@ pub(crate) fn serdes_scaffold(
     cfg: Option<&TokenStream>,
     element_size: TokenStream,
     is_ref: bool,
+    has_lifetime: bool,
 ) -> TokenStream {
-    let (ser_trait, des_trait) = if is_ref {
-        (
-            quote! { SerializeShrinkWrap },
-            quote! { DeserializeShrinkWrap },
-        )
-    } else {
-        (
-            quote! { SerializeShrinkWrapOwned },
-            quote! { DeserializeShrinkWrapOwned },
-        )
-    };
-    let lifetime = maybe_quote(is_ref, || quote! { <'i> });
-    quote! {
-        #cfg
-        impl #lifetime #ser_trait for #ty_name #lifetime {
-            const ELEMENT_SIZE: ElementSize = #element_size;
+    let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
+    if is_ref {
+        // The trait itself always carries a `'i` (the input buffer's lifetime); `#ty_lifetime` is
+        // only applied to `#ty_name` when the type actually has a `<'i>` generic of its own.
+        let ty_lifetime = maybe_quote(has_lifetime, || quote! { <'i> });
+        quote! {
+            #cfg
+            impl<'i> SerializeShrinkWrap for #ty_name #ty_lifetime {
+                const ELEMENT_SIZE: ElementSize = #element_size;
 
-            fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
-                #ser
+                fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
+                    #ser
+                }
+            }
+
+            #cfg
+            impl<'i> DeserializeShrinkWrap<'i> for #ty_name #ty_lifetime {
+                const ELEMENT_SIZE: ElementSize = #element_size;
+
+                fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
+                    #des
+                }
             }
         }
+    } else {
+        quote! {
+            #cfg
+            impl SerializeShrinkWrapOwned for #ty_name {
+                const ELEMENT_SIZE: ElementSize = #element_size;
 
-        #cfg
-        impl #lifetime #des_trait #lifetime for #ty_name #lifetime {
-            const ELEMENT_SIZE: ElementSize = #element_size;
+                fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), ShrinkWrapError> {
+                    #ser
+                }
+            }
 
-            fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
-                #des
+            #cfg
+            impl DeserializeShrinkWrapOwned for #ty_name {
+                const ELEMENT_SIZE: ElementSize = #element_size;
+
+                fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
+                    #des
+                }
             }
         }
     }

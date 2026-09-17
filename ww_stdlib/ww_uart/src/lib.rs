@@ -38,18 +38,14 @@ pub trait Uart {
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(derive(Clone, Debug), owned(feature = "std"))]
 pub struct RxChunk<'i> {
     pub flags: Option<RxFlags>,
     pub timestamp: Option<Second>,
     pub bytes: &'i [u8],
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
 pub struct RxFlags {
     pub parity_error: bool,
 }
@@ -59,9 +55,7 @@ pub struct RxFlags {
 //     pub bytes: &'i [u8],
 // }
 
-#[derive_shrink_wrap]
-#[ww_repr(u4)]
-#[derive(Copy, Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u4, derive(Copy, Clone, Debug))]
 pub enum BaudRate {
     Baud110,
     Baud300,
@@ -78,9 +72,7 @@ pub enum BaudRate {
     BaudOther(u32),
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u4)]
-#[derive(Copy, Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u4, derive(Copy, Clone, Debug))]
 pub enum Mode {
     /// No flow control.
     Asynchronous,
@@ -99,9 +91,7 @@ pub enum Mode {
 }
 
 /// Pin selector used in test mode.
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Copy, Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u2, derive(Copy, Clone, Debug))]
 pub enum Pin {
     Tx,
     Rx,
@@ -110,27 +100,21 @@ pub enum Pin {
 }
 
 /// Number of stop bits transmitted after every character.
-#[derive_shrink_wrap]
-#[ww_repr(u1)]
-#[derive(Copy, Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u1, derive(Copy, Clone, Debug))]
 pub enum StopBits {
     Stop1,
     Stop2,
 }
 
 /// Parity checking mode.
-#[derive_shrink_wrap]
-#[ww_repr(u2)]
-#[derive(Copy, Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u2, derive(Copy, Clone, Debug))]
 pub enum Parity {
     None,
     Odd,
     Even,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(u4)]
-#[derive(Clone, Debug)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = u4, derive(Clone, Debug))]
 pub enum Error {
     Unsupported,
     UnsupportedMode,
@@ -141,9 +125,7 @@ pub enum Error {
     // CustomBytes(&'i [u8])
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone, Debug)]
-#[owned = "std"]
+#[derive_shrink_wrap(derive(Clone, Debug), owned(feature = "std"))]
 pub struct Capabilities<'i> {
     pub min_baud_rate: u32,
     pub max_baud_rate: u32,

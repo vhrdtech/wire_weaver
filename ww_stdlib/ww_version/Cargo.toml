@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "semver/std", "dep:hex", "hex/std"]
+std = ["shrink_wrap/std", "semver/std", "dep:hex", "hex/std", "ww_global/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_global/defmt"]
 serde = ["dep:serde", "shrink_wrap/serde", "ww_global/serde"]
 semver = ["dep:semver"]

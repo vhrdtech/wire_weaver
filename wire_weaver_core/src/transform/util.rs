@@ -1,5 +1,5 @@
 use super::crate_walker::CrateContext;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
 use semver::Version;
 use shrink_wrap::ElementSize;
@@ -78,6 +78,30 @@ pub(crate) fn use_tree_has_type(tree: &UseTree, type_name: &str) -> bool {
     }
 }
 
+/// Finds the `#[derive_shrink_wrap(..)]` attribute (the new, unified syntax) among `attrs` and
+/// parses its directives. Returns `Args::default()` when the attribute is absent, e.g. for a
+/// plain type that isn't (de)serialized with ShrinkWrap.
+pub(crate) fn derive_shrink_wrap_args(
+    attrs: &[Attribute],
+    current_crate: &CrateContext,
+) -> Result<Args> {
+    let Some(attr) = attrs
+        .iter()
+        .find(|a| a.path().is_ident("derive_shrink_wrap"))
+    else {
+        return Ok(Args::default());
+    };
+    match &attr.meta {
+        Meta::Path(_) => Ok(Args::default()),
+        Meta::List(meta_list) => syn::parse2(meta_list.tokens.clone())
+            .map_err(|e| anyhow!("{e}").context(current_crate.err_context())),
+        Meta::NameValue(_) => Err(anyhow!(
+            "expected #[derive_shrink_wrap] or #[derive_shrink_wrap(..)]"
+        )
+        .context(current_crate.err_context())),
+    }
+}
+
 /// Trimmed down version of shrink_wrap_derive's `Args`, keeping only the directives relevant to
 /// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`) and `ww_repr`.
 #[derive(Clone, Debug, Default)]
@@ -114,14 +138,21 @@ impl Parse for Args {
                 "ww_repr" => {
                     input.parse::<Token![=]>()?;
                     let repr_ident: Ident = input.parse()?;
-                    ww_repr = Some(parse_repr(repr_ident.to_string().as_str()).ok_or_else(
-                        || {
+                    ww_repr =
+                        Some(parse_repr(repr_ident.to_string().as_str()).ok_or_else(|| {
                             syn::Error::new(
                                 repr_ident.span(),
                                 "expected one of: unib32, nib, u1..u32, ub<N>",
                             )
-                        },
-                    )?);
+                        })?);
+                }
+                "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
+                | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants" => {
+                    // Directives irrelevant to wire_weaver_core's introspection (it only cares
+                    // about `ww_repr` and the size assumption) - skip their arguments, if any.
+                    if input.peek(syn::token::Paren) {
+                        let _group: proc_macro2::Group = input.parse()?;
+                    }
                 }
                 u => {
                     return Err(syn::Error::new(
@@ -184,5 +215,25 @@ fn parse_repr(s: &str) -> Option<Repr> {
         16 => Some(Repr::ByteAlignedU16),
         32 => Some(Repr::ByteAlignedU32),
         other => Some(Repr::BitAligned(other)),
+    }
+}
+
+#[cfg(test)]
+mod derive_shrink_wrap_args_tests {
+    use super::Args;
+    use quote::quote;
+    use syn::parse2;
+
+    #[test]
+    fn ignores_directives_it_does_not_care_about() {
+        let ts = quote! {
+            borrowed, owned(feature = "std"), ww_repr = nib,
+            derive(Clone, Debug), derive_owned(Clone), derive_borrowed(Copy),
+            cfg_attr(feature = "a"), cfg_attr_owned(feature = "b", derive(X)),
+            cfg_attr_borrowed(feature = "c"), discriminants, sized
+        };
+        let args: Args = parse2(ts).unwrap();
+        assert!(args.ww_repr.is_some());
+        assert!(args.size_assumption.is_some());
     }
 }

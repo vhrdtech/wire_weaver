@@ -94,11 +94,7 @@ pub enum CANMode {
     Test,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(unib32)]
-#[self_describing]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = unib32, self_describing)]
 pub enum CANError {
     NotInDisabled,
     /// Returned if tried to call any configuration method of an interface group,
@@ -161,8 +157,7 @@ pub struct CANEnvelope<'i> {
     pub timestamp_ns: Option<U30>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
+#[derive_shrink_wrap(derive(Debug, PartialEq, Eq))]
 struct CANFrame<'i> {
     id: CANId,
     kind: CANFrameKind,
@@ -170,49 +165,31 @@ struct CANFrame<'i> {
     data: RefVec<'i, u8>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[ww_repr(u2)]
-#[sized]
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash), ww_repr = u2, sized)]
 enum CANId {
     Standard(U11),
     Extended(U29),
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u2)]
-#[sized]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = u2, sized)]
 enum CANFrameKind {
     Classic { rtr: CANRtr },
     FD { brs: CANBrs, esi: CANEsi },
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u1)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
 pub enum CANRtr {
     DataFrame,
     RemoteFrame,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u1)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
 pub enum CANBrs {
     SameSpeed,
     SwitchForDataPhase,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u1)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
 pub enum CANEsi {
     Normal,
     ErrorPassive,
@@ -235,11 +212,7 @@ pub struct CANCapabilities {
     pub tt: bool,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u2)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u2, sized)]
 pub enum CANTerminationSwitchResult {
     /// If value was actually just switched in.
     Ok,

@@ -23,11 +23,7 @@ pub trait LogDefmt {
     fn reset_counters();
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u2)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u2, sized)]
 pub enum DefmtFormat {
     Raw,
     Rzcobs,
@@ -58,8 +54,7 @@ pub struct Message<'i> {
     pub contents: &'i str,
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(borrowed, ww_repr = nib)]
 pub enum Severity {
     Error,
     Warn,

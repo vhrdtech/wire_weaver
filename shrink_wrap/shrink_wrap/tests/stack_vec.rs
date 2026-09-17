@@ -8,8 +8,7 @@ struct DynamicThings<'i> {
     c: RefVec<'i, MoreDynamic<'i>>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Clone)]
+#[derive_shrink_wrap(derive(Clone))]
 struct MoreDynamic<'i> {
     d: RefVec<'i, u8>,
 }

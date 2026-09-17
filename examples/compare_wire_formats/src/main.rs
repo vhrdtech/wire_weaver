@@ -1,8 +1,7 @@
 use serde::Serialize;
 use wire_weaver::prelude::*;
 
-#[derive_shrink_wrap]
-#[derive(Serialize)]
+#[derive_shrink_wrap(derive(Serialize))]
 struct Request {
     pub seq: u16,
     pub path_kind: PathKind,
@@ -25,18 +24,14 @@ struct Request {
     pub strs: Vec<String>,
 }
 
-#[derive_shrink_wrap]
-#[derive(Serialize)]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(derive(Serialize), ww_repr = nib)]
 enum PathKind {
     Absolute { path: Vec<UNib32> },
     GlobalCompact,
     GlobalFull,
 }
 
-#[derive_shrink_wrap]
-#[derive(Serialize)]
-#[ww_repr(nib)]
+#[derive_shrink_wrap(derive(Serialize), ww_repr = nib)]
 enum RequestKind {
     Call { args: Vec<u8> },
     Read,
@@ -58,7 +53,7 @@ fn main() {
         strs: vec!["ab".to_string(), "c".to_string()],
     };
     let mut scratch = [0u8; 128];
-    let bytes = req.to_ww_bytes(&mut scratch).unwrap();
+    let bytes = req.to_ww_bytes_owned().unwrap();
     println!("WireWeaver: len: {}: {bytes:02X?}", bytes.len());
 
     let bytes = postcard::to_slice(&req, &mut scratch).unwrap();

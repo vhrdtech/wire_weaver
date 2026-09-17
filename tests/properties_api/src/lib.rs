@@ -15,17 +15,13 @@ trait Properties {
     // arrays
 }
 
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
 struct Custom<'i> {
     z: u8,
     inner: RefVec<'i, Inner<'i>>,
 }
 
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 struct Inner<'i> {
     u: u8,
     v: &'i str,

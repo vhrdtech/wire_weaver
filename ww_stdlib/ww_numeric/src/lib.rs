@@ -5,12 +5,7 @@ mod alloc;
 
 use shrink_wrap::prelude::*;
 
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[self_describing]
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[defmt = "defmt"]
-#[serde = "serde"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = unib32, self_describing, derive(Clone, Debug, PartialEq, Eq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
 pub enum NumericBaseType {
     /// 4-bits (nibble), alignment of four-bits
     Nibble,
@@ -79,12 +74,7 @@ pub enum NumericBaseType {
 // It would be nice to create a separate SubType and ShiftScale for each base type,
 // disallowing any ambiguities and errors on type level, but it would be too many variants to handle everywhere
 /// Any of the base numeric types plus derived types: subtype, shift-scale.
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[derive(Clone, Debug, PartialEq)]
-#[defmt = "defmt"]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"), cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
 pub enum NumericAnyType<'i> {
     Base(NumericBaseType),
     SubType {
@@ -99,12 +89,7 @@ pub enum NumericAnyType<'i> {
     },
 }
 
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[derive(Clone, Debug, PartialEq)]
-#[defmt = "defmt"]
-#[owned = "std"]
-#[serde = "serde"]
+#[derive_shrink_wrap(ww_repr = unib32, derive(Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), owned(feature = "std"), cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
 pub enum SubTypeKind<'i> {
     ValidRange {
         start: NumericValue,
@@ -119,12 +104,7 @@ pub enum SubTypeKind<'i> {
 ///
 /// Minimum size is 1 byte (u4, unib32 0..=7).
 /// u8 is 2 bytes, u32 - is 5 bytes, etc.
-#[derive_shrink_wrap]
-#[ww_repr(unib32)]
-#[self_describing]
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[defmt = "defmt"]
-#[serde = "serde"]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), ww_repr = unib32, self_describing, derive(Copy, Clone, Debug, PartialEq), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)), cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)))]
 pub enum NumericValue {
     Nibble(Nibble),
     U8(u8),
@@ -231,6 +211,16 @@ impl DeserializeShrinkWrapOwned for UBits {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for UBits {
+    const ELEMENT_SIZE: ElementSize = <UBits as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), ShrinkWrapError> {
+        let shifted = self.0 - 1;
+        wr.write_un8(7, shifted)
+    }
+}
+
 /// Number of bits in IB number. Serialized as 7-bits and shifted by -2 to represent I2-I128.
 /// Note that only I2-I64 is supported now, but it's not hard to add numbers up to I128.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -266,6 +256,16 @@ impl DeserializeShrinkWrapOwned for IBits {
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
         IBits::des_shrink_wrap(rd)
+    }
+}
+
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for IBits {
+    const ELEMENT_SIZE: ElementSize = <IBits as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), ShrinkWrapError> {
+        let shifted = self.0 - 2;
+        wr.write_un8(7, shifted)
     }
 }
 

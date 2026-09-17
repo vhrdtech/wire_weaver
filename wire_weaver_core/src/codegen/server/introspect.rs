@@ -2,7 +2,7 @@ use crate::codegen::util::ErrorSeq;
 use proc_macro2::TokenStream;
 use quote::quote;
 use sha2::Digest;
-use shrink_wrap::SerializeShrinkWrap;
+use shrink_wrap::SerializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 
 pub(crate) fn introspect(
@@ -88,21 +88,18 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
     let mut contains_docs = ContainsDocs::default();
     ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut contains_docs);
 
-    let mut scratch = [0u8; 16_384]; // TODO: use Vec based BufWriter here
-    let mut scratch2 = [0u8; 16_384]; // TODO: use Vec based BufWriter here
     if contains_docs.contains {
         ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut DropDocs {});
         let api_no_docs = api_bundle_cloned;
         let api_with_docs = api_bundle;
 
-        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false, &mut scratch);
-        let (with_docs_bytes, with_docs_hash) =
-            ser_hash_and_cache(api_with_docs, true, &mut scratch2);
+        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false);
+        let (with_docs_bytes, with_docs_hash) = ser_hash_and_cache(api_with_docs, true);
 
         let introspect_bytes = if include_docs {
-            bytes_to_ts(with_docs_bytes)
+            bytes_to_ts(&with_docs_bytes)
         } else {
-            bytes_to_ts(no_docs_bytes)
+            bytes_to_ts(&no_docs_bytes)
         };
         IntrospectTs {
             introspect_bytes,
@@ -111,23 +108,19 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
         }
     } else {
         let api_no_docs = api_bundle;
-        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false, &mut scratch);
+        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(api_no_docs, false);
         IntrospectTs {
-            introspect_bytes: bytes_to_ts(no_docs_bytes),
+            introspect_bytes: bytes_to_ts(&no_docs_bytes),
             no_docs_hash,
             with_docs_hash: bytes_to_ts(&[]),
         }
     }
 }
 
-fn ser_hash_and_cache<'i>(
-    api_bundle: &ApiBundleOwned,
-    contains_docs: bool,
-    scratch: &'i mut [u8],
-) -> (&'i [u8], TokenStream) {
-    let api_bytes = api_bundle.to_ww_bytes(scratch).unwrap();
+fn ser_hash_and_cache(api_bundle: &ApiBundleOwned, contains_docs: bool) -> (Vec<u8>, TokenStream) {
+    let api_bytes = api_bundle.to_ww_bytes_owned().unwrap();
     // TODO: calculate api signature properly?
-    let hash = sha2::Sha256::digest(api_bytes);
+    let hash = sha2::Sha256::digest(&api_bytes);
     let hash = &hash[..8];
     crate::local_registry::cache_api_bundle(api_bundle, contains_docs, hash);
     (api_bytes, bytes_to_ts(hash))

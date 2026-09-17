@@ -15,9 +15,7 @@ trait Methods {
     // evolve return from plain to struct
 }
 
-#[derive_shrink_wrap]
-#[owned = "std"]
-#[derive(Debug, PartialEq, Eq)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]
 struct UserDefined<'i> {
     a: u8,
     b: RefVec<'i, u8>,

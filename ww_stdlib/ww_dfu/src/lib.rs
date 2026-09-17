@@ -12,11 +12,7 @@ trait FirmwareUpdate {
     fn capabilities() -> FirmwareUpdateCapabilities;
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u4)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u4, sized)]
 pub enum FirmwareUpdateState {
     Normal,
     Reverted,
@@ -31,11 +27,7 @@ pub struct FirmwareUpdateCapabilities {
     pub async_write: bool,
 }
 
-#[derive_shrink_wrap]
-#[derive(Debug, PartialEq, Eq)]
-#[ww_repr(u4)]
-#[sized]
-#[derive(Copy, Clone)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u4, sized)]
 pub enum Error {
     Todo,
 }

@@ -39,10 +39,7 @@ impl TryFrom<(Meter, Per, Second)> for Speed {
         let time_prefix: i8 = quantity.2.prefix.into();
         let prefix = distance_prefix - time_prefix;
         let prefix = prefix.try_into().expect("");
-        Ok(Speed {
-            prefix,
-            value,
-        })
+        Ok(Speed { prefix, value })
     }
 }
 
@@ -50,8 +47,14 @@ impl TryFrom<(Meter, Per, Second, ToF32)> for Speed {
     type Error = Error;
 
     fn try_from(quantity: (Meter, Per, Second, ToF32)) -> Result<Self, Self::Error> {
-        let distance = Meter { prefix: quantity.0.prefix, value: NumericValue::F32(quantity.0.value.as_f32()) };
-        let time = Second { prefix: quantity.2.prefix, value: NumericValue::F32(quantity.2.value.as_f32()) };
+        let distance = Meter {
+            prefix: quantity.0.prefix,
+            value: NumericValue::F32(quantity.0.value.as_f32()),
+        };
+        let time = Second {
+            prefix: quantity.2.prefix,
+            value: NumericValue::F32(quantity.2.value.as_f32()),
+        };
         (distance, Per, time).try_into()
     }
 }
@@ -60,7 +63,7 @@ impl TryFrom<(Meter, Per, Second, ToF32)> for Speed {
 mod tests {
     use super::*;
     use crate as ww_si;
-    
+
     #[test]
     fn convert_sanity() {
         let distance = quantity!(10 m u32);

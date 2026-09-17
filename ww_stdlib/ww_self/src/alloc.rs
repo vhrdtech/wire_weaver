@@ -2,7 +2,7 @@ use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_version::FullVersionOwned;

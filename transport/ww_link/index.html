@@ -1800,7 +1800,7 @@
   <span class="md-ellipsis">
     
   
-  Usb
+  USB
 
     
   </span>
@@ -2474,11 +2474,11 @@ control traffic is rare.</p>
 <p><code>ww_link</code> messages are independent of how they are framed — the protocol logic only deals with
 <code>(kind, payload)</code> pairs, and each transport picks the <a href="../ww_framer/">ww_framer</a> head
 / checksum / tail that suits its medium. For convenience a default configuration is provided:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">Head</span><span class="p">,</span><span class="w"> </span><span class="n">Checksum</span><span class="p">,</span><span class="w"> </span><span class="n">Tail</span><span class="p">};</span><span class="w">  </span><span class="c1">// U2Head, CRC-16/IBM-SDLC per message, no tail</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">Tx</span><span class="p">,</span><span class="w"> </span><span class="n">Rx</span><span class="p">};</span><span class="w">                </span><span class="c1">// borrowed, no_std: Tx&lt;&#39;a&gt;, Rx&lt;&#39;a&gt;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">TxOwned</span><span class="p">,</span><span class="w"> </span><span class="n">RxOwned</span><span class="p">};</span><span class="w">      </span><span class="c1">// feature &quot;std&quot;: buffers are Vec&lt;u8&gt;</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_link</span><span class="p">::{</span><span class="n">UsbHead</span><span class="p">,</span><span class="w"> </span><span class="n">UsbChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">UsbTail</span><span class="p">};</span><span class="w">  </span><span class="c1">// U2Head, CRC-16/IBM-SDLC per message, no tail</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">type</span><span class="w"> </span><span class="nc">UsbTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">UsbHead</span><span class="p">,</span><span class="w"> </span><span class="n">UsbChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">UsbTail</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">UsbRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">UsbHead</span><span class="p">,</span><span class="w"> </span><span class="n">UsbChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">UsbTail</span><span class="o">&gt;</span><span class="p">;</span>
 </span></code></pre></div>
-<p>This is what USB uses. A medium with its own integrity check might drop the checksum,
+<p>This is what USB uses (<code>TxOwned</code>/<code>FramedRxOwned</code> variants with the <code>std</code> feature of <code>ww_framer</code>). A medium with its own integrity check might drop the checksum,
 a stream medium (UART) would add a tail for synchronization, and so on — the link messages stay the same.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.</p>
@@ -2716,7 +2716,7 @@ device just means the tx task is parked in a write, so the command channel fills
 </tr>
 <tr>
 <td><code>std</code></td>
-<td>Adds <code>TxOwned</code>/<code>RxOwned</code> (heap buffers), <code>DeviceInfoOwned</code>/<code>LinkSetupOwned</code>, owned version types. Used by <code>wire_weaver_client</code>.</td>
+<td>Adds <code>DeviceInfoOwned</code>/<code>LinkSetupOwned</code> (+ <code>make_owned()</code>), owned version types. Used by <code>wire_weaver_client</code>.</td>
 </tr>
 <tr>
 <td><code>defmt</code></td>
@@ -2791,13 +2791,13 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
         
         
           
-          <a href="../usb/" class="md-footer__link md-footer__link--next" aria-label="Next: Usb">
+          <a href="../usb/" class="md-footer__link md-footer__link--next" aria-label="Next: USB">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Usb
+                USB
               </div>
             </div>
             <div class="md-footer__button md-icon">

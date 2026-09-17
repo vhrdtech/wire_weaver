@@ -1706,7 +1706,7 @@
   <span class="md-ellipsis">
     
   
-  Usb
+  USB
 
     
   </span>
@@ -2254,7 +2254,7 @@ It is targeting both microcontroller and host usage.</p>
 Note that understanding how use serdes system manually is optional, as most of the code is automatically generated.
 Feel free to continue to the <a href="#next-step">next step</a>.</p>
 <h2 id="high-level-overview">High-level overview<a class="headerlink" href="#high-level-overview" title="Permanent link">&para;</a></h2>
-<p>Main idea behind the wire format is a stack of sizes that is kept in the back of the buffer. This not only allows to do
+<p>Main idea behind the wire format is a FIFO of sizes that is kept in the back of the buffer. This not only allows to do
 serialization in one pass, but also avoid unnecessary copying.</p>
 <p>Let's see how this works on a simple example: serialize two strings of arbitrary length into a byte buffer.
 One string is trivial, because assumption is that buffer length is known, hence two.

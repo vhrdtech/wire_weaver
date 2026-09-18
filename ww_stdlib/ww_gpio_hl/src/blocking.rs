@@ -2,7 +2,9 @@ use crate::Error;
 use crate::ww::{BankClient, GpioClient};
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::{Attachment, Stream};
-use ww_gpio::{BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull};
+use ww_gpio::{
+    BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
+};
 
 /// GPIO configured as Push-Pull output.
 /// Blocking flavor.
@@ -423,7 +425,7 @@ impl BankBlocking {
     }
 
     /// Returns cached bank name if it was requested before, otherwise a request is made first.
-    pub fn bank_name(&mut self) -> Result<String, Error> {
+    pub fn name(&mut self) -> Result<String, Error> {
         if let Some(name) = self.name.clone() {
             Ok(name)
         } else {
@@ -441,5 +443,52 @@ impl BankBlocking {
             self.capabilities = Some(capabilities.clone());
             Ok(capabilities)
         }
+    }
+
+    /// Get bank reference voltage, requested from a remote device.
+    pub fn reference_voltage(&self) -> Result<Volt, Error> {
+        Ok(self.bank.read_reference_voltage().blocking_read()?)
+    }
+
+    /// Set reference voltage for all pins of the bank, if supported by hardware.
+    pub fn set_reference_voltage(&mut self, voltage: Volt) -> Result<(), Error> {
+        self.bank
+            .write_reference_voltage(voltage)
+            .blocking_write()?;
+        Ok(())
+    }
+
+    /// Get pin at `pin_idx` as a [FlexBlocking], assuming unknown mode.
+    /// The intended use is to immediately call one of the into_ methods to save on one remote call.
+    ///
+    /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
+    pub fn pin(&self, pin_idx: u32) -> Result<FlexBlocking, Error> {
+        self.check_idx(pin_idx)?;
+        FlexBlocking::new_ignore_mode(self.bank.pin(pin_idx).attachment())
+    }
+
+    /// Get pin at `pin_idx` as a [FlexBlocking] and send a request to get its mode right away.
+    ///
+    /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
+    pub fn pin_get_mode(&self, pin_idx: u32) -> Result<FlexBlocking, Error> {
+        self.check_idx(pin_idx)?;
+        FlexBlocking::new_get_mode(self.bank.pin(pin_idx).attachment())
+    }
+
+    /// Get all available pins on this bank as [FlexBlocking], assuming unknown mode.
+    pub fn all_pins(&self) -> Result<Vec<FlexBlocking>, Error> {
+        self.available_pins
+            .iter()
+            .map(|pin_idx| FlexBlocking::new_ignore_mode(self.bank.pin(pin_idx).attachment()))
+            .collect()
+    }
+
+    fn check_idx(&self, pin_idx: u32) -> Result<(), Error> {
+        if !self.available_pins.contains(pin_idx) {
+            return Err(Error::Usage(format!(
+                "Pin index {pin_idx} is not valid for this bank"
+            )));
+        }
+        Ok(())
     }
 }

@@ -33,6 +33,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_gpio",
+ "ww_gpio_hl",
  "ww_self",
  "ww_si",
 ]

@@ -10,6 +10,7 @@ tokio = { version = "1", features = ["sync", "rt"] }
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
+ww_gpio_hl = { path = "../../ww_stdlib/ww_gpio_hl" }
 ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

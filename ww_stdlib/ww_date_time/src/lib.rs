@@ -20,6 +20,7 @@ pub use chrono;
 /// * +24 bits for year <2025.
 #[derive_shrink_wrap(
     borrowed,
+    owned(feature = "std"),
     derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash),
     self_describing
 )]
@@ -35,6 +36,7 @@ pub struct DateTime {
 /// UTC is preferred ant takes only 1 bit.
 #[derive_shrink_wrap(
     borrowed,
+    owned(feature = "std"),
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
     sized,
     ww_repr = u1
@@ -47,6 +49,7 @@ pub enum Timezone {
 /// Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.
 #[derive_shrink_wrap(
     borrowed,
+    owned(feature = "std"),
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
     sized,
     ww_repr = u3
@@ -67,6 +70,7 @@ pub enum OtherTimezone {
 /// * Maximum size is 37 bits.
 #[derive_shrink_wrap(
     borrowed,
+    owned(feature = "std"),
     derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash),
     self_describing
 )]
@@ -86,12 +90,17 @@ pub struct Year(i32);
 
 /// ISO 8601 time without timezone.
 /// Size is 18 bits without nanoseconds and 49 bits with nanoseconds.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// #[derive_shrink_wrap]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash),
+    self_describing
+)]
 pub struct NaiveTime {
     pub secs: U17,
 
     /// < 1B for sec 0..=58, <2B for sec 59
+    /// TODO: checked subtype when implemented
     pub frac: Option<U31>,
 }
 
@@ -152,13 +161,7 @@ impl SerializeShrinkWrap for Year {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
-        let y = self.0 - 2025;
-        let unsigned = if y < 0 {
-            (y as u32) & ((1 << 19) - 1) // zero out 13 high bits, so that UNib32 takes no more than 7 nibbles
-        } else {
-            y as u32
-        };
-        wr.write(&UNib32(unsigned))
+        wr.write(&self.to_unib32())
     }
 }
 
@@ -183,6 +186,18 @@ impl<'i> DeserializeShrinkWrap<'i> for Year {
     }
 }
 
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for Year {
+    const ELEMENT_SIZE: ElementSize = <Year as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(
+        &self,
+        wr: &mut shrink_wrap::BufWriterOwned,
+    ) -> Result<(), ShrinkWrapError> {
+        wr.write(&self.to_unib32())
+    }
+}
+
 impl DeserializeShrinkWrapOwned for Year {
     const ELEMENT_SIZE: ElementSize = <Year as SerializeShrinkWrap>::ELEMENT_SIZE;
 
@@ -202,6 +217,16 @@ impl Year {
 
     pub fn year(&self) -> i32 {
         self.0
+    }
+
+    fn to_unib32(&self) -> UNib32 {
+        let y = self.0 - 2025;
+        let unsigned = if y < 0 {
+            (y as u32) & ((1 << 19) - 1) // zero out 13 high bits, so that UNib32 takes no more than 7 nibbles
+        } else {
+            y as u32
+        };
+        UNib32(unsigned)
     }
 }
 
@@ -226,46 +251,6 @@ impl NaiveTime {
             secs: U17::new(secs).unwrap(),
             frac,
         })
-    }
-}
-
-impl SerializeShrinkWrap for NaiveTime {
-    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
-
-    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
-        wr.write(&self.secs)?;
-        wr.write_bool(self.frac.is_some())?;
-        if let Some(v) = &self.frac {
-            wr.write(v)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'i> DeserializeShrinkWrap<'i> for NaiveTime {
-    const ELEMENT_SIZE: ElementSize = <NaiveTime as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
-        let secs: U17 = rd.read()?;
-        let _frac_flag = rd.read_bool()?;
-        let frac = if _frac_flag {
-            let frac: U31 = rd.read()?;
-            if frac.value() >= 1_000_000_000 && secs.value() % 60 != 59 {
-                return Err(ShrinkWrapError::SubtypeOutOfRange);
-            }
-            Some(frac)
-        } else {
-            None
-        };
-        Ok(NaiveTime { secs, frac })
-    }
-}
-
-impl DeserializeShrinkWrapOwned for NaiveTime {
-    const ELEMENT_SIZE: ElementSize = <NaiveTime as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
-        NaiveTime::des_shrink_wrap(rd)
     }
 }
 

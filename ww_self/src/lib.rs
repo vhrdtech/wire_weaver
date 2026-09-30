@@ -222,8 +222,9 @@ pub enum Type<'i> {
     NumericAny(NumericAnyType<'i>),
     /// Type definition from ApiBundle types array.
     OutOfLine { type_idx: UNib32 },
-    /// Read bool and put it onto "flag stack".
-    /// When serializing: must do the reverse operation for all Options and Results.
+    /// Relocated presence flag (`#[flag] name: bool`) of the `Option` or `Result` field with the same name that
+    /// comes later in the same named fields. A bool on the wire, that field is then written without its own flag.
+    /// Only a named field can have this type, it's not a part of the value (and is not in [FieldsValue]).
     Flag,
     /// Variable length Unicode string
     String,
@@ -241,10 +242,10 @@ pub enum Type<'i> {
     /// User defined enum
     Enum(ItemEnum<'i>),
     /// Flag followed by Optional `T` if true and nothing otherwise.
-    /// If the flag stack is empty, the flag is ready right away, otherwise taken from the stack
+    /// The flag is elsewhere if there is a [Type::Flag] field with the same name before this one.
     Option { some_ty: RefBox<'i, Type<'i>> },
     /// Flag followed by `T` if the flag is true and `E` otherwise.
-    /// If the flag stack is empty, the flag is ready right away, otherwise taken from the stack
+    /// The flag is elsewhere if there is a [Type::Flag] field with the same name before this one.
     Result {
         ok_ty: RefBox<'i, Type<'i>>,
         err_ty: RefBox<'i, Type<'i>>,

@@ -3,7 +3,9 @@
 
 #[cfg(test)]
 mod tests {
-    use dynamic_api::{CheckError, EverythingOwned, Fixed, InnerOwned, ShapeOwned};
+    use dynamic_api::{
+        CheckError, EverythingOwned, Fixed, FlaggedOwned, InnerOwned, ShapeOwned, Tagged,
+    };
     use std::path::Path;
     use std::sync::Arc;
     use tests_common::DummyTx;
@@ -14,7 +16,7 @@ mod tests {
     use wire_weaver_client::{Commander, DynResource, DynResourceKind};
 
     mod server {
-        use dynamic_api::{CheckError, Everything};
+        use dynamic_api::{CheckError, Everything, Flagged};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
         use wire_weaver::{GetResult, MessageSink, SetResult};
@@ -27,6 +29,7 @@ mod tests {
             /// Serialized `Everything`, as it borrows from the request and cannot be stored directly
             echo: Vec<u8>,
             everything: Vec<u8>,
+            flagged: Vec<u8>,
         }
 
         fn to_bytes(value: &Everything<'_>) -> Vec<u8> {
@@ -81,6 +84,16 @@ mod tests {
 
             fn get_everything(&mut self) -> GetResult<Everything<'_>, ()> {
                 Value(Everything::from_ww_bytes(&self.everything).unwrap())
+            }
+
+            fn set_flagged(&mut self, value: Flagged<'_>) -> SetResult<()> {
+                let mut buf = [0u8; 64];
+                self.flagged = value.to_ww_bytes(&mut buf).unwrap().to_vec();
+                Set
+            }
+
+            fn get_flagged(&mut self) -> GetResult<Flagged<'_>, ()> {
+                Value(Flagged::from_ww_bytes(&self.flagged).unwrap())
             }
 
             fn valid_indices_root_channel(&mut self) -> ValidIndices<'_> {
@@ -289,6 +302,109 @@ mod tests {
     }
 
     #[test]
+    fn relocated_flags() {
+        let root = DynResource::root(bundle());
+        let flagged = root.child("flagged").unwrap();
+        let DynResourceKind::Property { ty, .. } = flagged.kind().unwrap() else {
+            panic!("property expected");
+        };
+        let some = |v: ValueOwned| ValueOwned::Option(Some(Box::new(v)));
+        let none = ValueOwned::Option(None);
+        let cases = [
+            (
+                FlaggedOwned {
+                    a: U3::new(5).unwrap(),
+                    early: Some("hi".into()),
+                    res: Ok(7),
+                    tagged: Tagged::Pair {
+                        first: Some(1),
+                        second: None,
+                    },
+                    late: Some(300),
+                },
+                vec![
+                    ("a", num(N::U8(5))),
+                    ("early", some(string("hi"))),
+                    ("res", ValueOwned::Result(Ok(Box::new(num(N::U8(7)))))),
+                    (
+                        "tagged",
+                        variant(
+                            "Pair",
+                            named(vec![
+                                ("first", some(num(N::U8(1)))),
+                                ("second", none.clone()),
+                            ]),
+                        ),
+                    ),
+                    ("late", some(num(N::U16(300)))),
+                ],
+            ),
+            (
+                FlaggedOwned {
+                    a: U3::new(0).unwrap(),
+                    early: None,
+                    res: Err(CheckError::TooBig),
+                    tagged: Tagged::Pair {
+                        first: None,
+                        second: Some(2),
+                    },
+                    late: None,
+                },
+                vec![
+                    ("a", num(N::U8(0))),
+                    ("early", none.clone()),
+                    (
+                        "res",
+                        ValueOwned::Result(Err(Box::new(variant(
+                            "TooBig",
+                            FieldsValueOwned::Unit,
+                        )))),
+                    ),
+                    (
+                        "tagged",
+                        variant(
+                            "Pair",
+                            named(vec![
+                                ("first", none.clone()),
+                                ("second", some(num(N::U8(2)))),
+                            ]),
+                        ),
+                    ),
+                    ("late", none.clone()),
+                ],
+            ),
+        ];
+        for (derived, value) in cases {
+            let derived = derived.to_ww_bytes_owned().unwrap();
+            let value = strukt(value);
+            let dynamic = value.ser_shrink_wrap_dyn(ty, root.bundle()).unwrap();
+            assert_eq!(dynamic, derived);
+            let read = ValueOwned::des_shrink_wrap_dyn(&derived, ty, root.bundle()).unwrap();
+            assert_eq!(read, value);
+        }
+
+        // flag of a missing Option field is written as None
+        let partial = strukt(vec![
+            ("a", num(N::U8(0))),
+            ("res", ValueOwned::Result(Ok(Box::new(num(N::U8(1)))))),
+            ("tagged", variant("Plain", FieldsValueOwned::Unit)),
+        ]);
+        let derived = FlaggedOwned {
+            a: U3::new(0).unwrap(),
+            early: None,
+            res: Ok(1),
+            tagged: Tagged::Plain,
+            late: None,
+        }
+        .to_ww_bytes_owned()
+        .unwrap();
+        assert_eq!(
+            partial.ser_shrink_wrap_dyn(ty, root.bundle()).unwrap(),
+            derived
+        );
+    }
+
+    #[test]
     fn same_bytes_as_derived_args() {
         let root = DynResource::root(bundle());
         let ty = everything_ty(&root);
@@ -435,6 +551,20 @@ mod tests {
         let speed = root.child("speed").unwrap();
         speed.write(&cmd, &num(N::U16(1500))).await.unwrap();
         assert_eq!(speed.read(&cmd).await.unwrap(), num(N::U16(1500)));
+
+        let flagged = root.child("flagged").unwrap();
+        let value = strukt(vec![
+            ("a", num(N::U8(3))),
+            ("early", ValueOwned::Option(None)),
+            ("res", ok(num(N::U8(9))).unwrap()),
+            (
+                "tagged",
+                variant("Pair", named(vec![("first", some(1)), ("second", some(2))])),
+            ),
+            ("late", ValueOwned::Option(Some(Box::new(num(N::U16(7)))))),
+        ]);
+        flagged.write(&cmd, &value).await.unwrap();
+        assert_eq!(flagged.read(&cmd).await.unwrap(), value);
 
         let prop = root.child("everything").unwrap();
         prop.write(&cmd, &everything_value()).await.unwrap();

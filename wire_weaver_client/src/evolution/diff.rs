@@ -235,7 +235,10 @@ impl Differ<'_> {
     ) {
         let (old, new) = (fields(old), fields(new));
         let position = |fields: &[FieldOwned], i: usize, field: &FieldOwned| match &field.ident {
-            Some(_) => fields.iter().position(|f| f.ident == field.ident),
+            // a relocated flag has the same name as its field
+            Some(_) => fields
+                .iter()
+                .position(|f| f.ident == field.ident && f.is_flag() == field.is_flag()),
             None => (i < fields.len() && fields[i].ident.is_none()).then_some(i),
         };
         for (i, old_field) in old.iter().enumerate() {

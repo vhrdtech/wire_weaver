@@ -1,6 +1,7 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned,
+    TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
@@ -397,6 +398,13 @@ fn fields_human_definition(
             Ok(s)
         }
         FieldsOwned::Unit => Ok("".to_string()),
+    }
+}
+
+impl FieldOwned {
+    /// Relocated flag of the `Option` or `Result` field with the same name, see [TypeOwned::Flag].
+    pub fn is_flag(&self) -> bool {
+        matches!(self.ty, TypeOwned::Flag)
     }
 }
 

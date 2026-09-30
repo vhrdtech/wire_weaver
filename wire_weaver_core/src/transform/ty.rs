@@ -272,10 +272,15 @@ fn convert_fields(
             for f in fields {
                 let since = get_since_attr(&f.attrs, current_crate)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;
+                let ty = if f.attrs.iter().any(|a| a.path().is_ident("flag")) {
+                    flag_ty(f, fields, current_crate)?
+                } else {
+                    convert_ty(&f.ty, current_crate, scratch)?
+                };
                 owned.push(FieldOwned {
                     docs: collect_docs(&f.attrs),
                     ident: f.ident.as_ref().map(|i| i.to_string()),
-                    ty: convert_ty(&f.ty, current_crate, scratch)?,
+                    ty,
                     default,
                     since,
                 });
@@ -287,6 +292,29 @@ fn convert_fields(
             }
         }
         Fields::Unit => Ok(FieldsOwned::Unit),
+    }
+}
+
+/// `#[flag] name: bool`, the relocated flag of the `Option` or `Result` field `name` that comes after it.
+fn flag_ty(field: &syn::Field, fields: &Fields, current_crate: &CrateContext) -> Result<TypeOwned> {
+    let err = |msg: &str| Err(anyhow!("#[flag] {msg}").context(current_crate.err_context()));
+    let Some(ident) = &field.ident else {
+        return err("is only supported on named fields");
+    };
+    if !matches!(&field.ty, Type::Path(p) if p.path.is_ident("bool")) {
+        return err(&format!("{ident} must be a bool"));
+    }
+    let is_flagged = |f: &syn::Field| matches!(&f.ty, Type::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "Option" || s.ident == "Result"));
+    let target = fields
+        .iter()
+        .skip_while(|f| !std::ptr::eq(*f, field))
+        .skip(1)
+        .find(|f| f.ident.as_ref() == Some(ident));
+    match target {
+        Some(target) if is_flagged(target) => Ok(TypeOwned::Flag),
+        _ => err(&format!(
+            "{ident} must be followed by an Option or Result field with the same name"
+        )),
     }
 }
 

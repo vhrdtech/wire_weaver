@@ -73,7 +73,7 @@ RTT support needs the `rtt` feature: `uvx maturin build --release --features rtt
 
 ## Not supported yet
 
-- `f16`, `UN`/`IN`, LEB128 numbers, and fields whose `#[flag]` is relocated.
+- `f16`, `UN`/`IN` and LEB128 numbers.
 - Typed (non-integer) array indices, property write errors (not decoded, same as generated clients), property
   observation.
 - asyncio: calls block the calling thread (with the GIL released).

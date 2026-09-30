@@ -9,6 +9,7 @@ trait Dynamic {
     fn check(x: Option<u8>) -> Result<u8, CheckError>;
     property!(rw speed: u16);
     property!(rw everything: Everything<'i>);
+    property!(rw flagged: Flagged<'i>);
     ww_impl!(channel[]: Channel);
 }
 
@@ -76,4 +77,30 @@ pub enum CheckError {
 pub struct Fixed {
     pub a: u8,
     pub b: bool,
+}
+
+/// Relocated `Option` and `Result` flags, see `#[flag]`.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+pub struct Flagged<'i> {
+    pub a: U3,
+    #[flag]
+    late: bool,
+    #[flag]
+    res: bool,
+    pub early: Option<&'i str>,
+    pub res: Result<u8, CheckError>,
+    pub tagged: Tagged,
+    #[default = None]
+    pub late: Option<u16>,
+}
+
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Clone), ww_repr = u1)]
+pub enum Tagged {
+    Plain,
+    Pair {
+        #[flag]
+        second: bool,
+        first: Option<u8>,
+        second: Option<u8>,
+    },
 }

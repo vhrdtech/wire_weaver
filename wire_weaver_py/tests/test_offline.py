@@ -52,7 +52,7 @@ def api():
 
 
 def test_tree(api):
-    assert sorted(dir(api)) == ["add", "channel", "check", "echo", "everything", "no_args", "speed"]
+    assert sorted(dir(api)) == ["add", "channel", "check", "echo", "everything", "flagged", "no_args", "speed"]
     assert "add(a: u32, b: i16) -> i64" in repr(api)
     assert api.add.signature == "add(a: u32, b: i16) -> i64"
     assert api.speed.signature == "rw speed: u16"
@@ -64,6 +64,17 @@ def test_same_bytes_as_derived(api):
     data = api.everything.encode(EVERYTHING)
     assert data.hex() == EVERYTHING_HEX
     assert api.everything.decode(data) == EVERYTHING
+
+
+def test_relocated_flags(api):
+    # `Flagged` from tests/dynamic serialized by the code #[derive_shrink_wrap] generates
+    value = dict(a=5, early="hi", res={"Ok": 7}, tagged={"Pair": dict(first=1, second=None)}, late=300)
+    assert api.flagged.encode(value).hex() == "bc686907a0012c0122"
+    assert api.flagged.decode(api.flagged.encode(value)) == value
+    # missing Option fields are None, their flags too
+    value = dict(a=0, res={"Err": "TooBig"}, tagged={"Pair": dict(second=2)})
+    assert api.flagged.encode(value).hex() == "0000c00221"
+    assert api.flagged.decode(bytes.fromhex("0000c00221")) == dict(value, early=None, late=None, tagged={"Pair": dict(first=None, second=2)})
 
 
 def test_accepted_forms(api):

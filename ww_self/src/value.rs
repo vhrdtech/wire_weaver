@@ -14,6 +14,7 @@ use crate::{
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{BufReader, BufWriterOwned, Nibble};
+use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
 impl ValueOwned {
@@ -127,7 +128,7 @@ impl ValueOwned {
         match fields {
             FieldsOwned::Named(named) => {
                 let mut named_values = vec![];
-                for field in named {
+                for field in named.iter().filter(|f| !f.is_flag()) {
                     let name = field.ident.clone().unwrap_or_default();
                     let value = ValueOwned::default(&field.ty, api_bundle)?;
                     named_values.push((name, value));
@@ -204,7 +205,7 @@ fn des_inner(
             let ty = api_bundle.get_ty(type_idx.0)?.0;
             des_inner(rd, ty, api_bundle)
         }
-        TypeOwned::Flag => bail!("flag type is not supported"),
+        TypeOwned::Flag => bail!("flag can only be a named field"),
         TypeOwned::String => Ok(ValueOwned::String(rd.read_str()?.to_string())),
         TypeOwned::Vec(inner_ty) => {
             let len = rd.read_rev_len()?;
@@ -257,22 +258,9 @@ fn des_inner(
                 fields,
             })
         }
-        TypeOwned::Option { some_ty } => {
-            if rd.read_bool()? {
-                let value = des_field(rd, some_ty, api_bundle)?;
-                Ok(ValueOwned::Option(Some(Box::new(value))))
-            } else {
-                Ok(ValueOwned::Option(None))
-            }
-        }
-        TypeOwned::Result { ok_ty, err_ty } => {
-            if rd.read_bool()? {
-                let value = des_field(rd, ok_ty, api_bundle)?;
-                Ok(ValueOwned::Result(Ok(Box::new(value))))
-            } else {
-                let value = des_field(rd, err_ty, api_bundle)?;
-                Ok(ValueOwned::Result(Err(Box::new(value))))
-            }
+        TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
+            let flag = rd.read_bool()?;
+            des_flagged(rd, flag, ty, api_bundle)
         }
         // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
         TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle),
@@ -289,6 +277,32 @@ fn des_inner(
     }
 }
 
+/// Value of an `Option` or `Result` after its flag.
+fn des_flagged(
+    rd: &mut BufReader,
+    flag: bool,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<ValueOwned> {
+    Ok(match ty {
+        TypeOwned::Option { some_ty } => ValueOwned::Option(if flag {
+            Some(Box::new(des_field(rd, some_ty, api_bundle)?))
+        } else {
+            None
+        }),
+        TypeOwned::Result { ok_ty, err_ty } => ValueOwned::Result(if flag {
+            Ok(Box::new(des_field(rd, ok_ty, api_bundle)?))
+        } else {
+            Err(Box::new(des_field(rd, err_ty, api_bundle)?))
+        }),
+        _ => bail!(
+            "expected Option or Result, got {}",
+            type_name(ty, api_bundle)
+        ),
+    })
+}
+
+/// Relocated flags are kept until the field they belong to is read.
 fn des_fields(
     rd: &mut BufReader,
     fields: &FieldsOwned,
@@ -297,16 +311,36 @@ fn des_fields(
     Ok(match fields {
         FieldsOwned::Named(defs) => {
             let mut values = vec![];
-            for def in defs {
-                let name = def.ident.clone().unwrap_or_default();
-                values.push((name, des_struct_field(rd, def, api_bundle)?));
+            let mut flags: Vec<(&str, bool)> = vec![];
+            for (idx, def) in defs.iter().enumerate() {
+                let name = def.ident.as_deref().unwrap_or_default();
+                if def.is_flag() {
+                    let flag = match rd.read_bool() {
+                        Ok(flag) => flag,
+                        // field with a default is None when data ends
+                        Err(_) if flag_target(defs, idx).is_some_and(|t| t.default.is_some()) => {
+                            false
+                        }
+                        Err(e) => return Err(e.into()),
+                    };
+                    flags.push((name, flag));
+                    continue;
+                }
+                let flag = flags
+                    .iter()
+                    .position(|(n, _)| *n == name)
+                    .map(|idx| flags.remove(idx).1);
+                values.push((
+                    name.to_string(),
+                    des_struct_field(rd, def, flag, api_bundle)?,
+                ));
             }
             FieldsValueOwned::Named(values)
         }
         FieldsOwned::Unnamed(defs) => {
             let mut values = vec![];
             for def in defs {
-                values.push(des_struct_field(rd, def, api_bundle)?);
+                values.push(des_struct_field(rd, def, None, api_bundle)?);
             }
             FieldsValueOwned::Unnamed(values)
         }
@@ -315,12 +349,17 @@ fn des_fields(
 }
 
 /// Evolved fields with a `#[default = ..]` are read as their default when data ends (sent by an older version).
+/// `flag`: relocated flag of an `Option` or `Result` field, already read.
 fn des_struct_field(
     rd: &mut BufReader,
     def: &FieldOwned,
+    flag: Option<bool>,
     api_bundle: &ApiBundleOwned,
 ) -> Result<ValueOwned> {
-    let value = des_field(rd, &def.ty, api_bundle);
+    let value = match flag {
+        Some(flag) => des_flagged(rd, flag, &def.ty, api_bundle),
+        None => des_field(rd, &def.ty, api_bundle),
+    };
     match (value, &def.default) {
         (Ok(value), _) => Ok(value),
         (Err(_), Some(_)) => ValueOwned::default(&def.ty, api_bundle),
@@ -424,7 +463,7 @@ fn ser_inner(
             };
             ser_numeric(wr, value, numeric_base(any))?;
         }
-        TypeOwned::Flag => bail!("flag type is not supported"),
+        TypeOwned::Flag => bail!("flag can only be a named field"),
         TypeOwned::String => {
             let ValueOwned::String(value) = value else {
                 return Err(mismatch());
@@ -501,24 +540,9 @@ fn ser_inner(
             let path = format!("{}::{}", item_enum.ident, variant_def.ident);
             ser_fields(wr, fields, &variant_def.fields, &path, api_bundle)?;
         }
-        TypeOwned::Option { some_ty } => {
-            let ValueOwned::Option(value) = value else {
-                return Err(mismatch());
-            };
-            wr.write_bool(value.is_some())?;
-            if let Some(value) = value {
-                ser_field(wr, value, some_ty, api_bundle)?;
-            }
-        }
-        TypeOwned::Result { ok_ty, err_ty } => {
-            let ValueOwned::Result(value) = value else {
-                return Err(mismatch());
-            };
-            wr.write_bool(value.is_ok())?;
-            match value {
-                Ok(value) => ser_field(wr, value, ok_ty, api_bundle)?,
-                Err(value) => ser_field(wr, value, err_ty, api_bundle)?,
-            }
+        TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
+            wr.write_bool(flag_of(value, ty, api_bundle)?)?;
+            ser_flagged(wr, value, ty, api_bundle)?;
         }
         // Box<T> is Unsized itself (its size is handled by ser_field), T is written directly inside it
         TypeOwned::Box(inner) => ser_inner(wr, value, inner, api_bundle)?,
@@ -538,6 +562,45 @@ fn ser_inner(
         }
     }
     Ok(())
+}
+
+/// Flag of an `Option` or `Result` value: is some or is ok.
+fn flag_of(value: &ValueOwned, ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<bool> {
+    match (ty, value) {
+        (TypeOwned::Option { .. }, ValueOwned::Option(value)) => Ok(value.is_some()),
+        (TypeOwned::Result { .. }, ValueOwned::Result(value)) => Ok(value.is_ok()),
+        _ => bail!("expected {}, got {value:?}", type_name(ty, api_bundle)),
+    }
+}
+
+/// `Option` or `Result` value without its flag.
+fn ser_flagged(
+    wr: &mut BufWriterOwned,
+    value: &ValueOwned,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<()> {
+    match (ty, value) {
+        (TypeOwned::Option { some_ty }, ValueOwned::Option(value)) => {
+            if let Some(value) = value {
+                ser_field(wr, value, some_ty, api_bundle)?;
+            }
+        }
+        (TypeOwned::Result { ok_ty, err_ty }, ValueOwned::Result(value)) => match value {
+            Ok(value) => ser_field(wr, value, ok_ty, api_bundle)?,
+            Err(value) => ser_field(wr, value, err_ty, api_bundle)?,
+        },
+        _ => bail!("expected {}, got {value:?}", type_name(ty, api_bundle)),
+    }
+    Ok(())
+}
+
+/// Field a relocated flag at `defs[flag_idx]` belongs to.
+fn flag_target(defs: &[FieldOwned], flag_idx: usize) -> Option<&FieldOwned> {
+    let ident = &defs[flag_idx].ident;
+    defs[flag_idx + 1..]
+        .iter()
+        .find(|d| &d.ident == ident && !d.is_flag())
 }
 
 fn type_name(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> String {
@@ -603,19 +666,36 @@ fn ser_fields(
                     );
                 }
             }
-            for def in defs {
+            let field_value = |def: &FieldOwned| -> Result<Cow<ValueOwned>> {
                 let name = def.ident.as_deref().unwrap_or_default();
-                let value = values.iter().find(|(n, _)| n == name).map(|(_, v)| v);
-                match value {
-                    Some(value) => ser_field(wr, value, &def.ty, api_bundle)?,
-                    None => {
-                        let fallback = match (&def.default, def.ty.get_in_line(api_bundle)?) {
-                            (Some(_), _) => ValueOwned::default(&def.ty, api_bundle)?,
-                            (None, TypeOwned::Option { .. }) => ValueOwned::Option(None),
-                            _ => bail!("{path}: missing field '{name}'"),
-                        };
-                        ser_field(wr, &fallback, &def.ty, api_bundle)?;
-                    }
+                if let Some((_, value)) = values.iter().find(|(n, _)| n == name) {
+                    return Ok(Cow::Borrowed(value));
+                }
+                Ok(Cow::Owned(
+                    match (&def.default, def.ty.get_in_line(api_bundle)?) {
+                        (Some(_), _) => ValueOwned::default(&def.ty, api_bundle)?,
+                        (None, TypeOwned::Option { .. }) => ValueOwned::Option(None),
+                        _ => bail!("{path}: missing field '{name}'"),
+                    },
+                ))
+            };
+            for (idx, def) in defs.iter().enumerate() {
+                if def.is_flag() {
+                    let target = flag_target(defs, idx).ok_or_else(|| {
+                        anyhow!("{path}: flag of a missing field {:?}", def.ident)
+                    })?;
+                    let value = field_value(target)?;
+                    wr.write_bool(flag_of(&value, &target.ty, api_bundle)?)?;
+                    continue;
+                }
+                let value = field_value(def)?;
+                if defs[..idx]
+                    .iter()
+                    .any(|d| d.is_flag() && d.ident == def.ident)
+                {
+                    ser_flagged(wr, &value, &def.ty, api_bundle)?;
+                } else {
+                    ser_field(wr, &value, &def.ty, api_bundle)?;
                 }
             }
         }
@@ -645,6 +725,7 @@ fn ser_fields(
 
 fn field_names(defs: &[FieldOwned]) -> String {
     defs.iter()
+        .filter(|d| !d.is_flag())
         .filter_map(|d| d.ident.as_deref())
         .collect::<Vec<_>>()
         .join(", ")

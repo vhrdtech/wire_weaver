@@ -99,6 +99,8 @@
 
 ### 🐛 Fixes
 
+- Evolution diff and padding reuse checks tell a relocated `#[flag]` (`TypeOwned::Flag`) from the `Option` or
+  `Result` field with the same name, a flag is a 1-bit field in the layout.
 - Connect failing because the transport itself could not be opened (e.g., USB interface busy) could report a dropped
   channel instead of the actual reason.
 - `connect()` returns `Error::AmbiguousDeviceChoice` listing the matched devices one per line, instead of printing

@@ -33,6 +33,7 @@
   `wire_weaver_client` for downloaded bundles.
 * New hooks: `visit_type_location`, `visit_api_level_location`, `visit_argument`, `visit_variant`, `visit_fields`,
   `visit_field`.
+* `FieldOwned::is_flag()`: the field is a relocated `#[flag]` of the `Option` or `Result` field with the same name.
 
 ### 🐛 Fixes
 
@@ -45,6 +46,10 @@
   Type mismatches, unknown fields and variants are reported with the field path, instead of being ignored.
 * `ValueOwned::default()` no longer panics for `u1`..`u64` / `i2`..`i64`, and returns an error for numeric types that
   are not supported yet.
+* Dynamic serialization reads and writes relocated `#[flag]`s (`TypeOwned::Flag` fields): the flag is written where
+  it is declared, taken from the `Option` or `Result` field with the same name, which is then written without its
+  own flag. Flags are not a part of `ValueOwned` fields. `ValueOwned::default()` no longer fails for types with them.
+  `TypeOwned::Flag`, `Option` and `Result` docs describe this, instead of a flag stack.
 * Visiting a bundle that contains `Skipped*` type or trait locations no longer panics (it hit `todo!()`).
 * `TypeOwned::human_name()` names a type whose definition is left out (`TypeLocationOwned::SkippedFullVersion`),
   instead of failing.

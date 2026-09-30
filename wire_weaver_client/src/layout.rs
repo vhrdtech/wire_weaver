@@ -123,7 +123,10 @@ pub(crate) fn last_old_field(fewer: &[FieldOwned], more: &[FieldOwned]) -> Optio
     let mut from = 0;
     for field in fewer {
         field.ident.as_ref()?;
-        let idx = from + more[from..].iter().position(|f| f.ident == field.ident)?;
+        let idx = from
+            + more[from..]
+                .iter()
+                .position(|f| f.ident == field.ident && f.is_flag() == field.is_flag())?;
         last = Some(idx);
         from = idx + 1;
     }
@@ -221,6 +224,12 @@ fn flatten(
         } else {
             format!("{prefix}.{name}")
         };
+        // a relocated flag has the same name as its field
+        let path = if field.is_flag() {
+            format!("{path} flag")
+        } else {
+            path
+        };
         leaf(bundle, &field.ty, path, out, depth);
     }
 }
@@ -235,7 +244,7 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
         return;
     }
     let kind = match ty {
-        TypeOwned::Bool => Kind::Fixed {
+        TypeOwned::Bool | TypeOwned::Flag => Kind::Fixed {
             align: 1,
             bits: 1,
             zero_ok: true,

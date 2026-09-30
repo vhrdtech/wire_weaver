@@ -213,7 +213,10 @@ fn to_fields(
                     .map_err(|_| PyTypeError::new_err(format!("{path}: field names must be str")))?
                     .to_str()?
                     .to_string();
-                let Some(def) = defs.iter().find(|d| d.ident.as_deref() == Some(&name)) else {
+                let Some(def) = defs
+                    .iter()
+                    .find(|d| d.ident.as_deref() == Some(&name) && !d.is_flag())
+                else {
                     return Err(PyValueError::new_err(format!(
                         "{path} has no field '{name}', expected: {}",
                         field_names(defs)
@@ -514,24 +517,27 @@ fn fields_to_py<'py>(
     defs: &FieldsOwned,
     bundle: &ApiBundleOwned,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let def_ty = |defs: &[FieldOwned], idx: usize| -> PyResult<TypeOwned> {
+    let def_ty = |defs: &[&FieldOwned], idx: usize| -> PyResult<TypeOwned> {
         defs.get(idx)
             .map(|d| d.ty.clone())
             .ok_or_else(|| PyValueError::new_err("more fields than defined"))
     };
     Ok(match (fields, defs) {
         (FieldsValueOwned::Named(values), FieldsOwned::Named(defs)) => {
+            // relocated flags are not in the value
+            let defs: Vec<_> = defs.iter().filter(|d| !d.is_flag()).collect();
             let dict = PyDict::new(py);
             for (idx, (name, value)) in values.iter().enumerate() {
-                dict.set_item(name, to_py(py, value, &def_ty(defs, idx)?, bundle)?)?;
+                dict.set_item(name, to_py(py, value, &def_ty(&defs, idx)?, bundle)?)?;
             }
             dict.into_any()
         }
         (FieldsValueOwned::Unnamed(values), FieldsOwned::Unnamed(defs)) => {
+            let defs: Vec<_> = defs.iter().collect();
             let items = values
                 .iter()
                 .enumerate()
-                .map(|(idx, v)| to_py(py, v, &def_ty(defs, idx)?, bundle))
+                .map(|(idx, v)| to_py(py, v, &def_ty(&defs, idx)?, bundle))
                 .collect::<PyResult<Vec<_>>>()?;
             if items.len() == 1 {
                 items.into_iter().next().expect("one item")
@@ -605,6 +611,7 @@ pub(crate) fn type_name(ty: &TypeOwned, bundle: &ApiBundleOwned) -> String {
 
 fn field_names(defs: &[FieldOwned]) -> String {
     defs.iter()
+        .filter(|d| !d.is_flag())
         .filter_map(|d| d.ident.as_deref())
         .collect::<Vec<_>>()
         .join(", ")

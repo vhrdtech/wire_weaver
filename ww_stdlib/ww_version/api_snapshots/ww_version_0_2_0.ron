@@ -37,7 +37,7 @@
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
-        (ident: Some("build"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("build"), default: None, since: None, ty: Flag, docs: []),
         (ident: Some("pre"), default: None, since: None, ty: Option(some_ty: String), docs: [
             "Optional pre-release identifier on a version string. This comes after - in a SemVer version, like 1.0.0-alpha.1",
             "Used in compatibility checks.",

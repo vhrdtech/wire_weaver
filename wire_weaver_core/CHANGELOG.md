@@ -8,6 +8,11 @@
   API, which falls back to the per-resource compatibility check.
 - The API hash covers `ww_self_version`, which now follows the `ww_self` crate version: a device and a client built
   with different `ww_self` versions report different hashes for the same API, with the same fallback.
+- `#[flag] name: bool` fields are recorded as `TypeOwned::Flag` in introspection data and snapshots, they were a
+  plain `bool` and didn't say that the `Option` or `Result` field `name` has no flag of its own, so dynamic clients
+  misread such types. Introspection data, API hashes and signatures of types with relocated flags change
+  (`ww_version::Version` and `FullVersion`, `ww_si::SIExp` and the types containing them). A device and a client
+  built on different sides of this change report such types as incompatible (`bool` vs `flag`).
 
 ### 🚀 Features
 

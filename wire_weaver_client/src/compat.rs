@@ -432,11 +432,12 @@ fn check_same_definition(
     Ok(())
 }
 
-/// Signature of a trait: stored for a skipped one, calculated for an in-line one (if nothing it refers to is skipped).
+/// Signature of a trait: stored for a skipped one, calculated for an in-line one (definitions it refers to that are
+/// skipped are looked up in embedded snapshots).
 fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
     match bundle.traits.get(trait_idx as usize)? {
         ApiLevelLocationOwned::InLine { .. } => {
-            signature::trait_signature(bundle, trait_idx, &signature::no_resolve).ok()
+            signature::trait_signature(bundle, trait_idx, &|v| crate::snapshots::get(v)).ok()
         }
         ApiLevelLocationOwned::SkippedFullVersion { signature, .. }
         | ApiLevelLocationOwned::SkippedCompactVersion { signature, .. } => {
@@ -445,11 +446,12 @@ fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
     }
 }
 
-/// Signature of a type: stored for a skipped one, calculated for an in-line one (if nothing it refers to is skipped).
+/// Signature of a type: stored for a skipped one, calculated for an in-line one (definitions it refers to that are
+/// skipped are looked up in embedded snapshots).
 fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { .. } => {
-            signature::type_signature(bundle, type_idx, &signature::no_resolve).ok()
+            signature::type_signature(bundle, type_idx, &|v| crate::snapshots::get(v)).ok()
         }
         TypeLocationOwned::SkippedFullVersion { signature, .. } => {
             (!signature.is_empty()).then(|| signature.clone())

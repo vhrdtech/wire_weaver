@@ -239,20 +239,15 @@ fn convert_api_item_impl(
             args.type_or_trait
         ));
     };
-    let len = type_path.path.segments.len();
-    let kind = if len == 1 {
-        let trait_name = &type_path.path.segments[0];
+    let segments: Vec<_> = type_path.path.segments.iter().collect();
+    let Some((trait_name, leading)) = segments.split_last() else {
+        return Err(anyhow!("Empty trait path").context(current_crate.err_context()));
+    };
+    let kind = if leading.is_empty() {
         find_and_convert_trait(trait_name, current_crate, scratch)?
-    } else if len == 2 {
-        let dep_crate_name = type_path.path.segments[0].ident.to_string();
-        let dependent_crate = current_crate.load_dependent_crate(&dep_crate_name, scratch)?;
-        let trait_name = &type_path.path.segments[1];
-        find_and_convert_trait(trait_name, &dependent_crate, scratch)?
     } else {
-        return Err(
-            anyhow!("Only support `MyTrait` and `ext_crate::MyTrait` for now")
-                .context(current_crate.err_context()),
-        );
+        let cx = current_crate.resolve_path(leading.iter().map(|s| &s.ident), scratch)?;
+        find_and_convert_trait(trait_name, &cx, scratch)?
     };
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;

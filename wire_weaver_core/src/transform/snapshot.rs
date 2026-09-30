@@ -2,12 +2,12 @@ use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
     ty::convert_ty_path_segment,
-    util::collect_docs,
+    util::{collect_docs, use_tree_names},
 };
 use anyhow::{Context, Result};
 use shrink_wrap::UNib32;
 use std::path::Path;
-use syn::{Attribute, Ident, Item, PathSegment};
+use syn::{Attribute, Ident, Item, PathSegment, Visibility};
 use ww_self::signature::{no_resolve, trait_signature, type_signature};
 use ww_self::visit::{self, Visit};
 use ww_self::visit_mut::{self, VisitMut};
@@ -16,7 +16,8 @@ use ww_self::{
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
 };
 
-/// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types defined in a crate's `src/lib.rs`.
+/// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types defined in a crate's `src/lib.rs`,
+/// and types re-exported from its modules with `pub use`.
 ///
 /// Intended to be saved and kept around as a crate snapshot, so that API bundles can refer to its traits and types
 /// by crate name, version and item name only ([TypeLocationOwned::SkippedFullVersion] and
@@ -56,6 +57,21 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
             Item::Enum(item_enum) if has_attr(&item_enum.attrs, &["derive_shrink_wrap"]) => {
                 convert_named_ty(&item_enum.ident, &entry, &mut scratch)?;
             }
+            // e.g. `mod ty; pub use ty::Ty;`
+            Item::Use(item_use) if matches!(item_use.vis, Visibility::Public(_)) => {
+                for (path, name) in use_tree_names(&item_use.tree) {
+                    let is_local = path.first().is_some_and(|first| {
+                        *first == "self"
+                            || *first == "crate"
+                            || entry.has_module(&first.to_string())
+                    });
+                    if is_local
+                        && is_shrink_wrap_ty(&*entry.resolve_path(path, &mut scratch)?, name)
+                    {
+                        convert_named_ty(name, &entry, &mut scratch)?;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -77,6 +93,18 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle);
     Ok(bundle)
+}
+
+fn is_shrink_wrap_ty(cx: &CrateContext, name: &Ident) -> bool {
+    cx.lib_rs_ast.items.iter().any(|item| match item {
+        Item::Struct(item_struct) => {
+            &item_struct.ident == name && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+        }
+        Item::Enum(item_enum) => {
+            &item_enum.ident == name && has_attr(&item_enum.attrs, &["derive_shrink_wrap"])
+        }
+        _ => false,
+    })
 }
 
 fn has_attr(attrs: &[Attribute], names: &[&str]) -> bool {

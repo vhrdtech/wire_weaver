@@ -1,0 +1,5 @@
+// ww_gpio_hl 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_gpio_hl", items: []), types: [], traits: [], ext_crates: [
+    (crate_id: "ww_gpio_hl", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

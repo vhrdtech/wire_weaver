@@ -1,0 +1,82 @@
+// ww_indication 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_indication", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Indication", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [], ident: "Mode", variants: [
+        (docs: [], ident: "AllOff", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "OnlyEssential", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Normal", fields: Unit, discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Indicators brightness mode",
+    ], ident: "Brightness", variants: [
+        (docs: [
+            "Night mode, non-distracting",
+        ], ident: "Lowest", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Day mode, non-distracting",
+        ], ident: "Low", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Good visibility inside",
+        ], ident: "Normal", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "For alerts inside",
+        ], ident: "High", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Visible outside",
+        ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Alert indicators brightness mode, relative to info indicators.",
+        "(alert indicators cannot have brightness lower than info ones)",
+    ], ident: "AlertBrightness", variants: [
+        (docs: [
+            "Highest setting of [Brightness](Brightness)",
+        ], ident: "Max", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "P0", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "P1", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "P2", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "P3", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "P4", fields: Unit, discriminant: 5, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [], ident: "TestMode", variants: [
+        (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "AllOn", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "AllOff", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "AllBlink", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "SequentialBlink", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "IndividualOn", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: String, docs: []),
+        ]), discriminant: 5, since: None),
+        (docs: [], ident: "IndividualBlink", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: String, docs: []),
+        ]), discriminant: 6, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Indication", items: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+            "Global operation mode.",
+        ]),
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "info_brightness", docs: [
+            "Brightness control for informational indicators.",
+        ]),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "alert_brightness", docs: [
+            "Brightness control for alert indicators or double use indicators.",
+        ]),
+        (id: 3, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "animation_enable", docs: [
+            "Global animation enable, optional to implement.",
+        ]),
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 3), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "test_mode", docs: [
+            "Must automatically leave test mode after 5 seconds.",
+        ]),
+        (id: 5, kind: Property(ty: Bool, access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "HAS_NOT_CONTROLLABLE", docs: [
+            "True if some indicators are hard-wired to power.",
+        ]),
+        (id: 6, kind: Property(ty: Vec(String), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
+            "Indicator names: can be left empty for conserving memory.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

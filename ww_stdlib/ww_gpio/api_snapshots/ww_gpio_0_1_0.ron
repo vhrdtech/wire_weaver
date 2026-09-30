@@ -1,0 +1,179 @@
+// ww_gpio 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_gpio", items: [
+    (id: 0, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "Bank", docs: []),
+    (id: 1, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Pin", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
+        "Digital output level - High and Low.",
+    ], ident: "Level", variants: [
+        (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
+        "IO pin asynchronous event (interrupt reason), sent via the [Gpio] `event` stream if enabled.",
+    ], ident: "IoPinEvent", variants: [
+        (docs: [], ident: "RisingEdge", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "FallingEdge", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: Nibble, crate_idx: 0, docs: [
+        "IO pin mode (Push-Pull, Open-Drain, Input, etc.)",
+    ], ident: "Mode", variants: [
+        (docs: [], ident: "PushPullOutput", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "OpenDrainOutput", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Input", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Electrically the same as Input, but could lower power consumption by disabling input buffer",
+        ], ident: "HighZ", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Analog", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 5, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "GPIO error",
+    ], ident: "Error", variants: [
+        (docs: [], ident: "UnsupportedMode", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "UnsupportedPull", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "UnsupportedEventType", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "DifferentModes", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "NotImplemented", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "CustomU8", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 7, since: None),
+        (docs: [], ident: "CustomU32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 8, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
+        "IO pin pull configuration (pull-up, pull-down, etc.)",
+    ], ident: "Pull", variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Up", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Down", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: Nibble, crate_idx: 0, docs: [
+        "IO pin drive strength configuration",
+    ], ident: "Speed", variants: [
+        (docs: [], ident: "Slow", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Medium", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Fast", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "VeryFast", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "List of enabled event sources for an IO pin (interrupts) that generate [IoPinEvent] stream.",
+    ], ident: "IoPinEnabledEvents", fields: Named([
+        (ident: Some("rising"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("falling"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
+        76,
+        144,
+        33,
+        19,
+        110,
+        167,
+        101,
+        181,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "GPIO bank capabilities: supported voltages, modes, custom modes, etc.",
+    ], ident: "BankCapabilities", fields: Named([
+        (ident: Some("voltage"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 7)), docs: []),
+        (ident: Some("push_pull"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("open_drain"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("input"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("individually_configurable_pins"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("custom_mode"), default: None, since: None, ty: Vec(String), docs: []),
+        (ident: Some("custom_pull"), default: None, since: None, ty: Vec(String), docs: []),
+        (ident: Some("custom_speed"), default: None, since: None, ty: Vec(String), docs: []),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "One pin from a GPIO bank.",
+        "",
+        "Commonly used operations are defined first, to get more compact resource paths.",
+    ], crate_idx: 0, trait_name: "Pin", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "level", ty: OutOfLine(type_idx: 0)),
+        ], return_ty: None), multiplicity: Flat, since: None, ident: "set_output_level", docs: [
+            "0. Set the output level.",
+            "",
+            "If the pin is currently configured as input, this level should only be written to control register, without changing pin mode.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "toggle", docs: [
+            "1. Toggle the output level.",
+        ]),
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "output_level", docs: [
+            "2. Get output level.",
+            "",
+            "If the pin is currently configured as input, this level should be read from an output register, not input one.",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "input_level", docs: [
+            "3. Get the input level.",
+            "",
+            "Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.",
+            "If this is the case, current output level must be returned.",
+        ]),
+        (id: 7, kind: Stream(ty: OutOfLine(type_idx: 1), is_up: true), multiplicity: Flat, since: None, ident: "event", docs: [
+            "7. Asynchronous stream of events (rising / falling edge), if enabled by [configure_events]",
+        ]),
+        (id: 8, kind: Method(args: [
+            (ident: "mode", ty: OutOfLine(type_idx: 2)),
+            (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_mode", docs: [
+            "Mode configuration, input, high-z, push-pull, open-drain or custom.",
+            "Optionally set the initial level before changing pin mode.",
+            "This method may fail with [UnsupportedMode](Error::UnsupportedMode) error.",
+        ]),
+        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "mode", docs: [
+            "Get current mode.",
+        ]),
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "pull", docs: [
+            "Pull resistors selection. [Error::UnsupportedPull] may be returned on incorrect set call.",
+        ]),
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "speed", docs: [
+            "Drive strength selection.  [Error::UnsupportedSpeed] may be returned on incorrect set call.",
+        ]),
+        (id: 12, kind: Method(args: [
+            (ident: "enabled", ty: OutOfLine(type_idx: 6)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "configure_events", docs: [
+            "Enable or disable asynchronous events sent through the stream.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "A bank of related IO pins.",
+        "Each pin in a bank is using the same reference voltage, that can be adjusted if supported by hardware.",
+    ], crate_idx: 0, trait_name: "Bank", items: [
+        (id: 0, kind: Trait(trait_idx: 0), multiplicity: Array(index_type_idx: None), since: None, ident: "pin", docs: [
+            "Array of individual pins.",
+            "Suggested indexing scheme:",
+            "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
+            "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
+        ]),
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "Capabilities that each pin of the bank supports.",
+        ]),
+        (id: 9, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
+            "Reference voltage for all pins of the bank.",
+        ]),
+        (id: 10, kind: Method(args: [], return_ty: Some(String)), multiplicity: Flat, since: None, ident: "name", docs: [
+            "User-friendly bank name.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

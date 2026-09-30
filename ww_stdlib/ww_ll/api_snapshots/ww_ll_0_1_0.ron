@@ -1,0 +1,131 @@
+// ww_ll 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_ll", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Memory8", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "Memory32", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: Nibble, crate_idx: 0, docs: [], ident: "Error", variants: [
+        (docs: [], ident: "WrongAddress", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "WatchNotSupported", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "Access", variants: [
+        (docs: [], ident: "WriteOnly", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "ReadOnly", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "ReadWrite", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "Memory or register low-level access interface with 8-bit addressing.",
+    ], crate_idx: 0, trait_name: "Memory8", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "allow_side_effects", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "read", docs: [
+            "Read one byte at addr.",
+            "if allow_side_effects is false, addresses that change system state on read must be skipped (e.g., status registers).",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "value", ty: NumericAny(Base(U8))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write", docs: [
+            "Write one byte at addr.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "len", ty: NumericAny(Base(U8))),
+            (ident: "allow_side_effects", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "read_many", docs: [
+            "Read array of bytes starting from addr.",
+            "if allow_side_effects is false, addresses that change system state on read must be skipped (e.g., status registers).",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "data", ty: Vec(NumericAny(Base(U8)))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write_many", docs: [
+            "Write array of bytes starting from addr.",
+        ]),
+        (id: 4, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "watch", docs: [
+            "Start watching memory at address for changes. Optional.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "watching", docs: [
+            "Returns a list of watched addresses. Optional.",
+        ]),
+        (id: 6, kind: Stream(ty: Tuple([
+            NumericAny(Base(U8)),
+            NumericAny(Base(U8)),
+        ]), is_up: true), multiplicity: Flat, since: None, ident: "changed", docs: [
+            "Stream of changes to memory at watched addresses. Optional.",
+        ]),
+        (id: 7, kind: Property(ty: Tuple([
+            NumericAny(Base(U8)),
+            NumericAny(Base(U8)),
+        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+            "Valid address range.",
+        ]),
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "access", docs: [
+            "Access rights for this memory region.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Memory or register low-level access interface with 32-bit addressing.",
+    ], crate_idx: 0, trait_name: "Memory32", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U32))),
+            (ident: "allow_side_effects", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "read", docs: [
+            "Read one byte at addr.",
+            "if allow_side_effects is false, addresses that change system state on read must be skipped (e.g., status registers).",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U32))),
+            (ident: "value", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write", docs: [
+            "Write one byte at addr.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U32))),
+            (ident: "len", ty: NumericAny(Base(U32))),
+            (ident: "allow_side_effects", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U32))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "read_many", docs: [
+            "Read array of bytes starting from addr.",
+            "if allow_side_effects is false, addresses that change system state on read must be skipped (e.g., status registers).",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U32))),
+            (ident: "data", ty: Vec(NumericAny(Base(U32)))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write_many", docs: [
+            "Write array of bytes starting from addr.",
+        ]),
+        (id: 4, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "watch", docs: [
+            "Start watching memory at address for changes. Optional.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U32))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "watching", docs: [
+            "Returns a list of watched addresses. Optional.",
+        ]),
+        (id: 6, kind: Stream(ty: Tuple([
+            NumericAny(Base(U32)),
+            NumericAny(Base(U32)),
+        ]), is_up: true), multiplicity: Flat, since: None, ident: "changed", docs: [
+            "Stream of changes to memory at watched addresses. Optional.",
+        ]),
+        (id: 7, kind: Property(ty: Tuple([
+            NumericAny(Base(U32)),
+            NumericAny(Base(U32)),
+        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+            "Valid address range.",
+        ]),
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "access", docs: [
+            "Access rights for this memory region.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_ll", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

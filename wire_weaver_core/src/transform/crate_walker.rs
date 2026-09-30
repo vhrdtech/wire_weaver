@@ -10,6 +10,9 @@ use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
 
+/// Crates re-exported by `wire_weaver`, usable without depending on them directly.
+const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_version"];
+
 /// Load API definition and all referenced data types from a given crate.
 ///
 /// This method will recursively walk (and download if necessary) all the referenced crates:
@@ -30,7 +33,7 @@ use ww_version::{FullVersionOwned, VersionOwned};
 /// found in the local Cargo registry will be used, or an error is returned if they are not found.
 ///
 /// Limitations:
-/// * Only types and ww_trait's defined in `src/lib.rs` are supported.
+/// * Only ww_trait's defined in `src/lib.rs` are supported, types can also be in modules (`mod ty;` and `use ty::Ty`).
 /// * Only crates.io and path dependencies are supported.
 pub fn load(
     crate_path: &Path,
@@ -164,10 +167,14 @@ impl ApiBundleScratch {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct CrateContext {
     manifest: Rc<ManifestContext>,
     version: FullVersionOwned,
+    /// `src/lib.rs`, or a module of the crate when resolving paths through it.
     pub(crate) lib_rs_ast: File,
+    /// Directory where files of the child modules of `lib_rs_ast` are.
+    mod_dir: PathBuf,
     // crate_path: PathBuf,
     // lib_rs_source: String,
 }
@@ -195,6 +202,7 @@ impl CrateContext {
         let lib_rs = load_lib_rs(&manifest.crate_path)?;
         let crate_cx = Self {
             // crate_path: manifest.crate_path.to_path_buf(),
+            mod_dir: manifest.crate_path.join("src"),
             manifest,
             version,
             lib_rs_ast: lib_rs,
@@ -210,6 +218,75 @@ impl CrateContext {
     ) -> Result<Rc<Self>> {
         let dep_manifest = self.manifest.load_dependent_manifest(crate_name, scratch)?;
         Self::load_from_manifest(dep_manifest, scratch)
+    }
+
+    /// Resolve the leading segments of a path (e.g. `a::b` in `a::b::Ty`): `crate`, `self`, modules of this crate or
+    /// dependent crates, followed by modules.
+    pub(crate) fn resolve_path<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s syn::Ident>,
+        scratch: &mut Scratch,
+    ) -> Result<Rc<Self>> {
+        // None is self, to avoid cloning it
+        let mut resolved: Option<Rc<Self>> = None;
+        for (i, segment) in segments.into_iter().enumerate() {
+            let cx = resolved.as_deref().unwrap_or(self);
+            let name = segment.to_string();
+            let next = match name.as_str() {
+                "self" if i == 0 => continue,
+                "crate" if i == 0 => Self::load_from_manifest(cx.manifest.clone(), scratch)?,
+                _ => match cx.module(&name)? {
+                    Some(module) => Rc::new(module),
+                    None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
+                    None => {
+                        return Err(anyhow!("Module {name} not found").context(cx.err_context()));
+                    }
+                },
+            };
+            resolved = Some(next);
+        }
+        Ok(resolved.unwrap_or_else(|| Rc::new(self.clone())))
+    }
+
+    /// Whether `name` is a child module of this crate or module.
+    pub(crate) fn has_module(&self, name: &str) -> bool {
+        self.lib_rs_ast
+            .items
+            .iter()
+            .any(|item| matches!(item, Item::Mod(item_mod) if item_mod.ident == name))
+    }
+
+    /// Child module `name`, either in-line or in its own file.
+    fn module(&self, name: &str) -> Result<Option<Self>> {
+        let Some(item_mod) = self.lib_rs_ast.items.iter().find_map(|item| match item {
+            Item::Mod(item_mod) if item_mod.ident == name => Some(item_mod),
+            _ => None,
+        }) else {
+            return Ok(None);
+        };
+        let mod_dir = self.mod_dir.join(name);
+        let ast = match &item_mod.content {
+            Some((_, items)) => {
+                let mut file: File = syn::parse_quote! {};
+                file.items = items.clone();
+                file
+            }
+            None => {
+                let file_rs = self.mod_dir.join(format!("{name}.rs"));
+                let path = if file_rs.exists() {
+                    file_rs
+                } else {
+                    mod_dir.join("mod.rs")
+                };
+                parse_rs(&path)?
+            }
+        };
+        Ok(Some(Self {
+            manifest: self.manifest.clone(),
+            version: self.version.clone(),
+            lib_rs_ast: ast,
+            mod_dir,
+        }))
     }
 
     pub(crate) fn err_context(&self) -> String {
@@ -293,6 +370,15 @@ impl ManifestContext {
         crate_name: &str,
         scratch: &mut Scratch,
     ) -> Result<Rc<ManifestContext>> {
+        // e.g. `use wire_weaver::prelude::*;` brings in `ww_version` without a direct dependency on it
+        if !self.manifest.dependencies.contains_key(crate_name)
+            && WIRE_WEAVER_REEXPORTS.contains(&crate_name)
+            && self.manifest.dependencies.contains_key("wire_weaver")
+        {
+            let wire_weaver =
+                self.load_dependent_inner(&self.manifest.dependencies, "wire_weaver", scratch)?;
+            return wire_weaver.load_dependent_manifest(crate_name, scratch);
+        }
         self.load_dependent_inner(&self.manifest.dependencies, crate_name, scratch)
     }
 
@@ -352,17 +438,13 @@ impl ManifestContext {
 }
 
 fn load_lib_rs(crate_path: &Path) -> Result<File> {
-    let mut lib_rs_path = crate_path.canonicalize()?;
-    lib_rs_path.push("src");
-    lib_rs_path.push("lib.rs");
-    let contents = fs::read_to_string(&lib_rs_path).context(format!(
-        "Failed to read lib.rs from {}",
-        lib_rs_path.display()
-    ))?;
-    syn::parse_file(&contents).context(format!(
-        "Failed to parse lib.rs from {}",
-        lib_rs_path.display()
-    ))
+    parse_rs(&crate_path.canonicalize()?.join("src").join("lib.rs"))
+}
+
+fn parse_rs(path: &Path) -> Result<File> {
+    let contents =
+        fs::read_to_string(path).context(format!("Failed to read {}", path.display()))?;
+    syn::parse_file(&contents).context(format!("Failed to parse {}", path.display()))
 }
 
 fn find_trait_if_none(trait_name: Option<String>, lib_rs: &File) -> Result<String> {

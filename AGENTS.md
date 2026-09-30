@@ -29,6 +29,7 @@ just test            # cargo nextest run --workspace --no-fail-fast
 just serve-docs       # local docs preview (uv run zensical serve)
 just build-docs        # build docs site
 just pre-commit         # cargo sort -w && cargo clippy
+just save-snapshots       # save API snapshots of ww_global and ww_stdlib/*, copy them into wire_weaver_client
 ```
 
 Single test: `cargo nextest run -p <crate> <test_name>` (nextest is required — see `.config/nextest.toml` for the
@@ -81,6 +82,9 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **`ww_self/`**, **`ww_global/`** — framework-level base types that live in this repo, not in `ww_stdlib`:
   `ww_self` is the API model AST used for introspection and API snapshots, `ww_global` is the global type ID
   registry. Versioned like API crates (own version, the version is the identity, see `docs/evolution/rules.md`).
+- API snapshots (`api_snapshots/*.ron`, saved by `ww api save`) of `ww_global` and `ww_stdlib/*` are copied into
+  `wire_weaver_client/api_snapshots/` and embedded into the client. After changing any trait or type in those crates,
+  run `just save-snapshots` (a client test fails otherwise); `--force` only for versions never published.
 - **`examples/`** — paired `<name>_api` (trait + types, no_std-compatible) / `<name>` (server+client wiring, tests)
   crates; this pairing is the intended project shape end users should copy (see `docs/api/folder_structure.md`).
   `examples_mcu/` has real firmware targets per dev board (excluded from root workspace).

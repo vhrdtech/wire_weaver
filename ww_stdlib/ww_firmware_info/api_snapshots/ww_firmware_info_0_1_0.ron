@@ -1,0 +1,28 @@
+// ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_firmware_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "CrcKind", variants: [
+        (docs: [], ident: "Todo", fields: Unit, discriminant: 0, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "FirmwareInfo", items: [
+        (id: 0, kind: Property(ty: Tuple([
+            OutOfLine(type_idx: 0),
+            Vec(NumericAny(Base(U8))),
+        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "crc", docs: []),
+        (id: 1, kind: Property(ty: Vec(NumericAny(Base(U8))), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "sha256", docs: []),
+        (id: 2, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: true), multiplicity: Flat, since: None, ident: "bedrock_build_info", docs: [
+            "Optional.",
+            "ShrinkWrap serialized build information from [bedrock_build_info crate](https://github.com/romixlab/embedded_bedrock/tree/main/bedrock_build_info)",
+            "Contains build timestamp, profile and optimization levels, crate information including enabled features and dependencies.",
+            "Target info triple, compiler triple and version.",
+            "Git info (sha, dirty, branch, tag).",
+            "",
+            "Some fields may be omitted from the version stored in device FLASH, while full version can be obtained from firmware ELF.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

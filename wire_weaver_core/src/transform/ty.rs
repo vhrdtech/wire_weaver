@@ -1,12 +1,12 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
-    util::{collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_has_type},
+    util::{collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_path_to},
 };
 use anyhow::{Context, Result, anyhow};
 use shrink_wrap::{ElementSize, UNib32};
 use syn::{
     Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta, PathArguments,
-    PathSegment, Type, TypePath, UseTree, parse_str,
+    PathSegment, Type, TypePath, parse_str,
 };
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
@@ -61,19 +61,15 @@ pub(crate) fn convert_ty_path(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<TypeOwned> {
-    let len = ty_path.path.segments.len();
-    if len == 1 {
-        let segment = &ty_path.path.segments[0];
-        convert_ty_path_segment(segment, current_crate, scratch)
-    } else if len == 2 {
-        let dep_crate_name = ty_path.path.segments[0].ident.to_string();
-        let dependent_crate = current_crate.load_dependent_crate(&dep_crate_name, scratch)?;
-        let segment = &ty_path.path.segments[1];
-        convert_ty_path_segment(segment, &dependent_crate, scratch)
+    let segments: Vec<_> = ty_path.path.segments.iter().collect();
+    let Some((last, leading)) = segments.split_last() else {
+        return Err(anyhow!("Empty type path"));
+    };
+    if leading.is_empty() {
+        convert_ty_path_segment(last, current_crate, scratch)
     } else {
-        Err(anyhow!(
-            "Only support `MyType` and `ext_crate::MyType` for now"
-        ))
+        let cx = current_crate.resolve_path(leading.iter().map(|s| &s.ident), scratch)?;
+        convert_ty_path_segment(last, &cx, scratch)
     }
 }
 
@@ -135,16 +131,10 @@ pub(crate) fn convert_ty_path_segment(
                         return ty;
                     }
                     Item::Use(item_use) => {
-                        if !use_tree_has_type(&item_use.tree, user_ty) {
-                            continue;
-                        }
-                        let UseTree::Path(use_path) = &item_use.tree else {
+                        let Some(path) = use_tree_path_to(&item_use.tree, user_ty) else {
                             continue;
                         };
-                        // only supporting `use ext_crate::Type` for now
-                        let dep_crate_name = use_path.ident.to_string();
-                        let dependent_crate =
-                            current_crate.load_dependent_crate(&dep_crate_name, scratch)?;
+                        let dependent_crate = current_crate.resolve_path(path, scratch)?;
                         let ty: Type = parse_str(&format!("{user_ty}"))?;
                         return convert_ty(&ty, &dependent_crate, scratch);
                     }

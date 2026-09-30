@@ -14,6 +14,11 @@
   A trait or type whose definition is skipped on one side is checked by origin and crate version, and by signature
   when the versions are the same, which catches a definition changed without bumping its crate version.
 
+- `snapshots` module: API snapshots of `ww_global` and `ww_stdlib` crates embedded at build time, looked up by crate
+  name and version with `snapshots::get()` (usable as a `ww_self::signature::Resolve` callback) or `snapshots::all()`.
+  The per-resource compatibility check uses them to calculate the signature of an in-line trait or type that refers to
+  skipped ones, which was not checked before.
+
 - `DeviceInfo` is filled from the USB API id interface string (falling back to the product string): API name,
   version, truncated hash and user label are known without opening the device, so `.user_label_eq()` and
   `.implements_api()` filters now work for USB. `DeviceInfo` gains `location` and implements `Display`.

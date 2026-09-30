@@ -4,12 +4,18 @@
 
 - `load_crate()` loads all `#[ww_trait]`/`#[ww_api_root]` traits and `#[derive_shrink_wrap]` types defined in a crate
   into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references
-  carrying the signature of the left out definition. Used by `ww api save` to save crate snapshots.
+  carrying the signature of the left out definition. Types re-exported from the crate's modules with `pub use` are
+  included too. Used by `ww api save` to save crate snapshots.
 
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.
 
 ### 🐛 Fixes
+
+- Types and traits can be referred to through modules: `mod ty; use ty::Ty;`, `crate::`/`self::` paths, and paths
+  longer than `ext_crate::Ty` (e.g. `ext_crate::module::Ty`). `ww_version` and `shrink_wrap` used through
+  `wire_weaver`'s re-exports (e.g. `use wire_weaver::prelude::*;`) resolve without a direct dependency on them.
+  All of these failed with "Dependency not found" or "Only support `MyType` and `ext_crate::MyType`".
 
 - Loading a self-referential type (e.g., containing `RefBox<Self>`) fails with an error instead of overflowing the
   stack.

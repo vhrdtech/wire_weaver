@@ -1,0 +1,117 @@
+// ww_counters 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_counters", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Counters", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "u32 or u64 counter value",
+    ], ident: "CounterValue", variants: [
+        (docs: [], ident: "U32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "U64", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Severity", signature: [
+        231,
+        34,
+        214,
+        85,
+        63,
+        125,
+        238,
+        88,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Provides a way to select multiple counter indices.",
+    ], ident: "CountersFilter", variants: [
+        (docs: [], ident: "All", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Send only counter values with specified indices range.",
+        ], ident: "RangeInclusive", fields: Named([
+            (ident: Some("from"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("to"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Filter by severity, note indices will need to be mapped back to logical ones.",
+            "For example by first calling metadata() to obtain necessary information.",
+        ], ident: "Severity", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information about each counter.",
+    ], ident: "CounterMeta", fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: String, docs: [
+            "Can be empty to save space.",
+            "Even if empty an original ELF can potentially be retrieved and used to get strings from it.",
+        ]),
+        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "Error / Warning / etc",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Counters implementation kind, can be used as a debugging hint.",
+    ], ident: "CountersKind", variants: [
+        (docs: [
+            "RAM based counters, zeroed out on each boot.",
+        ], ident: "ResetOnBoot", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "RAM based counters, kept across reboots.",
+        ], ident: "ResetOnPowerCycle", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Counters in a battery backed domain (BKPRAM, or similar).",
+        ], ident: "BatteryBackedUp", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "User kind.",
+        ], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "API for event counters running on a remote device.",
+        "Counters can be useful for counting errors, packets or any other events when it is impractical to log things, or in addition to logging.",
+        "",
+        "Device can support different types of counters, for example:",
+        "* RAM based - reset to zero on device boot.",
+        "* Persistent - continue counting after reboot, or even after power cycle.",
+        "This trait can then be implemented for each kind.",
+    ], crate_idx: 0, trait_name: "Counters", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32)))), multiplicity: Flat, since: None, ident: "len", docs: [
+            "Number of RAM counters that are reset on reboot or power-on",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "idx", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "value", docs: [
+            "Get current value of one RAM counter or None if idx is out of range.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "filter", ty: OutOfLine(type_idx: 2)),
+        ], return_ty: Some(Vec(OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "values", docs: [
+            "Get many counters values at once.",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "filter", ty: OutOfLine(type_idx: 2)),
+        ], return_ty: Some(Vec(NumericAny(Base(U8))))), multiplicity: Flat, since: None, ident: "values_compressed", docs: [
+            "Get many counters values in a compressed form to save bandwidth. Optional.",
+        ]),
+        (id: 4, kind: Stream(ty: Vec(NumericAny(Base(U32))), is_up: true), multiplicity: Flat, since: None, ident: "values_changed", docs: [
+            "Stream of counter values changes. Optional, since it can be expensive to support this functionality.",
+            "Stream sideband channel can also optionally be used to configure how often updates are sent, etc.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset", docs: [
+            "Set all counters to zero.",
+        ]),
+        (id: 6, kind: Method(args: [], return_ty: Some(Vec(OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "metadata", docs: [
+            "Get an array, describing each counter. Can be absent to conserve space.",
+        ]),
+        (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "kind", docs: [
+            "Counters implementation kind",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

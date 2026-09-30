@@ -1,0 +1,44 @@
+// ww_board_info 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_board_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "BoardInfo", docs: []),
+]), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
+        136,
+        108,
+        16,
+        204,
+        57,
+        205,
+        62,
+        242,
+    ]),
+], traits: [
+    InLine(level: (docs: [
+        "PCB and PCBA information.",
+        "",
+        "Leave unavailable fields as empty strings.",
+    ], crate_idx: 0, trait_name: "BoardInfo", items: [
+        (id: 0, kind: Property(ty: String, access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "name", docs: [
+            "PCB series name",
+        ]),
+        (id: 1, kind: Property(ty: String, access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "revision", docs: [
+            "PCB revision",
+        ]),
+        (id: 2, kind: Property(ty: String, access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "variant", docs: [
+            "PCB assembly variant",
+        ]),
+        (id: 3, kind: Property(ty: String, access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "bom_variant", docs: [
+            "PCB assembly BOM variant",
+        ]),
+        (id: 4, kind: Property(ty: String, access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "serial", docs: [
+            "Serial number",
+        ]),
+        (id: 5, kind: Property(ty: Option(some_ty: OutOfLine(type_idx: 0)), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "build_date", docs: [
+            "Build date, if available",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_board_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

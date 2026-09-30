@@ -1,0 +1,465 @@
+// ww_si 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_si", items: []), types: [
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", variants: [
+        (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Micro", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Nano", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Pico", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Kilo", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Mega", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "Giga", fields: Unit, discriminant: 7, since: None),
+        (docs: [], ident: "Deca", fields: Unit, discriminant: 8, since: None),
+        (docs: [], ident: "Hecto", fields: Unit, discriminant: 9, since: None),
+        (docs: [], ident: "Tera", fields: Unit, discriminant: 10, since: None),
+        (docs: [], ident: "Peta", fields: Unit, discriminant: 11, since: None),
+        (docs: [], ident: "Exa", fields: Unit, discriminant: 12, since: None),
+        (docs: [], ident: "Zetta", fields: Unit, discriminant: 13, since: None),
+        (docs: [], ident: "Yotta", fields: Unit, discriminant: 14, since: None),
+        (docs: [], ident: "Ronna", fields: Unit, discriminant: 15, since: None),
+        (docs: [], ident: "Quetta", fields: Unit, discriminant: 16, since: None),
+        (docs: [], ident: "Deci", fields: Unit, discriminant: 17, since: None),
+        (docs: [], ident: "Centi", fields: Unit, discriminant: 18, since: None),
+        (docs: [], ident: "Femto", fields: Unit, discriminant: 19, since: None),
+        (docs: [], ident: "Atto", fields: Unit, discriminant: 20, since: None),
+        (docs: [], ident: "Zepto", fields: Unit, discriminant: 21, since: None),
+        (docs: [], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
+        (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
+        (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "INib8P3", fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SIExp", fields: Named([
+        (ident: Some("second"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        (ident: Some("meter"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        (ident: Some("kilogram"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        (ident: Some("ampere"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        (ident: Some("candela"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("mole"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("kelvin"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("kelvin"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: []),
+        (ident: Some("mole"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: []),
+        (ident: Some("candela"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: UnsizedFinalStructure, repr: UNib32, crate_idx: 0, docs: [], ident: "BaseUnit", variants: [
+        (docs: [], ident: "Unitless", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Second", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Ampere", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Volt", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Ohm", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Hertz", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Watt", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "Kelvin", fields: Unit, discriminant: 7, since: None),
+        (docs: [], ident: "Meter", fields: Unit, discriminant: 8, since: None),
+        (docs: [], ident: "Kilogram", fields: Unit, discriminant: 9, since: None),
+        (docs: [], ident: "Mole", fields: Unit, discriminant: 10, since: None),
+        (docs: [], ident: "Candela", fields: Unit, discriminant: 11, since: None),
+        (docs: [], ident: "Radian", fields: Unit, discriminant: 12, since: None),
+        (docs: [], ident: "Steradian", fields: Unit, discriminant: 13, since: None),
+        (docs: [], ident: "Newton", fields: Unit, discriminant: 14, since: None),
+        (docs: [], ident: "Pascal", fields: Unit, discriminant: 15, since: None),
+        (docs: [], ident: "Joule", fields: Unit, discriminant: 16, since: None),
+        (docs: [], ident: "Coulomb", fields: Unit, discriminant: 17, since: None),
+        (docs: [], ident: "Farad", fields: Unit, discriminant: 18, since: None),
+        (docs: [], ident: "Siemens", fields: Unit, discriminant: 19, since: None),
+        (docs: [], ident: "Weber", fields: Unit, discriminant: 20, since: None),
+        (docs: [], ident: "Tesla", fields: Unit, discriminant: 21, since: None),
+        (docs: [], ident: "Henry", fields: Unit, discriminant: 22, since: None),
+        (docs: [], ident: "DegreeCelsius", fields: Unit, discriminant: 23, since: None),
+        (docs: [], ident: "Lumen", fields: Unit, discriminant: 24, since: None),
+        (docs: [], ident: "Lux", fields: Unit, discriminant: 25, since: None),
+        (docs: [], ident: "Becquerel", fields: Unit, discriminant: 26, since: None),
+        (docs: [], ident: "Gray", fields: Unit, discriminant: 27, since: None),
+        (docs: [], ident: "Sievert", fields: Unit, discriminant: 28, since: None),
+        (docs: [], ident: "Katal", fields: Unit, discriminant: 29, since: None),
+        (docs: [], ident: "Named", fields: Named([
+            (ident: Some("name"), default: None, since: None, ty: String, docs: []),
+            (ident: Some("symbol"), default: None, since: None, ty: String, docs: []),
+            (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 30, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
+        243,
+        26,
+        136,
+        48,
+        92,
+        77,
+        212,
+        180,
+    ]),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Time quantity in seconds with prefix (s, ms, μs, ns, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Second", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Length quantity in meters with prefix (m, mm, μm, km, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Meter", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Mass quantity in grams with prefix (g, mg, μg, kg, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "Note that gram is expressed with Prefix::Milli (milli-kilo-gram)",
+    ], ident: "KiloGram", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Ampere", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Kelvin", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Mole", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Luminous intensity quantity in candela with prefix (cd, mcd, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "Candela", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Frequency quantity in Hertz with prefix (Hz, mHz, kHz, MHz, GHz, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−1, 1/s",
+    ], ident: "Hertz", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Angle quantity in radians with prefix (rad, mrad, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: 1, m/m",
+    ], ident: "Radian", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Angle quantity in degree of arc with prefix (deg, mdeg, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: (π / 180) rad (≈ 17.5 mrad)",
+    ], ident: "Degree", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Solid angle quantity in steradian with prefix (sr, msr, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: 1, m2/m2",
+    ], ident: "Steradian", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Force or weight quantity in Newtons with prefix (N, mN, kN, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m⋅s−2, kg⋅m/s2",
+    ], ident: "Newton", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Pressure or stress quantity in Pascals with prefix (Pa, mPa, kPa, MPa, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m−1⋅s−2, N/m2",
+    ], ident: "Pascal", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Energy, work or heat quantity in Joules with prefix (J, mJ, kJ, MJ, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−2, m⋅N, C⋅V, W⋅s",
+    ], ident: "Joule", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Power or radiant flux quantity in Watts with prefix (W, mW, kW, MW, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−3, J/s, V⋅A",
+    ], ident: "Watt", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Electric charge quantity in Coulombs with prefix (C, mC, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s⋅A, A⋅s, F⋅V",
+    ], ident: "Coulomb", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Voltage, electric potential or electromotive force quantity in Volts with prefix (V, mV, kV, MV, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−3⋅A−1, J/C, W/A",
+    ], ident: "Volt", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Capacitance quantity in Farads with prefix (F, pF, nF, uF, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg−1⋅m−2⋅s4⋅A2, C/V, s/Ω",
+    ], ident: "Farad", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Electrical resistance, reactance or impedance quantity in Ohms with prefix (Ω, kΩ, MΩ, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−3⋅A−2, V/A, 1/S",
+    ], ident: "Ohm", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Electrical admittance, conductance, susceptance quantity in Siemens with prefix (S, mS, kS, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg−1⋅m−2⋅s3⋅A2, A/V, 1/Ω",
+    ], ident: "Siemens", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Magnetic flux quantity in Webers with prefix (Wb, mWb, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−2⋅A−1, V⋅s, T⋅m2, J/A",
+    ], ident: "Weber", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Magnetic flux density quantity in Tesla with prefix (T, mT, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅s−2⋅A−1, N/(A⋅m), Wb/m2, V⋅s/m2",
+    ], ident: "Tesla", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Inductance or permeance quantity in Henry with prefix (H, uH, mH, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−2⋅A−2, V⋅s/A, Wb/A, Ω⋅s",
+    ], ident: "Henry", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Temperature relative to -273.15K quantity in °C",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: K",
+    ], ident: "DegreeCelsius", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Luminous flux quantity in candela (cd)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: cd, cd⋅sr",
+    ], ident: "Lumen", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Illuminance quantity in lux (lx)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: cd⋅m−2, lm/m2",
+    ], ident: "Lux", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Radioactivity quantity in Becquerel (Bq)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−1, 1/s",
+    ], ident: "Becquerel", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Absorbed does quantity in Gray (Gy)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m2⋅s−2, J/kg",
+    ], ident: "Gray", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Equivalent dose quantity in Sievert (Sv)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m2⋅s−2, J/kg",
+    ], ident: "Sievert", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Catalytic activity quantity in katal (kat)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−1⋅mol, mol/s",
+    ], ident: "Katal", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Logarithmic ratio quantity",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "DeciBel", fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Logarithmic ratio quantity relative to mW",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+    ], ident: "DeciBelmW", fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Volume quantity in liters with prefix (l, ml, μl, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: 0.001 m3",
+    ], ident: "Litre", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Energy quantity in electron-volts with prefix (eV, kEv, MEv, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: J, kg⋅m2⋅s−2",
+    ], ident: "ElectronVolt", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Speed quantity in meters per second with prefix (m/s, mm/s, km/s, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m⋅s−1",
+    ], ident: "Speed", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Acceleration quantity in meters per second squared with prefix (m/s^2, mm/s^2, km/s^2, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m⋅s−2",
+    ], ident: "Acceleration", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Jerk or jolt quantity in meters per second cubed with prefix (m/s^3, mm/s^3, km/s^3, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m⋅s−3",
+    ], ident: "Jerk", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Snap or jounce quantity in meters per second to the fourth with prefix (m/s^4, mm/s^4, km/s^4, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m⋅s−4",
+    ], ident: "Snap", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Yank quantity in kilogram meters per second cubed with prefix (kg * m/s^3, kg * mm/s^3, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m⋅kg⋅s−3",
+    ], ident: "Yank", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Angular velocity quantity in radians per second with prefix (rad/s, krad/s, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−1",
+    ], ident: "AngularVelocity", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Angular acceleration quantity in radians per second squared with prefix (rad/s^2, krad/s^2, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−2",
+    ], ident: "AngularAcceleration", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Frequency drift quantity in Hertz per second with prefix (Hz/s, kHz/s, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: s−2",
+    ], ident: "HertzPerSecond", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Volumetric flow quantity in cubic meters per second with prefix (m^3/s, mm^3/s, km^3/s, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: m3⋅s−1",
+    ], ident: "VolumetricFlow", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+])

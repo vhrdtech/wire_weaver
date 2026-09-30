@@ -1,0 +1,161 @@
+// ww_uart 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_uart", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Uart", docs: []),
+]), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxFlags", fields: Named([
+        (ident: Some("parity_error"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        63,
+        20,
+        110,
+        91,
+        50,
+        215,
+        141,
+        46,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxChunk", fields: Named([
+        (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: []),
+        (ident: Some("timestamp"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: []),
+        (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
+        76,
+        144,
+        33,
+        19,
+        110,
+        167,
+        101,
+        181,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Capabilities", fields: Named([
+        (ident: Some("min_baud_rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("max_baud_rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("voltages"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 3)), docs: []),
+        (ident: Some("rx_timestamps"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("hw_flow_control"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("sw_flow_control"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("high_z_mode"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("test_mode"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("back_feed_detector"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "BaudRate", variants: [
+        (docs: [], ident: "Baud110", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Baud300", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Baud600", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Baud1200", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Baud2400", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Baud4800", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Baud9600", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "Baud19200", fields: Unit, discriminant: 7, since: None),
+        (docs: [], ident: "Baud38400", fields: Unit, discriminant: 8, since: None),
+        (docs: [], ident: "Baud57600", fields: Unit, discriminant: 9, since: None),
+        (docs: [], ident: "Baud115200", fields: Unit, discriminant: 10, since: None),
+        (docs: [], ident: "Baud921600", fields: Unit, discriminant: 11, since: None),
+        (docs: [], ident: "BaudOther", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 12, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Error", variants: [
+        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "UnsupportedMode", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "CustomU8", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 4, since: None),
+        (docs: [], ident: "CustomU32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 5, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", variants: [
+        (docs: [
+            "No flow control.",
+        ], ident: "Asynchronous", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Flow control using RTS/CTS signals.",
+        ], ident: "HardwareFlowControl", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Flow control using XON/XOFF bytes.",
+        ], ident: "SoftwareFlowControl", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Both TX and RX lines are receiving, useful for monitoring traffic between two devices.",
+        ], ident: "Monitor2", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "All lines are receiving (TX, RX, RTS, CTS), useful for monitoring traffic between two devices.",
+        ], ident: "Monitor4", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "All pins High-Z.",
+        ], ident: "HighZ", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "Manual control of pins state.",
+        ], ident: "Test", fields: Unit, discriminant: 6, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
+        "Number of stop bits transmitted after every character.",
+    ], ident: "StopBits", variants: [
+        (docs: [], ident: "Stop1", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Stop2", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
+        "Parity checking mode.",
+    ], ident: "Parity", variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Odd", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Even", fields: Unit, discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
+        "Pin selector used in test mode.",
+    ], ident: "Pin", variants: [
+        (docs: [], ident: "Tx", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Rx", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Rts", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Cts", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Uart", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "rx", docs: [
+            "Receive stream",
+        ]),
+        (id: 1, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: false), multiplicity: Flat, since: None, ident: "tx", docs: [
+            "Transmit sink",
+        ]),
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "tx_mon", docs: [
+            "TX observe stream",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "Supported baud rates, modes and other features.",
+        ]),
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "baud_rate", docs: [
+            "Baud rate configuration",
+        ]),
+        (id: 5, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "mode", docs: [
+            "Mode configuration",
+        ]),
+        (id: 6, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "stop_bits", docs: [
+            "Stop bits configuration",
+        ]),
+        (id: 7, kind: Property(ty: OutOfLine(type_idx: 9), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "parity", docs: [
+            "Parity configuration",
+        ]),
+        (id: 8, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "prevent_back_feed", docs: [
+            "Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.",
+            "Optional, check [Capabilities] if supported.",
+        ]),
+        (id: 9, kind: Property(ty: OutOfLine(type_idx: 3), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
+            "Reference voltage configuration, if supported.",
+        ]),
+        (id: 10, kind: Method(args: [
+            (ident: "pin", ty: OutOfLine(type_idx: 10)),
+            (ident: "is_high", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "set_pin_level", docs: [
+            "Manually control pins, only in [Mode::Test]",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

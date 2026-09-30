@@ -1,0 +1,32 @@
+// ww_dfu 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_dfu", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "FirmwareUpdate", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FirmwareUpdateState", variants: [
+        (docs: [], ident: "Normal", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Reverted", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UpdatedNotConfirmed", fields: Unit, discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Error", variants: [
+        (docs: [], ident: "Todo", fields: Unit, discriminant: 0, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "FirmwareUpdateCapabilities", fields: Named([
+        (ident: Some("ab_partitions"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("need_reboot_for_writing"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("revert_supported"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("async_write"), default: None, since: None, ty: Bool, docs: [
+            "Whether firmware can do FLASH writes and continue to execute without blocking (single bank FLASH MCUs usually cannot do that)",
+        ]),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "FirmwareUpdate", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "state", docs: []),
+        (id: 1, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: false), multiplicity: Flat, since: None, ident: "firmware_block", docs: []),
+        (id: 2, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reboot", docs: []),
+        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1)))), multiplicity: Flat, since: None, ident: "revert", docs: []),
+        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_dfu", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

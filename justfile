@@ -64,6 +64,18 @@ install-cli:
     install -Dm755 target/release/ww ~/.local/bin/ww
     @echo "Installed ww into ~/.local/bin"
 
+# Save API snapshots of ww_global and ww_stdlib crates, and copy them into wire_weaver_client to be embedded.
+# Pass --force to overwrite snapshots of versions that were never published.
+save-snapshots *args:
+    cargo build -q -p wire_weaver_cli
+    # ww_client_server is the protocol itself, not used in APIs
+    for crate in ww_global ww_stdlib/*/; do \
+        [ "$(basename $crate)" = ww_client_server ] || target/debug/ww api save $crate {{ args }} || exit 1; \
+    done
+    rm -rf wire_weaver_client/api_snapshots
+    mkdir -p wire_weaver_client/api_snapshots
+    cp ww_global/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_client/api_snapshots/
+
 pre-commit:
     cargo sort -w
     cargo clippy

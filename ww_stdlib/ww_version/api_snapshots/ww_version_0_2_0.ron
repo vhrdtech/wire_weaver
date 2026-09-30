@@ -1,0 +1,83 @@
+// ww_version 0.2.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Hash of the [ApiBundle] used to compare if client and server API\'s are idential.",
+        "See also [ApiHashPair]",
+    ], ident: "ApiHash", fields: Named([
+        (ident: Some("hash"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Two hashes uniquely identifying client or device\'s API - with doc strings and without.",
+        "The idea behind this is that if something important has changed without changing API or data types,",
+        "documentation will be the only thing explaining the change.",
+        "",
+        "Theoretically, API name + version must be unique, but it\'s hard to enfore version bump on every change.",
+        "Thus it\'s possible to introduce a subtle change that might be hard to find.",
+        "With API hash though, any change will be detected.",
+        "Client will then download actual ApiBundle from device or cache and use it to check for compatibility.",
+        "",
+        "Doc strings can consume a lot of FLASH space, or there might not be a lot of it to begin with.",
+        "So it\'s beneficial to remove them, but still use full version when interacting with a device.",
+        "Second hash allows to load full version from cache, while retaining compatibility guarantees.",
+    ], ident: "ApiHashPair", fields: Named([
+        (ident: Some("no_docs"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Hash of the [ApiBundle] with all the doc strings removed.",
+        ]),
+        (ident: Some("with_docs"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Hash of the [ApiBundle] with all the doc strings kept.",
+            "If there are no doc strings, this array is empty.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "SemVer version as defined by <https://semver.org> in ShrinkWrap format.",
+        "The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.",
+        "[VersionOwned] is automatically generated from this definition as well and uses String instead.",
+    ], ident: "Version", fields: Named([
+        (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("build"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("pre"), default: None, since: None, ty: Option(some_ty: String), docs: [
+            "Optional pre-release identifier on a version string. This comes after - in a SemVer version, like 1.0.0-alpha.1",
+            "Used in compatibility checks.",
+        ]),
+        (ident: Some("build"), default: None, since: None, ty: Option(some_ty: String), docs: [
+            "Optional build metadata identifier. This comes after + in a SemVer version, as in 0.8.1+zstd.1.5.0.",
+            "Not used in compatibility checks, only treated as additional metadata.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", fields: Named([
+        (ident: Some("crate_id"), default: None, since: None, ty: String, docs: []),
+        (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
+        145,
+        161,
+        210,
+        192,
+        230,
+        169,
+        135,
+        32,
+    ]),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Compact version for traits-based requests that are made often or through limited bandwidth interfaces.",
+        "Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).",
+    ], ident: "CompactVersion", fields: Named([
+        (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+        (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Version as major.minor.patch triplet, useful when names are not required.",
+    ], ident: "VersionTriplet", fields: Named([
+        (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+        (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
+    ]))), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+])

@@ -1,0 +1,14 @@
+// ww_user_info 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_user_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "UserInfo", docs: []),
+]), types: [], traits: [
+    InLine(level: (docs: [
+        "User configurable device name and notes",
+    ], crate_idx: 0, trait_name: "UserInfo", items: [
+        (id: 0, kind: Property(ty: String, access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "name", docs: []),
+        (id: 1, kind: Property(ty: String, access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "notes", docs: []),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

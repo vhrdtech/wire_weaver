@@ -1,0 +1,33 @@
+// ww_uid 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_uid", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Uid", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "UidKind", variants: [
+        (docs: [], ident: "UniqueSequence", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "MACAddress", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UUID", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: String, docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "UidSource", variants: [
+        (docs: [], ident: "InternalIC", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "ExternalIC", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Firmware", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "HardwareStraps", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: String, docs: []),
+        ]), discriminant: 4, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "Represents one unique ID associated with a device.",
+    ], crate_idx: 0, trait_name: "Uid", items: [
+        (id: 0, kind: Property(ty: Vec(NumericAny(Base(U8))), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "value", docs: []),
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "kind", docs: []),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "source", docs: []),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

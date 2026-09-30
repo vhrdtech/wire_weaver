@@ -1,0 +1,183 @@
+// ww_numeric 0.2.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: []), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Number of bits in UB number. Serialized as 7-bits and shifted by -1 to represent U1-U128.",
+        "Note that only U1-U64 is supported now, but it\'s not hard to add numbers up to U128.",
+    ], ident: "UBits", fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Number of bits in IB number. Serialized as 7-bits and shifted by -2 to represent I2-I128.",
+        "Note that only I2-I64 is supported now, but it\'s not hard to add numbers up to I128.",
+    ], ident: "IBits", fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "NumericBaseType", variants: [
+        (docs: [
+            "4-bits (nibble), alignment of four-bits",
+        ], ident: "Nibble", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "u8 with alignment of one-byte",
+        ], ident: "U8", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Little-Endian u16 with alignment of one-byte",
+        ], ident: "U16", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Little-Endian u32 with alignment of one-byte",
+        ], ident: "U32", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Variable length u32, alignment of four-bits, 1 to 11 nibbles",
+        ], ident: "UNib32", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "Little-Endian u64 with alignment of one-byte",
+        ], ident: "U64", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "Little-Endian i32 with alignment of one-byte",
+        ], ident: "I32", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "Little-Endian f32 with alignment of one-byte",
+        ], ident: "F32", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "Little-Endian u128 with alignment of one-byte",
+        ], ident: "U128", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "i8 with alignment of one-byte",
+        ], ident: "I8", fields: Unit, discriminant: 9, since: None),
+        (docs: [
+            "Little-Endian i16 with alignment of one-byte",
+        ], ident: "I16", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "Little-Endian i64 with alignment of one-byte",
+        ], ident: "I64", fields: Unit, discriminant: 11, since: None),
+        (docs: [
+            "Little-Endian i128 with alignment of one-byte",
+        ], ident: "I128", fields: Unit, discriminant: 12, since: None),
+        (docs: [
+            "TODO: Little-Endian f16 with alignment of one-byte",
+        ], ident: "F16", fields: Unit, discriminant: 13, since: None),
+        (docs: [
+            "Little-Endian f64 with alignment of one-byte",
+        ], ident: "F64", fields: Unit, discriminant: 14, since: None),
+        (docs: [
+            "U1(bool)-U64, alignment of one-bit. Number of bits are known and not serialized.",
+        ], ident: "UB", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        ]), discriminant: 15, since: None),
+        (docs: [
+            "I2-I64, alignment of one-bit. Number of bits are known and not serialized.",
+        ], ident: "IB", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        ]), discriminant: 16, since: None),
+        (docs: [
+            "u1-u64, aligned to one-bit. Number of bits are unknown and serialized.",
+        ], ident: "UN", fields: Unit, discriminant: 17, since: None),
+        (docs: [
+            "i2-i64, aligned to one-bit. Number of bits are unknown and serialized.",
+        ], ident: "IN", fields: Unit, discriminant: 18, since: None),
+        (docs: [], ident: "ULeb32", fields: Unit, discriminant: 19, since: None),
+        (docs: [], ident: "ULeb64", fields: Unit, discriminant: 20, since: None),
+        (docs: [], ident: "ULeb128", fields: Unit, discriminant: 21, since: None),
+        (docs: [], ident: "ILeb32", fields: Unit, discriminant: 22, since: None),
+        (docs: [], ident: "ILeb64", fields: Unit, discriminant: 23, since: None),
+        (docs: [], ident: "ILeb128", fields: Unit, discriminant: 24, since: None),
+        (docs: [
+            "TODO: Q-notation unsigned fixed point number, size = `m + n` bits, alignment of one-bit?",
+        ], ident: "UQ", fields: Named([
+            (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("n"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 25, since: None),
+        (docs: [
+            "TODO: Q-notation signed fixed point number, size = `1 + m + n` bits, alignment of one-bit?",
+        ], ident: "IQ", fields: Named([
+            (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("n"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 26, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "Any number value (u8-u128, i8-i128, f32, f64, etc.).",
+        "Encoded as: (UNib32 type, number bytes).",
+        "",
+        "Minimum size is 1 byte (u4, unib32 0..=7).",
+        "u8 is 2 bytes, u32 - is 5 bytes, etc.",
+    ], ident: "NumericValue", variants: [
+        (docs: [], ident: "Nibble", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "U8", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "U16", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [], ident: "U32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 3, since: None),
+        (docs: [], ident: "UNib32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 4, since: None),
+        (docs: [], ident: "U64", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        ]), discriminant: 5, since: None),
+        (docs: [], ident: "I32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I32)), docs: []),
+        ]), discriminant: 6, since: None),
+        (docs: [], ident: "F32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(F32)), docs: []),
+        ]), discriminant: 7, since: None),
+        (docs: [], ident: "UN", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UN)), docs: []),
+        ]), discriminant: 8, since: None),
+        (docs: [], ident: "IN", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(IN)), docs: []),
+        ]), discriminant: 9, since: None),
+        (docs: [], ident: "U128", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U128)), docs: []),
+        ]), discriminant: 10, since: None),
+        (docs: [], ident: "I8", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: []),
+        ]), discriminant: 11, since: None),
+        (docs: [], ident: "I16", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I16)), docs: []),
+        ]), discriminant: 12, since: None),
+        (docs: [], ident: "I64", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I64)), docs: []),
+        ]), discriminant: 13, since: None),
+        (docs: [], ident: "I128", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I128)), docs: []),
+        ]), discriminant: 14, since: None),
+        (docs: [], ident: "F64", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(F64)), docs: []),
+        ]), discriminant: 15, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SubTypeKind", variants: [
+        (docs: [], ident: "ValidRange", fields: Named([
+            (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "ValidList", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Vec(OutOfLine(type_idx: 3)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "InvalidList", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Vec(OutOfLine(type_idx: 3)), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Any of the base numeric types plus derived types: subtype, shift-scale.",
+    ], ident: "NumericAnyType", variants: [
+        (docs: [], ident: "Base", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "SubType", fields: Named([
+            (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "ShiftScale", fields: Named([
+            (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: Some("shift"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+])

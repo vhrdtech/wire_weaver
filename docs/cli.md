@@ -151,7 +151,7 @@ Both take `--name <Trait>` to pick the trait when the crate defines more than on
 `-d`/`--skip-docs`.
 
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait and every `#[derive_shrink_wrap]` type
-defined in the crate's `src/lib.rs` into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
+defined in the crate's `src/lib.rs` (or re-exported from one of its modules with `pub use`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
 `ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
 It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
 definitions from this crate are included, and traits and types from other crates are only referenced by crate
@@ -163,8 +163,10 @@ exactly the one that was left out, which catches a crate changed without bumping
 when it compares its API with a device's: a skipped trait or type with the same crate version but a different
 signature makes the resources using it incompatible.
 
-Snapshots are the groundwork for introspection data that leaves out common traits and types, which a client
-already knows from snapshots.
+Snapshots of `ww_global` and the `ww_stdlib` crates are embedded into `wire_weaver_client` (and so into `ww`), see
+`wire_weaver_client::snapshots`. They are the groundwork for introspection data that leaves out common traits and
+types, which a client already knows from snapshots. In this repo, `just save-snapshots` saves them and copies them into
+`wire_weaver_client/api_snapshots/`; a client test fails if any of them is out of date.
 
 ```
 $ ww api save ww_stdlib/ww_uart
@@ -176,8 +178,9 @@ bump the crate version (see [evolution rules](evolution/rules.md#doc-comments), 
 position, so that tools can tell that improved docs are available) and save a new snapshot. `--force` overwrites anyway, only use it for a
 version that was never published.
 
-Current limitations, same as for codegen: only items in `src/lib.rs` are found, dependencies reached only through
-another crate's re-export are not resolved, and self-referential types (like the ones in `ww_self`) are not supported.
+Current limitations, same as for codegen: traits are only found in `src/lib.rs`, a dependency reached through another
+crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), crates with a
+workspace-inherited version can't be loaded, and self-referential types (like the ones in `ww_self`) are not supported.
 
 ### `ww usb-loopback`
 

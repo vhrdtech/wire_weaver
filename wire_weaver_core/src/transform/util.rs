@@ -61,20 +61,36 @@ pub(crate) fn get_since_attr(
     }
 }
 
-pub(crate) fn use_tree_has_type(tree: &UseTree, type_name: &str) -> bool {
+/// Path segments leading to `type_name` imported by a `use` tree, e.g. `[a, b]` for `use a::{b::Ty, Other}`.
+pub(crate) fn use_tree_path_to<'t>(tree: &'t UseTree, type_name: &str) -> Option<Vec<&'t Ident>> {
     match tree {
-        UseTree::Path(use_path) => use_tree_has_type(&use_path.tree, type_name),
-        UseTree::Name(use_name) => use_name.ident == type_name,
-        UseTree::Rename(_) => false,
-        UseTree::Glob(_) => false,
-        UseTree::Group(use_group) => {
-            for item in &use_group.items {
-                if use_tree_has_type(item, type_name) {
-                    return true;
-                }
-            }
-            false
+        UseTree::Path(use_path) => {
+            let mut path = use_tree_path_to(&use_path.tree, type_name)?;
+            path.insert(0, &use_path.ident);
+            Some(path)
         }
+        UseTree::Name(use_name) => (use_name.ident == type_name).then(Vec::new),
+        UseTree::Rename(_) | UseTree::Glob(_) => None,
+        UseTree::Group(use_group) => use_group
+            .items
+            .iter()
+            .find_map(|item| use_tree_path_to(item, type_name)),
+    }
+}
+
+/// All names imported by a `use` tree with the path segments leading to them, renames and globs are skipped.
+pub(crate) fn use_tree_names(tree: &UseTree) -> Vec<(Vec<&Ident>, &Ident)> {
+    match tree {
+        UseTree::Path(use_path) => use_tree_names(&use_path.tree)
+            .into_iter()
+            .map(|(mut path, name)| {
+                path.insert(0, &use_path.ident);
+                (path, name)
+            })
+            .collect(),
+        UseTree::Name(use_name) => vec![(vec![], &use_name.ident)],
+        UseTree::Rename(_) | UseTree::Glob(_) => vec![],
+        UseTree::Group(use_group) => use_group.items.iter().flat_map(use_tree_names).collect(),
     }
 }
 

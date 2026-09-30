@@ -1,0 +1,89 @@
+// ww_log_bare_metal 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_log_bare_metal", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "LogDefmt", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "LogText", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "DefmtFormat", variants: [
+        (docs: [], ident: "Raw", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Rzcobs", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "DefmtCounters", fields: Named([
+        (ident: Some("events_logged"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("bytes_logged"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("bytes_sent"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [], ident: "Severity", variants: [
+        (docs: [], ident: "Error", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Warn", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Info", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Debug", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Trace", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "User", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
+        ]), discriminant: 5, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        63,
+        20,
+        110,
+        91,
+        50,
+        215,
+        141,
+        46,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Message", fields: Named([
+        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        (ident: Some("timestamp"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 3)), docs: []),
+        (ident: Some("contents"), default: None, since: None, ty: String, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "TextCounters", fields: Named([
+        (ident: Some("errors"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("warnings"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("info"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("debug"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+        (ident: Some("trace"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "defmt based logging.",
+        "Timestamps, if enabled, are encoded into the data stream.",
+    ], crate_idx: 0, trait_name: "LogDefmt", items: [
+        (id: 0, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: true), multiplicity: Flat, since: None, ident: "data", docs: [
+            "Data either in raw format or in rzcobs encoding.",
+            "When in raw - each stream event carries one log event.",
+            "When in rzcobs - stream events boundaries do not have meaning, treat as continuous stream of bytes.",
+        ]),
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "format", docs: [
+            "Which format is used by firmware.",
+            "Raw can take more space, but requires less processing and framing (which stream provides).",
+            "rzcobs - takes less space, but requires some processing.",
+        ]),
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1))), multiplicity: Flat, since: None, ident: "counters", docs: [
+            "Get current counters.",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset_counters", docs: [
+            "Reset counters to 0.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Text based logging with configurable levels and optional timestamps.",
+    ], crate_idx: 0, trait_name: "LogText", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "message", docs: []),
+        (id: 1, kind: Method(args: [
+            (ident: "severity", ty: OutOfLine(type_idx: 2)),
+            (ident: "enabled", ty: Bool),
+        ], return_ty: None), multiplicity: Flat, since: None, ident: "enable_level", docs: []),
+        (id: 2, kind: Method(args: [], return_ty: Some(Vec(OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "enabled_levels", docs: []),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "counters", docs: [
+            "Get current counters.",
+        ]),
+        (id: 4, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset_counters", docs: [
+            "Reset counters to 0.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

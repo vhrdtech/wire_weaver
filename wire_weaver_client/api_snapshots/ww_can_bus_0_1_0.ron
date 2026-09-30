@@ -1,0 +1,197 @@
+// ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_can_bus", items: [
+    (id: 0, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "CANBusInterfaceGroup", docs: []),
+    (id: 1, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "CANBusInterface", docs: []),
+]), types: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANId", variants: [
+        (docs: [], ident: "Standard", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(11))), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "Extended", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(29))), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [], ident: "CANRtr", variants: [
+        (docs: [], ident: "DataFrame", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "RemoteFrame", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [], ident: "CANBrs", variants: [
+        (docs: [], ident: "SameSpeed", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "SwitchForDataPhase", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [], ident: "CANEsi", variants: [
+        (docs: [], ident: "Normal", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "ErrorPassive", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANFrameKind", variants: [
+        (docs: [], ident: "Classic", fields: Named([
+            (ident: Some("rtr"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "FD", fields: Named([
+            (ident: Some("brs"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: Some("esi"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANFrame", fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+        (ident: Some("data"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANEnvelope", fields: Named([
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
+        (ident: Some("timestamp_us"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: []),
+        (ident: Some("timestamp_ns"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UB(30)))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANTerminationSwitchResult", variants: [
+        (docs: [
+            "If value was actually just switched in.",
+        ], ident: "Ok", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "If requested value is already switched in.",
+            "FixedInHardware must be returned even if the same value is being requested.",
+        ], ident: "Unchanged", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "If value is fixed in hardware or via mechanical switch (even if the same as requested).",
+        ], ident: "FixedInHardware", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "UnsupportedValue", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANCapabilities", fields: Named([
+        (ident: Some("eleven_bit_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("twenty_nine_bit_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("rx_fifo0"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("rx_fifo1"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("dedicated_rx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("tx_event_fifo"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("dedicated_tx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("trigger_memory"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("dynamic_layout"), default: None, since: None, ty: Bool, docs: [
+            "Whether the interface supports changing its RAM layout to get more dedicated buffer slots or change queue lengths",
+        ]),
+        (ident: Some("fd"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("timestamping"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("xl"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("tt"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANInterfacePerformance", fields: Named([
+        (ident: Some("min_fps"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "Minimum guaranteed frames per second",
+        ]),
+        (ident: Some("min_bps"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "Minimum guaranteed bytes per second",
+        ]),
+        (ident: Some("independent_from_other"), default: None, since: None, ty: Bool, docs: [
+            "Whether one CAN instance performance is completely independent of others or not",
+        ]),
+        (ident: Some("independent_from_system"), default: None, since: None, ty: Bool, docs: [
+            "Whether performance is completely independent of other system activity or not",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "CANError", variants: [
+        (docs: [], ident: "NotInDisabled", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Returned if tried to call any configuration method of an interface group,",
+            "while one or more interfaces where not in [powered down mode](CANMode::PoweredDown) mode.",
+        ], ident: "NotInPowerDown", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UnsupportedFrequency", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "UnsupportedClockSource", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "SubTypeKind", signature: [
+        11,
+        132,
+        8,
+        242,
+        161,
+        39,
+        214,
+        54,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANGroupPerformance", fields: Named([
+        (ident: Some("min_group_fps"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "Minimum guaranteed frames per second across all interfaces",
+        ]),
+        (ident: Some("min_group_bps"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "Minimum guaranteed bytes per second across all interfaces",
+        ]),
+        (ident: Some("independent_from_system"), default: None, since: None, ty: Bool, docs: [
+            "Whether performance is completely independent of other system activity or not",
+        ]),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "Represents one CAN Bus controller, it\'s PHY and optional termination resistor / mechanical switch or relay.",
+        "Can be part of a group or stand-alone depending on actual SoC/FPGA implementation.",
+    ], crate_idx: 0, trait_name: "CANBusInterface", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: false), multiplicity: Flat, since: None, ident: "tx_buffer", docs: []),
+        (id: 1, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "rx_buffer0", docs: []),
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "rx_buffer1", docs: []),
+        (id: 3, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "rx_dedicated", docs: []),
+        (id: 4, kind: Method(args: [], return_ty: Some(Vec(NumericAny(Base(U16))))), multiplicity: Flat, since: None, ident: "supported_termination_values", docs: [
+            "Returns the list of supported termination values, in Ohms.",
+            "Must return an empty list if fixed value is set in hardware or via mechanical switch.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(Option(some_ty: NumericAny(Base(U16))))), multiplicity: Flat, since: None, ident: "current_termination_value", docs: [
+            "Returns current termination value, if any.",
+            "This method must return Some(value) if it is fixed in hardware or via mechanical switch.",
+        ]),
+        (id: 6, kind: Method(args: [
+            (ident: "resistance", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "set_termination_value", docs: [
+            "Tries to set termination value to the requested one.",
+        ]),
+        (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "Interface capabilities",
+        ]),
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 9)))), multiplicity: Flat, since: None, ident: "performance", docs: [
+            "Interface performance metrics. Can be None if group one is Some - interfaces performance depend on each other, so only",
+            "the combined performance makes sense.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Represents one or more CAN Bus interfaces with one clock and power source and possibly sharing memory",
+        "between interfaces as well. This trait mimics real hardware implementations found on e.g., STM32",
+        "microcontrollers where all instances belong to the same clock and power domain. So it\'s impossible",
+        "to change the clock or put one instance into power down mode without affecting the others.",
+    ], crate_idx: 0, trait_name: "CANBusInterfaceGroup", items: [
+        (id: 0, kind: Trait(trait_idx: 0), multiplicity: Array(index_type_idx: None), since: None, ident: "interface", docs: [
+            "One or more interfaces providing actual frame sending and receiving capabilities as well as termination control.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "disable", docs: [
+            "Disable clock for all interfaces, each interface must already be in [powered down mode](CANMode::PoweredDown),",
+            "otherwise the [error](CANError::NotInPowerDown) is returned. All interfaces will be put into [disabled mode](CANMode::Disabled).",
+        ]),
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "enable", docs: [
+            "Enable a chosen or default clock for all interfaces in a group. Note that it\'s not required to actually use all available interfaces,",
+            "unused ones will stay in [powered down mode](CANMode::PoweredDown) mode.",
+            "All interfaces will be put into [powered down mode](CANMode::PoweredDown).",
+            "[Error](CANError::NotInDisabled) is returned if tried to call this method in incorrect state.",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: Some(Vec(String))), multiplicity: Flat, since: None, ident: "clock_sources", docs: [
+            "Return a list of possible clocks sources. It is up to the implementation to return an empty list",
+            "or a list of length 1 if only 1 clock source is supported.",
+        ]),
+        (id: 4, kind: Method(args: [
+            (ident: "source", ty: String),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "set_clock_source", docs: [
+            "Selects a valid clock source or returns the [error](CANError::UnsupportedClockSource)",
+            "If any instance is not in [powered down mode](CANMode::PoweredDown), returns [error](CANError::NotInPowerDown).",
+            "Implementation must use a default clock source and operate as if this method where called.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11))), multiplicity: Flat, since: None, ident: "valid_clocks", docs: [
+            "Returns possible clock values in u32 Hz (range or list).",
+        ]),
+        (id: 6, kind: Method(args: [
+            (ident: "frequency", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "set_clock", docs: [
+            "Selects a valid clock frequency or returns the [error](CANError::UnsupportedFrequency).",
+            "If any instance is not in [powered down mode](CANMode::PoweredDown), returns [error](CANError::NotInPowerDown).",
+        ]),
+        (id: 7, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 12)))), multiplicity: Flat, since: None, ident: "group_performance", docs: [
+            "Performance metrics for the whole group. Can be None if each interface is independent of others and system, and this",
+            "metric would have been a simple sum.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_can_bus", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+])

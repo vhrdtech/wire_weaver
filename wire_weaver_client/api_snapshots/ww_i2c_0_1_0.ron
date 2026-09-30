@@ -1,0 +1,138 @@
+// ww_i2c 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_i2c", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "I2c", docs: []),
+]), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "I2cCapabilities", fields: Named([
+        (ident: Some("supported_io_levels_mv"), default: None, since: None, ty: Vec(NumericAny(Base(U16))), docs: [
+            "Supported discrete IO levels, e.g. 1V8, 3V3",
+        ]),
+        (ident: Some("supported_io_range_mv_min"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: [
+            "Supported IO levels range, if e.g. adjustable LDO is available",
+        ]),
+        (ident: Some("supported_io_range_mv_max"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: []),
+        (ident: Some("max_write_buffer_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("max_read_buffer_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("min_frequency_hz"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("max_frequency_hz"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("cycle_slots_count"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        (ident: Some("driver_name"), default: None, since: None, ty: String, docs: []),
+        (ident: Some("master_supported"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("slave_supported"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("monitor_supported"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(3), crate_idx: 0, docs: [], ident: "I2cMode", variants: [
+        (docs: [
+            "Disable I2C controller, disconnect it from IO pins and set IOs as high-Z inputs",
+        ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Init I2C controller in master mode with specified frequency, optionally enable monitoring",
+        ], ident: "Master", fields: Named([
+            (ident: Some("speed_hz"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("monitor"), default: None, since: None, ty: Bool, docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Init I2C controller in slave mode with specified address, optionally enable monitoring",
+        ], ident: "Slave", fields: Named([
+            (ident: Some("addr"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("monitor"), default: None, since: None, ty: Bool, docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "Init I2C monitor to spy on the bus traffic without affecting it",
+        ], ident: "MonitorOnly", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "I2cError", variants: [
+        (docs: [
+            "Returned by i2c_configure if mode is not supported",
+        ], ident: "UnsupportedMode", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Returned by i2c_cycle_read if I2C is not a master",
+        ], ident: "WrongMode", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "OutOfCycleSlots", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "InvalidCycleSlot", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "MalformedRequest", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "BufferTooBig", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "UnsupportedIoLevel", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "Bus error",
+        ], ident: "Bus", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "Arbitration lost",
+        ], ident: "Arbitration", fields: Unit, discriminant: 9, since: None),
+        (docs: [
+            "ACK not received (either to the address or to a data byte)",
+        ], ident: "Nack", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "Timeout",
+        ], ident: "Timeout", fields: Unit, discriminant: 11, since: None),
+        (docs: [
+            "CRC error",
+        ], ident: "Crc", fields: Unit, discriminant: 12, since: None),
+        (docs: [
+            "Overrun error",
+        ], ident: "Overrun", fields: Unit, discriminant: 13, since: None),
+        (docs: [
+            "Zero-length transfers are not allowed.",
+        ], ident: "ZeroLengthTransfer", fields: Unit, discriminant: 14, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RawTimestamp", fields: Named([
+        (ident: Some("ticks"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "I2cTransactionTimeRange", fields: Named([
+        (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [], ident: "I2cReadKind", variants: [
+        (docs: [], ident: "Plain", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "RepeatedStart", fields: Named([
+            (ident: Some("write"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "I2cReadEnvelope", fields: Named([
+        (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+        (ident: Some("data"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "I2c", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "i2c_capabilities", docs: [
+            "Query I2C bus capabilities supported by the adapter.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "mode", ty: OutOfLine(type_idx: 1)),
+            (ident: "io_level_mv", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "i2c_configure", docs: [
+            "Configure I2C bus with the specified mode and IO level voltage.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "data", ty: Vec(NumericAny(Base(U8)))),
+            (ident: "delay_after", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "i2c_write", docs: [
+            "Perform I2C write transaction with the specified address and data.",
+            "",
+            "If delay_after is not zero, then following transactions or cycle reads to the same device will wait.",
+            "Transactions to other addresses will be executed, but no look-ahead is performed on the command queue:",
+            "if a transaction to a device with delay set is encountered, then all other transactions will wait and",
+            "only cycle reads will be executed to other non-busy devices in the meantime.",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "kind", ty: OutOfLine(type_idx: 5)),
+            (ident: "len", ty: NumericAny(Base(U16))),
+            (ident: "delay_after", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "i2c_read", docs: [
+            "Perform I2C read or write-read (repeated start) transaction.",
+            "",
+            "If delay_after is not zero, then following transactions or cycle reads to the same device will wait.",
+            "Transactions to other addresses will be executed, but no look-ahead is performed on the command queue:",
+            "if a transaction to a device with delay set is encountered, then all other transactions will wait and",
+            "only cycle reads will be executed to other non-busy devices in the meantime.",
+        ]),
+        (id: 4, kind: Method(args: [], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "i2c_scan", docs: [
+            "Scan for devices on the bus and return address of devices that ACKed 1 byte read transaction.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

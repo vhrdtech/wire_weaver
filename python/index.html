@@ -12,13 +12,13 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/cli/">
+        <link rel="canonical" href="https://ww.vhrd.tech/python/">
       
       
-        <link rel="prev" href="https://github.com/vhrdtech/wire_weaver_template">
+        <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="../python/">
+        <link rel="next" href="../dev_tool/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Command line tool - WireWeaver</title>
+        <title>Python - WireWeaver</title>
       
     
     
@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#command-line-tool" class="md-skip">
+        <a href="#python" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Command line tool
+              Python
             
           </span>
         </div>
@@ -454,7 +454,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="././" class="md-tabs__link">
+        <a href="../cli/" class="md-tabs__link">
           
   
   Dev tools
@@ -1929,6 +1929,33 @@
                   
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
     
   
   
@@ -1948,7 +1975,7 @@
   <span class="md-ellipsis">
     
   
-  Command line tool
+  Python
 
     
   </span>
@@ -1965,7 +1992,7 @@
   <span class="md-ellipsis">
     
   
-  Command line tool
+  Python
 
     
   </span>
@@ -1999,14 +2026,47 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Installation">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interactive-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interactive console
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Using the API
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the API">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#shell-completions" class="md-nav__link">
+  <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Shell completions
+        Errors
       </span>
     </span>
   </a>
@@ -2019,110 +2079,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
+  <a href="#values" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Commands
+        Values
       </span>
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ww-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww list</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-introspect" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww introspect</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww api</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-usb-loopback" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww usb-loopback</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-config" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww config</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#device-selection" class="md-nav__link">
+  <a href="#api-from-source-offline-use" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Device selection
+        API from source, offline use
       </span>
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Device selection">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#project-config-wwtoml" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Project config: <code>ww.toml</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        See also
+        Not supported yet
       </span>
     </span>
   </a>
@@ -2133,33 +2115,6 @@
   
 </nav>
       
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../python/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2249,14 +2204,47 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Installation">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interactive-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interactive console
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Using the API
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the API">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#shell-completions" class="md-nav__link">
+  <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Shell completions
+        Errors
       </span>
     </span>
   </a>
@@ -2269,110 +2257,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
+  <a href="#values" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Commands
+        Values
       </span>
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ww-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww list</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-introspect" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww introspect</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww api</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-usb-loopback" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww usb-loopback</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ww-config" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww config</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#device-selection" class="md-nav__link">
+  <a href="#api-from-source-offline-use" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Device selection
+        API from source, offline use
       </span>
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Device selection">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#project-config-wwtoml" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Project config: <code>ww.toml</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        See also
+        Not supported yet
       </span>
     </span>
   </a>
@@ -2434,7 +2344,7 @@
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../cli/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -2459,365 +2369,236 @@
   
 
 
-<h1 id="command-line-tool">Command line tool<a class="headerlink" href="#command-line-tool" title="Permanent link">&para;</a></h1>
-<p><code>ww</code> is the WireWeaver command line tool. It finds connected devices and lists them with their API, prints a
-device's API as a resource tree using its introspection data (or an API crate's tree, from source), and runs USB
-loopback and speed tests.</p>
+<h1 id="python">Python<a class="headerlink" href="#python" title="Permanent link">&para;</a></h1>
+<p>The <code>wire_weaver</code> Python module talks to any WireWeaver device without generated code. The API tree (traits, methods,
+properties, streams) is built at runtime from the introspection data the device sends, or from the API crate source.
+Values are converted to and from plain Python objects and serialized exactly as the generated Rust clients do it,
+the module is a thin wrapper around the dynamic client in <code>wire_weaver_client</code>.</p>
+<p>It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
+typed Python package wrapping one specific API, see the <code>blinky_py</code> example instead (<a href="../examples/examples/">Examples</a>),
+it wraps the generated Rust client.</p>
+<p>Both transports are built in: <a href="../transport/usb/">USB</a> and <a href="../transport/rtt/">RTT</a> over a debug probe (probe-rs).
+Everything is pure Rust, the wheel needs no system libraries.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<p>Install from git with cargo (the binary ends up in <code>~/.cargo/bin</code>):</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>--git<span class="w"> </span>https://github.com/vhrdtech/wire_weaver<span class="w"> </span>wire_weaver_cli
+<p>The module is built with <a href="https://www.maturin.rs">maturin</a>, from a checkout of the repository (a Rust toolchain is
+needed):</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>wire_weaver_py
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uvx<span class="w"> </span>maturin<span class="w"> </span>build<span class="w"> </span>--release<span class="w">        </span><span class="c1"># wheel in target/wheels/, pip install it anywhere</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uvx<span class="w"> </span>maturin<span class="w"> </span>develop<span class="w"> </span>--release<span class="w">      </span><span class="c1"># or install into the active virtual environment</span>
 </span></code></pre></div>
-<p>Or from a local checkout of the repository:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>--path<span class="w"> </span>wire_weaver_cli
-</span></code></pre></div>
-<p>Re-run the same command with <code>--force</code> to update an existing installation.</p>
-<p>Inside the repository it can also be run without installing, with <code>cargo ww &lt;args&gt;</code> (alias from
-<code>.cargo/config.toml</code>). <code>just install-cli</code> builds the current checkout in release mode and copies the binary into
-<code>~/.local/bin/ww</code>, which is handy when testing changes to the tool itself.</p>
+<p><code>--no-default-features</code> leaves RTT out for a smaller wheel.</p>
 <div class="admonition note">
 <p class="admonition-title">Linux permissions</p>
-<p>Listing devices works without any setup, but opening one (<code>introspect</code>, <code>usb-loopback</code>) needs read/write access
-to <code>/dev/bus/usb/...</code>, usually granted to your user with a udev rule. See <a href="../transport/usb/">USB</a>.</p>
+<p>Listing devices works without any setup, but opening one needs read/write access to <code>/dev/bus/usb/...</code>,
+usually granted to your user with a udev rule. See <a href="../transport/usb/">USB</a>.</p>
 </div>
-<h3 id="shell-completions">Shell completions<a class="headerlink" href="#shell-completions" title="Permanent link">&para;</a></h3>
-<p>Completions are produced by <code>ww</code> itself, so they always match the installed version. Values of the device
-selection flags (<code>--serial</code>, <code>--label</code>, <code>--api</code>, <code>--usb-path</code>, ...) are completed from the devices connected right
-now, with the product and label of each shown as a hint. Register them once in the shell's startup file:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=bash ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.bashrc<span class="w">                  </span><span class="c1"># bash</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=zsh ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.zshrc<span class="w">                    </span><span class="c1"># zsh</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;COMPLETE=fish ww | source&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.config/fish/config.fish<span class="w">  </span><span class="c1"># fish</span>
+<h2 id="interactive-console">Interactive console<a class="headerlink" href="#interactive-console" title="Permanent link">&para;</a></h2>
+<p>From the repository root, <code>just py</code> builds the module into <code>wire_weaver_py/.venv</code> (only when Rust sources changed)
+and opens a Python prompt with <code>ww</code> imported and the device connected as <code>dev</code>, if exactly one is found or a filter
+is given:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>just<span class="w"> </span>py<span class="w">                                        </span><span class="c1"># the only connected USB device</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>just<span class="w"> </span>py<span class="w"> </span>--serial<span class="w"> </span><span class="m">0123</span><span class="w"> </span>--timeout<span class="w"> </span><span class="m">5</span><span class="w">              </span><span class="c1"># pick one: --serial, --label, --vid-pid c0de:cafe</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>just<span class="w"> </span>py<span class="w"> </span>--rtt<span class="w"> </span>STM32G0B1RETx<span class="w"> </span>--elf<span class="w"> </span>fw.elf<span class="w">       </span><span class="c1"># over RTT, the ELF makes attaching fast</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>just<span class="w"> </span>py<span class="w"> </span>--api<span class="w"> </span>examples/blinky_api<span class="w">              </span><span class="c1"># API from source: device without introspection, or offline</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>just<span class="w"> </span>py<span class="w"> </span>--help
 </span></code></pre></div>
-<p>Elvish and PowerShell are supported as well (<code>COMPLETE=elvish</code>, <code>COMPLETE=powershell</code>). In bash, values containing
-spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:</code> complete too (<code>--api blinky_api@&lt;TAB&gt;</code>,
-<code>--vid-pid c0de:&lt;TAB&gt;</code>).</p>
-<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<p>Relative paths are resolved from the directory <code>just</code> was run in.</p>
+<h2 id="connecting">Connecting<a class="headerlink" href="#connecting" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">list_devices</span><span class="p">())</span>                       <span class="c1"># connected USB devices, one line each</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">vid_pid</span><span class="o">=</span><span class="p">(</span><span class="mh">0xc0de</span><span class="p">,</span> <span class="mh">0xcafe</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">info</span>                                       <span class="c1"># API, link and protocol versions reported by the device</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">dev</span>                                            <span class="c1"># resource tree with signatures and docs</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>                               <span class="c1"># or `with ww.connect(...) as dev:`</span>
+</span></code></pre></div>
+<p><code>connect()</code> takes keyword arguments only. A USB device is used unless <code>rtt</code> is given; all given filters must match:</p>
 <table>
 <thead>
 <tr>
-<th>Command</th>
-<th>Needs a device</th>
-<th>What it does</th>
+<th>Argument</th>
+<th>Selects</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="#ww-list"><code>ww list</code></a></td>
-<td>no (not opened)</td>
-<td>Lists connected devices matching the device selection</td>
+<td><code>vid_pid=(vid, pid)</code></td>
+<td>USB vendor and product ID</td>
 </tr>
 <tr>
-<td><a href="#ww-introspect"><code>ww introspect</code></a></td>
-<td>yes</td>
-<td>Prints the device's resource tree from its introspection data</td>
+<td><code>serial</code>, <code>serial_contains</code></td>
+<td>USB serial number</td>
 </tr>
 <tr>
-<td><a href="#ww-api"><code>ww api</code></a></td>
-<td>no</td>
-<td>Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source</td>
+<td><code>user_label</code></td>
+<td>user label reported by the device</td>
 </tr>
 <tr>
-<td><a href="#ww-usb-loopback"><code>ww usb-loopback</code></a></td>
-<td>yes</td>
-<td>Runs USB loopback and throughput tests</td>
+<td><code>product_contains</code>, <code>manufacturer_contains</code></td>
+<td>USB product / manufacturer string</td>
 </tr>
 <tr>
-<td><a href="#ww-config"><code>ww config</code></a></td>
-<td>no</td>
-<td>Shows or saves the device selection in a project <code>ww.toml</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>ww help &lt;command&gt;</code> or <code>ww &lt;command&gt; --help</code> prints all options of a command.</p>
-<h3 id="ww-list"><code>ww list</code><a class="headerlink" href="#ww-list" title="Permanent link">&para;</a></h3>
-<p>Lists devices reporting a WireWeaver API id, without opening them: the information comes from USB string
-descriptors (see <a href="../transport/usb/">USB</a>), so it works even while another application is connected to the device.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ ww list
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>LOCATION             PRODUCT             SERIAL                    API                 HASH              LABEL
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>usb 003-1 c0de:cafe  WireWeaver Generic  09000F000251313438333634  all_gpio_api@0.1.0  5ff989a95162d4d7
-</span></code></pre></div>
-<ul>
-<li><code>LOCATION</code>: transport, bus and port chain, VID:PID. The <code>003-1</code> part is what <code>--usb-path</code> expects.</li>
-<li><code>API</code>: name and version of the API crate the firmware implements, <code>HASH</code>: its signature.</li>
-<li><code>LABEL</code>: user label set by the firmware, if any.</li>
-</ul>
-<p>Only devices matching the <a href="#device-selection">device selection</a> are shown, so <code>ww list</code> is also the way to check
-what a set of filters (or a <code>ww.toml</code>) selects. When some of the filters come from <code>ww.toml</code>, a note saying so is
-printed to stderr.</p>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-a</code>, <code>--all</code></td>
-<td>Also list USB devices not reporting a WireWeaver API id</td>
+<td><code>implements_api=("my_api", "&gt;=0.2")</code></td>
+<td>API crate name and a SemVer requirement</td>
 </tr>
 <tr>
-<td><code>--plain</code></td>
-<td>One device per line with <code>key=value</code> fields, without table formatting</td>
-</tr>
-</tbody>
-</table>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww list --plain
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>usb 003-1 c0de:cafe &quot;Vhrd.Tech&quot; &quot;WireWeaver Generic&quot; serial=09000F000251313438333634 api=all_gpio_api@0.1.0 hash=5ff989a95162d4d7
-</span></code></pre></div>
-<h3 id="ww-introspect"><code>ww introspect</code><a class="headerlink" href="#ww-introspect" title="Permanent link">&para;</a></h3>
-<p>Connects to the selected device, downloads its introspection data (see <a href="../std_library/ww_self/">ww_self</a>) and
-prints the API as a resource tree: resource ids, methods with their signatures, properties with their access mode,
-streams and sinks, nested traits, arrays of resources and doc comments. A summary follows: resource, trait and type
-counts, size of the full API bundle and of the introspection data the device sent, referenced crates and the API
-hash. Traits and types a device leaves out of its introspection data because they are known from
-<a href="#ww-api">snapshots</a> are put back first, any that could not be put back are counted as not included.</p>
-<p>The tree looks the same as the one printed by <a href="#ww-api"><code>ww api tree</code></a> from source. Here with docs hidden:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$ ww introspect -d
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>trait AllGpioApi all_gpio_api@0.1.0
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>└─ 0 impl port[]: ww_gpio::Bank
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>   ├─ 0 impl pin[]: ww_gpio::Pin
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>   │  ├─ 0 fn set_output_level(level: Level)
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>   │  ├─ 1 fn toggle()
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>   │  ├─ 2 fn output_level() -&gt; Level
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>   │  ├─ 3 fn input_level() -&gt; Level
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>   │  ├─ 7 stream event: IoPinEvent
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>   │  ├─ 8 fn set_mode(mode: Mode, initial: Option&lt;Level&gt;) -&gt; Result&lt;(), Error&gt;
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>   │  ├─ 9 fn mode() -&gt; Mode
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>   │  ├─ 10 rw property pull: Pull, write error: Error
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>   │  ├─ 11 rw property speed: Speed, write error: Error
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>   │  └─ 12 fn configure_events(enabled: IoPinEnabledEvents) -&gt; Result&lt;(), Error&gt;
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>   ├─ 8 fn capabilities() -&gt; BankCapabilities
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>   ├─ 9 rw property reference_voltage: Volt, write error: Error
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>   └─ 10 fn name() -&gt; String
-</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>15 resources, 2 traits, 11 types, 4362 bytes full, 72 bytes sent
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>crates: all_gpio_api@0.1.0, ww_gpio@0.1.0, ww_si@0.1.0, ww_numeric@0.2.0
-</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>api hash: 6e87e4113afd0168
-</span></code></pre></div>
-<p><code>impl name[]: crate::Trait</code> is a nested trait (<code>[]</code> marking an array of them), properties show their access
-(<code>const</code>, <code>ro</code>, <code>rw</code>, <code>wo</code>) and whether they are observable, <code>stream</code> is device-to-host and <code>sink</code> host-to-device.</p>
-<p>With <code>-t</code>, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
-fields, enums with their variants and discriminants, and each type's size kind (<code>unsized</code>, <code>final structure</code>,
-<code>self-describing</code>, <code>sized</code>) and enum repr:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww introspect -d -t
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>...
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>types
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>├─ 0 enum ww_gpio::Level sized, repr u1
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│  ├─ 0 Low
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│  └─ 1 High
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>├─ 1 enum ww_gpio::IoPinEvent sized, repr u2
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>│  ├─ 0 RisingEdge
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>│  ├─ 1 FallingEdge
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>│  └─ 2 Custom(u8)
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>...
-</span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-d</code>, <code>--skip-docs</code></td>
-<td>Do not print doc comments</td>
+<td><code>rtt="STM32G0B1RETx"</code></td>
+<td>RTT over a debug probe, probe-rs chip name</td>
 </tr>
 <tr>
-<td><code>-t</code>, <code>--types</code></td>
-<td>Also print all types the API refers to</td>
+<td><code>rtt_elf="fw.elf"</code>, <code>rtt_speed_hz</code></td>
+<td>firmware ELF to take the RTT control block address from, probe speed</td>
 </tr>
 <tr>
-<td><code>--raw</code></td>
-<td>Print raw introspection data (Rust debug format) instead of the tree</td>
+<td><code>timeout</code></td>
+<td>default request timeout in seconds</td>
 </tr>
 <tr>
-<td><code>--raw-as-sent</code></td>
-<td>Same as <code>--raw</code>, but as the device sent it: traits and types known from snapshots are left out</td>
-</tr>
-</tbody>
-</table>
-<p>Fails with an error if the device did not provide introspection data.</p>
-<h3 id="ww-api"><code>ww api</code><a class="headerlink" href="#ww-api" title="Permanent link">&para;</a></h3>
-<p>Works on API crate sources instead of a device: the crate is parsed the same way <code>ww_codegen!</code> does it, so no
-device and no build are needed.</p>
-<p><code>ww api tree &lt;path&gt;</code> prints the same resource tree as <code>ww introspect</code>, for the <code>#[ww_trait]</code> defined in the crate
-at <code>&lt;path&gt;</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ ww api tree examples/blinky_api
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>trait BlinkyApi blinky_api@0.1.0
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├─ 0 fn led_on()
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>└─ 1 fn led_off()
-</span></code></pre></div>
-<p><code>ww api ast &lt;path&gt;</code> prints the parsed API bundle in <a href="https://github.com/ron-rs/ron">RON</a> format, useful when
-debugging codegen or introspection.</p>
-<p>Both take <code>--name &lt;Trait&gt;</code> to pick the trait when the crate defines more than one, and <code>tree</code> also takes
-<code>-d</code>/<code>--skip-docs</code> and <code>-t</code>/<code>--types</code>.</p>
-<p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait and every <code>#[derive_shrink_wrap]</code> type
-defined in the crate's <code>src/lib.rs</code> (or re-exported from one of its modules with <code>pub use</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
-<code>ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron</code>. Commit the snapshot and never change it afterward.
-It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
-definitions from this crate are included, and traits and types from other crates are only referenced by crate
-version, name and signature. Save a snapshot of each of those crates too.</p>
-<p>A signature is a hash of the full definition with docs, including everything it refers to, calculated as if nothing
-was skipped (<code>ww_self::signature</code>). A definition restored from another crate's snapshot can then be checked to be
-exactly the one that was left out, which catches a crate changed without bumping its version. The client does the same
-when it compares its API with a device's: a skipped trait or type with the same crate version but a different
-signature makes the resources using it incompatible.</p>
-<p>Snapshots of <code>ww_global</code> and the <code>ww_stdlib</code> crates are embedded into the <code>wire_weaver_snapshots</code> crate, used by
-codegen and by <code>wire_weaver_client</code> (and so by <code>ww</code>). A device leaves traits and types known from them out of its
-introspection data, referring to them by crate version, name and signature, which makes it much smaller (e.g.
-<code>examples/all_gpio_api</code> goes from 4363 to 72 bytes). A definition is only left out if it is exactly the one in the
-snapshot, e.g. an unpublished crate version that changed after its snapshot was saved stays in-line. The API hash is
-calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
-definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer <code>ww_stdlib</code> crate) stays skipped, and resources using it
-are only checked by crate version and signature. In this repo, <code>just save-snapshots</code> saves the snapshots and copies
-them into <code>wire_weaver_snapshots/api_snapshots/</code>; a <code>wire_weaver_core</code> test fails if any of them is out of date.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ ww api save ww_stdlib/ww_uart
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
-</span></code></pre></div>
-<p>Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
-bump the crate version (see <a href="../evolution/rules/#doc-comments">evolution rules</a>, doc-only changes bump the compatible
-position, so that tools can tell that improved docs are available) and save a new snapshot. <code>--force</code> overwrites anyway, only use it for a
-version that was never published. A snapshot of a new version is only saved if the version is bumped enough since the
-previous snapshot, see below.</p>
-<p><code>ww api check &lt;path&gt;</code> is the <a href="../evolution/checker_tool/">evolution checker</a>: it compares the crate with its latest
-snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
-compatible position for anything else, doc comments included). <code>ww api diff &lt;path&gt;</code> compares the same versions and
-lists every change, doc comments included, see <a href="../evolution/checker_tool/#listing-all-changes">listing all changes</a>.</p>
-<p>Current limitations, same as for codegen: traits are only found in <code>src/lib.rs</code>, a dependency reached through another
-crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
-workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
-<h3 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h3>
-<p>Checks the USB link to the selected device: runs a loopback test (packets sent to the device and back, verifying
-nothing was lost or corrupted), then one-way transmit and receive speed tests, with a progress bar for each.</p>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--duration-sec &lt;N&gt;</code></td>
-<td><code>10</code></td>
-<td>How long to run each test</td>
-</tr>
-<tr>
-<td><code>--packet-size &lt;N&gt;</code></td>
-<td><code>max</code></td>
-<td>Size of each test packet, capped to the max USB packet size</td>
-</tr>
-</tbody>
-</table>
-<p>Lost or corrupted packets usually point at the hardware rather than the software: a bad cable, a malfunctioning
-hub, a powered hub used without power, or power problems on an externally powered device.</p>
-<h3 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h3>
-<p>Manages the <a href="#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
-</span></code></pre></div>
-<p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
-directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command
-line are saved, never environment variables, so a <code>WW_*</code> variable exported in a shell profile does not end up in
-project files.</p>
-<h2 id="device-selection">Device selection<a class="headerlink" href="#device-selection" title="Permanent link">&para;</a></h2>
-<p>Commands working with a device (<code>introspect</code>, <code>usb-loopback</code>) connect to the only device matching the selection,
-and <code>ww list</code> shows all the devices it matches. With no selection, the only connected device reporting a WireWeaver
-API id is used; if several match, they are all printed and nothing is opened, run <code>ww list</code> to see them and narrow
-the selection.</p>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Env variable</th>
-<th><code>ww.toml</code> key</th>
-<th>Matches</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-s, --serial</code></td>
-<td><code>WW_SERIAL</code></td>
-<td><code>serial</code></td>
-<td>Serial number containing the value</td>
-</tr>
-<tr>
-<td><code>-l, --label</code></td>
-<td><code>WW_LABEL</code></td>
-<td><code>label</code></td>
-<td>User label, whole</td>
-</tr>
-<tr>
-<td><code>-p, --product</code></td>
-<td><code>WW_PRODUCT</code></td>
-<td><code>product</code></td>
-<td>Product description containing the value</td>
-</tr>
-<tr>
-<td><code>--manufacturer</code></td>
-<td><code>WW_MANUFACTURER</code></td>
-<td><code>manufacturer</code></td>
-<td>Manufacturer containing the value</td>
-</tr>
-<tr>
-<td><code>--api</code></td>
-<td><code>WW_API</code></td>
 <td><code>api</code></td>
-<td>Implemented API: <code>name[@req]</code>, e.g. <code>blinky_api@^0.1</code></td>
-</tr>
-<tr>
-<td><code>--vid-pid</code></td>
-<td><code>WW_VID_PID</code></td>
-<td><code>vid_pid</code></td>
-<td>USB VID:PID in hex, e.g. <code>c0de:cafe</code></td>
-</tr>
-<tr>
-<td><code>--usb-path</code></td>
-<td><code>WW_USB_PATH</code></td>
-<td><code>usb_path</code></td>
-<td>USB bus and port chain as shown by <code>ww list</code>, e.g. <code>003-1.2</code></td>
-</tr>
-<tr>
-<td><code>--timeout-ms</code></td>
-<td><code>WW_TIMEOUT_MS</code></td>
-<td><code>timeout_ms</code></td>
-<td>Request timeout in milliseconds, not a filter</td>
+<td>API from <code>load_api()</code>, for a device with introspection disabled</td>
 </tr>
 </tbody>
 </table>
-<ul>
-<li>All text matching ignores case.</li>
-<li>The version requirement in <code>--api</code> uses Cargo's <a href="https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#version-requirement-syntax">SemVer syntax</a>;
-  without it, any version matches.</li>
-<li><code>--usb-path</code> pins a physical port, so it keeps selecting the same device across re-enumeration, and tells apart
-  identical devices without serial numbers.</li>
-<li>The flags are global: they can be given before or after the subcommand (<code>ww --serial 2100 list</code> and
-  <code>ww list --serial 2100</code> are the same).</li>
-</ul>
-<p>Settings of different kinds are combined, so for example <code>api</code> from <code>ww.toml</code> and <code>--serial</code> on the command line
-narrow the selection together. Each setting is taken from the first place that has it:
-<strong>command line flag &gt; environment variable &gt; <code>ww.toml</code></strong>.</p>
-<h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
-<p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
-from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">[device]</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<p>The introspection data is cached in <code>~/.wire_weaver/</code>, so reconnecting to a device with the same API is quick.
+Without <code>rtt_elf</code>, RTT attaching scans the target RAM for the control block, see <a href="../transport/rtt/#host-side">RTT</a>.</p>
+<h2 id="using-the-api">Using the API<a class="headerlink" href="#using-the-api" title="Permanent link">&para;</a></h2>
+<p>Resources are attributes, their <code>repr()</code> shows the tree with signatures and the first doc line, and <code>dir()</code> lists
+them for tab completion. For the <code>Dynamic</code> trait from <code>tests/dynamic_api</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">dev</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">Dynamic</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  <span class="n">no_args</span><span class="p">()</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  <span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">u32</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">i16</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">i64</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  <span class="n">echo</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Everything</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Everything</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  <span class="n">check</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Option</span><span class="o">&lt;</span><span class="n">u8</span><span class="o">&gt;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="n">u8</span><span class="p">,</span> <span class="n">CheckError</span><span class="o">&gt;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  <span class="n">rw</span> <span class="n">speed</span><span class="p">:</span> <span class="n">u16</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  <span class="n">rw</span> <span class="n">everything</span><span class="p">:</span> <span class="n">Everything</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>  <span class="n">rw</span> <span class="n">flagged</span><span class="p">:</span> <span class="n">Flagged</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>  <span class="n">channel</span><span class="p">[]:</span> <span class="n">Channel</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">channel</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">Channel</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>  <span class="n">rw</span> <span class="n">gain</span><span class="p">:</span> <span class="n">f32</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>  <span class="nb">id</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">u32</span>
 </span></code></pre></div>
-<p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
-whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are
-reported as errors rather than ignored. <code>ww config show</code> prints the config file in use, then every setting with its
-resolved value and where it came from (flag, env variable or file), so it answers "why is this device (not)
-selected".</p>
-<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dev</span><span class="o">.</span><span class="n">no_args</span><span class="p">()</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">dev</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>                      <span class="c1"># positional or keyword arguments</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>                  <span class="c1"># properties</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">dev</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>              <span class="c1"># timeout overrides the default for one request</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">valid_indices</span><span class="p">()</span>            <span class="c1"># arrays: indices the device accepts, e.g. [0, 1, 2]</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">gain</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">samples</span> <span class="k">as</span> <span class="n">samples</span><span class="p">:</span>           <span class="c1"># stream from the device: open(), iterate or recv(), close()</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="o">...</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">dev</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>            <span class="c1"># after open(): next item, TimeoutError if none</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">dev</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">try_recv</span><span class="p">()</span>                 <span class="c1"># next item if one is already received, None otherwise</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">commands</span> <span class="k">as</span> <span class="n">sink</span><span class="p">:</span>             <span class="c1"># stream to the device (sink): open(), send(), close()</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;Move&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}})</span>
+</span></code></pre></div>
+<p>Every resource also has <code>doc</code> (its doc comment), <code>path</code> (e.g. <code>channel[2].gain</code>) and, except traits, <code>signature</code>.
+Use <code>dev["name"]</code> for a resource named like one of the <code>Device</code> attributes (<code>api</code>, <code>info</code>, <code>disconnect</code>).</p>
+<p>Blocking calls release the GIL, and waiting on a stream can be interrupted with Ctrl+C.</p>
+<h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <ul>
-<li><a href="../transport/usb/">USB</a>: how devices report their API id and user label, and how the host finds them</li>
-<li><a href="../std_library/ww_self/">ww_self</a>: introspection data format</li>
+<li>A method returning <code>Result&lt;T, E&gt;</code> returns <code>T</code>, or raises <code>ww.RemoteError</code> with <code>E</code> in its <code>value</code> attribute.</li>
+<li>A request without a reply raises <code>TimeoutError</code>.</li>
+<li>Connection, protocol and device errors raise <code>ww.WireWeaverError</code> (<code>RemoteError</code> is a subclass of it).</li>
+<li>Values that don't fit the API types raise <code>TypeError</code> or <code>ValueError</code> before anything is sent, e.g.
+  <code>add() argument 'a': -1 is out of range for u32</code>.</li>
+</ul>
+<h2 id="values">Values<a class="headerlink" href="#values" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>WireWeaver</th>
+<th>Python</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bool</code></td>
+<td><code>bool</code></td>
+</tr>
+<tr>
+<td>integers, <code>UNib32</code>, <code>u4</code>, <code>nib</code></td>
+<td><code>int</code> (range is checked)</td>
+</tr>
+<tr>
+<td><code>f32</code>, <code>f64</code></td>
+<td><code>float</code> (<code>int</code> accepted)</td>
+</tr>
+<tr>
+<td><code>String</code>, <code>&amp;str</code></td>
+<td><code>str</code></td>
+</tr>
+<tr>
+<td><code>Vec&lt;u8&gt;</code>, <code>[u8; N]</code></td>
+<td><code>bytes</code> (<code>bytearray</code> or a list of ints accepted)</td>
+</tr>
+<tr>
+<td><code>Vec&lt;T&gt;</code>, <code>[T; N]</code></td>
+<td><code>list</code> (any iterable accepted)</td>
+</tr>
+<tr>
+<td>tuple</td>
+<td><code>tuple</code></td>
+</tr>
+<tr>
+<td>struct with named fields</td>
+<td><code>dict</code> (dataclass, namedtuple or an object with attributes accepted)</td>
+</tr>
+<tr>
+<td>tuple struct</td>
+<td><code>tuple</code>, a single field one is its value</td>
+</tr>
+<tr>
+<td>enum unit variant</td>
+<td><code>"Variant"</code></td>
+</tr>
+<tr>
+<td>enum variant with fields</td>
+<td><code>{"Variant": fields}</code>, fields as for a struct</td>
+</tr>
+<tr>
+<td><code>Option&lt;T&gt;</code></td>
+<td><code>None</code> or <code>T</code>, a missing <code>Option</code> field is <code>None</code></td>
+</tr>
+<tr>
+<td><code>Result&lt;T, E&gt;</code></td>
+<td><code>{"Ok": T}</code> or <code>{"Err": E}</code></td>
+</tr>
+<tr>
+<td><code>Range</code>, <code>RangeInclusive</code></td>
+<td><code>(start, end)</code> (<code>range</code> with step 1 accepted)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="api-from-source-offline-use">API from source, offline use<a class="headerlink" href="#api-from-source-offline-use" title="Permanent link">&para;</a></h2>
+<p>A device with introspection disabled needs its API from the crate source:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;path/to/my_api&quot;</span><span class="p">,</span> <span class="s2">&quot;MyApi&quot;</span><span class="p">)</span>   <span class="c1"># trait name is needed if the crate has several</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>load_api()</code> alone works without a device: browse the API the same way, and serialize values to see what goes over
+the wire, or decode captured bytes:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;tests/dynamic_api&quot;</span><span class="p">,</span> <span class="s2">&quot;Dynamic&quot;</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">encode_args</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s1">&#39;28000000feff&#39;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xdc\x05</span><span class="s1">&#39;</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xdc\x05</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="mi">1500</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">check</span><span class="o">.</span><span class="n">decode_return</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00\x00\x01</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">{</span><span class="s1">&#39;Err&#39;</span><span class="p">:</span> <span class="s1">&#39;TooBig&#39;</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Methods have <code>encode_args()</code> / <code>decode_return()</code>, properties <code>encode()</code> / <code>decode()</code>, streams <code>decode()</code> and sinks
+<code>encode()</code>. Calling a
+resource of an offline API raises <code>WireWeaverError</code>.</p>
+<h2 id="not-supported-yet">Not supported yet<a class="headerlink" href="#not-supported-yet" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>f16</code>, <code>UN</code>/<code>IN</code> and LEB128 numbers.</li>
+<li>Typed (non-integer) array indices, property write errors (not decoded, same as generated clients), property
+  observation.</li>
+<li>asyncio: calls block the calling thread (with the GIL released).</li>
 </ul>
 
 
@@ -2858,7 +2639,7 @@ selected".</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-footer__link md-footer__link--prev" aria-label="Previous: wire_weaver_template repo">
+          <a href="../cli/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Command line tool">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2868,20 +2649,20 @@ selected".</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                wire_weaver_template repo
+                Command line tool
               </div>
             </div>
           </a>
         
         
           
-          <a href="../python/" class="md-footer__link md-footer__link--next" aria-label="Next: Python">
+          <a href="../dev_tool/" class="md-footer__link md-footer__link--next" aria-label="Next: Dev GUI tool">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Python
+                Dev GUI tool
               </div>
             </div>
             <div class="md-footer__button md-icon">

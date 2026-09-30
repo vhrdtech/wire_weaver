@@ -1,11 +1,46 @@
+use crate::api_tree;
+use anyhow::{Result, anyhow};
+use clap::Args;
+use console::style;
+use shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver_client::DynClient;
 
-pub(crate) async fn introspect(device: &DynClient) -> Result<(), anyhow::Error> {
-    let Some(introspect_bundle) = device.device_introspect() else {
+#[derive(Args)]
+pub(crate) struct IntrospectArgs {
+    /// Print raw introspection data (Rust debug format) instead of the resource tree
+    #[arg(long)]
+    raw: bool,
+
+    /// Do not print documentation for each resource
+    #[arg(short('d'), long)]
+    skip_docs: bool,
+}
+
+pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Result<()> {
+    let introspect = device
+        .device_introspect()
+        .ok_or_else(|| anyhow!("device did not provide introspection data"))?;
+    let bundle = &introspect.api_bundle;
+    if args.raw {
+        println!("{bundle:#?}");
         return Ok(());
-    };
-    // TODO: print AST more nicely, like api tree
-    // TODO: print size in bytes and what crates where omitted and how much that saved
-    println!("{:#?}", introspect_bundle);
+    }
+
+    print!("{}", api_tree::render(bundle, args.skip_docs));
+    println!();
+    let size = bundle.to_ww_bytes_owned()?.len();
+    println!("{}, {size} bytes", api_tree::summary(bundle));
+    let crates = bundle
+        .ext_crates
+        .iter()
+        .map(|v| format!("{v:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("{} {crates}", style("crates:").dim());
+    println!(
+        "{} {}",
+        style("api hash:").dim(),
+        introspect.api_hash.no_docs.to_string()
+    );
     Ok(())
 }

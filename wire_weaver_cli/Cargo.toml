@@ -14,6 +14,7 @@ indicatif = "0.18"
 proc-macro2.workspace = true
 ron = "0.12"
 semver.workspace = true
+shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
 toml = "1"
 toml_edit = "0.25"

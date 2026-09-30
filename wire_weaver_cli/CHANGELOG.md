@@ -13,6 +13,14 @@
 - `ww config show` prints the resolved device selection and where each setting comes from, `ww config save` writes
   the selection flags given on the command line into ww.toml (keeping comments), `ww config unset <keys>` removes
   them.
+- `ww introspect` prints the device's resource tree (ids, methods with signatures, properties with access, streams,
+  sinks, nested traits and arrays of resources, docs) followed by a summary: resource/trait/type counts, traits and
+  types left out of the bundle, introspection data size in bytes, referenced crates and API hash. `--raw` prints the
+  previous debug dump instead, `-d`/`--skip-docs` hides docs. It now fails with an error when the device provided no
+  introspection data, instead of printing nothing. Only warnings and errors are logged, so connection progress
+  messages no longer surround the output.
+- `ww api tree <path>` works again, printing the same tree for an API crate from source (`--name` to pick the trait,
+  `-d`/`--skip-docs`). The `--skip-reserved` flag is removed: reserved items are no longer part of the API model.
 
 ### 🐛 Fixes
 

@@ -1,5 +1,4 @@
 // mod server_methods;
-// mod tree_printer;
 
 mod ast;
 
@@ -18,10 +17,6 @@ pub enum ApiCommand {
         /// Optional trait name if more than one is present
         #[arg(long)]
         name: Option<String>,
-
-        /// Skip reserved resources
-        #[arg(short('r'), long)]
-        skip_reserved: bool,
 
         /// Do not print documentation for each resource
         #[arg(short('d'), long)]
@@ -47,16 +42,17 @@ pub enum ApiCommand {
 }
 pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
     match cmd {
-        // ApiCommand::Tree {
-        //     path,
-        //     name,
-        //     skip_reserved,
-        //     skip_docs,
-        // } => tree_printer::tree_printer(path, name, skip_reserved, skip_docs),
-        // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),
-        ApiCommand::Tree { .. } | ApiCommand::ServerMethods { .. } => {
-            Err(anyhow!("Not implemented yet"))
+        ApiCommand::Tree {
+            path,
+            name,
+            skip_docs,
+        } => {
+            let bundle = wire_weaver_core::load(&path, name, false)?;
+            print!("{}", crate::api_tree::render(&bundle, skip_docs));
+            Ok(())
         }
+        // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),
+        ApiCommand::ServerMethods { .. } => Err(anyhow!("Not implemented yet")),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
 }

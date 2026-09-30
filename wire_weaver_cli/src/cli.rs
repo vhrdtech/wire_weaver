@@ -1,5 +1,6 @@
 use crate::cmd::api::ApiCommand;
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::device::DeviceArgs;
 use clap::{Parser, Subcommand};
@@ -42,8 +43,8 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Api(ApiCommand),
 
-    /// Print API introspection data of the selected device
-    Introspect,
+    /// Print the resource tree of the selected device's API, using its introspection data
+    Introspect(IntrospectArgs),
 
     /// Show or save device selection in a project ww.toml
     #[command(subcommand)]
@@ -68,7 +69,7 @@ impl Cli {
             Commands::List(_) => false,
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
-            Commands::Introspect => true,
+            Commands::Introspect(_) => true,
             Commands::Config(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,

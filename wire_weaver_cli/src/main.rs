@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches};
 use wire_weaver_client::DynClient;
 
+mod api_tree;
 mod cli;
 pub(crate) mod cmd;
 mod device;
@@ -12,9 +13,14 @@ mod util;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
     let matches = Cli::command().get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    // keep connection progress logs out of the printed tree
+    let max_level = match cli.command {
+        Commands::Introspect(_) => tracing::Level::WARN,
+        _ => tracing::Level::INFO,
+    };
+    tracing_subscriber::fmt().with_max_level(max_level).init();
     let selection = match &cli.command {
         Commands::List(_) | Commands::Config(_) => Some(Selection::resolve(
             &matches,
@@ -47,7 +53,9 @@ async fn main() -> Result<()> {
                 .await?
         }
         Commands::Api(api_cmd) => cmd::api::api(api_cmd)?,
-        Commands::Introspect => cmd::introspect::introspect(device.as_mut().unwrap()).await?,
+        Commands::Introspect(args) => {
+            cmd::introspect::introspect(args, device.as_mut().unwrap()).await?
+        }
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
         }

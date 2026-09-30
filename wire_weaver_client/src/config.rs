@@ -334,6 +334,16 @@ impl ClientConfig {
         c
     }
 
+    /// API crate name and version this client was generated from, sent to the device during link setup.
+    /// A device implementing an incompatible version refuses the connection.
+    /// Generated clients set it automatically, if not set, the client is treated as dynamic
+    /// (working with the API via introspection) and no version check is performed.
+    pub fn client_version(self, version: FullVersionOwned) -> Self {
+        let mut c = self;
+        c.client_version = Some(Box::new(version));
+        c
+    }
+
     pub fn default_timeout(self, timeout: Duration) -> Self {
         let mut c = self;
         c.default_timeout = Some(timeout);

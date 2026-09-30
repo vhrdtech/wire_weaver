@@ -1,3 +1,10 @@
+## Unreleased
+
+### 🐛 Fixes
+
+- Generated std client sets `client_version` to the API crate's `<TRAIT>_FULL_GID`, so the host and device check
+  version compatibility during link setup instead of treating the client as dynamic.
+
 ## 0.4.0 - 07 Jan 2026
 
 ### 🚀 Features

@@ -624,18 +624,29 @@ fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
         no_docs_hash,
         with_docs_hash,
     } = introspect_prepare(api_bundle, true);
+    // API crate name and version, same constant the device reports, checked for compatibility during link setup
+    let root = &api_bundle.root;
+    let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());
+    let full_gid = Ident::new(
+        format!("{}_FULL_GID", root.trait_name)
+            .to_case(Case::Constant)
+            .as_str(),
+        Span::call_site(),
+    );
     quote! {
         pub fn new() -> wire_weaver_client::PreparedConnection<Self> {
-            let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned());
-            wire_weaver_client::PreparedConnection::new(config)
+            wire_weaver_client::PreparedConnection::new(Self::generated_config())
         }
 
         pub fn config<C: Fn(wire_weaver_client::ClientConfig) -> wire_weaver_client::ClientConfig>(c: C) -> wire_weaver_client::PreparedConnection<Self> {
-            let config = <Self as wire_weaver_client::WwClient>::default_config();
-            let config = config.introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned());
-            let config = c(config);
+            let config = c(Self::generated_config());
             wire_weaver_client::PreparedConnection::new(config)
+        }
+
+        fn generated_config() -> wire_weaver_client::ClientConfig {
+            <Self as wire_weaver_client::WwClient>::default_config()
+                .introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned())
+                .client_version(#crate_name::#full_gid.make_owned())
         }
 
         fn introspect_bytes() -> &'static [u8] {

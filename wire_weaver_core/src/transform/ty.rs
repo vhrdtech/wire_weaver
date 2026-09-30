@@ -120,13 +120,13 @@ pub(crate) fn convert_ty_path_segment(
                 match item {
                     Item::Enum(item_enum) if item_enum.ident == user_ty => {
                         let key = enter_type(current_crate, scratch, &ty_name)?;
-                        let ty = convert_item_enum(current_crate, scratch, ty_name, &item_enum);
+                        let ty = convert_item_enum(current_crate, scratch, ty_name, item_enum);
                         scratch.types_in_progress.retain(|k| k != &key);
                         return ty;
                     }
                     Item::Struct(item_struct) if item_struct.ident == user_ty => {
                         let key = enter_type(current_crate, scratch, &ty_name)?;
-                        let ty = convert_item_struct(current_crate, scratch, ty_name, &item_struct);
+                        let ty = convert_item_struct(current_crate, scratch, ty_name, item_struct);
                         scratch.types_in_progress.retain(|k| k != &key);
                         return ty;
                     }
@@ -135,7 +135,7 @@ pub(crate) fn convert_ty_path_segment(
                             continue;
                         };
                         let dependent_crate = current_crate.resolve_path(path, scratch)?;
-                        let ty: Type = parse_str(&format!("{user_ty}"))?;
+                        let ty: Type = parse_str(user_ty)?;
                         return convert_ty(&ty, &dependent_crate, scratch);
                     }
                     _ => {}
@@ -166,14 +166,11 @@ fn enter_type(
 fn convert_ub_ib(user_ty: &str) -> Option<TypeOwned> {
     // u1, u2, .., u64, i2, i3, .., i64
     let user_ty = user_ty.to_lowercase();
-    let Some(xn) = user_ty
+    let xn = user_ty
         .strip_prefix("ub")
         .or_else(|| user_ty.strip_prefix("u"))
         .or_else(|| user_ty.strip_prefix("ib"))
-        .or_else(|| user_ty.strip_prefix("i"))
-    else {
-        return None;
-    };
+        .or_else(|| user_ty.strip_prefix("i"))?;
     let bits: Result<u8, _> = xn.parse();
     if let Ok(bits) = bits
         && user_ty.starts_with('u')

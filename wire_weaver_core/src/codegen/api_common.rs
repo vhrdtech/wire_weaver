@@ -23,7 +23,7 @@ pub fn args_structs(
             });
 
             let ident = Ident::new(
-                format!("{}_args", &item.ident)
+                format!("{}_args", item.ident)
                     .to_case(convert_case::Case::Pascal)
                     .as_str(),
                 Span::call_site(),

@@ -99,7 +99,7 @@ fn generate_inner(
                 let seed = generate_borrowed.as_ref().or(generate_owned.as_ref());
                 if let Some(seed) = seed {
                     let mut discriminants = ww_item_enum.clone();
-                    discriminants.to_discriminants();
+                    discriminants.make_discriminants();
                     let discriminants_ident = format_ident!("{}Discriminants", seed.ident);
                     let mut cg_discriminants =
                         seed.cg_enum_with_ident(&discriminants_ident, &discriminants, repr);
@@ -202,6 +202,7 @@ struct CGSeed {
 }
 
 impl CGSeed {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         ident: Ident,
         cfg: Option<TokenStream>,

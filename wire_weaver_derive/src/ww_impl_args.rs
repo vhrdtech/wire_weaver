@@ -60,10 +60,7 @@ impl Parse for ImplExtArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let ts: proc_macro2::TokenStream = input.parse()?;
         let attr_args = NestedMeta::parse_meta_list(ts)?;
-        let ext_args = match ImplExtArgs::from_list(&attr_args) {
-            Ok(v) => v,
-            Err(e) => return Err(e.into()),
-        };
+        let ext_args = ImplExtArgs::from_list(&attr_args)?;
         Ok(ext_args)
     }
 }

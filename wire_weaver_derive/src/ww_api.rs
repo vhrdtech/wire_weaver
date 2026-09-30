@@ -50,7 +50,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     // emit marker with correct spans to help IDEs navigate back to the source
     let dep_name = args.dep_name;
     let full_gid_const = Ident::new(
-        format!("{}_FULL_GID", args.trait_name.to_string())
+        format!("{}_FULL_GID", args.trait_name)
             .to_case(convert_case::Case::Constant)
             .as_str(),
         args.trait_name.span(),

@@ -9,7 +9,7 @@ use ww_version::FullVersionOwned;
 use crate::{
     device_info::ConnectionInfo,
     event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender},
-    tracing::tracing::TraceEvent,
+    tracing::TraceEvent,
 };
 
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).

@@ -117,7 +117,7 @@ impl ValueOwned {
 fn read(rd: &mut BufReader, ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<ValueOwned> {
     if ty.is_unsized(api_bundle)? {
         let len = rd.read_rev_len()?;
-        let mut rd = rd.split(len as usize)?;
+        let mut rd = rd.split(len)?;
         from_shrink_wrap_inner(&mut rd, ty, api_bundle)
     } else {
         from_shrink_wrap_inner(rd, ty, api_bundle)

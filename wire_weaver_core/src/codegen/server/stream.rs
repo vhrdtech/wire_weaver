@@ -11,7 +11,6 @@ pub(crate) fn stream_ser_methods_recursive(
     bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &str,
     no_alloc: bool,
     is_root: bool,
 ) -> TokenStream {
@@ -39,7 +38,6 @@ pub(crate) fn stream_ser_methods_recursive(
                 bundle,
                 child_level,
                 index_chain,
-                crate_name,
                 no_alloc,
                 false,
             ));

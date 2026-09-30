@@ -35,7 +35,7 @@ impl TxState {
     }
 }
 
-impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> Tx<'i, H, C, T>
+impl<'i, H: Head, C: Checksum, T: Tail> Tx<'i, H, C, T>
 where
     H::UserKind: Copy,
 {

@@ -183,7 +183,7 @@ impl ClientConfig {
             None
         };
         let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
-        if cmd_queue_size < 1 || cmd_queue_size > 65_534 {
+        if !(1..=65_534).contains(&cmd_queue_size) {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
         }
         // connecting as dynamic client (introspect device) if no client version specified
@@ -458,7 +458,9 @@ impl ValidatedConfig {
             .iter()
             .filter_map(|p| {
                 Some(match p {
-                    ConfigPiece::UsbVidPid { vid, pid } => format!("USB VID:PID = {vid:04x}:{pid:04x}"),
+                    ConfigPiece::UsbVidPid { vid, pid } => {
+                        format!("USB VID:PID = {vid:04x}:{pid:04x}")
+                    }
                     ConfigPiece::UsbPath { bus_id, port_chain } => {
                         let ports: Vec<String> = port_chain.iter().map(|p| p.to_string()).collect();
                         format!("USB location = {bus_id}-{}", ports.join("."))
@@ -590,7 +592,7 @@ mod tests {
     #[test]
     fn usb() {
         let f = ClientConfig::new().validate().unwrap();
-        assert_eq!(f.is_usb(), false); // unless opted-in, interface is not considered
+        assert!(!f.is_usb()); // unless opted-in, interface is not considered
 
         let f = ClientConfig::new()
             .usb_vid_pid(0x1, 0x2)
@@ -604,15 +606,15 @@ mod tests {
                 ConfigPiece::Usb
             ]
         );
-        assert_eq!(f.is_usb(), true);
+        assert!(f.is_usb());
 
         let f = ClientConfig::new().usb().validate().unwrap();
         assert_eq!(f.pieces, vec![ConfigPiece::Usb]);
-        assert_eq!(f.is_usb(), true);
+        assert!(f.is_usb());
 
         let f = ClientConfig::new().usb().no_ww_usb().validate().unwrap();
         assert_eq!(f.pieces, vec![ConfigPiece::Usb, ConfigPiece::NoWwUsb]);
-        assert_eq!(f.is_usb(), false);
+        assert!(!f.is_usb());
 
         let f = ClientConfig::new()
             .usb()
@@ -624,7 +626,7 @@ mod tests {
             f.pieces,
             vec![ConfigPiece::Usb, ConfigPiece::NoWwUsb, ConfigPiece::Usb]
         );
-        assert_eq!(f.is_usb(), true);
+        assert!(f.is_usb());
     }
 
     fn device(serial: &str, label: &str, api: Option<(&str, &str)>) -> DeviceInfo {

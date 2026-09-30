@@ -40,7 +40,7 @@ use crate::event_loop::command::Command;
 use crate::event_loop::command::EventLoopExitReason;
 use crate::event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
-use crate::tracing::tracing::TraceEvent;
+use crate::tracing::TraceEvent;
 use ww_client_server::PathKindOwned;
 
 pub(crate) use rx::{RxCore, RxInput, RxOutput};
@@ -230,10 +230,10 @@ async fn tx_task<T: Transport>(
                 }
                 TxOutput::Flush => {
                     trace!("tx msg flush");
-                    if let Some(msg_tx) = msg_tx.as_mut() {
-                        if let Err(e) = msg_tx.flush().await {
-                            core.handle(Instant::now(), TxInput::TransportError(e));
-                        }
+                    if let Some(msg_tx) = msg_tx.as_mut()
+                        && let Err(e) = msg_tx.flush().await
+                    {
+                        core.handle(Instant::now(), TxInput::TransportError(e));
                     }
                 }
                 TxOutput::ToRx(msg) => {
@@ -470,7 +470,7 @@ mod tests {
             self.settle(now);
         }
 
-        fn from_device(&mut self, now: Instant, msg: &Message<'_>) {
+        fn feed_from_device(&mut self, now: Instant, msg: &Message<'_>) {
             let mut scratch = [0u8; 256];
             let (kind, payload) = msg.encode(&mut scratch).unwrap();
             self.rx.handle(
@@ -534,7 +534,7 @@ mod tests {
         assert_ne!(sent[0].frame, sent[1].frame, "Nop is flushed alone");
         assert_eq!(p.tx.poll_timeout(), Some(now + RETRY));
 
-        p.from_device(now, &device_info());
+        p.feed_from_device(now, &device_info());
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::LinkSetup]);
         let Message::LinkSetup(setup) =
@@ -553,7 +553,7 @@ mod tests {
             "no retries while waiting for LinkReady"
         );
 
-        p.from_device(now, &Message::LinkReady);
+        p.feed_from_device(now, &Message::LinkReady);
         assert!(p.take_sent().is_empty());
         connected_rx
     }
@@ -639,7 +639,7 @@ mod tests {
         let mut buf = [0u8; 32];
         let bytes =
             wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&event, &mut buf).unwrap();
-        p.from_device(now, &Message::Data { channel: 0, bytes });
+        p.feed_from_device(now, &Message::Data { channel: 0, bytes });
         assert_eq!(done_rx.try_recv().unwrap().unwrap(), vec![7]);
         assert!(p.tx.in_flight() == 0, "Freed reached tx");
 
@@ -685,7 +685,7 @@ mod tests {
         let now = Instant::now();
         let mut p = Pair::new();
         connect(&mut p, now);
-        p.from_device(now, &Message::Disconnect(DisconnectReason::RequestByUser));
+        p.feed_from_device(now, &Message::Disconnect(DisconnectReason::RequestByUser));
         assert!(
             p.take_sent().is_empty(),
             "no Disconnect back to a device that disconnected"
@@ -733,7 +733,7 @@ mod tests {
         );
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
-        p.from_device(now, &device_info());
+        p.feed_from_device(now, &device_info());
         assert_eq!(
             kinds(&p.take_sent()),
             [Kind::Nop, Kind::GetDeviceInfo, Kind::LinkSetup]
@@ -756,7 +756,7 @@ mod tests {
         assert!(p.take_sent().is_empty(), "held until the link is up");
         assert!(done_rx.try_recv().is_err(), "not failed either");
 
-        p.from_device(now, &Message::LinkReady);
+        p.feed_from_device(now, &Message::LinkReady);
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::Data0]);
         assert_eq!(&sent[0].payload[2..], [0xAA]);
@@ -776,7 +776,7 @@ mod tests {
                 done_tx: Some((done_tx, Duration::from_secs(1))),
             },
         );
-        p.from_device(
+        p.feed_from_device(
             now,
             &Message::Disconnect(DisconnectReason::IncompatibleVersion),
         );
@@ -841,7 +841,7 @@ mod tests {
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
         p.take_sent();
-        p.from_device(now, &device_info()); // device is 0.1.3
+        p.feed_from_device(now, &device_info()); // device is 0.1.3
         assert!(
             p.take_sent().is_empty(),
             "no LinkSetup to an incompatible device"

@@ -49,7 +49,7 @@ mod tests {
                 u: UserDefined<'_>,
             ) -> RpcResult<()> {
                 assert_eq!(u.a, 123);
-                let mut iter = u.b.into_iter();
+                let mut iter = u.b[..].iter();
                 assert_eq!(iter.next(), Some(&1));
                 assert_eq!(iter.next(), Some(&2));
                 assert_eq!(iter.next(), Some(&3));

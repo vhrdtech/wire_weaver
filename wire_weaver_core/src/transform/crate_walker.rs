@@ -19,12 +19,12 @@ const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_version"];
 /// 1. Load `crate_path/Cargo.toml` and parse into cargo_toml::[Manifest].
 /// 2. Load `crate_path/src/lib.rs` and parse into syn::[File].
 /// 3. Find the trait marked with `#[ww_trait]` and named `trait_name`.
-///     3.1 If provided, otherwise the first and only `#[ww_api_root]` or `#[ww_trait]` is used or an error is returned.
+///    3.1 If provided, otherwise the first and only `#[ww_api_root]` or `#[ww_trait]` is used or an error is returned.
 /// 4. For each user-defined type referenced, find its definition:
-///     4.1 Defined in the same file
-///     4.2 Imported using `use another_crate::Ty`
-///         4.2.1 Load `another_crate` starting from step #1, skipping #3.
-///     4.3 Convert into [ww_self::Type]
+///    4.1 Defined in the same file
+///    4.2 Imported using `use another_crate::Ty`
+///    4.2.1 Load `another_crate` starting from step #1, skipping #3.
+///    4.3 Convert into [ww_self::Type]
 /// 5. For each trait referenced via `ww_impl` do similar steps as for types.
 /// 6. Assemble all data into [ww_self::ApiBundle]
 /// 7. Cache in `~/.wire_weaver/crate_name-sha.ron` if not already.
@@ -213,7 +213,7 @@ impl CrateContext {
 
     pub(crate) fn load_dependent_crate(
         &self,
-        crate_name: &String,
+        crate_name: &str,
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
         let dep_manifest = self.manifest.load_dependent_manifest(crate_name, scratch)?;
@@ -422,7 +422,7 @@ impl ManifestContext {
                     } else {
                         path.to_path_buf()
                     };
-                    return Ok(scratch.get_or_load_manifest(dep_crate_path)?);
+                    return scratch.get_or_load_manifest(dep_crate_path);
                 }
                 // crate_name = { git = "" }
                 todo!();

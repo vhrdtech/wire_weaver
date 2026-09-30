@@ -32,7 +32,7 @@ pub(crate) fn ty_def_by_idx(
     ty_pos: TyPos,
 ) -> Result<TokenStream> {
     let ty = api_bundle.get_ty(type_idx)?;
-    ty_def_inner(api_bundle, &ty.0, alloc, ty_pos, Some(ty.1))
+    ty_def_inner(api_bundle, ty.0, alloc, ty_pos, Some(ty.1))
 }
 
 fn ty_def_inner(

@@ -394,6 +394,7 @@ fn level_method(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_method(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
@@ -427,6 +428,7 @@ fn handle_method(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_property(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
@@ -495,6 +497,7 @@ fn handle_property(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_stream(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,

@@ -35,12 +35,12 @@ impl<'i> CGItemStruct<'i> {
         let cfg_attr = self.cfg_attr.iter();
         let ident = &self.ident;
         let fields = CGStructFieldsDef {
-            fields: &self.fields,
+            fields: self.fields,
             is_ref,
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, self.cfg, is_ref)
+            size.assert_element_size(self.ident, self.cfg, is_ref)
         } else {
             quote! {}
         };

@@ -44,7 +44,7 @@ pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Resu
     println!(
         "{} {}",
         style("api hash:").dim(),
-        introspect.api_hash.no_docs.to_string()
+        introspect.api_hash.no_docs
     );
     Ok(())
 }

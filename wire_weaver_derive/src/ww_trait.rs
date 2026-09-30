@@ -203,18 +203,15 @@ fn type_marker(ty: &Type, unique_marker: &mut MarkerUniqueName) -> TokenStream {
             let args = type_path.path.segments.last().unwrap().arguments.clone();
             Some(quote! { #args })
         }
-        Type::Reference(type_reference) => {
-            if let Some(lifetime) = &type_reference.lifetime {
-                Some(quote! { < #lifetime > })
-            } else {
-                None
-            }
-        }
+        Type::Reference(type_reference) => type_reference
+            .lifetime
+            .as_ref()
+            .map(|lifetime| quote! { < #lifetime > }),
         _ => None,
     };
     quote! {
         // to not try to figure out generic argument vs actual type, in 'type SrcMarkerAbc0<u8> = Vec<u8>;' or RefVec<'i, u8>, etc.
-        #[allow(non_camel_case_types)]
+        #[allow(non_camel_case_types, clippy::builtin_type_shadow)]
         type #marker #maybe_args = #ty;
     }
 }
@@ -223,6 +220,7 @@ fn type_path_marker(type_path: &TypePath, unique_marker: &mut MarkerUniqueName) 
     let marker = unique_marker.next_ty();
     let args = type_path.path.segments.last().unwrap().arguments.clone();
     quote! {
+        #[allow(clippy::builtin_type_shadow)]
         type #marker #args = #type_path;
     }
 }
@@ -230,19 +228,19 @@ fn type_path_marker(type_path: &TypePath, unique_marker: &mut MarkerUniqueName) 
 fn collect_lifetimes(ty: &Type, lifetimes: &mut Vec<Lifetime>) {
     match ty {
         Type::Path(type_path) => {
-            if let Some(last) = type_path.path.segments.last() {
-                if let PathArguments::AngleBracketed(angle) = &last.arguments {
-                    for arg in &angle.args {
-                        match arg {
-                            GenericArgument::Lifetime(lifetime) => {
-                                lifetimes.push(lifetime.clone());
-                            }
-                            GenericArgument::Type(ty) => collect_lifetimes(ty, lifetimes),
-                            _ => {}
-                        }
-                        if let GenericArgument::Lifetime(lifetime) = arg {
+            if let Some(last) = type_path.path.segments.last()
+                && let PathArguments::AngleBracketed(angle) = &last.arguments
+            {
+                for arg in &angle.args {
+                    match arg {
+                        GenericArgument::Lifetime(lifetime) => {
                             lifetimes.push(lifetime.clone());
                         }
+                        GenericArgument::Type(ty) => collect_lifetimes(ty, lifetimes),
+                        _ => {}
+                    }
+                    if let GenericArgument::Lifetime(lifetime) = arg {
+                        lifetimes.push(lifetime.clone());
                     }
                 }
             }

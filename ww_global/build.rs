@@ -6,7 +6,7 @@ fn main() {
     let ids = std::fs::read_to_string("wire_weaver_gid.json").unwrap();
     let ids: HashMap<String, u32> = serde_json::from_str(&ids).unwrap();
     let mut ids: Vec<_> = ids.into_iter().collect();
-    ids.sort_unstable_by(|a, b| a.1.cmp(&b.1));
+    ids.sort_unstable_by_key(|a| a.1);
     let mut wr = Vec::new();
     write!(&mut wr, "#![no_std]\n\n").unwrap();
     write!(&mut wr, "mod gid;\n\n").unwrap();

@@ -7,7 +7,7 @@
 
 ### 🚀 Features
 
-* `ApiHash` and `ApiHashPair` (hash of the API with and without docs).
+* `ApiHash` and `ApiHashPair` (hash of the API with and without docs), `Display` for `ApiHashOwned` (hex).
 * `VersionTriplet`, `CompactVersion::new()`.
 * `FullVersionOwned::is_protocol_compatible()`, `filename_friendly()`.
 * `Copy` for `Version` and `FullVersion`, optional `serde` support.

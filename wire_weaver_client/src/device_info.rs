@@ -79,7 +79,7 @@ impl std::fmt::Display for DeviceInfo {
         if let Some(api) = &self.api {
             write!(f, " api={}@{}", api.gid, api.version)?;
             if !api.signature.hash.is_empty() {
-                write!(f, " hash={}", api.signature.to_string())?;
+                write!(f, " hash={}", api.signature)?;
             }
         }
         if !self.user_label.is_empty() {

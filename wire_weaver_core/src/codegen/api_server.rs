@@ -138,7 +138,6 @@ pub fn gen_server(
         api_bundle,
         api_level,
         IndexChain::new(),
-        crate_name,
         config.no_alloc,
         true,
     );
@@ -364,6 +363,7 @@ impl<'i> ApiServerCGContext<'i> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_request_inner_recursive(
     level_name_chain: String,
     api_bundle: &ApiBundleOwned,
@@ -606,6 +606,7 @@ impl ApiServerCGContext<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_method(
     api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
@@ -666,6 +667,7 @@ fn handle_method(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_property(
     api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
@@ -838,7 +840,7 @@ fn handle_stream(
     let maybe_index_chain_call = index_chain.fun_argument_call();
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
-    let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), &ident);
+    let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let sideband_fn = Ident::new(
         format!("sideband_{}", prefixed_ident).as_str(),
         ident.span(),

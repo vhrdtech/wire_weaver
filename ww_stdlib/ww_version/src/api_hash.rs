@@ -43,7 +43,7 @@ pub struct ApiHash<'i> {
 
 impl ApiHashPair<'static> {
     pub fn empty() -> ApiHashPair<'static> {
-        const EMPTY: &'static [u8] = &[];
+        const EMPTY: &[u8] = &[];
         Self {
             no_docs: ApiHash::new(EMPTY),
             with_docs: ApiHash::new(EMPTY),
@@ -74,7 +74,7 @@ impl Debug for ApiHash<'_> {
 #[cfg(feature = "std")]
 impl Debug for ApiHashOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.to_string())
+        core::fmt::Display::fmt(self, f)
     }
 }
 
@@ -88,9 +88,9 @@ impl ApiHash<'_> {
 }
 
 #[cfg(feature = "std")]
-impl ApiHashOwned {
-    pub fn to_string(&self) -> String {
-        hex::encode(&self.hash)
+impl core::fmt::Display for ApiHashOwned {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&hex::encode(&self.hash))
     }
 }
 

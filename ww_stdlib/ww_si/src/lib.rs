@@ -50,9 +50,9 @@ pub enum Prefix {
     Quecto,
 }
 
-impl Into<i8> for Prefix {
-    fn into(self) -> i8 {
-        match self {
+impl From<Prefix> for i8 {
+    fn from(val: Prefix) -> Self {
+        match val {
             Prefix::Quetta => 30,
             Prefix::Ronna => 27,
             Prefix::Yotta => 24,

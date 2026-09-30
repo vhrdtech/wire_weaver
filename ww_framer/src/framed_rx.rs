@@ -79,7 +79,7 @@ enum State<U> {
     },
 }
 
-impl<'b, 'i: 'b, H: Head, C: Checksum, T: Tail> FramedRx<'i, H, C, T>
+impl<'i, H: Head, C: Checksum, T: Tail> FramedRx<'i, H, C, T>
 where
     H::UserKind: Copy + PartialEq,
 {

@@ -57,12 +57,12 @@ impl<'i> CGItemEnum<'i> {
         let cfg_attr = self.cfg_attr.iter();
         let enum_name = &self.ident;
         let variants = CGEnumFieldsDef {
-            variants: &self.variants,
+            variants: self.variants,
             is_ref,
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(&self.ident, self.cfg, is_ref)
+            size.assert_element_size(self.ident, self.cfg, is_ref)
         } else {
             quote! {}
         };

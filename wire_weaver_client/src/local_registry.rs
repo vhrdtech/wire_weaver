@@ -101,7 +101,7 @@ fn store_inner(
 
 fn file_suffix(hash: &ApiHashOwned, contains_docs: bool) -> String {
     let docs = if contains_docs { "+docs" } else { "" };
-    format!("-{}{docs}.ron", hash.to_string())
+    format!("-{}{docs}.ron", hash)
 }
 
 fn registry_path() -> Result<PathBuf> {

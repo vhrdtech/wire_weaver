@@ -686,7 +686,7 @@ mod tests {
         assert_eq!(bytes, &[0xAB, 1, 2, 0x02, 0xCD, 0x04]);
 
         let mut rd = BufReader::new(bytes);
-        let size = rd.read_rev_len().unwrap() as usize;
+        let size = rd.read_rev_len().unwrap();
         let mut inner = rd.split(size).unwrap();
         assert_eq!(inner.read_u8().unwrap(), 0xAB);
         assert_eq!(inner.read_bytes().unwrap(), &[1, 2]);

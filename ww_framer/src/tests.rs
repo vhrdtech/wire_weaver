@@ -75,7 +75,7 @@ pub(crate) mod common {
 }
 
 #[cfg(test)]
-mod tests {
+mod tx_edge_cases {
     use shrink_wrap::{BufReader, BufWriter};
 
     use super::common::*;
@@ -270,7 +270,7 @@ mod tests {
         // End with remaining = 1 + checksum
         assert_eq!(tx.write(0, &msg), Ok(true));
         let len = tx.flush();
-        assert_eq!(&tx.buf()[..len], &[END_1, 5, 1 ^ 2 ^ 3 ^ 4 ^ 5]);
+        assert_eq!(&tx.buf()[..len], &[END_1, 5, 4 ^ 5]);
     }
 
     #[test]

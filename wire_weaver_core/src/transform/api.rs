@@ -355,7 +355,7 @@ fn convert_multiplicity(
 ) -> Result<Multiplicity> {
     match multiplicity {
         Some(Some(index_ty)) => {
-            let ty = convert_ty_path_segment(&index_ty, current_crate, scratch)?;
+            let ty = convert_ty_path_segment(index_ty, current_crate, scratch)?;
             let index_type_idx = scratch.root_bundle.push_out_of_line_idx(ty, current_crate);
             Ok(Multiplicity::Array {
                 index_type_idx: Some(index_type_idx),

@@ -219,7 +219,7 @@ impl Year {
         self.0
     }
 
-    fn to_unib32(&self) -> UNib32 {
+    fn to_unib32(self) -> UNib32 {
         let y = self.0 - 2025;
         let unsigned = if y < 0 {
             (y as u32) & ((1 << 19) - 1) // zero out 13 high bits, so that UNib32 takes no more than 7 nibbles

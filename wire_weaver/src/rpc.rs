@@ -29,20 +29,20 @@ pub enum GetResult<T, E> {
 
 pub struct Unimplemented;
 
-impl<T> Into<RpcResult<T>> for Unimplemented {
-    fn into(self) -> RpcResult<T> {
+impl<T> From<Unimplemented> for RpcResult<T> {
+    fn from(_: Unimplemented) -> Self {
         RpcResult::Unimplemented
     }
 }
 
-impl<E> Into<SetResult<E>> for Unimplemented {
-    fn into(self) -> SetResult<E> {
+impl<E> From<Unimplemented> for SetResult<E> {
+    fn from(_: Unimplemented) -> Self {
         SetResult::Unimplemented
     }
 }
 
-impl<T, E> Into<GetResult<T, E>> for Unimplemented {
-    fn into(self) -> GetResult<T, E> {
+impl<T, E> From<Unimplemented> for GetResult<T, E> {
+    fn from(_: Unimplemented) -> Self {
         GetResult::Unimplemented
     }
 }

@@ -28,7 +28,7 @@ pub(crate) struct Variant {
 }
 
 impl ItemEnum {
-    pub(crate) fn to_discriminants(&mut self) {
+    pub(crate) fn make_discriminants(&mut self) {
         for v in &mut self.variants {
             v.fields = Fields::Unit;
         }

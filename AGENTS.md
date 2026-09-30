@@ -148,6 +148,10 @@ Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(cl
 summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for
 multi-crate changes.
 
+Never commit on your own initiative. When a change is done, update the changelogs, then show the proposed commit
+message and the list of files to be staged, and ask the user before running `git commit`. Approval covers only that one
+commit, not later ones.
+
 ## Naming convention
 
 `wire_weaver_` prefix = core crates implementing the framework itself. `ww_` prefix = crates built on top of

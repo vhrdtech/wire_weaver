@@ -1195,6 +1195,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#doc-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Doc comments
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2358,6 +2369,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#doc-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Doc comments
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2548,7 +2570,7 @@ which versions to bump for each, depending on where in the crate stack the chang
 </tr>
 <tr>
 <td>2. Shared API &amp; types</td>
-<td><code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>, <code>ww_global</code>, <code>ww_self</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...)</td>
+<td><code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...); framework base types <code>ww_global</code> and <code>ww_self</code> (repo root)</td>
 <td>own version per crate, the version is the API identity</td>
 </tr>
 <tr>
@@ -2593,7 +2615,7 @@ Therefore:</p>
 <h3 id="layer-2-ww_stdlib">Layer 2: ww_stdlib<a class="headerlink" href="#layer-2-ww_stdlib" title="Permanent link">&para;</a></h3>
 <p><code>ww_stdlib</code> crates are meant to be shared between unrelated projects, so their types end up inside many
 different APIs. Their versions travel on the wire (as <code>FullVersion</code> / <code>CompactVersion</code> with a
-<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_stdlib/ww_global">ww_global</a> id) for trait-based requests
+<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global</a> id) for trait-based requests
 and introspection, so the version is not just Cargo metadata, it's a compatibility statement, same as for user API
 crates (layer 4):</p>
 <ul>
@@ -2642,6 +2664,12 @@ they are not compatible (<code>ww_version::Version::is_protocol_compatible</code
 properties, streams, new fields with defaults, etc. Mark them with <code>#[since = "0.2.3"]</code>, so that a newer host can
 report a clean error when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).
 Everything else bumps the breaking position.</p>
+<h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>
+<p>Doc comments on traits, resources and types are not part of the wire format, but they are shipped in introspection
+data and in <a href="../../cli/#ww-api">crate snapshots</a>, so a GUI or CLI can show them. A released version's snapshot never
+changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
+same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
+improved docs are available. <code>ww api save</code> refuses to overwrite a snapshot with changed docs.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h2 id="checklist-before-breaking-something">Checklist before breaking something<a class="headerlink" href="#checklist-before-breaking-something" title="Permanent link">&para;</a></h2>

@@ -2688,6 +2688,31 @@ at <code>&lt;path&gt;</code>:</p>
 debugging codegen or introspection.</p>
 <p>Both take <code>--name &lt;Trait&gt;</code> to pick the trait when the crate defines more than one, and <code>tree</code> also takes
 <code>-d</code>/<code>--skip-docs</code>.</p>
+<p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait and every <code>#[derive_shrink_wrap]</code> type
+defined in the crate's <code>src/lib.rs</code> (or re-exported from one of its modules with <code>pub use</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
+<code>ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron</code>. Commit the snapshot and never change it afterward.
+It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
+definitions from this crate are included, and traits and types from other crates are only referenced by crate
+version, name and signature. Save a snapshot of each of those crates too.</p>
+<p>A signature is a hash of the full definition with docs, including everything it refers to, calculated as if nothing
+was skipped (<code>ww_self::signature</code>). A definition restored from another crate's snapshot can then be checked to be
+exactly the one that was left out, which catches a crate changed without bumping its version. The client does the same
+when it compares its API with a device's: a skipped trait or type with the same crate version but a different
+signature makes the resources using it incompatible.</p>
+<p>Snapshots of <code>ww_global</code> and the <code>ww_stdlib</code> crates are embedded into <code>wire_weaver_client</code> (and so into <code>ww</code>), see
+<code>wire_weaver_client::snapshots</code>. They are the groundwork for introspection data that leaves out common traits and
+types, which a client already knows from snapshots. In this repo, <code>just save-snapshots</code> saves them and copies them into
+<code>wire_weaver_client/api_snapshots/</code>; a client test fails if any of them is out of date.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ ww api save ww_stdlib/ww_uart
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
+</span></code></pre></div>
+<p>Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
+bump the crate version (see <a href="../evolution/rules/#doc-comments">evolution rules</a>, doc-only changes bump the compatible
+position, so that tools can tell that improved docs are available) and save a new snapshot. <code>--force</code> overwrites anyway, only use it for a
+version that was never published.</p>
+<p>Current limitations, same as for codegen: traits are only found in <code>src/lib.rs</code>, a dependency reached through another
+crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
+workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
 <h3 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h3>
 <p>Checks the USB link to the selected device: runs a loopback test (packets sent to the device and back, verifying
 nothing was lost or corrupted), then one-way transmit and receive speed tests, with a progress bar for each.</p>
@@ -2716,9 +2741,9 @@ nothing was lost or corrupted), then one-way transmit and receive speed tests, w
 hub, a powered hub used without power, or power problems on an externally powered device.</p>
 <h3 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h3>
 <p>Manages the <a href="#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command
@@ -2804,11 +2829,11 @@ narrow the selection together. Each setting is taken from the first place that h
 <h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
 <p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
 from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">[device]</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># ww.toml</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">[device]</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
 </span></code></pre></div>
 <p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
 whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are

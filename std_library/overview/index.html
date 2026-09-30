@@ -2240,7 +2240,11 @@ By default <code>std</code> feature is active providing owned types.</p>
 <li>ww_can_bus - CAN Bus types and API</li>
 <li>ww_dfu - Firmware update API</li>
 <li>ww_log_bare_metal - Logging types and API for no_std bare metal targets</li>
-<li>ww_self - WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection.</li>
+</ul>
+<p>Two framework-level crates live in the <code>wire_weaver</code> repo root instead of <code>ww_stdlib</code>, but are versioned the same way:</p>
+<ul>
+<li><a href="../ww_self/">ww_self</a> - WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection.</li>
+<li>ww_global - global type ID registry, see <a href="../../api/addressing/">addressing</a>.</li>
 </ul>
 
 

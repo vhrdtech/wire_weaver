@@ -11,6 +11,8 @@
   logged once on connect. If the device API is unknown (introspection disabled and not cached), `#[since]` of the
   resource is checked against the device's API version and fails with `Error::OlderProtocol` (was not checked before).
   Only absolute paths are checked, trait-client paths without an attachment base path are not.
+  A trait or type whose definition is skipped on one side is checked by origin and crate version, and by signature
+  when the versions are the same, which catches a definition changed without bumping its crate version.
 
 - `DeviceInfo` is filled from the USB API id interface string (falling back to the product string): API name,
   version, truncated hash and user label are known without opening the device, so `.user_label_eq()` and

@@ -155,7 +155,13 @@ defined in the crate's `src/lib.rs` into `<path>/api_snapshots/<crate>_<major>_<
 `ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
 It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
 definitions from this crate are included, and traits and types from other crates are only referenced by crate
-version and name. Save a snapshot of each of those crates too.
+version, name and signature. Save a snapshot of each of those crates too.
+
+A signature is a hash of the full definition with docs, including everything it refers to, calculated as if nothing
+was skipped (`ww_self::signature`). A definition restored from another crate's snapshot can then be checked to be
+exactly the one that was left out, which catches a crate changed without bumping its version. The client does the same
+when it compares its API with a device's: a skipped trait or type with the same crate version but a different
+signature makes the resources using it incompatible.
 
 Snapshots are the groundwork for introspection data that leaves out common traits and types, which a client
 already knows from snapshots.

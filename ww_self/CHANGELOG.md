@@ -10,6 +10,10 @@
 
 ### 🚀 Features
 
+* `signature::trait_signature()` and `signature::type_signature()`: hash of a trait or type definition with docs
+  and everything it refers to, independent of where it is in the bundle, for the `signature` of `Skipped*`
+  locations. Skipped definitions are looked up with a `signature::Resolve` callback (e.g., in crate snapshots), so the
+  signature is the same as if nothing was skipped. `std` feature now depends on `sha2`.
 * Read-only `visit::Visit<'ast>`, which can keep `&'ast` references into the tree.
 * New hooks: `visit_type_location`, `visit_api_level_location`, `visit_argument`, `visit_variant`, `visit_fields`,
   `visit_field`.

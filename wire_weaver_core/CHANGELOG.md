@@ -3,8 +3,8 @@
 ### 🚀 Features
 
 - `load_crate()` loads all `#[ww_trait]`/`#[ww_api_root]` traits and `#[derive_shrink_wrap]` types defined in a crate
-  into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references.
-  Used by `ww api save` to save crate snapshots.
+  into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references
+  carrying the signature of the left out definition. Used by `ww api save` to save crate snapshots.
 
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.

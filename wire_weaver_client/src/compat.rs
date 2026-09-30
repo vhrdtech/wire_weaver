@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use wire_weaver::shrink_wrap::{ElementSize, UNib32};
+use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, FieldOwned, FieldsOwned,
@@ -329,6 +330,22 @@ fn compare_items(
                 return Ok(());
             };
             check_same_origin("trait", identity, device_identity)?;
+            // when both are in-line, their items are compared one by one instead
+            let skipped = |bundle: &ApiBundleOwned, idx: u32| {
+                !matches!(
+                    bundle.traits.get(idx as usize),
+                    Some(ApiLevelLocationOwned::InLine { .. })
+                )
+            };
+            if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
+                check_same_definition(
+                    "trait",
+                    identity,
+                    device_identity,
+                    trait_signature(client, trait_idx.0),
+                    trait_signature(device, device_trait_idx.0),
+                )?;
+            }
         }
         (kind, device_kind) => {
             return Err(format!(
@@ -393,6 +410,53 @@ fn check_same_origin(what: &str, a: Identity, b: Identity) -> Result<(), String>
     Ok(())
 }
 
+/// Catches a definition that was changed without bumping its crate version: same version, but a different
+/// signature. Only possible to check when both signatures are known.
+fn check_same_definition(
+    what: &str,
+    a: Identity,
+    b: Identity,
+    a_signature: Option<Vec<u8>>,
+    b_signature: Option<Vec<u8>>,
+) -> Result<(), String> {
+    let (Some(a_signature), Some(b_signature)) = (a_signature, b_signature) else {
+        return Ok(());
+    };
+    if a.0 == b.0 && a_signature != b_signature {
+        let v = &a.0.version;
+        return Err(format!(
+            "{what} {}::{} {}.{}.{} has a different definition on each side, likely changed without bumping the crate version",
+            a.0.crate_id, a.1, v.major.0, v.minor.0, v.patch.0
+        ));
+    }
+    Ok(())
+}
+
+/// Signature of a trait: stored for a skipped one, calculated for an in-line one (if nothing it refers to is skipped).
+fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
+    match bundle.traits.get(trait_idx as usize)? {
+        ApiLevelLocationOwned::InLine { .. } => {
+            signature::trait_signature(bundle, trait_idx, &signature::no_resolve).ok()
+        }
+        ApiLevelLocationOwned::SkippedFullVersion { signature, .. }
+        | ApiLevelLocationOwned::SkippedCompactVersion { signature, .. } => {
+            (!signature.is_empty()).then(|| signature.clone())
+        }
+    }
+}
+
+/// Signature of a type: stored for a skipped one, calculated for an in-line one (if nothing it refers to is skipped).
+fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
+    match bundle.types.get(type_idx as usize)? {
+        TypeLocationOwned::InLine { .. } => {
+            signature::type_signature(bundle, type_idx, &signature::no_resolve).ok()
+        }
+        TypeLocationOwned::SkippedFullVersion { signature, .. } => {
+            (!signature.is_empty()).then(|| signature.clone())
+        }
+    }
+}
+
 /// Checks that a value written as one type can be read as the other.
 struct TypeCheck<'a> {
     writer: &'a ApiBundleOwned,
@@ -433,6 +497,7 @@ impl<'a> TypeCheck<'a> {
         {
             return Ok(());
         }
+        let (w_ty, r_ty) = (w, r);
         let (w, r) = match (resolve(self.writer, w)?, resolve(self.reader, r)?) {
             (ResolvedTy::Ty(w), ResolvedTy::Ty(r)) => (w, r),
             (w, r) => {
@@ -444,7 +509,18 @@ impl<'a> TypeCheck<'a> {
                 else {
                     return Err("type definition is not available on one side".into());
                 };
-                return check_same_origin("type", w, r);
+                check_same_origin("type", w, r)?;
+                let signature = |bundle, ty: &TypeOwned| match ty {
+                    TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
+                    _ => None,
+                };
+                return check_same_definition(
+                    "type",
+                    w,
+                    r,
+                    signature(self.writer, w_ty),
+                    signature(self.reader, r_ty),
+                );
             }
         };
         use TypeOwned::*;
@@ -946,6 +1022,53 @@ mod tests {
             .map(|(name, _)| name)
             .collect();
         assert_eq!(mismatches, ["periph[].channel[].run", "sub"]);
+    }
+
+    /// Device bundle with the `Subgroup` trait definition left out, as it would be when it's in a snapshot.
+    fn skip_subgroup(mut device: ApiBundleOwned) -> ApiBundleOwned {
+        let idx = device
+            .traits
+            .iter()
+            .position(|l| matches!(l, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Subgroup"))
+            .unwrap();
+        let signature =
+            signature::trait_signature(&device, idx as u32, &signature::no_resolve).unwrap();
+        let ApiLevelLocationOwned::InLine { crate_idx, .. } = device.traits[idx] else {
+            unreachable!()
+        };
+        device.traits[idx] = ApiLevelLocationOwned::SkippedFullVersion {
+            crate_idx,
+            trait_name: "Subgroup".into(),
+            signature,
+        };
+        device
+    }
+
+    #[test]
+    fn skipped_trait_changed_without_version_bump() {
+        let source = r#"
+            #[ww_api_root]
+            pub trait Api {
+                fn m0();
+                ww_impl!(sub: Subgroup);
+            }
+
+            #[ww_trait]
+            trait Subgroup {
+                fn m1();
+            }
+        "#;
+        let client = bundle("client", "0.1.0", source);
+
+        let device = skip_subgroup(bundle("device", "0.1.0", source));
+        let compat = ApiCompat::new(&client, &device);
+        assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
+
+        // same version, but Subgroup gained a method (a doc change would be caught the same way)
+        let changed = source.replace("fn m1();", "fn m1();\nfn m2();");
+        let device = skip_subgroup(bundle("device", "0.1.0", &changed));
+        let compat = ApiCompat::new(&client, &device);
+        assert_incompatible(&compat, &[1], "without bumping the crate version");
     }
 
     #[test]

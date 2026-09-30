@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use shrink_wrap::UNib32;
 use std::path::Path;
 use syn::{Attribute, Ident, Item, PathSegment};
+use ww_self::signature::{no_resolve, trait_signature, type_signature};
 use ww_self::visit::{self, Visit};
 use ww_self::visit_mut::{self, VisitMut};
 use ww_self::{
@@ -26,7 +27,8 @@ use ww_self::{
 ///   in source order (empty for crates with data types only).
 /// * `ext_crates[0]` is the crate itself.
 /// * Traits and types defined in this crate are in-line, traits and types from other crates are skipped
-///   (their definitions belong to those crates' snapshots). Entries only needed by skipped definitions are dropped.
+///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
+///   (see [ww_self::signature]). Entries only needed by skipped definitions are dropped.
 pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
     scratch.dedup_traits = true;
@@ -72,7 +74,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
         traits: scratch.traits,
         ext_crates: scratch.ext_crates,
     };
-    skip_foreign(&mut bundle);
+    skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle);
     Ok(bundle)
 }
@@ -97,8 +99,32 @@ fn convert_named_ty(
 }
 
 /// Replace definitions of traits and types from other crates with references to them.
-fn skip_foreign(bundle: &mut ApiBundleOwned) {
-    for location in &mut bundle.types {
+///
+/// Signatures are calculated before anything is skipped, while all the definitions are still in-line.
+fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
+    let is_foreign = |crate_idx: &UNib32| crate_idx.0 != 0;
+    let mut type_signatures = vec![];
+    for (idx, location) in bundle.types.iter().enumerate() {
+        if let TypeLocationOwned::InLine { crate_idx, .. } = location
+            && is_foreign(crate_idx)
+        {
+            type_signatures.push(Some(type_signature(bundle, idx as u32, &no_resolve)?));
+        } else {
+            type_signatures.push(None);
+        }
+    }
+    let mut trait_signatures = vec![];
+    for (idx, location) in bundle.traits.iter().enumerate() {
+        if let ApiLevelLocationOwned::InLine { crate_idx, .. } = location
+            && is_foreign(crate_idx)
+        {
+            trait_signatures.push(Some(trait_signature(bundle, idx as u32, &no_resolve)?));
+        } else {
+            trait_signatures.push(None);
+        }
+    }
+
+    for (location, signature) in bundle.types.iter_mut().zip(type_signatures) {
         let TypeLocationOwned::InLine { ty, crate_idx } = location else {
             continue;
         };
@@ -108,25 +134,26 @@ fn skip_foreign(bundle: &mut ApiBundleOwned) {
             // array index types that are not user-defined
             _ => continue,
         };
-        if crate_idx.0 != 0 {
+        if let Some(signature) = signature {
             *location = TypeLocationOwned::SkippedFullVersion {
                 crate_idx: *crate_idx,
                 type_name,
-                signature: vec![],
+                signature,
             };
         }
     }
-    for location in &mut bundle.traits {
+    for (location, signature) in bundle.traits.iter_mut().zip(trait_signatures) {
         if let ApiLevelLocationOwned::InLine { level, crate_idx } = location
-            && crate_idx.0 != 0
+            && let Some(signature) = signature
         {
             *location = ApiLevelLocationOwned::SkippedFullVersion {
                 crate_idx: *crate_idx,
                 trait_name: level.trait_name.clone(),
-                signature: vec![],
+                signature,
             };
         }
     }
+    Ok(())
 }
 
 /// Drop types, traits and crates that are no longer referenced after [skip_foreign] and fix up all the indices.
@@ -338,6 +365,7 @@ impl VisitMut for Remap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ww_version::FullVersionOwned;
 
     #[test]
     fn ww_uart_snapshot() {
@@ -396,5 +424,125 @@ mod tests {
         let names: Vec<_> = bundle.root.items.iter().map(|i| i.ident.as_str()).collect();
         assert_eq!(names, ["Bank", "Pin"]);
         assert_eq!(bundle.traits.len(), 2);
+    }
+
+    fn load(relative_path: &str) -> ApiBundleOwned {
+        load_crate(&Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path)).unwrap()
+    }
+
+    fn type_idx(bundle: &ApiBundleOwned, name: &str) -> u32 {
+        bundle
+            .types
+            .iter()
+            .position(|l| match l {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(ItemStructOwned { ident, .. }),
+                    ..
+                }
+                | TypeLocationOwned::InLine {
+                    ty: TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+                    ..
+                }
+                | TypeLocationOwned::SkippedFullVersion {
+                    type_name: ident, ..
+                } => ident == name,
+                _ => false,
+            })
+            .unwrap() as u32
+    }
+
+    fn trait_idx(bundle: &ApiBundleOwned, name: &str) -> u32 {
+        bundle
+            .traits
+            .iter()
+            .position(|l| match l {
+                ApiLevelLocationOwned::InLine { level, .. } => level.trait_name == name,
+                ApiLevelLocationOwned::SkippedFullVersion { trait_name, .. } => trait_name == name,
+                ApiLevelLocationOwned::SkippedCompactVersion { .. } => false,
+            })
+            .unwrap() as u32
+    }
+
+    /// Resolves skipped definitions from snapshots of exactly the same crate version.
+    fn from_snapshots<'a>(
+        snapshots: &'a [ApiBundleOwned],
+    ) -> impl Fn(&FullVersionOwned) -> Option<&'a ApiBundleOwned> {
+        |version| snapshots.iter().find(|s| &s.ext_crates[0] == version)
+    }
+
+    #[test]
+    fn skipped_type_signature_matches_its_crate_snapshot() {
+        let uart = load("../ww_stdlib/ww_uart");
+        let volt = type_idx(&uart, "Volt");
+        let TypeLocationOwned::SkippedFullVersion { signature, .. } = &uart.types[volt as usize]
+        else {
+            panic!("Volt is not skipped");
+        };
+        assert_eq!(signature.len(), ww_self::signature::SIGNATURE_LEN);
+
+        // Volt refers to ww_numeric types, which are skipped in the ww_si snapshot as well
+        let snapshots = [load("../ww_stdlib/ww_si"), load("../ww_stdlib/ww_numeric")];
+        let resolve = from_snapshots(&snapshots);
+        assert!(type_signature(&uart, volt, &no_resolve).is_err());
+        assert_eq!(signature, &type_signature(&uart, volt, &resolve).unwrap());
+
+        let second = type_idx(&uart, "Second");
+        assert_ne!(signature, &type_signature(&uart, second, &resolve).unwrap());
+    }
+
+    #[test]
+    fn skipped_trait_signature_matches_its_crate_snapshot() {
+        let all_gpio = load("../examples/all_gpio_api");
+        let bank = trait_idx(&all_gpio, "Bank");
+        let ApiLevelLocationOwned::SkippedFullVersion { signature, .. } =
+            &all_gpio.traits[bank as usize]
+        else {
+            panic!("Bank is not skipped");
+        };
+        let snapshots = [
+            load("../ww_stdlib/ww_gpio"),
+            load("../ww_stdlib/ww_si"),
+            load("../ww_stdlib/ww_numeric"),
+        ];
+        let resolve = from_snapshots(&snapshots);
+        assert_eq!(
+            signature,
+            &trait_signature(&all_gpio, bank, &resolve).unwrap()
+        );
+        // same when starting from the ww_gpio snapshot itself
+        let gpio = &snapshots[0];
+        let gpio_bank = trait_idx(gpio, "Bank");
+        assert_eq!(
+            signature,
+            &trait_signature(gpio, gpio_bank, &resolve).unwrap()
+        );
+    }
+
+    #[test]
+    fn trait_signature_resolves_through_several_snapshots() {
+        // uart_api uses ww_uart traits, which refer to ww_si types, which refer to ww_numeric types
+        let uart_api = load("../examples/uart_api");
+        let (idx, signature) = uart_api
+            .traits
+            .iter()
+            .enumerate()
+            .find_map(|(idx, l)| match l {
+                ApiLevelLocationOwned::SkippedFullVersion { signature, .. } => {
+                    Some((idx as u32, signature))
+                }
+                _ => None,
+            })
+            .expect("a skipped ww_uart trait");
+        let snapshots = [
+            load("../ww_stdlib/ww_uart"),
+            load("../ww_stdlib/ww_si"),
+            load("../ww_stdlib/ww_numeric"),
+        ];
+        let resolve = from_snapshots(&snapshots);
+        assert_eq!(
+            signature,
+            &trait_signature(&uart_api, idx, &resolve).unwrap()
+        );
+        assert!(trait_signature(&uart_api, idx, &from_snapshots(&snapshots[..2])).is_err());
     }
 }

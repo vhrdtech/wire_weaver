@@ -9,12 +9,13 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "ww_numeric/std", "ww_version/std", "dep:anyhow"]
+std = ["shrink_wrap/std", "ww_numeric/std", "ww_version/std", "dep:anyhow", "dep:sha2"]
 serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 ww_numeric.workspace = true
 ww_version.workspace = true

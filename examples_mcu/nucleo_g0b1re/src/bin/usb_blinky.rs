@@ -17,9 +17,7 @@ use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
-};
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     USB_UCPD1_2 => usb::InterruptHandler<USB>;
@@ -28,6 +26,8 @@ bind_interrupts!(struct Irqs {
 const MAX_USB_PACKET_LEN: usize = 64; // 64 for FullSpeed, 512 (Bulk) or 1024 (Interrupt) for HighSpeed
 const MAX_MESSAGE_LEN: usize = 1024; // Maximum WireWeaver message length
 static USB_BUFFERS: StaticCell<UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>> = StaticCell::new();
+// ASCII label fits into 126 bytes (USB string descriptor limit), longer ones are truncated
+static API_ID_BUF: StaticCell<[u8; 126]> = StaticCell::new();
 
 #[embassy_executor::task]
 async fn usb_task(mut usb: UsbDevice<'static, Driver<'static, USB>>) {
@@ -50,8 +50,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, msg_tx)
-            .await
+        self.process_request_bytes(data, scratch, msg_tx).await
     }
 
     fn version(&self) -> FullVersion<'_> {
@@ -107,14 +106,22 @@ async fn main(spawner: embassy_executor::Spawner) {
         server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
     );
+    // API id without a label is a constant: pass server_impl::API_ID directly.
+    // User label would normally be loaded from flash, it is shown in device listings without opening the device.
+    let label = "Nucleo on the desk";
+    let api_id =
+        wire_weaver::api_id::with_label(server_impl::API_ID, label, API_ID_BUF.init([0; 126]));
+    info!("API id: {}", api_id);
     let (usb, server) = usb_init(
         driver,
         buffers,
         UsbTimings::fs_higher_speed(),
         // UsbTimings::fs_lower_latency(),
         link_config,
+        api_id,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
+            config.product = Some("Nucleo G0B1RE blinky");
         },
     );
     spawner.spawn(unwrap!(usb_task(usb)));

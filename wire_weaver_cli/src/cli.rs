@@ -23,6 +23,9 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
+    /// List connected devices implementing a WireWeaver API, without opening them
+    List,
+
     /// Run a USB loopback test
     USBLoopback {
         /// How long to run each test (loopback, tx speed, rx speed)
@@ -56,6 +59,7 @@ pub(crate) enum Commands {
 impl Cli {
     pub fn need_device(&self) -> bool {
         match &self.command {
+            Commands::List => false,
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect => true,

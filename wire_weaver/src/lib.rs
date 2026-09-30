@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod api_id;
 mod disconnect_reason;
 mod rpc;
 mod test;

@@ -48,6 +48,60 @@ descriptor.
 
 TODO: Interrupt vs Bulk
 
+### Device identity strings
+
+Everything needed to tell devices apart is in string descriptors, which the OS reads during enumeration and
+exposes to anyone listing devices, so the host **does not need to open a device** to know what it is (on Linux,
+listing doesn't even need the udev rule):
+
+| Descriptor                        | Contents                                                 |
+| --------------------------------- | -------------------------------------------------------- |
+| Manufacturer (iManufacturer)      | Vendor name                                              |
+| Product (iProduct)                | Device description, e.g. `Nucleo G0B1RE blinky`          |
+| Serial (iSerialNumber)            | Unique serial number, e.g. MCU UID                       |
+| WireWeaver interface (iInterface) | API id: `ww:<crate>@<version> h=<hash>[ l=<user label>]` |
+
+For example: `ww:blinky_api@0.1.0 h=042c28cc0c9da99b l=Nucleo on the desk`. `h=` is the first 8 bytes of the API
+hash without docs, the same one reported during link setup. `l=` is optional and always last, so the label may
+contain anything, including spaces. Unknown `key=value` fields are ignored by the parser, so more can be added
+later. See `wire_weaver::api_id` for the encoder and parser.
+
+The API id is an interface string rather than the product or serial string so that the product stays
+human-readable and the serial stays stable across firmware updates (Windows keys device instances by serial).
+Interface strings are available without opening the device on Linux (sysfs), macOS (IOKit) and Windows (for
+composite devices, which `usb_init()` always configures). The host falls back to the product string if no
+interface string is an API id.
+
+On the device, server codegen emits the `API_ID` constant, built entirely at compile time, and it is passed to
+`usb_init()`:
+
+```rust
+let (usb, server) = usb_init(driver, buffers, timings, link_config, server_impl::API_ID, |config| {
+    config.product = Some("Nucleo G0B1RE blinky");
+    config.serial_number = Some(embassy_stm32::uid::uid_hex());
+});
+```
+
+A user label is only known at runtime (e.g., loaded from flash), `with_label` appends it into a buffer
+without any formatting, truncating it to the 126 UTF-16 characters a USB string descriptor can hold:
+
+```rust
+static API_ID_BUF: StaticCell<[u8; 126]> = StaticCell::new();
+let api_id = wire_weaver::api_id::with_label(server_impl::API_ID, label, API_ID_BUF.init([0; 126]));
+```
+
+A changed label becomes visible after re-enumeration. The control buffer must hold the longest string
+descriptor (`2 + 2 * 126` bytes), `UsbBuffers` has 256 bytes for it.
+
+On the host, `DeviceInfo` (used for filtering and in `AmbiguousDeviceChoice` errors) is filled from these strings,
+so `.user_label_eq(..)` and `.implements_api(..)` filters work without opening devices.
+`wire_weaver_client::list_usb_devices()` lists all devices reporting an API id, the same as `ww list`:
+
+```
+$ ww list
+usb 003-1 c0de:cafe "Vhrd.Tech" "Nucleo G0B1RE blinky" serial=21002200175036344B333720 api=blinky_api@0.1.0 hash=042c28cc0c9da99b label="Nucleo on the desk"
+```
+
 ### Framing
 
 Messages are packed into packets with `ww_framer` using the USB configuration from `ww_link`:

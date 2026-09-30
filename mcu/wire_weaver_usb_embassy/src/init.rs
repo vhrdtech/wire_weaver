@@ -1,4 +1,4 @@
-use crate::{Receiver, Sender, UsbTimings, WireWeaverClass};
+use crate::{Receiver, Sender, State, UsbTimings, WireWeaverClass};
 use defmt::{debug, info};
 use embassy_usb::driver::Driver;
 use embassy_usb::{Builder, Config, UsbDevice};
@@ -43,7 +43,9 @@ pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: us
     config_descriptor: [u8; 96],
     bos_descriptor: [u8; 40],
     msos_descriptor: [u8; 330],
-    control: [u8; 64],
+    // must fit the longest string descriptor, up to 2 + 2 * 126 bytes
+    control: [u8; 256],
+    state: State,
     server: ServerBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
 }
 
@@ -55,7 +57,8 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
             config_descriptor: [0u8; 96],
             bos_descriptor: [0u8; 40],
             msos_descriptor: [0u8; 330],
-            control: [0u8; 64],
+            control: [0u8; 256],
+            state: State::new(),
             server: ServerBuffers::default(),
         }
     }
@@ -95,7 +98,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 /// Returns the USB device, which must be run concurrently (`UsbDevice::run()`) and the WireWeaver
 /// server, to be used in the user event loop (see [ww_device::Server]):
 /// ```ignore
-/// let (mut usb, mut server) = usb_init(driver, buffers, UsbTimings::fs_higher_speed(), link_config, |_| {});
+/// let (mut usb, mut server) = usb_init(driver, buffers, UsbTimings::fs_higher_speed(), link_config, server_impl::API_ID, |_| {});
 /// join(usb.run(), async {
 ///     loop {
 ///         match select(server.wait(), other_source).await {
@@ -116,6 +119,9 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 /// * Set serial_number (default is None, use e.g., embassy_stm32::uid::uid_hex())
 /// * max_power (default is 100mA)
 /// * self_powered (default is false)
+///
+/// `api_id` is used as the WireWeaver interface string, it is how hosts find out which API the device implements
+/// without opening it, see [WireWeaverClass::new].
 pub fn usb_init<
     'd,
     const MAX_USB_PACKET_LEN: usize,
@@ -126,6 +132,7 @@ pub fn usb_init<
     buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
     timings: UsbTimings,
     link_config: LinkConfig<'d>,
+    api_id: &'static str,
     config_mut: impl FnOnce(&mut Config),
 ) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
     const {
@@ -160,10 +167,12 @@ pub fn usb_init<
 
     let ww = WireWeaverClass::new(
         &mut builder,
+        &mut buffers.state,
         MAX_USB_PACKET_LEN as u16,
         timings.use_bulk_endpoints,
         timings.packet_send_timeout,
         &link_config.user_api_version,
+        api_id,
     );
 
     let usb = builder.build();

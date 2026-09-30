@@ -25,6 +25,8 @@ pub use event_loop::commander::Commander;
 
 #[cfg(feature = "usb")]
 mod usb;
+#[cfg(feature = "usb")]
+pub use usb::list_devices as list_usb_devices;
 
 #[cfg(feature = "rtt")]
 mod rtt;

@@ -1,5 +1,6 @@
 use crate::codegen::util::ErrorSeq;
-use proc_macro2::TokenStream;
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use sha2::Digest;
 use shrink_wrap::SerializeShrinkWrapOwned;
@@ -17,14 +18,23 @@ pub(crate) fn introspect(
         no_docs_hash,
         with_docs_hash,
     } = introspect_prepare(api_bundle, include_docs);
+    let root = &api_bundle.root;
+    let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());
+    let full_gid = Ident::new(
+        &format!("{}_FULL_GID", root.trait_name).to_case(Case::Constant),
+        Span::call_site(),
+    );
     let api_hash = quote! {
+        pub const API_HASH_NO_DOCS: #no_docs_hash;
+        pub const API_HASH_WITH_DOCS: #with_docs_hash;
+        /// API identity string (`ww:<crate>@<version> h=<hash>`), see [wire_weaver::api_id].
+        pub const API_ID: &str = wire_weaver::api_id_string!(#crate_name::#full_gid, API_HASH_NO_DOCS);
+
         pub fn api_hash() -> wire_weaver::ww_version::ApiHashPair<'static> {
-            pub const WW_API_HASH_NO_DOCS: #no_docs_hash;
-            pub const WW_API_HASH_WITH_DOCS: #with_docs_hash;
             use wire_weaver::ww_version::ApiHash;
             wire_weaver::ww_version::ApiHashPair {
-                no_docs: ApiHash::new(&WW_API_HASH_NO_DOCS),
-                with_docs: ApiHash::new(&WW_API_HASH_WITH_DOCS),
+                no_docs: ApiHash::new(&API_HASH_NO_DOCS),
+                with_docs: ApiHash::new(&API_HASH_WITH_DOCS),
             }
         }
     };

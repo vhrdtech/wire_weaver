@@ -174,3 +174,12 @@ fn port_chain_match(pieces: &[ConfigPiece], info: &nusb::DeviceInfo) -> bool {
         }
     })
 }
+
+/// List connected USB devices that report WireWeaver API id, without opening them.
+pub async fn list_devices() -> Result<Vec<crate::DeviceInfo>, anyhow::Error> {
+    Ok(nusb::list_devices()
+        .await?
+        .map(|d| crate::DeviceInfo::from(&d))
+        .filter(|d| d.api.is_some())
+        .collect())
+}

@@ -474,6 +474,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         UsbTimings::hs_higher_speed(),
         // UsbTimings::hs_lower_latency(),
         link_config,
+        server_impl::API_ID,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
         },

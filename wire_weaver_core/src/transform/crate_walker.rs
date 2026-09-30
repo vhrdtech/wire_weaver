@@ -97,14 +97,19 @@ pub(crate) struct Scratch {
     manifests: HashMap<PathBuf, Rc<ManifestContext>>,
     /// Scratch space with types and traits
     pub(crate) root_bundle: ApiBundleScratch,
+    /// Reuse already converted traits instead of adding them again, when referenced more than once.
+    /// Off for codegen to keep API hashes of existing APIs unchanged.
+    pub(crate) dedup_traits: bool,
+    /// User-defined types being converted, to report self-referential types instead of recursing forever.
+    pub(crate) types_in_progress: Vec<(FullVersionOwned, String)>,
 }
 
 /// Scratch space used to hold types and traits
 #[derive(Default)]
 pub(crate) struct ApiBundleScratch {
-    types: Vec<TypeLocationOwned>,
+    pub(crate) types: Vec<TypeLocationOwned>,
     pub(crate) traits: Vec<ApiLevelLocationOwned>,
-    ext_crates: Vec<FullVersionOwned>,
+    pub(crate) ext_crates: Vec<FullVersionOwned>,
 }
 
 impl ApiBundleScratch {
@@ -174,7 +179,7 @@ struct ManifestContext {
 }
 
 impl CrateContext {
-    fn load(crate_path: &Path, scratch: &mut Scratch) -> Result<Rc<Self>> {
+    pub(crate) fn load(crate_path: &Path, scratch: &mut Scratch) -> Result<Rc<Self>> {
         let manifest = ManifestContext::load(crate_path)?;
         Self::load_from_manifest(manifest, scratch)
     }
@@ -209,6 +214,10 @@ impl CrateContext {
 
     pub(crate) fn err_context(&self) -> String {
         format!("{:?}", self.version)
+    }
+
+    pub(crate) fn version(&self) -> &FullVersionOwned {
+        &self.version
     }
 }
 

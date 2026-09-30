@@ -150,6 +150,29 @@ debugging codegen or introspection.
 Both take `--name <Trait>` to pick the trait when the crate defines more than one, and `tree` also takes
 `-d`/`--skip-docs`.
 
+`ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait and every `#[derive_shrink_wrap]` type
+defined in the crate's `src/lib.rs` into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
+`ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
+It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
+definitions from this crate are included, and traits and types from other crates are only referenced by crate
+version and name. Save a snapshot of each of those crates too.
+
+Snapshots are the groundwork for introspection data that leaves out common traits and types, which a client
+already knows from snapshots.
+
+```
+$ ww api save ww_stdlib/ww_uart
+saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
+```
+
+Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
+bump the crate version (see [evolution rules](evolution/rules.md#doc-comments), doc-only changes bump the compatible
+position, so that tools can tell that improved docs are available) and save a new snapshot. `--force` overwrites anyway, only use it for a
+version that was never published.
+
+Current limitations, same as for codegen: only items in `src/lib.rs` are found, dependencies reached only through
+another crate's re-export are not resolved, and self-referential types (like the ones in `ww_self`) are not supported.
+
 ### `ww usb-loopback`
 
 Checks the USB link to the selected device: runs a loopback test (packets sent to the device and back, verifying

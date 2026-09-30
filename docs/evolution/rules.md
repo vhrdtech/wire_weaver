@@ -112,6 +112,14 @@ properties, streams, new fields with defaults, etc. Mark them with `#[since = "0
 report a clean error when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
 Everything else bumps the breaking position.
 
+### Doc comments
+
+Doc comments on traits, resources and types are not part of the wire format, but they are shipped in introspection
+data and in [crate snapshots](../cli.md#ww-api), so a GUI or CLI can show them. A released version's snapshot never
+changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
+same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
+improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs.
+
 The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
 wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.
 

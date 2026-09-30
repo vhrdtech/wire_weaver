@@ -8,6 +8,10 @@
 
 ### 🚀 Features
 
+- `ww api save <path>` saves all traits and types of a crate into `<path>/api_snapshots/<crate>_<version>.ron`, to be
+  committed and kept unchanged. Re-running is a no-op, any change without a version bump is an error, doc-only
+  changes included (they bump the compatible position), `--force` to overwrite.
+
 - `ww list`: lists connected USB devices with product, serial, API name and version, hash and user label, without
   opening them. Only devices matching the device selection are shown, `--all` includes devices without an API id,
   `--plain` prints one line per device.

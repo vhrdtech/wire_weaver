@@ -278,26 +278,43 @@ fn find_and_convert_trait(
         if item_trait.ident != trait_name.ident {
             continue;
         }
-        let crate_idx = scratch.root_bundle.find_crate_or_create(current_crate);
-        let items = convert_api_items(item_trait, current_crate, scratch)?;
-        let trait_idx = scratch.root_bundle.traits.len() as u32;
-        scratch
-            .root_bundle
-            .traits
-            .push(ApiLevelLocationOwned::InLine {
-                level: ApiLevelOwned {
-                    docs: collect_docs(&item_trait.attrs),
-                    crate_idx,
-                    trait_name: trait_name.ident.to_string(),
-                    items,
-                },
-                crate_idx,
-            });
-        return Ok(ApiItemKindOwned::Trait {
-            trait_idx: trait_idx.into(),
-        });
+        let trait_idx = convert_trait(item_trait, current_crate, scratch)?;
+        return Ok(ApiItemKindOwned::Trait { trait_idx });
     }
     Err(anyhow!("Trait {trait_name:?} not found").context(current_crate.err_context()))
+}
+
+/// Convert a trait and put it into [Scratch] traits array, returns its index.
+/// If [Scratch::dedup_traits] is set, an already converted trait with the same name and from the same crate is reused.
+pub(crate) fn convert_trait(
+    item_trait: &syn::ItemTrait,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<UNib32> {
+    let crate_idx = scratch.root_bundle.find_crate_or_create(current_crate);
+    let trait_name = item_trait.ident.to_string();
+    if scratch.dedup_traits
+        && let Some(idx) = scratch.root_bundle.traits.iter().position(|l| {
+            matches!(l, ApiLevelLocationOwned::InLine { level, .. } if level.crate_idx == crate_idx && level.trait_name == trait_name)
+        })
+    {
+        return Ok(UNib32(idx as u32));
+    }
+    let items = convert_api_items(item_trait, current_crate, scratch)?;
+    let trait_idx = scratch.root_bundle.traits.len() as u32;
+    scratch
+        .root_bundle
+        .traits
+        .push(ApiLevelLocationOwned::InLine {
+            level: ApiLevelOwned {
+                docs: collect_docs(&item_trait.attrs),
+                crate_idx,
+                trait_name,
+                items,
+            },
+            crate_idx,
+        });
+    Ok(UNib32(trait_idx))
 }
 
 /// ww_impl!(gpio: Gpio) or stream!(data: Packet)

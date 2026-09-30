@@ -13,6 +13,7 @@ use ww_self::{
     FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, NumericBaseType, Repr, TypeOwned,
     ValueOwned, VariantOwned,
 };
+use ww_version::FullVersionOwned;
 
 pub(crate) fn convert_ty(
     ty: &Type,
@@ -122,10 +123,16 @@ pub(crate) fn convert_ty_path_segment(
             for item in &current_crate.lib_rs_ast.items {
                 match item {
                     Item::Enum(item_enum) if item_enum.ident == user_ty => {
-                        return convert_item_enum(current_crate, scratch, ty_name, &item_enum);
+                        let key = enter_type(current_crate, scratch, &ty_name)?;
+                        let ty = convert_item_enum(current_crate, scratch, ty_name, &item_enum);
+                        scratch.types_in_progress.retain(|k| k != &key);
+                        return ty;
                     }
                     Item::Struct(item_struct) if item_struct.ident == user_ty => {
-                        return convert_item_struct(current_crate, scratch, ty_name, &item_struct);
+                        let key = enter_type(current_crate, scratch, &ty_name)?;
+                        let ty = convert_item_struct(current_crate, scratch, ty_name, &item_struct);
+                        scratch.types_in_progress.retain(|k| k != &key);
+                        return ty;
                     }
                     Item::Use(item_use) => {
                         if !use_tree_has_type(&item_use.tree, user_ty) {
@@ -147,6 +154,23 @@ pub(crate) fn convert_ty_path_segment(
             Err(anyhow!("Type {segment:?} not found").context(current_crate.err_context()))
         }
     }
+}
+
+/// Mark a user-defined type as being converted, errors out if it is already, i.e., it refers to itself.
+fn enter_type(
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+    ty_name: &str,
+) -> Result<(FullVersionOwned, String)> {
+    let key = (current_crate.version().clone(), ty_name.to_string());
+    if scratch.types_in_progress.contains(&key) {
+        return Err(
+            anyhow!("Self-referential type {ty_name} is not supported yet")
+                .context(current_crate.err_context()),
+        );
+    }
+    scratch.types_in_progress.push(key.clone());
+    Ok(key)
 }
 
 fn convert_ub_ib(user_ty: &str) -> Option<TypeOwned> {

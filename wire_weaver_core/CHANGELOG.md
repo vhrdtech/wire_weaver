@@ -2,10 +2,17 @@
 
 ### 🚀 Features
 
+- `load_crate()` loads all `#[ww_trait]`/`#[ww_api_root]` traits and `#[derive_shrink_wrap]` types defined in a crate
+  into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references.
+  Used by `ww api save` to save crate snapshots.
+
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.
 
 ### 🐛 Fixes
+
+- Loading a self-referential type (e.g., containing `RefBox<Self>`) fails with an error instead of overflowing the
+  stack.
 
 - `#[default = ..]` on fields of API types accepts any expression (e.g. `#[default = None]` as in the docs), not only
   string literals, which failed to load. Only the presence of a default is recorded in introspection data for now.

@@ -237,6 +237,8 @@
       
         
       
+        
+      
     
     
     
@@ -376,16 +378,6 @@
   
     
       
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
       
         
       
@@ -557,6 +549,8 @@
       
         
       
+        
+      
     
     
     
@@ -616,6 +610,33 @@
     
   
   Shrink Wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
 
     
   </span>
@@ -1528,16 +1549,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1678,141 +1689,6 @@
     
   
   USB
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transport/ws.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transport/udp.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transport/ipc.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transport/in_process.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transport/can.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
 
     
   </span>
@@ -2573,7 +2449,7 @@ spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:
 <tr>
 <td><a href="#ww-api"><code>ww api</code></a></td>
 <td>no</td>
-<td>Prints the resource tree or AST of an API crate, saves and checks snapshots, from source</td>
+<td>Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source</td>
 </tr>
 <tr>
 <td><a href="#ww-usb-loopback"><code>ww usb-loopback</code></a></td>
@@ -2742,7 +2618,8 @@ version that was never published. A snapshot of a new version is only saved if t
 previous snapshot, see below.</p>
 <p><code>ww api check &lt;path&gt;</code> is the <a href="../evolution/checker_tool/">evolution checker</a>: it compares the crate with its latest
 snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
-compatible position for anything else, doc comments included).</p>
+compatible position for anything else, doc comments included). <code>ww api diff &lt;path&gt;</code> compares the same versions and
+lists every change, doc comments included, see <a href="../evolution/checker_tool/#listing-all-changes">listing all changes</a>.</p>
 <p>Current limitations, same as for codegen: traits are only found in <code>src/lib.rs</code>, a dependency reached through another
 crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
 workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>

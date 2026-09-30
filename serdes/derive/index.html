@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://ww.vhrd.tech/serdes/derive/">
       
       
-        <link rel="prev" href="../shrink_wrap/">
+        <link rel="prev" href="../../types/">
       
       
         <link rel="next" href="../showcase/">
@@ -239,6 +239,8 @@
       
         
       
+        
+      
     
     
     
@@ -378,16 +380,6 @@
   
     
       
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
       
         
       
@@ -559,6 +551,8 @@
       
         
       
+        
+      
     
     
     
@@ -621,6 +615,33 @@
     
   
   Shrink Wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
 
     
   </span>
@@ -1746,16 +1767,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1896,141 +1907,6 @@
     
   
   USB
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/ws.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/udp.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/ipc.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/in_process.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/can.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
 
     
   </span>
@@ -2545,6 +2421,8 @@
       
         
       
+        
+      
     
     
     
@@ -2832,7 +2710,7 @@ flexibility in exchange for a smaller wire size. They map directly onto <code>sh
 <p class="admonition-title">Tip</p>
 <p>Even though a type can be <code>fnial_stucture</code> or <code>sized</code>, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if <code>bool</code> is followed by <code>u8</code>, 7 bits are left unused and skipped by readers, which can later be reclaimed.</p>
 </div>
-<p>For an enum, this only concerns its <em>payload</em>; see <a href="#ww_repr--repr-enums-only"><code>ww_repr</code></a> below for the discriminant
+<p>For an enum, this only concerns its <em>payload</em>; see <a href="#ww_repr-repr-enums-only"><code>ww_repr</code></a> below for the discriminant
 itself. Note that pairing an enum with <code>ww_repr</code> alone does <strong>not</strong> make it compact - without one of these three
 directives it stays <code>Unsized</code>, exactly like a struct:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u2)]</span>
@@ -3016,7 +2894,7 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../shrink_wrap/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Shrink Wrap">
+          <a href="../../types/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Built-in types">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -3026,7 +2904,7 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
                 Previous
               </span>
               <div class="md-ellipsis">
-                Shrink Wrap
+                Built-in types
               </div>
             </div>
           </a>

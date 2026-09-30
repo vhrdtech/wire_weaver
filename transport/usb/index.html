@@ -18,7 +18,7 @@
         <link rel="prev" href="../ww_link/">
       
       
-        <link rel="next" href="../ws.md">
+        <link rel="next" href="../../examples/examples/">
       
       
         
@@ -237,6 +237,8 @@
       
         
       
+        
+      
     
     
     
@@ -378,16 +380,6 @@
   
     
       
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
       
         
       
@@ -557,6 +549,8 @@
       
         
       
+        
+      
     
     
     
@@ -616,6 +610,33 @@
     
   
   Shrink Wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
 
     
   </span>
@@ -1530,16 +1551,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1853,141 +1864,6 @@
   
 </nav>
       
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ws.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../udp.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ipc.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../in_process.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../can.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  none
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2447,16 +2323,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -2580,7 +2446,7 @@ without any formatting, truncating it to the 126 UTF-16 characters a USB string 
 descriptor (<code>2 + 2 * 126</code> bytes), <code>UsbBuffers</code> has 256 bytes for it.</p>
 <p>On the host, <code>DeviceInfo</code> (used for filtering and in <code>AmbiguousDeviceChoice</code> errors) is filled from these strings,
 so <code>.user_label_eq(..)</code> and <code>.implements_api(..)</code> filters work without opening devices.
-<code>wire_weaver_client::list_usb_devices()</code> lists all devices reporting an API id, the same as <code>ww list</code>
+<code>wire_weaver_client::list_usb_devices()</code> lists all devices reporting an API id, the same as <a href="../../cli/#ww-list"><code>ww list</code></a>
 (install the CLI with <code>cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli</code>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww list
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>LOCATION             PRODUCT               SERIAL                    API               HASH              LABEL
@@ -2701,13 +2567,13 @@ releases the interface. Outstanding requests complete with <code>Disconnected</c
         
         
           
-          <a href="../ws.md" class="md-footer__link md-footer__link--next" aria-label="Next: none">
+          <a href="../../examples/examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples and Templates">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                none
+                Examples and Templates
               </div>
             </div>
             <div class="md-footer__button md-icon">

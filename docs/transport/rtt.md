@@ -107,7 +107,10 @@ let config = ClientConfig::new().rtt("RP2040".into(), None);
   milliseconds to clear hardware breakpoints, on attach and on detach. RAM is scanned for the RTT control block, which takes
   a noticeable time on chips with a lot of RAM (about 1.5 s for 144 KiB on an STM32G0 through an ST-LINK V2-1). In
   case the firmware has just started and has not initialized RTT yet, the scan is retried for 2 s, and at least once,
-  however long a single scan takes. Then channels named `ww_up` and `ww_down` are
+  however long a single scan takes. To skip the scan, pass the firmware's ELF file with `.rtt_elf(path)` (the address
+  of the `_SEGGER_RTT` symbol is taken from it, attaching then takes tens of milliseconds), or the address itself
+  with `.rtt_control_block_at(address)`. If the running firmware doesn't match the file, RAM is scanned anyway after
+  0.5 s, with a warning; a file that can't be read or has no RTT fails the connection. Then channels named `ww_up` and `ww_down` are
   looked up, so these names must be used on the device side. Connecting returns only once all this is done. Whatever is left in the up channel from a previous host
   is dropped. Nothing else may use the probe at the same time, e.g., a `probe-rs run` or a debugger session showing
   `defmt` logs: a probe can only be opened once.

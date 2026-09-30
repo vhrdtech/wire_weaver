@@ -20,6 +20,10 @@ pub(crate) fn try_connect(
     }) else {
         bail!("Internal error: RTT selected without a target");
     };
+    let control_block = c.pieces.iter().rev().find_map(|p| match p {
+        ConfigPiece::RttControlBlock(cb) => Some(cb.clone()),
+        _ => None,
+    });
     let (probe, info) = match select_matching(c, Lister::new().list_all())? {
         Ok(matched) => matched,
         Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
@@ -35,6 +39,7 @@ pub(crate) fn try_connect(
             probe,
             target,
             speed_hz,
+            control_block,
         }),
         info: Box::new(info),
     })

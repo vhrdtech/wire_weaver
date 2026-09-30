@@ -9,6 +9,9 @@
   `ww_up` / `ww_down` channels, the framing is the stream mode shared with the device (`RttHead` / `RttChecksum` /
   `RttTail` from `ww_link`). Selecting RTT without the feature fails with an explicit error instead of
   "no devices found".
+  `ClientConfig::rtt_elf(path)` / `rtt_control_block_at(address)` skip scanning RAM for the RTT control block
+  (~1.5 s for 144 KiB through an ST-LINK, tens of milliseconds with the address known); RAM is scanned anyway if the
+  running firmware doesn't match.
 - Per-resource API compatibility checks. If the device reports the same API hash as the client was generated with,
   nothing is checked. Otherwise, client and device introspection data are compared for every method, property,
   stream and trait (argument, return, property and stream types, property access, trait origin), following the

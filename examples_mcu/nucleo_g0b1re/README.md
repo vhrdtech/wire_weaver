@@ -29,6 +29,9 @@ WireWeaver over RTT (no USB needed, the ST-LINK on the Nucleo is the transport),
 just run nucleo ww_rtt
 # stop probe-rs with Ctrl+C (firmware keeps running), then from the repo root:
 cargo run -p blinky --features rtt --example blinky_rtt -- --chip STM32G0B1RETx
+# faster attach, with the RTT control block address from the ELF instead of scanning RAM:
+cargo run -p blinky --features rtt --example blinky_rtt -- --chip STM32G0B1RETx \
+    --elf examples_mcu/nucleo_g0b1re/target/thumbv6m-none-eabi/debug/nucleo-g0b1re-ww-rtt
 ```
 
 ### CANnify B129A

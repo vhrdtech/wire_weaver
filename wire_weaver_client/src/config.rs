@@ -1,4 +1,4 @@
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{net::IpAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Result, bail};
 use semver::VersionReq;
@@ -144,13 +144,15 @@ pub(crate) enum ConfigPiece {
         protocol: (),
         speed_hz: Option<u32>,
     },
+    /// Where the RTT control block is, instead of scanning all RAM for it (slow on chips with a lot of RAM).
+    RttControlBlock(RttControlBlock),
 
     /// Filter out a device with the specified serial number. Ignoring case.
     SerialEq { serial: String },
     /// Filter out a device whose serial number contains the substring. Ignoring case.
     SerialContains { substring: String },
     /// Filter out a device with the specified user label. Ignoring case.
-    /// User labels are set by the firmware (see [USB transport](https://ww.vhrd.tech/transport/usb/)), `ww list` shows them.
+    /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
     UserLabelEq { user_label: String },
     /// Filter out a device whose manufacturer string contains the substring. Igoring case.
     ManufacturerContains { substring: String },
@@ -161,6 +163,13 @@ pub(crate) enum ConfigPiece {
         api_gid: String,
         version_req: VersionReq,
     },
+}
+
+/// See [ClientConfig::rtt_elf] and [ClientConfig::rtt_control_block_at].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum RttControlBlock {
+    Elf(PathBuf),
+    Address(u64),
 }
 
 #[cfg(feature = "usb")]
@@ -362,6 +371,29 @@ impl ClientConfig {
         f
     }
 
+    /// Take the RTT control block address from the firmware's ELF file (the `_SEGGER_RTT` symbol), instead of
+    /// scanning all RAM for it, which takes a while on chips with a lot of RAM (~1.5 s for 144 KiB through an
+    /// ST-LINK). If the running firmware doesn't match the file, RAM is scanned anyway, with a warning.
+    /// A file that can't be read or has no RTT fails the connection.
+    pub fn rtt_elf(self, path: impl Into<PathBuf>) -> Self {
+        let mut f = self;
+        f.pieces
+            .push(ConfigPiece::RttControlBlock(RttControlBlock::Elf(
+                path.into(),
+            )));
+        f
+    }
+
+    /// Same as [rtt_elf](Self::rtt_elf), with the RTT control block address known already.
+    pub fn rtt_control_block_at(self, address: u64) -> Self {
+        let mut f = self;
+        f.pieces
+            .push(ConfigPiece::RttControlBlock(RttControlBlock::Address(
+                address,
+            )));
+        f
+    }
+
     /// CommandSender queue size, limits the amount of simulatenous requests in-flight.
     /// Default is 8192, using more than 65_534 will lead to blocking if reached.
     pub fn cmd_queue_size(self, size: usize) -> Self {
@@ -407,7 +439,7 @@ impl ClientConfig {
     }
 
     /// Filter out a device with the specified user label. Ignoring case.
-    /// User labels are set by the firmware (see [USB transport](https://ww.vhrd.tech/transport/usb/)), `ww list` shows them.
+    /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
     pub fn user_label_eq(self, user_label: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::UserLabelEq { user_label });

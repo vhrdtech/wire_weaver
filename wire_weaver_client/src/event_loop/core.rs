@@ -306,7 +306,9 @@ async fn rx_task<T: Transport>(
         };
         let Some(rx) = msg_rx.as_mut() else {
             // Not connected yet: only tx can change that, by handing over the rx half
-            let Some(rx_rx) = msg_rx_rx.take() else {
+            // Polled by reference: if another branch wins, the receiver (and the rx half that may
+            // already be in it) must not be dropped, otherwise the transport is closed right away.
+            let Some(rx_rx) = msg_rx_rx.as_mut() else {
                 // transport failed earlier, nothing to read from anymore; tx will say Stop
                 match from_tx.recv().await {
                     Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
@@ -315,10 +317,13 @@ async fn rx_task<T: Transport>(
                 continue;
             };
             tokio::select! {
-                r = rx_rx => match r {
-                    Ok(r) => msg_rx = Some(r),
-                    // tx task is gone without saying Stop (should not happen), exit
-                    Err(_) => break,
+                r = rx_rx => {
+                    msg_rx_rx = None;
+                    match r {
+                        Ok(r) => msg_rx = Some(r),
+                        // tx task is gone without saying Stop (should not happen), exit
+                        Err(_) => break,
+                    }
                 },
                 msg = from_tx.recv() => match msg {
                     Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
@@ -697,6 +702,76 @@ mod tests {
         ));
     }
 
+    /// Rx unblocks the user before LinkReady reaches tx, so a request can arrive at tx during link setup.
+    fn connect_until_link_setup(p: &mut Pair, now: Instant) {
+        p.cmd(
+            now,
+            Command::Connect {
+                handle: Box::new(()),
+                client_version: Box::new(FullVersionOwned::new(
+                    "".into(),
+                    VersionOwned::new(0, 0, 0),
+                )),
+                connected_tx: None,
+                failed_tx: None,
+            },
+        );
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        p.from_device(now, &device_info());
+        assert_eq!(
+            kinds(&p.take_sent()),
+            [Kind::Nop, Kind::GetDeviceInfo, Kind::LinkSetup]
+        );
+    }
+
+    #[test]
+    fn request_during_link_setup_is_sent_when_up() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect_until_link_setup(&mut p, now);
+        let (done_tx, mut done_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: vec![0, 0, 0xAA],
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            },
+        );
+        assert!(p.take_sent().is_empty(), "held until the link is up");
+        assert!(done_rx.try_recv().is_err(), "not failed either");
+
+        p.from_device(now, &Message::LinkReady);
+        let sent = p.take_sent();
+        assert_eq!(kinds(&sent), [Kind::Data0]);
+        assert_eq!(&sent[0].payload[2..], [0xAA]);
+        assert_eq!(p.tx.in_flight(), 1);
+    }
+
+    #[test]
+    fn request_held_during_failed_link_setup_is_failed() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect_until_link_setup(&mut p, now);
+        let (done_tx, mut done_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: vec![0, 0, 0xAA],
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            },
+        );
+        p.from_device(
+            now,
+            &Message::Disconnect(DisconnectReason::IncompatibleVersion),
+        );
+        assert!(p.tx_exit.is_some());
+        assert!(matches!(
+            done_rx.try_recv().unwrap(),
+            Err(crate::Error::Disconnected)
+        ));
+    }
+
     #[test]
     fn link_setup_retries_then_fails() {
         let mut now = Instant::now();
@@ -759,5 +834,91 @@ mod tests {
         assert!(p.rx_exited);
         assert!(matches!(p.tx_exit, Some(Err(_))));
         assert!(connected_rx.try_recv().unwrap().result.is_err());
+    }
+
+    /// Rx half of a transport over a channel of whole messages.
+    struct ChanRx {
+        ch: mpsc::Receiver<(u8, Vec<u8>)>,
+        last: (u8, Vec<u8>),
+    }
+
+    impl MessageRx for ChanRx {
+        async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
+            self.last = self.ch.recv().await.ok_or("closed")?;
+            Ok((self.last.0, &self.last.1))
+        }
+    }
+
+    struct NoTx;
+
+    impl crate::event_loop::transport::MessageTx for NoTx {
+        async fn write_message(&mut self, _: u8, _: &[u8]) -> Result<(), String> {
+            Ok(())
+        }
+        async fn flush(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    struct ChanTransport;
+
+    impl Transport for ChanTransport {
+        type Tx = NoTx;
+        type Rx = ChanRx;
+        fn connect(
+            &mut self,
+            _: crate::event_loop::DeviceHandle,
+        ) -> Result<crate::event_loop::transport::Opened<NoTx, ChanRx>, String> {
+            unreachable!()
+        }
+    }
+
+    /// Tx hands over the rx half and sends TransportUp right after, so both are ready when rx wakes up
+    /// in its select!. The rx half must not be dropped whichever one rx picks first (tokio::select! is
+    /// random), this used to close the USB IN endpoint on about every second connection.
+    #[tokio::test]
+    async fn rx_half_survives_transport_up_arriving_together() {
+        for _ in 0..64 {
+            let (msg_tx, msg_rx) = mpsc::channel(4);
+            let (rx_half_tx, rx_half_rx) = oneshot::channel();
+            let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel();
+            let (to_tx_tx, mut to_tx_rx) = mpsc::unbounded_channel();
+            let task = tokio::spawn(rx_task::<ChanTransport>(rx_half_rx, to_rx_rx, to_tx_tx));
+            // let rx park in its select!, then make both branches ready at once, as tx does on Connect
+            for _ in 0..4 {
+                tokio::task::yield_now().await;
+            }
+            assert!(
+                rx_half_tx
+                    .send(ChanRx {
+                        ch: msg_rx,
+                        last: (0, vec![]),
+                    })
+                    .is_ok()
+            );
+            to_rx_tx
+                .send(ToRx::TransportUp {
+                    client_version: Box::new(FullVersionOwned::new(
+                        "".into(),
+                        VersionOwned::new(0, 0, 0),
+                    )),
+                    connected_tx: None,
+                })
+                .unwrap();
+
+            let mut scratch = [0u8; 256];
+            let (kind, payload) = device_info().encode(&mut scratch).unwrap();
+            msg_tx
+                .send((kind, payload.to_vec()))
+                .await
+                .expect("rx half was dropped");
+            let to_tx = tokio::time::timeout(Duration::from_secs(1), to_tx_rx.recv())
+                .await
+                .expect("rx is not reading from the transport");
+            assert!(matches!(to_tx, Some(ToTx::DeviceInfo(_))));
+
+            to_rx_tx.send(ToRx::Stop(None)).unwrap();
+            task.await.unwrap();
+        }
     }
 }

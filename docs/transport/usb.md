@@ -105,8 +105,9 @@ usb 003-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@
 ```
 
 Filters can be combined: `--api blinky_api@^0.1` (name with an optional SemVer requirement), `--label <label>`,
-`--product <substring>` and the global `--serial <substring>` (`ww --serial 2100 list`). `--all` also lists devices
-without an API id, and `--plain` prints one `key=value` line per device for scripts.
+`--product <substring>`, `--serial <substring>`, `--usb-path 003-1`, ... `--all` also lists devices without an API
+id, and `--plain` prints one line per device for scripts. See [Command line tool](../cli.md) for all options and
+for keeping the selection in a project `ww.toml`.
 
 ### Framing
 

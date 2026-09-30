@@ -5,6 +5,7 @@ mod config;
 mod device_info;
 mod error;
 pub(crate) mod event_loop;
+mod local_registry;
 mod tracing;
 
 pub use client::attachment::Attachment;

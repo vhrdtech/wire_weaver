@@ -415,6 +415,10 @@ impl TransportCommander {
         }
     }
 
+    pub(crate) fn default_timeout(&self) -> Duration {
+        self.default_timeout
+    }
+
     pub(crate) async fn send_message_expect_response(
         &self,
         bytes: Vec<u8>,

@@ -2,6 +2,7 @@ use crate::Error;
 use crate::event_loop::commander::TransportCommander;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
@@ -201,6 +202,52 @@ impl Stream<TailBytesOwned> {
             }
         }
         Ok(bytes)
+    }
+
+    /// Same as [Self::recv_all_bytes], but fails with a timeout error if no event is received within `idle_timeout`.
+    /// The timeout is restarted after each received event, so long transfers are not cut short.
+    pub async fn recv_all_bytes_timeout(
+        &mut self,
+        idle_timeout: Duration,
+    ) -> Result<Vec<u8>, StreamError> {
+        let mut bytes = vec![];
+        loop {
+            let ev = tokio::time::timeout(idle_timeout, self.rx.recv())
+                .await
+                .map_err(|_| Error::Timeout)?
+                .ok_or(StreamError::Closed)?;
+            if recv_all_inner(ev, &mut bytes)?.is_break() {
+                return Ok(bytes);
+            }
+        }
+    }
+
+    /// Same as [Self::recv_all_bytes_blocking], but fails with a timeout error if no event is received within
+    /// `idle_timeout`. The timeout is restarted after each received event, so long transfers are not cut short.
+    pub fn recv_all_bytes_timeout_blocking(
+        &mut self,
+        idle_timeout: Duration,
+    ) -> Result<Vec<u8>, StreamError> {
+        let mut bytes = vec![];
+        let mut deadline = Instant::now() + idle_timeout;
+        loop {
+            match self.rx.try_recv() {
+                Ok(ev) => {
+                    if recv_all_inner(ev, &mut bytes)?.is_break() {
+                        return Ok(bytes);
+                    }
+                    deadline = Instant::now() + idle_timeout;
+                }
+                Err(TryRecvError::Empty) => {
+                    if Instant::now() >= deadline {
+                        return Err(Error::Timeout.into());
+                    }
+                    // tokio's blocking_recv has no timeout variant
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
+            }
+        }
     }
 }
 

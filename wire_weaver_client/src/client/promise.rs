@@ -2,10 +2,13 @@ use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{Error, StreamEvent};
 use std::fmt::{Debug, Display, Formatter};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSideband};
+
+/// Called with the deserialized value and its bytes once a multi-chunk reply is received, e.g. to cache it.
+pub(crate) type OnDone<T> = Box<dyn FnOnce(&T, &[u8]) + Send + Sync>;
 
 pub struct Promise<T> {
     state: StateInner<T>,
@@ -47,9 +50,17 @@ enum StateInner<T> {
     },
     WaitingForIntrospect {
         transport_cmd_tx: TransportCommander,
+        idle_timeout: Duration,
+        on_done: Option<OnDone<T>>,
     },
     WaitingForReply(oneshot::Receiver<Result<Vec<u8>, Error>>),
-    WaitingForMultiReply(StreamUpdateReceiver, Vec<u8>),
+    ReceivingIntrospect {
+        rx: StreamUpdateReceiver,
+        bytes: Vec<u8>,
+        idle_timeout: Duration,
+        deadline: Instant,
+        on_done: Option<OnDone<T>>,
+    },
     Future(oneshot::Receiver<Result<T, Error>>),
     Done(Option<T>), // Option used here to make Drop and take() work
     Err(Error),
@@ -143,12 +154,20 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Introspect data is received in chunks, each [Self::sync_poll] takes all the chunks received so far.
+    /// Fails if no chunk is received within `idle_timeout`.
     pub(crate) fn new_introspect(
         transport_cmd_tx: TransportCommander,
+        idle_timeout: Duration,
+        on_done: OnDone<T>,
         marker: &'static str,
     ) -> Self {
         Self {
-            state: StateInner::WaitingForIntrospect { transport_cmd_tx },
+            state: StateInner::WaitingForIntrospect {
+                transport_cmd_tx,
+                idle_timeout,
+                on_done: Some(on_done),
+            },
             marker,
             seen: false,
         }
@@ -299,25 +318,53 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                     self.state = StateInner::Err(Error::RxDispatcherNotRunning);
                 }
             },
-            StateInner::WaitingForMultiReply(rx, acc) => match rx.try_recv() {
-                Ok(chunk) => match chunk {
-                    StreamEvent::Data(chunk) => {
-                        acc.extend_from_slice(&chunk);
+            StateInner::ReceivingIntrospect {
+                rx,
+                bytes,
+                idle_timeout,
+                deadline,
+                on_done,
+            } => loop {
+                match rx.try_recv() {
+                    Ok(StreamEvent::Data(chunk)) => {
+                        bytes.extend_from_slice(&chunk);
+                        *deadline = Instant::now() + *idle_timeout;
                     }
-                    StreamEvent::Sideband(StreamSideband::Close) => {
-                        self.state = StateInner::from_ww_bytes_owned(acc);
+                    Ok(StreamEvent::Connected) => {}
+                    Ok(StreamEvent::Sideband(StreamSideband::Close)) => {
+                        self.state = if bytes.is_empty() {
+                            StateInner::Err(Error::Other(
+                                "device did not provide introspection data".into(),
+                            ))
+                        } else {
+                            match T::from_ww_bytes_owned(bytes) {
+                                Ok(value) => {
+                                    if let Some(on_done) = on_done.take() {
+                                        on_done(&value, bytes);
+                                    }
+                                    StateInner::Done(Some(value))
+                                }
+                                Err(e) => StateInner::Err(e.into()),
+                            }
+                        };
+                        break;
                     }
-                    StreamEvent::Connected => {}
-                    o => {
+                    Ok(o) => {
                         self.state = StateInner::Err(Error::Other(format!(
-                            "unexpected stream event: {:?}",
-                            o
+                            "unexpected stream event: {o:?}"
                         )));
+                        break;
                     }
-                },
-                Err(mpsc::error::TryRecvError::Empty) => {}
-                Err(mpsc::error::TryRecvError::Disconnected) => {
-                    self.state = StateInner::Err(Error::RxDispatcherNotRunning);
+                    Err(mpsc::error::TryRecvError::Empty) => {
+                        if Instant::now() >= *deadline {
+                            self.state = StateInner::Err(Error::Timeout);
+                        }
+                        break;
+                    }
+                    Err(mpsc::error::TryRecvError::Disconnected) => {
+                        self.state = StateInner::Err(Error::RxDispatcherNotRunning);
+                        break;
+                    }
                 }
             },
             StateInner::Future(rx) => {
@@ -418,13 +465,23 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     }
 
     fn send_introspect(&mut self) -> bool {
-        if let StateInner::WaitingForIntrospect { transport_cmd_tx } = &mut self.state {
+        if let StateInner::WaitingForIntrospect {
+            transport_cmd_tx,
+            idle_timeout,
+            on_done,
+        } = &mut self.state
+        {
             // send introspect request to a remote device through transport layer
             // this should not actually block, unless there are huge number of requests being generated
             match transport_cmd_tx.send_introspect_blocking(None) {
-                // TODO: introspect: add timeout
-                Ok(chunks_rx) => {
-                    self.state = StateInner::WaitingForMultiReply(chunks_rx, vec![]);
+                Ok(rx) => {
+                    self.state = StateInner::ReceivingIntrospect {
+                        rx,
+                        bytes: vec![],
+                        idle_timeout: *idle_timeout,
+                        deadline: Instant::now() + *idle_timeout,
+                        on_done: on_done.take(),
+                    };
                 }
                 Err(e) => {
                     self.state = StateInner::Err(e);
@@ -443,7 +500,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             | StateInner::WaitingForSeqWrite { .. }
             | StateInner::WaitingForIntrospect { .. }
             | StateInner::WaitingForReply(_)
-            | StateInner::WaitingForMultiReply(_, _) => PromiseState::Waiting,
+            | StateInner::ReceivingIntrospect { .. } => PromiseState::Waiting,
             StateInner::Future(_) => PromiseState::Waiting,
             StateInner::Done(value) => value
                 .as_ref()
@@ -495,7 +552,7 @@ impl<T> Display for Promise<T> {
             StateInner::WaitingForSeqWrite { .. } => write!(f, "WaitingForSeqWrite"),
             StateInner::WaitingForIntrospect { .. } => write!(f, "WaitingForIntrospect"),
             StateInner::WaitingForReply(_) => write!(f, "Waiting"),
-            StateInner::WaitingForMultiReply(_, _) => write!(f, "WaitingMulti"),
+            StateInner::ReceivingIntrospect { .. } => write!(f, "ReceivingIntrospect"),
             StateInner::Future(_) => write!(f, "Future"),
             StateInner::Done(_) => write!(f, "Done"),
             StateInner::Err(e) => write!(f, "Err({e:?})"),

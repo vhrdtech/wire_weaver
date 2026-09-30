@@ -131,6 +131,7 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
 fn ser_hash_and_cache(api_bundle: &ApiBundleOwned, contains_docs: bool) -> (Vec<u8>, TokenStream) {
     let api_bytes = api_bundle.to_ww_bytes_owned().unwrap();
     // TODO: calculate api signature properly?
+    // NOTE: wire_weaver_client/src/local_registry.rs hashes downloaded bundles the same way, keep in sync
     let hash = sha2::Sha256::digest(&api_bytes);
     let hash = &hash[..8];
     crate::local_registry::cache_api_bundle(api_bundle, contains_docs, hash);

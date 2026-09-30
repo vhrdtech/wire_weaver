@@ -21,6 +21,7 @@ fn cache_api_bundle_inner(
     }
     let hash = hex::encode(hash);
     let with_docs = if contains_docs { "+docs" } else { "" };
+    // NOTE: wire_weaver_client/src/local_registry.rs uses the same naming scheme, keep in sync
     let filename = format!("{}-{hash}{with_docs}.ron", api_crate.filename_friendly());
     let local_registry_path = std::env::home_dir()
         .ok_or(anyhow!("no home directory"))?

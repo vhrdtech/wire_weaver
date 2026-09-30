@@ -254,7 +254,7 @@ flexibility in exchange for a smaller wire size. They map directly onto `shrink_
 
     Even though a type can be `fnial_stucture` or `sized`, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if `bool` is followed by `u8`, 7 bits are left unused and skipped by readers, which can later be reclaimed.
 
-For an enum, this only concerns its _payload_; see [`ww_repr`](#ww_repr--repr-enums-only) below for the discriminant
+For an enum, this only concerns its _payload_; see [`ww_repr`](#ww_repr-repr-enums-only) below for the discriminant
 itself. Note that pairing an enum with `ww_repr` alone does **not** make it compact - without one of these three
 directives it stays `Unsized`, exactly like a struct:
 

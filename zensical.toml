@@ -8,12 +8,13 @@ copyright = "Copyright &copy; 2026 vhrdtech"
 
 repo_url = "https://github.com/vhrdtech/wire_weaver"
 repo_name = "vhrdtech/wire_weaver"
-edit_uri = "edit/main/docs/"
+edit_uri = "edit/master/docs/"
 
 nav = [
     { "Home" = "index.md" },
     { "SerDes" = [
             "serdes/shrink_wrap.md",
+            "types.md",
             "serdes/derive.md",
             "serdes/showcase.md"
         ]
@@ -55,12 +56,7 @@ nav = [
             "transport/overview.md",
             "transport/ww_framer.md",
             "transport/ww_link.md",
-            "transport/usb.md",
-            "transport/ws.md",
-            "transport/udp.md",
-            "transport/ipc.md",
-            "transport/in_process.md",
-            "transport/can.md"
+            "transport/usb.md"
         ]
     },
     {

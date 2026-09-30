@@ -296,4 +296,4 @@ the head; actual limits are negotiated via `dev_max_message_len` / `host_max_mes
   receiving is never blocked by a write.
 - `ww_device` — device side: sans-IO `DeviceLink`, async and blocking servers, see [above](#how-the-device-runs-it).
 - `wire_weaver_usb_embassy` — USB class and packet IO for embassy-usb on top of `ww_device`.
-- [USB](usb.md), [WebSocket](ws.md), [UDP](udp.md) — transports that carry frames.
+- [USB](usb.md), WebSocket, UDP — transports that carry frames.

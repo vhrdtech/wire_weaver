@@ -6,6 +6,8 @@ mod config;
 mod device_info;
 mod error;
 pub(crate) mod event_loop;
+pub mod evolution;
+mod layout;
 mod local_registry;
 mod tracing;
 

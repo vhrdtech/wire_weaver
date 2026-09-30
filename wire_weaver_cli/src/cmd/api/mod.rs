@@ -1,6 +1,7 @@
 // mod server_methods;
 
 mod ast;
+mod check;
 mod save;
 
 use anyhow::{Result, anyhow};
@@ -44,15 +45,31 @@ pub enum ApiCommand {
     /// Traits and types from other crates are only referenced, save a snapshot of each of those crates as well.
     ///
     /// Saving again is a no-op if nothing changed. Any change is an error, doc comments included:
-    /// bump the crate version instead (compatible position for doc-only changes).
+    /// bump the crate version instead (compatible position for doc-only changes). A new version is compared with
+    /// the previous snapshot as `ww api check` does, and is only saved if bumped enough.
     Save {
         /// Path to crate which defines ww_trait's and/or data types
         #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
 
-        /// Overwrite an existing snapshot even if traits or types changed without a version bump
+        /// Save even if traits or types changed without a sufficient version bump
         #[arg(long)]
         force: bool,
+    },
+    /// Check that the crate version is bumped enough for the changes made since the latest saved snapshot
+    ///
+    /// Traits and types defined in the crate are compared with the newest snapshot in `<path>/api_snapshots/` that is
+    /// not newer than the crate version (see docs/evolution/rules.md). Breaking changes require a bump of the
+    /// breaking position (minor before 1.0, major after), any other change, doc comments included, a bump of the
+    /// compatible position (patch before 1.0, minor after).
+    Check {
+        /// Path to crate which defines ww_trait's and/or data types
+        #[arg(value_hint = ValueHint::DirPath)]
+        path: PathBuf,
+
+        /// Compare with this snapshot instead of the latest one saved in the crate
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        against: Option<PathBuf>,
     },
     /// Print AST
     Ast {
@@ -84,6 +101,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),
         ApiCommand::ServerMethods { .. } => Err(anyhow!("Not implemented yet")),
         ApiCommand::Save { path, force } => save::save(path, force),
+        ApiCommand::Check { path, against } => check::check(path, against),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
 }

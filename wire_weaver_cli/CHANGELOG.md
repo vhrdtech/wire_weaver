@@ -11,6 +11,11 @@
 - `ww api save <path>` saves all traits and types of a crate into `<path>/api_snapshots/<crate>_<version>.ron`, to be
   committed and kept unchanged. Re-running is a no-op, any change without a version bump is an error, doc-only
   changes included (they bump the compatible position), `--force` to overwrite.
+- `ww api check <path>`, the evolution checker: compares a crate with its latest snapshot in `<path>/api_snapshots/`
+  (or the one given with `--against`), lists breaking and compatible changes, and fails if the crate version is not
+  bumped enough, doc-only changes included (compatible position).
+- `ww api save` runs the same check before saving a snapshot of a new version, and refuses to save it if the version is
+  not bumped enough since the previous snapshot (`--force` saves anyway).
 - `ww introspect` prints the size of the full API and of the introspection data the device sent, which leaves out
   traits and types known from `ww_stdlib` snapshots.
 - `ww introspect --raw-as-sent` prints the introspection data as the device sent it, before traits and types known

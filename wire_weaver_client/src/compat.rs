@@ -21,6 +21,8 @@ use ww_self::{
 };
 use ww_version::{FullVersionOwned, VersionTriplet};
 
+use crate::layout;
+
 /// How the device's API relates to the client's, decided once after connecting.
 #[derive(Clone)]
 pub(crate) enum ApiMatch {
@@ -74,10 +76,12 @@ impl ApiCompat {
     pub(crate) fn new(client: &ApiBundleOwned, device: &ApiBundleOwned) -> Self {
         let device_items: HashMap<Vec<u32>, &ApiItemOwned> = collect(device).into_iter().collect();
         Self::build(client, |path, item| match device_items.get(path) {
-            Some(device_item) => match compare_items(client, item, device, device_item) {
-                Ok(()) => Verdict::Compatible,
-                Err(reason) => Verdict::Incompatible(reason),
-            },
+            Some(device_item) => {
+                match compare_items((client, item, "client"), (device, device_item, "device")) {
+                    Ok(()) => Verdict::Compatible,
+                    Err(reason) => Verdict::Incompatible(reason),
+                }
+            }
             None => Verdict::Missing,
         })
     }
@@ -211,11 +215,13 @@ fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
     collector.items
 }
 
-fn compare_items(
-    client: &ApiBundleOwned,
-    client_item: &ApiItemOwned,
-    device: &ApiBundleOwned,
-    device_item: &ApiItemOwned,
+/// One side of a comparison: bundle, resource in it, and how to call that side in messages.
+pub(crate) type Side<'a> = (&'a ApiBundleOwned, &'a ApiItemOwned, &'static str);
+
+/// Checks that the resource on the client side can be used with the one on the device side.
+pub(crate) fn compare_items(
+    (client, client_item, client_name): Side,
+    (device, device_item, device_name): Side,
 ) -> Result<(), String> {
     let array = |item: &ApiItemOwned| {
         if item.is_array() {
@@ -226,14 +232,14 @@ fn compare_items(
     };
     if client_item.is_array() != device_item.is_array() {
         return Err(format!(
-            "{} on the client, {} on the device",
+            "{} on the {client_name}, {} on the {device_name}",
             array(client_item),
             array(device_item)
         ));
     }
     // types flowing from client to device, and from device to client
-    let mut to_device = TypeCheck::new(client, device, "client", "device");
-    let mut to_client = TypeCheck::new(device, client, "device", "client");
+    let mut to_device = TypeCheck::new(client, device, client_name, device_name);
+    let mut to_client = TypeCheck::new(device, client, device_name, client_name);
     use ApiItemKindOwned::*;
     match (&client_item.kind, &device_item.kind) {
         (
@@ -245,7 +251,7 @@ fn compare_items(
         ) => {
             if args.len() != device_args.len() {
                 return Err(format!(
-                    "takes {} argument(s) on the client, {} on the device",
+                    "takes {} argument(s) on the {client_name}, {} on the {device_name}",
                     args.len(),
                     device_args.len()
                 ));
@@ -260,8 +266,12 @@ fn compare_items(
                 (Some(ty), Some(device_ty)) => to_client
                     .check(device_ty, ty)
                     .map_err(|e| format!("return type: {e}"))?,
-                (Some(_), None) => return Err("device returns nothing".into()),
-                (None, Some(_)) => return Err("device returns a value, client expects none".into()),
+                (Some(_), None) => return Err(format!("{device_name} returns nothing")),
+                (None, Some(_)) => {
+                    return Err(format!(
+                        "{device_name} returns a value, {client_name} expects none"
+                    ));
+                }
             }
         }
         (
@@ -283,7 +293,7 @@ fn compare_items(
                 || (observable && !device_observable)
             {
                 return Err(format!(
-                    "{access:?} on the client, {device_access:?} on the device"
+                    "{access:?} on the {client_name}, {device_access:?} on the {device_name}"
                 ));
             }
             if readable {
@@ -349,7 +359,7 @@ fn compare_items(
         }
         (kind, device_kind) => {
             return Err(format!(
-                "{} on the client, {} on the device",
+                "{} on the {client_name}, {} on the {device_name}",
                 kind_name(kind),
                 kind_name(device_kind)
             ));
@@ -460,7 +470,7 @@ fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
 }
 
 /// Checks that a value written as one type can be read as the other.
-struct TypeCheck<'a> {
+pub(crate) struct TypeCheck<'a> {
     writer: &'a ApiBundleOwned,
     reader: &'a ApiBundleOwned,
     writer_name: &'static str,
@@ -477,7 +487,7 @@ enum ResolvedTy<'a> {
 }
 
 impl<'a> TypeCheck<'a> {
-    fn new(
+    pub(crate) fn new(
         writer: &'a ApiBundleOwned,
         reader: &'a ApiBundleOwned,
         writer_name: &'static str,
@@ -492,7 +502,7 @@ impl<'a> TypeCheck<'a> {
         }
     }
 
-    fn check(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
+    pub(crate) fn check(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
         if let (TypeOwned::OutOfLine { type_idx: wi }, TypeOwned::OutOfLine { type_idx: ri }) =
             (w, r)
             && !self.seen.insert((wi.0, ri.0))
@@ -619,29 +629,85 @@ impl<'a> TypeCheck<'a> {
             return Err(format!("{w_size:?} vs {r_size:?}"));
         }
         let (w, r) = (fields(w), fields(r));
+        let is_unsized = matches!(r_size, ElementSize::Unsized);
+        if w.len() != r.len() {
+            let (fewer, more) = if w.len() < r.len() { (w, r) } else { (r, w) };
+            // Unsized types can gain fields at the end as well, compared by position below
+            let in_between =
+                layout::last_old_field(fewer, more).is_some_and(|last| last + 1 != fewer.len());
+            if !is_unsized || in_between {
+                return self.check_padding_reuse(w, r, is_unsized);
+            }
+        }
         for (i, (w_field, r_field)) in w.iter().zip(r).enumerate() {
             self.check(&w_field.ty, &r_field.ty)
                 .map_err(|e| format!("field {}: {e}", field_name(i, r_field)))?;
         }
-        if matches!(r_size, ElementSize::Unsized) {
-            // writer's extra trailing fields are skipped, reader's extra fields must have a default
-            for (i, r_field) in r.iter().enumerate().skip(w.len()) {
-                if r_field.default.is_none() {
-                    return Err(format!(
-                        "field {} is not sent by the {} and has no #[default]",
-                        field_name(i, r_field),
-                        self.writer_name
-                    ));
-                }
+        if is_unsized {
+            self.check_trailing(w.len(), r)?;
+        }
+        Ok(())
+    }
+
+    /// Writer's extra trailing fields are skipped, reader's extra fields must have a default.
+    fn check_trailing(&self, written: usize, r: &[FieldOwned]) -> Result<(), String> {
+        for (i, r_field) in r.iter().enumerate().skip(written) {
+            if r_field.default.is_none() {
+                return Err(format!(
+                    "field {} is not sent by the {} and has no #[default]",
+                    field_name(i, r_field),
+                    self.writer_name
+                ));
             }
-        } else if w.len() != r.len() {
-            return Err(format!(
-                "{} fields on the {}, {} on the {}, only Unsized types can gain new fields",
-                w.len(),
-                self.writer_name,
-                r.len(),
-                self.reader_name
-            ));
+        }
+        Ok(())
+    }
+
+    /// New fields in between the old ones, in their unused padding bits, see [layout]. `Unsized` types can also
+    /// gain fields at the end.
+    fn check_padding_reuse(
+        &mut self,
+        w: &'a [FieldOwned],
+        r: &'a [FieldOwned],
+        is_unsized: bool,
+    ) -> Result<(), String> {
+        let ((fewer_bundle, fewer), (more_bundle, more)) = if w.len() < r.len() {
+            ((self.writer, w), (self.reader, r))
+        } else {
+            ((self.reader, r), (self.writer, w))
+        };
+        let in_padding = match (is_unsized, layout::last_old_field(fewer, more)) {
+            (true, Some(last)) => &more[..=last],
+            _ => more,
+        };
+        layout::check_padding_reuse(fewer_bundle, fewer, more_bundle, in_padding, is_unsized)
+            .map_err(|e| {
+                let can_grow = if is_unsized {
+                    "Unsized types can gain new fields at the end, and in between old ones only in unused padding bits"
+                } else {
+                    "only Unsized types can gain new fields at the end, other types only in unused padding bits"
+                };
+                format!(
+                    "{} fields on the {}, {} on the {}, {can_grow}: {e}",
+                    w.len(),
+                    self.writer_name,
+                    r.len(),
+                    self.reader_name
+                )
+            })?;
+        if is_unsized && r.len() > w.len() {
+            self.check_trailing(in_padding.len(), r)?;
+        }
+        // old fields are matched by name, new ones are in between
+        for (i, w_field) in w.iter().enumerate() {
+            let r_field = match &w_field.ident {
+                Some(_) => r.iter().find(|f| f.ident == w_field.ident),
+                None => r.get(i),
+            };
+            if let Some(r_field) = r_field {
+                self.check(&w_field.ty, &r_field.ty)
+                    .map_err(|e| format!("field {}: {e}", field_name(i, r_field)))?;
+            }
         }
         Ok(())
     }
@@ -676,14 +742,14 @@ fn user_type_identity<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Opti
     Some((bundle.crate_version(crate_idx.0).ok()?, ident.as_str()))
 }
 
-fn fields(fields: &FieldsOwned) -> &[FieldOwned] {
+pub(crate) fn fields(fields: &FieldsOwned) -> &[FieldOwned] {
     match fields {
         FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => fields,
         FieldsOwned::Unit => &[],
     }
 }
 
-fn field_name(idx: usize, field: &FieldOwned) -> String {
+pub(crate) fn field_name(idx: usize, field: &FieldOwned) -> String {
     match &field.ident {
         Some(ident) => format!("`{ident}`"),
         None => format!("{idx}"),

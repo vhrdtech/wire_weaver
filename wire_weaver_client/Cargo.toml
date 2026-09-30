@@ -47,6 +47,7 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_snapshots.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 ww_link = { workspace = true, features = ["std"] }
+ww_numeric = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }

@@ -118,7 +118,8 @@ Doc comments on traits, resources and types are not part of the wire format, but
 data and in [crate snapshots](../cli.md#ww-api), so a GUI or CLI can show them. A released version's snapshot never
 changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
 same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
-improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs.
+improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs, and the
+[evolution checker](checker_tool.md) requires the compatible bump.
 
 The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
 wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.
@@ -155,13 +156,15 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
     * `Vec<T>` - Empty vector is read from old data,
     * `String` - Empty string is read from old data,
     * `T` can be anything.
-* New `Sized` fields can be added into previously unused padding bits.
+* New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
+  other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`
 * Struct fields and enum variants can be renamed (but their position must NOT change).
 
 ### FinalStructure, SelfDescribing and Sized types
 
-* New `Sized` fields can be added into previously unused padding bits.
+* New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
+  other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * Struct fields and enum variants can be renamed (but their position must NOT change).
 
 ## API

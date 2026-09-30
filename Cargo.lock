@@ -3464,6 +3464,7 @@ dependencies = [
  "ww_device",
  "ww_framer",
  "ww_link",
+ "ww_numeric",
  "ww_self",
  "ww_version",
 ]

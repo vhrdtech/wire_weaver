@@ -50,7 +50,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 |------------------------------------|----------------|--------------------------------------------------------------------|
 | [`ww list`](#ww-list)              | no (not opened)| Lists connected devices matching the device selection              |
 | [`ww introspect`](#ww-introspect)  | yes            | Prints the device's resource tree from its introspection data      |
-| [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, from source       |
+| [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves and checks snapshots, from source |
 | [`ww usb-loopback`](#ww-usb-loopback) | yes         | Runs USB loopback and throughput tests                             |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
@@ -202,7 +202,12 @@ saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits,
 Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
 bump the crate version (see [evolution rules](evolution/rules.md#doc-comments), doc-only changes bump the compatible
 position, so that tools can tell that improved docs are available) and save a new snapshot. `--force` overwrites anyway, only use it for a
-version that was never published.
+version that was never published. A snapshot of a new version is only saved if the version is bumped enough since the
+previous snapshot, see below.
+
+`ww api check <path>` is the [evolution checker](evolution/checker_tool.md): it compares the crate with its latest
+snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
+compatible position for anything else, doc comments included).
 
 Current limitations, same as for codegen: traits are only found in `src/lib.rs`, a dependency reached through another
 crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), crates with a

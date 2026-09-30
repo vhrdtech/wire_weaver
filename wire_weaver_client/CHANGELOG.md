@@ -14,6 +14,18 @@
   A trait or type whose definition is skipped on one side is checked by origin and crate version, and by signature
   when the versions are the same, which catches a definition changed without bumping its crate version.
 
+- `evolution` module, the evolution checker: `evolution::compare(old, new)` compares two crate snapshots
+  (`ww api save` bundles) and returns a `Report` with the kind of change (`Change::None`, `DocsOnly`, `Compatible` or
+  `Breaking`), the reasons, and warnings (additions without `#[since]`). `Report::check_version()` fails if the new
+  crate version doesn't bump the required position: breaking changes need the breaking position, any other change,
+  doc comments included, the compatible one. Resources are compared both ways with the same rules as the
+  per-resource compatibility check; renames and removals are breaking too, as they break Rust code.
+- Per-resource compatibility check: types may gain new fields in between the old ones, in their unused padding bits,
+  if no old field moves and the new ones read all zero bits as a valid value. `Unsized` types always start at a byte
+  boundary, `final_structure`, `self_describing` and `sized` ones are checked for every bit offset they can start at.
+  Before, such fields were only compatible at the end of an `Unsized` type (with `#[default]`), and other types
+  were incompatible whenever the number of fields differed.
+
 - `snapshots` (re-export of `wire_weaver_snapshots`): API snapshots of `ww_global` and `ww_stdlib` crates, looked up
   by crate name and version with `snapshots::get()` or `snapshots::all()`. The per-resource compatibility check uses
   them to calculate the signature of an in-line trait or type that refers to skipped ones, which was not checked

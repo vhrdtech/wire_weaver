@@ -11,3 +11,5 @@
 - `load_api(path)` builds the API from its crate source: pass it to `connect(api=...)` for a device with
   introspection disabled, or use it offline to browse the API and `encode` / `decode` values.
 - `list_devices()` lists connected USB devices.
+- `just py` / `just py-rtt` (from the workspace root) open a Python console with `ww` imported and the device
+  connected as `dev`, see `scripts/console.py --help`.

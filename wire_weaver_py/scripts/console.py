@@ -6,6 +6,7 @@ Run from the workspace root: `just py [options]` (builds the module first), or f
 
 import argparse
 import os
+import sys
 
 import wire_weaver as ww
 
@@ -21,7 +22,12 @@ p.add_argument("--api", metavar="PATH", help="API crate source, for devices with
 p.add_argument("--trait", help="API trait name, if the crate has several (with --api)")
 p.add_argument("--timeout", type=float, default=1.0, help="request timeout, seconds (default 1)")
 p.add_argument("--no-connect", action="store_true", help="only import the module")
-args = p.parse_args()
+try:
+    args = p.parse_args()
+except SystemExit as e:  # --help or a bad argument: exit instead of dropping into the `python -i` prompt
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(e.code if isinstance(e.code, int) else 1)
 
 api = ww.load_api(args.api, args.trait) if args.api else None
 dev = None
@@ -52,4 +58,5 @@ if not args.no_connect:
     elif devices:
         print("several devices: pick one with --serial / --label, or dev = ww.connect(serial=...)")
 
-print("\n`ww` is imported" + (", `dev` is connected" if dev else "") + "; help(ww) lists what is there, dev.disconnect() when done")
+names = ["`ww` is imported"] + (["`api` is loaded"] if api is not None else []) + (["`dev` is connected"] if dev else [])
+print("\n" + ", ".join(names) + "; help(ww) lists what is there" + (", dev.disconnect() when done" if dev else ""))

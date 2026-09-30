@@ -61,6 +61,19 @@ dev = ww.connect(api=api)
 | `Result<T, E>`                  | `{"Ok": T}` or `{"Err": E}`                                          |
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
 
+## Interactive console
+
+From the workspace root, `just py` builds the module (when Rust sources changed) and opens a Python prompt with `ww`
+imported and the device connected as `dev`, if exactly one is found or a filter is given:
+
+```sh
+just py                                  # the only connected USB device
+just py --serial 0123 --timeout 5        # pick one
+just py --api examples/blinky_api        # API from source: device without introspection, or offline browsing
+just py-rtt --rtt STM32G0B1RETx --elf fw.elf   # over RTT (module built with the rtt feature)
+just py --help
+```
+
 ## Building
 
 ```sh

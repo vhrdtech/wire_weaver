@@ -10,6 +10,27 @@ use ww_client_server::{ErrorKindOwned, PathKindOwned, StreamSideband};
 /// Called with the deserialized value and its bytes once a multi-chunk reply is received, e.g. to cache it.
 pub(crate) type OnDone<T> = Box<dyn FnOnce(&T, &[u8]) + Send + Sync>;
 
+/// Result of a call, property read/write or introspection request, polled from synchronous code.
+///
+/// Main use case is immediate mode UI (e.g. egui): a promise is created once (see
+/// [PreparedCall::call_promise](crate::PreparedCall::call_promise),
+/// [PreparedRead::read_promise](crate::PreparedRead::read_promise),
+/// [PreparedWrite::write_promise](crate::PreparedWrite::write_promise) and
+/// [Introspect::get_promise](crate::Introspect::get_promise)), stored in the UI state and then polled on every frame
+/// with [ready](Self::ready), [take_ready](Self::take_ready), [sync_poll](Self::sync_poll) + [state](Self::state), etc.
+/// Polling never waits for the device response, it only checks whether one has arrived.
+///
+/// Despite the name, this is **not** a [Future] and must **not** be polled from async code (e.g. from a tokio task):
+/// * The request is sent lazily on the first poll, using tokio's `blocking_send`, which panics when called from
+///   within an async runtime context. It can also block the thread briefly if the command queue is full.
+/// * Nothing wakes the task up when a response arrives, a promise only makes progress when it is polled again.
+///
+/// In async code use `call()`, `read()`, `write()` or `Introspect::get()` instead.
+///
+/// Nothing is sent until the promise is polled at least once. Dropping a promise that is still waiting logs a warning,
+/// the request is not cancelled, but its response is discarded.
+///
+/// `marker` is a user-provided name only used in [Display] output and log messages.
 pub struct Promise<T> {
     state: StateInner<T>,
     marker: &'static str, // TODO: change to enum Marker { Static, Owned } with into
@@ -66,8 +87,11 @@ enum StateInner<T> {
     Err(Error),
 }
 
+/// Snapshot of a [Promise] state, returned by [Promise::state].
 pub enum PromiseState<'i, T> {
+    /// Created with [Promise::empty] or [Default], or data/error was already taken out.
     Empty,
+    /// Request not yet sent (promise was never polled) or response not yet received.
     Waiting,
     Done(&'i T),
     Err(&'i Error),
@@ -192,6 +216,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Same as [Self::ready], but returns a mutable reference.
     pub fn ready_mut(&mut self) -> Option<&mut T> {
         self.sync_poll();
         if let StateInner::Done(response) = &mut self.state {
@@ -201,6 +226,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Polls the promise and returns a reference to the data only once, the first time it is ready.
+    /// Useful to react to a response exactly once, e.g. to copy it into UI state.
     pub fn ready_if_unseen(&mut self) -> Option<&T> {
         self.sync_poll();
         if let StateInner::Done(response) = &self.state {
@@ -215,6 +242,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Polls the promise and moves the data out if it is ready, leaving the promise empty.
+    /// An error is ignored and stays in the promise.
     pub fn take_ready(&mut self) -> Option<T> {
         self.sync_poll();
         if !matches!(self.state, StateInner::Done(_)) {
@@ -228,6 +257,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Polls the promise and moves the data or the error out, leaving the promise empty.
+    /// Returns `Ok(None)` if still pending or already empty.
     pub fn take(&mut self) -> Result<Option<T>, String> {
         if let Some(r) = self.take_ready() {
             Ok(Some(r))
@@ -240,6 +271,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Returns a reference to the data if it is ready, without polling.
     pub fn peek_done(&self) -> Option<&T> {
         if let StateInner::Done(response) = &self.state {
             response.as_ref()
@@ -248,6 +280,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Returns a reference to the error if the request failed, without polling.
     pub fn peek_error(&self) -> Option<&Error> {
         if let StateInner::Err(e) = &self.state {
             Some(e)
@@ -256,6 +289,10 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         }
     }
 
+    /// Makes progress: sends the request on the first call, afterward checks whether a response has arrived.
+    ///
+    /// Must be called from synchronous code, see [Promise] docs. Doesn't wait for a response,
+    /// but might block briefly on the first call if the command queue is full.
     pub fn sync_poll(&mut self) {
         match &self.state {
             StateInner::WaitingForSeqCall { .. } => {
@@ -492,6 +529,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         false
     }
 
+    /// Returns the current state, without polling. Call [Self::sync_poll] first to make progress.
     pub fn state(&self) -> PromiseState<'_, T> {
         match &self.state {
             StateInner::None => PromiseState::Empty,

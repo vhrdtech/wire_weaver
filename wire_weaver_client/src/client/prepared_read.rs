@@ -76,7 +76,9 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         Ok(reply)
     }
 
-    /// Send a read request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    /// Return a [Promise] that sends a read request on its first poll and receives the result on subsequent polls.
+    /// Useful for immediate mode UI. Must only be polled from synchronous code, not from async tasks,
+    /// see [Promise] docs; use `read()` in async code.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn read_promise(self, marker: &'static str) -> Promise<T> {
         let path_kind = match self.path_kind {

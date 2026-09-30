@@ -92,7 +92,9 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
         Ok(())
     }
 
-    /// Send write request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    /// Return a [Promise] that sends a write request on its first poll and receives the result on subsequent polls.
+    /// Useful for immediate mode UI. Must only be polled from synchronous code, not from async tasks,
+    /// see [Promise] docs; use `write()` in async code.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn write_promise(self, marker: &'static str) -> Promise<E> {
         if let Err(e) = self.postpone_err {

@@ -109,7 +109,9 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedCall<T> {
         Ok(())
     }
 
-    /// Send a call request and return a Promise that can be used to await a result. Useful for immediate mode UI.
+    /// Return a [Promise] that sends a call request on its first poll and receives the result on subsequent polls.
+    /// Useful for immediate mode UI. Must only be polled from synchronous code, not from async tasks,
+    /// see [Promise] docs; use `call()` in async code.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn call_promise(self, marker: &'static str) -> Promise<T> {
         if let Err(e) = self.postpone_err {

@@ -64,6 +64,7 @@ impl Introspect {
 
     /// Same as [Introspect::get], but returns a Promise that receives data chunks as it is polled.
     /// Resolves to an error if a device has introspection disabled.
+    /// Must only be polled from synchronous code, not from async tasks, see [Promise] docs.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn get_promise(self) -> Promise<ApiBundleOwned> {
         if let Some(bundle) = local_registry::load(&self.hash) {

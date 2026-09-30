@@ -1312,7 +1312,7 @@
   <span class="md-ellipsis">
     
   
-  Checker tool
+  Evolution checker
 
     
   </span>
@@ -2669,7 +2669,8 @@ Everything else bumps the breaking position.</p>
 data and in <a href="../../cli/#ww-api">crate snapshots</a>, so a GUI or CLI can show them. A released version's snapshot never
 changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
 same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
-improved docs are available. <code>ww api save</code> refuses to overwrite a snapshot with changed docs.</p>
+improved docs are available. <code>ww api save</code> refuses to overwrite a snapshot with changed docs, and the
+<a href="../checker_tool/">evolution checker</a> requires the compatible bump.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h2 id="checklist-before-breaking-something">Checklist before breaking something<a class="headerlink" href="#checklist-before-breaking-something" title="Permanent link">&para;</a></h2>
@@ -2702,13 +2703,15 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 <li><code>T</code> can be anything.</li>
 </ul>
 </li>
-<li>New <code>Sized</code> fields can be added into previously unused padding bits.</li>
+<li>New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
+  other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
 </ul>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
-<li>New <code>Sized</code> fields can be added into previously unused padding bits.</li>
+<li>New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
+  other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
 </ul>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
@@ -2783,13 +2786,13 @@ upgrade.</p>
         
         
           
-          <a href="../checker_tool/" class="md-footer__link md-footer__link--next" aria-label="Next: Checker tool">
+          <a href="../checker_tool/" class="md-footer__link md-footer__link--next" aria-label="Next: Evolution checker">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Checker tool
+                Evolution checker
               </div>
             </div>
             <div class="md-footer__button md-icon">

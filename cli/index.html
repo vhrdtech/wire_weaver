@@ -1110,7 +1110,7 @@
   <span class="md-ellipsis">
     
   
-  Checker tool
+  Evolution checker
 
     
   </span>
@@ -2573,7 +2573,7 @@ spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:
 <tr>
 <td><a href="#ww-api"><code>ww api</code></a></td>
 <td>no</td>
-<td>Prints the resource tree or AST of an API crate, from source</td>
+<td>Prints the resource tree or AST of an API crate, saves and checks snapshots, from source</td>
 </tr>
 <tr>
 <td><a href="#ww-usb-loopback"><code>ww usb-loopback</code></a></td>
@@ -2628,8 +2628,9 @@ printed to stderr.</p>
 <p>Connects to the selected device, downloads its introspection data (see <a href="../std_library/ww_self/">ww_self</a>) and
 prints the API as a resource tree: resource ids, methods with their signatures, properties with their access mode,
 streams and sinks, nested traits, arrays of resources and doc comments. A summary follows: resource, trait and type
-counts (and how many traits and types were left out of the bundle), size of the introspection data in bytes,
-referenced crates and the API hash.</p>
+counts, size of the full API bundle and of the introspection data the device sent, referenced crates and the API
+hash. Traits and types a device leaves out of its introspection data because they are known from
+<a href="#ww-api">snapshots</a> are put back first, any that could not be put back are counted as not included.</p>
 <p>The tree looks the same as the one printed by <a href="#ww-api"><code>ww api tree</code></a> from source. Here with docs hidden:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$ ww introspect -d
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>trait AllGpioApi all_gpio_api@0.1.0
@@ -2649,12 +2650,27 @@ referenced crates and the API hash.</p>
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>   ├─ 9 rw property reference_voltage: Volt, write error: Error
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>   └─ 10 fn name() -&gt; String
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>15 resources, 2 traits, 11 types, 4363 bytes
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>crates: all_gpio_api@0.1.0, ww_gpio@0.1.0, ww_si@0.1.0, ww_numeric@0.1.1
-</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>api hash: 5ff989a95162d4d7
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>15 resources, 2 traits, 11 types, 4362 bytes full, 72 bytes sent
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>crates: all_gpio_api@0.1.0, ww_gpio@0.1.0, ww_si@0.1.0, ww_numeric@0.2.0
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>api hash: 6e87e4113afd0168
 </span></code></pre></div>
 <p><code>impl name[]: crate::Trait</code> is a nested trait (<code>[]</code> marking an array of them), properties show their access
 (<code>const</code>, <code>ro</code>, <code>rw</code>, <code>wo</code>) and whether they are observable, <code>stream</code> is device-to-host and <code>sink</code> host-to-device.</p>
+<p>With <code>-t</code>, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
+fields, enums with their variants and discriminants, and each type's size kind (<code>unsized</code>, <code>final structure</code>,
+<code>self-describing</code>, <code>sized</code>) and enum repr:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww introspect -d -t
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>...
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>types
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>├─ 0 enum ww_gpio::Level sized, repr u1
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│  ├─ 0 Low
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│  └─ 1 High
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>├─ 1 enum ww_gpio::IoPinEvent sized, repr u2
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>│  ├─ 0 RisingEdge
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>│  ├─ 1 FallingEdge
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>│  └─ 2 Custom(u8)
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>...
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
@@ -2668,8 +2684,16 @@ referenced crates and the API hash.</p>
 <td>Do not print doc comments</td>
 </tr>
 <tr>
+<td><code>-t</code>, <code>--types</code></td>
+<td>Also print all types the API refers to</td>
+</tr>
+<tr>
 <td><code>--raw</code></td>
 <td>Print raw introspection data (Rust debug format) instead of the tree</td>
+</tr>
+<tr>
+<td><code>--raw-as-sent</code></td>
+<td>Same as <code>--raw</code>, but as the device sent it: traits and types known from snapshots are left out</td>
 </tr>
 </tbody>
 </table>
@@ -2679,15 +2703,15 @@ referenced crates and the API hash.</p>
 device and no build are needed.</p>
 <p><code>ww api tree &lt;path&gt;</code> prints the same resource tree as <code>ww introspect</code>, for the <code>#[ww_trait]</code> defined in the crate
 at <code>&lt;path&gt;</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww api tree examples/blinky_api
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>trait BlinkyApi blinky_api@0.1.0
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>├─ 0 fn led_on()
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>└─ 1 fn led_off()
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ ww api tree examples/blinky_api
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>trait BlinkyApi blinky_api@0.1.0
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├─ 0 fn led_on()
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>└─ 1 fn led_off()
 </span></code></pre></div>
 <p><code>ww api ast &lt;path&gt;</code> prints the parsed API bundle in <a href="https://github.com/ron-rs/ron">RON</a> format, useful when
 debugging codegen or introspection.</p>
 <p>Both take <code>--name &lt;Trait&gt;</code> to pick the trait when the crate defines more than one, and <code>tree</code> also takes
-<code>-d</code>/<code>--skip-docs</code>.</p>
+<code>-d</code>/<code>--skip-docs</code> and <code>-t</code>/<code>--types</code>.</p>
 <p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait and every <code>#[derive_shrink_wrap]</code> type
 defined in the crate's <code>src/lib.rs</code> (or re-exported from one of its modules with <code>pub use</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
 <code>ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron</code>. Commit the snapshot and never change it afterward.
@@ -2699,17 +2723,26 @@ was skipped (<code>ww_self::signature</code>). A definition restored from anothe
 exactly the one that was left out, which catches a crate changed without bumping its version. The client does the same
 when it compares its API with a device's: a skipped trait or type with the same crate version but a different
 signature makes the resources using it incompatible.</p>
-<p>Snapshots of <code>ww_global</code> and the <code>ww_stdlib</code> crates are embedded into <code>wire_weaver_client</code> (and so into <code>ww</code>), see
-<code>wire_weaver_client::snapshots</code>. They are the groundwork for introspection data that leaves out common traits and
-types, which a client already knows from snapshots. In this repo, <code>just save-snapshots</code> saves them and copies them into
-<code>wire_weaver_client/api_snapshots/</code>; a client test fails if any of them is out of date.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ ww api save ww_stdlib/ww_uart
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
+<p>Snapshots of <code>ww_global</code> and the <code>ww_stdlib</code> crates are embedded into the <code>wire_weaver_snapshots</code> crate, used by
+codegen and by <code>wire_weaver_client</code> (and so by <code>ww</code>). A device leaves traits and types known from them out of its
+introspection data, referring to them by crate version, name and signature, which makes it much smaller (e.g.
+<code>examples/all_gpio_api</code> goes from 4363 to 72 bytes). A definition is only left out if it is exactly the one in the
+snapshot, e.g. an unpublished crate version that changed after its snapshot was saved stays in-line. The API hash is
+calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
+definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer <code>ww_stdlib</code> crate) stays skipped, and resources using it
+are only checked by crate version and signature. In this repo, <code>just save-snapshots</code> saves the snapshots and copies
+them into <code>wire_weaver_snapshots/api_snapshots/</code>; a <code>wire_weaver_core</code> test fails if any of them is out of date.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ ww api save ww_stdlib/ww_uart
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
 </span></code></pre></div>
 <p>Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
 bump the crate version (see <a href="../evolution/rules/#doc-comments">evolution rules</a>, doc-only changes bump the compatible
 position, so that tools can tell that improved docs are available) and save a new snapshot. <code>--force</code> overwrites anyway, only use it for a
-version that was never published.</p>
+version that was never published. A snapshot of a new version is only saved if the version is bumped enough since the
+previous snapshot, see below.</p>
+<p><code>ww api check &lt;path&gt;</code> is the <a href="../evolution/checker_tool/">evolution checker</a>: it compares the crate with its latest
+snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
+compatible position for anything else, doc comments included).</p>
 <p>Current limitations, same as for codegen: traits are only found in <code>src/lib.rs</code>, a dependency reached through another
 crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
 workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
@@ -2741,9 +2774,9 @@ nothing was lost or corrupted), then one-way transmit and receive speed tests, w
 hub, a powered hub used without power, or power problems on an externally powered device.</p>
 <h3 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h3>
 <p>Manages the <a href="#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command
@@ -2829,11 +2862,11 @@ narrow the selection together. Each setting is taken from the first place that h
 <h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
 <p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
 from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">[device]</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># ww.toml</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">[device]</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
 </span></code></pre></div>
 <p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
 whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are

@@ -29,7 +29,7 @@
     
     
       
-        <title>Checker tool - WireWeaver</title>
+        <title>Evolution checker - WireWeaver</title>
       
     
     
@@ -84,7 +84,8 @@
     <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
-        <a href="#__skip" class="md-skip">
+        
+        <a href="#evolution-checker" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Checker tool
+              Evolution checker
             
           </span>
         </div>
@@ -1113,6 +1114,25 @@
       
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution checker
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="././" class="md-nav__link md-nav__link--active">
         
@@ -1121,7 +1141,7 @@
   <span class="md-ellipsis">
     
   
-  Checker tool
+  Evolution checker
 
     
   </span>
@@ -1129,6 +1149,59 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is checked
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#new-fields-in-padding-bits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        New fields in padding bits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Limitations
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2097,6 +2170,13 @@
                     
                     
                     
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
                     
                   
                   <div class="md-sidebar__inner">
@@ -2107,6 +2187,49 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is checked
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#new-fields-in-padding-bits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        New fields in padding bits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Limitations
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2184,9 +2307,125 @@
   
 
 
-  <h1 id="__skip">Checker tool</h1>
-
-
+<h1 id="evolution-checker">Evolution checker<a class="headerlink" href="#evolution-checker" title="Permanent link">&para;</a></h1>
+<p><code>ww api check &lt;path&gt;</code> compares the traits and types of a crate with the latest <a href="../../cli/#ww-api">snapshot</a> saved in
+<code>&lt;path&gt;/api_snapshots/</code>, and fails if the crate version is not bumped enough for what changed, following the
+<a href="../rules/">evolution rules</a>. The crate is parsed from source, same as for <code>ww api save</code>, so nothing has to be built.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$ ww api check ww_stdlib/ww_uart
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.1 (source): compatible changes
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  compatible: Uart::flush added
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>version is bumped enough
+</span></code></pre></div>
+<p>The snapshot used is the newest one of the same crate with a version not newer than the one in <code>Cargo.toml</code>, so it is
+the snapshot of the current version if it was already saved, and of the previous version otherwise. <code>--against &lt;file&gt;</code>
+compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet.</p>
+<p><code>ww api save</code> runs the same check before saving a snapshot of a new version, and refuses to save it if the version
+is not bumped enough (<code>--force</code> saves anyway). So in a crate that has snapshots of all of its published versions,
+every new snapshot is checked against the previous one.</p>
+<h2 id="what-is-checked">What is checked<a class="headerlink" href="#what-is-checked" title="Permanent link">&para;</a></h2>
+<p>Changes are sorted into four kinds, and each kind requires a bump of a version position:</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Examples</th>
+<th>Bump</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None</td>
+<td>exactly the same traits and types, doc comments included</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Doc comments only</td>
+<td>a doc comment on a trait, resource, type, field or variant is changed</td>
+<td>compatible position (patch before 1.0, minor after)</td>
+</tr>
+<tr>
+<td>Compatible</td>
+<td>new trait, new resource at the end of a trait, new field with <code>#[default]</code> at the end of an <code>Unsized</code> type, new field in unused padding bits of any type, new type, <code>#[since]</code> or <code>#[default]</code> value changed</td>
+<td>compatible position (patch before 1.0, minor after)</td>
+</tr>
+<tr>
+<td>Breaking</td>
+<td>see below</td>
+<td>breaking position (minor before 1.0, major after)</td>
+</tr>
+</tbody>
+</table>
+<p>Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
+(see <a href="../rules/#doc-comments">doc comments</a>). A bigger bump than required is always fine.</p>
+<p>Resources are matched by their id inside each trait (their position, as the device sees them), traits and types by
+name. A change is breaking if:</p>
+<ul>
+<li>a trait, resource or type is removed, or a resource moved to another id (e.g. a new one inserted before it: add new
+  resources at the end),</li>
+<li>a resource, struct field or enum variant is renamed, or struct fields change between named and unnamed: this does
+  not change the wire, but breaks Rust code using them,</li>
+<li>a resource of the old version can't be used with the new one, in either direction (old client with a new device, and
+  new client with an old device), compared the same way as a client checks its API against a device's: resource kind,
+  number and types of arguments, return type, property access, stream direction, array or not,</li>
+<li>a type can't be written by one version and read by the other: e.g. field type changed, field added without
+  <code>#[default]</code> at the end of an <code>Unsized</code> type, field added in between old ones outside of unused padding bits (see
+  below), field added at the end of a <code>final_structure</code>, <code>self_describing</code> or <code>sized</code> type, enum variant added or
+  removed, <code>ww_repr</code> or size kind changed,</li>
+<li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
+  <code>ww_si 0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition.</li>
+</ul>
+<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> that is not the new version.</p>
+<h2 id="new-fields-in-padding-bits">New fields in padding bits<a class="headerlink" href="#new-fields-in-padding-bits" title="Permanent link">&para;</a></h2>
+<p>Padding inside a type, before a field aligned to a nibble or a byte, is always written as zero bits and skipped when
+reading. A new field of any type, <code>Unsized</code> or not, can take such bits, anywhere between the old fields, if:</p>
+<ul>
+<li>none of the old fields moves and the size doesn't change: the new field only takes bits that were padding,</li>
+<li>all zero bits are a valid value of it, as that is what it reads from old data: <code>bool</code>, numbers, arrays and
+  non-<code>Unsized</code> structs of them, or an enum without data that has a variant with discriminant 0,</li>
+<li>it's fixed size (not <code>UNib32</code>, <code>Option</code>, an enum with data, an <code>Unsized</code> type, ...).</li>
+</ul>
+<p>Old fields are then matched by name. Where padding is depends on the bit offset the type starts at. An <code>Unsized</code> type
+always starts at a byte boundary, so its padding is always in the same place:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[derive_shrink_wrap]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>An <code>Unsized</code> type can gain fields with <code>#[default]</code> at the end as well, in the same version. Bits after its last field
+are not free though: lengths of variable size fields are written there.</p>
+<p><code>final_structure</code>, <code>self_describing</code> and <code>sized</code> types are packed tightly into their parent, so they can't grow at the
+end, and they can start at any bit inside the parent, so the checker requires that the new field fits for every start
+offset:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Without <code>a</code>, the padding before <code>b</code> is 7 bits if <code>S</code> starts at a byte boundary, but none if it starts at bit offset 7,
+so <code>g</code> can't be added. Padding after the last field is never free: whatever follows the type in its parent starts
+right there. Enum variants with data are not padded to the same size, so there are no free bits after a shorter
+variant either.</p>
+<p>All of this was checked against real bytes: old and new versions read each other's data, with the new field
+reading as zero from old data. The client uses the same rules when comparing its API with a device's.</p>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Snapshots of all published versions have to be kept in <code>api_snapshots/</code>, the checker can only see what is saved
+  there. A crate without snapshots is not checked.</li>
+<li>Only traits and types that <code>ww api save</code> finds are checked (see <a href="../../cli/#ww-api">ww api</a>).</li>
+<li>Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.</li>
+<li>Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual
+  uses it's always at the same offset.</li>
+</ul>
 
 
 

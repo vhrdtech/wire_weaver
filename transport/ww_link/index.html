@@ -389,6 +389,8 @@
       
         
       
+        
+      
     
     
     
@@ -1551,6 +1553,8 @@
       
         
       
+        
+      
     
     
     
@@ -1896,6 +1900,33 @@
     
   
   USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT
 
     
   </span>
@@ -2401,6 +2432,8 @@
       
         
       
+        
+      
     
     
     
@@ -2475,7 +2508,8 @@ control traffic is rare.</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">UsbRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">UsbHead</span><span class="p">,</span><span class="w"> </span><span class="n">UsbChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">UsbTail</span><span class="o">&gt;</span><span class="p">;</span>
 </span></code></pre></div>
 <p>This is what USB uses (<code>TxOwned</code>/<code>FramedRxOwned</code> variants with the <code>std</code> feature of <code>ww_framer</code>). A medium with its own integrity check might drop the checksum,
-a stream medium (UART) would add a tail for synchronization, and so on — the link messages stay the same.
+a stream medium would add a tail for synchronization, and so on — the link messages stay the same. <a href="../rtt/">RTT</a>
+uses <code>RttHead</code> / <code>RttChecksum</code> / <code>RttTail</code>: the same head, no checksum and no tail, as its ring buffers cannot corrupt bytes.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.</p>
 <h3 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h3>
@@ -2715,7 +2749,7 @@ next to the link:</p>
 </tr>
 <tr>
 <td><code>MessageTx</code> / <code>MessageRx</code> + nusb + framer</td>
-<td><code>MessageTx</code> / <code>MessageRx</code>, <code>FramedTx</code> / <code>FramedRx</code> over packets</td>
+<td><code>MessageTx</code> / <code>MessageRx</code>, <code>FramedTx</code> / <code>FramedRx</code> over packets, <code>StreamTx</code> / <code>StreamRx</code> over bytes</td>
 </tr>
 <tr>
 <td><code>worker</code> with <code>tokio::select!</code>, two tasks</td>

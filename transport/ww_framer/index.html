@@ -389,6 +389,8 @@
       
         
       
+        
+      
     
     
     
@@ -1551,6 +1553,8 @@
       
         
       
+        
+      
     
     
     
@@ -2018,6 +2022,33 @@
     
   
   USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT
 
     
   </span>
@@ -2645,6 +2676,8 @@
       
         
       
+        
+      
     
     
     
@@ -3186,7 +3219,8 @@ currently in it and rewinds to the start. That means the caller decides <em>when
 <p class="admonition-title">Frame length must be preserved</p>
 <p>A frame shorter than the maximum is fine, but the receiver must get exactly the bytes that were flushed,
 as one unit, because <code>Start</code>/<code>Continue</code> payloads are defined as "till the end of the frame". USB and CAN
-guarantee this. For stream media (UART, TCP) the framer is not yet ready.</p>
+guarantee this. Stream media (RTT, UART, TCP) do not: use <code>write_full</code> there, which never splits a message,
+so that only <code>Full</code> messages are on the wire and the receiver cuts them out by length, wherever a read ends.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Frames can also be short for another reason</p>
@@ -3211,6 +3245,10 @@ Such a frame is a byte or two shorter than the maximum.</p>
 <tr>
 <td><code>write(user_kind, msg) -&gt; Result&lt;bool, ()&gt;</code></td>
 <td>Append a message. <code>Ok(true)</code> — fully written. <code>Ok(false)</code> — frame is full, <code>flush()</code> and call again with the <strong>same</strong> message. <code>Err(())</code> — the message can never be sent (too large for the head encoding, or head alone fills the frame).</td>
+</tr>
+<tr>
+<td><code>write_full(user_kind, msg) -&gt; Result&lt;bool, ()&gt;</code></td>
+<td>Same, but never splits: <code>Ok(false)</code> if the message does not fit into what is left of the frame, <code>Err(())</code> if it does not fit into an empty one. For stream media, where frame boundaries are not preserved.</td>
 </tr>
 <tr>
 <td><code>flush() -&gt; usize</code></td>
@@ -3275,7 +3313,7 @@ encoding without touching the packing/splitting logic:</p>
 <tbody>
 <tr>
 <td><code>Head</code></td>
-<td>Serialize / parse <code>(MessageKind, user_kind, len)</code>; declares <code>MIN_FRAME_SIZE</code></td>
+<td>Serialize / parse <code>(MessageKind, user_kind, len)</code>; declares <code>MAX_HEAD_SIZE</code></td>
 <td><code>framed::U2Head</code></td>
 </tr>
 <tr>

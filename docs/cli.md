@@ -90,8 +90,9 @@ usb 003-1 c0de:cafe "Vhrd.Tech" "WireWeaver Generic" serial=09000F00025131343833
 Connects to the selected device, downloads its introspection data (see [ww_self](std_library/ww_self.md)) and
 prints the API as a resource tree: resource ids, methods with their signatures, properties with their access mode,
 streams and sinks, nested traits, arrays of resources and doc comments. A summary follows: resource, trait and type
-counts (and how many traits and types were left out of the bundle), size of the introspection data in bytes,
-referenced crates and the API hash.
+counts, size of the full API bundle and of the introspection data the device sent, referenced crates and the API
+hash. Traits and types a device leaves out of its introspection data because they are known from
+[snapshots](#ww-api) are put back first, any that could not be put back are counted as not included.
 
 The tree looks the same as the one printed by [`ww api tree`](#ww-api) from source. Here with docs hidden:
 
@@ -114,9 +115,9 @@ trait AllGpioApi all_gpio_api@0.1.0
    ├─ 9 rw property reference_voltage: Volt, write error: Error
    └─ 10 fn name() -> String
 
-15 resources, 2 traits, 11 types, 4363 bytes
-crates: all_gpio_api@0.1.0, ww_gpio@0.1.0, ww_si@0.1.0, ww_numeric@0.1.1
-api hash: 5ff989a95162d4d7
+15 resources, 2 traits, 11 types, 4362 bytes full, 72 bytes sent
+crates: all_gpio_api@0.1.0, ww_gpio@0.1.0, ww_si@0.1.0, ww_numeric@0.2.0
+api hash: 6e87e4113afd0168
 ```
 
 `impl name[]: crate::Trait` is a nested trait (`[]` marking an array of them), properties show their access
@@ -163,10 +164,15 @@ exactly the one that was left out, which catches a crate changed without bumping
 when it compares its API with a device's: a skipped trait or type with the same crate version but a different
 signature makes the resources using it incompatible.
 
-Snapshots of `ww_global` and the `ww_stdlib` crates are embedded into `wire_weaver_client` (and so into `ww`), see
-`wire_weaver_client::snapshots`. They are the groundwork for introspection data that leaves out common traits and
-types, which a client already knows from snapshots. In this repo, `just save-snapshots` saves them and copies them into
-`wire_weaver_client/api_snapshots/`; a client test fails if any of them is out of date.
+Snapshots of `ww_global` and the `ww_stdlib` crates are embedded into the `wire_weaver_snapshots` crate, used by
+codegen and by `wire_weaver_client` (and so by `ww`). A device leaves traits and types known from them out of its
+introspection data, referring to them by crate version, name and signature, which makes it much smaller (e.g.
+`examples/all_gpio_api` goes from 4363 to 72 bytes). A definition is only left out if it is exactly the one in the
+snapshot, e.g. an unpublished crate version that changed after its snapshot was saved stays in-line. The API hash is
+calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
+definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer `ww_stdlib` crate) stays skipped, and resources using it
+are only checked by crate version and signature. In this repo, `just save-snapshots` saves the snapshots and copies
+them into `wire_weaver_snapshots/api_snapshots/`; a `wire_weaver_core` test fails if any of them is out of date.
 
 ```
 $ ww api save ww_stdlib/ww_uart

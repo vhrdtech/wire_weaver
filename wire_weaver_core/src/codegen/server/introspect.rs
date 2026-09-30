@@ -95,36 +95,44 @@ pub(crate) struct IntrospectTs {
     pub(crate) with_docs_hash: TokenStream,
 }
 
+/// Introspection bytes and API hashes.
+///
+/// Traits and types known from embedded snapshots are left out ([crate::transform::skip_known]), both in what a device
+/// sends and in what a client embeds (a client puts them back at runtime). The API hash is calculated over these bytes.
 pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool) -> IntrospectTs {
+    let sent = match crate::transform::skip_known(api_bundle) {
+        Ok(sent) => sent,
+        Err(e) => {
+            eprintln!(
+                "Failed to leave known traits and types out of the introspection data: {e:?}"
+            );
+            api_bundle.clone()
+        }
+    };
     let mut contains_docs = ContainsDocs::default();
     contains_docs.visit_api_bundle(api_bundle);
+    let no_docs = |bundle: &ApiBundleOwned| {
+        let mut bundle = bundle.clone();
+        DropDocs.visit_api_bundle(&mut bundle);
+        bundle
+    };
 
-    if contains_docs.contains {
-        let mut api_no_docs = api_bundle.clone();
-        DropDocs.visit_api_bundle(&mut api_no_docs);
-        let api_with_docs = api_bundle;
-
-        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false);
-        let (with_docs_bytes, with_docs_hash) = ser_hash_and_cache(api_with_docs, true);
-
-        let introspect_bytes = if include_docs {
-            bytes_to_ts(&with_docs_bytes)
-        } else {
-            bytes_to_ts(&no_docs_bytes)
-        };
-        IntrospectTs {
-            introspect_bytes,
-            no_docs_hash,
-            with_docs_hash,
-        }
+    let sent_no_docs = no_docs(&sent);
+    let (sent_no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&sent_no_docs, false);
+    let (sent_with_docs_bytes, with_docs_hash) = if contains_docs.contains {
+        ser_hash_and_cache(&sent, true)
     } else {
-        let api_no_docs = api_bundle;
-        let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(api_no_docs, false);
-        IntrospectTs {
-            introspect_bytes: bytes_to_ts(&no_docs_bytes),
-            no_docs_hash,
-            with_docs_hash: bytes_to_ts(&[]),
-        }
+        (sent_no_docs_bytes.clone(), bytes_to_ts(&[]))
+    };
+    let introspect_bytes = if include_docs && contains_docs.contains {
+        sent_with_docs_bytes
+    } else {
+        sent_no_docs_bytes
+    };
+    IntrospectTs {
+        introspect_bytes: bytes_to_ts(&introspect_bytes),
+        no_docs_hash,
+        with_docs_hash,
     }
 }
 

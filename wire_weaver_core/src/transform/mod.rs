@@ -6,4 +6,4 @@ mod util;
 
 pub use api::{PropertyMacroArgs, StreamAndImplMacroArgs};
 pub use crate_walker::{load, load_dep};
-pub use snapshot::load_crate;
+pub use snapshot::{load_crate, skip_known};

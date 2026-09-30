@@ -10,6 +10,9 @@
 
 ### 🚀 Features
 
+* `inline::inline_skipped()`: put definitions of skipped traits and types back into a bundle, found with a
+  `signature::Resolve` callback (e.g. in crate snapshots), together with everything they refer to. Only definitions
+  with a matching signature are put back, the rest are returned as `inline::NotInlined`.
 * `signature::trait_signature()` and `signature::type_signature()`: hash of a trait or type definition with docs
   and everything it refers to, independent of where it is in the bundle, for the `signature` of `Skipped*`
   locations. Skipped definitions are looked up with a `signature::Resolve` callback (e.g., in crate snapshots), so the

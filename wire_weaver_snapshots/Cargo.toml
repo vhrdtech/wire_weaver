@@ -1,0 +1,13 @@
+[package]
+name = "wire_weaver_snapshots"
+version.workspace = true
+authors.workspace = true
+description = "API snapshots of ww_global and ww_stdlib crates, embedded for WireWeaver codegen and clients."
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+ron.workspace = true
+ww_self = { workspace = true, features = ["std", "serde"] }
+ww_version = { workspace = true, features = ["std", "serde"] }

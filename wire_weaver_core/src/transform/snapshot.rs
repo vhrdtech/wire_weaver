@@ -15,6 +15,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
 };
+use ww_version::FullVersionOwned;
 
 /// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types defined in a crate's `src/lib.rs`,
 /// and types re-exported from its modules with `pub use`.
@@ -91,7 +92,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
         ext_crates: scratch.ext_crates,
     };
     skip_foreign(&mut bundle)?;
-    drop_unused(&mut bundle);
+    drop_unused(&mut bundle, true);
     Ok(bundle)
 }
 
@@ -127,31 +128,153 @@ fn convert_named_ty(
 }
 
 /// Replace definitions of traits and types from other crates with references to them.
+fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
+    skip(bundle, |bundle, entry| {
+        let (crate_idx, signature) = match entry {
+            Entry::Type(idx) => (
+                type_crate_idx(&bundle.types[idx as usize]),
+                type_signature(bundle, idx, &no_resolve),
+            ),
+            Entry::Trait(idx) => (
+                trait_crate_idx(&bundle.traits[idx as usize]),
+                trait_signature(bundle, idx, &no_resolve),
+            ),
+        };
+        Ok(if crate_idx == 0 {
+            None
+        } else {
+            Some(signature?)
+        })
+    })
+}
+
+/// Bundle as sent by a device: traits and types known from embedded snapshots (see [wire_weaver_snapshots]) are
+/// replaced with references to them, if they have exactly the same definition (signature) as in the snapshot.
+/// Everything only used by them is dropped. The API root itself is kept in-line.
+pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
+    let mut bundle = bundle.clone();
+    skip(&mut bundle, |bundle, entry| {
+        let (crate_idx, name) = match entry {
+            Entry::Type(idx) => match &bundle.types[idx as usize] {
+                TypeLocationOwned::InLine {
+                    ty:
+                        TypeOwned::Struct(ItemStructOwned { ident, .. })
+                        | TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+                    crate_idx,
+                } => (crate_idx.0, ident),
+                _ => return Ok(None),
+            },
+            Entry::Trait(idx) => match &bundle.traits[idx as usize] {
+                ApiLevelLocationOwned::InLine { level, crate_idx } => {
+                    (crate_idx.0, &level.trait_name)
+                }
+                _ => return Ok(None),
+            },
+        };
+        let version = bundle.crate_version(crate_idx)?;
+        let Some(snapshot) = known(version) else {
+            return Ok(None);
+        };
+        let (signature, known_signature) = match entry {
+            Entry::Type(idx) => {
+                let Some(known_idx) = find_type(snapshot, name) else {
+                    return Ok(None);
+                };
+                (
+                    type_signature(bundle, idx, &known)?,
+                    type_signature(snapshot, known_idx, &known)?,
+                )
+            }
+            Entry::Trait(idx) => {
+                let Some(known_idx) = find_trait(snapshot, name) else {
+                    return Ok(None);
+                };
+                (
+                    trait_signature(bundle, idx, &known)?,
+                    trait_signature(snapshot, known_idx, &known)?,
+                )
+            }
+        };
+        // different definition: crate changed without a version bump, or a snapshot of an unpublished version
+        Ok((signature == known_signature).then_some(signature))
+    })?;
+    drop_unused(&mut bundle, false);
+    Ok(bundle)
+}
+
+/// Snapshot of a crate version embedded in [wire_weaver_snapshots], as a [ww_self::signature::Resolve] callback.
+fn known<'a>(version: &FullVersionOwned) -> Option<&'a ApiBundleOwned> {
+    wire_weaver_snapshots::get(version)
+}
+
+fn find_type(snapshot: &ApiBundleOwned, name: &str) -> Option<u32> {
+    snapshot
+        .types
+        .iter()
+        .position(|location| {
+            matches!(location, TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(ItemStructOwned { ident, .. }) | TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+                crate_idx: UNib32(0),
+            } if ident == name)
+        })
+        .map(|idx| idx as u32)
+}
+
+fn find_trait(snapshot: &ApiBundleOwned, name: &str) -> Option<u32> {
+    snapshot
+        .traits
+        .iter()
+        .position(|location| {
+            matches!(location, ApiLevelLocationOwned::InLine { level, crate_idx: UNib32(0) } if level.trait_name == name)
+        })
+        .map(|idx| idx as u32)
+}
+
+fn type_crate_idx(location: &TypeLocationOwned) -> u32 {
+    match location {
+        TypeLocationOwned::InLine { crate_idx, .. }
+        | TypeLocationOwned::SkippedFullVersion { crate_idx, .. } => crate_idx.0,
+    }
+}
+
+fn trait_crate_idx(location: &ApiLevelLocationOwned) -> u32 {
+    match location {
+        ApiLevelLocationOwned::InLine { crate_idx, .. }
+        | ApiLevelLocationOwned::SkippedFullVersion { crate_idx, .. } => crate_idx.0,
+        ApiLevelLocationOwned::SkippedCompactVersion { .. } => u32::MAX,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Entry {
+    Type(u32),
+    Trait(u32),
+}
+
+/// Replace in-line user-defined types and traits with references to them, where `signature_if_skipped` returns a
+/// signature.
 ///
 /// Signatures are calculated before anything is skipped, while all the definitions are still in-line.
-fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
-    let is_foreign = |crate_idx: &UNib32| crate_idx.0 != 0;
+fn skip(
+    bundle: &mut ApiBundleOwned,
+    mut signature_if_skipped: impl FnMut(&ApiBundleOwned, Entry) -> Result<Option<Vec<u8>>>,
+) -> Result<()> {
     let mut type_signatures = vec![];
     for (idx, location) in bundle.types.iter().enumerate() {
-        if let TypeLocationOwned::InLine { crate_idx, .. } = location
-            && is_foreign(crate_idx)
-        {
-            type_signatures.push(Some(type_signature(bundle, idx as u32, &no_resolve)?));
+        if matches!(location, TypeLocationOwned::InLine { .. }) {
+            type_signatures.push(signature_if_skipped(bundle, Entry::Type(idx as u32))?);
         } else {
             type_signatures.push(None);
         }
     }
     let mut trait_signatures = vec![];
     for (idx, location) in bundle.traits.iter().enumerate() {
-        if let ApiLevelLocationOwned::InLine { crate_idx, .. } = location
-            && is_foreign(crate_idx)
-        {
-            trait_signatures.push(Some(trait_signature(bundle, idx as u32, &no_resolve)?));
+        if matches!(location, ApiLevelLocationOwned::InLine { .. }) {
+            trait_signatures.push(signature_if_skipped(bundle, Entry::Trait(idx as u32))?);
         } else {
             trait_signatures.push(None);
         }
     }
-
     for (location, signature) in bundle.types.iter_mut().zip(type_signatures) {
         let TypeLocationOwned::InLine { ty, crate_idx } = location else {
             continue;
@@ -184,12 +307,15 @@ fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
     Ok(())
 }
 
-/// Drop types, traits and crates that are no longer referenced after [skip_foreign] and fix up all the indices.
-/// Roots are the API root and all the types defined in the crate itself.
-fn drop_unused(bundle: &mut ApiBundleOwned) {
+/// Drop types, traits and crates that are no longer referenced after [skip] and fix up all the indices.
+/// Roots are the API root and, if `keep_own_types`, all the types defined in crate 0 (the crate itself).
+fn drop_unused(bundle: &mut ApiBundleOwned, keep_own_types: bool) {
     let mut refs = Refs::default();
     refs.visit_api_level(&bundle.root);
     for (idx, location) in bundle.types.iter().enumerate() {
+        if !keep_own_types {
+            break;
+        }
         if let TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(_) | TypeOwned::Enum(_),
             crate_idx: UNib32(0),
@@ -572,5 +698,106 @@ mod tests {
             &trait_signature(&uart_api, idx, &resolve).unwrap()
         );
         assert!(trait_signature(&uart_api, idx, &from_snapshots(&snapshots[..2])).is_err());
+    }
+
+    /// Codegen leaves out ww_uart and ww_si definitions, putting them back from snapshots gives the same API.
+    #[test]
+    fn known_definitions_are_left_out_and_put_back() {
+        use shrink_wrap::SerializeShrinkWrapOwned;
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        let full = crate::load(&crate_path, None, false).unwrap();
+        let sent = skip_known(&full).unwrap();
+        assert!(
+            sent.traits
+                .iter()
+                .all(|l| matches!(l, ApiLevelLocationOwned::SkippedFullVersion { .. }))
+        );
+        assert!(
+            sent.types
+                .iter()
+                .all(|l| matches!(l, TypeLocationOwned::SkippedFullVersion { .. }))
+        );
+        assert!(sent.to_ww_bytes_owned().unwrap().len() < full.to_ww_bytes_owned().unwrap().len());
+
+        let mut inlined = sent.clone();
+        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut inlined);
+        assert!(not_inlined.is_empty(), "{not_inlined:?}");
+        assert_eq!(root_signature(&inlined), root_signature(&full));
+    }
+
+    /// A definition that differs from its snapshot (e.g., changed without a version bump) is kept in-line.
+    #[test]
+    fn changed_definition_is_kept_in_line() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        let mut full = crate::load(&crate_path, None, false).unwrap();
+        let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
+            panic!("expected an in-line trait");
+        };
+        level.docs.push("changed".into());
+        let sent = skip_known(&full).unwrap();
+        assert!(matches!(
+            sent.traits[0],
+            ApiLevelLocationOwned::InLine { .. }
+        ));
+    }
+
+    /// Signature of the API root, as if it was a trait.
+    fn root_signature(bundle: &ApiBundleOwned) -> Vec<u8> {
+        let mut bundle = bundle.clone();
+        bundle.traits.push(ApiLevelLocationOwned::InLine {
+            level: bundle.root.clone(),
+            crate_idx: bundle.root.crate_idx,
+        });
+        let idx = bundle.traits.len() as u32 - 1;
+        trait_signature(&bundle, idx, &no_resolve).unwrap()
+    }
+
+    /// Snapshots are saved for the current source of each crate, and the embedded copies are the same.
+    #[test]
+    fn snapshots_are_up_to_date() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut crate_paths = vec![root.join("ww_global")];
+        for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
+            let path = entry.unwrap().path();
+            // ww_client_server is the protocol itself, not used in APIs
+            if path.join("Cargo.toml").exists() && !path.ends_with("ww_client_server") {
+                crate_paths.push(path);
+            }
+        }
+        let hint =
+            "run `just save-snapshots` (with --force for versions that were never published)";
+        let embedded = wire_weaver_snapshots::files();
+        let mut saved_count = 0;
+        for crate_path in crate_paths {
+            let bundle = load_crate(&crate_path).unwrap();
+            let file_name = format!("{}.ron", bundle.ext_crates[0].filename_friendly());
+            let saved = std::fs::read_to_string(crate_path.join("api_snapshots").join(&file_name))
+                .unwrap_or_else(|e| panic!("{file_name}: {e}, {hint}"));
+            let saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
+            assert_eq!(
+                ron::to_string(&saved).unwrap(),
+                ron::to_string(&bundle).unwrap(),
+                "{file_name} is out of date, {hint}"
+            );
+            for entry in std::fs::read_dir(crate_path.join("api_snapshots")).unwrap() {
+                let path = entry.unwrap().path();
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                let (_, contents) = embedded
+                    .iter()
+                    .find(|(name, _)| *name == file_name)
+                    .unwrap_or_else(|| panic!("{file_name} is not embedded, {hint}"));
+                assert_eq!(
+                    *contents,
+                    std::fs::read_to_string(&path).unwrap(),
+                    "embedded {file_name} differs, {hint}"
+                );
+                saved_count += 1;
+            }
+        }
+        assert_eq!(
+            saved_count,
+            embedded.len(),
+            "stale snapshots are embedded, {hint}"
+        );
     }
 }

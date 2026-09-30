@@ -44,6 +44,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_snapshots.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 ww_link = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }

@@ -11,6 +11,7 @@ members = [
     "wire_weaver_client",
     "wire_weaver_core",
     "wire_weaver_derive",
+    "wire_weaver_snapshots",
     "wire_weaver_udp_link",
     "ww_device",
     "ww_framer",
@@ -60,6 +61,7 @@ wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = fa
 wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
 wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
 wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
+wire_weaver_snapshots = { version = "0.5.0", path = "./wire_weaver_snapshots" }
 wire_weaver_udp_link = { version = "0.5.0", path = "./wire_weaver_udp_link" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }

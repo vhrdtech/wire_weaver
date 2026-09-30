@@ -1841,6 +1841,7 @@ dependencies = [
  "sha2",
  "shrink_wrap",
  "syn 3.0.3",
+ "wire_weaver_snapshots",
  "ww_numeric",
  "ww_self",
  "ww_version",
@@ -1859,6 +1860,15 @@ dependencies = [
  "subprocess",
  "syn 3.0.3",
  "wire_weaver_core",
+]
+
+[[package]]
+name = "wire_weaver_snapshots"
+version = "0.5.0"
+dependencies = [
+ "ron",
+ "ww_self",
+ "ww_version",
 ]
 
 [[package]]
@@ -1947,6 +1957,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
+ "sha2",
  "shrink_wrap",
  "ww_numeric",
  "ww_version",

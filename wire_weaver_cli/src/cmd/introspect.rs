@@ -28,8 +28,12 @@ pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Resu
 
     print!("{}", api_tree::render(bundle, args.skip_docs));
     println!();
-    let size = bundle.to_ww_bytes_owned()?.len();
-    println!("{}, {size} bytes", api_tree::summary(bundle));
+    let full_size = bundle.to_ww_bytes_owned()?.len();
+    println!(
+        "{}, {full_size} bytes full, {} bytes sent",
+        api_tree::summary(bundle),
+        introspect.sent_size
+    );
     let crates = bundle
         .ext_crates
         .iter()

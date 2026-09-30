@@ -1117,6 +1117,7 @@ mod tests {
             }
         "#;
         let introspect = |bundle, hash| IntrospectBundle {
+            sent_size: 0,
             api_bundle: Arc::new(bundle),
             api_hash: ApiHashPairOwned {
                 no_docs: ApiHashOwned { hash: vec![hash] },

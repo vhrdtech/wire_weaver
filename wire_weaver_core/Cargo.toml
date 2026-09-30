@@ -29,6 +29,7 @@ semver.workspace = true
 sha2.workspace = true
 shrink_wrap.workspace = true
 syn = { workspace = true }
+wire_weaver_snapshots.workspace = true
 ww_numeric = { workspace = true, features = ["std", "serde"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["serde"] }

@@ -46,8 +46,11 @@ pub(crate) struct ValidatedConfig {
 
 #[derive(Clone, Debug)]
 pub struct IntrospectBundle {
+    /// Full API, with traits and types left out of the introspection data (known from snapshots) put back.
     pub api_bundle: Arc<ApiBundleOwned>,
     pub api_hash: ApiHashPairOwned,
+    /// Size of the introspection data as sent by a device.
+    pub sent_size: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -168,10 +171,13 @@ impl ClientConfig {
         let s = self;
         // s.canonicalize();
         let introspect_client = if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
-            let api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
+            let mut api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
+            // same as a device sends, with known traits and types left out
+            crate::client::introspect::inline_known(&mut api_bundle);
             Some(IntrospectBundle {
                 api_bundle: Arc::new(api_bundle),
                 api_hash,
+                sent_size: ww_self_bytes.len(),
             })
         } else {
             None

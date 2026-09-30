@@ -14,10 +14,14 @@
   A trait or type whose definition is skipped on one side is checked by origin and crate version, and by signature
   when the versions are the same, which catches a definition changed without bumping its crate version.
 
-- `snapshots` module: API snapshots of `ww_global` and `ww_stdlib` crates embedded at build time, looked up by crate
-  name and version with `snapshots::get()` (usable as a `ww_self::signature::Resolve` callback) or `snapshots::all()`.
-  The per-resource compatibility check uses them to calculate the signature of an in-line trait or type that refers to
-  skipped ones, which was not checked before.
+- `snapshots` (re-export of `wire_weaver_snapshots`): API snapshots of `ww_global` and `ww_stdlib` crates, looked up
+  by crate name and version with `snapshots::get()` or `snapshots::all()`. The per-resource compatibility check uses
+  them to calculate the signature of an in-line trait or type that refers to skipped ones, which was not checked
+  before.
+- Introspection data downloaded from a device or loaded from `~/.wire_weaver/` has the traits and types the device
+  left out (because they are known from snapshots) put back from snapshots, if their signatures match, so
+  `Introspect::get()` and friends return the full API. Ones that are not known are logged and left skipped.
+  The same is done for the client's own API embedded by codegen.
 
 - `DeviceInfo` is filled from the USB API id interface string (falling back to the product string): API name,
   version, truncated hash and user label are known without opening the device, so `.user_label_eq()` and
@@ -39,6 +43,8 @@
 ### ⚠️ Breaking
 
 - `Error` gains `NotImplementedByDevice` and `IncompatibleResource` variants, exhaustive matches need new arms.
+- `IntrospectBundle` gains `sent_size`, the size of the introspection data as sent by the device; code constructing it
+  must set it.
 
 - `connect()`/`connect_blocking()` report why they failed instead of a generic "No devices found to connect to":
   - `Error::DeviceNotFound` is now a struct variant with the config's `filters` and the connected WireWeaver

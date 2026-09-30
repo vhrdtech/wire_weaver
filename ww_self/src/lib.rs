@@ -3,6 +3,8 @@
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
+pub mod inline;
+#[cfg(feature = "std")]
 pub mod signature;
 #[cfg(feature = "std")]
 mod value;

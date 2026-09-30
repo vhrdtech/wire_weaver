@@ -1,11 +1,23 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The API hash (`API_HASH_NO_DOCS`/`API_HASH_WITH_DOCS`) is calculated over the introspection data as a device sends
+  it, with known traits and types left out, so it changes for APIs using `ww_stdlib` traits or types. A device and a
+  client built with `wire_weaver_core` versions that know different snapshots report different hashes for the same
+  API, which falls back to the per-resource compatibility check.
+
 ### 🚀 Features
 
 - `load_crate()` loads all `#[ww_trait]`/`#[ww_api_root]` traits and `#[derive_shrink_wrap]` types defined in a crate
   into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references
   carrying the signature of the left out definition. Types re-exported from the crate's modules with `pub use` are
   included too. Used by `ww api save` to save crate snapshots.
+
+- Introspection data sent by a device leaves out traits and types known from the snapshots embedded in
+  `wire_weaver_snapshots` (`ww_global` and `ww_stdlib` crates), referring to them by crate version, name and signature
+  instead (e.g. `examples/all_gpio_api` goes from 4363 to 72 bytes). Only definitions identical to the snapshot are
+  left out. `transform::skip_known()` does it. Generated clients embed their own API in the same form.
 
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.

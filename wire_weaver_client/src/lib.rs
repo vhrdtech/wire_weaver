@@ -7,7 +7,6 @@ mod device_info;
 mod error;
 pub(crate) mod event_loop;
 mod local_registry;
-pub mod snapshots;
 mod tracing;
 
 pub use client::attachment::Attachment;
@@ -42,6 +41,7 @@ pub(crate) const DEFAULT_MAX_MESSAGE_SIZE: usize = 16_384;
 pub type SeqTy = u16;
 pub use error::Error;
 
+pub use wire_weaver_snapshots as snapshots;
 pub use ww_client_server;
 pub use ww_self;
 pub use ww_version;

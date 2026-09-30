@@ -23,12 +23,21 @@ Optionally pass `--release`:
 just run nucleo usb_blinky --release
 ```
 
+WireWeaver over RTT (no USB needed, the ST-LINK on the Nucleo is the transport), `defmt` logs on another RTT channel:
+
+```bash
+just run nucleo ww_rtt
+# stop probe-rs with Ctrl+C (firmware keeps running), then from the repo root:
+cargo run -p blinky --features rtt --example blinky_rtt -- --chip STM32G0B1RETx
+```
+
 ### CANnify B129A
 
 Board with STM32G0B1CE, USB and CAN Bus transceiver on board.
 
 ```bash
 just run b129a usb_blinky
+just run b129a ww_rtt
 ```
 
 ## Pinout

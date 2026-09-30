@@ -10,4 +10,10 @@ run-nucleo-usb_blinky *args:
     cargo run --bin nucleo-g0b1re-usb-blinky --features "usb" {{args}}
 
 run-b129a-usb_blinky *args:
-    cargo run --bin nucleo-g0b1re-usb-blinky --no-default-features --features "usb,b129a_cannify" {{args}}
+    cargo run --bin nucleo-g0b1re-usb-blinky --no-default-features --features "usb,b129a_cannify,defmt_rtt" {{args}}
+
+run-nucleo-ww_rtt *args:
+    cargo run --bin nucleo-g0b1re-ww-rtt --no-default-features --features "nucleo_g0b1re,rtt_target" {{args}}
+
+run-b129a-ww_rtt *args:
+    cargo run --bin nucleo-g0b1re-ww-rtt --no-default-features --features "b129a_cannify,rtt_target" {{args}}

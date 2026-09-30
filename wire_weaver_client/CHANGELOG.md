@@ -2,6 +2,13 @@
 
 ### 🚀 Features
 
+- RTT transport (`rtt` feature): `ClientConfig::rtt(target, speed_hz)` connects through a debug probe with probe-rs,
+  to a device serving over RTT (`ww_device::rtt`). The probe is selected with VID:PID and serial filters placed
+  after `rtt(..)`, filters before it describe the device (e.g., a driver crate's `default_config()`) and are not
+  used for the probe; WireWeaver USB is not tried with RTT selected. Probe IO runs on a dedicated thread polling the
+  `ww_up` / `ww_down` channels, the framing is the stream mode shared with the device (`RttHead` / `RttChecksum` /
+  `RttTail` from `ww_link`). Selecting RTT without the feature fails with an explicit error instead of
+  "no devices found".
 - Per-resource API compatibility checks. If the device reports the same API hash as the client was generated with,
   nothing is checked. Otherwise, client and device introspection data are compared for every method, property,
   stream and trait (argument, return, property and stream types, property access, trait origin), following the
@@ -83,6 +90,8 @@
 
 ### 🐛 Fixes
 
+- Connect failing because the transport itself could not be opened (e.g., USB interface busy) could report a dropped
+  channel instead of the actual reason.
 - `connect()` returns `Error::AmbiguousDeviceChoice` listing the matched devices one per line, instead of printing
   them to stdout in Debug format and returning a generic "Ambiguous device choice" error.
 - Introspection cache lookup falls back to the bundle without doc strings when the one with doc strings is not

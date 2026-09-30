@@ -47,6 +47,11 @@ where
         self.with(|tx| tx.write(user_kind, message))
     }
 
+    /// See [Tx::write_full].
+    pub fn write_full(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
+        self.with(|tx| tx.write_full(user_kind, message))
+    }
+
     /// See [Tx::flush].
     pub fn flush(&mut self) -> usize {
         self.with(|tx| tx.flush())

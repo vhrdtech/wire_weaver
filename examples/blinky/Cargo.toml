@@ -12,6 +12,10 @@ tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 
+[features]
+# RTT through a debug probe, for the blinky_rtt example
+rtt = ["wire_weaver_client/rtt"]
+
 [dev-dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
@@ -30,3 +34,8 @@ path = "examples/blocking.rs"
 [[example]]
 name = "blinky_simple"
 path = "examples/simple.rs"
+
+[[example]]
+name = "blinky_rtt"
+path = "examples/rtt.rs"
+required-features = ["rtt"]

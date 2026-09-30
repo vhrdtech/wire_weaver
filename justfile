@@ -47,7 +47,8 @@ upload-examples-mcu-nucleo-h743zi2:
 [working-directory('examples_mcu/nucleo_g0b1re')]
 check-examples-mcu-nucleo-g0b1re:
     # Checking nucleo_g0b1re
-    @cargo check
+    @cargo check --features usb
+    @cargo check --no-default-features --features nucleo_g0b1re,rtt_target
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 check-examples-mcu-stm32h725ig:

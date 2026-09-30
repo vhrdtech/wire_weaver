@@ -48,8 +48,9 @@ let mut server = rtt_server(
 server.run(&mut state).await;
 ```
 
-`examples_mcu/rp2/src/bin/ww_rtt.rs` is a complete example (`just run rp2 ww_rtt`), serving the same blinky API as
-`usb_blinky`.
+`examples_mcu/rp2/src/bin/ww_rtt.rs` (`just run rp2 ww_rtt`) and `examples_mcu/nucleo_g0b1re/src/bin/ww_rtt.rs`
+(`just run nucleo ww_rtt`) are complete examples, serving the same blinky API as `usb_blinky`. `examples/blinky`
+has the matching host side: `cargo run -p blinky --features rtt --example blinky_rtt -- --chip STM32G0B1RETx`.
 
 ### Sizing
 
@@ -89,7 +90,38 @@ Many small messages are still packed into one chunk, accumulated for the window 
 
 ## Host side
 
-TODO: `wire_weaver_client` with the `rtt` feature (probe-rs), `ClientConfig::rtt(..)`.
+`wire_weaver_client` connects over RTT with the `rtt` feature, through [probe-rs](https://probe.rs). Select it with
+`ClientConfig::rtt(target, speed_hz)`, where `target` is the probe-rs chip name (the same one `probe-rs run --chip`
+takes) and `speed_hz` is the SWD / JTAG clock (`None` for the probe's default):
+
+```rust
+let config = ClientConfig::new().rtt("RP2040".into(), None);
+```
+
+- **Probe selection**: with a single probe connected, it is used. Otherwise, pick one with `usb_vid_pid(..)`,
+  `serial_eq(..)` or `serial_contains(..)` placed _after_ `.rtt(..)`. Filters before it describe the device behind
+  the probe, which is not known before connecting, and are not used to select the probe, so a driver crate's config
+  works as is: `Blinky::default_config().rtt("RP2040".into(), None).serial_contains("820102657".into())`. The device
+  API is checked during link setup as usual. WireWeaver USB is not tried when RTT is selected.
+- **Attaching** does not reset the core, a running firmware is attached to as is. probe-rs halts it for a few
+  milliseconds to clear hardware breakpoints, on attach and on detach. RAM is scanned for the RTT control block, which takes
+  a noticeable time on chips with a lot of RAM (about 1.5 s for 144 KiB on an STM32G0 through an ST-LINK V2-1). In
+  case the firmware has just started and has not initialized RTT yet, the scan is retried for 2 s, and at least once,
+  however long a single scan takes. Then channels named `ww_up` and `ww_down` are
+  looked up, so these names must be used on the device side. Connecting returns only once all this is done. Whatever is left in the up channel from a previous host
+  is dropped. Nothing else may use the probe at the same time, e.g., a `probe-rs run` or a debugger session showing
+  `defmt` logs: a probe can only be opened once.
+- **Polling**: probe-rs is a blocking API and RTT cannot notify the host, so a dedicated thread polls the up channel
+  and writes to the down channel, sleeping 1 ms whenever there was nothing to do. Each poll is a few probe USB
+  transfers, so the round trip is a few milliseconds, depending on the probe.
+
+## Limitations
+
+- `defmt` logs go to another up channel of the same control block, but can't be read while the client holds the
+  probe.
+- A message larger than the other side's buffer is skipped, but the stream is out of sync until the link is set up
+  again (see [Framing](#framing)). Both sides advertise and respect their maximum message length, so this only
+  happens on a bug.
 
 ## See also
 

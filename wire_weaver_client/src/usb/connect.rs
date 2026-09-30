@@ -1,6 +1,6 @@
 use crate::config::{ConfigPiece, ValidatedConfig};
-use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
+use crate::event_loop::transport::Selected;
 use anyhow::{Context, anyhow, bail};
 use nusb::descriptors::TransferType;
 use nusb::{Device, DeviceInfo, Interface, MaybeFuture};
@@ -112,9 +112,7 @@ pub(crate) async fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    let devices = nusb::list_devices()
-        .await
-        .context("listing USB devices")?;
+    let devices = nusb::list_devices().await.context("listing USB devices")?;
     start_event_loop(c, devices, cmd_rx)
 }
 
@@ -123,23 +121,8 @@ pub(crate) fn try_connect_blocking(
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
-    let devices = nusb::list_devices()
-        .wait()
-        .context("listing USB devices")?;
+    let devices = nusb::list_devices().wait().context("listing USB devices")?;
     start_event_loop(c, devices, cmd_rx)
-}
-
-pub(crate) enum Selected {
-    /// Event loop is started, connect command must be sent to it with this handle
-    Device {
-        handle: DeviceHandle,
-        info: Box<crate::DeviceInfo>,
-    },
-    /// No device matched, event loop is not started
-    NotFound {
-        /// WireWeaver devices that did not pass the filters
-        unmatched: Vec<crate::DeviceInfo>,
-    },
 }
 
 fn start_event_loop(

@@ -1,81 +1,100 @@
 use anyhow::bail;
 use probe_rs::probe::{DebugProbeInfo, list::Lister};
 use tokio::sync::mpsc;
-use tracing::warn;
 
-use crate::{
-    config::{ConfigPiece, ValidatedConfig},
-    event_loop::DeviceHandle,
-    internal::Command,
-};
+use super::event_loop::RttHandle;
+use crate::config::{ConfigPiece, ValidatedConfig};
+use crate::event_loop::command::Command;
+use crate::event_loop::transport::Selected;
 
+/// Probe listing is quick and synchronous, used from both async and blocking connect.
 pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Option<DeviceHandle>, anyhow::Error> {
-    start_event_loop(c, cmd_rx)
-}
-
-fn start_event_loop(
-    c: &ValidatedConfig,
-    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Option<DeviceHandle>, anyhow::Error> {
-    let Some(matched) = select_matching(c)? else {
-        return Ok(None);
+) -> Result<Selected, anyhow::Error> {
+    let Some((target, speed_hz)) = c.pieces.iter().rev().find_map(|p| match p {
+        ConfigPiece::Rtt {
+            target, speed_hz, ..
+        } => Some((target.clone(), *speed_hz)),
+        _ => None,
+    }) else {
+        bail!("Internal error: RTT selected without a target");
+    };
+    let (probe, info) = match select_matching(c, Lister::new().list_all())? {
+        Ok(matched) => matched,
+        Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
     };
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
-    // tokio::spawn(async move {
-    //     super::event_loop::usb_worker(cmd_rx).await;
-    // });
-    let handle = Box::new(matched);
-    Ok(Some(handle))
+    tokio::spawn(async move {
+        super::event_loop::rtt_worker(cmd_rx).await;
+    });
+    Ok(Selected::Device {
+        handle: Box::new(RttHandle {
+            probe,
+            target,
+            speed_hz,
+        }),
+        info: Box::new(info),
+    })
 }
 
-fn select_matching(c: &ValidatedConfig) -> Result<Option<DebugProbeInfo>, crate::Error> {
-    let lister = Lister::new();
-
+/// Returns the only matching probe, or all probes if none did.
+///
+/// Only VID:PID and serial number filters after the RTT piece are applied, to the probe itself. The ones before it
+/// describe the device behind the probe (e.g., a config made by its driver crate, with the device's USB VID:PID),
+/// which is not known before connecting. Device API is checked during link setup anyway.
+#[allow(clippy::type_complexity)]
+fn select_matching(
+    c: &ValidatedConfig,
+    probes: Vec<DebugProbeInfo>,
+) -> Result<Result<(DebugProbeInfo, crate::DeviceInfo), Vec<crate::DeviceInfo>>, crate::Error> {
+    let after_rtt = c
+        .pieces
+        .iter()
+        .rposition(|p| matches!(p, ConfigPiece::Rtt { .. }))
+        .map_or(0, |i| i + 1);
+    let probe_filters = &c.pieces[after_rtt..];
+    // same semantics as DeviceInfo::is_matching: alternatives within a kind, all kinds required
+    let vid_pid: Vec<(u16, u16)> = probe_filters
+        .iter()
+        .filter_map(|p| match p {
+            ConfigPiece::UsbVidPid { vid, pid } => Some((*vid, *pid)),
+            _ => None,
+        })
+        .collect();
+    let serial: Vec<ConfigPiece> = probe_filters
+        .iter()
+        .filter(|p| {
+            matches!(
+                p,
+                ConfigPiece::SerialEq { .. } | ConfigPiece::SerialContains { .. }
+            )
+        })
+        .cloned()
+        .collect();
     let mut matching = vec![];
-    for device in lister.list_all() {
-        let info = crate::DeviceInfo::from(&device);
-        let vid_pid_match = vid_pid_match(&c.pieces, &device);
-        let port_chain_match = port_chain_match(&c.pieces, &device);
-        if vid_pid_match || port_chain_match || info.is_matching(c) {
-            matching.push((device, info));
+    let mut unmatched = vec![];
+    for probe in probes {
+        let info = crate::DeviceInfo::from(&probe);
+        let vid_pid_ok =
+            vid_pid.is_empty() || vid_pid.contains(&(probe.vendor_id, probe.product_id));
+        if vid_pid_ok && info.is_matching(&serial) {
+            matching.push((probe, info));
+        } else {
+            unmatched.push(info);
         }
     }
-    if let Some((device, info)) = matching.pop() {
+    if let Some(matched) = matching.pop() {
         if matching.is_empty() {
-            Ok(Some(device))
+            Ok(Ok(matched))
         } else {
-            let mut devices = vec![info];
+            let mut devices = vec![matched.1];
             devices.extend(matching.drain(..).map(|(_, info)| info));
             Err(crate::Error::AmbiguousDeviceChoice(devices))
         }
     } else {
-        Ok(None)
+        Ok(Err(unmatched))
     }
-}
-
-fn vid_pid_match(pieces: &[ConfigPiece], info: &DebugProbeInfo) -> bool {
-    pieces.iter().any(|p| {
-        if let ConfigPiece::UsbVidPid { vid, pid } = p {
-            info.vendor_id == *vid && info.product_id == *pid
-        } else {
-            false
-        }
-    })
-}
-
-fn port_chain_match(pieces: &[ConfigPiece], info: &DebugProbeInfo) -> bool {
-    pieces.iter().any(|p| {
-        if let ConfigPiece::UsbPath { .. } = p {
-            // TODO: port chain for RTT adapters
-            warn!("Port chain for probes is not implemented yet");
-            false
-        } else {
-            false
-        }
-    })
 }

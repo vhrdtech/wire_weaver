@@ -58,5 +58,24 @@ pub(crate) struct Opened<Tx, Rx> {
 pub(crate) trait Transport {
     type Tx: MessageTx;
     type Rx: MessageRx;
-    fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<Self::Tx, Self::Rx>, String>;
+    /// Must return only once the medium is usable: link setup starts right after, and requests sent before
+    /// the medium is up pile up and are all answered later (e.g., while attaching to a debug probe).
+    fn connect(
+        &mut self,
+        handle: DeviceHandle,
+    ) -> impl Future<Output = Result<Opened<Self::Tx, Self::Rx>, String>> + Send;
+}
+
+/// Outcome of selecting a device for a transport.
+pub(crate) enum Selected {
+    /// Event loop is started, connect command must be sent to it with this handle
+    Device {
+        handle: DeviceHandle,
+        info: Box<crate::DeviceInfo>,
+    },
+    /// No device matched, event loop is not started
+    NotFound {
+        /// WireWeaver devices (or, e.g., debug probes) that did not pass the filters
+        unmatched: Vec<crate::DeviceInfo>,
+    },
 }

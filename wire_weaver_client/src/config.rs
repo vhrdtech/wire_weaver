@@ -81,10 +81,10 @@ pub(crate) enum InterfaceKind {
     Udp,
     Ipc,
     InProcess,
+    Rtt,
     // Can,
     // Uart,
     // I2c,
-    // Rtt,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumDiscriminants)]
@@ -137,8 +137,8 @@ pub(crate) enum ConfigPiece {
     /// Negate previous InProcess related filters or exclude InProcess from the interfaces to try.
     NoInProcess,
 
-    /// Connect to a device over RTT over JTAG/SWD.
-    /// Select which adapter to use using USB filters if there are several of them.
+    /// Connect to a device over RTT over JTAG/SWD, WireWeaver USB is not tried then.
+    /// VID:PID and serial filters after this piece select which probe to use if there are several of them.
     Rtt {
         target: String,
         protocol: (),
@@ -345,7 +345,13 @@ impl ClientConfig {
         f.pieces.push(ConfigPiece::NoInProcess);
         f
     }
-    /// Select in-process node by path
+    /// Connect over RTT through a debug probe (requires the `rtt` feature), `target` is the probe-rs chip name
+    /// (e.g., `RP2040`, `STM32G474RETx`), `speed_hz` is the SWD / JTAG clock (probe default if None).
+    ///
+    /// Filters _after_ this call select the probe: [usb_vid_pid](Self::usb_vid_pid), [serial_eq](Self::serial_eq)
+    /// and [serial_contains](Self::serial_contains), not needed if there is only one. Filters _before_ it describe
+    /// the device and are not used to select the probe (the device is not known before connecting), so that
+    /// `MyDevice::default_config().rtt(..)` works. WireWeaver USB is not tried when RTT is selected.
     pub fn rtt(self, target: String, speed_hz: Option<u32>) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::Rtt {
@@ -506,15 +512,23 @@ impl ValidatedConfig {
             .collect()
     }
 
+    /// USB filters select a probe when RTT is used, not a device to connect to over USB
     pub(crate) fn is_usb(&self) -> bool {
-        self.is_opted_in(
-            &[
-                ConfigPieceDiscriminants::UsbPath,
-                ConfigPieceDiscriminants::UsbVidPid,
-                ConfigPieceDiscriminants::Usb,
-            ],
-            ConfigPieceDiscriminants::NoWwUsb,
-        )
+        !self.is_rtt()
+            && self.is_opted_in(
+                &[
+                    ConfigPieceDiscriminants::UsbPath,
+                    ConfigPieceDiscriminants::UsbVidPid,
+                    ConfigPieceDiscriminants::Usb,
+                ],
+                ConfigPieceDiscriminants::NoWwUsb,
+            )
+    }
+
+    pub(crate) fn is_rtt(&self) -> bool {
+        self.pieces
+            .iter()
+            .any(|p| matches!(p, ConfigPiece::Rtt { .. }))
     }
 
     pub(crate) fn is_websocket(&self) -> bool {
@@ -572,6 +586,9 @@ impl ValidatedConfig {
         if self.is_in_process() {
             interfaces.push(InterfaceKind::InProcess);
         }
+        if self.is_rtt() {
+            interfaces.push(InterfaceKind::Rtt);
+        }
         // TODO: sort by priority
         interfaces
     }
@@ -609,6 +626,19 @@ mod tests {
     // Also user may depend on two driver crates, with one using e.g., only WebSocket and the other only USB.
     // In which case two interface features will be enabled and if not for this filter system,
     // it would break the mess with device selection process.
+    #[test]
+    fn rtt() {
+        // device driver config (USB VID:PID of the device) re-used over RTT: USB is not tried
+        let f = ClientConfig::new()
+            .usb_vid_pid(0xc0de, 0xcafe)
+            .rtt("RP2040".into(), None)
+            .usb_vid_pid(0x1366, 0x0105)
+            .validate()
+            .unwrap();
+        assert!(!f.is_usb());
+        assert_eq!(f.interfaces(), vec![InterfaceKind::Rtt]);
+    }
+
     #[test]
     fn usb() {
         let f = ClientConfig::new().validate().unwrap();

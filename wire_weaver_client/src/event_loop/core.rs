@@ -200,7 +200,7 @@ async fn tx_task<T: Transport>(
                         warn!("ignoring connect command, while already connected, this is a bug");
                         continue;
                     };
-                    match connector.connect(handle) {
+                    match connector.connect(handle).await {
                         Ok(o) => {
                             msg_tx = Some(o.tx);
                             if let Err(rx) = msg_rx_tx.send(o.rx) {
@@ -330,8 +330,9 @@ async fn rx_task<T: Transport>(
                     msg_rx_rx = None;
                     match r {
                         Ok(r) => msg_rx = Some(r),
-                        // tx task is gone without saying Stop (should not happen), exit
-                        Err(_) => break,
+                        // tx task is gone, e.g., the transport failed to open: whatever it said before
+                        // (Stop with the error, to answer connected_tx) is still queued, handle it first
+                        Err(_) => continue,
                     }
                 },
                 msg = from_tx.recv() => match msg {
@@ -880,7 +881,7 @@ mod tests {
     impl Transport for ChanTransport {
         type Tx = NoTx;
         type Rx = ChanRx;
-        fn connect(
+        async fn connect(
             &mut self,
             _: crate::event_loop::DeviceHandle,
         ) -> Result<crate::event_loop::transport::Opened<NoTx, ChanRx>, String> {

@@ -39,7 +39,7 @@ impl Transport for NusbTransport {
     type Tx = NusbTx;
     type Rx = NusbRx;
 
-    fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<NusbTx, NusbRx>, String> {
+    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<NusbTx, NusbRx>, String> {
         let di = handle
             .downcast::<nusb::DeviceInfo>()
             .map_err(|_| "expected nusb::DeviceInfo handle".to_string())?;
@@ -228,7 +228,7 @@ mod tests {
     impl Transport for MockTransport {
         type Tx = MockTx;
         type Rx = MockRx;
-        fn connect(&mut self, _: DeviceHandle) -> Result<Opened<MockTx, MockRx>, String> {
+        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<MockTx, MockRx>, String> {
             self.0.take().ok_or("already connected".into())
         }
     }
@@ -455,7 +455,11 @@ mod tests {
             };
             cmd_tx.send(cmd).await.unwrap();
             disconnected_rx.await.unwrap();
-            assert_eq!(closed.0.load(Ordering::SeqCst), 2, "tx and rx must be closed");
+            assert_eq!(
+                closed.0.load(Ordering::SeqCst),
+                2,
+                "tx and rx must be closed"
+            );
             worker.await.unwrap();
         }
     }

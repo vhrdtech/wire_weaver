@@ -1,8 +1,7 @@
 use std::{any::Any, marker::PhantomData};
 
 use crate::config::InterfaceKind;
-#[cfg(feature = "usb")]
-use crate::usb::Selected;
+use crate::event_loop::transport::Selected;
 use crate::{
     Commander, WwClient,
     config::{ClientConfig, IntrospectBundle, ValidatedConfig},
@@ -49,6 +48,20 @@ impl<T: WwClient> PreparedConnection<T> {
                     Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
+            if iface_kind == InterfaceKind::Rtt {
+                match try_select_rtt(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info =
+                            try_connect(&cmd_tx, handle, config.client_version.clone())
+                                .await
+                                .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(
+                            create_commander(config, cmd_tx, device_api_info).await,
+                        ));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
         }
 
         Err(not_found(&config, unmatched))
@@ -64,6 +77,21 @@ impl<T: WwClient> PreparedConnection<T> {
             #[cfg(feature = "usb")]
             if iface_kind == InterfaceKind::Usb {
                 match crate::usb::try_connect_blocking(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info =
+                            try_connect_blocking(&cmd_tx, handle, config.client_version.clone())
+                                .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(create_commander_blocking(
+                            config,
+                            cmd_tx,
+                            device_api_info,
+                        )));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
+            if iface_kind == InterfaceKind::Rtt {
+                match try_select_rtt(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
                         let device_api_info =
                             try_connect_blocking(&cmd_tx, handle, config.client_version.clone())
@@ -94,6 +122,21 @@ impl<T: WwClient> PreparedConnection<T> {
     pub fn connect_keep_trying(self) {
         // figure out how to handle Commander.connected_device if connected to a different device, reject by serial?
         todo!()
+    }
+}
+
+fn try_select_rtt(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "rtt")]
+    return crate::rtt::try_connect(config, cmd_rx);
+    #[cfg(not(feature = "rtt"))]
+    {
+        _ = (config, cmd_rx);
+        Err(anyhow::anyhow!(
+            "RTT selected in the client config, but wire_weaver_client is built without the `rtt` feature"
+        ))
     }
 }
 

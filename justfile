@@ -58,6 +58,12 @@ check-examples-mcu-stm32h725ig:
 upload-examples-mcu-usb-stm32h725ig:
     mx3 fw upload --bin uart --release --rename usb_b135_uart
 
+# Build the ww CLI in release mode and copy it into ~/.local/bin for quick testing
+install-cli:
+    cargo build --release -p ww
+    install -Dm755 target/release/ww ~/.local/bin/ww
+    @echo "Installed ww into ~/.local/bin"
+
 pre-commit:
     cargo sort -w
     cargo clippy

@@ -18,6 +18,20 @@ cargo install --path wire_weaver_cli
 
 Re-run the same command with `--force` to update an existing installation.
 
+### Shell completions
+
+Completions are produced by `ww` itself, so they always match the installed version, and values of the device
+selection flags (`--serial`, `--label`, `--api`, `--usb-path`, ...) are completed from the currently connected
+devices. Register them once in the shell's startup file:
+
+```sh
+echo 'source <(COMPLETE=bash ww)' >> ~/.bashrc              # bash
+echo 'source <(COMPLETE=zsh ww)' >> ~/.zshrc                # zsh
+echo 'COMPLETE=fish ww | source' >> ~/.config/fish/config.fish  # fish
+```
+
+Elvish and PowerShell are supported as well (`COMPLETE=elvish`, `COMPLETE=powershell`).
+
 ### Quick testing during development
 
 `just install-cli` builds the current checkout in release mode and copies the binary into `~/.local/bin/ww`,

@@ -24,8 +24,7 @@ dependencies = [
  "all_gpio_api",
  "anyhow",
  "clap",
- "clap-repl",
- "console 0.16.4",
+ "console",
  "futures",
  "tokio",
  "tracing",
@@ -268,8 +267,9 @@ dependencies = [
  "anyhow",
  "blinky_api",
  "clap",
- "clap-repl",
- "console 0.16.4",
+ "console",
+ "reedline",
+ "shlex 1.3.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -302,8 +302,7 @@ dependencies = [
  "blinky_api",
  "blinky_api_evolved",
  "clap",
- "clap-repl",
- "console 0.16.4",
+ "console",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -438,20 +437,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap-repl"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ffd4e57297ee7a10fb637964a79fd4bf5c8d22fd4ceaac5d3964d55df9e9e38"
-dependencies = [
- "clap",
- "clap_complete",
- "console 0.15.11",
- "nu-ansi-term",
- "reedline",
- "shlex 1.3.0",
-]
-
-[[package]]
 name = "clap_builder"
 version = "4.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -459,22 +444,20 @@ checksum = "7b48fea5a88e9ae728a2dcbedbfc0e730f7d60da42e1cb049a83c9fb8b789889"
 dependencies = [
  "anstream",
  "anstyle",
- "clap_lex 1.1.0",
+ "clap_lex",
  "strsim",
 ]
 
 [[package]]
 name = "clap_complete"
-version = "4.5.16"
+version = "4.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c677cd0126f3026d8b093fa29eae5d812fde5c05bc66dbb29d0374eea95113a"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
 dependencies = [
  "clap",
- "clap_lex 0.7.7",
+ "clap_lex",
  "is_executable",
- "pathdiff",
- "shlex 1.3.0",
- "unicode-xid",
+ "shlex 2.0.1",
 ]
 
 [[package]]
@@ -488,12 +471,6 @@ dependencies = [
  "quote",
  "syn 3.0.3",
 ]
-
-[[package]]
-name = "clap_lex"
-version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
 name = "clap_lex"
@@ -544,19 +521,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console"
-version = "0.15.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
-dependencies = [
- "encode_unicode",
- "libc",
- "once_cell",
- "unicode-width 0.2.2",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1467,7 +1431,7 @@ version = "0.18.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9433806cd6b4ec1aba79c021c7e4c58fb4c3b9977c085062e611ac929998fb0c"
 dependencies = [
- "console 0.16.4",
+ "console",
  "portable-atomic",
  "unicode-width 0.2.2",
  "unit-prefix",
@@ -1903,12 +1867,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pathdiff"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pathsearch"
@@ -3064,12 +3022,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
-name = "unicode-xid"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
-
-[[package]]
 name = "unit-prefix"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3495,7 +3447,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "console 0.16.4",
+ "console",
  "convert_case",
  "hex",
  "pest",
@@ -3545,7 +3497,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "console 0.16.4",
+ "clap_complete",
+ "console",
  "human-repr",
  "indicatif",
  "proc-macro2",

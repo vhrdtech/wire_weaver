@@ -3,16 +3,27 @@ use crate::cmd::config::ConfigCommand;
 use crate::device::Selection;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches};
+use clap_complete::CompleteEnv;
 use wire_weaver_client::DynClient;
 
 mod api_tree;
 mod cli;
 pub(crate) mod cmd;
+mod complete;
 mod device;
 mod util;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
+    // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing
+    CompleteEnv::with_factory(Cli::command).complete();
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?
+        .block_on(run())
+}
+
+async fn run() -> Result<()> {
     let matches = Cli::command().get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     // keep connection progress logs out of the printed tree

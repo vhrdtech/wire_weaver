@@ -4,9 +4,11 @@
 //! project `ww.toml` (current directory or its closest parent), otherwise it is not used.
 //! Settings of different kinds are combined, e.g. `api` from ww.toml and `--serial` narrow the selection together.
 
+use crate::complete;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::parser::ValueSource;
-use clap::{ArgMatches, Args};
+use clap::{ArgMatches, Args, ValueHint};
+use clap_complete::ArgValueCandidates;
 use semver::VersionReq;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
@@ -35,31 +37,31 @@ pub(crate) const KEYS: [&str; 8] = [
 #[command(next_help_heading = "Device selection (flags > env variables > ww.toml)")]
 pub(crate) struct DeviceArgs {
     /// Serial number or its part (case-insensitive)
-    #[arg(short, long, env = "WW_SERIAL", global = true)]
+    #[arg(short, long, env = "WW_SERIAL", global = true, add = ArgValueCandidates::new(complete::serials))]
     serial: Option<String>,
 
     /// User label (case-insensitive)
-    #[arg(short, long, env = "WW_LABEL", global = true)]
+    #[arg(short, long, env = "WW_LABEL", global = true, add = ArgValueCandidates::new(complete::labels))]
     label: Option<String>,
 
     /// Product description containing this substring (case-insensitive)
-    #[arg(short, long, env = "WW_PRODUCT", global = true)]
+    #[arg(short, long, env = "WW_PRODUCT", global = true, add = ArgValueCandidates::new(complete::products))]
     product: Option<String>,
 
     /// Manufacturer containing this substring (case-insensitive)
-    #[arg(long, env = "WW_MANUFACTURER", global = true)]
+    #[arg(long, env = "WW_MANUFACTURER", global = true, add = ArgValueCandidates::new(complete::manufacturers))]
     manufacturer: Option<String>,
 
     /// Implemented API, optionally with a version requirement: name[@req], e.g. blinky_api@^0.1
-    #[arg(long, env = "WW_API", global = true, value_name = "NAME[@REQ]")]
+    #[arg(long, env = "WW_API", global = true, add = ArgValueCandidates::new(complete::apis), value_name = "NAME[@REQ]")]
     api: Option<String>,
 
     /// USB vendor and product id in hex, e.g. c0de:cafe
-    #[arg(long, env = "WW_VID_PID", global = true, value_name = "VID:PID")]
+    #[arg(long, env = "WW_VID_PID", global = true, add = ArgValueCandidates::new(complete::vid_pids), value_name = "VID:PID")]
     vid_pid: Option<String>,
 
     /// USB bus and port chain as shown by 'ww list', e.g. 3-1.2
-    #[arg(long, env = "WW_USB_PATH", global = true, value_name = "BUS-PORTS")]
+    #[arg(long, env = "WW_USB_PATH", global = true, add = ArgValueCandidates::new(complete::usb_paths), value_name = "BUS-PORTS")]
     usb_path: Option<String>,
 
     /// Request timeout in milliseconds
@@ -67,7 +69,7 @@ pub(crate) struct DeviceArgs {
     timeout_ms: Option<String>,
 
     /// Project config file to use instead of ww.toml in the current directory or its closest parent
-    #[arg(long, env = "WW_CONFIG", global = true, value_name = "PATH")]
+    #[arg(long, env = "WW_CONFIG", global = true, value_name = "PATH", value_hint = ValueHint::FilePath)]
     config: Option<PathBuf>,
 
     /// Do not load ww.toml

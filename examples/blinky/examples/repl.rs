@@ -1,13 +1,13 @@
 use anyhow::Result;
 use blinky::Blinky;
 use clap::Parser;
-use clap_repl::reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory};
-use clap_repl::{ClapEditor, ReadCommandOutput};
 use console::style;
+use reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal};
 use std::time::Duration;
 use tracing::{error, info};
 
 #[derive(Parser)]
+#[command(no_binary_name = true)]
 enum Command {
     Connect,
     Disconnect,
@@ -55,10 +55,10 @@ async fn connect_to_device() -> Result<Blinky> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let mut device = None;
-    let mut rl = setup_repl();
+    let (mut rl, prompt) = setup_repl();
 
     loop {
-        let should_exit = handle_user_command(&mut device, &mut rl).await?;
+        let should_exit = handle_user_command(&mut device, &mut rl, &prompt).await?;
         if should_exit {
             break;
         }
@@ -72,10 +72,26 @@ async fn main() -> Result<()> {
 
 async fn handle_user_command(
     device: &mut Option<Blinky>,
-    rl: &mut ClapEditor<Command>,
+    rl: &mut Reedline,
+    prompt: &DefaultPrompt,
 ) -> Result<bool> {
-    match rl.read_command() {
-        ReadCommandOutput::Command(c) => match c {
+    let line = match rl.read_line(prompt)? {
+        Signal::Success(line) => line,
+        Signal::CtrlC => return Ok(true),
+        Signal::CtrlD => return Ok(false),
+    };
+    let Some(words) = shlex::split(&line) else {
+        println!(
+            "{} input was not valid and could not be processed",
+            style("Error:").red().bold()
+        );
+        return Ok(false);
+    };
+    if words.is_empty() {
+        return Ok(false);
+    }
+    match Command::try_parse_from(words) {
+        Ok(c) => match c {
             Command::Connect => match connect_to_device().await {
                 Ok(d) => {
                     info!("Connected!");
@@ -110,38 +126,21 @@ async fn handle_user_command(
                 }
             }
         },
-        ReadCommandOutput::EmptyLine => (),
-        ReadCommandOutput::ClapError(e) => {
+        Err(e) => {
             e.print()?;
         }
-        ReadCommandOutput::ShlexError => {
-            println!(
-                "{} input was not valid and could not be processed",
-                style("Error:").red().bold()
-            );
-        }
-        ReadCommandOutput::ReedlineError(e) => {
-            panic!("{e}");
-        }
-        ReadCommandOutput::CtrlC => return Ok(true),
-        ReadCommandOutput::CtrlD => return Ok(false),
     }
     Ok(false)
 }
 
-fn setup_repl() -> ClapEditor<Command> {
+fn setup_repl() -> (Reedline, DefaultPrompt) {
     let prompt = DefaultPrompt {
         left_prompt: DefaultPromptSegment::Basic("ww_template".to_owned()),
         ..DefaultPrompt::default()
     };
-    let rl = ClapEditor::<Command>::builder()
-        .with_prompt(Box::new(prompt))
-        .with_editor_hook(|reed| {
-            // Do custom things with `Reedline` instance here
-            reed.with_history(Box::new(
-                FileBackedHistory::with_file(10000, "repl_history.txt".into()).unwrap(),
-            ))
-        })
-        .build();
-    rl
+    // Do custom things with `Reedline` instance here
+    let rl = Reedline::create().with_history(Box::new(
+        FileBackedHistory::with_file(10000, "repl_history.txt".into()).unwrap(),
+    ));
+    (rl, prompt)
 }

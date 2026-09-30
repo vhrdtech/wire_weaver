@@ -4,7 +4,7 @@ mod ast;
 
 use anyhow::{Result, anyhow};
 
-use clap::Subcommand;
+use clap::{Subcommand, ValueHint};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
@@ -12,6 +12,7 @@ pub enum ApiCommand {
     /// Print API tree
     Tree {
         /// Path to crate which defines ww_trait
+        #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
 
         /// Optional trait name if more than one is present
@@ -24,6 +25,7 @@ pub enum ApiCommand {
     },
     ServerMethods {
         /// Path to crate which defines ww_trait
+        #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
 
         /// Optional trait name if more than one is present
@@ -33,6 +35,7 @@ pub enum ApiCommand {
     /// Print AST
     Ast {
         /// Path to crate which defines ww_trait
+        #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
 
         /// Optional trait name if more than one is present

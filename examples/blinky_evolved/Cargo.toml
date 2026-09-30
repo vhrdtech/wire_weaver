@@ -13,7 +13,6 @@ wire_weaver_client.workspace = true
 [dev-dependencies]
 anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
-clap-repl = "0.3"
 console = "0.16"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"

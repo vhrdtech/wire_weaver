@@ -16,7 +16,7 @@ pub(crate) struct ConnectOk {
 
 pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
     trace!("connecting to USB device: {di:?}");
-    let device = di.open().wait()?;
+    let device = di.open().wait().map_err(with_hint)?;
     let device_clone = device.clone();
     let active_configuration = device_clone
         .active_configuration()
@@ -29,7 +29,7 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         .endpoints()
         .next()
         .ok_or(anyhow!("No endpoints found in active USB configuration"))?;
-    let interface = device.claim_interface(0).wait()?;
+    let interface = device.claim_interface(0).wait().map_err(with_hint)?;
     Ok(ConnectOk {
         device,
         interface,
@@ -94,30 +94,62 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
 //     }
 // }
 
+/// Explain the likely cause of the most common errors
+fn with_hint(e: nusb::Error) -> anyhow::Error {
+    let hint = match e.kind() {
+        nusb::ErrorKind::Busy => {
+            "device is already open by another program or another connection in this one"
+        }
+        nusb::ErrorKind::PermissionDenied if cfg!(target_os = "linux") => {
+            "no access to the device, run 'ww udev --help' to see how to install a udev rule"
+        }
+        _ => return e.into(),
+    };
+    anyhow!("{e}; {hint}")
+}
+
 pub(crate) async fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Option<DeviceHandle>, anyhow::Error> {
-    let devices = nusb::list_devices().await?;
+) -> Result<Selected, anyhow::Error> {
+    let devices = nusb::list_devices()
+        .await
+        .context("listing USB devices")?;
     start_event_loop(c, devices, cmd_rx)
 }
 
 pub(crate) fn try_connect_blocking(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Option<DeviceHandle>, anyhow::Error> {
+) -> Result<Selected, anyhow::Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
-    let devices = nusb::list_devices().wait()?;
+    let devices = nusb::list_devices()
+        .wait()
+        .context("listing USB devices")?;
     start_event_loop(c, devices, cmd_rx)
+}
+
+pub(crate) enum Selected {
+    /// Event loop is started, connect command must be sent to it with this handle
+    Device {
+        handle: DeviceHandle,
+        info: Box<crate::DeviceInfo>,
+    },
+    /// No device matched, event loop is not started
+    NotFound {
+        /// WireWeaver devices that did not pass the filters
+        unmatched: Vec<crate::DeviceInfo>,
+    },
 }
 
 fn start_event_loop(
     c: &ValidatedConfig,
     devices: impl Iterator<Item = nusb::DeviceInfo>,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Option<DeviceHandle>, anyhow::Error> {
-    let Some(matched) = select_matching(c, devices)? else {
-        return Ok(None);
+) -> Result<Selected, anyhow::Error> {
+    let (nusb_info, info) = match select_matching(c, devices)? {
+        Ok(matched) => matched,
+        Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
     };
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
@@ -125,14 +157,18 @@ fn start_event_loop(
     tokio::spawn(async move {
         super::event_loop::usb_worker(cmd_rx).await;
     });
-    let handle = Box::new(matched);
-    Ok(Some(handle))
+    Ok(Selected::Device {
+        handle: Box::new(nusb_info),
+        info: Box::new(info),
+    })
 }
 
+/// Returns the only matching device, or WireWeaver devices that did not match if none did.
+#[allow(clippy::type_complexity)]
 fn select_matching(
     c: &ValidatedConfig,
     devices: impl Iterator<Item = nusb::DeviceInfo>,
-) -> Result<Option<nusb::DeviceInfo>, crate::Error> {
+) -> Result<Result<(nusb::DeviceInfo, crate::DeviceInfo), Vec<crate::DeviceInfo>>, crate::Error> {
     // without an explicit VID:PID or path, only consider devices reporting WireWeaver API id
     let by_location = c.pieces.iter().any(|p| {
         matches!(
@@ -141,22 +177,25 @@ fn select_matching(
         )
     });
     let mut matching = vec![];
+    let mut unmatched = vec![];
     for nusb_info in devices.into_iter() {
         let info = crate::DeviceInfo::from(&nusb_info);
         if (by_location || info.api.is_some()) && info.is_matching(&c.pieces) {
             matching.push((nusb_info, info));
+        } else if info.api.is_some() {
+            unmatched.push(info);
         }
     }
-    if let Some((nusb_info, info)) = matching.pop() {
+    if let Some(matched) = matching.pop() {
         if matching.is_empty() {
-            Ok(Some(nusb_info))
+            Ok(Ok(matched))
         } else {
-            let mut devices = vec![info];
+            let mut devices = vec![matched.1];
             devices.extend(matching.drain(..).map(|(_, info)| info));
             Err(crate::Error::AmbiguousDeviceChoice(devices))
         }
     } else {
-        Ok(None)
+        Ok(Err(unmatched))
     }
 }
 

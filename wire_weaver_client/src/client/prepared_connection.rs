@@ -1,16 +1,17 @@
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
-#[cfg(feature = "usb")]
 use crate::config::InterfaceKind;
+#[cfg(feature = "usb")]
+use crate::usb::Selected;
 use crate::{
     Commander, WwClient,
     config::{ClientConfig, IntrospectBundle, ValidatedConfig},
     device_info::DeviceApiInfo,
     event_loop::command::Command,
 };
-use anyhow::{Error, Result, anyhow};
+use anyhow::{Error, Result};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 use ww_version::FullVersionOwned;
 
 pub struct PreparedConnection<T> {
@@ -28,68 +29,57 @@ impl<T: WwClient> PreparedConnection<T> {
 
     pub async fn connect(self) -> Result<T> {
         let config = self.config.validate()?;
-        let (cmd_tx, cmd_rx) = mpsc::channel(config.cmd_queue_size);
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         let mut cmd_rx = Some(cmd_rx);
+        let mut unmatched = vec![];
 
-        for iface_kind in config.interfaces() {
+        for iface_kind in check_interfaces(&config)? {
             #[cfg(feature = "usb")]
             if iface_kind == InterfaceKind::Usb {
-                match crate::usb::try_connect(&config, &mut cmd_rx).await {
-                    Ok(Some(h)) => {
-                        match try_connect(&cmd_tx, h, config.client_version.clone()).await {
-                            Ok(device_api_info) => {
-                                return Ok(T::from_cmd(
-                                    create_commander(config, cmd_tx, device_api_info).await,
-                                ));
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Connecting to device failed: '{e}', will try other devices if any"
-                                );
-                            }
-                        }
+                match crate::usb::try_connect(&config, &mut cmd_rx).await? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info =
+                            try_connect(&cmd_tx, handle, config.client_version.clone())
+                                .await
+                                .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(
+                            create_commander(config, cmd_tx, device_api_info).await,
+                        ));
                     }
-                    Ok(None) => {}
-                    Err(e) => bail_on_ambiguous(e)?,
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
         }
 
-        Err(anyhow!("No devices found to connect to"))
+        Err(not_found(&config, unmatched))
     }
 
     pub fn connect_blocking(self) -> Result<T> {
         let config = self.config.validate()?;
-        let (cmd_tx, cmd_rx) = mpsc::channel(config.cmd_queue_size);
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         let mut cmd_rx = Some(cmd_rx);
+        let mut unmatched = vec![];
 
-        for iface_kind in config.interfaces() {
+        for iface_kind in check_interfaces(&config)? {
             #[cfg(feature = "usb")]
             if iface_kind == InterfaceKind::Usb {
-                match crate::usb::try_connect_blocking(&config, &mut cmd_rx) {
-                    Ok(Some(h)) => {
-                        match try_connect_blocking(&cmd_tx, h, config.client_version.clone()) {
-                            Ok(device_api_info) => {
-                                return Ok(T::from_cmd(create_commander_blocking(
-                                    config,
-                                    cmd_tx,
-                                    device_api_info,
-                                )));
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Connecting to device failed: '{e}', will try other devices if any"
-                                );
-                            }
-                        }
+                match crate::usb::try_connect_blocking(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info =
+                            try_connect_blocking(&cmd_tx, handle, config.client_version.clone())
+                                .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(create_commander_blocking(
+                            config,
+                            cmd_tx,
+                            device_api_info,
+                        )));
                     }
-                    Ok(None) => {}
-                    Err(e) => bail_on_ambiguous(e)?,
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
         }
 
-        Err(anyhow!("No devices found to connect to"))
+        Err(not_found(&config, unmatched))
     }
 
     pub fn connect_promise(self) {
@@ -206,9 +196,27 @@ fn create_commander_blocking(
     commander
 }
 
-fn bail_on_ambiguous(e: Error) -> Result<()> {
-    match e.downcast::<crate::Error>() {
-        Ok(e @ crate::Error::AmbiguousDeviceChoice(_)) => Err(e.into()),
-        _ => Ok(()),
+fn check_interfaces(config: &ValidatedConfig) -> Result<Vec<InterfaceKind>> {
+    let interfaces = config.interfaces();
+    if interfaces.is_empty() {
+        return Err(crate::Error::NoTransportSelected.into());
     }
+    Ok(interfaces)
+}
+
+fn not_found(config: &ValidatedConfig, unmatched: Vec<crate::DeviceInfo>) -> Error {
+    crate::Error::DeviceNotFound {
+        filters: config.describe_filters(),
+        unmatched,
+    }
+    .into()
+}
+
+// Event loop is already started for this device, so there is no point in trying other ones
+fn connect_failed(device: Box<crate::DeviceInfo>, e: Error) -> Error {
+    crate::Error::ConnectFailed {
+        device,
+        reason: format!("{e:#}"),
+    }
+    .into()
 }

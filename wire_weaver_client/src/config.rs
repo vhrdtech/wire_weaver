@@ -446,6 +446,38 @@ impl ClientConfig {
 }
 
 impl ValidatedConfig {
+    /// Human-readable device filters (serial, label, product, API, VID:PID, etc.), for error messages.
+    pub(crate) fn describe_filters(&self) -> Vec<String> {
+        self.pieces
+            .iter()
+            .filter_map(|p| {
+                Some(match p {
+                    ConfigPiece::UsbVidPid { vid, pid } => format!("USB VID:PID = {vid:04x}:{pid:04x}"),
+                    ConfigPiece::UsbPath { bus_id, port_chain } => {
+                        let ports: Vec<String> = port_chain.iter().map(|p| p.to_string()).collect();
+                        format!("USB location = {bus_id}-{}", ports.join("."))
+                    }
+                    ConfigPiece::SerialEq { serial } => format!("serial = \"{serial}\""),
+                    ConfigPiece::SerialContains { substring } => {
+                        format!("serial contains \"{substring}\"")
+                    }
+                    ConfigPiece::UserLabelEq { user_label } => format!("label = \"{user_label}\""),
+                    ConfigPiece::ManufacturerContains { substring } => {
+                        format!("manufacturer contains \"{substring}\"")
+                    }
+                    ConfigPiece::ProductContains { substring } => {
+                        format!("product contains \"{substring}\"")
+                    }
+                    ConfigPiece::ImplementsApi {
+                        api_gid,
+                        version_req,
+                    } => format!("API = {api_gid} {version_req}"),
+                    _ => return None,
+                })
+            })
+            .collect()
+    }
+
     pub(crate) fn is_usb(&self) -> bool {
         self.is_opted_in(
             &[

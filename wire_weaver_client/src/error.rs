@@ -8,8 +8,20 @@ pub enum Error {
     EventLoopNotRunning,
     #[error("RX dispatcher exited due to previous error, cannot operate without it")]
     RxDispatcherNotRunning,
-    #[error("No devices found to connect to")]
-    DeviceNotFound,
+    #[error("No devices found to connect to{}", describe_not_found(.filters, .unmatched))]
+    DeviceNotFound {
+        /// Human-readable device filters from the config, empty if none
+        filters: Vec<String>,
+        /// Connected WireWeaver devices that did not pass the filters
+        unmatched: Vec<DeviceInfo>,
+    },
+    #[error("No transport selected in the client config, use .usb() or another one to select it")]
+    NoTransportSelected,
+    #[error("Failed to connect to {device}: {reason}")]
+    ConnectFailed {
+        device: Box<DeviceInfo>,
+        reason: String,
+    },
     #[error("Timeout")]
     // TODO: add timeout name and duration used?
     Timeout,
@@ -43,6 +55,26 @@ pub enum Error {
     AmbiguousDeviceChoice(Vec<DeviceInfo>),
     #[error("Multi request: '{}'", .0)]
     MultiReq(String),
+}
+
+fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo]) -> String {
+    let mut s = String::new();
+    if !filters.is_empty() {
+        s += &format!(" matching: {}", filters.join(", "));
+    }
+    if unmatched.is_empty() {
+        if filters.is_empty() {
+            s += "\nNo connected device reports a WireWeaver API";
+        } else {
+            s += "\nNo other WireWeaver devices are connected";
+        }
+    } else {
+        s += "\nConnected WireWeaver devices that did not match:";
+        for d in unmatched {
+            s += &format!("\n  {d}");
+        }
+    }
+    s
 }
 
 impl From<wire_weaver::shrink_wrap::Error> for Error {

@@ -21,6 +21,14 @@
 
 ### ⚠️ Breaking
 
+- `connect()`/`connect_blocking()` report why they failed instead of a generic "No devices found to connect to":
+  - `Error::DeviceNotFound` is now a struct variant with the config's `filters` and the connected WireWeaver
+    devices that did not match them (`unmatched`), both printed in the message. Match it with
+    `Error::DeviceNotFound { .. }`.
+  - New `Error::ConnectFailed { device, reason }` when the selected device fails to open or complete link setup;
+    busy and (on Linux) permission denied errors include a hint on the likely cause.
+  - New `Error::NoTransportSelected` when the config selects no transport (e.g., `.usb()` is missing).
+  - Failing to list USB devices is returned as an error instead of being ignored.
 - Device filters of different kinds are now all required instead of any one being enough, e.g.
   `.usb_vid_pid(..).serial_eq(..)` selects only the device with that serial, not every device with that VID:PID.
   Filters of the same kind are still alternatives. Configs relying on the old "any filter" behavior must drop the

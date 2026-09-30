@@ -141,7 +141,6 @@ impl ToTokens for CGStructSer<'_> {
             let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 FieldPath::Value(quote! {self})
             } else {
-                // TODO: if field is already a reference, this is not quite correct, but this information is not used anymore
                 FieldPath::Value(quote! {self.#field_name})
             };
             struct_field

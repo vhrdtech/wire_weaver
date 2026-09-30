@@ -42,6 +42,11 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   in debug builds; in release, `write_un8` silently wrote `0` instead of the value.
 - Smaller flash footprint: `write_un8`/`write_un16` and `read_un8`/`read_un16` forward to the `u32` variants instead
   of each carrying its own copy of the bit loop (~300 bytes less on Cortex-M with `opt-level = "s"`).
+- `#[derive_shrink_wrap(ww_repr = ..)]` did not check that enum discriminants fit into the representation: a
+  discriminant too large for it was truncated on the wire and read back as another variant (e.g. the 5th variant of a
+  `ww_repr = u2` enum was sent as `0`). It is now a compile error, same as with the `#[ww_repr]` attribute.
+- An enum variant without an explicit discriminant following one with it (`A = 15, B`) got the same discriminant
+  instead of the next one, failing to compile with a duplicate discriminant error.
 
 ## [0.1.2] - 2026-01-07 #2
 

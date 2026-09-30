@@ -90,7 +90,7 @@ fn generate_inner(
             let Some(repr) = args.ww_repr else {
                 return Err("For enums, ww_repr must be specified".into());
             };
-            let mut ww_item_enum = ItemEnum::from_syn(item_enum)?;
+            let mut ww_item_enum = ItemEnum::from_syn(item_enum, repr)?;
             add_notes(&mut ww_item_enum.docs, args.size_assumption, true);
             // A single `MyTypeDiscriminants` enum is emitted (named off whichever of
             // borrowed/owned is generated, preferring borrowed), never mutating `ww_item_enum`

@@ -1,5 +1,6 @@
 use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, Variant};
+use crate::ast::repr::Repr;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_since_attr};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -8,23 +9,21 @@ use crate::transform::util::{
 use syn::{Expr, Lit};
 
 impl ItemEnum {
-    pub(crate) fn from_syn(item_enum: &syn::ItemEnum) -> Result<Self, String> {
+    pub(crate) fn from_syn(item_enum: &syn::ItemEnum, repr: Repr) -> Result<Self, String> {
         let mut variants = vec![];
-        let mut current_discriminant: u32 = 0;
-        // let mut max_discriminant: u32 = 0; TODO: check discriminant
+        let mut next_discriminant: u32 = 0;
         for variant in &item_enum.variants {
-            let discriminant = match get_discriminant(variant)? {
-                Some(discriminant) => {
-                    current_discriminant = discriminant;
-                    discriminant
-                }
-                None => {
-                    let d = current_discriminant;
-                    current_discriminant = current_discriminant.saturating_add(1);
-                    d
-                }
-            };
-            // max_discriminant = max_discriminant.max(discriminant);
+            // same numbering as Rust: implicit discriminant is the previous one + 1
+            let discriminant = get_discriminant(variant)?.unwrap_or(next_discriminant);
+            next_discriminant = discriminant.saturating_add(1);
+            // Otherwise the discriminant is silently truncated on the wire and aliases another variant
+            if discriminant > repr.max_discriminant() {
+                return Err(format!(
+                    "Discriminant {discriminant} of variant `{}` does not fit into ww_repr {repr:?}, max is {}",
+                    variant.ident,
+                    repr.max_discriminant()
+                ));
+            }
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             let fields = convert_fields(&variant.fields, &path)?;
             let mut attrs = variant.attrs.clone();
@@ -40,10 +39,6 @@ impl ItemEnum {
             });
         }
         let mut attrs = item_enum.attrs.clone();
-        // let repr = take_ww_repr_attr(&mut attrs)?;
-        // if max_discriminant > repr.max_discriminant() {
-        //     return Err("Enum discriminant is not large enough".into());
-        // }
         let docs = collect_docs_attrs(&mut attrs);
         // if add_evolve_docs {
         //     add_notes(&mut docs, size_assumption, true); TODO: add docs back
@@ -109,5 +104,24 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
             Ok(Fields::Unnamed(unnamed))
         }
         syn::Fields::Unit => Ok(Fields::Unit),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quote::quote;
+
+    #[test]
+    fn discriminant_must_fit_into_repr() {
+        let item: syn::ItemEnum = syn::parse2(quote! { enum E { A, B, C, D } }).unwrap();
+        assert!(ItemEnum::from_syn(&item, Repr::U(2)).is_ok());
+
+        let item: syn::ItemEnum = syn::parse2(quote! { enum E { A, B, C, D, F } }).unwrap();
+        assert!(ItemEnum::from_syn(&item, Repr::U(2)).is_err());
+
+        let item: syn::ItemEnum = syn::parse2(quote! { enum E { A = 15, B } }).unwrap();
+        assert!(ItemEnum::from_syn(&item, Repr::Nibble).is_err());
+        assert!(ItemEnum::from_syn(&item, Repr::U8).is_ok());
     }
 }

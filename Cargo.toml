@@ -30,47 +30,64 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1"
+clap = "4.5"
+console = "0.16"
+convert_case = "0.11"
 defmt = "1.1"
 hex = { version = "0.4", default-features = false }
+hex-literal = "1"
 proc-macro2 = "1.0"
 quote = "1.0"
+relative-path = "2.0"
 ron = "0.12"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-shrink_wrap = { path = "./shrink_wrap/shrink_wrap", default-features = false }
-# shrink_wrap_core = { path = "./shrink_wrap/shrink_wrap_core" }
+serde_json = "1.0"
+sha2 = "0.11"
 strum = "0.28"
 strum_macros = "0.28"
 syn = { version = "3", features = ["full", "extra-traits"] }
-#shrink_wrap = { version = "0.1.2", default-features = false }
-#shrink_wrap_core = { version = "0.2.0" }
-#ww_version = { version = "0.1.1", default-features = false }
-#ww_client_server = { version = "0.1.0", default-features = false }
-#ww_self = { version = "0.1.1" }
-#ww_global = { version = "0.1.1", default-features = false }
+thiserror = "2"
+tokio = "1"
+tracing-subscriber = "0.3"
 
-wire_weaver = { path = "./wire_weaver", default-features = false }
-wire_weaver_client = { path = "./wire_weaver_client" }
-ww_framer = { path = "./ww_framer", default-features = false }
-# wire_weaver_usb_embassy = { path = "./mcu/wire_weaver_usb_embassy" }
-ww_device = { path = "./ww_device" }
-ww_client_server = { path = "./ww_stdlib/ww_client_server", default-features = false }
-ww_date_time = { path = "./ww_stdlib/ww_date_time", default-features = false }
-ww_global = { path = "./ww_stdlib/ww_global" }
-ww_gpio = { path = "./ww_stdlib/ww_gpio", default-features = false }
-ww_log_bare_metal = { path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
-ww_numeric = { path = "./ww_stdlib/ww_numeric", default-features = false }
-ww_self = { path = "./ww_stdlib/ww_self" }
-ww_si = { path = "./ww_stdlib/ww_si", default-features = false }
-ww_uart = { path = "./ww_stdlib/ww_uart", default-features = false }
-ww_version = { path = "./ww_stdlib/ww_version", default-features = false }
+# framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
+shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
+shrink_wrap_derive = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap_derive" }
+wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
+wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
+wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
+wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
+wire_weaver_udp_link = { version = "0.5.0", path = "./wire_weaver_udp_link" }
+ww_device = { version = "0.5.0", path = "./ww_device" }
+ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
+ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 
-#shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa", default-features = false }
-#shrink_wrap_core = { git = "https://github.com/romixlab/shrink_wrap.git", rev = "71cd8fa" }
-#ww_version = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
-#ww_client_server = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac", default-features = false }
-#ww_self = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
-#ww_global = { git = "https://github.com/vhrdtech/ww_stdlib.git", rev = "5e825ac" }
+# ww_stdlib, each crate has its own version
+ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
+ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
+ww_global = { version = "0.2.0", path = "./ww_stdlib/ww_global" }
+ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
+ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
+ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
+ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }
+ww_self = { version = "0.2.0", path = "./ww_stdlib/ww_self" }
+ww_si = { version = "0.1.0", path = "./ww_stdlib/ww_si", default-features = false }
+ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
+ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-features = false }
+
+# examples and tests, not published
+all_gpio_api = { version = "0.1.0", path = "./examples/all_gpio_api" }
+array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api" }
+blinky = { version = "0.1.0", path = "./examples/blinky" }
+blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
+blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+methods_api = { version = "0.1.0", path = "./tests/methods_api" }
+properties_api = { version = "0.1.0", path = "./tests/properties_api" }
+streams_api = { version = "0.1.0", path = "./tests/streams_api" }
+tests_common = { version = "0.1.0", path = "./tests/tests_common" }
+traits_api = { version = "0.1.0", path = "./tests/traits_api" }
+uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }

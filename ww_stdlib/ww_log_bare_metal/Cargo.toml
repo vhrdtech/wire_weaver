@@ -5,13 +5,14 @@ authors.workspace = true
 description = "Baremetal logging types and API"
 edition.workspace = true
 license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["wire_weaver/std", "ww_si/std"]
 defmt = ["dep:defmt", "wire_weaver/defmt"]
 
 [dependencies]
-defmt = { version = "1.0", optional = true }
+defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
-ww_si = { path = "../ww_si" }
+ww_si.workspace = true

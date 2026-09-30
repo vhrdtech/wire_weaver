@@ -1,13 +1,16 @@
 [package]
 name = "blinky_py"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 name = "blinky"
 crate-type = ["cdylib"]
 
 [dependencies]
-blinky = { path = "../blinky" }
+blinky.workspace = true
 pyo3 = "0.29"
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }

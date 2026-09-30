@@ -1,2 +1,2 @@
 [alias]
-ww = 'run -p ww --'
+ww = 'run -p wire_weaver_cli --bin ww --'

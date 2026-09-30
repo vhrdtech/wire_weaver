@@ -1,10 +1,13 @@
 [package]
 name = "tests_common"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-tokio = { version = "1", features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true

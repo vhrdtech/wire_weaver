@@ -6,5 +6,5 @@ members = [
 ]
 
 [workspace.dependencies]
-wire_weaver = { path = "../wire_weaver", default-features = false, features = ["defmt"] }
-ww_device = { path = "../ww_device" }
+wire_weaver = { version = "0.5.0", path = "../wire_weaver", default-features = false, features = ["defmt"] }
+ww_device = { version = "0.5.0", path = "../ww_device" }

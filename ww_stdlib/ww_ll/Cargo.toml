@@ -5,6 +5,7 @@ authors.workspace = true
 description = "WireWeaver trait for low-level access to memory or registers"
 edition.workspace = true
 license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [dependencies]
 wire_weaver.workspace = true

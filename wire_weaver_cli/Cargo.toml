@@ -1,27 +1,33 @@
 [package]
-name = "ww"
+name = "wire_weaver_cli"
 version.workspace = true
 authors.workspace = true
 description = "WireWeaver command line tool"
 edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ww"
+path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0"
-clap = { version = "4.5", features = ["derive", "env"] }
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
-console = "0.16"
+console.workspace = true
 human-repr = "1.1"
 indicatif = "0.18"
 proc-macro2.workspace = true
-ron = "0.12"
+ron.workspace = true
 semver.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
 toml = "1"
 toml_edit = "0.25"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber.workspace = true
 wire_weaver_client.workspace = true
 
-wire_weaver_core = { path = "../wire_weaver_core" }
+wire_weaver_core.workspace = true

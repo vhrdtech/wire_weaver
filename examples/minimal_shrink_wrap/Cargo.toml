@@ -4,6 +4,8 @@ version.workspace = true
 authors.workspace = true
 description.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-wire_weaver = { path = "../../wire_weaver" }
+wire_weaver = { workspace = true, features = ["std"] }

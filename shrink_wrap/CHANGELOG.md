@@ -1,5 +1,41 @@
 # shrink_wrap changelog
 
+## Unreleased
+
+Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
+
+### ⚠️ Breaking
+
+- `#[derive_shrink_wrap(..)]` takes all options as arguments instead of separate attributes: `#[owned = "std"]`
+  becomes `owned(feature = "std")`, `#[final_structure]` / `#[self_describing]` / `#[sized]` become arguments of the
+  same name, `#[ww_repr(u2)]` becomes `ww_repr = u2`, and `derive(..)`, `cfg_attr_borrowed(..)` / `cfg_attr_owned(..)`
+  replace separate `#[derive]` / `#[cfg_attr]`. See `docs/serdes/derive.md`.
+- Naming scheme: borrowed and plain types carry no postfix, allocating ones end with `Owned`.
+  New `DeserializeShrinkWrapOwned` and `SerializeShrinkWrapOwned` (std) traits for the owned variants.
+- `shrink_wrap_core` is merged into `shrink_wrap_derive`; `derive_shrink_wrap` and `ww_repr` are also re-exported
+  from the `shrink_wrap` crate root.
+- Wire format: `u4` is now 1-bit aligned like `u1`..`u3`, the 4-bit aligned type is `Nibble`; strings, tuples and arrays
+  are `UnsizedFinalStructure`, same as `Vec<T>`.
+- `StackVec` renamed to `AnyOnStack`, `RawSlice` to `TailBytes`.
+- `BufWriter`: `write_raw_str()` → `write_str()`, `write_u4()` → `write_nib()`, `write_u16_rev()` /
+  `update_u16_rev()` / `U16RevPos` → `write_rev_len()` / `update_rev_len()` / `RevPos`.
+  `BufReader`: `read_raw_str()` → `read_str()`, `read_unib32_rev()` → `read_rev_len()`.
+- `Error::StrTooLong`, `VecTooLong` and `ItemTooLong` are merged into `Error::LenTooLong`.
+
+### 🚀 Features
+
+- `BufWriterOwned` (std), writing into a growable buffer.
+- `UnsizedBuilder` for builder-style serialization of Unsized objects, `BufWriter::save_state()` /
+  `restore_state()` / `reset()` / `pos()`.
+- `EitherAnyVec` and `EitherAnyVecBuilder`, to build dynamic arrays in stages on no_std.
+- `RefVecU8Builder`.
+- `#[derive_shrink_wrap(discriminants)]` for enums.
+- `Option` and `Result` inside tuples.
+- `BufReader::read_nib()`, `read_owned()`, `bits_left()`, `read_bytes()`.
+- `SerializeShrinkWrap` for `&T` and `&[u8]`.
+- Optional `serde` support.
+- `Display` and `std::error::Error` for `Error`, `Display` for `UNib32`.
+
 ## [0.1.2] - 2026-01-07 #2
 
 ### 🐛 Bug Fixes 0.1.2

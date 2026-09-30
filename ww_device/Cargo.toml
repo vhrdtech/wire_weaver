@@ -23,8 +23,8 @@ log = { version = "0.4", optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true
-ww_link = { path = "../ww_link" }
+ww_link.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
 ww_version.workspace = true

@@ -1,18 +1,21 @@
 [package]
 name = "streams"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 default = ["std"]
 std = []
 
 [dependencies]
-hex-literal = "1"
-streams_api = { path = "../streams_api" }
-tests_common = { path = "../tests_common" }
-tokio = { version = "1", features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
-tracing-subscriber = "0.3"
+hex-literal.workspace = true
+streams_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
+tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true

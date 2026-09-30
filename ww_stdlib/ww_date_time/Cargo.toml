@@ -5,6 +5,7 @@ authors.workspace = true
 description = "Date and time types for shrink_wrap"
 edition.workspace = true
 license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std", "chrono"]
@@ -14,8 +15,8 @@ chrono = ["dep:chrono"]
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, optional = true }
-defmt = { version = "1.0", optional = true }
+defmt = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 
 [dev-dependencies]
-hex-literal = "1"
+hex-literal.workspace = true

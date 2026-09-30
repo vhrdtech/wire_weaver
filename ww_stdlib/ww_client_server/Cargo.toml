@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Client-server API model data types for both no_std and std."
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]

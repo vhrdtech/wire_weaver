@@ -1,21 +1,24 @@
 [package]
 name = "uart"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-tokio = { version = "1", features = ["sync", "rt"] }
-uart_api = { path = "../uart_api" }
+tokio = { workspace = true, features = ["sync", "rt"] }
+uart_api.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_uart = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-anyhow = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber.workspace = true
 
 [[example]]
 name = "uart_blocking"

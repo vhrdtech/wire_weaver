@@ -1,3 +1,17 @@
+## Unreleased
+
+### ⚠️ Breaking
+
+* `CompactVersion::global_type_id: UNib32` is now `gid: GlobalTypeId`.
+* `Debug` for `FullVersion` prints `crate@version` instead of `crate version`.
+
+### 🚀 Features
+
+* `ApiHash` and `ApiHashPair` (hash of the API with and without docs).
+* `VersionTriplet`, `CompactVersion::new()`.
+* `FullVersionOwned::is_protocol_compatible()`, `filename_friendly()`.
+* `Copy` for `Version` and `FullVersion`, optional `serde` support.
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

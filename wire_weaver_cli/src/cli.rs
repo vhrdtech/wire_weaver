@@ -5,7 +5,7 @@ use crate::cmd::list::ListArgs;
 use crate::device::DeviceArgs;
 use clap::{Parser, Subcommand};
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(name = "ww", version, about, long_about = None)]
 #[command(propagate_version = true)]
 #[command(color = clap::ColorChoice::Auto)]
 #[command(styles = clap::builder::styling::Styles::styled()

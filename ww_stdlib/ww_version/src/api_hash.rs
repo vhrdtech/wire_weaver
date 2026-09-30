@@ -80,7 +80,7 @@ impl Debug for ApiHashOwned {
 
 #[cfg(feature = "std")]
 impl ApiHash<'_> {
-    pub fn make_owend(&self) -> ApiHashOwned {
+    pub fn make_owned(&self) -> ApiHashOwned {
         ApiHashOwned {
             hash: self.hash.iter().collect::<Result<Vec<u8>, _>>().unwrap(),
         }
@@ -98,8 +98,8 @@ impl ApiHashOwned {
 impl ApiHashPair<'_> {
     pub fn make_owned(&self) -> ApiHashPairOwned {
         ApiHashPairOwned {
-            no_docs: self.no_docs.make_owend(),
-            with_docs: self.with_docs.make_owend(),
+            no_docs: self.no_docs.make_owned(),
+            with_docs: self.with_docs.make_owned(),
         }
     }
 }

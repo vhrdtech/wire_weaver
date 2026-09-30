@@ -96,7 +96,7 @@ descriptor (`2 + 2 * 126` bytes), `UsbBuffers` has 256 bytes for it.
 On the host, `DeviceInfo` (used for filtering and in `AmbiguousDeviceChoice` errors) is filled from these strings,
 so `.user_label_eq(..)` and `.implements_api(..)` filters work without opening devices.
 `wire_weaver_client::list_usb_devices()` lists all devices reporting an API id, the same as `ww list`
-(install the CLI with `cargo install --git https://github.com/vhrdtech/wire_weaver ww`):
+(install the CLI with `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli`):
 
 ```
 $ ww list

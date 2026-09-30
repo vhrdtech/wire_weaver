@@ -60,7 +60,7 @@ upload-examples-mcu-usb-stm32h725ig:
 
 # Build the ww CLI in release mode and copy it into ~/.local/bin for quick testing
 install-cli:
-    cargo build --release -p ww
+    cargo build --release -p wire_weaver_cli
     install -Dm755 target/release/ww ~/.local/bin/ww
     @echo "Installed ww into ~/.local/bin"
 

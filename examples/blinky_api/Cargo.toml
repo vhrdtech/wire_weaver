@@ -1,12 +1,15 @@
 [package]
 name = "blinky_api"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 std = ["wire_weaver/std"]
 defmt = ["wire_weaver/defmt", "dep:defmt"]
 
 [dependencies]
-defmt = { version = "1.0", optional = true }
+defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true }

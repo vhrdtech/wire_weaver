@@ -9,7 +9,7 @@ loopback and speed tests.
 Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 
 ```sh
-cargo install --git https://github.com/vhrdtech/wire_weaver ww
+cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli
 ```
 
 Or from a local checkout of the repository:

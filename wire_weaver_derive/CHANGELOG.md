@@ -1,3 +1,22 @@
+## Unreleased
+
+### ⚠️ Breaking
+
+- `ww_api!` is renamed to `ww_codegen!` (the old name is deprecated). `client = ".."` flavors are now
+  `"full_client"`, `"full_client+usb"` and `"trait_client"`.
+
+### 🚀 Features
+
+- `#[ww_api_root]` to mark the API entry point, `#[ww_trait(gid)]` to give a trait a global id.
+- `compact_version!()` creates a `CompactVersion` at compile time.
+- `#[ww_trait]` is fully parsed at the call site, so errors show up earlier.
+- Generated code carries source markers with correct spans, to navigate from generated code back to the definition.
+- `introspect = "no_docs" | "with_docs"` argument generates `INTROSPECT_BYTES` with the `ww_self` serialized API.
+
+### 🐛 Fixes
+
+- Correct span for `ww_impl!` of a trait in the same crate.
+
 ## 0.4.0 - 07 Jan 2026
 
 ### 🚀 Features

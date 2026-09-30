@@ -1351,7 +1351,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "shrink_wrap"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "either",
@@ -1362,7 +1362,7 @@ dependencies = [
 
 [[package]]
 name = "shrink_wrap_derive"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1813,7 +1813,7 @@ checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 
 [[package]]
 name = "wire_weaver"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -1823,7 +1823,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -1848,7 +1848,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_derive"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "convert_case",
  "darling 0.24.0",
@@ -1883,7 +1883,7 @@ dependencies = [
 
 [[package]]
 name = "ww_device"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt 1.1.1",
  "embassy-futures",
@@ -1896,7 +1896,7 @@ dependencies = [
 
 [[package]]
 name = "ww_framer"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "crc",
  "shrink_wrap",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "ww_global"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "convert_case",
  "defmt 1.1.1",
@@ -1923,7 +1923,7 @@ dependencies = [
 
 [[package]]
 name = "ww_link"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -1935,7 +1935,7 @@ dependencies = [
 
 [[package]]
 name = "ww_numeric"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "shrink_wrap",
@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "ww_self"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -1970,7 +1970,7 @@ dependencies = [
 
 [[package]]
 name = "ww_version"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "hex",

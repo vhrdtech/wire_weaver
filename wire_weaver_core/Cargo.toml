@@ -1,6 +1,6 @@
 [package]
 name = "wire_weaver_core"
-edition = "2024"
+edition.workspace = true
 version.workspace = true
 authors.workspace = true
 description = "Core types, AST and codegen of wire_weaver - API code generator for microcontrollers"
@@ -13,20 +13,20 @@ default = ["std"]
 std = ["shrink_wrap/std"]
 
 [dependencies]
-anyhow = "1"
+anyhow.workspace = true
 cargo_toml = "1.0"
-console = "0.16"
-convert_case = "0.11"
-hex = "0.4"
+console.workspace = true
+convert_case.workspace = true
+hex = { workspace = true, features = ["std"] }
 pest = "2.8"
 pest_derive = { version = "2.8", features = ["grammar-extras"] }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 regex = "1.12"
-relative-path = "2.0"
+relative-path.workspace = true
 ron.workspace = true
 semver.workspace = true
-sha2 = "0.11"
+sha2.workspace = true
 shrink_wrap.workspace = true
 syn = { workspace = true }
 ww_numeric = { workspace = true, features = ["std", "serde"] }

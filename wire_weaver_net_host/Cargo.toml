@@ -1,15 +1,17 @@
 [package]
 name = "wire_weaver_net_host"
-edition = "2024"
+edition.workspace = true
 version.workspace = true
 authors.workspace = true
 description.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 futures-util = "0.3"
 shrink_wrap.workspace = true
-thiserror = "2.0"
-tokio = { version = "1", features = ["sync", "net", "macros", "time"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "net", "macros", "time"] }
 tokio-tungstenite = "0.30"
 tracing = "0.1"
-wire_weaver_udp_link = { path = "../wire_weaver_udp_link" }
+wire_weaver_udp_link.workspace = true

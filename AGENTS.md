@@ -70,7 +70,7 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   `wire_weaver_udp_link`, `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
   lives in the separate `mcu` workspace),
   `wire_weaver_net_host` (host-side networking).
-- **`wire_weaver_cli/`** (binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
+- **`wire_weaver_cli/`** (package `wire_weaver_cli`, binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
   introspection and USB loopback subcommands (`src/cmd/`).
 - **`wire_weaver_tool/`** — egui-based GUI (Trunk-buildable) for viewing parsed AST / generated code side by side,
   no_std vs host toggle; see `docs/dev_tool.md` for current/planned features.
@@ -146,17 +146,27 @@ say what users must change. Create the file if a crate doesn't have one yet.
 
 Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
 position, so don't try to decide whether a patch bump would do). Bump once per release cycle: if the crate's version
-is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain `cargo info` inside the repo shows the local version), it has been bumped and stays as is.
-Never-published crates are left alone. How to bump:
+is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain
+`cargo info` inside the repo shows the local version), it has been bumped and stays as is. Never-published crates
+are left alone. How to bump:
 
 - Crates with `version.workspace = true` (`wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`,
-  `wire_weaver_client`, `ww`, `ww_device`, `ww_link`, ...) share `[workspace.package] version` in the root
-  `Cargo.toml` — bump that one, never give them their own version.
-- Update the `version = "..."` next to `path = "..."` in every dependent that pins it (`grep -rn 'version = .*path ='
-  --include=Cargo.toml`), plus version strings in `docs/` (e.g. `docs/serdes/derive.md`) and `mcu/Cargo.lock` (run
-  `just check-mcu`).
+  `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, ...) share `[workspace.package]
+  version` in the root `Cargo.toml` — bump that one, never give them their own version.
+- Path dependencies carry a version too (`cargo publish` rejects them otherwise). They are all declared once in the
+  root `[workspace.dependencies]`, so the version is updated there; also update version strings in `docs/` (e.g.
+  `docs/serdes/derive.md`) and `mcu/Cargo.lock` (run `just check-mcu`).
 - For API crates (`ww_stdlib/*`, `*_api`), the version is part of the API's identity (see
   `docs/api/folder_structure.md`), so the bump is exactly what tells old and new APIs apart — don't skip it.
+
+Keep dependencies and metadata in the root workspace: every crate inherits `authors`, `edition`, `license` and
+`repository` with `key.workspace = true` (except `ww_stdlib/*`, whose `repository` is `vhrdtech/ww_stdlib`), every in-repo crate and every external crate used by more than one member is
+declared in `[workspace.dependencies]` and used as `dep.workspace = true` (plus `features`/`optional` as needed). When
+the workspace entry has `default-features = false`, a member that needs the defaults lists them in `features` (usually
+`["std"]`); the reverse doesn't work, a member can't turn defaults off if the workspace entry keeps them. The only
+inline exceptions are a few crates that must disable defaults of a dependency other members use with defaults
+(`tracing` in `wire_weaver`, `semver` in `ww_version`, `either` in `shrink_wrap`). `mcu/`, `examples_mcu/*` and
+`wire_weaver_tool` are separate workspaces and keep their own.
 
 Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(client): ...`): a short imperative
 summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for

@@ -1,5 +1,11 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The package is renamed from `ww` to `wire_weaver_cli` (the `ww` name on crates.io belongs to an unrelated crate), the
+  binary is still `ww`. Install with `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli`.
+- Versioned together with the other `wire_weaver_*` crates (0.5.0).
+
 ### 🚀 Features
 
 - `ww list`: lists connected USB devices with product, serial, API name and version, hash and user label, without

@@ -37,15 +37,15 @@ probe-rs = { version = "0.32", default-features = false, features = ["builtin-ta
 rand = "0.10"
 ron.workspace = true
 semver.workspace = true
-sha2 = "0.11"
+sha2.workspace = true
 strum.workspace = true
 strum_macros.workspace = true
-thiserror = "2.0"
-tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 tracing = "0.1"
-wire_weaver = { version = "0.5.0", path = "../wire_weaver" }
+wire_weaver = { workspace = true, features = ["std"] }
 ww_client_server = { workspace = true, features = ["std"] }
-ww_link = { path = "../ww_link", features = ["std"] }
+ww_link = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }

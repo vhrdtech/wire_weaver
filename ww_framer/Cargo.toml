@@ -1,7 +1,11 @@
 [package]
 name = "ww_framer"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+description = "Packs many small WireWeaver messages into one packet or splits a big one across several"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 shrink_wrap.workspace = true

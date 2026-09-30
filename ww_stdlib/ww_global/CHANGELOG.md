@@ -1,3 +1,13 @@
+## Unreleased
+
+### ⚠️ Breaking
+
+* Global ids are `GlobalTypeId` instead of `UNib32`.
+
+### 🚀 Features
+
+* `WW_CLIENT_SERVER` global id (513).
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

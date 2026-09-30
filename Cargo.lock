@@ -3412,6 +3412,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_weaver_cli"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "console",
+ "human-repr",
+ "indicatif",
+ "proc-macro2",
+ "ron",
+ "semver",
+ "shrink_wrap",
+ "syn 3.0.3",
+ "tokio",
+ "toml 1.1.4+spec-1.1.0",
+ "toml_edit",
+ "tracing",
+ "tracing-subscriber",
+ "wire_weaver_client",
+ "wire_weaver_core",
+]
+
+[[package]]
 name = "wire_weaver_client"
 version = "0.5.0"
 dependencies = [
@@ -3493,30 +3517,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "console",
- "human-repr",
- "indicatif",
- "proc-macro2",
- "ron",
- "semver",
- "shrink_wrap",
- "syn 3.0.3",
- "tokio",
- "toml 1.1.4+spec-1.1.0",
- "toml_edit",
- "tracing",
- "tracing-subscriber",
- "wire_weaver_client",
- "wire_weaver_core",
-]
-
-[[package]]
 name = "ww_board_info"
 version = "0.1.0"
 dependencies = [
@@ -3595,7 +3595,7 @@ dependencies = [
 
 [[package]]
 name = "ww_framer"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "crc",
  "shrink_wrap",

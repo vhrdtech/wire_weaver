@@ -4,13 +4,13 @@ version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-repository.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
 description = "High-level wrapper over ww_gpio to control IO on microcontrollers"
 
 [dependencies]
-thiserror = "2"
-tokio = "1"
+thiserror.workspace = true
+tokio.workspace = true
 wire_weaver = { workspace = true }
 wire_weaver_client.workspace = true
-ww_gpio = { path = "../ww_gpio" }
-ww_si = { path = "../ww_si" }
+ww_gpio = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }

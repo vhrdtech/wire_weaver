@@ -2,9 +2,9 @@
 
 ### ⚠️ Breaking
 
-* `TypeOwned::is_unsized()` now means `ElementSize::Unsized` (the value is prefixed with its size when written as a
-  field): true only for Unsized structs and enums and `Box`. It was also true for strings, and for arrays, tuples,
-  `Option` and `Result` containing Unsized types, which are never size-prefixed.
+* `TypeOwned::is_unsized()` now means `ElementSize::Unsized` (its size is recorded in the FIFO of sizes at the back of
+  the buffer when written as a field): true only for Unsized structs and enums and `Box`. It was also true for
+  strings, and for arrays, tuples, `Option` and `Result` containing Unsized types, whose size is never written.
 * `ww_self::visitor` replaced by `ww_self::visit` (read-only `Visit<'ast>`) and `ww_self::visit_mut` (`VisitMut`),
   in the style of `syn::visit`. Each hook's default implementation calls the free function of the same name, so an
   override chooses whether to descend. Migration: `visitor::visit_api_bundle_mut(&mut b, &mut v)` →
@@ -38,7 +38,7 @@
 
 * Dynamic serialization (`ValueOwned::ser_shrink_wrap_dyn()`, `ser_shrink_wrap_vec_dyn()`, `des_shrink_wrap_dyn()`)
   produces and reads the same bytes as `#[derive_shrink_wrap]`: numbers, strings, `Vec`, arrays, tuples, `Result` and
-  ranges were silently not written, `Box`, ranges and `u1`..`u64` / `i2`..`i64` were not read, size prefixes were
+  ranges were silently not written, `Box`, ranges and `u1`..`u64` / `i2`..`i64` were not read, sizes were
   written and expected for the wrong types, enum variants were looked up by position instead of discriminant.
   A named field missing from a value is written as `None` if it is an `Option`, or as its `#[default]`; fields with a
   default are read as such when data ends. Numbers are range-checked and can be given as any integer variant.

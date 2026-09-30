@@ -149,8 +149,8 @@ impl TypeOwned {
         }
     }
 
-    /// Whether this type is [ElementSize::Unsized], i.e., it is prefixed with its size when written as a field,
-    /// an element of a Vec, etc. (`BufWriter::write`), so that it can evolve.
+    /// Whether this type is [ElementSize::Unsized], i.e., its size is recorded (in the FIFO of sizes at the back of
+    /// the buffer) when written as a field, an element of a Vec, etc. (`BufWriter::write`), so that it can evolve.
     ///
     /// Strings, Vecs, arrays and tuples are `UnsizedFinalStructure`, `Option` and `Result` are `SelfDescribing`, so
     /// their size is never written, even if they contain Unsized types.

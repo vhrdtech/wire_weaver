@@ -2,9 +2,10 @@
 //! `#[derive_shrink_wrap]` for the equivalent Rust types.
 //!
 //! Every value that is not a top-level one is written the way generated code writes a field (`BufWriter::write`):
-//! [Unsized](shrink_wrap::ElementSize::Unsized) types (evolvable structs and enums, `Box`) are prefixed with their
-//! size, see [TypeOwned::is_unsized]. Top-level values (method return values, property values, stream items) are
-//! written without it (`to_ww_bytes`), same as method arguments, which are the fields of an evolvable struct.
+//! the size of [Unsized](shrink_wrap::ElementSize::Unsized) types (evolvable structs and enums, `Box`) is recorded in
+//! the FIFO of sizes at the back of the buffer, see [TypeOwned::is_unsized]. Top-level values (method return values,
+//! property values, stream items) are written without it (`to_ww_bytes`), same as method arguments, which are the
+//! fields of an evolvable struct.
 
 use crate::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, ItemEnumOwned, Repr, TypeOwned,

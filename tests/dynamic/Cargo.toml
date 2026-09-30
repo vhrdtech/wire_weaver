@@ -1,0 +1,18 @@
+[package]
+name = "dynamic"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+dynamic_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
+wire_weaver.workspace = true
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+
+[dev-dependencies]
+wire_weaver_core.workspace = true

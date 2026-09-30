@@ -758,6 +758,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "dynamic"
+version = "0.1.0"
+dependencies = [
+ "dynamic_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "dynamic_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "either"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3522,6 +3542,17 @@ dependencies = [
  "relative-path",
  "subprocess",
  "syn 3.0.3",
+ "wire_weaver_core",
+]
+
+[[package]]
+name = "wire_weaver_py"
+version = "0.5.0"
+dependencies = [
+ "pyo3",
+ "shrink_wrap",
+ "tokio",
+ "wire_weaver_client",
  "wire_weaver_core",
 ]
 

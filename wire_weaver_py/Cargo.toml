@@ -1,0 +1,23 @@
+[package]
+name = "wire_weaver_py"
+version.workspace = true
+authors.workspace = true
+description = "Python module talking to any WireWeaver device, with its API built at runtime from introspection data"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false # distributed as a Python wheel, see pyproject.toml
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+rtt = ["wire_weaver_client/rtt"]
+
+[dependencies]
+pyo3.workspace = true
+shrink_wrap.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
+wire_weaver_client.workspace = true
+wire_weaver_core.workspace = true

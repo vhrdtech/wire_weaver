@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+* `TypeOwned::is_unsized()` now means `ElementSize::Unsized` (the value is prefixed with its size when written as a
+  field): true only for Unsized structs and enums and `Box`. It was also true for strings, and for arrays, tuples,
+  `Option` and `Result` containing Unsized types, which are never size-prefixed.
 * `ww_self::visitor` replaced by `ww_self::visit` (read-only `Visit<'ast>`) and `ww_self::visit_mut` (`VisitMut`),
   in the style of `syn::visit`. Each hook's default implementation calls the free function of the same name, so an
   override chooses whether to descend. Migration: `visitor::visit_api_bundle_mut(&mut b, &mut v)` →
@@ -16,6 +19,8 @@
 
 ### 🚀 Features
 
+* `ValueOwned::des_shrink_wrap_vec_dyn()`: read the fields of an evolvable struct (e.g., method arguments), the
+  counterpart of `ser_shrink_wrap_vec_dyn()`.
 * `inline::inline_skipped()`: put definitions of skipped traits and types back into a bundle, found with a
   `signature::Resolve` callback (e.g. in crate snapshots), together with everything they refer to. Only definitions
   with a matching signature are put back, the rest are returned as `inline::NotInlined`.
@@ -31,6 +36,15 @@
 
 ### 🐛 Fixes
 
+* Dynamic serialization (`ValueOwned::ser_shrink_wrap_dyn()`, `ser_shrink_wrap_vec_dyn()`, `des_shrink_wrap_dyn()`)
+  produces and reads the same bytes as `#[derive_shrink_wrap]`: numbers, strings, `Vec`, arrays, tuples, `Result` and
+  ranges were silently not written, `Box`, ranges and `u1`..`u64` / `i2`..`i64` were not read, size prefixes were
+  written and expected for the wrong types, enum variants were looked up by position instead of discriminant.
+  A named field missing from a value is written as `None` if it is an `Option`, or as its `#[default]`; fields with a
+  default are read as such when data ends. Numbers are range-checked and can be given as any integer variant.
+  Type mismatches, unknown fields and variants are reported with the field path, instead of being ignored.
+* `ValueOwned::default()` no longer panics for `u1`..`u64` / `i2`..`i64`, and returns an error for numeric types that
+  are not supported yet.
 * Visiting a bundle that contains `Skipped*` type or trait locations no longer panics (it hit `todo!()`).
 * `TypeOwned::human_name()` names a type whose definition is left out (`TypeLocationOwned::SkippedFullVersion`),
   instead of failing.

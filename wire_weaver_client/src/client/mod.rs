@@ -1,5 +1,6 @@
 pub mod attachment;
 pub mod dyn_client;
+pub mod dynamic;
 pub mod introspect;
 pub mod multi_read;
 pub mod prepared_call;

@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+- `DynResource`: use any device API known only at runtime (from introspection data or a saved bundle), without
+  generated code. Walk it by names and indices (`root.child("periph")?.index(0)?.child("gain")?`), call methods, read
+  and write properties with `ww_self::ValueOwned` values, open streams (`DynStream`) and sinks (`DynSink`), read valid
+  indices of arrays; async and blocking variants. Bytes on the wire are the same as with a generated client.
+  `DynResourceKind` tells what a resource is, with its argument, return and property types. `ww_numeric` is
+  re-exported.
 - RTT transport (`rtt` feature): `ClientConfig::rtt(target, speed_hz)` connects through a debug probe with probe-rs,
   to a device serving over RTT (`ww_device::rtt`). The probe is selected with VID:PID and serial filters placed
   after `rtt(..)`, filters before it describe the device (e.g., a driver crate's `default_config()`) and are not

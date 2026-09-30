@@ -11,6 +11,7 @@ members = [
     "wire_weaver_client",
     "wire_weaver_core",
     "wire_weaver_derive",
+    "wire_weaver_py",
     "wire_weaver_snapshots",
     "wire_weaver_udp_link",
     "ww_device",
@@ -40,6 +41,7 @@ defmt = "1.1"
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 proc-macro2 = "1.0"
+pyo3 = "0.29"
 quote = "1.0"
 relative-path = "2.0"
 ron = "0.12"
@@ -88,6 +90,7 @@ array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }

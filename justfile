@@ -6,6 +6,11 @@ default:
 test:
     cargo nextest run --workspace --no-fail-fast
 
+# Build the Python module (wire_weaver_py) into its own venv and run its tests
+[working-directory('wire_weaver_py')]
+test-py:
+    uv run --group dev pytest
+
 # cargo check everything
 check: check-core check-mcu check-examples-mcu
 

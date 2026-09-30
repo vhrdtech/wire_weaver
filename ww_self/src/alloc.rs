@@ -149,38 +149,31 @@ impl TypeOwned {
         }
     }
 
+    /// Whether this type is [ElementSize::Unsized], i.e., it is prefixed with its size when written as a field,
+    /// an element of a Vec, etc. (`BufWriter::write`), so that it can evolve.
+    ///
+    /// Strings, Vecs, arrays and tuples are `UnsizedFinalStructure`, `Option` and `Result` are `SelfDescribing`, so
+    /// their size is never written, even if they contain Unsized types.
     pub fn is_unsized(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         match self {
-            TypeOwned::Bool => Ok(false),
-            TypeOwned::NumericAny(_) => Ok(false),
             TypeOwned::OutOfLine { type_idx } => {
                 let ty = api_bundle.get_ty(type_idx.0)?;
                 ty.0.is_unsized(api_bundle)
             }
-            TypeOwned::Flag => Ok(false),
-            TypeOwned::String => Ok(true),
-            TypeOwned::Vec(_) => Ok(false), // Vec is UnsizedFinalStructure, see shrink_wrap::ElementSize
-            TypeOwned::Array { ty, .. } => ty.is_unsized(api_bundle),
-            TypeOwned::Tuple(types) => {
-                for ty in types {
-                    if ty.is_unsized(api_bundle)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
             TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
             TypeOwned::Enum(item_enum) => Ok(item_enum.is_unsized()),
-            TypeOwned::Option { some_ty } => some_ty.is_unsized(api_bundle),
-            TypeOwned::Result { ok_ty, err_ty } => {
-                if ok_ty.is_unsized(api_bundle)? {
-                    return Ok(true);
-                }
-                err_ty.is_unsized(api_bundle)
-            }
             TypeOwned::Box(_) => Ok(true),
-            TypeOwned::Range(_) => Ok(false),
-            TypeOwned::RangeInclusive(_) => Ok(false),
+            TypeOwned::Bool
+            | TypeOwned::NumericAny(_)
+            | TypeOwned::Flag
+            | TypeOwned::String
+            | TypeOwned::Vec(_)
+            | TypeOwned::Array { .. }
+            | TypeOwned::Tuple(_)
+            | TypeOwned::Option { .. }
+            | TypeOwned::Result { .. }
+            | TypeOwned::Range(_)
+            | TypeOwned::RangeInclusive(_) => Ok(false),
         }
     }
 

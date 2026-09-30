@@ -13,6 +13,7 @@ mod tracing;
 
 pub use client::attachment::Attachment;
 pub use client::dyn_client::DynClient;
+pub use client::dynamic::{DynResource, DynResourceKind, DynSink, DynStream};
 pub use client::introspect::Introspect;
 pub use client::multi_read::MultiRead;
 pub use client::prepared_call::PreparedCall;
@@ -45,6 +46,7 @@ pub use error::Error;
 
 pub use wire_weaver_snapshots as snapshots;
 pub use ww_client_server;
+pub use ww_numeric;
 pub use ww_self;
 pub use ww_version;
 

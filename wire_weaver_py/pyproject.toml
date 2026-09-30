@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.11,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "wire_weaver"
+description = "Talk to any WireWeaver device, with its API built at runtime from introspection data"
+requires-python = ">=3.9"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["version"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.maturin]
+module-name = "wire_weaver"
+
+[tool.uv]
+# Rebuild the package when any rust files change
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }, { file = "../**/*.rs" }]

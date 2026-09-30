@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 blinky.workspace = true
-pyo3 = "0.29"
+pyo3.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

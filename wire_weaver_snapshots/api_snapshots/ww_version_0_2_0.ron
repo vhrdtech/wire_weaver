@@ -1,6 +1,6 @@
 // ww_version 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Hash of the [ApiBundle] used to compare if client and server API\'s are idential.",
         "See also [ApiHashPair]",
@@ -52,14 +52,14 @@
         (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
-        145,
-        161,
-        210,
-        192,
-        230,
-        169,
-        135,
-        32,
+        109,
+        41,
+        114,
+        250,
+        185,
+        232,
+        114,
+        51,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Compact version for traits-based requests that are made often or through limited bandwidth interfaces.",

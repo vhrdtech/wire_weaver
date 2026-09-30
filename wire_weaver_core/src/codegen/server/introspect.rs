@@ -2,7 +2,6 @@ use crate::codegen::util::ErrorSeq;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use sha2::Digest;
 use shrink_wrap::SerializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_self::visit::Visit;
@@ -138,10 +137,9 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
 
 fn ser_hash_and_cache(api_bundle: &ApiBundleOwned, contains_docs: bool) -> (Vec<u8>, TokenStream) {
     let api_bytes = api_bundle.to_ww_bytes_owned().unwrap();
-    // TODO: calculate api signature properly?
-    // NOTE: wire_weaver_client/src/local_registry.rs hashes downloaded bundles the same way, keep in sync
-    let hash = sha2::Sha256::digest(&api_bytes);
-    let hash = &hash[..8];
+    // wire_weaver_client/src/local_registry.rs hashes downloaded bundles with the same function
+    let hash = ww_self::signature::api_hash(&api_bytes);
+    let hash = &hash[..];
     crate::local_registry::cache_api_bundle(api_bundle, contains_docs, hash);
     (api_bytes, bytes_to_ts(hash))
 }

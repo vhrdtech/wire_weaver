@@ -1,20 +1,20 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_uart", items: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_uart", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Uart", docs: []),
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxFlags", fields: Named([
         (ident: Some("parity_error"), default: None, since: None, ty: Bool, docs: []),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        63,
-        20,
-        110,
-        91,
-        50,
-        215,
-        141,
-        46,
+        9,
+        121,
+        154,
+        47,
+        88,
+        0,
+        83,
+        94,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxChunk", fields: Named([
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: []),
@@ -22,14 +22,14 @@
         (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
-        76,
-        144,
-        33,
-        19,
-        110,
-        167,
-        101,
-        181,
+        78,
+        28,
+        67,
+        253,
+        87,
+        230,
+        45,
+        6,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Capabilities", fields: Named([
         (ident: Some("min_baud_rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),

@@ -7,6 +7,12 @@
   override chooses whether to descend. Migration: `visitor::visit_api_bundle_mut(&mut b, &mut v)` →
   `v.visit_api_bundle(&mut b)`; `visit_doc` → `visit_docs`; `visit_method`/`visit_property`/`visit_stream` →
   match on the node in `visit_api_item_kind`; `visit_level`/`visit_item` → `visit_api_level`/`visit_api_item`.
+* `VERSION` (stored in `ApiBundle::ww_self_version`) follows the crate version, it was a fixed `0.1.1`, so saved
+  bundles and introspection data record the format they were written in. It is part of the API hash, which changes
+  for every API.
+* Trait and type signatures no longer depend on `VERSION` (the canonical bundle carries `0.0.0`), so a device and a
+  host built with different ww_self versions agree on them. All signatures change once, saved snapshots have to be
+  re-saved (`just save-snapshots --force`).
 
 ### 🚀 Features
 
@@ -18,6 +24,8 @@
   locations. Skipped definitions are looked up with a `signature::Resolve` callback (e.g., in crate snapshots), so the
   signature is the same as if nothing was skipped. `std` feature now depends on `sha2`.
 * Read-only `visit::Visit<'ast>`, which can keep `&'ast` references into the tree.
+* `signature::api_hash()`: API hash of a serialized bundle, the same function is used by codegen and by
+  `wire_weaver_client` for downloaded bundles.
 * New hooks: `visit_type_location`, `visit_api_level_location`, `visit_argument`, `visit_variant`, `visit_fields`,
   `visit_field`.
 

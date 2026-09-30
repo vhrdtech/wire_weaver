@@ -1,17 +1,17 @@
 // ww_board_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_board_info", items: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_board_info", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "BoardInfo", docs: []),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
-        136,
-        108,
-        16,
-        204,
-        57,
-        205,
-        62,
-        242,
+        6,
+        9,
+        201,
+        52,
+        66,
+        40,
+        40,
+        15,
     ]),
 ], traits: [
     InLine(level: (docs: [

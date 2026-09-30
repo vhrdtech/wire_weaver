@@ -1,6 +1,6 @@
 // ww_numeric 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: []), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Number of bits in UB number. Serialized as 7-bits and shifted by -1 to represent U1-U128.",
         "Note that only U1-U64 is supported now, but it\'s not hard to add numbers up to U128.",

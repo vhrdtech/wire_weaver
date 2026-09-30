@@ -26,7 +26,6 @@ regex = "1.12"
 relative-path.workspace = true
 ron.workspace = true
 semver.workspace = true
-sha2.workspace = true
 shrink_wrap.workspace = true
 syn = { workspace = true }
 wire_weaver_snapshots.workspace = true

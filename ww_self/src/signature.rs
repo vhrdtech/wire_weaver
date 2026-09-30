@@ -15,10 +15,18 @@ use anyhow::{Result, anyhow};
 use sha2::Digest;
 use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
 use std::collections::{HashMap, VecDeque};
-use ww_version::FullVersionOwned;
+use ww_version::{FullVersionOwned, VersionTriplet};
 
 /// Signature length in bytes (truncated SHA-256), same as the API hash.
 pub const SIGNATURE_LEN: usize = 8;
+
+/// API hash (`API_HASH_NO_DOCS` / `API_HASH_WITH_DOCS`) of a serialized bundle, as a device sends it:
+/// truncated SHA-256 over the bytes, `ww_self_version` included, so it changes with the introspection data.
+pub fn api_hash(bundle_bytes: &[u8]) -> [u8; SIGNATURE_LEN] {
+    let mut hash = [0u8; SIGNATURE_LEN];
+    hash.copy_from_slice(&sha2::Sha256::digest(bundle_bytes)[..SIGNATURE_LEN]);
+    hash
+}
 
 /// Finds a bundle with in-line definitions of a crate's traits and types (e.g., that crate's snapshot),
 /// used to look up definitions that are skipped.
@@ -236,7 +244,9 @@ impl<'a, 'r> Canonical<'a, 'r> {
         }
         let bundle = ApiBundleOwned {
             magic: crate::MAGIC,
-            ww_self_version: crate::VERSION,
+            // A signature identifies a definition, not the format: a device and a host built with different
+            // ww_self versions must compute the same one, or the host can't put the definition back.
+            ww_self_version: VersionTriplet::new(0, 0, 0),
             root: ApiLevelOwned {
                 docs: vec![],
                 crate_idx: UNib32(0),

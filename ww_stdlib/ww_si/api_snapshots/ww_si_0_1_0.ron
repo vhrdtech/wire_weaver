@@ -1,6 +1,6 @@
 // ww_si 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_si", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_si", items: []), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -81,14 +81,14 @@
         ]), discriminant: 30, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
-        243,
-        26,
-        136,
-        48,
-        92,
-        77,
-        212,
-        180,
+        213,
+        23,
+        47,
+        35,
+        179,
+        102,
+        207,
+        43,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Time quantity in seconds with prefix (s, ms, μs, ns, etc.)",

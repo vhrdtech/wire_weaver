@@ -24,7 +24,25 @@ use ww_numeric::NumericValue;
 use ww_version::FullVersionOwned;
 
 pub const MAGIC: u32 = 0xA91B_14F0;
-pub const VERSION: VersionTriplet = VersionTriplet::new(0, 1, 1); // TODO: Fill properly
+/// Version of this crate, stored in [ApiBundle::ww_self_version], so that a reader knows which format a bundle
+/// (saved file or introspection data) was written in.
+pub const VERSION: VersionTriplet = VersionTriplet::new(
+    parse_u32(env!("CARGO_PKG_VERSION_MAJOR")),
+    parse_u32(env!("CARGO_PKG_VERSION_MINOR")),
+    parse_u32(env!("CARGO_PKG_VERSION_PATCH")),
+);
+
+const fn parse_u32(s: &str) -> u32 {
+    let b = s.as_bytes();
+    let mut i = 0;
+    let mut n = 0u32;
+    while i < b.len() {
+        n = n * 10 + (b[i] - b'0') as u32;
+        i += 1;
+    }
+    n
+}
+
 
 // TODO: add doc
 // TODO: add ufs

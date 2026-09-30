@@ -384,7 +384,7 @@ impl Commander {
                     }
                     PathKindOwned::Absolute { path }
                 } else if let Some(compact) = self.gid_map.get(&gid.make_owned()) {
-                    // TODO: actually not possible to implement Borrow for FullVersionOwned?
+                    // NOTE: lookup needs an owned key, FullVersionOwned can't implement Borrow<FullVersion<'_>> (it borrows &str)
                     PathKindOwned::GlobalCompact {
                         gid: *compact,
                         path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,

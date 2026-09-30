@@ -6,6 +6,8 @@
   it, with known traits and types left out, so it changes for APIs using `ww_stdlib` traits or types. A device and a
   client built with `wire_weaver_core` versions that know different snapshots report different hashes for the same
   API, which falls back to the per-resource compatibility check.
+- The API hash covers `ww_self_version`, which now follows the `ww_self` crate version: a device and a client built
+  with different `ww_self` versions report different hashes for the same API, with the same fallback.
 
 ### 🚀 Features
 
@@ -28,6 +30,7 @@
   longer than `ext_crate::Ty` (e.g. `ext_crate::module::Ty`). `ww_version` and `shrink_wrap` used through
   `wire_weaver`'s re-exports (e.g. `use wire_weaver::prelude::*;`) resolve without a direct dependency on them.
   All of these failed with "Dependency not found" or "Only support `MyType` and `ext_crate::MyType`".
+- Generated client methods no longer declare an unused 128-byte `args_scratch` buffer when `no_alloc` is not set.
 
 - Loading a self-referential type (e.g., containing `RefBox<Self>`) fails with an error instead of overflowing the
   stack.

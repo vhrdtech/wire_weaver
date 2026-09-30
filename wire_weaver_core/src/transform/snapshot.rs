@@ -773,7 +773,9 @@ mod tests {
             let file_name = format!("{}.ron", bundle.ext_crates[0].filename_friendly());
             let saved = std::fs::read_to_string(crate_path.join("api_snapshots").join(&file_name))
                 .unwrap_or_else(|e| panic!("{file_name}: {e}, {hint}"));
-            let saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
+            let mut saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
+            // records which ww_self saved it, doesn't make a snapshot out of date
+            saved.ww_self_version = bundle.ww_self_version;
             assert_eq!(
                 ron::to_string(&saved).unwrap(),
                 ron::to_string(&bundle).unwrap(),

@@ -5,7 +5,6 @@
 
 use anyhow::{Result, anyhow};
 use ron::ser::{PrettyConfig, to_string_pretty};
-use sha2::Digest;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -67,8 +66,8 @@ fn store_inner(
     ww_self_bytes: &[u8],
     hash: &ApiHashPairOwned,
 ) -> Result<()> {
-    let digest = sha2::Sha256::digest(ww_self_bytes);
-    let digest = &digest[..8];
+    let digest = ww_self::signature::api_hash(ww_self_bytes);
+    let digest = &digest[..];
     let (hash, contains_docs) = if digest == hash.no_docs.hash.as_slice() {
         (&hash.no_docs, false)
     } else if !hash.with_docs.hash.is_empty() && digest == hash.with_docs.hash.as_slice() {

@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_counters", items: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_counters", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Counters", docs: []),
 ]), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -14,14 +14,14 @@
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Severity", signature: [
-        231,
-        34,
-        214,
-        85,
-        63,
-        125,
-        238,
+        69,
+        42,
+        145,
         88,
+        160,
+        189,
+        138,
+        174,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Provides a way to select multiple counter indices.",

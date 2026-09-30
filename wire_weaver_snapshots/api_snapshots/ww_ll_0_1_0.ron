@@ -1,6 +1,6 @@
 // ww_ll 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_ll", items: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_ll", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Memory8", docs: []),
     (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "Memory32", docs: []),
 ]), types: [

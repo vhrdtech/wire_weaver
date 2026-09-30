@@ -419,7 +419,6 @@ fn handle_method(
     quote! {
         #(#docs)*
         pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client::PreparedCall<#output_ty> {
-            let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
@@ -579,7 +578,8 @@ fn ser_args(
     if args.is_empty() {
         if no_alloc {
             (
-                quote! { let args_bytes = &[]; }, // TODO: &[0x00] when no arguments to allow adding them later, as Option?
+                // nothing to send: if arguments are added later, the evolved args struct reads them as None/empty from no bytes
+                quote! { let args_bytes = &[]; },
                 quote! {},
                 quote! {},
             )
@@ -598,6 +598,7 @@ fn ser_args(
 
         let args_ser = if no_alloc {
             quote! {
+                let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
                 let args = #args_struct_ident { #(#idents),* };
                 let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
             }

@@ -1,6 +1,6 @@
 // ww_date_time 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 1, patch: 1), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Year", fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(I32)), docs: []),
     ]))), crate_idx: 0),

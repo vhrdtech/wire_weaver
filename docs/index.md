@@ -81,6 +81,6 @@ Plus a whole set of standard types and traits, all written in Rust.
 
     ---
     [CLI](cli.md) and [GUI](dev_tool.md) for debugging. Virtual devices. Introspection and tracing.
-    Dynamic Python clients.
+    [Dynamic Python clients](python.md).
 
 </div>

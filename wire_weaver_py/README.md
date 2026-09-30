@@ -2,6 +2,8 @@
 
 > Talk to any WireWeaver device from Python, without generated code.
 
+Full documentation: `docs/python.md` (Dev tools → Python on the docs site).
+
 The API tree (traits, methods, properties, streams) is built at runtime from the introspection data a device sends
 (cached in `~/.wire_weaver/`), or from the API crate source. Values are converted to and from plain Python objects,
 and are serialized exactly as the generated Rust clients do it (`wire_weaver_client::DynResource` underneath).

@@ -160,7 +160,7 @@ Rules the reference event loop follows (and a new transport should too):
 - The host refuses the connection if `DeviceInfo.user_api_version` is not protocol-compatible with the
   generated client API (see [ww_version](../std_library/ww_version.md)). A device may likewise reply with
   `Disconnect(IncompatibleVersion)` after `LinkSetup`.
-- Introspection and dynamic clients are also supported, both from Python and GUI.
+- Introspection and dynamic clients are also supported, both from [Python](../python.md) and GUI.
   Great for debugging and quick tests.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
   being flushed; control messages are flushed immediately.

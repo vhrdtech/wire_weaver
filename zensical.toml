@@ -69,6 +69,7 @@ nav = [
     {
         "Dev tools" = [
             "cli.md",
+            "python.md",
             "dev_tool.md"
         ]
     }

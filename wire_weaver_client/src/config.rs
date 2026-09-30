@@ -150,7 +150,7 @@ pub(crate) enum ConfigPiece {
     /// Filter out a device whose serial number contains the substring. Ignoring case.
     SerialContains { substring: String },
     /// Filter out a device with the specified user label. Ignoring case.
-    /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
+    /// User labels are set by the firmware (see [USB transport](https://ww.vhrd.tech/transport/usb/)), `ww list` shows them.
     UserLabelEq { user_label: String },
     /// Filter out a device whose manufacturer string contains the substring. Igoring case.
     ManufacturerContains { substring: String },
@@ -407,7 +407,7 @@ impl ClientConfig {
     }
 
     /// Filter out a device with the specified user label. Ignoring case.
-    /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
+    /// User labels are set by the firmware (see [USB transport](https://ww.vhrd.tech/transport/usb/)), `ww list` shows them.
     pub fn user_label_eq(self, user_label: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::UserLabelEq { user_label });

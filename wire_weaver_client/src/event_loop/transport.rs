@@ -18,6 +18,15 @@ pub(crate) trait MessageTx: Send + 'static {
 
     /// Send whatever is held back, even if the frame is not full. No-op if nothing is pending.
     fn flush(&mut self) -> impl Future<Output = Result<(), String>> + Send;
+
+    /// Release the medium. Returns once it is actually released, so that a new connection can open it again
+    /// right away (e.g., claim the same USB interface).
+    fn close(self) -> impl Future<Output = ()> + Send
+    where
+        Self: Sized,
+    {
+        async {}
+    }
 }
 
 /// Message rx half.
@@ -28,6 +37,14 @@ pub(crate) trait MessageRx: Send + 'static {
     /// Must be cancel-safe: dropping the future must not lose data. This is natural when
     /// any partially received state lives in `self` (e.g., a framer's staging buffer), not in the future.
     fn read_message(&mut self) -> impl Future<Output = Result<(u8, &[u8]), String>> + Send;
+
+    /// Same as [MessageTx::close].
+    fn close(self) -> impl Future<Output = ()> + Send
+    where
+        Self: Sized,
+    {
+        async {}
+    }
 }
 
 pub(crate) struct Opened<Tx, Rx> {

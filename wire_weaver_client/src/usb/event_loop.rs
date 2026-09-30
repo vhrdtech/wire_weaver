@@ -105,6 +105,10 @@ impl MessageTx for NusbTx {
     async fn flush(&mut self) -> Result<(), String> {
         self.send_frame().await.map(|_| ())
     }
+
+    async fn close(self) {
+        self.sink.close().await;
+    }
 }
 
 impl MessageRx for NusbRx {
@@ -134,6 +138,10 @@ impl MessageRx for NusbRx {
         // second lookup instead of returning from inside the loop: keeps the borrow checker happy
         Ok(self.framer.message().expect("checked above"))
     }
+
+    async fn close(self) {
+        self.source.close().await;
+    }
 }
 
 fn describe_transfer_error(e: TransferError) -> String {
@@ -153,6 +161,8 @@ mod tests {
 
     use super::*;
     use crate::device_info::ConnectionInfo;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
     use tokio::sync::oneshot;
     use ww_link::{DeviceInfo, Message};
@@ -169,7 +179,18 @@ mod tests {
 
     type Msg = (u8, Vec<u8>);
 
-    struct MockTx(mpsc::Sender<Msg>);
+    /// Counts closed transport halves, each close takes a while, like releasing a real USB interface
+    #[derive(Clone, Default)]
+    struct Closed(Arc<AtomicUsize>);
+
+    impl Closed {
+        async fn close(&self) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    struct MockTx(mpsc::Sender<Msg>, Closed);
 
     impl MessageTx for MockTx {
         async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
@@ -181,17 +202,24 @@ mod tests {
         async fn flush(&mut self) -> Result<(), String> {
             Ok(())
         }
+        async fn close(self) {
+            self.1.close().await;
+        }
     }
 
     struct MockRx {
         ch: mpsc::Receiver<Msg>,
         last: Msg,
+        closed: Closed,
     }
 
     impl MessageRx for MockRx {
         async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
             self.last = self.ch.recv().await.ok_or("closed")?;
             Ok((self.last.0, &self.last.1))
+        }
+        async fn close(self) {
+            self.closed.close().await;
         }
     }
 
@@ -303,9 +331,10 @@ mod tests {
         assert_eq!(read_message(&mut rx), None);
     }
 
-    #[tokio::test]
-    async fn thousands_of_requests_do_not_deadlock() {
-        const N: usize = 2000;
+    /// Start the event loop with a mock device and connect to it
+    async fn connected_worker(
+        closed: Closed,
+    ) -> (mpsc::Sender<Command>, tokio::task::JoinHandle<()>) {
         let (host_tx, dev_rx) = mpsc::channel::<Msg>(HOST_TX_DEPTH);
         let (dev_tx, host_rx) = mpsc::channel::<Msg>(HOST_RX_DEPTH);
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
@@ -314,10 +343,11 @@ mod tests {
         let worker = tokio::spawn(crate::event_loop::core::worker(
             cmd_rx,
             MockTransport(Some(Opened {
-                tx: MockTx(host_tx),
+                tx: MockTx(host_tx, closed.clone()),
                 rx: MockRx {
                     ch: host_rx,
                     last: (0, vec![]),
+                    closed,
                 },
             })),
         ));
@@ -336,6 +366,13 @@ mod tests {
             .await
             .unwrap();
         connected_rx.await.unwrap().result.unwrap();
+        (cmd_tx, worker)
+    }
+
+    #[tokio::test]
+    async fn thousands_of_requests_do_not_deadlock() {
+        const N: usize = 2000;
+        let (cmd_tx, worker) = connected_worker(Closed::default()).await;
 
         // fire everything at once, exactly like a user looping over Commander::send_call
         let mut done = Vec::with_capacity(N);
@@ -393,5 +430,33 @@ mod tests {
             .await
             .expect("worker did not exit")
             .unwrap();
+    }
+
+    /// Users re-connect right after disconnect returns, it used to return before a USB interface was released,
+    /// so claiming it again failed with "interface is busy".
+    #[tokio::test]
+    async fn disconnect_returns_after_transport_is_closed() {
+        for keep_streams in [false, true] {
+            let closed = Closed::default();
+            let (cmd_tx, worker) = connected_worker(closed.clone()).await;
+            let (disconnected_tx, disconnected_rx) = oneshot::channel();
+            let reason = ww_link::DisconnectReason::RequestByUser;
+            let disconnected_tx = Some(disconnected_tx);
+            let cmd = if keep_streams {
+                Command::DisconnectKeepStreams {
+                    disconnected_tx,
+                    reason,
+                }
+            } else {
+                Command::DisconnectAndExit {
+                    disconnected_tx,
+                    reason,
+                }
+            };
+            cmd_tx.send(cmd).await.unwrap();
+            disconnected_rx.await.unwrap();
+            assert_eq!(closed.0.load(Ordering::SeqCst), 2, "tx and rx must be closed");
+            worker.await.unwrap();
+        }
     }
 }

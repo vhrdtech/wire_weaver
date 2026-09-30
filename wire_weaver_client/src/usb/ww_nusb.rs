@@ -4,7 +4,10 @@ use nusb::transfer::{
     Buffer, Bulk, BulkOrInterrupt, Completion, EndpointDirection, In, Interrupt, Out, TransferError,
 };
 use nusb::{Endpoint, Interface};
+use std::time::Duration;
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tokio::time::{Instant, timeout, timeout_at};
 use tracing::{debug, error, trace, warn};
 
 pub(crate) struct Sink {
@@ -13,11 +16,16 @@ pub(crate) struct Sink {
     completion_rx: mpsc::Receiver<Completion>,
     max_packet_size: usize,
     marker: &'static str,
+    worker: JoinHandle<()>,
 }
 
 // Rx and tx are used from two independent tasks, so a slow device can never stall receiving.
 const TX_QUEUE_SIZE: usize = 4;
 const RX_QUEUE_SIZE: usize = 64;
+/// On close, how long to wait for queued OUT packets (e.g., the final Disconnect) to go out, before cancelling them.
+const TX_LINGER: Duration = Duration::from_millis(100);
+/// How long to wait for cancelled transfers to be returned by the OS.
+const CANCEL_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Sink {
     pub fn new(
@@ -44,8 +52,8 @@ impl Sink {
         for _ in 0..TX_QUEUE_SIZE {
             buf_pool.push(ep_out.allocate(max_packet_size));
         }
-        tokio::spawn(async move {
-            endpoint_worker(ep_out, submit_rx, completion_tx, marker).await;
+        let worker = tokio::spawn(async move {
+            endpoint_worker(ep_out, submit_rx, completion_tx, TX_LINGER, marker).await;
         });
         Ok(Sink {
             buf_pool,
@@ -53,11 +61,25 @@ impl Sink {
             completion_rx,
             max_packet_size,
             marker,
+            worker,
         })
     }
 }
 
 impl Sink {
+    /// Give already submitted packets a chance to go out, then release the endpoint.
+    pub async fn close(self) {
+        let Sink {
+            submit_tx,
+            completion_rx,
+            worker,
+            ..
+        } = self;
+        drop(submit_tx);
+        drop(completion_rx);
+        _ = worker.await;
+    }
+
     /// Waits for a free transfer buffer when all are in flight. Never times out on its own —
     /// the event loop's peer timeout decides when a device is gone.
     /// Not cancel-safe: do not use inside `select!`.
@@ -110,6 +132,7 @@ async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
     mut ep: Endpoint<EpType, Dir>,
     mut submit_rx: mpsc::Receiver<Buffer>,
     completion_tx: mpsc::Sender<Completion>,
+    linger: Duration,
     marker: &'static str,
 ) {
     loop {
@@ -137,12 +160,44 @@ async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
             break;
         }
     }
+    drain(&mut ep, linger, marker).await;
+}
+
+/// Wait up to `linger` for pending transfers to complete, then cancel the rest and wait for them to be returned.
+/// Cancelled, but not yet returned transfers keep the interface claimed even after the endpoint is dropped,
+/// and re-connecting right away fails with "interface is busy".
+async fn drain<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
+    ep: &mut Endpoint<EpType, Dir>,
+    linger: Duration,
+    marker: &'static str,
+) {
+    let deadline = Instant::now() + linger;
+    while ep.pending() > 0 {
+        if timeout_at(deadline, ep.next_complete()).await.is_err() {
+            break;
+        }
+    }
+    if ep.pending() == 0 {
+        return;
+    }
+    trace!("{marker}: cancelling {} pending transfers", ep.pending());
+    ep.cancel_all();
+    while ep.pending() > 0 {
+        if timeout(CANCEL_TIMEOUT, ep.next_complete()).await.is_err() {
+            warn!(
+                "{marker}: {} cancelled transfers were not returned in time",
+                ep.pending()
+            );
+            return;
+        }
+    }
 }
 
 pub(crate) struct Source {
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
     marker: &'static str,
+    worker: JoinHandle<()>,
 }
 
 impl Source {
@@ -171,18 +226,33 @@ impl Source {
         }
         let (submit_tx, submit_rx) = mpsc::channel(RX_QUEUE_SIZE);
         let (completion_tx, completion_rx) = mpsc::channel(RX_QUEUE_SIZE);
-        tokio::spawn(async move {
-            endpoint_worker(ep_in, submit_rx, completion_tx, marker).await;
+        let worker = tokio::spawn(async move {
+            // IN transfers only complete when a device sends something, no point waiting for them
+            endpoint_worker(ep_in, submit_rx, completion_tx, Duration::ZERO, marker).await;
         });
         Ok(Source {
             submit_tx,
             completion_rx,
             marker,
+            worker,
         })
     }
 }
 
 impl Source {
+    /// Cancel all pending transfers and release the endpoint.
+    pub async fn close(self) {
+        let Source {
+            submit_tx,
+            completion_rx,
+            worker,
+            ..
+        } = self;
+        drop(submit_tx);
+        drop(completion_rx);
+        _ = worker.await;
+    }
+
     // /// Cancel-safe: the only await is on the completion channel.
     // pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
     //     let mut len = 0;

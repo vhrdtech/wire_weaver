@@ -23,7 +23,8 @@ impl PreparedDisconnect {
         s
     }
 
-    /// Send disconnect command to a device and wait for it to go through, then stop the event loop and drop all remaining streams or requests.
+    /// Send disconnect command to a device, stop the event loop and drop all remaining streams or requests.
+    /// Returns once the device is released and can be connected to again.
     pub async fn asynch(self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel::<()>();
         self.transport_cmd_tx
@@ -37,7 +38,8 @@ impl PreparedDisconnect {
         Ok(())
     }
 
-    /// Send disconnect command to a device and wait for it to go through, then stop the event loop and drop all remaining streams or requests.
+    /// Send disconnect command to a device, stop the event loop and drop all remaining streams or requests.
+    /// Returns once the device is released and can be connected to again.
     pub fn blocking(self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel::<()>();
         self.transport_cmd_tx
@@ -62,6 +64,7 @@ impl PreparedDisconnect {
     }
 
     /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
+    /// Returns once the device is released and can be connected to again.
     pub async fn keep_streams(&self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel::<()>();
         self.transport_cmd_tx
@@ -76,6 +79,7 @@ impl PreparedDisconnect {
     }
 
     /// Disconnect from a connected device. All streams will be kept and event loop will be left running ready for re-connect.
+    /// Returns once the device is released and can be connected to again.
     pub fn keep_streams_blocking(&self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel::<()>();
         self.transport_cmd_tx

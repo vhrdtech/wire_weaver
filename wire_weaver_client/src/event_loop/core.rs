@@ -161,10 +161,15 @@ pub(crate) async fn worker<T: Transport + 'static>(cmd_rx: mpsc::Receiver<Comman
         }
     };
 
-    let (tx_core, result) = tx_core_result;
+    // both tasks closed their transport halves by now, so it is safe to report that disconnect is done
+    let (mut tx_core, result) = tx_core_result;
+    let disconnected_tx = tx_core.take_disconnected_tx();
     let (exited_tx, residual) = tx_core.into_residual(cmd_rx, rx_core.into_connected_tx(), result);
     if let Some(tx) = exited_tx {
         _ = tx.send(residual);
+    }
+    if let Some(tx) = disconnected_tx {
+        _ = tx.send(());
     }
 }
 
@@ -198,7 +203,8 @@ async fn tx_task<T: Transport>(
                     match connector.connect(handle) {
                         Ok(o) => {
                             msg_tx = Some(o.tx);
-                            if msg_rx_tx.send(o.rx).is_err() {
+                            if let Err(rx) = msg_rx_tx.send(o.rx) {
+                                rx.close().await;
                                 core.handle(
                                     Instant::now(),
                                     TxInput::TransportError("rx task is gone".into()),
@@ -242,7 +248,7 @@ async fn tx_task<T: Transport>(
             }
         }
         if let Some(result) = exit {
-            if let Some(mut msg_tx) = msg_tx.take() {
+            if let Some(msg_tx) = msg_tx.as_mut() {
                 _ = msg_tx.flush().await;
                 tokio::time::sleep(EXIT_LINGER).await;
             }
@@ -268,7 +274,10 @@ async fn tx_task<T: Transport>(
             _ = timer => core.handle(Instant::now(), TxInput::Timer),
         }
     };
-    drop(msg_tx); // closes the device from tx side, rx read then fails or is stopped by ToRx::Stop
+    // closes the device from tx side, rx read then fails or is stopped by ToRx::Stop
+    if let Some(msg_tx) = msg_tx {
+        msg_tx.close().await;
+    }
     ((core, result), cmd_rx)
 }
 
@@ -358,7 +367,13 @@ async fn rx_task<T: Transport>(
             _ = timer => core.handle(Instant::now(), RxInput::Timer),
         }
     }
-    drop(msg_rx);
+    // rx half might have been handed over, but not picked up yet
+    if msg_rx.is_none() {
+        msg_rx = msg_rx_rx.and_then(|mut rx_rx| rx_rx.try_recv().ok());
+    }
+    if let Some(msg_rx) = msg_rx {
+        msg_rx.close().await;
+    }
     core
 }
 

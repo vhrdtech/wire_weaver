@@ -82,6 +82,8 @@ pub(crate) struct TxCore {
     tracers: Tracers,
 
     exited_tx: Option<tokio::sync::oneshot::Sender<EventLoopResidual>>,
+    /// From a disconnect command, notified by the wrapper once the transport is closed, see [Self::take_disconnected_tx]
+    disconnected_tx: Option<tokio::sync::oneshot::Sender<()>>,
     client_version: Option<FullVersionOwned>,
     /// Requested by a device, how long to accumulate messages into one frame before sending it out
     frame_accumulation_time: Duration,
@@ -119,6 +121,7 @@ impl TxCore {
             scratch: vec![0u8; DEFAULT_MAX_MESSAGE_SIZE],
             tracers: Tracers::default(),
             exited_tx: None,
+            disconnected_tx: None,
             client_version: None,
             frame_accumulation_time: Duration::from_millis(1),
             device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
@@ -173,6 +176,12 @@ impl TxCore {
             .min(),
             Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => None,
         }
+    }
+
+    /// Sender from a disconnect command, if that is why tx exited. Must only be notified after the transport
+    /// is closed: user code is waiting on it to re-connect, possibly to the same device.
+    pub fn take_disconnected_tx(&mut self) -> Option<tokio::sync::oneshot::Sender<()>> {
+        self.disconnected_tx.take()
     }
 
     /// Everything the client needs after [TxOutput::Exit] to report the result or re-connect later.
@@ -242,9 +251,7 @@ impl TxCore {
                 info!("disconnecting on user request (but keeping streams ready for re-use)");
                 self.tracers.disconnected("client request", true);
                 self.send_disconnect(now, reason);
-                if let Some(tx) = disconnected_tx {
-                    _ = tx.send(());
-                }
+                self.disconnected_tx = disconnected_tx;
                 return Ok(Flow::Exit(
                     EventLoopExitReason::DisconnectKeepStreamsCommand,
                 ));
@@ -256,9 +263,7 @@ impl TxCore {
                 info!("disconnecting and stopping event loop on user request");
                 self.tracers.disconnected("client request", false);
                 self.send_disconnect(now, reason);
-                if let Some(tx) = disconnected_tx {
-                    _ = tx.send(());
-                }
+                self.disconnected_tx = disconnected_tx;
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
             }
             Command::SendMessage { bytes, done_tx } => {

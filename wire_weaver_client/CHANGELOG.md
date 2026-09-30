@@ -42,6 +42,10 @@
   every connect.
 - Introspection download no longer hangs `connect()` forever if the device never answers, it times out instead.
 - Failing to download introspection data during `connect()` is logged instead of silently ignored.
+- `PreparedDisconnect::asynch()`/`blocking()`/`keep_streams()`/`keep_streams_blocking()` return only after the
+  transport is closed and the USB interface is released. Connecting to the same device right after a disconnect
+  used to fail with "interface is busy (errno 16)". Queued outgoing USB packets (including the final Disconnect) get
+  up to 100 ms to go out before they are cancelled.
 
 - Connect intermittently failed (about half of the attempts on real hardware): when the transport's rx half and
   `TransportUp` arrived at the same time, the rx task could drop the rx half, closing the USB IN endpoint. The device

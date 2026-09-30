@@ -20,7 +20,7 @@ pub use client::promise::{Promise, PromiseState};
 pub use client::sink::Sink;
 pub use client::stream::{Stream, StreamError, StreamEvent, TypedStreamEvent};
 pub use config::ClientConfig;
-pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo};
+pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
 pub use event_loop::commander::Commander;
 
 #[cfg(feature = "usb")]

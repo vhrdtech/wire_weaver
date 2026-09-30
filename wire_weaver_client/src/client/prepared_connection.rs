@@ -8,7 +8,7 @@ use crate::{
     device_info::DeviceApiInfo,
     event_loop::command::Command,
 };
-use anyhow::{Error, Result, anyhow, bail};
+use anyhow::{Error, Result, anyhow};
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 use ww_version::FullVersionOwned;
@@ -203,17 +203,8 @@ fn create_commander_blocking(
 }
 
 fn bail_on_ambiguous(e: Error) -> Result<()> {
-    if let Some(e) = e.downcast_ref::<crate::Error>() {
-        if let crate::Error::AmbiguousDeviceChoice(devices) = e {
-            println!("Matched devices:");
-            for dev in devices {
-                println!("{dev:?}");
-            }
-            bail!("Ambiguous device choice");
-        } else {
-            Ok(())
-        }
-    } else {
-        Ok(())
+    match e.downcast::<crate::Error>() {
+        Ok(e @ crate::Error::AmbiguousDeviceChoice(_)) => Err(e.into()),
+        _ => Ok(()),
     }
 }

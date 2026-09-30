@@ -7,6 +7,8 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
+use crate::DeviceInfo;
+
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
 /// - Specific device selection
@@ -121,6 +123,8 @@ pub(crate) enum ConfigPiece {
 
     /// Filter out a device with the specified serial number. Ignoring case.
     SerialEq { serial: String },
+    /// Filter out a device whose serial number contains the substring. Ignoring case.
+    SerialContains { substring: String },
     /// Filter out a device with the specified user label. Ignoring case.
     /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
     UserLabelEq { user_label: String },
@@ -189,6 +193,12 @@ impl ClientConfig {
             client_version,
             introspect_client,
         })
+    }
+
+    /// Whether the device passes all filters of this config (serial, label, product, API, VID:PID, etc.).
+    /// Filters of the same kind are alternatives, filters of different kinds are all required.
+    pub fn matches(&self, device: &DeviceInfo) -> bool {
+        device.is_matching(&self.pieces)
     }
 
     /// Set connection priority list when multiple options are available, e.g., "net>usb>ipc"
@@ -357,6 +367,13 @@ impl ClientConfig {
         f
     }
 
+    /// Filter out a device whose serial number contains the substring. Ignoring case.
+    pub fn serial_contains(self, substring: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::SerialContains { substring });
+        f
+    }
+
     /// Filter out a device with the specified user label. Ignoring case.
     /// User labels can be assigned via [ww](https://vhrd.tech/TODO) CLI tool or product-specific CLI, GUI or API.
     pub fn user_label_eq(self, user_label: String) -> Self {
@@ -499,60 +516,6 @@ impl ValidatedConfig {
         interfaces
     }
 
-    pub(crate) fn manufacturers_contains(&self) -> impl Iterator<Item = &str> {
-        self.pieces.iter().filter_map(|p| {
-            if let ConfigPiece::ManufacturerContains { substring } = p {
-                Some(substring.as_str())
-            } else {
-                None
-            }
-        })
-    }
-
-    pub(crate) fn products_contains(&self) -> impl Iterator<Item = &str> {
-        self.pieces.iter().filter_map(|p| {
-            if let ConfigPiece::ProductContains { substring } = p {
-                Some(substring.as_str())
-            } else {
-                None
-            }
-        })
-    }
-
-    pub(crate) fn serials_eq(&self) -> impl Iterator<Item = &str> {
-        self.pieces.iter().filter_map(|p| {
-            if let ConfigPiece::SerialEq { serial } = p {
-                Some(serial.as_str())
-            } else {
-                None
-            }
-        })
-    }
-
-    pub(crate) fn user_labels_eq(&self) -> impl Iterator<Item = &str> {
-        self.pieces.iter().filter_map(|p| {
-            if let ConfigPiece::UserLabelEq { user_label } = p {
-                Some(user_label.as_str())
-            } else {
-                None
-            }
-        })
-    }
-
-    pub(crate) fn implements_api(&self) -> impl Iterator<Item = (&str, &VersionReq)> {
-        self.pieces.iter().filter_map(|p| {
-            if let ConfigPiece::ImplementsApi {
-                api_gid,
-                version_req,
-            } = p
-            {
-                Some((api_gid.as_str(), version_req))
-            } else {
-                None
-            }
-        })
-    }
-
     fn is_opted_in(
         &self,
         opt_in: &[ConfigPieceDiscriminants],
@@ -624,5 +587,67 @@ mod tests {
             vec![ConfigPiece::Usb, ConfigPiece::NoWwUsb, ConfigPiece::Usb]
         );
         assert_eq!(f.is_usb(), true);
+    }
+
+    fn device(serial: &str, label: &str, api: Option<(&str, &str)>) -> DeviceInfo {
+        DeviceInfo {
+            location: "usb 1-2 c0de:cafe".into(),
+            manufacturer: "vhrd.tech".into(),
+            product: "Blinky board".into(),
+            serials: vec![serial.into()],
+            user_label: label.into(),
+            api: api.map(|(gid, version)| crate::ApiInfo {
+                gid: gid.into(),
+                version: semver::Version::parse(version).unwrap(),
+                signature: ww_version::ApiHashOwned { hash: vec![] },
+            }),
+            usb: Some(crate::UsbLocation {
+                bus_id: "1".into(),
+                port_chain: vec![2],
+                vid: 0xc0de,
+                pid: 0xcafe,
+            }),
+        }
+    }
+
+    #[test]
+    fn matching_no_filters() {
+        assert!(ClientConfig::new().usb().matches(&device("A1", "", None)));
+    }
+
+    #[test]
+    fn matching_different_kinds_all_required() {
+        let d = device("ABC123", "left", Some(("blinky_api", "0.1.2")));
+        let c = ClientConfig::new()
+            .implements_api("blinky_api".into(), VersionReq::parse("^0.1").unwrap())
+            .serial_contains("c12".into());
+        assert!(c.matches(&d));
+        assert!(!c.clone().user_label_eq("right".into()).matches(&d));
+        assert!(c.clone().user_label_eq("LEFT".into()).matches(&d));
+        assert!(!c.clone().usb_vid_pid(0x1234, 0xcafe).matches(&d));
+        assert!(c.clone().usb_port_chain("1".into(), vec![2]).matches(&d));
+        let wrong_version = ClientConfig::new()
+            .implements_api("blinky_api".into(), VersionReq::parse("^0.2").unwrap());
+        assert!(!wrong_version.matches(&d));
+    }
+
+    #[test]
+    fn matching_same_kind_any() {
+        let d = device("ABC123", "", None);
+        let c = ClientConfig::new()
+            .serial_eq("xyz".into())
+            .serial_eq("abc123".into());
+        assert!(c.matches(&d));
+        assert!(!ClientConfig::new().serial_eq("abc".into()).matches(&d));
+        assert!(
+            ClientConfig::new()
+                .product_contains("BLINKY".into())
+                .matches(&d)
+        );
+        assert!(
+            !ClientConfig::new()
+                .manufacturer_contains("acme".into())
+                .matches(&d)
+        );
     }
 }

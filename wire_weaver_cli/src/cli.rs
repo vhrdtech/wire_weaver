@@ -1,5 +1,7 @@
 use crate::cmd::api::ApiCommand;
+use crate::cmd::config::ConfigCommand;
 use crate::cmd::list::ListArgs;
+use crate::device::DeviceArgs;
 use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -11,13 +13,9 @@ use clap::{Parser, Subcommand};
     .literal(clap::builder::styling::AnsiColor::Yellow.on_default())
     .placeholder(clap::builder::styling::AnsiColor::Blue.on_default()))]
 pub(crate) struct Cli {
-    /// Serial number of a device to use, can use partial serial number if the result is unique, cannot be used together with usb_path
-    #[arg(short, long, group = "device-selection")]
-    pub(crate) serial: Option<String>,
-    // Usb path of a device to use, not to be used with serial number selector
-    // #[arg(short, long, value_parser = from_arg_usb_path, group = "dongle-selection",
-    //       value_name = "bus:port-chain")]
-    // usb_path: Option<String>,
+    #[command(flatten)]
+    pub(crate) device: DeviceArgs,
+
     #[command(subcommand)]
     pub(crate) command: Commands,
 }
@@ -26,7 +24,7 @@ pub(crate) struct Cli {
 pub(crate) enum Commands {
     /// List connected devices implementing a WireWeaver API, without opening them
     ///
-    /// Filters are combined, global --serial matches a substring of the serial number.
+    /// Only devices matching the device selection (flags, env variables and ww.toml) are shown.
     List(ListArgs),
 
     /// Run a USB loopback test
@@ -44,7 +42,12 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Api(ApiCommand),
 
+    /// Print API introspection data of the selected device
     Introspect,
+
+    /// Show or save device selection in a project ww.toml
+    #[command(subcommand)]
+    Config(ConfigCommand),
 
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///
@@ -66,6 +69,7 @@ impl Cli {
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect => true,
+            Commands::Config(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

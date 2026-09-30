@@ -39,7 +39,7 @@ pub enum Error {
     User(String),
     #[error("Other error: '{}'", .0)]
     Other(String),
-    #[error("More than one devices matched the provided filter: {:#?}", .0)]
+    #[error("More than one device matched the provided filter:{}", .0.iter().map(|d| format!("\n  {d}")).collect::<String>())]
     AmbiguousDeviceChoice(Vec<DeviceInfo>),
     #[error("Multi request: '{}'", .0)]
     MultiReq(String),

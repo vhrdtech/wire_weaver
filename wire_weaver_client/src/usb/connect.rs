@@ -133,12 +133,17 @@ fn select_matching(
     c: &ValidatedConfig,
     devices: impl Iterator<Item = nusb::DeviceInfo>,
 ) -> Result<Option<nusb::DeviceInfo>, crate::Error> {
+    // without an explicit VID:PID or path, only consider devices reporting WireWeaver API id
+    let by_location = c.pieces.iter().any(|p| {
+        matches!(
+            p,
+            ConfigPiece::UsbVidPid { .. } | ConfigPiece::UsbPath { .. }
+        )
+    });
     let mut matching = vec![];
     for nusb_info in devices.into_iter() {
         let info = crate::DeviceInfo::from(&nusb_info);
-        let vid_pid_match = vid_pid_match(&c.pieces, &nusb_info);
-        let chain_match = port_chain_match(&c.pieces, &nusb_info);
-        if vid_pid_match || chain_match || info.is_matching(c) {
+        if (by_location || info.api.is_some()) && info.is_matching(&c.pieces) {
             matching.push((nusb_info, info));
         }
     }
@@ -153,26 +158,6 @@ fn select_matching(
     } else {
         Ok(None)
     }
-}
-
-fn vid_pid_match(pieces: &[ConfigPiece], info: &nusb::DeviceInfo) -> bool {
-    pieces.iter().any(|p| {
-        if let ConfigPiece::UsbVidPid { vid, pid } = p {
-            info.vendor_id() == *vid && info.product_id() == *pid
-        } else {
-            false
-        }
-    })
-}
-
-fn port_chain_match(pieces: &[ConfigPiece], info: &nusb::DeviceInfo) -> bool {
-    pieces.iter().any(|p| {
-        if let ConfigPiece::UsbPath { bus_id, port_chain } = p {
-            info.bus_id() == bus_id && info.port_chain() == port_chain
-        } else {
-            false
-        }
-    })
 }
 
 /// List connected USB devices that report WireWeaver API id, without opening them.

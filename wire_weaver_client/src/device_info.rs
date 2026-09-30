@@ -4,7 +4,7 @@ use semver::Version;
 use ww_version::{ApiHashOwned, ApiHashPairOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
 
-use crate::config::ValidatedConfig;
+use crate::config::{ConfigPiece, ConfigPieceDiscriminants};
 
 /// Device information available without opening it (e.g., from USB string descriptors).
 #[derive(Debug)]
@@ -19,6 +19,16 @@ pub struct DeviceInfo {
     pub user_label: String,
     /// API implemented by the device, if it reports one (see [wire_weaver::api_id]).
     pub api: Option<ApiInfo>,
+    /// Bus, port chain and VID:PID for USB devices.
+    pub usb: Option<UsbLocation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UsbLocation {
+    pub bus_id: String,
+    pub port_chain: Vec<u8>,
+    pub vid: u16,
+    pub pid: u16,
 }
 
 #[derive(Debug)]
@@ -119,32 +129,63 @@ impl ConnectionInfo {
 }
 
 impl DeviceInfo {
-    pub(crate) fn is_matching(&self, f: &ValidatedConfig) -> bool {
-        let mfg_match = Self::contains(&self.manufacturer, f.manufacturers_contains());
-        let product_match = Self::contains(&self.product, f.products_contains());
-        let serials_match = self.serials.iter().any(|s| Self::eq(s, f.serials_eq()));
-        let labels_match = Self::eq(&self.user_label, f.user_labels_eq());
-        let api_match = if let Some(api) = &self.api {
-            f.implements_api()
-                .into_iter()
-                .any(|(api_gid, req)| api_gid == api.gid && req.matches(&api.version))
-        } else {
-            false
-        };
-        mfg_match || product_match || serials_match || labels_match || api_match
+    /// Whether the device passes the filters in `pieces`: filters of the same kind are alternatives (any of them
+    /// has to match), filters of different kinds are all required. No filters at all match any device.
+    pub(crate) fn is_matching(&self, pieces: &[ConfigPiece]) -> bool {
+        use ConfigPieceDiscriminants as D;
+        const FILTERS: [D; 8] = [
+            D::UsbVidPid,
+            D::UsbPath,
+            D::SerialEq,
+            D::SerialContains,
+            D::UserLabelEq,
+            D::ManufacturerContains,
+            D::ProductContains,
+            D::ImplementsApi,
+        ];
+        FILTERS.iter().all(|kind| {
+            let mut of_kind = pieces.iter().filter(|p| D::from(*p) == *kind).peekable();
+            of_kind.peek().is_none() || of_kind.any(|p| self.matches_filter(p))
+        })
     }
 
-    fn contains<'i>(s: &str, substrings: impl Iterator<Item = &'i str>) -> bool {
-        let s = s.to_lowercase();
-        substrings
-            .into_iter()
-            .any(|substr| s.contains(&substr.to_lowercase()))
+    fn matches_filter(&self, piece: &ConfigPiece) -> bool {
+        match piece {
+            ConfigPiece::UsbVidPid { vid, pid } => self
+                .usb
+                .as_ref()
+                .is_some_and(|u| u.vid == *vid && u.pid == *pid),
+            ConfigPiece::UsbPath { bus_id, port_chain } => self
+                .usb
+                .as_ref()
+                .is_some_and(|u| &u.bus_id == bus_id && &u.port_chain == port_chain),
+            ConfigPiece::SerialEq { serial } => self.serials.iter().any(|s| eq(s, serial)),
+            ConfigPiece::SerialContains { substring } => {
+                self.serials.iter().any(|s| contains(s, substring))
+            }
+            ConfigPiece::UserLabelEq { user_label } => eq(&self.user_label, user_label),
+            ConfigPiece::ManufacturerContains { substring } => {
+                contains(&self.manufacturer, substring)
+            }
+            ConfigPiece::ProductContains { substring } => contains(&self.product, substring),
+            ConfigPiece::ImplementsApi {
+                api_gid,
+                version_req,
+            } => self
+                .api
+                .as_ref()
+                .is_some_and(|api| &api.gid == api_gid && version_req.matches(&api.version)),
+            _ => true,
+        }
     }
+}
 
-    fn eq<'i>(s: &str, substrings: impl Iterator<Item = &'i str>) -> bool {
-        let s = s.to_lowercase();
-        substrings.into_iter().any(|s2| s == s2.to_lowercase())
-    }
+fn contains(s: &str, substring: &str) -> bool {
+    s.to_lowercase().contains(&substring.to_lowercase())
+}
+
+fn eq(a: &str, b: &str) -> bool {
+    a.to_lowercase() == b.to_lowercase()
 }
 
 #[cfg(feature = "usb")]
@@ -181,6 +222,12 @@ impl From<&nusb::DeviceInfo> for DeviceInfo {
                 .unwrap_or_default()
                 .to_string(),
             api: api_id.as_ref().map(ApiInfo::from_api_id),
+            usb: Some(UsbLocation {
+                bus_id: info.bus_id().to_string(),
+                port_chain: info.port_chain().to_vec(),
+                vid: info.vendor_id(),
+                pid: info.product_id(),
+            }),
         }
     }
 }
@@ -199,6 +246,7 @@ impl From<&probe_rs::probe::DebugProbeInfo> for DeviceInfo {
                 .unwrap_or_default(),
             user_label: "".into(),
             api: None,
+            usb: None,
         }
     }
 }

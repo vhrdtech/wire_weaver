@@ -25,5 +25,9 @@ By default `std` feature is active providing owned types.
 * ww_can_bus - CAN Bus types and API
 * ww_dfu - Firmware update API
 * ww_log_bare_metal - Logging types and API for no_std bare metal targets
-* ww_self - WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection.
+
+Two framework-level crates live in the `wire_weaver` repo root instead of `ww_stdlib`, but are versioned the same way:
+
+* [ww_self](ww_self.md) - WireWeaver of WireWeaver itself for dynamic access to APIs, expression eval and introspection.
+* ww_global - global type ID registry, see [addressing](../api/addressing.md).
 

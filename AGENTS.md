@@ -76,8 +76,11 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   no_std vs host toggle; see `docs/dev_tool.md` for current/planned features.
 - **`ww_stdlib/`** (separate crates, some vendored here under `ww_stdlib/*`, canonical home is the
   `vhrdtech/ww_stdlib` repo) — reusable API traits and data types meant to be shared across unrelated projects by
-  publishing to crates.io (date/time, version, numeric/SI, GPIO, I2C, SPI, UART, CAN bus, DFU, logging,
-  introspection via `ww_self`). Prefer reusing/extending one of these over inventing a project-local equivalent.
+  publishing to crates.io (date/time, version, numeric/SI, GPIO, I2C, SPI, UART, CAN bus, DFU, logging).
+  Prefer reusing/extending one of these over inventing a project-local equivalent.
+- **`ww_self/`**, **`ww_global/`** — framework-level base types that live in this repo, not in `ww_stdlib`:
+  `ww_self` is the API model AST used for introspection and API snapshots, `ww_global` is the global type ID
+  registry. Versioned like API crates (own version, the version is the identity, see `docs/evolution/rules.md`).
 - **`examples/`** — paired `<name>_api` (trait + types, no_std-compatible) / `<name>` (server+client wiring, tests)
   crates; this pairing is the intended project shape end users should copy (see `docs/api/folder_structure.md`).
   `examples_mcu/` has real firmware targets per dev board (excluded from root workspace).

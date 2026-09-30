@@ -17,7 +17,7 @@ which versions to bump for each, depending on where in the crate stack the chang
 | Layer                 | Crates                                                                                                                                                              | Versioning                                                                  |
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | 1. Wire format        | `shrink_wrap`, `shrink_wrap_derive`                                                                                                                                 | own version, changes rarely                                                 |
-| 2. Shared API & types | `ww_stdlib/*`: base types (`ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`, `ww_global`, `ww_self`) and traits (`ww_gpio`, `ww_i2c`, `ww_client_server`, ...) | own version per crate, the version is the API identity                      |
+| 2. Shared API & types | `ww_stdlib/*`: base types (`ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`) and traits (`ww_gpio`, `ww_i2c`, `ww_client_server`, ...); framework base types `ww_global` and `ww_self` (repo root) | own version per crate, the version is the API identity                      |
 | 3. Framework          | `wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, `wire_weaver_udp_link`, ...  | shared `[workspace.package] version`, free to break Rust API                |
 | 4. User API           | `my_device_api` and friends (see [folder structure](../api/folder_structure.md))                                                                                    | own version, the version is the API identity, checked on every connection |
 
@@ -56,7 +56,7 @@ Therefore:
 
 `ww_stdlib` crates are meant to be shared between unrelated projects, so their types end up inside many
 different APIs. Their versions travel on the wire (as `FullVersion` / `CompactVersion` with a
-[ww_global](https://github.com/vhrdtech/wire_weaver/tree/master/ww_stdlib/ww_global) id) for trait-based requests
+[ww_global](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global) id) for trait-based requests
 and introspection, so the version is not just Cargo metadata, it's a compatibility statement, same as for user API
 crates (layer 4):
 

@@ -5,7 +5,7 @@ authors.workspace = true
 description = "WireWeaver AST describing API and data types, can also be serialized using ShrinkWrap for introspection"
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/vhrdtech/ww_stdlib"
+repository.workspace = true
 
 [features]
 default = ["std"]

@@ -18,6 +18,10 @@
 
 * Visiting a bundle that contains `Skipped*` type or trait locations no longer panics (it hit `todo!()`).
 
+### ⚙️ Miscellaneous Tasks
+
+* Moved from `ww_stdlib` into the `wire_weaver` repo root, `repository` now points to `vhrdtech/wire_weaver`.
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

@@ -5,7 +5,7 @@ authors.workspace = true
 description = "WireWeaver global type ID registry"
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/vhrdtech/ww_stdlib"
+repository.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver/api/addressing/"
 
 [features]

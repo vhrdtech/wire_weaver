@@ -92,7 +92,6 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_date_time/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_dfu/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_firmware_info/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_global/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_gpio/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_gpio_hl/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_i2c/src" isTestSource="false" />
@@ -100,9 +99,10 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_ll/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_numeric/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_si/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_spi/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_global/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_uart/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_uid/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_user_info/src" isTestSource="false" />

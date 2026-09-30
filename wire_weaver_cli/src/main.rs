@@ -3,7 +3,6 @@ use crate::cmd::config::ConfigCommand;
 use crate::device::Selection;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches};
-use clap_complete::CompleteEnv;
 use wire_weaver_client::DynClient;
 
 mod api_tree;
@@ -15,7 +14,7 @@ mod util;
 
 fn main() -> Result<()> {
     // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing
-    CompleteEnv::with_factory(Cli::command).complete();
+    complete::complete(Cli::command);
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()

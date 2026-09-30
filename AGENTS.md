@@ -109,6 +109,12 @@ crate itself (e.g. `ww_client_server`) participates in that same compatibility s
 for why the API crate's own name+version acts as a global identifier). Run the evolution checker
 (`docs/evolution/checker_tool.md`) rather than eyeballing compatibility when in doubt.
 
+**Before making any breaking change — wire or Rust API, in any crate — read `docs/evolution/rules.md`** and follow
+it. It explains the crate layers (`shrink_wrap` → `ww_stdlib` → framework → user API), why a `shrink_wrap` break
+cascades to every other crate, which framework code is actually wire-defining (`ww_framer`, `ww_link`,
+`ww_client_server`, server/client codegen), and which version position to bump. Tell the user explicitly when a change
+breaks the wire, and which deployed devices/hosts it affects.
+
 Gotcha: for a `sized` enum, the derive macro's compile-time assertion only checks that `ELEMENT_SIZE` is the
 `Sized { .. }` _variant_, not that `size_bits` is numerically correct — and for non-`unib32` reprs, the
 discriminant's own bits are never folded into that constant (only payload field sizes are summed; see
@@ -145,7 +151,9 @@ format (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`), name the 
 say what users must change. Create the file if a crate doesn't have one yet.
 
 Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
-position, so don't try to decide whether a patch bump would do). Bump once per release cycle: if the crate's version
+position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/rules.md`: purely
+additive changes to `shrink_wrap`/`shrink_wrap_derive` and wire-compatible additions to API crates (`ww_stdlib/*`,
+`*_api`) bump **patch**, so the rest of the ecosystem doesn't have to be re-released and old devices still connect. Bump once per release cycle: if the crate's version
 is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain
 `cargo info` inside the repo shows the local version), it has been bumped and stays as is. Never-published crates
 are left alone. How to bump:

@@ -21,6 +21,7 @@
 
 use wire_weaver::{MessageSink, WireWeaverApiBackend};
 
+use crate::fmt::{error, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Received, SendError, Transmit};
 use crate::time::Instant;
 use crate::transport::{RxFramer, TxFramer};

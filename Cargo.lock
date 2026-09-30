@@ -3595,6 +3595,7 @@ dependencies = [
  "defmt",
  "embassy-futures",
  "embassy-time",
+ "log",
  "tokio",
  "wire_weaver",
  "ww_client_server",

@@ -19,6 +19,7 @@ use ww_link::{
     PEER_TIMEOUT_MS, PING_INTERVAL_MS,
 };
 
+use crate::fmt::{debug, error, info, warn};
 use crate::time::Instant;
 
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
@@ -384,8 +385,8 @@ impl<'a> DeviceLink<'a> {
             Message::DeviceInfo(DeviceInfo {
                 dev_link_version: ww_link::LINK_VERSION,
                 api_model_version: self.config.api_model_version,
-                user_api_version: self.config.user_api_version.clone(),
-                hash: self.config.api_hash.clone(),
+                user_api_version: self.config.user_api_version,
+                hash: self.config.api_hash,
                 dev_max_message_len: self.max_message_len,
                 packet_accumulation_time_us: self
                     .config

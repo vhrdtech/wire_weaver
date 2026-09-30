@@ -14,7 +14,6 @@
 //! Medium specific crates (e.g., `wire_weaver_usb_embassy`) only provide packet IO and descriptors.
 #![no_std]
 
-#[macro_use]
 mod fmt;
 
 pub mod blocking;
@@ -26,6 +25,8 @@ pub mod transport;
 
 #[cfg(test)]
 mod tests;
+
+use fmt::error;
 
 pub use buffer::RxBuffer;
 pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, SendError};

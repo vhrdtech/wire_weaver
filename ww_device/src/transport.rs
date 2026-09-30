@@ -7,6 +7,8 @@ use core::future::Future;
 
 use ww_link::{UsbChecksum, UsbHead, UsbTail};
 
+use crate::fmt::warn;
+
 /// Framer used by [FramedTx], USB configuration from [ww_link].
 pub type TxFramer<'a> = ww_framer::Tx<'a, UsbHead, UsbChecksum, UsbTail>;
 /// Framer used by [FramedRx], USB configuration from [ww_link].

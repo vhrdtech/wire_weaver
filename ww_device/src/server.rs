@@ -6,6 +6,7 @@ use core::future::{Future, pending};
 use embassy_futures::select::{Either, select};
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 
+use crate::fmt::{error, info, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Phase, Received, SendError, Transmit};
 use crate::time::Instant;
 use crate::transport::{MessageRx, MessageTx};

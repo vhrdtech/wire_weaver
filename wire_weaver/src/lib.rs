@@ -26,7 +26,7 @@ pub mod prelude {
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;
     pub use crate::ww_unimplemented;
-    pub use crate::{MessageSink, WireWeaverAsyncApiBackend};
+    pub use crate::{MessageSink, WireWeaverApiBackend, WireWeaverAsyncApiBackend};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{
@@ -45,15 +45,19 @@ pub trait WireWeaverAsyncApiBackend {
         scratch: &'a mut [u8],
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
 
-    fn send_updates(
+    /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
+    fn version(&self) -> FullVersion<'_>;
+}
+
+/// Same as [WireWeaverAsyncApiBackend], for servers generated with `use_async = false`.
+pub trait WireWeaverApiBackend {
+    /// Deserialize request and process it.
+    fn process_bytes<'a>(
         &mut self,
         sink: &mut impl MessageSink,
-        scratch: &mut [u8],
-    ) -> impl Future<Output = ()> {
-        let _ = sink;
-        let _ = scratch;
-        core::future::ready(())
-    }
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], ShrinkWrapError>;
 
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;

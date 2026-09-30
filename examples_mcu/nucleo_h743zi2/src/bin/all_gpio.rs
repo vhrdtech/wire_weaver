@@ -15,7 +15,9 @@ use panic_probe as _;
 use static_cell::StaticCell;
 use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
+use wire_weaver_usb_embassy::{
+    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
+};
 use ww_client_server::StreamSideband;
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
 
@@ -23,16 +25,23 @@ bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
 });
 
-const MAX_USB_PACKET_LEN: usize = 64; // 64 for FullSpeed, 1024 for HighSpeed
+const MAX_USB_PACKET_LEN: usize = 64; // 64 for FullSpeed, 512 (Bulk) or 1024 (Interrupt) for HighSpeed
 const EP_OUT_BUF_LEN: usize = MAX_USB_PACKET_LEN * wire_weaver_usb_embassy::ENDPOINTS_USED;
 const MAX_MESSAGE_LEN: usize = 1024; // Maximum WireWeaver message length
 static USB_BUFFERS: StaticCell<UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>> = StaticCell::new();
 
 #[embassy_executor::task]
-async fn usb_server_task(
-    mut usb_server: UsbServer<'static, Driver<'static, USB_OTG_FS>, ServerState>,
+async fn usb_task(mut usb: UsbDevice<'static, Driver<'static, USB_OTG_FS>>) {
+    usb.run().await;
+}
+
+#[embassy_executor::task]
+async fn ww_server_task(
+    mut server: UsbServer<'static, Driver<'static, USB_OTG_FS>>,
+    mut state: ServerState,
 ) {
-    usb_server.run().await;
+    // Nothing else to wait for: use the prepared loop. See the uart example for a custom one.
+    server.run(&mut state).await;
 }
 
 impl WireWeaverAsyncApiBackend for ServerState {
@@ -110,27 +119,29 @@ async fn main(spawner: embassy_executor::Spawner) {
     let config = usb::Config::default();
     let driver = Driver::new_fs(p.USB_OTG_FS, Irqs, p.PA12, p.PA11, ep_out_buffer, config);
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
-    let (usb_server, _call_send_updates) = usb_init(
-        driver,
-        buffers,
-        state,
-        UsbTimings::fs_higher_speed(),
-        // UsbTimings::fs_lower_latency(),
+    let link_config = LinkConfig::new(
         all_gpio_api::ALL_GPIO_API_FULL_GID,
         server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
+    );
+    let (usb, server) = usb_init(
+        driver,
+        buffers,
+        UsbTimings::fs_higher_speed(),
+        // UsbTimings::fs_lower_latency(),
+        link_config,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
             // optionally set config.manufacturer, config.product, self_powered and max_power
         },
     );
-    spawner.spawn(unwrap!(usb_server_task(usb_server)));
+    spawner.spawn(unwrap!(usb_task(usb)));
+    spawner.spawn(unwrap!(ww_server_task(server, state)));
 
     info!("init done");
     loop {
         info!("loop");
         Timer::after_millis(2000).await;
-        // _ = call_send_updates.try_send(());
     }
 }
 

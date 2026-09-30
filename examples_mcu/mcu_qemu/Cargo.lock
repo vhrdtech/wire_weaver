@@ -635,22 +635,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrink_wrap_core"
-version = "0.2.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "sha2",
- "syn 3.0.3",
-]
-
-[[package]]
 name = "shrink_wrap_derive"
 version = "0.1.1"
 dependencies = [
  "proc-macro2",
  "quote",
- "shrink_wrap_core",
  "syn 3.0.3",
 ]
 
@@ -880,7 +869,6 @@ dependencies = [
  "semver 1.0.28",
  "sha2",
  "shrink_wrap",
- "shrink_wrap_core",
  "syn 3.0.3",
  "ww_numeric",
  "ww_self",

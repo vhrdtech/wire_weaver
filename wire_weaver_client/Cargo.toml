@@ -48,3 +48,6 @@ ww_link = { path = "../ww_link", features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+ww_device = { workspace = true }

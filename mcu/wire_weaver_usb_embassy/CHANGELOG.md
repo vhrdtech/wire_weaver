@@ -1,3 +1,23 @@
+## 0.2.0 - unreleased
+
+### ⚠️ Breaking
+
+- Event loop moved into user code: `usb_init()` returns `(UsbDevice, UsbServer)`, where `UsbServer` is a
+  `ww_device::Server` with cancel-safe `wait()` and `handle()`, plus `run()` for the simple case.
+  Other async sources are selected on alongside `wait()`, stream updates are sent through `server.sink()`.
+- `send_updates()` and the `()` notification channel are removed.
+- Link layer is `ww_link` over `ww_framer` (wire compatible with the current `wire_weaver_client`),
+  `wire_weaver_usb_link` is no longer used.
+- `usb_init()` takes a `ww_device::LinkConfig` instead of separate versions and API hash; `UsbTimings` has no ping period.
+
+### 🚀 Features
+
+- `WireWeaverClass::into_server()`, to set up the server manually alongside other USB classes.
+- `MAX_MESSAGE_LEN` is exactly the maximum message length reported to the host, independent of `MAX_USB_PACKET_LEN`
+  (also when a Bulk endpoint is capped at 512).
+- Host that restarted without disconnecting is detected, device-side peer timeout.
+- Generic error reply when the backend cannot process a request at all.
+
 ## 0.1.0 - 07 Jan 2026
 
 ### 🚀 Features

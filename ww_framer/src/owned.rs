@@ -58,6 +58,11 @@ where
         (len > 0).then(|| self.buf[..len].to_vec())
     }
 
+    /// See [Tx::reset].
+    pub fn reset(&mut self) {
+        self.with(|tx| tx.reset())
+    }
+
     /// See [Tx::is_empty].
     pub fn is_empty(&self) -> bool {
         self.state.is_empty()
@@ -102,6 +107,11 @@ where
         let r = f(&mut rx);
         self.state = rx.into_parts();
         r
+    }
+
+    /// See [FramedRx::reset].
+    pub fn reset(&mut self) {
+        self.with(|rx| rx.reset())
     }
 
     /// See [FramedRx::free].

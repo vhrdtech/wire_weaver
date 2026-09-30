@@ -1,22 +1,27 @@
 #![no_std]
 
+//! WireWeaver USB class for embassy-usb: descriptors, packet IO and setup helpers.
+//!
+//! The event loop is in user code, built from [ww_device::Server] (see its docs), this crate only
+//! provides USB specifics. The easiest way to start is [usb_init].
+
 mod config;
-mod event_loop;
 mod init;
 
 pub use config::UsbTimings;
 use defmt::warn;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
-pub use init::{usb_init, UsbBuffers, UsbServer};
+pub use embassy_usb::UsbDevice;
+pub use init::{ServerBuffers, UsbBuffers, UsbServer, usb_init};
+pub use ww_device::{self, LinkConfig};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::msos::windows_version;
 use embassy_usb::types::InterfaceNumber;
-use embassy_usb::{msos, Builder};
+use embassy_usb::{Builder, msos};
 use wire_weaver::full_version;
 use wire_weaver::prelude::FullVersion;
-use wire_weaver_usb_link::{PacketSink, PacketSource};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -48,7 +53,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         max_packet_size: u16,
         use_bulk: bool,
         write_timeout: Duration,
-        user_protocol: FullVersion<'static>,
+        user_protocol: &FullVersion<'_>,
     ) -> Self {
         defmt::debug_assert!(builder.control_buf_len() >= 7);
 
@@ -238,25 +243,29 @@ impl<'d, D: Driver<'d>> Receiver<'d, D> {
     }
 }
 
-impl<'d, D: Driver<'d>> PacketSink for Sender<'d, D> {
+impl<'d, D: Driver<'d>> ww_device::PacketSink for Sender<'d, D> {
     type Error = EndpointError;
 
-    async fn write_packet(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        defmt::trace!("usb sending packet {}: {:02x}", data.len(), data);
-        Sender::write_packet(self, data).await
+    async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error> {
+        defmt::trace!("usb sending packet {}: {:02x}", packet.len(), packet);
+        Sender::write_packet(self, packet).await
     }
 }
 
-impl<'d, D: Driver<'d>> PacketSource for Receiver<'d, D> {
+impl<'d, D: Driver<'d>> ww_device::PacketSource for Receiver<'d, D> {
     type Error = EndpointError;
 
-    async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
-        let len = self.read_ep.read(data).await?;
-        defmt::trace!("usb received packet {}: {:02x}", len, &data[..len]);
+    fn max_packet_len(&self) -> usize {
+        self.max_packet_size() as usize
+    }
+
+    async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        let len = self.read_ep.read(buf).await?;
+        defmt::trace!("usb received packet {}: {:02x}", len, &buf[..len]);
         Ok(len)
     }
 
-    async fn wait_usb_connection(&mut self) {
+    async fn wait_connected(&mut self) {
         self.read_ep.wait_enabled().await;
     }
 }

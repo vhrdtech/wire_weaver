@@ -22,7 +22,7 @@ patch-the-discriminant-later builder pattern), `docs/api/overview.md` (methods/s
 ## Commands
 
 ```sh
-just check          # cargo check for repo-root workspace + wire_weaver_usb_link with device/host/defmt features
+just check          # cargo check for repo-root workspace (+ ww_device with defmt/embassy-time), mcu/ and examples_mcu/
 just check-mcu       # cargo check the separate `mcu/` workspace (embassy-based, embedded)
 just check-examples-mcu   # cargo check every board in examples_mcu/ (excluded from root workspace)
 just test            # cargo nextest run --workspace --no-fail-fast
@@ -36,7 +36,7 @@ slow-test timeout). To inspect the code a macro invocation actually generates, u
 `debug_to_file = "../../target/some_name.rs"` to the `ww_codegen!`/`ww_impl!` call and check that file — this is the
 normal way to debug codegen, don't try to reason about macro output blind.
 
-`mcu/`, `examples_mcu/*`, `wire_weaver_tool`, and `tests/usb_link` are **excluded** from the root Cargo workspace
+`mcu/`, `examples_mcu/*`, and `wire_weaver_tool` are **excluded** from the root Cargo workspace
 (different targets/toolchains — embedded, egui GUI) and must be built from their own directory or via the `just`
 recipes above.
 
@@ -65,9 +65,10 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **`wire_weaver_client/`** — generated `std` client runtime: event loop, `Commander`, USB/RTT/tracing client glue,
   used by code the `client = "..."` codegen argument produces. No-std client generation doesn't exist yet.
 - **Transport crates** — `ww_link` (link-layer abstraction), `ww_framer` (packs many small messages into one
-  packet, or splits a big message across several — used by both USB and UDP transports), `wire_weaver_usb_link`
-  (USB packet framing, `device`/`host`/`defmt` features), `wire_weaver_udp_link`, `mcu/wire_weaver_usb_embassy`
-  (embassy-based USB driver + event loop for the device side, lives in the separate `mcu` workspace),
+  packet, or splits a big message across several — used by both USB and UDP transports), `ww_device` (device side:
+  sans-IO `DeviceLink` + async `Server` with `wait()`/`handle()` for a user-owned event loop + `blocking::Server`),
+  `wire_weaver_udp_link`, `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
+  lives in the separate `mcu` workspace),
   `wire_weaver_net_host` (host-side networking).
 - **`wire_weaver_cli/`** (binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
   introspection and USB loopback subcommands (`src/cmd/`).
@@ -84,9 +85,9 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **`tests/`** — one integration-test crate per API feature (`methods`, `properties`, `streams`,
   `array_of_streams`, `traits`), each with a `<name>_api` companion crate defining the trait/types under test —
   this is the best place to see minimal working examples of a specific macro argument or feature combination.
-  `tests/usb_link` is excluded from the root workspace (its own toolchain needs).
-- **`fuzz/`** — fuzzes `ww_framer` tx/rx round-tripping (`cargo fuzz run framer-tx-rx`); `wire_weaver_usb_link` has
-  its own nested `fuzz/` too.
+  The device side is tested end-to-end against the real host event loop in
+  `wire_weaver_client/src/event_loop/device_e2e_tests.rs` (in-memory packets, real framers on both ends).
+- **`fuzz/`** — fuzzes `ww_framer` tx/rx round-tripping (`cargo fuzz run framer-tx-rx`).
 
 ## The core pattern to recognize
 

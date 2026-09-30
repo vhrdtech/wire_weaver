@@ -31,6 +31,25 @@ pub type UsbTail = NopTail;
 // pub type UsbTx<'i> = ww_framer::Tx<'i, UsbHead, UsbChecksum, UsbTail>;
 // pub type UsbRx<'i> = ww_framer::FramedRx<'i, UsbHead, UsbChecksum, UsbTail>;
 
+/// Version of this crate, sent in [DeviceInfo::dev_link_version].
+pub const LINK_VERSION: CompactVersion = CompactVersion::new(
+    ww_global::WIRE_WEAVER_USB_LINK,
+    parse_u32(env!("CARGO_PKG_VERSION_MAJOR")),
+    parse_u32(env!("CARGO_PKG_VERSION_MINOR")),
+    parse_u32(env!("CARGO_PKG_VERSION_PATCH")),
+);
+
+const fn parse_u32(s: &str) -> u32 {
+    let b = s.as_bytes();
+    let mut i = 0;
+    let mut n = 0u32;
+    while i < b.len() {
+        n = n * 10 + (b[i] - b'0') as u32;
+        i += 1;
+    }
+    n
+}
+
 /// How often to send [Kind::Ping] when there is no other traffic.
 pub const PING_INTERVAL_MS: u64 = 3000;
 /// Peer is considered gone if nothing at all was received for this long.

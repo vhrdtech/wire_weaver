@@ -1,8 +1,0 @@
-[package]
-name = "usb_link"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-wire_weaver_usb_link = { path = "../../wire_weaver_usb_link", features = ["std", "host", "device"] }
-ww_version = { path = "../../ww_stdlib/ww_version" }

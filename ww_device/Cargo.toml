@@ -1,0 +1,27 @@
+[package]
+name = "ww_device"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver device side: sans-IO link state machine and event loop building blocks, no_std and no alloc"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = []
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_link/defmt"]
+# Clock implementation using embassy-time
+embassy-time = ["dep:embassy-time"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+embassy-futures = "0.1"
+embassy-time = { version = "0.5", optional = true }
+wire_weaver.workspace = true
+ww_client_server.workspace = true
+ww_framer.workspace = true
+ww_link = { path = "../ww_link" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+ww_version.workspace = true

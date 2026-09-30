@@ -1,6 +1,6 @@
 [package]
 name = "wire_weaver_usb_embassy"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver USB device class using embassy"
@@ -11,7 +11,6 @@ repository = "https://github.com/vhrdtech/wire_weaver"
 embassy-usb = { version = "0.6", features = ["defmt"] }
 embassy-futures = "0.1"
 embassy-time = "0.5"
-embassy-sync = "0.8"
 defmt = "1.0"
 wire_weaver = { workspace = true, default-features = false }
-wire_weaver_usb_link = { workspace = true, features = ["device", "defmt"] }
+ww_device = { workspace = true, features = ["defmt", "embassy-time"] }

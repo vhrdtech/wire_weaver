@@ -74,6 +74,13 @@ where
         }
     }
 
+    /// Drop the current frame and a partially written message (if any),
+    /// e.g., after the medium was disconnected.
+    pub fn reset(&mut self) {
+        self.wr.reset();
+        self.state = State::Gap;
+    }
+
     /// Whether the current frame has no bytes written into it yet.
     pub fn is_empty(&self) -> bool {
         self.wr.pos().0 == 0

@@ -11,7 +11,7 @@ deliberately leaves open:
 
 It is `no_std`, allocation-free and does **no IO of its own**: it only defines messages and how they are encoded.
 Driving the framer, timers and the actual medium is left to the event loop on each side
-(`wire_weaver_client` on the host, TBD on the device).
+(`wire_weaver_client` on the host, [`ww_device`](#how-the-device-runs-it) on the device).
 
 !!! note
 
@@ -215,8 +215,67 @@ device just means the tx task is parked in a write, so the command channel fills
   No `select!` at all.
 - **Framing is the wrapper's choice.** Cores speak `(kind, payload)`; USB uses `U2Head` + CRC-16, another medium
   can pick differently or skip framing if it already delivers whole messages.
-- **Mirrors the device side.** Embedded implementations already run separate rx/tx tasks, so porting the device
-  onto `ww_link` follows the same shape.
+- **Same shape as the device side.** The device uses the same sans-IO core + message transport + thin wrapper
+  layering, see below.
+
+## How the device runs it
+
+The device side lives in `ww_device` (`no_std`, no alloc) and follows the same layering as the host, but keeps the
+event loop in **user code**, so that any other async source (UART data, sensors, timers) can be awaited right
+next to the link:
+
+| Host (`wire_weaver_client`)                           | Device (`ww_device`)                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| `TxCore` / `RxCore` sans-IO state machines            | `DeviceLink` sans-IO state machine                                 |
+| `MessageTx` / `MessageRx` + nusb + framer             | `MessageTx` / `MessageRx`, `FramedTx` / `FramedRx` over packets    |
+| `worker` with `tokio::select!`, two tasks             | user loop with `Server::wait()` / `Server::handle()`, or `run()`   |
+| —                                                     | `blocking::Server` for devices without async                       |
+
+**`DeviceLink`** answers `GetDeviceInfo` (Nop first, flushed alone), checks the host version on `LinkSetup` and
+replies `LinkReady` or `Disconnect(IncompatibleVersion)`, runs the frame accumulation window and pings, and
+declares the host gone after the peer timeout. `GetDeviceInfo` while the link is up means the host application
+restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as
+a few flags (no queue, no allocations) and handed out by `poll_transmit()`; link state changes come out of
+`poll_event()` as `LinkEvent::Up` / `Down(reason)`.
+
+**`Server`** (async) splits each step in two:
+
+- `wait()` is cancel-safe and only waits — for a received message, the core's next deadline, or the medium coming
+  up. A received message stays in the framer's buffer, so the returned value borrows nothing.
+- `handle(ready, &mut backend)` runs to completion: link setup, `process_bytes()` on the backend, writing replies,
+  pings and flushes.
+
+```rust
+loop {
+    match select3(server.wait(), uart_rx.wait_read(), ticker.next()).await {
+        Either3::First(ready) => {
+            if let Some(event) = server.handle(ready, &mut state).await {
+                // LinkEvent::Up / Down, e.g., to drive an LED
+            }
+        }
+        Either3::Second(chunk) => {
+            let (mut sink, scratch) = server.sink();
+            // serialize a stream update into scratch, then sink.send_message(bytes).await
+        }
+        Either3::Third(_) => { /* periodic updates through server.sink() */ }
+    }
+}
+```
+
+`server.run(&mut backend)` is that loop with nothing else in it. Writes are awaited inline: that is safe since
+the host reads independently of writing (see [Why two halves](#why-two-halves)), and avoids mutexes. Backend
+handlers should not block for long though, as nothing is received meanwhile — use deferred replies instead.
+
+If the backend fails to process a request entirely (it could not even serialize an error), a generic error
+event (`ResponseSerFailed`, `err_seq = u32::MAX`) is sent back, so that the host does not wait for a timeout.
+
+**`blocking::Server`** is the same for devices without an async runtime: received packets are pushed in with
+`on_packet()` (e.g., from a USB interrupt), time is advanced with `poll(now)`, frames go out through a blocking
+`PacketSink`. Backends generated with `use_async = false` implement `WireWeaverApiBackend`.
+
+Time is a plain `ww_device::Instant` (µs) provided by the caller; the async server takes a small `Clock` trait
+(`EmbassyClock` with the `embassy-time` feature). `wire_weaver_usb_embassy` only adds the USB class, packet IO
+for the endpoints and `usb_init()`, which returns the `UsbDevice` to run and the `Server`.
 
 ## Features
 
@@ -235,5 +294,6 @@ the head; actual limits are negotiated via `dev_max_message_len` / `host_max_mes
 - `wire_weaver_client` — host event loop: two sans-IO state machines (tx: commands, setup retries, accumulation,
   ping, seq allocation; rx: decoding, version check, dispatcher, peer timeout) run as independent tasks so that
   receiving is never blocked by a write.
-- `wire_weaver_usb_link` — current device-side implementation; being migrated onto `ww_framer` + `ww_link`.
+- `ww_device` — device side: sans-IO `DeviceLink`, async and blocking servers, see [above](#how-the-device-runs-it).
+- `wire_weaver_usb_embassy` — USB class and packet IO for embassy-usb on top of `ww_device`.
 - [USB](usb.md), [WebSocket](ws.md), [UDP](udp.md) — transports that carry frames.

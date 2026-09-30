@@ -8,8 +8,9 @@ Arbitrary user data [types](../types.md) are supported as well, backed
 by [ShrinkWrap](https://crates.io/crates/shrink_wrap).
 
 Generated server code is completely IO-free (sans-IO), all communication with the USB or network is handled separately.
-For example USB driver and event loop is located in a
-[wire_weaver_usb_embassy](https://crates.io/crates/wire_weaver_usb_embassy) crate.
+On the device side, `ww_device` provides the link logic and event loop building blocks (the loop itself stays
+in user code, see [link layer](../transport/ww_link.md#how-the-device-runs-it)), and
+[wire_weaver_usb_embassy](https://crates.io/crates/wire_weaver_usb_embassy) adds USB on top of it.
 Generated std client code uses `tokio` and it's channels under the hood. Asynchronous, blocking and promise flavors are
 supported.
 Client generation for no_std is not yet implemented, but planned.

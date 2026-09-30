@@ -29,7 +29,7 @@ pub struct ConnectionInfo {
 
 #[derive(Clone, Debug)]
 pub struct DeviceApiInfo {
-    /// Link carries API model messages (e.g., wire_weaver_usb_link).
+    /// Link carries API model messages (e.g., ww_link).
     pub link_version: FullVersionOwned,
     /// Maximum message size supported by the device.
     pub max_message_size: usize,

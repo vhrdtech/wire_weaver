@@ -119,6 +119,14 @@ where
         }
     }
 
+    /// Drop everything staged and any partially assembled or ready message,
+    /// e.g., after the medium was disconnected.
+    pub fn reset(&mut self) {
+        self.staging_pos = 0;
+        self.staging_end = 0;
+        self.state = State::Gap;
+    }
+
     /// Returns the number of bytes that can be staged
     pub fn free(&self) -> usize {
         self.assembly_buf.len() - self.staging_end
@@ -137,6 +145,25 @@ where
         }
         self.assembly_buf[self.staging_end..self.staging_end + frame.len()].copy_from_slice(frame);
         self.staging_end += frame.len();
+        Ok(())
+    }
+
+    /// Free part of the assembly buffer, to receive a frame into directly instead of copying it
+    /// with [Self::stage]. Then call [Self::commit_staged] with the received length.
+    ///
+    /// Nothing is staged until committed, so dropping a half-done read (e.g., a cancelled future) is fine.
+    pub fn staging_buf(&mut self) -> &mut [u8] {
+        &mut self.assembly_buf[self.staging_end..]
+    }
+
+    /// Stage `len` bytes previously written into [Self::staging_buf].
+    ///
+    /// Returns Err(()) if `len` is more than was available.
+    pub fn commit_staged(&mut self, len: usize) -> Result<(), ()> {
+        if len > self.free() {
+            return Err(());
+        }
+        self.staging_end += len;
         Ok(())
     }
 
@@ -707,6 +734,25 @@ mod tests {
             rx.reassemble();
             assert_eq!(rx.message(), Some((0, &[][..])));
         }
+        rx.reassemble();
+        assert_eq!(rx.message(), Some((0, &[1, 2, 3, 4][..])));
+        rx.reassemble();
+        assert_eq!(rx.message(), None);
+        assert_eq!(rx.free(), 8);
+    }
+
+    #[test]
+    fn stage_in_place() {
+        let mut buf = [0u8; 8];
+        let mut rx = TestRx::new(&mut buf);
+        let staging = rx.staging_buf();
+        assert_eq!(staging.len(), 8);
+        staging[..5].copy_from_slice(&[FULL_4, 1, 2, 3, 4]);
+        assert_eq!(rx.commit_staged(9), Err(()));
+        rx.commit_staged(5).unwrap();
+        assert_eq!(rx.free(), 3);
+        // uncommitted bytes are not seen
+        rx.staging_buf()[0] = FULL_0;
         rx.reassemble();
         assert_eq!(rx.message(), Some((0, &[1, 2, 3, 4][..])));
         rx.reassemble();

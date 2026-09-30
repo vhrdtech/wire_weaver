@@ -882,12 +882,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "heck"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1367,22 +1361,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrink_wrap_core"
-version = "0.2.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "sha2",
- "syn 3.0.3",
-]
-
-[[package]]
 name = "shrink_wrap_derive"
 version = "0.1.1"
 dependencies = [
  "proc-macro2",
  "quote",
- "shrink_wrap_core",
  "syn 3.0.3",
 ]
 
@@ -1448,18 +1431,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "strum_macros"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
 
 [[package]]
 name = "subprocess"
@@ -1710,6 +1681,7 @@ dependencies = [
  "defmt 1.1.1",
  "defmt-rtt",
  "embassy-executor",
+ "embassy-futures",
  "embassy-stm32",
  "embassy-sync",
  "embassy-time",
@@ -1720,7 +1692,6 @@ dependencies = [
  "uart_api",
  "wire_weaver",
  "wire_weaver_usb_embassy",
- "wire_weaver_usb_link",
  "ww_client_server",
  "ww_gpio",
  "ww_si",
@@ -1869,7 +1840,6 @@ dependencies = [
  "semver 1.0.28",
  "sha2",
  "shrink_wrap",
- "shrink_wrap_core",
  "syn 3.0.3",
  "ww_numeric",
  "ww_self",
@@ -1893,27 +1863,14 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_usb_embassy"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "embassy-futures",
- "embassy-sync",
  "embassy-time",
  "embassy-usb",
  "wire_weaver",
- "wire_weaver_usb_link",
-]
-
-[[package]]
-name = "wire_weaver_usb_link"
-version = "0.1.0"
-dependencies = [
- "crc",
- "defmt 1.1.1",
- "shrink_wrap",
- "strum_macros",
- "wire_weaver",
- "ww_global",
+ "ww_device",
 ]
 
 [[package]]
@@ -1922,6 +1879,27 @@ version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
+]
+
+[[package]]
+name = "ww_device"
+version = "0.4.0"
+dependencies = [
+ "defmt 1.1.1",
+ "embassy-futures",
+ "embassy-time",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_framer",
+ "ww_link",
+]
+
+[[package]]
+name = "ww_framer"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -1941,6 +1919,18 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "ww_link"
+version = "0.4.0"
+dependencies = [
+ "defmt 1.1.1",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_framer",
+ "ww_global",
+ "ww_version",
 ]
 
 [[package]]

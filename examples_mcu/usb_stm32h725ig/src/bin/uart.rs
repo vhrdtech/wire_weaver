@@ -23,13 +23,14 @@ use embassy_stm32::{
     usb,
     usb::Driver,
 };
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Sender;
+use embassy_futures::select::{Either3, select3};
 use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{UsbBuffers, UsbServer, UsbTimings, usb_init};
+use wire_weaver_usb_embassy::{
+    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
+};
 use ww_client_server::StreamSideband;
 use ww_si::Volt;
 use ww_uart::{BaudRate, Capabilities, Mode, Parity, RxChunk, StopBits};
@@ -44,21 +45,80 @@ bind_interrupts!(struct Irqs {
     DMA1_STREAM3 => dma::InterruptHandler<peripherals::DMA1_CH3>;
 });
 
-const MAX_USB_PACKET_LEN: usize = 512; // 64 for FullSpeed, 512 (Bulk) 1024 (Irq) for HighSpeed
+const MAX_USB_PACKET_LEN: usize = 512; // 64 for FullSpeed, 512 (Bulk) or 1024 (Interrupt) for HighSpeed
 const EP_OUT_BUF_LEN: usize = MAX_USB_PACKET_LEN * wire_weaver_usb_embassy::ENDPOINTS_USED;
 const MAX_MESSAGE_LEN: usize = 4096; // Maximum WireWeaver message length
 static USB_BUFFERS: StaticCell<UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>> = StaticCell::new();
 
+type UsbDriver = Driver<'static, USB_OTG_HS>;
+
 #[embassy_executor::task]
-async fn usb_server_task(
-    mut usb_server: UsbServer<'static, Driver<'static, USB_OTG_HS>, ServerState>,
+async fn usb_task(mut usb: UsbDevice<'static, UsbDriver>) {
+    usb.run().await;
+}
+
+/// WireWeaver event loop: requests from the host and UART data to stream back, all in one place.
+#[embassy_executor::task]
+async fn ww_server_task(
+    mut server: UsbServer<'static, UsbDriver>,
+    mut state: ServerState,
+    rx_consumer: [RxConsumer; 2],
 ) {
-    usb_server.run().await;
+    loop {
+        match select3(
+            server.wait(),
+            rx_consumer[0].wait_read(),
+            rx_consumer[1].wait_read(),
+        )
+        .await
+        {
+            Either3::First(ready) => {
+                if let Some(event) = server.handle(ready, &mut state).await {
+                    info!("link: {}", event);
+                }
+            }
+            Either3::Second(rg) => {
+                send_received_bytes(&mut server, 0, &rg).await;
+                rg.release();
+            }
+            Either3::Third(rg) => {
+                send_received_bytes(&mut server, 1, &rg).await;
+                rg.release();
+            }
+        }
+    }
+}
+
+async fn send_received_bytes(
+    server: &mut UsbServer<'static, UsbDriver>,
+    index: u32,
+    bytes: &[u8],
+) {
+    let (mut sink, scratch) = server.sink();
+    if !sink.is_up() {
+        // nobody to send to, drop
+        return;
+    }
+    let stream_data_event = server_impl::stream_data_ser().uart(index).rx(
+        &RxChunk {
+            flags: None,
+            timestamp: None,
+            bytes: RefVec::new_bytes(bytes),
+        },
+        scratch,
+    );
+    match stream_data_event {
+        Ok(event) => {
+            if let Err(e) = sink.send_message(event).await {
+                error!("send_received_bytes error: {:?}", e);
+            }
+        }
+        Err(e) => error!("stream event serialization error: {:?}", e),
+    }
 }
 
 struct ServerState {
     tx_producer: [TxProducer; 2],
-    rx_consumer: [RxConsumer; 2],
     // uart_baud_rate: [BaudRate; 2],
     // uart_mode: [Mode; 2],
     // uart_stop_bits: [StopBits; 2],
@@ -89,17 +149,6 @@ impl WireWeaverAsyncApiBackend for ServerState {
             .await
     }
 
-    async fn send_updates(
-        &mut self,
-        sink: &mut impl MessageSink,
-        scratch: &mut [u8],
-    ) {
-        self.send_received_bytes(0, scratch, sink)
-            .await;
-        self.send_received_bytes(1, scratch, sink)
-            .await;
-    }
-
     fn version(&self) -> FullVersion<'_> {
         uart_api::UART_BRIDGE_FULL_GID
     }
@@ -117,31 +166,6 @@ impl ServerState {
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
         None
-    }
-
-    async fn send_received_bytes(
-        &mut self,
-        index: usize,
-        scratch: &mut [u8],
-        sink: &mut impl MessageSink,
-    ) {
-        if let Ok(rg) = self.rx_consumer[index].read() {
-            let stream_data_event = server_impl::stream_data_ser().uart(index as u32).rx(
-                &RxChunk {
-                    flags: None,
-                    timestamp: None,
-                    bytes: RefVec::new_bytes(&rg),
-                },
-                scratch,
-            );
-            rg.release();
-            if let Ok(stream_data_event) = stream_data_event {
-                let r = sink.send(stream_data_event).await;
-                if r.is_err() {
-                    error!("send_received_bytes error: {:?}", r);
-                }
-            }
-        }
     }
 
     async fn sideband_uart_tx(
@@ -312,15 +336,14 @@ async fn uart_tx_task(tx_consumer: TxConsumer, mut tx: UartTx<'static, Async>) {
 async fn uart_rx_task(
     mut rx: UartRx<'static, Async>,
     rx_producer: RxProducer,
-    send_updates_tx: Sender<'static, CriticalSectionRawMutex, (), 1>,
 ) {
     loop {
         let mut wg = rx_producer.wait_grant((RX_BUF_SIZE / 2) as u16).await;
         let r = rx.read_until_idle(&mut wg).await;
         match r {
             Ok(len) => {
+                // wakes up ww_server_task
                 wg.commit(len as u16);
-                _ = send_updates_tx.send(());
             }
             Err(e) => {
                 wg.commit(0);
@@ -406,7 +429,6 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     let state = ServerState {
         tx_producer: [tx_bb_uart7.framed_producer(), tx_bb_uart8.framed_producer()],
-        rx_consumer: [rx_bb_uart7.framed_consumer(), rx_bb_uart8.framed_consumer()],
         // uart_baud_rate: [BaudRate::Baud115200; 2],
         // uart_mode: [Mode::Asynchronous; 2],
         // uart_stop_bits: [StopBits::Stop1; 2],
@@ -441,20 +463,27 @@ async fn main(spawner: embassy_executor::Spawner) {
     );
 
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
-    let (usb_server, send_updates_tx) = usb_init(
-        driver,
-        buffers,
-        state,
-        UsbTimings::hs_higher_speed(),
-        // UsbTimings::hs_lower_latency(),
+    let link_config = LinkConfig::new(
         uart_api::UART_BRIDGE_FULL_GID,
         server_impl::api_hash(),
         ww_client_server::COMPACT_VERSION,
+    );
+    let (usb, server) = usb_init(
+        driver,
+        buffers,
+        UsbTimings::hs_higher_speed(),
+        // UsbTimings::hs_lower_latency(),
+        link_config,
         |config| {
             config.serial_number = Some(embassy_stm32::uid::uid_hex());
         },
     );
-    spawner.spawn(unwrap!(usb_server_task(usb_server)));
+    spawner.spawn(unwrap!(usb_task(usb)));
+    spawner.spawn(unwrap!(ww_server_task(
+        server,
+        state,
+        [rx_bb_uart7.framed_consumer(), rx_bb_uart8.framed_consumer()],
+    )));
 
     spawner.spawn(unwrap!(uart_tx_task(
         tx_bb_uart7.framed_consumer(),
@@ -463,7 +492,6 @@ async fn main(spawner: embassy_executor::Spawner) {
     spawner.spawn(unwrap!(uart_rx_task(
         uart7_rx,
         rx_bb_uart7.framed_producer(),
-        send_updates_tx.clone(),
     )));
     spawner.spawn(unwrap!(uart_tx_task(
         tx_bb_uart8.framed_consumer(),
@@ -472,7 +500,6 @@ async fn main(spawner: embassy_executor::Spawner) {
     spawner.spawn(unwrap!(uart_rx_task(
         uart8_rx,
         rx_bb_uart8.framed_producer(),
-        send_updates_tx.clone(),
     )));
 
     info!("init done");

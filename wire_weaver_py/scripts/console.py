@@ -16,7 +16,7 @@ p = argparse.ArgumentParser(prog="just py", description=__doc__, formatter_class
 p.add_argument("--serial", help="USB serial number")
 p.add_argument("--label", help="user label")
 p.add_argument("--vid-pid", help="USB VID:PID in hex, e.g. c0de:cafe")
-p.add_argument("--rtt", metavar="CHIP", help="connect over RTT, probe-rs chip name, e.g. STM32G0B1RETx (needs `just py-rtt`)")
+p.add_argument("--rtt", metavar="CHIP", help="connect over RTT, probe-rs chip name, e.g. STM32G0B1RETx")
 p.add_argument("--elf", help="firmware ELF with the RTT control block address (with --rtt)")
 p.add_argument("--api", metavar="PATH", help="API crate source, for devices without introspection (also works offline)")
 p.add_argument("--trait", help="API trait name, if the crate has several (with --api)")

@@ -70,7 +70,7 @@ imported and the device connected as `dev`, if exactly one is found or a filter 
 just py                                  # the only connected USB device
 just py --serial 0123 --timeout 5        # pick one
 just py --api examples/blinky_api        # API from source: device without introspection, or offline browsing
-just py-rtt --rtt STM32G0B1RETx --elf fw.elf   # over RTT (module built with the rtt feature)
+just py --rtt STM32G0B1RETx --elf fw.elf      # over RTT (debug probe)
 just py --help
 ```
 
@@ -82,7 +82,8 @@ uvx maturin build --release        # wheel in target/wheels/
 uvx maturin develop                # install into the active venv
 ```
 
-RTT support needs the `rtt` feature: `uvx maturin build --release --features rtt`.
+RTT support (probe-rs) is the default `rtt` feature, pure Rust, so the wheel needs no system libraries. Leave it out
+with `--no-default-features` for a smaller wheel.
 
 ## Not supported yet
 

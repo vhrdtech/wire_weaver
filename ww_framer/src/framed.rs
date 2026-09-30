@@ -28,12 +28,13 @@ pub struct U2Head {}
 
 impl Head for U2Head {
     type UserKind = u8;
+    // extended user kind (12 bits) + the longest enabled length form
     #[cfg(all(not(feature = "large"), not(feature = "very_large")))]
-    const MIN_FRAME_SIZE: usize = 4;
+    const MAX_HEAD_SIZE: usize = 3;
     #[cfg(all(feature = "large", not(feature = "very_large")))]
-    const MIN_FRAME_SIZE: usize = 5;
+    const MAX_HEAD_SIZE: usize = 4;
     #[cfg(all(feature = "large", feature = "very_large"))]
-    const MIN_FRAME_SIZE: usize = 6;
+    const MAX_HEAD_SIZE: usize = 5;
 
     fn write(
         kind: MessageKind,
@@ -146,6 +147,38 @@ mod tests {
         let len = tx.flush();
         // End carries remaining length (1), which now fits the smallest 3-bit form
         assert_eq!(&tx.buf()[..len], &[END_1, 0xFF]);
+    }
+
+    #[test]
+    fn write_full_never_splits() {
+        let mut buf = [0u8; 6];
+        let mut tx = Tx::<U2Head, NopChecksum, NopTail>::new(&mut buf);
+
+        // fits: 1 byte head + 4 bytes
+        assert_eq!(tx.write_full(0, &[1, 2, 3, 4]), Ok(true));
+        // 1 byte left, an empty message still fits
+        assert_eq!(tx.write_full(0, &[]), Ok(true));
+        // frame is full, nothing fits: flush first
+        assert_eq!(tx.write_full(0, &[5]), Ok(false));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[FULL_4, 1, 2, 3, 4, FULL_0]);
+        assert_eq!(tx.write_full(0, &[5]), Ok(true));
+
+        // does not fit into what is left, but would into an empty frame
+        assert_eq!(tx.write_full(0, &[1, 2, 3, 4, 5]), Ok(false));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[FULL_1, 5]);
+        assert_eq!(tx.write_full(0, &[1, 2, 3, 4, 5]), Ok(true));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &[0b0000_0101, 1, 2, 3, 4, 5]);
+
+        // can never fit into a 6 byte frame
+        assert_eq!(tx.write_full(0, &[1, 2, 3, 4, 5, 6]), Err(()));
+        assert_eq!(tx.flush(), 0);
+        // and the framer is still usable
+        assert_eq!(tx.write_full(255, &[]), Ok(true));
+        let len = tx.flush();
+        assert_eq!(&tx.buf()[..len], &FULL_0_UK255);
     }
 
     #[test]

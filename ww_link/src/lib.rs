@@ -12,7 +12,7 @@
 use shrink_wrap::prelude::*;
 use ww_framer::crc::{Crc16IbmSdlc, CrcChecksum};
 use ww_framer::framed::U2Head;
-use ww_framer::traits::NopTail;
+use ww_framer::traits::{NopChecksum, NopTail};
 pub use ww_version::{ApiHashPair, CompactVersion, FullVersion};
 #[cfg(feature = "std")]
 pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
@@ -30,6 +30,15 @@ pub type UsbTail = NopTail;
 
 // pub type UsbTx<'i> = ww_framer::Tx<'i, UsbHead, UsbChecksum, UsbTail>;
 // pub type UsbRx<'i> = ww_framer::FramedRx<'i, UsbHead, UsbChecksum, UsbTail>;
+
+// Framer configuration for RTT (SEGGER Real-Time Transfer over a debug probe)
+/// RTT is a byte stream, so only `Full` messages are used (see `Tx::write_full` in [ww_framer]).
+pub type RttHead = U2Head;
+/// RTT channels are ring buffers in RAM read by the debug probe: nothing gets corrupted, and
+/// `NoBlockSkip` mode writes each chunk atomically, so nothing is lost mid-message either.
+pub type RttChecksum = NopChecksum;
+/// No delimiter, see [RttChecksum].
+pub type RttTail = NopTail;
 
 /// Version of this crate, sent in [DeviceInfo::dev_link_version].
 pub const LINK_VERSION: CompactVersion = CompactVersion::new(

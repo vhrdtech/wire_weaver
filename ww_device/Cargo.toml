@@ -14,12 +14,15 @@ defmt = ["dep:defmt", "wire_weaver/defmt", "ww_link/defmt"]
 log = ["dep:log"]
 # Clock implementation using embassy-time
 embassy-time = ["dep:embassy-time"]
+# RTT (SEGGER Real-Time Transfer) medium on top of rtt-target channels
+rtt = ["dep:rtt-target"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 embassy-futures = "0.1"
 embassy-time = { version = "0.5", optional = true }
 log = { version = "0.4", optional = true }
+rtt-target = { version = "0.6", optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true

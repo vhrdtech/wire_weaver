@@ -1,14 +1,67 @@
-// This example demonstrates how to use WireWeaver API over RTT simultaneously with defmt for logging
+//! WireWeaver API over RTT, next to defmt logging on another RTT channel: no USB needed, the
+//! debug probe is the transport. The same blinky API as `usb_blinky`, only the medium differs.
+//!
+//! Run with `just run rp2 ww_rtt`, then connect from the host with the `rtt` feature of
+//! `wire_weaver_client`, or `ww` CLI.
 #![no_std]
 #![no_main]
 
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_rp::gpio;
-use embassy_time::Timer;
-use gpio::{Level, Output};
+use embassy_rp::gpio::{Level, Output};
 use panic_probe as _;
 use rtt_target::{ChannelMode::NoBlockSkip, rtt_init};
+use static_cell::StaticCell;
+use wire_weaver::prelude::*;
+use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use ww_device::rtt::{RttBuffers, RttConfig, rtt_server};
+use ww_device::{EmbassyClock, LinkConfig};
+
+/// Maximum WireWeaver message length, RTT channels below must be able to hold a whole message
+/// plus its framing (see `ww_device::rtt`), and should be at least that size for `NoBlockSkip`.
+const MAX_MESSAGE_LEN: usize = 1024;
+static RTT_BUFFERS: StaticCell<RttBuffers<MAX_MESSAGE_LEN>> = StaticCell::new();
+
+struct ServerState {
+    led: Output<'static>,
+}
+
+impl WireWeaverAsyncApiBackend for ServerState {
+    async fn process_bytes<'a>(
+        &mut self,
+        msg_tx: &mut impl MessageSink,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], shrink_wrap::Error> {
+        self.process_request_bytes(data, scratch, msg_tx).await
+    }
+
+    fn version(&self) -> FullVersion<'_> {
+        blinky_api::BLINKY_API_FULL_GID
+    }
+}
+
+mod server_impl {
+    wire_weaver::ww_codegen!(
+        blinky_api :: BlinkyApi for super::ServerState,
+        server = true, no_alloc = true, use_async = true,
+        method_model = "_=immediate",
+        property_model = "_=get_set",
+        introspect = "with_docs",
+    );
+}
+
+impl ServerState {
+    async fn led_on(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+        self.led.set_high();
+        Ready(())
+    }
+
+    async fn led_off(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+        self.led.set_low();
+        Ready(())
+    }
+}
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -20,14 +73,14 @@ async fn main(_spawner: Spawner) {
                 name: "defmt"
             }
             1: {
-                size: 512,
+                size: 2048,
                 mode: NoBlockSkip,
                 name: "ww_up"
             }
         }
         down: {
             0: {
-                size: 512,
+                size: 2048,
                 mode: NoBlockSkip,
                 name: "ww_down"
             }
@@ -37,22 +90,23 @@ async fn main(_spawner: Spawner) {
     info!("WireWeaver over RTT on RP235x starting...");
 
     let p = embassy_rp::init(Default::default());
-    // let mut led = Output::new(p.PIN_25, Level::Low);
+    let led = Output::new(p.PIN_25, Level::Low);
+    let mut state = ServerState { led };
 
-    let mut ww_up = channels.up.1;
-    let mut ww_down = channels.down.0;
-    let mut buf = [0u8; 512];
-    loop {
-        let count = ww_down.read(&mut buf[..]);
-        if count > 0 {
-            for c in buf.iter_mut() {
-                c.make_ascii_uppercase();
-            }
-
-            let mut p = 0;
-            while p < count {
-                p += ww_up.write(&buf[p..count]);
-            }
-        }
-    }
+    let link_config = LinkConfig::new(
+        blinky_api::BLINKY_API_FULL_GID,
+        server_impl::api_hash(),
+        ww_client_server::COMPACT_VERSION,
+    );
+    let mut server = rtt_server(
+        link_config,
+        channels.up.1,
+        channels.down.0,
+        EmbassyClock,
+        RttConfig::default(),
+        RTT_BUFFERS.init(RttBuffers::new()),
+    );
+    info!("init done");
+    // Nothing else to wait for: use the prepared loop. See ww_device::Server for a custom one.
+    server.run(&mut state).await
 }

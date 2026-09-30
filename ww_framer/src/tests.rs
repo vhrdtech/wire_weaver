@@ -90,7 +90,7 @@ mod tx_edge_cases {
 
     impl<const FULL: usize, const CONT: usize> Head for TestHead<FULL, CONT> {
         type UserKind = u8;
-        const MIN_FRAME_SIZE: usize = 1;
+        const MAX_HEAD_SIZE: usize = if FULL > CONT { FULL } else { CONT };
 
         fn write(
             kind: MessageKind,

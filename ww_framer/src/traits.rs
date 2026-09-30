@@ -2,7 +2,11 @@ use shrink_wrap::{BufReader, BufWriter};
 
 pub trait Head {
     type UserKind;
-    const MIN_FRAME_SIZE: usize;
+    /// Longest serialized head in bytes (byte aligned), used to size buffers for stream media,
+    /// where every message must fit into a frame together with its head.
+    const MAX_HEAD_SIZE: usize;
+    /// Smallest frame that can carry anything: the longest head plus one payload byte.
+    const MIN_FRAME_SIZE: usize = Self::MAX_HEAD_SIZE + 1;
 
     /// Implementation details:
     /// - For [MessageKind::Full] and [MessageKind::Start], len is the total message length.

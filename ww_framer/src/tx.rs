@@ -193,6 +193,41 @@ where
         }
     }
 
+    /// Write a message only if it fits fully into the current frame, never splitting it.
+    ///
+    /// For stream media (UART, RTT, TCP), where frames are just chunks of bytes and their boundaries
+    /// are not preserved, so that Start / Continue / End messages cannot be used.
+    /// Ok(false) means the message does not fit into what is left of the current frame: call
+    /// [Self::flush], send out the frame and call again. Err(()) means the message does not fit
+    /// even into an empty frame and can never be sent.
+    ///
+    /// Must not be mixed with a partially written [Self::write].
+    pub fn write_full(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
+        debug_assert!(matches!(self.state, State::Gap));
+        let at_gap = self.wr.save_state();
+        let at_frame_start = self.wr.pos().0 == 0;
+        let no_fit = |wr: &mut BufWriter<'i>| {
+            wr.restore_state(at_gap);
+            if at_frame_start { Err(()) } else { Ok(false) }
+        };
+        match H::write(MessageKind::Full, user_kind, message.len(), &mut self.wr) {
+            Ok(_) => {}
+            Err(WrError::OutOfBounds) => return no_fit(&mut self.wr),
+            Err(WrError::TooBig) => {
+                self.wr.restore_state(at_gap);
+                return Err(());
+            }
+        }
+        self.wr.align_byte();
+        if self.wr.bytes_left() < message.len() + C::LEN_BYTES_FULL + T::LEN_BYTES {
+            return no_fit(&mut self.wr);
+        }
+        _ = self.wr.write_raw_slice(message);
+        _ = C::write(message, false, &mut self.wr);
+        _ = T::write(&mut self.wr);
+        Ok(true)
+    }
+
     /// Get next assembled frame size or 0 if called again without writing new messages.
     /// Frame bytes can be obtained via `&Self::buf()[..len]`.
     ///

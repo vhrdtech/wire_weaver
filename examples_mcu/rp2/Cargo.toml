@@ -34,15 +34,16 @@ panic-probe = { version = "1.0", features = ["print-defmt"] }
 static_cell = "2.1"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
-wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
+wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy", optional = true }
+ww_device = { path = "../../ww_device", features = ["defmt", "embassy-time"] }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 
 [features]
 default = ["defmt_rtt"]
 defmt_rtt = ["dep:defmt-rtt"]
-rtt_target = ["dep:rtt-target"]
-usb = ["dep:embassy-usb"]
+rtt_target = ["dep:rtt-target", "ww_device/rtt"]
+usb = ["dep:embassy-usb", "dep:wire_weaver_usb_embassy"]
 
 [[bin]]
 name = "rp2_blinky"

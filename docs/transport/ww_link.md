@@ -53,7 +53,8 @@ type UsbRx<'a> = ww_framer::FramedRx<'a, UsbHead, UsbChecksum, UsbTail>;
 ```
 
 This is what USB uses (`TxOwned`/`FramedRxOwned` variants with the `std` feature of `ww_framer`). A medium with its own integrity check might drop the checksum,
-a stream medium (UART) would add a tail for synchronization, and so on — the link messages stay the same.
+a stream medium would add a tail for synchronization, and so on — the link messages stay the same. [RTT](rtt.md)
+uses `RttHead` / `RttChecksum` / `RttTail`: the same head, no checksum and no tail, as its ring buffers cannot corrupt bytes.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.
 
@@ -227,7 +228,7 @@ next to the link:
 | Host (`wire_weaver_client`)                           | Device (`ww_device`)                                               |
 | ----------------------------------------------------- | ------------------------------------------------------------------ |
 | `TxCore` / `RxCore` sans-IO state machines            | `DeviceLink` sans-IO state machine                                 |
-| `MessageTx` / `MessageRx` + nusb + framer             | `MessageTx` / `MessageRx`, `FramedTx` / `FramedRx` over packets    |
+| `MessageTx` / `MessageRx` + nusb + framer             | `MessageTx` / `MessageRx`, `FramedTx` / `FramedRx` over packets, `StreamTx` / `StreamRx` over bytes |
 | `worker` with `tokio::select!`, two tasks             | user loop with `Server::wait()` / `Server::handle()`, or `run()`   |
 | —                                                     | `blocking::Server` for devices without async                       |
 

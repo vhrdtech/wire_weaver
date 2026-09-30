@@ -533,7 +533,8 @@ loop {
 
     A frame shorter than the maximum is fine, but the receiver must get exactly the bytes that were flushed,
     as one unit, because `Start`/`Continue` payloads are defined as "till the end of the frame". USB and CAN
-    guarantee this. For stream media (UART, TCP) the framer is not yet ready.
+    guarantee this. Stream media (RTT, UART, TCP) do not: use `write_full` there, which never splits a message,
+    so that only `Full` messages are on the wire and the receiver cuts them out by length, wherever a read ends.
 
 !!! note "Frames can also be short for another reason"
 
@@ -549,6 +550,7 @@ loop {
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `new(buf)`                                  | Wrap an assembly buffer. Its length **is** the maximum frame size (e.g. the DMA / endpoint size).                                                                                                                                          |
 | `write(user_kind, msg) -> Result<bool, ()>` | Append a message. `Ok(true)` — fully written. `Ok(false)` — frame is full, `flush()` and call again with the **same** message. `Err(())` — the message can never be sent (too large for the head encoding, or head alone fills the frame). |
+| `write_full(user_kind, msg) -> Result<bool, ()>` | Same, but never splits: `Ok(false)` if the message does not fit into what is left of the frame, `Err(())` if it does not fit into an empty one. For stream media, where frame boundaries are not preserved. |
 | `flush() -> usize`                          | Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written.                                                                                                                                               |
 | `buf() -> &[u8]`                            | The assembly buffer. Frame bytes are `&buf()[..len]` right after `flush()`.                                                                                                                                                                |
 
@@ -580,7 +582,7 @@ encoding without touching the packing/splitting logic:
 
 | Trait      | Purpose                                                                                                  | Provided implementations          |
 | ---------- | -------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MIN_FRAME_SIZE`                             | `framed::U2Head`                  |
+| `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MAX_HEAD_SIZE`                              | `framed::U2Head`                  |
 | `Checksum` | Optional fixed-length checksum after each message, separately configurable for `Full` and split messages | `NopChecksum`, `crc::CrcChecksum` |
 | `Tail`     | Optional fixed-length bytes after each message (e.g. an end marker for stream media)                     | `NopTail`, `ByteTail`             |
 

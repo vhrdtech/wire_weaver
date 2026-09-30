@@ -551,3 +551,167 @@ fn rx_buffer() {
     rx.assembly_buf(64).fill(0xAA);
     assert!(rx.assembly_buf(64).iter().all(|b| *b == 0xAA));
 }
+
+/// Stream transport over an in-memory byte pipe that hands out bytes in arbitrary small pieces,
+/// like an RTT down channel or UART would.
+mod stream {
+    extern crate std;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+    use std::vec;
+    use std::vec::Vec;
+
+    use core::cell::RefCell;
+
+    use ww_framer::traits::{ByteTail, NopChecksum};
+    use ww_link::{RttChecksum, RttHead, RttTail};
+
+    use crate::transport::{
+        MessageRx, MessageTx, StreamRx, StreamSink, StreamSource, StreamTx, stream_overhead,
+    };
+
+    #[derive(Clone, Default)]
+    struct Pipe {
+        bytes: Rc<RefCell<VecDeque<u8>>>,
+        /// Longest read served at once
+        read_chunk: usize,
+    }
+
+    impl StreamSink for Pipe {
+        type Error = ();
+        async fn write_all(&mut self, bytes: &[u8]) -> Result<(), ()> {
+            self.bytes.borrow_mut().extend(bytes);
+            Ok(())
+        }
+    }
+
+    impl StreamSource for Pipe {
+        type Error = ();
+        async fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+            let mut bytes = self.bytes.borrow_mut();
+            if bytes.is_empty() {
+                return Err(());
+            }
+            let n = buf.len().min(self.read_chunk).min(bytes.len());
+            for b in buf[..n].iter_mut() {
+                *b = bytes.pop_front().unwrap();
+            }
+            Ok(n)
+        }
+        async fn wait_connected(&mut self) {}
+    }
+
+    type Tx<'a> = StreamTx<'a, Pipe, RttHead, RttChecksum, RttTail>;
+    type Rx<'a> = StreamRx<'a, Pipe, RttHead, RttChecksum, RttTail>;
+    /// ww_link enables all length forms of U2Head, so the longest head is 5 bytes
+    const OVERHEAD: usize = stream_overhead::<RttHead, RttChecksum, RttTail>();
+
+    fn block<T>(f: impl Future<Output = T>) -> T {
+        embassy_futures::block_on(f)
+    }
+
+    fn drain(rx: &mut Rx<'_>) -> Vec<(u8, Vec<u8>)> {
+        let mut out = Vec::new();
+        while block(rx.wait_message()).is_ok() {
+            let (kind, bytes) = rx.message().unwrap();
+            out.push((kind, bytes.to_vec()));
+            rx.consume();
+        }
+        assert_eq!(rx.message(), None);
+        out
+    }
+
+    #[test]
+    fn overhead_and_max_message_len() {
+        assert_eq!(OVERHEAD, 5);
+        assert_eq!(stream_overhead::<RttHead, NopChecksum, ByteTail<0>>(), 6);
+        let mut buf = [0u8; 64 + OVERHEAD];
+        let rx = Rx::new(Pipe::default(), &mut buf);
+        assert_eq!(rx.max_message_len(), 64);
+    }
+
+    #[test]
+    fn messages_are_packed_and_cut_at_any_byte() {
+        let messages: [(u8, &[u8]); 4] = [
+            (0, &[1, 2, 3]),
+            (5, &[]),
+            (0, &(0..40).collect::<Vec<u8>>()),
+            (255, &[9, 8, 7, 6, 5]),
+        ];
+        for read_chunk in [1, 2, 3, 7, 64] {
+            let pipe = Pipe {
+                read_chunk,
+                ..Pipe::default()
+            };
+            let mut tx_buf = [0u8; 64];
+            let mut tx = Tx::new(pipe.clone(), &mut tx_buf);
+            for (kind, m) in messages {
+                block(tx.write_message(kind, m)).unwrap();
+            }
+            // nothing goes out until flushed or the chunk is full
+            assert!(pipe.bytes.borrow().is_empty());
+            block(tx.flush()).unwrap();
+
+            let mut rx_buf = [0u8; 43];
+            let mut rx = Rx::new(pipe.clone(), &mut rx_buf);
+            let got = drain(&mut rx);
+            assert_eq!(got.len(), messages.len(), "read_chunk = {read_chunk}");
+            for (g, e) in got.iter().zip(messages) {
+                assert_eq!((g.0, g.1.as_slice()), e, "read_chunk = {read_chunk}");
+            }
+        }
+    }
+
+    #[test]
+    fn chunk_full_sends_and_never_splits() {
+        let pipe = Pipe {
+            read_chunk: 64,
+            ..Pipe::default()
+        };
+        let mut tx_buf = [0u8; 16];
+        let mut tx = Tx::new(pipe.clone(), &mut tx_buf);
+        // 2 byte head (len > 7) + 10 bytes
+        block(tx.write_message(0, &[0xAA; 10])).unwrap();
+        assert!(pipe.bytes.borrow().is_empty());
+        // 2 + 10 more do not fit, the first chunk goes out as is
+        block(tx.write_message(0, &[0xBB; 10])).unwrap();
+        assert_eq!(pipe.bytes.borrow().len(), 12);
+        block(tx.flush()).unwrap();
+        assert_eq!(pipe.bytes.borrow().len(), 24);
+        // does not fit even into an empty chunk
+        assert_eq!(
+            block(tx.write_message(0, &[0xCC; 15])),
+            Err(crate::transport::FramedError::Framing)
+        );
+        assert_eq!(pipe.bytes.borrow().len(), 24);
+
+        let mut rx_buf = [0u8; 10 + OVERHEAD];
+        let mut rx = Rx::new(pipe, &mut rx_buf);
+        let got = drain(&mut rx);
+        assert_eq!(got, [(0, vec![0xAA; 10]), (0, vec![0xBB; 10])]);
+    }
+
+    #[test]
+    fn oversized_message_is_dropped() {
+        let pipe = Pipe {
+            read_chunk: 5,
+            ..Pipe::default()
+        };
+        let mut tx_buf = [0u8; 64];
+        let mut tx = Tx::new(pipe.clone(), &mut tx_buf);
+        block(tx.write_message(0, &[0xEE; 30])).unwrap();
+        block(tx.write_message(1, &[1, 2])).unwrap();
+        block(tx.flush()).unwrap();
+
+        // rx accepts up to 16 byte messages: the 30 byte one is skipped. There is no delimiter to
+        // re-synchronize on, so what follows is garbage until the stream goes quiet and is reset,
+        // i.e., a host must never send more than the device advertised.
+        let mut rx_buf = [0u8; 16 + OVERHEAD];
+        let mut rx = Rx::new(pipe.clone(), &mut rx_buf);
+        assert_eq!(drain(&mut rx), []);
+        rx.reset();
+        block(tx.write_message(2, &[3, 4])).unwrap();
+        block(tx.flush()).unwrap();
+        assert_eq!(drain(&mut rx), [(2, vec![3, 4])]);
+    }
+}

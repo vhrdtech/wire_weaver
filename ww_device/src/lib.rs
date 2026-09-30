@@ -6,12 +6,14 @@
 //!   accumulation window, pings, peer timeout. Fed messages and time, hands back messages to send.
 //! - [transport] — async [MessageTx](transport::MessageTx) / [MessageRx](transport::MessageRx)
 //!   traits, with [FramedTx](transport::FramedTx) / [FramedRx](transport::FramedRx) implementing them
-//!   over packets for frame based media (USB, CAN, ...).
+//!   over packets for frame based media (USB, CAN, ...) and [StreamTx](transport::StreamTx) /
+//!   [StreamRx](transport::StreamRx) over bytes for stream media (RTT, UART, ...).
+//! - [rtt] (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
 //! - [Server] — async glue: `wait()` (cancel-safe, `select` it with anything else) and `handle()`
 //!   (link logic + backend), plus a [Sink](server::Sink) to send stream updates from anywhere in the loop.
 //! - [blocking::Server] — the same for devices without async: packets are pushed in, time is polled.
 //!
-//! Medium specific crates (e.g., `wire_weaver_usb_embassy`) only provide packet IO and descriptors.
+//! Medium specific crates (e.g., `wire_weaver_usb_embassy`) only provide packet or byte IO and descriptors.
 #![no_std]
 
 mod fmt;
@@ -19,6 +21,8 @@ mod fmt;
 pub mod blocking;
 mod buffer;
 pub mod link;
+#[cfg(feature = "rtt")]
+pub mod rtt;
 pub mod server;
 mod time;
 pub mod transport;
@@ -34,7 +38,10 @@ pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, SendError};
 pub use server::EmbassyClock;
 pub use server::{Clock, Ready, Server, Sink};
 pub use time::Instant;
-pub use transport::{FramedRx, FramedTx, MessageRx, MessageTx, PacketSink, PacketSource};
+pub use transport::{
+    FramedRx, FramedTx, MessageRx, MessageTx, PacketSink, PacketSource, StreamRx, StreamSink,
+    StreamSource, StreamTx,
+};
 pub use ww_link::{self, DisconnectReason};
 
 /// `err_seq` used in [generic_error_reply], outside of the range used by generated code.

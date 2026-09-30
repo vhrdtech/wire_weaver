@@ -36,6 +36,13 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - Optional `serde` support.
 - `Display` and `std::error::Error` for `Error`, `Display` for `UNib32`.
 
+### 🐛 Fixes
+
+- `BufWriter::write_un8(8, ..)` and `BufReader::read_un8(8)` at a byte-aligned position panicked with shift overflow
+  in debug builds; in release, `write_un8` silently wrote `0` instead of the value.
+- Smaller flash footprint: `write_un8`/`write_un16` and `read_un8`/`read_un16` forward to the `u32` variants instead
+  of each carrying its own copy of the bit loop (~300 bytes less on Cortex-M with `opt-level = "s"`).
+
 ## [0.1.2] - 2026-01-07 #2
 
 ### 🐛 Bug Fixes 0.1.2

@@ -77,8 +77,25 @@ impl<'i> BufReader<'i> {
         Ok(self.read_nib()?.value())
     }
 
-    read_unx!(read_un8, u8, 8);
-    read_unx!(read_un16, u16, 16);
+    /// Read up to 8 bits (without alignment) into u8 number.
+    #[inline]
+    pub fn read_un8(&mut self, bit_count: u8) -> Result<u8, Error> {
+        if bit_count > 8 {
+            return Err(Error::InvalidBitCount);
+        }
+        // Forwarded to read_un32 to only have one copy of the bit loop in flash, u32 ops are native on 32-bit MCUs.
+        Ok(self.read_un32(bit_count)? as u8)
+    }
+
+    /// Read up to 16 bits (without alignment) into u16 number.
+    #[inline]
+    pub fn read_un16(&mut self, bit_count: u8) -> Result<u16, Error> {
+        if bit_count > 16 {
+            return Err(Error::InvalidBitCount);
+        }
+        Ok(self.read_un32(bit_count)? as u16)
+    }
+
     read_unx!(read_un32, u32, 32);
     read_unx!(read_un64, u64, 64);
 
@@ -542,6 +559,16 @@ mod tests {
         assert_eq!(rd.nibbles_left(), 1);
         let nib = rd.read_nib().unwrap();
         assert_eq!(nib.value(), 0xA);
+    }
+
+    #[test]
+    fn read_un_full_width_aligned() {
+        let buf = [0xAB, 0xCD, 0xEF];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(rd.read_un8(8), Ok(0xAB));
+        assert_eq!(rd.read_un16(16), Ok(0xCDEF));
+        assert_eq!(rd.read_un8(9), Err(Error::InvalidBitCount));
+        assert_eq!(rd.read_un16(17), Err(Error::InvalidBitCount));
     }
 
     #[test]

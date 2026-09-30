@@ -111,8 +111,25 @@ impl<'i> BufWriter<'i> {
         self.write_nib(Nibble::new_masked(val))
     }
 
-    write_unx!(write_un8, u8, 8);
-    write_unx!(write_un16, u16, 16);
+    /// Write up to 8 bits from u8 number without alignment.
+    #[inline]
+    pub fn write_un8(&mut self, bit_count: u8, value: u8) -> Result<(), Error> {
+        if bit_count > 8 {
+            return Err(Error::InvalidBitCount);
+        }
+        // Forwarded to write_un32 to only have one copy of the bit loop in flash, u32 ops are native on 32-bit MCUs.
+        self.write_un32(bit_count, value as u32)
+    }
+
+    /// Write up to 16 bits from u16 number without alignment.
+    #[inline]
+    pub fn write_un16(&mut self, bit_count: u8, value: u16) -> Result<(), Error> {
+        if bit_count > 16 {
+            return Err(Error::InvalidBitCount);
+        }
+        self.write_un32(bit_count, value as u32)
+    }
+
     write_unx!(write_un32, u32, 32);
     write_unx!(write_un64, u64, 64);
 
@@ -622,6 +639,17 @@ mod tests {
         wr.write_bool(true).unwrap();
         let buf = wr.finish().unwrap();
         assert_eq!(buf, &[0b1000_0000]);
+    }
+
+    #[test]
+    fn write_un_full_width_aligned() {
+        let mut buf = [0; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_un8(8, 0xAB).unwrap();
+        wr.write_un16(16, 0xCDEF).unwrap();
+        assert_eq!(wr.write_un8(9, 0), Err(Error::InvalidBitCount));
+        assert_eq!(wr.write_un16(17, 0), Err(Error::InvalidBitCount));
+        assert_eq!(wr.finish().unwrap(), &[0xAB, 0xCD, 0xEF]);
     }
 
     #[test]

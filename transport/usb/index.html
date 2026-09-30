@@ -2581,7 +2581,7 @@ descriptor (<code>2 + 2 * 126</code> bytes), <code>UsbBuffers</code> has 256 byt
 <p>On the host, <code>DeviceInfo</code> (used for filtering and in <code>AmbiguousDeviceChoice</code> errors) is filled from these strings,
 so <code>.user_label_eq(..)</code> and <code>.implements_api(..)</code> filters work without opening devices.
 <code>wire_weaver_client::list_usb_devices()</code> lists all devices reporting an API id, the same as <code>ww list</code>
-(install the CLI with <code>cargo install --git https://github.com/vhrdtech/wire_weaver ww</code>):</p>
+(install the CLI with <code>cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli</code>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww list
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>LOCATION             PRODUCT               SERIAL                    API               HASH              LABEL
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>usb 003-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@0.1.0  042c28cc0c9da99b  Nucleo on the desk

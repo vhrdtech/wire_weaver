@@ -137,6 +137,17 @@ throughout), don't hand-derive it — add a temporary `examples/scratch_*.rs` in
 delete the example. `derive.md`'s own examples follow this same "checked against the current macro implementation"
 rule.
 
+## Changelogs and commits
+
+Every user-visible change (features, fixes, breaking changes) gets an entry under `## Unreleased` in the
+`CHANGELOG.md` of each affected crate, written in the same change — don't leave it for later. Follow the existing
+format (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`), name the public items involved, and for breaking changes
+say what users must change. Create the file if a crate doesn't have one yet.
+
+Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(client): ...`): a short imperative
+summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for
+multi-crate changes.
+
 ## Naming convention
 
 `wire_weaver_` prefix = core crates implementing the framework itself. `ww_` prefix = crates built on top of

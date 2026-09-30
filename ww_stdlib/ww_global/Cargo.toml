@@ -1,6 +1,6 @@
 [package]
 name = "ww_global"
-version = "0.1.1"
+version = "0.2.0"
 authors.workspace = true
 description = "WireWeaver global type ID registry"
 edition.workspace = true

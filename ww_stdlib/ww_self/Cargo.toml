@@ -1,6 +1,6 @@
 [package]
 name = "ww_self"
-version = "0.1.1"
+version = "0.2.0"
 authors.workspace = true
 description = "WireWeaver AST describing API and data types, can also be serialized using ShrinkWrap for introspection"
 edition.workspace = true

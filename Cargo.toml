@@ -21,7 +21,7 @@ members = [
 exclude = ["examples_mcu", "wire_weaver_tool", "fuzz"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 edition = "2024"

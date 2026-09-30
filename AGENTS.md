@@ -144,6 +144,20 @@ Every user-visible change (features, fixes, breaking changes) gets an entry unde
 format (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`), name the public items involved, and for breaking changes
 say what users must change. Create the file if a crate doesn't have one yet.
 
+Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
+position, so don't try to decide whether a patch bump would do). Bump once per release cycle: if the crate's version
+is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain `cargo info` inside the repo shows the local version), it has been bumped and stays as is.
+Never-published crates are left alone. How to bump:
+
+- Crates with `version.workspace = true` (`wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`,
+  `wire_weaver_client`, `ww`, `ww_device`, `ww_link`, ...) share `[workspace.package] version` in the root
+  `Cargo.toml` — bump that one, never give them their own version.
+- Update the `version = "..."` next to `path = "..."` in every dependent that pins it (`grep -rn 'version = .*path ='
+  --include=Cargo.toml`), plus version strings in `docs/` (e.g. `docs/serdes/derive.md`) and `mcu/Cargo.lock` (run
+  `just check-mcu`).
+- For API crates (`ww_stdlib/*`, `*_api`), the version is part of the API's identity (see
+  `docs/api/folder_structure.md`), so the bump is exactly what tells old and new APIs apart — don't skip it.
+
 Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(client): ...`): a short imperative
 summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for
 multi-crate changes.

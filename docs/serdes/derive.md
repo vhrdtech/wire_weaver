@@ -16,7 +16,7 @@ implementation, so they compile and run as shown.
 
 ## Prerequisites
 
-All examples below assume that wire_weaver dependency is added in Cargo.toml: `wire_weaver = "0.4.0"`.
+All examples below assume that wire_weaver dependency is added in Cargo.toml: `wire_weaver = "0.5.0"`.
 
 ## Quick start
 

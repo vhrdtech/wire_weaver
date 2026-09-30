@@ -505,7 +505,7 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "compare-wire-formats"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "postcard",
  "rmp-serde",
@@ -870,7 +870,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1464,7 +1464,7 @@ version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82cb6a9f675da968c63b6208c641b9dca58fc0133ae53375736b1767b0cab8bd"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1678,7 +1678,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "minimal-shrink-wrap"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "wire_weaver",
 ]
@@ -1771,7 +1771,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2302,7 +2302,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2466,7 +2466,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "shrink_wrap"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "defmt",
  "either",
@@ -2479,7 +2479,7 @@ dependencies = [
 
 [[package]]
 name = "shrink_wrap_derive"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3402,7 +3402,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt",
  "shrink_wrap",
@@ -3413,7 +3413,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_client"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3444,7 +3444,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -3469,7 +3469,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_derive"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "convert_case",
  "darling",
@@ -3484,7 +3484,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_udp_link"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt",
  "strum_macros 0.28.0",
@@ -3494,7 +3494,7 @@ dependencies = [
 
 [[package]]
 name = "ww"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -3564,7 +3564,7 @@ dependencies = [
 
 [[package]]
 name = "ww_device"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt",
  "embassy-futures",
@@ -3603,7 +3603,7 @@ dependencies = [
 
 [[package]]
 name = "ww_global"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "convert_case",
  "defmt",
@@ -3651,7 +3651,7 @@ dependencies = [
 
 [[package]]
 name = "ww_link"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "defmt",
  "shrink_wrap",
@@ -3679,7 +3679,7 @@ dependencies = [
 
 [[package]]
 name = "ww_numeric"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "defmt",
  "serde",
@@ -3688,7 +3688,7 @@ dependencies = [
 
 [[package]]
 name = "ww_self"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -3740,7 +3740,7 @@ dependencies = [
 
 [[package]]
 name = "ww_version"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "defmt",
  "hex",

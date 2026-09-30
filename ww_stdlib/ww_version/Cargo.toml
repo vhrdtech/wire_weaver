@@ -1,6 +1,6 @@
 [package]
 name = "ww_version"
-version = "0.1.1"
+version = "0.2.0"
 authors.workspace = true
 description = "SemVer for no_std targets based on shrink_wrap wire format"
 edition.workspace = true

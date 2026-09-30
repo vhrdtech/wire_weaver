@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.63">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
@@ -36,12 +36,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ae390e2.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -1827,6 +1827,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-device-runs-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How the device runs it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2399,6 +2410,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-device-runs-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How the device runs it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2507,6 +2529,7 @@
               <article class="md-content__inner md-typeset">
                 
                   
+
   
   
 
@@ -2523,7 +2546,7 @@ deliberately leaves open:</p>
 </ul>
 <p>It is <code>no_std</code>, allocation-free and does <strong>no IO of its own</strong>: it only defines messages and how they are encoded.
 Driving the framer, timers and the actual medium is left to the event loop on each side
-(<code>wire_weaver_client</code> on the host, TBD on the device).</p>
+(<code>wire_weaver_client</code> on the host, <a href="#how-the-device-runs-it"><code>ww_device</code></a> on the device).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>As with the framer, you don't need this to <em>use</em> WireWeaver: connect with <code>wire_weaver_client</code> and things work.
@@ -2774,9 +2797,78 @@ device just means the tx task is parked in a write, so the command channel fills
   No <code>select!</code> at all.</li>
 <li><strong>Framing is the wrapper's choice.</strong> Cores speak <code>(kind, payload)</code>; USB uses <code>U2Head</code> + CRC-16, another medium
   can pick differently or skip framing if it already delivers whole messages.</li>
-<li><strong>Mirrors the device side.</strong> Embedded implementations already run separate rx/tx tasks, so porting the device
-  onto <code>ww_link</code> follows the same shape.</li>
+<li><strong>Same shape as the device side.</strong> The device uses the same sans-IO core + message transport + thin wrapper
+  layering, see below.</li>
 </ul>
+<h2 id="how-the-device-runs-it">How the device runs it<a class="headerlink" href="#how-the-device-runs-it" title="Permanent link">&para;</a></h2>
+<p>The device side lives in <code>ww_device</code> (<code>no_std</code>, no alloc) and follows the same layering as the host, but keeps the
+event loop in <strong>user code</strong>, so that any other async source (UART data, sensors, timers) can be awaited right
+next to the link:</p>
+<table>
+<thead>
+<tr>
+<th>Host (<code>wire_weaver_client</code>)</th>
+<th>Device (<code>ww_device</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TxCore</code> / <code>RxCore</code> sans-IO state machines</td>
+<td><code>DeviceLink</code> sans-IO state machine</td>
+</tr>
+<tr>
+<td><code>MessageTx</code> / <code>MessageRx</code> + nusb + framer</td>
+<td><code>MessageTx</code> / <code>MessageRx</code>, <code>FramedTx</code> / <code>FramedRx</code> over packets</td>
+</tr>
+<tr>
+<td><code>worker</code> with <code>tokio::select!</code>, two tasks</td>
+<td>user loop with <code>Server::wait()</code> / <code>Server::handle()</code>, or <code>run()</code></td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>blocking::Server</code> for devices without async</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>DeviceLink</code></strong> answers <code>GetDeviceInfo</code> (Nop first, flushed alone), checks the host version on <code>LinkSetup</code> and
+replies <code>LinkReady</code> or <code>Disconnect(IncompatibleVersion)</code>, runs the frame accumulation window and pings, and
+declares the host gone after the peer timeout. <code>GetDeviceInfo</code> while the link is up means the host application
+restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as
+a few flags (no queue, no allocations) and handed out by <code>poll_transmit()</code>; link state changes come out of
+<code>poll_event()</code> as <code>LinkEvent::Up</code> / <code>Down(reason)</code>.</p>
+<p><strong><code>Server</code></strong> (async) splits each step in two:</p>
+<ul>
+<li><code>wait()</code> is cancel-safe and only waits — for a received message, the core's next deadline, or the medium coming
+  up. A received message stays in the framer's buffer, so the returned value borrows nothing.</li>
+<li><code>handle(ready, &amp;mut backend)</code> runs to completion: link setup, <code>process_bytes()</code> on the backend, writing replies,
+  pings and flushes.</li>
+</ul>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">select3</span><span class="p">(</span><span class="n">server</span><span class="p">.</span><span class="n">wait</span><span class="p">(),</span><span class="w"> </span><span class="n">uart_rx</span><span class="p">.</span><span class="n">wait_read</span><span class="p">(),</span><span class="w"> </span><span class="n">ticker</span><span class="p">.</span><span class="n">next</span><span class="p">()).</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">        </span><span class="n">Either3</span><span class="p">::</span><span class="n">First</span><span class="p">(</span><span class="n">ready</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">event</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">handle</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">state</span><span class="p">).</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">                </span><span class="c1">// LinkEvent::Up / Down, e.g., to drive an LED</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="n">Either3</span><span class="p">::</span><span class="n">Second</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">sink</span><span class="p">,</span><span class="w"> </span><span class="n">scratch</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">();</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">            </span><span class="c1">// serialize a stream update into scratch, then sink.send_message(bytes).await</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="n">Either3</span><span class="p">::</span><span class="n">Third</span><span class="p">(</span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* periodic updates through server.sink() */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>server.run(&amp;mut backend)</code> is that loop with nothing else in it. Writes are awaited inline: that is safe since
+the host reads independently of writing (see <a href="#why-two-halves">Why two halves</a>), and avoids mutexes. Backend
+handlers should not block for long though, as nothing is received meanwhile — use deferred replies instead.</p>
+<p>If the backend fails to process a request entirely (it could not even serialize an error), a generic error
+event (<code>ResponseSerFailed</code>, <code>err_seq = u32::MAX</code>) is sent back, so that the host does not wait for a timeout.</p>
+<p><strong><code>blocking::Server</code></strong> is the same for devices without an async runtime: received packets are pushed in with
+<code>on_packet()</code> (e.g., from a USB interrupt), time is advanced with <code>poll(now)</code>, frames go out through a blocking
+<code>PacketSink</code>. Backends generated with <code>use_async = false</code> implement <code>WireWeaverApiBackend</code>.</p>
+<p>Time is a plain <code>ww_device::Instant</code> (µs) provided by the caller; the async server takes a small <code>Clock</code> trait
+(<code>EmbassyClock</code> with the <code>embassy-time</code> feature). <code>wire_weaver_usb_embassy</code> only adds the USB class, packet IO
+for the endpoints and <code>usb_init()</code>, which returns the <code>UsbDevice</code> to run and the <code>Server</code>.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2808,7 +2900,8 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
 <li><code>wire_weaver_client</code> — host event loop: two sans-IO state machines (tx: commands, setup retries, accumulation,
   ping, seq allocation; rx: decoding, version check, dispatcher, peer timeout) run as independent tasks so that
   receiving is never blocked by a write.</li>
-<li><code>wire_weaver_usb_link</code> — current device-side implementation; being migrated onto <code>ww_framer</code> + <code>ww_link</code>.</li>
+<li><code>ww_device</code> — device side: sans-IO <code>DeviceLink</code>, async and blocking servers, see <a href="#how-the-device-runs-it">above</a>.</li>
+<li><code>wire_weaver_usb_embassy</code> — USB class and packet IO for embassy-usb on top of <code>ww_device</code>.</li>
 <li><a href="../usb/">USB</a>, <a href="../ws/">WebSocket</a>, <a href="../udp/">UDP</a> — transports that carry frames.</li>
 </ul>
 
@@ -2935,7 +3028,7 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
@@ -2947,10 +3040,10 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      <script src="../../assets/javascripts/bundle.67a597eb.min.js"></script>
       
     
   </body>

@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.63">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
@@ -36,12 +36,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ae390e2.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -1777,6 +1777,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#device-identity-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device identity strings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#framing" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2283,6 +2294,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#device-identity-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device identity strings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#framing" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2429,6 +2451,7 @@
               <article class="md-content__inner md-typeset">
                 
                   
+
   
   
 
@@ -2471,6 +2494,70 @@ keeps the OS from attaching its own driver. Max packet size is read from the end
 speed, 512 B (Bulk) / 1024 B (Interrupt) on high speed — and used as the <a href="../ww_framer/">framer</a> frame size. Nothing else is assumed about the
 descriptor.</p>
 <p>TODO: Interrupt vs Bulk</p>
+<h3 id="device-identity-strings">Device identity strings<a class="headerlink" href="#device-identity-strings" title="Permanent link">&para;</a></h3>
+<p>Everything needed to tell devices apart is in string descriptors, which the OS reads during enumeration and
+exposes to anyone listing devices, so the host <strong>does not need to open a device</strong> to know what it is (on Linux,
+listing doesn't even need the udev rule):</p>
+<table>
+<thead>
+<tr>
+<th>Descriptor</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manufacturer (iManufacturer)</td>
+<td>Vendor name</td>
+</tr>
+<tr>
+<td>Product (iProduct)</td>
+<td>Device description, e.g. <code>Nucleo G0B1RE blinky</code></td>
+</tr>
+<tr>
+<td>Serial (iSerialNumber)</td>
+<td>Unique serial number, e.g. MCU UID</td>
+</tr>
+<tr>
+<td>WireWeaver interface (iInterface)</td>
+<td>API id: <code>ww:&lt;crate&gt;@&lt;version&gt; h=&lt;hash&gt;[ l=&lt;user label&gt;]</code></td>
+</tr>
+</tbody>
+</table>
+<p>For example: <code>ww:blinky_api@0.1.0 h=042c28cc0c9da99b l=Nucleo on the desk</code>. <code>h=</code> is the first 8 bytes of the API
+hash without docs, the same one reported during link setup. <code>l=</code> is optional and always last, so the label may
+contain anything, including spaces. Unknown <code>key=value</code> fields are ignored by the parser, so more can be added
+later. See <code>wire_weaver::api_id</code> for the encoder and parser.</p>
+<p>The API id is an interface string rather than the product or serial string so that the product stays
+human-readable and the serial stays stable across firmware updates (Windows keys device instances by serial).
+Interface strings are available without opening the device on Linux (sysfs), macOS (IOKit) and Windows (for
+composite devices, which <code>usb_init()</code> always configures). The host falls back to the product string if no
+interface string is an API id.</p>
+<p>On the device, server codegen emits the <code>API_ID</code> constant, built entirely at compile time, and it is passed to
+<code>usb_init()</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">usb</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">usb_init</span><span class="p">(</span><span class="n">driver</span><span class="p">,</span><span class="w"> </span><span class="n">buffers</span><span class="p">,</span><span class="w"> </span><span class="n">timings</span><span class="p">,</span><span class="w"> </span><span class="n">link_config</span><span class="p">,</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">API_ID</span><span class="p">,</span><span class="w"> </span><span class="o">|</span><span class="n">config</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="n">config</span><span class="p">.</span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;Nucleo G0B1RE blinky&quot;</span><span class="p">);</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">config</span><span class="p">.</span><span class="n">serial_number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">embassy_stm32</span><span class="p">::</span><span class="n">uid</span><span class="p">::</span><span class="n">uid_hex</span><span class="p">());</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">});</span>
+</span></code></pre></div>
+<p>A user label is only known at runtime (e.g., loaded from flash), <code>with_label</code> appends it into a buffer
+without any formatting, truncating it to the 126 UTF-16 characters a USB string descriptor can hold:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">static</span><span class="w"> </span><span class="n">API_ID_BUF</span><span class="p">:</span><span class="w"> </span><span class="nc">StaticCell</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">126</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">StaticCell</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">api_id</span><span class="p">::</span><span class="n">with_label</span><span class="p">(</span><span class="n">server_impl</span><span class="p">::</span><span class="n">API_ID</span><span class="p">,</span><span class="w"> </span><span class="n">label</span><span class="p">,</span><span class="w"> </span><span class="n">API_ID_BUF</span><span class="p">.</span><span class="n">init</span><span class="p">([</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="mi">126</span><span class="p">]));</span>
+</span></code></pre></div>
+<p>A changed label becomes visible after re-enumeration. The control buffer must hold the longest string
+descriptor (<code>2 + 2 * 126</code> bytes), <code>UsbBuffers</code> has 256 bytes for it.</p>
+<p>On the host, <code>DeviceInfo</code> (used for filtering and in <code>AmbiguousDeviceChoice</code> errors) is filled from these strings,
+so <code>.user_label_eq(..)</code> and <code>.implements_api(..)</code> filters work without opening devices.
+<code>wire_weaver_client::list_usb_devices()</code> lists all devices reporting an API id, the same as <code>ww list</code>
+(install the CLI with <code>cargo install --git https://github.com/vhrdtech/wire_weaver ww</code>):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww list
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>LOCATION             PRODUCT               SERIAL                    API               HASH              LABEL
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>usb 003-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@0.1.0  042c28cc0c9da99b  Nucleo on the desk
+</span></code></pre></div>
+<p>Filters can be combined: <code>--api blinky_api@^0.1</code> (name with an optional SemVer requirement), <code>--label &lt;label&gt;</code>,
+<code>--product &lt;substring&gt;</code> and the global <code>--serial &lt;substring&gt;</code> (<code>ww --serial 2100 list</code>). <code>--all</code> also lists devices
+without an API id, and <code>--plain</code> prints one <code>key=value</code> line per device for scripts.</p>
 <h3 id="framing">Framing<a class="headerlink" href="#framing" title="Permanent link">&para;</a></h3>
 <p>Messages are packed into packets with <code>ww_framer</code> using the USB configuration from <code>ww_link</code>:
 <code>U2Head</code> (1–2 byte heads), a CRC-16 per message, no tail. Packet boundaries are significant: the framer relies on
@@ -2650,7 +2737,7 @@ releases the interface. Outstanding requests complete with <code>Disconnected</c
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
@@ -2662,10 +2749,10 @@ releases the interface. Outstanding requests complete with <code>Disconnected</c
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      <script src="../../assets/javascripts/bundle.67a597eb.min.js"></script>
       
     
   </body>

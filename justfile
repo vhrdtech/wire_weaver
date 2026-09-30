@@ -11,6 +11,16 @@ test:
 test-py:
     uv run --group dev pytest
 
+# Python console with `ww` imported and the device connected as `dev` (rebuilds the module if needed), `just py --help`
+[working-directory('wire_weaver_py')]
+py *args:
+    WW_CWD="{{invocation_directory()}}" uv run python -i scripts/console.py {{args}}
+
+# Same with RTT support built in (probe-rs), e.g. `just py-rtt --rtt STM32G0B1RETx`
+[working-directory('wire_weaver_py')]
+py-rtt *args:
+    WW_CWD="{{invocation_directory()}}" uv run --reinstall-package wire_weaver --config-setting 'build-args=--features rtt' python -i scripts/console.py {{args}}
+
 # cargo check everything
 check: check-core check-mcu check-examples-mcu
 

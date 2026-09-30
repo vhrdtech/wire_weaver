@@ -451,12 +451,14 @@
       
         
       
+        
+      
     
     
     
     
       <li class="md-tabs__item">
-        <a href="../../dev_tool/" class="md-tabs__link">
+        <a href="../../cli/" class="md-tabs__link">
           
   
   Dev tools
@@ -2129,6 +2131,8 @@
       
         
       
+        
+      
     
     
     
@@ -2172,6 +2176,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -2556,8 +2587,9 @@ so <code>.user_label_eq(..)</code> and <code>.implements_api(..)</code> filters 
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>usb 003-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@0.1.0  042c28cc0c9da99b  Nucleo on the desk
 </span></code></pre></div>
 <p>Filters can be combined: <code>--api blinky_api@^0.1</code> (name with an optional SemVer requirement), <code>--label &lt;label&gt;</code>,
-<code>--product &lt;substring&gt;</code> and the global <code>--serial &lt;substring&gt;</code> (<code>ww --serial 2100 list</code>). <code>--all</code> also lists devices
-without an API id, and <code>--plain</code> prints one <code>key=value</code> line per device for scripts.</p>
+<code>--product &lt;substring&gt;</code>, <code>--serial &lt;substring&gt;</code>, <code>--usb-path 003-1</code>, ... <code>--all</code> also lists devices without an API
+id, and <code>--plain</code> prints one line per device for scripts. See <a href="../../cli/">Command line tool</a> for all options and
+for keeping the selection in a project <code>ww.toml</code>.</p>
 <h3 id="framing">Framing<a class="headerlink" href="#framing" title="Permanent link">&para;</a></h3>
 <p>Messages are packed into packets with <code>ww_framer</code> using the USB configuration from <code>ww_link</code>:
 <code>U2Head</code> (1–2 byte heads), a CRC-16 per message, no tail. Packet boundaries are significant: the framer relies on

@@ -2,6 +2,11 @@
 
 ### 🚀 Features
 
+- `DeviceInfo` is filled from the USB API id interface string (falling back to the product string): API name,
+  version, truncated hash and user label are known without opening the device, so `.user_label_eq()` and
+  `.implements_api()` filters now work for USB. `DeviceInfo` gains `location` and implements `Display`.
+- `list_usb_devices()` lists devices reporting an API id, `list_all_usb_devices()` lists all USB devices, neither
+  opens a device.
 - `ClientConfig::client_version()` sets the API crate name and version sent to the device during link setup.
 
 ### 🐛 Fixes

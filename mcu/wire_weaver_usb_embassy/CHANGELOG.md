@@ -9,9 +9,14 @@
 - Link layer is `ww_link` over `ww_framer` (wire compatible with the current `wire_weaver_client`),
   `wire_weaver_usb_link` is no longer used.
 - `usb_init()` takes a `ww_device::LinkConfig` instead of separate versions and API hash; `UsbTimings` has no ping period.
+- `usb_init()` and `WireWeaverClass::new()` take an `api_id` (`server_impl::API_ID`, or one with a user label from
+  `wire_weaver::api_id::with_label()`), `WireWeaverClass::new()` also takes a `&mut State`.
+- `UsbBuffers::control` grows to 256 bytes to fit the longest (126-character) string descriptor.
 
 ### 🚀 Features
 
+- API id served as the WireWeaver interface string, so hosts can identify the device, its API and user label without
+  opening it.
 - `WireWeaverClass::into_server()`, to set up the server manually alongside other USB classes.
 - `MAX_MESSAGE_LEN` is exactly the maximum message length reported to the host, independent of `MAX_USB_PACKET_LEN`
   (also when a Bulk endpoint is capped at 512).

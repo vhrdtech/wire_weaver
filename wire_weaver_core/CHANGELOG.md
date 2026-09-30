@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+- Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
+  identity strings.
+
 ### 🐛 Fixes
 
 - Generated std client sets `client_version` to the API crate's `<TRAIT>_FULL_GID`, so the host and device check

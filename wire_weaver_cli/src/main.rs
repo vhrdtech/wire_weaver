@@ -22,15 +22,7 @@ async fn main() -> Result<()> {
     };
 
     match cli.command {
-        Commands::List => {
-            let devices = wire_weaver_client::list_usb_devices().await?;
-            if devices.is_empty() {
-                println!("No WireWeaver devices found");
-            }
-            for device in devices {
-                println!("{device}");
-            }
-        }
+        Commands::List(args) => cmd::list::list(args, cli.serial).await?,
         Commands::USBLoopback {
             duration_sec,
             packet_size,

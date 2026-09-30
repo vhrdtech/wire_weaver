@@ -3534,6 +3534,7 @@ dependencies = [
  "indicatif",
  "proc-macro2",
  "ron",
+ "semver",
  "syn 3.0.3",
  "tokio",
  "tracing",

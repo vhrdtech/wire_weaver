@@ -99,8 +99,13 @@ so `.user_label_eq(..)` and `.implements_api(..)` filters work without opening d
 
 ```
 $ ww list
-usb 003-1 c0de:cafe "Vhrd.Tech" "Nucleo G0B1RE blinky" serial=21002200175036344B333720 api=blinky_api@0.1.0 hash=042c28cc0c9da99b label="Nucleo on the desk"
+LOCATION             PRODUCT               SERIAL                    API               HASH              LABEL
+usb 003-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@0.1.0  042c28cc0c9da99b  Nucleo on the desk
 ```
+
+Filters can be combined: `--api blinky_api@^0.1` (name with an optional SemVer requirement), `--label <label>`,
+`--product <substring>` and the global `--serial <substring>` (`ww --serial 2100 list`). `--all` also lists devices
+without an API id, and `--plain` prints one `key=value` line per device for scripts.
 
 ### Framing
 

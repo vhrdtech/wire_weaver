@@ -1,4 +1,4 @@
-use std::{any::Any, marker::PhantomData, sync::Arc};
+use std::{any::Any, marker::PhantomData};
 
 use crate::config::InterfaceKind;
 #[cfg(feature = "usb")]
@@ -163,14 +163,10 @@ async fn create_commander(
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() {
-        match commander.introspect().get_sized().await {
-            Ok(Some((api_bundle, sent_size))) => {
-                commander.set_device_introspect(IntrospectBundle {
-                    api_bundle: Arc::new(api_bundle),
-                    api_hash: device_api_hash,
-                    sent_size,
-                })
-            }
+        match commander.introspect().get_as_sent().await {
+            Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
+                IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),
+            ),
             Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
@@ -188,14 +184,10 @@ fn create_commander_blocking(
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() {
-        match commander.introspect().get_sized_blocking() {
-            Ok(Some((api_bundle, sent_size))) => {
-                commander.set_device_introspect(IntrospectBundle {
-                    api_bundle: Arc::new(api_bundle),
-                    api_hash: device_api_hash,
-                    sent_size,
-                })
-            }
+        match commander.introspect().get_as_sent_blocking() {
+            Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
+                IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),
+            ),
             Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }

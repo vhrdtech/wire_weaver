@@ -13,6 +13,10 @@
   changes included (they bump the compatible position), `--force` to overwrite.
 - `ww introspect` prints the size of the full API and of the introspection data the device sent, which leaves out
   traits and types known from `ww_stdlib` snapshots.
+- `ww introspect --raw-as-sent` prints the introspection data as the device sent it, before traits and types known
+  from snapshots were put back.
+- `ww introspect -t`/`--types` and `ww api tree -t`/`--types` also print all types the API refers to: structs with
+  their fields, enums with their variants, size kind and repr.
 
 - `ww list`: lists connected USB devices with product, serial, API name and version, hash and user label, without
   opening them. Only devices matching the device selection are shown, `--all` includes devices without an API id,

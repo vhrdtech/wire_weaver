@@ -49,8 +49,29 @@ pub struct IntrospectBundle {
     /// Full API, with traits and types left out of the introspection data (known from snapshots) put back.
     pub api_bundle: Arc<ApiBundleOwned>,
     pub api_hash: ApiHashPairOwned,
+    /// Introspection data as sent by a device (or embedded into a client), before traits and types left out of it
+    /// were put back.
+    pub sent_api_bundle: Arc<ApiBundleOwned>,
     /// Size of the introspection data as sent by a device.
     pub sent_size: usize,
+}
+
+impl IntrospectBundle {
+    /// Put back traits and types that `sent_api_bundle` left out, because they are known from snapshots.
+    pub(crate) fn from_sent(
+        sent_api_bundle: ApiBundleOwned,
+        api_hash: ApiHashPairOwned,
+        sent_size: usize,
+    ) -> Self {
+        let mut api_bundle = sent_api_bundle.clone();
+        crate::client::introspect::inline_known(&mut api_bundle);
+        IntrospectBundle {
+            api_bundle: Arc::new(api_bundle),
+            api_hash,
+            sent_api_bundle: Arc::new(sent_api_bundle),
+            sent_size,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -171,14 +192,13 @@ impl ClientConfig {
         let s = self;
         // s.canonicalize();
         let introspect_client = if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
-            let mut api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
             // same as a device sends, with known traits and types left out
-            crate::client::introspect::inline_known(&mut api_bundle);
-            Some(IntrospectBundle {
-                api_bundle: Arc::new(api_bundle),
+            let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
+            Some(IntrospectBundle::from_sent(
+                sent_api_bundle,
                 api_hash,
-                sent_size: ww_self_bytes.len(),
-            })
+                ww_self_bytes.len(),
+            ))
         } else {
             None
         };

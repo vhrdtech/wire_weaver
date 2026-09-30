@@ -212,6 +212,22 @@ impl TypeOwned {
             TypeOwned::Bool => Ok("bool".to_string()),
             TypeOwned::NumericAny(numeric) => Ok(numeric.human_name()),
             TypeOwned::OutOfLine { type_idx } => {
+                // named also when its definition is left out
+                if let Some(TypeLocationOwned::SkippedFullVersion {
+                    crate_idx,
+                    type_name,
+                    ..
+                }) = api_bundle.types.get(type_idx.0 as usize)
+                {
+                    return if show_crate_name {
+                        Ok(format!(
+                            "{}::{type_name}",
+                            api_bundle.crate_name(crate_idx.0)?
+                        ))
+                    } else {
+                        Ok(type_name.clone())
+                    };
+                }
                 let ty = api_bundle.get_ty(type_idx.0)?.0;
                 ty.human_name(show_crate_name, api_bundle)
             }

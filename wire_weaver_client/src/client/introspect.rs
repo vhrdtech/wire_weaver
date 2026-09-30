@@ -41,7 +41,7 @@ impl Introspect {
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self.get_sized().await?.map(|(bundle, _)| bundle))
+        Ok(self.get_as_sent().await?.map(|(bundle, _)| inlined(bundle)))
     }
 
     /// Load introspect data from local cache at `~/.wire_weaver/` if available.
@@ -51,25 +51,29 @@ impl Introspect {
     ///
     /// See also: [Introspect::download_blocking]
     pub fn get_blocking(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self.get_sized_blocking()?.map(|(bundle, _)| bundle))
+        Ok(self
+            .get_as_sent_blocking()?
+            .map(|(bundle, _)| inlined(bundle)))
     }
 
-    /// Same as [Introspect::get], also returns the size of the introspection data as sent by the device.
-    pub(crate) async fn get_sized(self) -> Result<Option<(ApiBundleOwned, usize)>> {
+    /// Same as [Introspect::get], but returns introspection data as sent by the device (without traits and types
+    /// known from snapshots put back) and its size.
+    pub(crate) async fn get_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         if let Some(sized) = load_cached(&self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
-        self.download_sized().await
+        self.download_as_sent().await
     }
 
-    /// Same as [Introspect::get_blocking], also returns the size of the introspection data as sent by the device.
-    pub(crate) fn get_sized_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
+    /// Same as [Introspect::get_blocking], but returns introspection data as sent by the device (without traits and
+    /// types known from snapshots put back) and its size.
+    pub(crate) fn get_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         if let Some(sized) = load_cached(&self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
-        self.download_sized_blocking()
+        self.download_as_sent_blocking()
     }
 
     /// Same as [Introspect::get], but returns a Promise that receives data chunks as it is polled.
@@ -78,7 +82,7 @@ impl Introspect {
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn get_promise(self) -> Promise<ApiBundleOwned> {
         if let Some((bundle, _)) = load_cached(&self.hash) {
-            return Promise::done(bundle, "introspect");
+            return Promise::done(inlined(bundle), "introspect");
         }
         self.cache_miss_msg();
         let hash = self.hash;
@@ -98,7 +102,10 @@ impl Introspect {
     ///
     /// See also [Introspect::get] that uses local cache.
     pub async fn download(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self.download_sized().await?.map(|(bundle, _)| bundle))
+        Ok(self
+            .download_as_sent()
+            .await?
+            .map(|(bundle, _)| inlined(bundle)))
     }
 
     /// Download introspect data from a remote device, skipping the local cache lookup, and cache it.
@@ -106,10 +113,12 @@ impl Introspect {
     ///
     /// See also [Introspect::get_blocking] that uses local cache.
     pub fn download_blocking(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self.download_sized_blocking()?.map(|(bundle, _)| bundle))
+        Ok(self
+            .download_as_sent_blocking()?
+            .map(|(bundle, _)| inlined(bundle)))
     }
 
-    async fn download_sized(self) -> Result<Option<(ApiBundleOwned, usize)>> {
+    async fn download_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         let rx = self.transport_cmd_tx.send_introspect(None).await?;
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
@@ -121,7 +130,7 @@ impl Introspect {
         decode_and_cache(&ww_self_bytes, &self.hash)
     }
 
-    fn download_sized_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
+    fn download_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         let rx = self.transport_cmd_tx.send_introspect_blocking(None)?;
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
@@ -145,19 +154,22 @@ fn decode_and_cache(
     if ww_self_bytes.is_empty() {
         return Ok(None);
     }
-    let mut api_bundle = ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?;
+    let api_bundle = ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?;
     // cached as received, so that it matches the device reported hash
     local_registry::store(&api_bundle, ww_self_bytes, hash);
-    inline_known(&mut api_bundle);
     Ok(Some((api_bundle, ww_self_bytes.len())))
 }
 
 /// Cached bundle (as it was received) and its size.
 fn load_cached(hash: &ApiHashPairOwned) -> Option<(ApiBundleOwned, usize)> {
-    let mut bundle = local_registry::load(hash)?;
+    let bundle = local_registry::load(hash)?;
     let sent_size = bundle.to_ww_bytes_owned().ok()?.len();
-    inline_known(&mut bundle);
     Some((bundle, sent_size))
+}
+
+fn inlined(mut bundle: ApiBundleOwned) -> ApiBundleOwned {
+    inline_known(&mut bundle);
+    bundle
 }
 
 /// Put back traits and types that a device left out of its introspection data, because they are known from

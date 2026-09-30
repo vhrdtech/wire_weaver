@@ -43,8 +43,9 @@
 ### ⚠️ Breaking
 
 - `Error` gains `NotImplementedByDevice` and `IncompatibleResource` variants, exhaustive matches need new arms.
-- `IntrospectBundle` gains `sent_size`, the size of the introspection data as sent by the device; code constructing it
-  must set it.
+- `IntrospectBundle` gains `sent_size`, the size of the introspection data as sent by the device, and
+  `sent_api_bundle`, the introspection data as sent, before traits and types known from snapshots were put back into
+  `api_bundle`; code constructing it must set both.
 
 - `connect()`/`connect_blocking()` report why they failed instead of a generic "No devices found to connect to":
   - `Error::DeviceNotFound` is now a struct variant with the config's `filters` and the connected WireWeaver

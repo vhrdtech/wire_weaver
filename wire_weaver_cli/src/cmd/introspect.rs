@@ -8,8 +8,17 @@ use wire_weaver_client::DynClient;
 #[derive(Args)]
 pub(crate) struct IntrospectArgs {
     /// Print raw introspection data (Rust debug format) instead of the resource tree
-    #[arg(long)]
+    #[arg(long, conflicts_with = "raw_as_sent")]
     raw: bool,
+
+    /// Print raw introspection data as the device sent it, before traits and types it left out
+    /// (known from snapshots) were put back
+    #[arg(long)]
+    raw_as_sent: bool,
+
+    /// Also print all types the API refers to
+    #[arg(short('t'), long)]
+    types: bool,
 
     /// Do not print documentation for each resource
     #[arg(short('d'), long)]
@@ -25,8 +34,16 @@ pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Resu
         println!("{bundle:#?}");
         return Ok(());
     }
+    if args.raw_as_sent {
+        println!("{:#?}", introspect.sent_api_bundle);
+        return Ok(());
+    }
 
     print!("{}", api_tree::render(bundle, args.skip_docs));
+    if args.types {
+        println!();
+        print!("{}", api_tree::render_types(bundle, args.skip_docs));
+    }
     println!();
     let full_size = bundle.to_ww_bytes_owned()?.len();
     println!(

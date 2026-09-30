@@ -23,6 +23,10 @@ pub enum ApiCommand {
         /// Do not print documentation for each resource
         #[arg(short('d'), long)]
         skip_docs: bool,
+
+        /// Also print all types the API refers to
+        #[arg(short('t'), long)]
+        types: bool,
     },
     ServerMethods {
         /// Path to crate which defines ww_trait
@@ -67,9 +71,14 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             path,
             name,
             skip_docs,
+            types,
         } => {
             let bundle = wire_weaver_core::load(&path, name, false)?;
             print!("{}", crate::api_tree::render(&bundle, skip_docs));
+            if types {
+                println!();
+                print!("{}", crate::api_tree::render_types(&bundle, skip_docs));
+            }
             Ok(())
         }
         // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),

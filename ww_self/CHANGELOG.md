@@ -24,6 +24,8 @@
 ### 🐛 Fixes
 
 * Visiting a bundle that contains `Skipped*` type or trait locations no longer panics (it hit `todo!()`).
+* `TypeOwned::human_name()` names a type whose definition is left out (`TypeLocationOwned::SkippedFullVersion`),
+  instead of failing.
 
 ### ⚙️ Miscellaneous Tasks
 

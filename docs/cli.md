@@ -123,10 +123,30 @@ api hash: 6e87e4113afd0168
 `impl name[]: crate::Trait` is a nested trait (`[]` marking an array of them), properties show their access
 (`const`, `ro`, `rw`, `wo`) and whether they are observable, `stream` is device-to-host and `sink` host-to-device.
 
-| Option              | Description                                                             |
-|---------------------|-------------------------------------------------------------------------|
-| `-d`, `--skip-docs` | Do not print doc comments                                               |
-| `--raw`             | Print raw introspection data (Rust debug format) instead of the tree    |
+With `-t`, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
+fields, enums with their variants and discriminants, and each type's size kind (`unsized`, `final structure`,
+`self-describing`, `sized`) and enum repr:
+
+```
+$ ww introspect -d -t
+...
+types
+├─ 0 enum ww_gpio::Level sized, repr u1
+│  ├─ 0 Low
+│  └─ 1 High
+├─ 1 enum ww_gpio::IoPinEvent sized, repr u2
+│  ├─ 0 RisingEdge
+│  ├─ 1 FallingEdge
+│  └─ 2 Custom(u8)
+...
+```
+
+| Option              | Description                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------|
+| `-d`, `--skip-docs` | Do not print doc comments                                                                       |
+| `-t`, `--types`     | Also print all types the API refers to                                                          |
+| `--raw`             | Print raw introspection data (Rust debug format) instead of the tree                            |
+| `--raw-as-sent`     | Same as `--raw`, but as the device sent it: traits and types known from snapshots are left out  |
 
 Fails with an error if the device did not provide introspection data.
 
@@ -149,7 +169,7 @@ trait BlinkyApi blinky_api@0.1.0
 debugging codegen or introspection.
 
 Both take `--name <Trait>` to pick the trait when the crate defines more than one, and `tree` also takes
-`-d`/`--skip-docs`.
+`-d`/`--skip-docs` and `-t`/`--types`.
 
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait and every `#[derive_shrink_wrap]` type
 defined in the crate's `src/lib.rs` (or re-exported from one of its modules with `pub use`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example

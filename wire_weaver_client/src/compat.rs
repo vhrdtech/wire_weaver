@@ -1116,13 +1116,15 @@ mod tests {
                 fn a(x: u16);
             }
         "#;
-        let introspect = |bundle, hash| IntrospectBundle {
-            sent_size: 0,
-            api_bundle: Arc::new(bundle),
-            api_hash: ApiHashPairOwned {
-                no_docs: ApiHashOwned { hash: vec![hash] },
-                with_docs: ApiHashOwned { hash: vec![] },
-            },
+        let introspect = |bundle, hash| {
+            IntrospectBundle::from_sent(
+                bundle,
+                ApiHashPairOwned {
+                    no_docs: ApiHashOwned { hash: vec![hash] },
+                    with_docs: ApiHashOwned { hash: vec![] },
+                },
+                0,
+            )
         };
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd = Commander::new(tx);

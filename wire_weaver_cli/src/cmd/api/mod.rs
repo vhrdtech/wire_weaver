@@ -1,11 +1,11 @@
-// mod server_methods;
-
 mod ast;
 mod check;
 mod diff;
 mod save;
+mod scaffold;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
+use wire_weaver_core::ServerScaffoldConfig;
 
 use clap::{Subcommand, ValueHint};
 use std::path::PathBuf;
@@ -30,7 +30,13 @@ pub enum ApiCommand {
         #[arg(short('t'), long)]
         types: bool,
     },
-    ServerMethods {
+    /// Generate server side scaffold: a server struct, a stub for every handler and a `ww_codegen!` invocation
+    ///
+    /// Every method, property getter and setter stub returns Unimplemented, stream and on-changed handlers do
+    /// nothing and no array index is valid, so the generated code compiles and answers every method and property
+    /// request right away.
+    /// Handler signatures depend on the options below, pass the same ones `ww_codegen!` is going to use.
+    Scaffold {
         /// Path to crate which defines ww_trait
         #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
@@ -38,6 +44,30 @@ pub enum ApiCommand {
         /// Optional trait name if more than one is present
         #[arg(long)]
         name: Option<String>,
+
+        /// Server struct name
+        #[arg(long, default_value = "Server")]
+        server: String,
+
+        /// Generate handlers for `no_alloc = false`, taking owned arguments (e.g. String instead of &str)
+        #[arg(long)]
+        alloc: bool,
+
+        /// Generate async handlers
+        #[arg(long)]
+        use_async: bool,
+
+        /// Method model, see ww_codegen! docs
+        #[arg(long, default_value = "_=immediate")]
+        method_model: String,
+
+        /// Property model, see ww_codegen! docs
+        #[arg(long, default_value = "_=get_set")]
+        property_model: String,
+
+        /// Write to a file instead of stdout, refuses to overwrite an existing one
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        output: Option<PathBuf>,
     },
     /// Save all traits and types defined in a crate into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`
     ///
@@ -115,8 +145,27 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             }
             Ok(())
         }
-        // ApiCommand::ServerMethods { path, name } => server_methods::server_methods(path, name),
-        ApiCommand::ServerMethods { .. } => Err(anyhow!("Not implemented yet")),
+        ApiCommand::Scaffold {
+            path,
+            name,
+            server,
+            alloc,
+            use_async,
+            method_model,
+            property_model,
+            output,
+        } => scaffold::scaffold(
+            path,
+            name,
+            ServerScaffoldConfig {
+                server_struct: server,
+                no_alloc: !alloc,
+                use_async,
+                method_model,
+                property_model,
+            },
+            output,
+        ),
         ApiCommand::Save { path, force } => save::save(path, force),
         ApiCommand::Check { path, against } => check::check(path, against),
         ApiCommand::Diff { path, against } => diff::diff(path, against),

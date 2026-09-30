@@ -10,6 +10,7 @@ pub use transform::{load, load_crate, load_dep};
 
 pub use codegen::api_client::{ClientModel, GenClientConfig, gen_client};
 pub use codegen::api_server::{GenServerConfig, gen_server};
+pub use codegen::server::scaffold::{ServerScaffoldConfig, gen_server_scaffold};
 
 // for convenience in build.rs scripts
 pub mod prelude {

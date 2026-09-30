@@ -27,6 +27,11 @@
   from snapshots were put back.
 - `ww introspect -t`/`--types` and `ww api tree -t`/`--types` also print all types the API refers to: structs with
   their fields, enums with their variants, size kind and repr.
+- `ww api scaffold <path>` generates server side scaffold: a server struct, a stub returning `Unimplemented` for every
+  method and property handler, stream and valid indices stubs, and the `ww_codegen!` invocation. Takes the same
+  options as `ww_codegen!` (`--use-async`, `--method-model`, `--property-model`, `--alloc` for `no_alloc = false`,
+  which is off by default here) plus `--server` for the struct name and `-o` to write to a new file. Replaces the
+  unfinished `ww api server-methods`.
 
 - `ww list`: lists connected USB devices with product, serial, API name and version, hash and user label, without
   opening them. Only devices matching the device selection are shown, `--all` includes devices without an API id,

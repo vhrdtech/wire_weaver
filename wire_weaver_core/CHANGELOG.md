@@ -24,6 +24,11 @@
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.
 
+- `gen_server_scaffold()` with `ServerScaffoldConfig` generates the user side of a server as Rust source: a server
+  struct (with fields for `value_on_changed` properties), a stub for every handler the server codegen expects,
+  with the resource's doc comments, and the matching `ww_codegen!` invocation. Method, getter and setter stubs return
+  `Unimplemented`, valid indices stubs allow no index. Used by `ww api scaffold`.
+
 ### 🐛 Fixes
 
 - Types and traits can be referred to through modules: `mod ty; use ty::Ty;`, `crate::`/`self::` paths, and paths

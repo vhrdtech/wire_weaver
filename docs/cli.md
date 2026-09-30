@@ -50,7 +50,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 |------------------------------------|----------------|--------------------------------------------------------------------|
 | [`ww list`](#ww-list)              | no (not opened)| Lists connected devices matching the device selection              |
 | [`ww introspect`](#ww-introspect)  | yes            | Prints the device's resource tree from its introspection data      |
-| [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves and checks snapshots, from source |
+| [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source |
 | [`ww usb-loopback`](#ww-usb-loopback) | yes         | Runs USB loopback and throughput tests                             |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
@@ -207,7 +207,8 @@ previous snapshot, see below.
 
 `ww api check <path>` is the [evolution checker](evolution/checker_tool.md): it compares the crate with its latest
 snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
-compatible position for anything else, doc comments included).
+compatible position for anything else, doc comments included). `ww api diff <path>` compares the same versions and
+lists every change, doc comments included, see [listing all changes](evolution/checker_tool.md#listing-all-changes).
 
 Current limitations, same as for codegen: traits are only found in `src/lib.rs`, a dependency reached through another
 crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), crates with a

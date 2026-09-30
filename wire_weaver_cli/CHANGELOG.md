@@ -14,6 +14,11 @@
 - `ww api check <path>`, the evolution checker: compares a crate with its latest snapshot in `<path>/api_snapshots/`
   (or the one given with `--against`), lists breaking and compatible changes, and fails if the crate version is not
   bumped enough, doc-only changes included (compatible position).
+- `ww api diff <path>` lists every change since the latest snapshot, doc comments included (as a line diff): added,
+  removed and changed traits, resources, types, fields, variants and dependency versions, followed by the verdict of
+  `ww api check`. Informational, never fails.
+- `ww api check` and `ww api diff` also take a snapshot file as `<path>`, compared with the previous snapshot in the
+  same directory.
 - `ww api save` runs the same check before saving a snapshot of a new version, and refuses to save it if the version is
   not bumped enough since the previous snapshot (`--force` saves anyway).
 - `ww introspect` prints the size of the full API and of the introspection data the device sent, which leaves out

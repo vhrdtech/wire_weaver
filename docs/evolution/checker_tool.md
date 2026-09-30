@@ -15,9 +15,44 @@ The snapshot used is the newest one of the same crate with a version not newer t
 the snapshot of the current version if it was already saved, and of the previous version otherwise. `--against <file>`
 compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet.
 
+`<path>` can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
+check snapshots that were saved with `--force`.
+
 `ww api save` runs the same check before saving a snapshot of a new version, and refuses to save it if the version
 is not bumped enough (`--force` saves anyway). So in a crate that has snapshots of all of its published versions,
 every new snapshot is checked against the previous one.
+
+## Listing all changes
+
+`ww api diff <path>` compares the same versions as `ww api check` (and also takes `--against` or a snapshot file), and
+lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
+is breaking, `ww api check` does:
+
+```
+$ ww api diff ww_stdlib/ww_uart
+ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.0 (source)
+  ~ Uart::rx: docs
+      /// Receive stream
+    + /// of chunks
+  ~ Uart::prevent_back_feed: docs
+      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
+    - /// Optional, check [Capabilities] if supported.
+    + /// Check [Capabilities] if supported.
+  + Uart::flush: fn flush()
+  ~ RxFlags: field `parity_error`: docs
+    + /// Parity error
+  + RxFlags: field `framing_error`: framing_error: bool
+breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
+```
+
+Each line is an added (`+`), removed (`-`) or changed (`~`) trait, resource, type, struct field, enum variant or
+dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
+direction, array or not), a resource's or variant's name, a type's kind, size kind or repr, a field's position, type
+or `#[default]` value, `#[since]` of any of them, and doc comments, shown as a line diff. Items are matched as
+described below, enum variants by discriminant, fields by name and unnamed ones by position. A renamed type is
+removed and added.
+
+`evolution::diff()` in `wire_weaver_client` returns the same list, for use from other tools.
 
 ## What is checked
 

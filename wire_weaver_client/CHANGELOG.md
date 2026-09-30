@@ -20,6 +20,9 @@
   crate version doesn't bump the required position: breaking changes need the breaking position, any other change,
   doc comments included, the compatible one. Resources are compared both ways with the same rules as the
   per-resource compatibility check; renames and removals are breaking too, as they break Rust code.
+- `evolution::diff(old, new)` lists every difference between two crate snapshots as `evolution::Difference`s (added,
+  removed, changed, or doc comments changed), doc comments included, without classifying them.
+  `Report::minimal_version()` gives the smallest version the new one has to be.
 - Per-resource compatibility check: types may gain new fields in between the old ones, in their unused padding bits,
   if no old field moves and the new ones read all zero bits as a valid value. `Unsized` types always start at a byte
   boundary, `final_structure`, `self_describing` and `sized` ones are checked for every bit offset they can start at.

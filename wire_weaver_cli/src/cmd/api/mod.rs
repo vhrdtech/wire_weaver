@@ -2,6 +2,7 @@
 
 mod ast;
 mod check;
+mod diff;
 mod save;
 
 use anyhow::{Result, anyhow};
@@ -63,8 +64,24 @@ pub enum ApiCommand {
     /// breaking position (minor before 1.0, major after), any other change, doc comments included, a bump of the
     /// compatible position (patch before 1.0, minor after).
     Check {
-        /// Path to crate which defines ww_trait's and/or data types
-        #[arg(value_hint = ValueHint::DirPath)]
+        /// Path to crate which defines ww_trait's and/or data types, or to a snapshot, which is then compared with
+        /// the previous snapshot in the same directory
+        #[arg(value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+
+        /// Compare with this snapshot instead of the latest one saved in the crate
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        against: Option<PathBuf>,
+    },
+    /// List every change made since the latest saved snapshot, doc comments included
+    ///
+    /// Compares the same versions as `ww api check`, and prints each added, removed or changed trait, resource,
+    /// type, field, variant, doc comment and dependency version, followed by the verdict of `ww api check`. Unlike
+    /// it, doesn't fail if the version is not bumped enough.
+    Diff {
+        /// Path to crate which defines ww_trait's and/or data types, or to a snapshot, which is then compared with
+        /// the previous snapshot in the same directory
+        #[arg(value_hint = ValueHint::AnyPath)]
         path: PathBuf,
 
         /// Compare with this snapshot instead of the latest one saved in the crate
@@ -102,6 +119,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         ApiCommand::ServerMethods { .. } => Err(anyhow!("Not implemented yet")),
         ApiCommand::Save { path, force } => save::save(path, force),
         ApiCommand::Check { path, against } => check::check(path, against),
+        ApiCommand::Diff { path, against } => diff::diff(path, against),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
 }

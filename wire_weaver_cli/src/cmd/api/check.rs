@@ -10,29 +10,11 @@ use wire_weaver_client::ww_version::VersionOwned;
 pub(crate) const SNAPSHOTS_DIR: &str = "api_snapshots";
 
 pub(crate) fn check(crate_path: PathBuf, against: Option<PathBuf>) -> Result<()> {
-    let bundle = wire_weaver_core::load_crate(&crate_path)?;
-    let version = &bundle.crate_version(0)?.version;
-    let (old_path, old) = match against {
-        Some(path) => {
-            let old = parse(&path)?;
-            (path, old)
-        }
-        None => {
-            let dir = crate_path.join(SNAPSHOTS_DIR);
-            let Some(previous) = latest_snapshot(&dir, &bundle, version, true)? else {
-                println!(
-                    "no snapshot of {} {} or earlier in {}, nothing to compare with",
-                    bundle.ext_crates[0].crate_id,
-                    triplet(version),
-                    dir.display()
-                );
-                return Ok(());
-            };
-            previous
-        }
+    let Some(versions) = Versions::load(crate_path, against)? else {
+        return Ok(());
     };
-    let report = evolution::compare(&old, &bundle).map_err(|e| anyhow!(e))?;
-    print_report(&report, &old_path);
+    let report = evolution::compare(&versions.old, &versions.new).map_err(|e| anyhow!(e))?;
+    print_report(&report, &versions.old_path, &versions.new_label);
     report.check_version().map_err(|e| anyhow!(e))?;
     if report.change != Change::None {
         println!("{}", style("version is bumped enough").green());
@@ -40,10 +22,65 @@ pub(crate) fn check(crate_path: PathBuf, against: Option<PathBuf>) -> Result<()>
     Ok(())
 }
 
-/// Print what changed between a snapshot and the crate source.
-pub(crate) fn print_report(report: &Report, old_path: &Path) {
+/// Old and new versions of a crate to compare.
+pub(crate) struct Versions {
+    pub(crate) old_path: PathBuf,
+    pub(crate) old: ApiBundleOwned,
+    /// `source` or the snapshot path.
+    pub(crate) new_label: String,
+    pub(crate) new: ApiBundleOwned,
+}
+
+impl Versions {
+    /// `path` is a crate, compared with `against` or with its newest snapshot not newer than the crate version, or a
+    /// snapshot, compared with `against` or with the previous snapshot in the same directory. `None` if there is
+    /// nothing to compare with.
+    pub(crate) fn load(path: PathBuf, against: Option<PathBuf>) -> Result<Option<Self>> {
+        let is_snapshot = path.extension().is_some_and(|ext| ext == "ron");
+        let (new, new_label, dir) = if is_snapshot {
+            let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
+            (parse(&path)?, path.display().to_string(), dir)
+        } else {
+            let new = wire_weaver_core::load_crate(&path)?;
+            (new, "source".to_string(), path.join(SNAPSHOTS_DIR))
+        };
+        let (old_path, old) = match against {
+            Some(against) => {
+                let old = parse(&against)?;
+                (against, old)
+            }
+            None => {
+                let version = &new.crate_version(0)?.version;
+                let Some(previous) = latest_snapshot(&dir, &new, version, !is_snapshot)? else {
+                    let range = if is_snapshot {
+                        "earlier than"
+                    } else {
+                        "or earlier than"
+                    };
+                    println!(
+                        "no snapshot of {} {range} {} in {}, nothing to compare with",
+                        new.ext_crates[0].crate_id,
+                        triplet(version),
+                        dir.display()
+                    );
+                    return Ok(None);
+                };
+                previous
+            }
+        };
+        Ok(Some(Versions {
+            old_path,
+            old,
+            new_label,
+            new,
+        }))
+    }
+}
+
+/// Print what changed between a snapshot and a newer version.
+pub(crate) fn print_report(report: &Report, old_path: &Path, new_label: &str) {
     println!(
-        "{} {} ({}) -> {} (source): {}",
+        "{} {} ({}) -> {} ({new_label}): {}",
         report.new.crate_id,
         triplet(&report.old.version),
         old_path.display(),
@@ -104,7 +141,7 @@ pub(crate) fn latest_snapshot(
     Ok(latest)
 }
 
-fn parse(path: &Path) -> Result<ApiBundleOwned> {
+pub(crate) fn parse(path: &Path) -> Result<ApiBundleOwned> {
     let contents = fs::read_to_string(path).context(format!("reading {}", path.display()))?;
     ron::from_str(&contents).context(format!("parsing {}", path.display()))
 }

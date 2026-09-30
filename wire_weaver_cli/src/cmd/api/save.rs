@@ -27,7 +27,7 @@ pub(crate) fn save(crate_path: PathBuf, force: bool) -> Result<()> {
                 return Ok(());
             }
             if report.change != Change::None {
-                print_report(&report, &old_path);
+                print_report(&report, &old_path, "source");
             }
             match report.check_version() {
                 Ok(()) => "saved",

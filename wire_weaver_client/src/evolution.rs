@@ -10,6 +10,8 @@
 //!   as a released version's snapshot never changes.
 //!
 //! Resources are matched by id inside each trait, traits and types by name.
+//!
+//! [diff] lists every difference instead, doc comments included, without classifying them.
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
@@ -25,6 +27,9 @@ use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
 use crate::compat::{TypeCheck, compare_items, field_name, fields};
 use crate::layout;
+
+mod diff;
+pub use diff::{Difference, diff};
 
 const OLD: &str = "old version";
 const NEW: &str = "new version";
@@ -98,6 +103,11 @@ pub struct Report {
 }
 
 impl Report {
+    /// Smallest version the new one has to be for the changes found.
+    pub fn minimal_version(&self) -> VersionOwned {
+        suggest(&self.old.version, self.change.required_bump())
+    }
+
     /// Checks that the new version is bumped enough for the changes found. Otherwise, returns an error with the
     /// smallest sufficient version.
     pub fn check_version(&self) -> Result<(), String> {
@@ -120,7 +130,7 @@ impl Report {
             display(new),
             self.change,
             required,
-            display(&suggest(old, required))
+            display(&self.minimal_version())
         ))
     }
 }
@@ -755,6 +765,70 @@ mod tests {
         assert_eq!(bump(&v(1, 1, 0), &v(2, 0, 0)), Bump::Breaking);
         assert_eq!(triplet(&suggest(&v(1, 1, 3), Bump::Compatible)), (1, 2, 0));
         assert_eq!(triplet(&suggest(&v(0, 1, 3), Bump::Breaking)), (0, 2, 0));
+    }
+
+    #[test]
+    fn diff_lists_every_change() {
+        assert_eq!(diff(&load("0.1.0", API), &load("0.1.0", API)).unwrap(), []);
+
+        let new = API
+            .replace("/// Turn on", "/// Turn the LED on\n/// and keep it on")
+            .replace(
+                "fn set(c: Coord);",
+                "fn set(c: Coord) -> u8;\n#[since = \"0.1.1\"]\nfn led_off();",
+            )
+            .replace("pub x: u8,", "/// Horizontal\npub x: u16,")
+            .replace(
+                "pub y: u8,",
+                "pub y: u8,\n#[default = None]\npub z: Option<u8>,",
+            )
+            .replace("B(u8),", "Bb(u8),")
+            .replace("ww_repr = u4", "ww_repr = u8");
+        let diff = diff(&load("0.1.0", API), &load("0.1.1", &new)).unwrap();
+        let changed = |path: &str, what, old: &str, new: &str| Difference::Changed {
+            path: path.into(),
+            what,
+            old: old.into(),
+            new: new.into(),
+        };
+        let lines = |lines: &[&str]| lines.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            diff,
+            [
+                Difference::Docs {
+                    path: "Api::led_on".into(),
+                    old: lines(&["Turn on"]),
+                    new: lines(&["Turn the LED on", "and keep it on"]),
+                },
+                changed(
+                    "Api::set",
+                    "signature",
+                    "fn set(c: Coord)",
+                    "fn set(c: Coord) -> u8"
+                ),
+                Difference::Added {
+                    path: "Api::led_off".into(),
+                    definition: "fn led_off()".into()
+                },
+                changed("Coord: field `x`", "type", "u8", "u16"),
+                Difference::Docs {
+                    path: "Coord: field `x`".into(),
+                    old: vec![],
+                    new: lines(&["Horizontal"]),
+                },
+                Difference::Added {
+                    path: "Coord: field `z`".into(),
+                    definition: "z: Option<u8>".into()
+                },
+                changed(
+                    "type Mode",
+                    "kind",
+                    "enum Mode (unsized, repr u4)",
+                    "enum Mode (unsized, repr u8)"
+                ),
+                changed("Mode::B", "name", "B", "Bb"),
+            ]
+        );
     }
 
     /// Consecutive versions of each crate in the embedded snapshots follow the rules.

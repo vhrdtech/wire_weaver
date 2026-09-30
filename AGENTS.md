@@ -107,6 +107,33 @@ implemented on `MyStruct`. Data types crossing the wire use `#[derive_shrink_wra
 `self_describing` / `sized`, `ww_repr`, `#[default = ..]` for evolvable fields, etc.). Grep `tests/*/src/lib.rs` for
 worked examples of any specific combination before writing new codegen-invoking code from scratch.
 
+## Server handlers: scaffold and sync with the API
+
+The generated server dispatcher calls handlers the user implements on the server struct (`fn <name>`,
+`get_`/`set_<name>`, `changed_<name>`, `sideband_`/`write_<name>`, `valid_indices_root_<..>`, prefixed with the trait
+item chain for nested traits). Their exact names and signatures depend on the `ww_codegen!` arguments, so don't write
+them by hand — `ww api scaffold <api_crate> [--name Trait]` (`cargo ww api scaffold ...`) prints the struct, a stub for
+every handler (`Unimplemented.into()`, empty bodies, no valid indices) and the matching `ww_codegen!` call. Pass the
+same options the target `ww_codegen!` uses: `--use-async`, `--method-model`, `--property-model`, `--server <Struct>`,
+`--alloc` for `no_alloc = false`.
+
+To bring an existing server in line after the API changed (or to fill in a partly written one):
+
+1. Find its `ww_codegen!(api :: Trait for path::Server, server = true, ..)` call and read the options from it.
+2. Run `ww api scaffold` with those options into the scratchpad — this is the expected handler list.
+3. Collect the existing handlers: every `impl Server` block, in any inline or out-of-line `mod`, across files.
+4. Compare by name, then by signature. Treat as equal what compiles the same: type paths vs. imported names
+   (`shrink_wrap::RefVec` vs `RefVec`), elided vs `'_` lifetimes, `impl MessageSink` vs a generic bound, `&self`
+   where `&mut self` is expected, parameter names.
+5. Edit in place, don't regenerate the file: add missing stubs next to the handlers of the same trait level, fix
+   mismatched signatures keeping the body and the user's parameter names, add missing `value_on_changed` struct
+   fields. Don't delete handlers that aren't expected — they may be stale resources or helper methods — list them
+   for the user instead.
+6. `cargo check` the crate; errors in bodies after a signature change are expected, point them out.
+
+Known server codegen limitations the scaffold can't work around: `no_alloc = false` servers don't compile, and
+`method_model = "..=deferred"` generates `*_ser_return_event` referring to an undefined `request`.
+
 ## Compatibility rules (don't guess — check `docs/evolution/rules.md`)
 
 Types default to `Unsized` (fully evolvable: fields can be appended with `#[default = ..]`, renamed but not

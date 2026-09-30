@@ -3458,6 +3458,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wire_weaver",
+ "wire_weaver_core",
  "ww_client_server",
  "ww_device",
  "ww_framer",

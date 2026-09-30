@@ -51,4 +51,5 @@ ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+wire_weaver_core = { workspace = true }
 ww_device = { workspace = true }

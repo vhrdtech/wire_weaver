@@ -7,6 +7,9 @@
 
 ### 🐛 Fixes
 
+- `#[default = ..]` on fields of API types accepts any expression (e.g. `#[default = None]` as in the docs), not only
+  string literals, which failed to load. Only the presence of a default is recorded in introspection data for now.
+
 - Generated std client sets `client_version` to the API crate's `<TRAIT>_FULL_GID`, so the host and device check
   version compatibility during link setup instead of treating the client as dynamic.
 

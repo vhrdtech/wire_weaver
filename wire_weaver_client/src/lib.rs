@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 mod client;
+mod compat;
 mod config;
 mod device_info;
 mod error;

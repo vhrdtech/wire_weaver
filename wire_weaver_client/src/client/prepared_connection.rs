@@ -172,6 +172,7 @@ async fn create_commander(
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
     }
+    commander.resolve_api_match();
     commander
 }
 
@@ -193,6 +194,7 @@ fn create_commander_blocking(
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
     }
+    commander.resolve_api_match();
     commander
 }
 

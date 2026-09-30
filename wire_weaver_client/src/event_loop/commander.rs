@@ -3,6 +3,7 @@ use crate::Introspect;
 use crate::PreparedCall;
 use crate::PreparedDisconnect;
 use crate::Stream;
+use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::command::Command;
@@ -12,8 +13,10 @@ use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{DEFAULT_REQUEST_TIMEOUT, PreparedRead, PreparedWrite, Sink};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
+use tracing::{debug, warn};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
@@ -46,6 +49,8 @@ pub struct Commander {
     client_introspect: Option<IntrospectBundle>,
     /// Device API and types, client signature. None if device has introspect disabled and there is no cache for it.
     device_introspect: Option<IntrospectBundle>,
+    /// Whether client resources can be used with the connected device, see [Commander::resolve_api_match].
+    api_match: ApiMatch,
 }
 
 pub(crate) struct TransportCommander {
@@ -63,6 +68,7 @@ impl Commander {
             connected_device: DeviceApiInfo::empty(),
             client_introspect: None,
             device_introspect: None,
+            api_match: ApiMatch::NoClientApi,
         }
     }
 
@@ -96,19 +102,9 @@ impl Commander {
         args: Result<Vec<u8>, Error>,
     ) -> PreparedCall<T> {
         // postpone error return to have a better syntax (one ? instead of two)
-        let since = None; // TODO: fix
-        let (postpone_err, args) = match (self.check_version(since), args) {
-            (Ok(_), Ok(args)) => (Ok(()), args),
-            (Err(e), _) => (Err(e), vec![]),
-            (_, Err(e)) => (Err(e), vec![]),
-        };
-        let (postpone_err, path_kind) = if postpone_err.is_ok() {
-            match self.to_ww_client_server_path(path) {
-                Ok(path_kind) => (Ok(()), path_kind),
-                Err(e) => (Err(e), PathKindOwned::Absolute { path: vec![] }),
-            }
-        } else {
-            (postpone_err, PathKindOwned::Absolute { path: vec![] })
+        let (postpone_err, path_kind, args) = match (self.resolve_path(path), args) {
+            (Ok(path_kind), Ok(args)) => (Ok(()), path_kind, args),
+            (Err(e), _) | (_, Err(e)) => (Err(e), PathKindOwned::Absolute { path: vec![] }, vec![]),
         };
         PreparedCall {
             postpone_err,
@@ -127,9 +123,12 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> PreparedRead<T> {
-        let since = None; // TODO: fix
-        let version_check = self.check_version(since);
-        let path_kind = self.to_ww_client_server_path(path); // postpone error return to have a better syntax
+        // postpone error return to have a better syntax
+        let path_kind = self.to_ww_client_server_path(path);
+        let version_check = match &path_kind {
+            Ok(path_kind) => self.check_resource(path_kind),
+            Err(_) => Ok(()),
+        };
         PreparedRead {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -147,19 +146,9 @@ impl Commander {
         path: PathKind<'_>,
         value: Result<Vec<u8>, Error>,
     ) -> PreparedWrite<E> {
-        let since = None; // TODO: fix
-        let (postpone_err, value) = match (self.check_version(since), value) {
-            (Ok(_), Ok(value)) => (Ok(()), value),
-            (Err(e), _) => (Err(e), vec![]),
-            (_, Err(e)) => (Err(e), vec![]),
-        };
-        let (postpone_err, path_kind) = if postpone_err.is_ok() {
-            match self.to_ww_client_server_path(path) {
-                Ok(path_kind) => (Ok(()), path_kind),
-                Err(e) => (Err(e), PathKindOwned::Absolute { path: vec![] }),
-            }
-        } else {
-            (postpone_err, PathKindOwned::Absolute { path: vec![] })
+        let (postpone_err, path_kind, value) = match (self.resolve_path(path), value) {
+            (Ok(path_kind), Ok(value)) => (Ok(()), path_kind, value),
+            (Err(e), _) | (_, Err(e)) => (Err(e), PathKindOwned::Absolute { path: vec![] }, vec![]),
         };
         PreparedWrite {
             postpone_err,
@@ -178,9 +167,7 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
-        let since = None; // TODO: fix
-        self.check_version(since)?;
-        let path_kind = self.to_ww_client_server_path(path)?;
+        let path_kind = self.resolve_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .send(Command::OnStreamEvent {
@@ -204,9 +191,7 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
-        let since = None; // TODO: fix
-        self.check_version(since)?;
-        let path_kind = self.to_ww_client_server_path(path)?;
+        let path_kind = self.resolve_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .blocking_send(Command::OnStreamEvent {
@@ -229,9 +214,7 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let since = None; // TODO: fix
-        self.check_version(since)?;
-        let path_kind = self.to_ww_client_server_path(path)?;
+        let path_kind = self.resolve_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .send(Command::OnStreamEvent {
@@ -256,9 +239,7 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let since = None; // TODO: fix
-        self.check_version(since)?;
-        let path_kind = self.to_ww_client_server_path(path)?;
+        let path_kind = self.resolve_path(path)?;
         let (tx, rx) = mpsc::unbounded_channel();
         self.transport_cmd_tx
             .blocking_send(Command::OnStreamEvent {
@@ -307,6 +288,47 @@ impl Commander {
 
     pub(crate) fn set_device_introspect(&mut self, device_bundle: IntrospectBundle) {
         self.device_introspect = Some(device_bundle);
+    }
+
+    /// Decide how client resources relate to the connected device's, once both introspection bundles are known:
+    /// * no client API (DynClient) - nothing to check,
+    /// * same API hash - all resources are the same by definition,
+    /// * different hash - every method, property, stream and trait is compared with the device's one,
+    /// * different hash and device API unknown - only `#[since]` is checked against the device's API version.
+    pub(crate) fn resolve_api_match(&mut self) {
+        let Some(client) = &self.client_introspect else {
+            self.api_match = ApiMatch::NoClientApi;
+            return;
+        };
+        self.api_match = if client.api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
+            ApiMatch::Identical
+        } else if let Some(device) = &self.device_introspect {
+            let compat = ApiCompat::new(&client.api_bundle, &device.api_bundle);
+            let mismatches = compat.mismatches();
+            if mismatches.is_empty() {
+                debug!(
+                    "device API differs from the client's, but all client resources are compatible"
+                );
+            } else {
+                let list = mismatches
+                    .iter()
+                    .map(|(name, verdict)| match verdict {
+                        Verdict::Incompatible(reason) => format!("\n  {name}: {reason}"),
+                        _ => format!("\n  {name}: not implemented"),
+                    })
+                    .collect::<String>();
+                warn!(
+                    "device API {:?} differs from the client's, these resources can't be used:{list}",
+                    self.connected_device.user_api_version
+                );
+            }
+            ApiMatch::Checked(Arc::new(compat))
+        } else {
+            debug!(
+                "device API differs from the client's and is unknown, only #[since] will be checked"
+            );
+            ApiMatch::DeviceApiUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)))
+        };
     }
 
     pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
@@ -376,6 +398,44 @@ impl Commander {
             }
         };
         Ok(path_kind)
+    }
+
+    fn resolve_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
+        let path_kind = self.to_ww_client_server_path(path)?;
+        self.check_resource(&path_kind)?;
+        Ok(path_kind)
+    }
+
+    /// Check that the connected device has a compatible resource at the path, see [Commander::resolve_api_match].
+    /// Only absolute paths are checked, trait paths without a base path can't be mapped onto the client's API.
+    fn check_resource(&self, path_kind: &PathKindOwned) -> Result<(), Error> {
+        let PathKindOwned::Absolute { path } = path_kind else {
+            return Ok(());
+        };
+        let compat = match &self.api_match {
+            ApiMatch::NoClientApi | ApiMatch::Identical => return Ok(()),
+            ApiMatch::Checked(compat) | ApiMatch::DeviceApiUnknown(compat) => compat,
+        };
+        let Some(resource) = compat.resolve(path) else {
+            return Ok(());
+        };
+        let device = || Box::new(self.connected_device.user_api_version.clone());
+        match resource.verdict {
+            Verdict::Compatible => self.check_version(resource.since),
+            Verdict::Missing => {
+                // prefer a more specific error if the resource was added later than device's version
+                self.check_version(resource.since)?;
+                Err(Error::NotImplementedByDevice {
+                    resource: resource.name,
+                    device: device(),
+                })
+            }
+            Verdict::Incompatible(reason) => Err(Error::IncompatibleResource {
+                resource: resource.name,
+                device: device(),
+                reason: reason.clone(),
+            }),
+        }
     }
 
     fn check_version(&self, since: Option<(u32, u32, u32)>) -> Result<(), Error> {

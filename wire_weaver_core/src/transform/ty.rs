@@ -413,13 +413,10 @@ fn get_default_attr(
     let Some(attr) = attrs.iter().find(|a| a.path().is_ident("default")) else {
         return Ok(None);
     };
-    if let Meta::NameValue(name_value) = &attr.meta
-        && let Expr::Lit(expr_lit) = &name_value.value
-        && let Lit::Str(_lit_str) = &expr_lit.lit
-    {
-        // TODO: since value
+    if let Meta::NameValue(_name_value) = &attr.meta {
+        // TODO: convert expression to a value, only presence of a default is used for now (in client compatibility checks)
         Ok(Some(ValueOwned::Bool(false)))
     } else {
-        Err(anyhow!("expected #[default = \"value literal\"]").context(current_crate.err_context()))
+        Err(anyhow!("expected #[default = value]").context(current_crate.err_context()))
     }
 }

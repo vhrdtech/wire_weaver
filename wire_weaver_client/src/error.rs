@@ -33,6 +33,21 @@ pub enum Error {
     IncompatibleDeviceProtocol,
     #[error("Connected device has an older protocol version: {:?}, required for the operation: {:?}", .0, .1)]
     OlderProtocol(Box<FullVersionOwned>, Box<FullVersionOwned>),
+    #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]
+    NotImplementedByDevice {
+        /// Resource path, e.g. `gpio[].set_high`
+        resource: String,
+        device: Box<FullVersionOwned>,
+    },
+    #[error(
+        "'{resource}' is incompatible with the connected device, its API is {device:?}: {reason}"
+    )]
+    IncompatibleResource {
+        /// Resource path, e.g. `gpio[].set_high`
+        resource: String,
+        device: Box<FullVersionOwned>,
+        reason: String,
+    },
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
     #[error("Remote device returned ww_client_server::{:?}", .0)]

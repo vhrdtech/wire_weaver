@@ -2,6 +2,16 @@
 
 ### 🚀 Features
 
+- Per-resource API compatibility checks. If the device reports the same API hash as the client was generated with,
+  nothing is checked. Otherwise, client and device introspection data are compared for every method, property,
+  stream and trait (argument, return, property and stream types, property access, trait origin), following the
+  evolution rules: e.g., an `Unsized` struct may gain trailing fields, but the reading side's extra fields need
+  `#[default]`. Using a missing or incompatible resource fails locally with `Error::NotImplementedByDevice` or
+  `Error::IncompatibleResource`, instead of sending a request the device would misread; all such resources are
+  logged once on connect. If the device API is unknown (introspection disabled and not cached), `#[since]` of the
+  resource is checked against the device's API version and fails with `Error::OlderProtocol` (was not checked before).
+  Only absolute paths are checked, trait-client paths without an attachment base path are not.
+
 - `DeviceInfo` is filled from the USB API id interface string (falling back to the product string): API name,
   version, truncated hash and user label are known without opening the device, so `.user_label_eq()` and
   `.implements_api()` filters now work for USB. `DeviceInfo` gains `location` and implements `Display`.
@@ -20,6 +30,8 @@
 - `Stream::recv_all_bytes_timeout()`/`recv_all_bytes_timeout_blocking()` fail if no event arrives within the timeout.
 
 ### ⚠️ Breaking
+
+- `Error` gains `NotImplementedByDevice` and `IncompatibleResource` variants, exhaustive matches need new arms.
 
 - `connect()`/`connect_blocking()` report why they failed instead of a generic "No devices found to connect to":
   - `Error::DeviceNotFound` is now a struct variant with the config's `filters` and the connected WireWeaver

@@ -1140,6 +1140,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#crate-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Crate layers
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Crate layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-1-shrink_wrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 1: shrink_wrap
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-2-ww_stdlib" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 2: ww_stdlib
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-3-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 3: framework
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-4-user-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 4: user API
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checklist-before-breaking-something" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checklist before breaking something
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2231,6 +2303,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#crate-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Crate layers
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Crate layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-1-shrink_wrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 1: shrink_wrap
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-2-ww_stdlib" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 2: ww_stdlib
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-3-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 3: framework
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-4-user-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer 4: user API
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checklist-before-breaking-something" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checklist before breaking something
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2376,7 +2520,142 @@
 
 
 <h1 id="evolution-rules">Evolution rules<a class="headerlink" href="#evolution-rules" title="Permanent link">&para;</a></h1>
-<p>There are two sets of evolution rules - one for data types and one for API.</p>
+<p>Two different things can break when a WireWeaver crate changes, and they are tracked separately:</p>
+<ul>
+<li><strong>Wire compatibility</strong> - whether bytes written by one side can still be read by the other. Firmware lives in the
+  field for years, hosts are updated on their own schedule, and shrink_wrap blobs may be stored on disk. A wire break
+  means deployed devices stop talking to new hosts (or the other way around), which no <code>cargo update</code> can fix.</li>
+<li><strong>Rust (SemVer) compatibility</strong> - whether code still compiles against the new crate version. A break here is
+  annoying, but it is found by the compiler and fixed by the developer, before anything ships.</li>
+</ul>
+<p>A change can break one without the other: renaming a <code>BufWriter</code> method breaks Rust code but not a single byte on the
+wire; changing a field's <code>u8</code> to <code>u16</code> in an API type compiles fine and silently breaks the wire. The rules below say
+which versions to bump for each, depending on where in the crate stack the change is.</p>
+<h2 id="crate-layers">Crate layers<a class="headerlink" href="#crate-layers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Crates</th>
+<th>Versioning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Wire format</td>
+<td><code>shrink_wrap</code>, <code>shrink_wrap_derive</code></td>
+<td>own version, changes rarely</td>
+</tr>
+<tr>
+<td>2. Shared API &amp; types</td>
+<td><code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>, <code>ww_global</code>, <code>ww_self</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...)</td>
+<td>own version per crate, the version is the API identity</td>
+</tr>
+<tr>
+<td>3. Framework</td>
+<td><code>wire_weaver</code>, <code>wire_weaver_core</code>, <code>wire_weaver_derive</code>, <code>wire_weaver_client</code>, <code>wire_weaver_cli</code>, <code>ww_device</code>, <code>ww_link</code>, <code>ww_framer</code>, <code>wire_weaver_udp_link</code>, ...</td>
+<td>shared <code>[workspace.package] version</code>, free to break Rust API</td>
+</tr>
+<tr>
+<td>4. User API</td>
+<td><code>my_device_api</code> and friends (see <a href="../../api/folder_structure/">folder structure</a>)</td>
+<td>own version, the version is the API identity, checked on every connection</td>
+</tr>
+</tbody>
+</table>
+<p>Everything above layer 1 implements shrink_wrap's traits. Base type crates depend on <code>shrink_wrap</code> directly, trait
+crates and user API crates depend on <code>wire_weaver</code>, which re-exports <code>shrink_wrap</code>. Generated code refers to
+<code>shrink_wrap::...</code> through that re-export, so a single <code>shrink_wrap</code> version must be shared by the whole dependency
+graph of an application.</p>
+<h3 id="layer-1-shrink_wrap">Layer 1: shrink_wrap<a class="headerlink" href="#layer-1-shrink_wrap" title="Permanent link">&para;</a></h3>
+<p><code>shrink_wrap</code> is the foundation that every other crate and every user type is built on, so it is kept stable and
+changes to it are rare and deliberate.</p>
+<p><strong>Wire format changes</strong> - anything that changes the bytes produced for an existing type (alignment, length
+encoding, discriminant or flag layout, the meaning of an existing <code>derive_shrink_wrap</code> directive) breaks every
+device, every host and every stored blob at once, regardless of any API version. Post 1.0 this is not allowed at all.
+Before 1.0 it is allowed only with a strong reason, batched with other such changes, and listed under <code>### ⚠️
+Breaking</code> in the changelog starting with <code>Wire format:</code>, so that it can't be mistaken for a Rust-only break. The
+byte-level claims in <a href="../../serdes/shrink_wrap/">shrink_wrap</a>, <a href="../../serdes/derive/">derive</a> and
+<a href="../../serdes/showcase/">showcase</a> must be re-verified in the same change.</p>
+<p><strong>Rust API breaks</strong> (<code>0.2</code> -&gt; <code>0.3</code>) do not touch the wire, but they still ripple through the whole ecosystem: to
+Cargo, <code>shrink_wrap 0.2</code> and <code>0.3</code> are unrelated crates with unrelated <code>SerializeShrinkWrap</code> traits. A type
+from a <code>ww_stdlib</code> crate still built on 0.2 does not implement 0.3 traits, and can't be used inside a type or an API
+built on 0.3. So every <code>ww_stdlib</code> crate, the framework and every user API crate has to be re-released together.
+Therefore:</p>
+<ul>
+<li>Prefer additive changes (new types, new methods, new directives, new features). They do not break anything and
+  are released as a patch version (<code>0.2.0</code> -&gt; <code>0.2.1</code>), so the rest of the ecosystem picks them up without
+  re-releasing. This is the one exception to the "every change bumps minor" rule.</li>
+<li>Collect breaking Rust API changes and release them together, rarely. When it happens, bump all <code>ww_stdlib</code> crates
+  in the same release cycle.</li>
+<li><code>shrink_wrap_derive</code> is versioned together with <code>shrink_wrap</code>, as the generated code is tightly coupled to it.</li>
+</ul>
+<h3 id="layer-2-ww_stdlib">Layer 2: ww_stdlib<a class="headerlink" href="#layer-2-ww_stdlib" title="Permanent link">&para;</a></h3>
+<p><code>ww_stdlib</code> crates are meant to be shared between unrelated projects, so their types end up inside many
+different APIs. Their versions travel on the wire (as <code>FullVersion</code> / <code>CompactVersion</code> with a
+<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_stdlib/ww_global">ww_global</a> id) for trait-based requests
+and introspection, so the version is not just Cargo metadata, it's a compatibility statement, same as for user API
+crates (layer 4):</p>
+<ul>
+<li>Wire-compatible change (following the <a href="#data-types">data type</a> and <a href="#api">API</a> rules below) -&gt; bump the compatible
+  position: patch before 1.0 (<code>0.1.0</code> -&gt; <code>0.1.1</code>), minor after.</li>
+<li>Wire-incompatible change -&gt; bump the breaking position: minor before 1.0 (<code>0.1.0</code> -&gt; <code>0.2.0</code>), major after. Every
+  crate and user API that exposes the changed type or trait over the wire is then wire-incompatible too, and has to
+  bump its own breaking position when it upgrades.</li>
+<li>A Rust-only break (e.g. renaming a helper method, changing a <code>std</code> convenience impl) is still a Cargo breaking
+  change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
+  releases that are supposed to be wire-compatible additions; prefer deprecating and adding.</li>
+</ul>
+<p>Base type crates (<code>ww_numeric</code>, <code>ww_si</code>, ...) are used by other <code>ww_stdlib</code> crates as well, so their breaking
+changes cascade the same way <code>shrink_wrap</code> ones do, just over a smaller set of crates - check reverse dependencies in
+the root <code>Cargo.toml</code> before breaking one. <code>ww_version</code> and <code>ww_global</code> are special: <code>FullVersion</code>,
+<code>CompactVersion</code> and <code>ApiHashPair</code> are exchanged during link setup, before any version could be checked, so they are
+<code>final_structure</code> and must not change on the wire at all.</p>
+<p><code>ww_client_server</code> is the API model: it defines the request/event encoding that every generated server and client
+speaks. Its version is sent to the host in <code>DeviceInfo::api_model_version</code>, and a wire break there is a wire break for
+every user API, so it is treated with almost the same care as <code>shrink_wrap</code> - see <a href="#api-model">API model</a>.</p>
+<h3 id="layer-3-framework">Layer 3: framework<a class="headerlink" href="#layer-3-framework" title="Permanent link">&para;</a></h3>
+<p>The framework crates share one version and are free to break their Rust API: bump the minor version once per
+release cycle and describe what users must change in the changelog. A user API crate built against <code>wire_weaver 0.5</code>
+keeps working with a host or firmware built against <code>wire_weaver 0.6</code>, as long as both still use the same
+<code>shrink_wrap</code> major version and the same wire protocol.</p>
+<p>The exception is code that defines what goes on the wire:</p>
+<ul>
+<li><code>ww_framer</code> (frame layout, heads, checksums) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>, <code>LinkSetup</code>) - changing
+  these breaks every device from every host. The link version is sent in <code>DeviceInfo::dev_link_version</code> but it is not
+  checked yet, so a break there is not even detected cleanly. Only add new message kinds that old peers ignore;
+  never change existing ones.</li>
+<li>Server and client codegen in <code>wire_weaver_core</code> - how resources are indexed, how arguments and return values are
+  wrapped. Changing it changes the wire for every user API without any user version changing, so it must stay
+  byte-identical for the same API definition.</li>
+</ul>
+<p>These are wire changes even though they live in "free to break" crates, so they follow the layer 1 rules: avoid,
+batch, and mark as <code>Wire format:</code> in the changelog.</p>
+<h3 id="layer-4-user-api">Layer 4: user API<a class="headerlink" href="#layer-4-user-api" title="Permanent link">&para;</a></h3>
+<p>Name and version of the user API crate are sent during link setup, and both device and host refuse to connect if
+they are not compatible (<code>ww_version::Version::is_protocol_compatible</code>):</p>
+<ul>
+<li>Before 1.0: major and minor must match, so <code>0.2.0</code> and <code>0.2.7</code> connect, <code>0.2.0</code> and <code>0.3.0</code> don't.</li>
+<li>After 1.0: major must match.</li>
+</ul>
+<p>So the compatible position (patch before 1.0, minor after) is for wire-compatible additions: new methods,
+properties, streams, new fields with defaults, etc. Mark them with <code>#[since = "0.2.3"]</code>, so that a newer host can
+report a clean error when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).
+Everything else bumps the breaking position.</p>
+<p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
+wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
+<h2 id="checklist-before-breaking-something">Checklist before breaking something<a class="headerlink" href="#checklist-before-breaking-something" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Is it a wire change or only a Rust change? If unsure, serialize a few values before and after and compare the bytes
+   (<code>to_ww_bytes()</code>), and run the <a href="../checker_tool/">evolution checker</a>.</li>
+<li>Which layer is it in? Wire changes in <code>shrink_wrap</code>, <code>ww_framer</code>, <code>ww_link</code>, <code>ww_client_server</code> or server/client
+   codegen affect every device - avoid them, and if unavoidable, batch them and mark them <code>Wire format:</code> in the
+   changelog.</li>
+<li>For <code>shrink_wrap</code> (and base <code>ww_stdlib</code> types), list the reverse dependencies that need to be re-released.</li>
+<li>Bump the right position: patch for compatible additions in <code>shrink_wrap</code> and API crates before 1.0, minor for
+   everything else before 1.0.</li>
+<li>Write the changelog entry, saying what users must change and whether deployed devices are affected.</li>
+</ol>
 <h2 id="data-types">Data types<a class="headerlink" href="#data-types" title="Permanent link">&para;</a></h2>
 <p>WireWeaver considers two root types for evolution and evolution rule checks - <code>struct</code> and <code>enum</code> (plain and with data
 variants).
@@ -2406,8 +2685,8 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 </ul>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
 <p>Data types used in API are a part of SemVer guarantee and are subject to the rules above. Meaning that it's not allowed
-to break compatibility on any of the data types used directly or indirectly without also bumping a major version of an
-API as well.</p>
+to break compatibility on any of the data types used directly or indirectly without also bumping the breaking position
+of the API version as well (minor before 1.0, major after, see <a href="#layer-4-user-api">layer 4</a>).</p>
 <ul>
 <li>Adding argument</li>
 <li><code>T</code> to struct of <code>T</code> in return position</li>
@@ -2417,10 +2696,9 @@ API as well.</p>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>
 <p>E.g., if user_device_api v0.1.0 depends on ww_client_server v0.4.0 and a new major version of ww_client_server comes
-out (v0.5.0),
-then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add new features
-though,
-and if previous version is doing all that it is supposed to, there might not be a need to upgrade.</p>
+out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add
+new features though, and if previous version is doing all that it is supposed to, there might not be a need to
+upgrade.</p>
 
 
 

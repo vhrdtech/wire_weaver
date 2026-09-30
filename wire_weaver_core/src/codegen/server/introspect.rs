@@ -5,6 +5,8 @@ use quote::quote;
 use sha2::Digest;
 use shrink_wrap::SerializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
+use ww_self::visit::Visit;
+use ww_self::visit_mut::VisitMut;
 
 pub(crate) fn introspect(
     api_bundle: &ApiBundleOwned,
@@ -94,13 +96,12 @@ pub(crate) struct IntrospectTs {
 }
 
 pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool) -> IntrospectTs {
-    let mut api_bundle_cloned = api_bundle.clone();
     let mut contains_docs = ContainsDocs::default();
-    ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut contains_docs);
+    contains_docs.visit_api_bundle(api_bundle);
 
     if contains_docs.contains {
-        ww_self::visitor::visit_api_bundle_mut(&mut api_bundle_cloned, &mut DropDocs {});
-        let api_no_docs = api_bundle_cloned;
+        let mut api_no_docs = api_bundle.clone();
+        DropDocs.visit_api_bundle(&mut api_no_docs);
         let api_with_docs = api_bundle;
 
         let (no_docs_bytes, no_docs_hash) = ser_hash_and_cache(&api_no_docs, false);
@@ -143,10 +144,10 @@ fn bytes_to_ts(bytes: &[u8]) -> TokenStream {
     }
 }
 
-struct DropDocs {}
+struct DropDocs;
 
-impl ww_self::visitor::VisitMut for DropDocs {
-    fn visit_doc(&mut self, docs: &mut Vec<String>) {
+impl VisitMut for DropDocs {
+    fn visit_docs(&mut self, docs: &mut Vec<String>) {
         docs.clear();
     }
 }
@@ -156,8 +157,8 @@ struct ContainsDocs {
     contains: bool,
 }
 
-impl ww_self::visitor::VisitMut for ContainsDocs {
-    fn visit_doc(&mut self, docs: &mut Vec<String>) {
+impl Visit<'_> for ContainsDocs {
+    fn visit_docs(&mut self, docs: &Vec<String>) {
         if !docs.is_empty() {
             self.contains = true;
         }

@@ -5,7 +5,9 @@ mod alloc;
 #[cfg(feature = "std")]
 mod value;
 #[cfg(feature = "std")]
-pub mod visitor;
+mod visitor;
+#[cfg(feature = "std")]
+pub use visitor::{visit, visit_mut};
 
 use shrink_wrap::prelude::*;
 pub use ww_numeric::{NumericAnyType, NumericBaseType};

@@ -13,7 +13,8 @@ crate-type = ["cdylib"]
 
 [features]
 default = ["rtt"]
-rtt = ["wire_weaver_client/rtt"] # RTT over a debug probe (probe-rs), no system libraries needed
+# RTT over a debug probe (probe-rs), no system libraries needed
+rtt = ["wire_weaver_client/rtt"]
 
 [dependencies]
 pyo3.workspace = true

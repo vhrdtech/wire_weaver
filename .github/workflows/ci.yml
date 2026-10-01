@@ -1,0 +1,177 @@
+name: CI
+
+# Based on https://github.com/ameknite/rust-ci-cd-template/blob/main/.github/workflows/ci.yaml
+# clippy and rustdoc use --all-features to cover feature gated code. Tests can't: with `defmt` enabled, host test
+# binaries fail to link, as there is no defmt global logger (undefined `_defmt_write`, ...).
+
+on:
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: rustfmt
+          cache: false
+      - run: cargo fmt --all --check
+
+  cargo-sort:
+    name: cargo sort
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sort
+      # --grouped keeps the blank line separated groups in [workspace.dependencies]
+      - run: cargo sort --workspace --grouped --check
+
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@v1
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  doc:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - run: cargo doc --workspace --no-deps --all-features
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo nextest run --workspace --all-targets --profile ci
+      # nextest does not run doctests
+      - run: cargo test --workspace --doc
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+      - run: cargo llvm-cov nextest --workspace --profile ci --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
+
+  semver-checks:
+    name: semver checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      # Only crates already on crates.io have a baseline to compare against, never published ones would fail.
+      # Default features only: older releases don't build with all of them (defmt).
+      - name: cargo semver-checks
+        run: |
+          packages=()
+          for name in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | .name'); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -A 'wire_weaver CI (github.com/vhrdtech/wire_weaver)' \
+              "https://crates.io/api/v1/crates/$name")
+            if [ "$code" = 200 ]; then
+              packages+=(--package "$name")
+            else
+              echo "::notice::skipping $name, not on crates.io ($code)"
+            fi
+          done
+          cargo semver-checks "${packages[@]}" --default-features
+
+  mcu:
+    name: check mcu workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache-workspaces: mcu
+      - run: cargo check
+        working-directory: mcu
+
+  examples-mcu:
+    name: check ${{ matrix.board }} ${{ matrix.args }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: mcu_qemu
+          - board: nucleo_h743zi2
+          - board: usb_stm32h725ig
+          - board: nucleo_g0b1re
+            args: --features usb
+          - board: nucleo_g0b1re
+            args: --no-default-features --features nucleo_g0b1re,rtt_target
+    steps:
+      - uses: actions/checkout@v7
+      # toolchain (nightly) and target come from the board's rust-toolchain.toml
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          rust-src-dir: examples_mcu/${{ matrix.board }}
+          cache-workspaces: examples_mcu/${{ matrix.board }}
+          # nightly toolchain, new lints should not break the build
+          build-warnings: warn
+      - run: cargo check ${{ matrix.args }}
+        working-directory: examples_mcu/${{ matrix.board }}

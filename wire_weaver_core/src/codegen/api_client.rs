@@ -82,7 +82,7 @@ pub(crate) enum ClientPathMode {
 /// ApiBundleOwned can be loaded using [crate::load] or [crate::load_dep].
 /// Pass a [GenClientConfig] or [GenClientConfigRaw] to configure code generation.
 ///
-/// Alternatively, use [wire_weaver_derive::ww_codegen] proc-macro if you do not want to use build.rs.
+/// Alternatively, use `wire_weaver_derive::ww_codegen!` proc-macro if you do not want to use build.rs.
 pub fn gen_client(
     api_bundle: &ApiBundleOwned,
     config: impl Into<GenClientConfigRaw>,

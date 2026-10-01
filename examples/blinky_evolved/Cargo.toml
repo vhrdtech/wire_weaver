@@ -1,13 +1,14 @@
 [package]
 name = "blinky_evolved"
 version = "0.1.0"
+publish = false
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-blinky_api = {workspace = true} # on purpose link to blinky_api here to demonstrate how #[since = ""] works
+blinky_api = { workspace = true } # on purpose link to blinky_api here to demonstrate how #[since = ""] works
 blinky_api_evolved.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true

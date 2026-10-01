@@ -61,7 +61,7 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Reset BufWriter to the beginning, "forgetting" all written data.
-    /// Usefull when re-using the same writer multiple times.
+    /// Useful when re-using the same writer multiple times.
     pub fn reset(&mut self) {
         self.len_bytes = self.buf.len();
         self.byte_idx = 0;

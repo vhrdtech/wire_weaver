@@ -45,7 +45,7 @@ pub fn ww_codegen(args: TokenStream) -> TokenStream {
 
 /// Generate types definitions, serdes and trait client or server side code.
 ///
-/// See [ww_api](ww_api) for supported arguments.
+/// See [ww_codegen!] for supported arguments.
 #[proc_macro]
 pub fn ww_impl(args: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as ww_impl_args::ApiArgs);

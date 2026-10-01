@@ -2,7 +2,7 @@
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "Hash of the [ApiBundle] used to compare if client and server API\'s are idential.",
+        "Hash of the [ApiBundle] used to compare if client and server API\'s are identical.",
         "See also [ApiHashPair]",
     ], ident: "ApiHash", fields: Named([
         (ident: Some("hash"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
@@ -12,7 +12,7 @@
         "The idea behind this is that if something important has changed without changing API or data types,",
         "documentation will be the only thing explaining the change.",
         "",
-        "Theoretically, API name + version must be unique, but it\'s hard to enfore version bump on every change.",
+        "Theoretically, API name + version must be unique, but it\'s hard to enforce version bump on every change.",
         "Thus it\'s possible to introduce a subtle change that might be hard to find.",
         "With API hash though, any change will be detected.",
         "Client will then download actual ApiBundle from device or cache and use it to check for compatibility.",

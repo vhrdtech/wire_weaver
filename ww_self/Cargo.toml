@@ -9,7 +9,13 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "ww_numeric/std", "ww_version/std", "dep:anyhow", "dep:sha2"]
+std = [
+    "shrink_wrap/std",
+    "ww_numeric/std",
+    "ww_version/std",
+    "dep:anyhow",
+    "dep:sha2",
+]
 serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]
 
 [dependencies]

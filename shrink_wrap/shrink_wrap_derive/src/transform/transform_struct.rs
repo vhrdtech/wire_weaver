@@ -121,8 +121,6 @@ mod tests {
         assert!(from_tokens(quote! { struct S { seq: Vec<UVlq32Backfill> } }).is_err());
         assert!(from_tokens(quote! { struct S { seq: (UVlq32Backfill, u8) } }).is_err());
         assert!(from_tokens(quote! { struct S { seq: [UVlq32Backfill; 1] } }).is_err());
-        assert!(
-            from_tokens(quote! { struct S { a: UVlq32Backfill, b: UVlq32Backfill } }).is_err()
-        );
+        assert!(from_tokens(quote! { struct S { a: UVlq32Backfill, b: UVlq32Backfill } }).is_err());
     }
 }

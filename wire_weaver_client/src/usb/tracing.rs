@@ -1,6 +1,8 @@
 //! Stream all USB packets over iceoryx2 to a debugger (feature `usb-tracing`).
 
 #[cfg(feature = "usb-tracing")]
+// Not wired into the transport generic event loop since 558256e1, only built.
+#[allow(dead_code)]
 mod imp {
     use iceoryx2::port::publisher::Publisher;
     use iceoryx2::prelude::*;

@@ -52,7 +52,7 @@ pub(crate) struct DeviceArgs {
     #[arg(long, env = "WW_MANUFACTURER", global = true, add = ArgValueCandidates::new(complete::manufacturers))]
     manufacturer: Option<String>,
 
-    /// Implemented API, optionally with a version requirement: name[@req], e.g. blinky_api@^0.1
+    /// Implemented API, optionally with a version requirement: name or name@req, e.g. blinky_api@^0.1
     #[arg(long, env = "WW_API", global = true, add = ArgValueCandidates::new(complete::apis), value_name = "NAME[@REQ]")]
     api: Option<String>,
 

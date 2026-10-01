@@ -83,7 +83,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
 /// ApiBundleOwned can be loaded using [crate::load] or [crate::load_dep].
 /// Pass a [GenServerConfig] or [GenServerConfigRaw] to configure code generation.
 ///
-/// Alternatively, use [wire_weaver_derive::ww_codegen] proc-macro if you do not want to use build.rs.
+/// Alternatively, use `wire_weaver_derive::ww_codegen!` proc-macro if you do not want to use build.rs.
 pub fn gen_server(
     api_bundle: &ApiBundleOwned,
     config: impl Into<GenServerConfigRaw>,

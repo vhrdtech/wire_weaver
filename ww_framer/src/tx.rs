@@ -147,7 +147,7 @@ where
                 Ok(false)
             }
             State::WroteN(n) => {
-                let message_left = message.len() - n; // TODO: guard agains user giving different message here or not?
+                let message_left = message.len() - n; // TODO: guard against user giving different message here or not?
                 // Continue and End carry the remaining length, so that receiver can skip an End
                 // whose Start was lost and continue with the rest of the frame
                 if H::write(MessageKind::Continue, user_kind, message_left, &mut self.wr).is_err() {
@@ -234,7 +234,7 @@ where
     /// Note that frame can be shorter than the maximum, as at least head + length + 1 byte must fit.
     /// Or if called before whole frame is accumulated to lower delays.
     ///
-    /// For frame media, this length must be preserved, otherise receiver will not work.
+    /// For frame media, this length must be preserved, otherwise receiver will not work.
     /// This is usually trivially achieved on e.g., USB or CAN.
     ///
     /// For stream media, frame is simply next chunk of bytes to send. On real hardware having a

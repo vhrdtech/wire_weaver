@@ -22,7 +22,7 @@ members = [
     "ww_stdlib/*",
 ]
 
-exclude = ["examples_mcu", "wire_weaver_tool", "fuzz"]
+exclude = ["examples_mcu", "fuzz", "wire_weaver_tool"]
 
 [workspace.package]
 version = "0.5.0"

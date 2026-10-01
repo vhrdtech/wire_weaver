@@ -6,7 +6,7 @@ use shrink_wrap::prelude::*;
 /// The idea behind this is that if something important has changed without changing API or data types,
 /// documentation will be the only thing explaining the change.
 ///
-/// Theoretically, API name + version must be unique, but it's hard to enfore version bump on every change.
+/// Theoretically, API name + version must be unique, but it's hard to enforce version bump on every change.
 /// Thus it's possible to introduce a subtle change that might be hard to find.
 /// With API hash though, any change will be detected.
 /// Client will then download actual ApiBundle from device or cache and use it to check for compatibility.
@@ -29,7 +29,7 @@ pub struct ApiHashPair<'i> {
     pub with_docs: ApiHash<'i>,
 }
 
-/// Hash of the [ApiBundle] used to compare if client and server API's are idential.
+/// Hash of the [ApiBundle] used to compare if client and server API's are identical.
 /// See also [ApiHashPair]
 #[derive_shrink_wrap(
     owned(feature = "std"),

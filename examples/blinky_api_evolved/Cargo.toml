@@ -1,6 +1,7 @@
 [package]
 name = "blinky_api_evolved"
 version = "0.1.1"
+publish = false
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

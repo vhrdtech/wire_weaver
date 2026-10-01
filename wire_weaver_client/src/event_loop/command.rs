@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).
-/// Generated client code uses [CommandSender](CommandSender), which sends out Command's.
+/// Generated client code uses [Commander](crate::Commander), which sends out Command's.
 pub enum Command {
     /// Connect to a device identified by a provided handle.
     /// On success, send a message through connected_tx.

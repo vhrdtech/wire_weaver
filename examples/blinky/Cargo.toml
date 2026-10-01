@@ -1,20 +1,21 @@
 [package]
 name = "blinky"
 version = "0.1.0"
+publish = false
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+
+[features]
+# RTT through a debug probe, for the blinky_rtt example
+rtt = ["wire_weaver_client/rtt"]
 
 [dependencies]
 blinky_api.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
-
-[features]
-# RTT through a debug probe, for the blinky_rtt example
-rtt = ["wire_weaver_client/rtt"]
 
 [dev-dependencies]
 anyhow.workspace = true

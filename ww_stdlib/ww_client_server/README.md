@@ -30,10 +30,10 @@ pub struct MyDeviceClient {}
 impl MyDeviceClient {
     pub async fn led_on(&mut self) -> Result<(), Error> {
         let seq = 123; // obtain next request ID 
-        let req = Reqeust {
+        let req = Request {
             seq,
             path_kind: PathKind::Absolute { path: [0] },
-            kind: ReqeustKind::Call { args: [] }
+            kind: RequestKind::Call { args: [] }
         };
         let bytes = req.to_ww_bytes()?;
         transport.send(bytes);

@@ -1,14 +1,16 @@
 [package]
 name = "blinky_py"
 version = "0.1.0"
+publish = false
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [lib]
-name = "blinky"
+name = "blinky" # Python module name, collides with the blinky crate in cargo doc
 crate-type = ["cdylib"]
+doc = false
 
 [dependencies]
 blinky.workspace = true

@@ -6,8 +6,14 @@ extend-exclude = []
 [default.extend-identifiers]
 
 [default.extend-words]
-## Project-specific acronym
+## Project-specific acronyms and abbreviations
 unx = "unx"
+# ser = serialize (ser/des)
+ser = "ser"
+# STM32 high speed internal oscillator
+hsi = "hsi"
+# GPIO output type (push-pull / open-drain)
+ot = "ot"
 
 [default]
 extend-ignore-identifiers-re = []

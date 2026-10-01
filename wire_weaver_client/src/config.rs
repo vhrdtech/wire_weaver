@@ -9,7 +9,7 @@ use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
 use crate::{DeviceInfo, SeqTy};
 
-/// Configuration of device enumuration, selection and connection.
+/// Configuration of device enumeration, selection and connection.
 /// Flexible filters allow for many different scenarios:
 /// - Specific device selection
 ///     - USB by VID:PID or port chain
@@ -156,7 +156,7 @@ pub(crate) enum ConfigPiece {
     /// Filter out a device with the specified user label. Ignoring case.
     /// User labels are set by the firmware (see [USB transport](https://ww.vhrd.tech/transport/usb/)), `ww list` shows them.
     UserLabelEq { user_label: String },
-    /// Filter out a device whose manufacturer string contains the substring. Igoring case.
+    /// Filter out a device whose manufacturer string contains the substring. Ignoring case.
     ManufacturerContains { substring: String },
     /// Filter out a device whose product string contains the substring. Ignoring case.
     ProductContains { substring: String },
@@ -401,7 +401,7 @@ impl ClientConfig {
         f
     }
 
-    /// CommandSender queue size, limits the amount of simulatenous requests in-flight.
+    /// CommandSender queue size, limits the amount of simultaneous requests in-flight.
     /// Default is 8192, using more than 65_534 will lead to blocking if reached.
     pub fn cmd_queue_size(self, size: usize) -> Self {
         let mut f = self;
@@ -462,7 +462,7 @@ impl ClientConfig {
         f
     }
 
-    /// Filter out a device whose manufacturer string contains the substring. Igoring case.
+    /// Filter out a device whose manufacturer string contains the substring. Ignoring case.
     pub fn manufacturer_contains(self, substring: String) -> Self {
         let mut f = self;
         f.pieces

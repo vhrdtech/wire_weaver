@@ -4,13 +4,13 @@
 //!
 //! - [link::DeviceLink] — sans-IO link state machine: link setup and version check, frame
 //!   accumulation window, pings, peer timeout. Fed messages and time, hands back messages to send.
-//! - [transport] — async [MessageTx](transport::MessageTx) / [MessageRx](transport::MessageRx)
-//!   traits, with [FramedTx](transport::FramedTx) / [FramedRx](transport::FramedRx) implementing them
-//!   over packets for frame based media (USB, CAN, ...) and [StreamTx](transport::StreamTx) /
-//!   [StreamRx](transport::StreamRx) over bytes for stream media (RTT, UART, ...).
-//! - [rtt] (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
+//! - [transport] — async [MessageTx] / [MessageRx]
+//!   traits, with [FramedTx] / [FramedRx] implementing them
+//!   over packets for frame based media (USB, CAN, ...) and [StreamTx] /
+//!   [StreamRx] over bytes for stream media (RTT, UART, ...).
+//! - `rtt` (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
 //! - [Server] — async glue: `wait()` (cancel-safe, `select` it with anything else) and `handle()`
-//!   (link logic + backend), plus a [Sink](server::Sink) to send stream updates from anywhere in the loop.
+//!   (link logic + backend), plus a [Sink] to send stream updates from anywhere in the loop.
 //! - [blocking::Server] — the same for devices without async: packets are pushed in, time is polled.
 //!
 //! Medium specific crates (e.g., `wire_weaver_usb_embassy`) only provide packet or byte IO and descriptors.

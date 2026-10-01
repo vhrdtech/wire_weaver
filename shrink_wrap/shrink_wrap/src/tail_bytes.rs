@@ -2,7 +2,7 @@ use crate::{BufReader, DeserializeShrinkWrap, ElementSize, Error, SerializeShrin
 use core::fmt::Debug;
 use core::ops::Deref;
 
-/// A Vec<u8> wrapper that consumes all remaining bytes in a buffer when deserializing.
+/// A `Vec<u8>` wrapper that consumes all remaining bytes in a buffer when deserializing.
 ///
 /// Used in dynamic API calls to represent function return types, property values, etc.
 ///

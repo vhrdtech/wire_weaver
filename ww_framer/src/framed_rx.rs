@@ -198,7 +198,7 @@ where
         }
     }
 
-    /// Intented use:
+    /// Intended use:
     /// ```ignore
     /// rx.stage(frame)?;
     /// loop {

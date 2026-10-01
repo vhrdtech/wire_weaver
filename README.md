@@ -1,6 +1,8 @@
 # WireWeaver
 
 ![Crates.io Version](https://img.shields.io/crates/v/wire_weaver)
+[![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/vhrdtech/wire_weaver/graph/badge.svg)](https://codecov.io/github/vhrdtech/wire_weaver)
 
 <img align="right" src="./docs/assets/logo-shrinkwrap-256.png" alt="logo"/>
 

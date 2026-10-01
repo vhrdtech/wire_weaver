@@ -88,10 +88,10 @@ save-snapshots *args:
     cp ww_global/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
 
 pre-commit:
-    cargo sort -w
+    cargo sort -w -g
     cargo clippy
 
-# Serve the documentation localy
+# Serve the documentation locally
 [group('docs')]
 serve-docs:
     uv run --with zensical zensical serve

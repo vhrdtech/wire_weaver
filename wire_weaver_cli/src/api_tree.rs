@@ -1,6 +1,7 @@
 //! Human-readable resource tree of an [ApiBundleOwned], shared by `ww introspect` and `ww api tree`.
 
 use console::style;
+use shrink_wrap::ElementSize;
 use std::fmt::Write;
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
@@ -8,7 +9,6 @@ use wire_weaver_client::ww_self::{
     FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, PropertyAccess, Repr,
     TypeLocationOwned, TypeOwned,
 };
-use shrink_wrap::ElementSize;
 
 /// Render the resource tree starting from the bundle root, ending with a newline.
 pub(crate) fn render(bundle: &ApiBundleOwned, skip_docs: bool) -> String {

@@ -233,7 +233,7 @@ impl BufWriterOwned {
     }
 
     /// Current top of the reverse FIFO (index of the next number to be pushed).
-    /// See [encode_nib32_rev](Self::encode_nib32_rev) on how this function is used.
+    /// See [encode_len_fifo](Self::encode_len_fifo) on how this function is used.
     pub fn rev_len_pos(&self) -> RevPos {
         RevPos(self.rev.len())
     }

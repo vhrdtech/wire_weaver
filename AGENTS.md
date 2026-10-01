@@ -28,7 +28,7 @@ just check-examples-mcu   # cargo check every board in examples_mcu/ (excluded f
 just test            # cargo nextest run --workspace --no-fail-fast
 just serve-docs       # local docs preview (uv run zensical serve)
 just build-docs        # build docs site
-just pre-commit         # cargo sort -w && cargo clippy
+just pre-commit         # cargo sort -w -g && cargo clippy
 just save-snapshots       # save API snapshots of ww_global and ww_stdlib/*, copy them into wire_weaver_snapshots
 ```
 
@@ -36,6 +36,13 @@ Single test: `cargo nextest run -p <crate> <test_name>` (nextest is required —
 slow-test timeout). To inspect the code a macro invocation actually generates, uncomment/add
 `debug_to_file = "../../target/some_name.rs"` to the `ww_codegen!`/`ww_impl!` call and check that file — this is the
 normal way to debug codegen, don't try to reason about macro output blind.
+
+CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain
+`cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`), `typos` (project words go into
+`typos.toml`), clippy and rustdoc with `-D warnings` (also `--all-features`), nextest + doctests (default features
+only, `defmt` breaks linking host tests), `cargo semver-checks` of crates already on crates.io, and `cargo check` of
+`mcu/` and every `examples_mcu/` board. Run the matching command locally before declaring a change done. Crates
+under `examples/` and `tests/` are `publish = false`, keep it that way for new ones.
 
 `mcu/`, `examples_mcu/*`, and `wire_weaver_tool` are **excluded** from the root Cargo workspace
 (different targets/toolchains — embedded, egui GUI) and must be built from their own directory or via the `just`

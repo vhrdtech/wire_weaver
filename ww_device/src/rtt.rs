@@ -7,7 +7,7 @@
 //! the up channel staying full for [RttConfig::write_timeout] (plus the link's own peer timeout).
 //!
 //! Create the channels with `rtt_target::rtt_init!` and wrap them in [RttSink] / [RttSource], then
-//! use them with [StreamTx](crate::StreamTx) / [StreamRx](crate::StreamRx), or all at once with
+//! use them with [StreamTx] / [StreamRx], or all at once with
 //! [rtt_server]. Channels must be in `NoBlockSkip` or `NoBlockTrim` mode: `BlockIfFull` spins
 //! forever without a host. With `NoBlockSkip` the up channel must be at least as large as the
 //! tx chunk buffer, otherwise a chunk that does not fit in one go is never written.
@@ -136,9 +136,9 @@ impl<C: Clock> StreamSource for RttSource<C> {
     }
 }
 
-/// [StreamTx](crate::StreamTx) over an RTT up channel, framer configuration from [ww_link].
+/// [StreamTx] over an RTT up channel, framer configuration from [ww_link].
 pub type RttTx<'a, C> = StreamTx<'a, RttSink<C>, RttHead, RttChecksum, RttTail>;
-/// [StreamRx](crate::StreamRx) over an RTT down channel, framer configuration from [ww_link].
+/// [StreamRx] over an RTT down channel, framer configuration from [ww_link].
 pub type RttRx<'a, C> = StreamRx<'a, RttSource<C>, RttHead, RttChecksum, RttTail>;
 /// WireWeaver server over RTT, see [Server] on how to use it.
 pub type RttServer<'a, C> = Server<'a, RttTx<'a, C>, RttRx<'a, C>, C>;

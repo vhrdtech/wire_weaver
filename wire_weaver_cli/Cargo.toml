@@ -23,9 +23,9 @@ ron.workspace = true
 semver.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 toml = "1"
 toml_edit = "0.25"
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber.workspace = true
 wire_weaver_client.workspace = true

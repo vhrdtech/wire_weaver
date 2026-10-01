@@ -19,7 +19,7 @@ use crate::traits::{Head, MessageKind, RdError, WrError};
 /// - `mm11_uuuu uuuu_110l llll_llll llll_llll` - 4 bytes
 /// - `mm11_uuuu uuuu_1110 llll_llll llll_llll llll_llll` - 5 bytes
 ///
-/// Where `u` - user_kind, `l` - length, `m` - framer bits ([MessageKind](crate::traits::MessageKind))
+/// Where `u` - user_kind, `l` - length, `m` - framer bits ([MessageKind])
 /// For all lengths that does not fit into the smallest form, next one is used.
 ///
 /// - user_kind = {0, 1, 2} => 2 bits are used as is (most common data messages, up to 3 sub-channels)

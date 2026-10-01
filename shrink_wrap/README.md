@@ -1,8 +1,8 @@
 # shrink_wrap
 
 ![Crates.io Version](https://img.shields.io/crates/v/shrink_wrap)
-[![CI](https://github.com/romixlab/shrink_wrap/actions/workflows/rust.yml/badge.svg)](https://github.com/romixlab/shrink_wrap/actions/workflows/rust.yml)
-[![codecov](https://codecov.io/github/romixlab/shrink_wrap/graph/badge.svg?token=PNRZ4BA0H3)](https://codecov.io/github/romixlab/shrink_wrap)
+[![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/vhrdtech/wire_weaver/graph/badge.svg)](https://codecov.io/github/vhrdtech/wire_weaver)
 
 <p align="center">
 <img src="https://github.com/vhrdtech/wire_weaver/blob/master/docs/assets/logo-shrinkwrap-256.png?raw=true" alt="logo"/>

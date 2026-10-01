@@ -112,7 +112,7 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Consume self, put the pin into input, mode and return [Input].
+    /// Consume self, put the pin into input, mode and return [InputBlocking].
     ///
     /// The internal pull-up or pull-down resistor can optionally be enabled according to pull.
     pub fn into_input(mut self, pull: Pull) -> Result<InputBlocking, Error> {
@@ -133,7 +133,7 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Consume self, put the pin into input + open-drain output mode, return [OpenDrainOutput].
+    /// Consume self, put the pin into input + open-drain output mode, return [OpenDrainOutputBlocking].
     ///
     /// The hardware will drive the line low if you set it to low and will leave it floating if you set it to high.
     /// When set high, input can be read to figure out whether another device is driving the line low.

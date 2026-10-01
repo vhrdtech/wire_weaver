@@ -1,2 +1,7 @@
 [profile.default]
 slow-timeout = { period = "3s", terminate-after = 1 }
+
+# CI runners (and coverage instrumentation) are slower, give tests more time before killing them
+[profile.ci]
+slow-timeout = { period = "15s", terminate-after = 2 }
+fail-fast = false

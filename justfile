@@ -25,7 +25,7 @@ check-core:
     @cargo check
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
-    @cargo check -p ww_device --features=defmt,embassy-net
+    @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
 
 # cargo check mcu workspace
 [working-directory('mcu')]
@@ -73,6 +73,7 @@ check-examples-mcu-rp2:
     @cargo check
     @cargo check --features usb
     @cargo check --features ws_ncm
+    @cargo check --features udp_ncm
     @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
 
 [working-directory('examples_mcu/usb_stm32h725ig')]

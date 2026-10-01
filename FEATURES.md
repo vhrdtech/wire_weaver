@@ -168,7 +168,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **User handlers called straight from the RX loop**, transport glue extracted into `ww_device`.
 - ✅ **Device descriptors**: serial, WireWeaver version, API id, version, hash and user label in the USB interface
   string.
-- ✅ **Media**: USB (embassy), RTT, WebSocket (also on `embassy-net`).
+- ✅ **Media**: USB (embassy), RTT, WebSocket and UDP (both also on `embassy-net`).
+- ✅ **UDP device medium** — `ww_device::udp`, one frame per datagram over any datagram socket, one host at a
+  time, another host takes over by starting link setup (`docs/transport/udp.md`).
 - ⛔ **One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:
@@ -185,8 +187,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
-- 📋 **UDP device medium** · `v0.5` — the host has a `udp` transport again, `ww_device` only has RTT and
-  WebSocket. Needed for the NCM UDP examples.
 - 📋 **Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **Link statistics** in `ww_device` (`TODO` in `link.rs`).
 - 💡 **std server on Tower** · `v0.5`.
@@ -232,9 +232,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **`ww_framer`**: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.
 - ✅ **`ww_link`**: link setup, device info, API version exchange.
-- ✅ **USB**, **RTT**, **WebSocket**, **UDP** (host side) and **in-process**.
+- ✅ **USB**, **RTT**, **WebSocket**, **UDP** and **in-process**.
 - ✅ **USB CDC-NCM**: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
-  itself, ping and a hello page over HTTP (`examples_mcu/rp2`, `ww_ws_ncm`).
+  itself, ping and a hello page over HTTP (`examples_mcu/rp2`, `ww_ws_ncm`); UDP the same way (`ww_udp_ncm`).
 - 💡 **USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **CAN** · `v0.5.x` — server and client, using CANopen (`docs/transport/overview.md`).
@@ -313,12 +313,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 - ✅ **Host examples**: `blinky` (+ evolved API), `all_gpio`, `uart`, `blinky_py` (hand-written pyo3 wrapper).
 - ✅ **Serialization only**: `minimal_shrink_wrap`, `compare_wire_formats`.
-- ✅ **MCU examples**: nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig, mcu_qemu, rp2 (USB, RTT, WebSocket over
-  NCM).
+- ✅ **MCU examples**: nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig, mcu_qemu, rp2 (USB, RTT, WebSocket and UDP
+  over NCM).
+- ✅ **NCM UDP example**: `examples_mcu/rp2` `ww_udp_ncm`, host side `blinky_udp`.
 - ✅ **Project layout** of paired `<name>_api` / `<name>` crates (`docs/api/folder_structure.md`).
 - 📋 **Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **Example with two media** · `v0.5`.
-- 📋 **NCM UDP example** and **NCM WebSocket + UDP example** · `v0.5` — need the UDP device medium.
+- 📋 **NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.
 - 💡 **WebSocket over Ethernet example** for some board · `v0.5.x` — the `ws` medium already runs on
   `embassy-net`, so Ethernet needs no transport work, only an example.
 - 📋 **Reconnect demo** · `v0.5.x` — keep reconnecting with streams and UI feedback; `disconnect_keep_streams`.

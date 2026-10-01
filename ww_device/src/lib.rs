@@ -11,6 +11,8 @@
 //! - `rtt` (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
 //! - `ws` (feature `ws`) — WebSocket as a medium over any TCP-like socket, `embassy-net` sockets with the
 //!   `embassy-net` feature.
+//! - `udp` (feature `udp`) — UDP as a medium over any datagram socket, one frame per datagram, `embassy-net` sockets
+//!   with the `embassy-net` feature.
 //! - [Server] — async glue: `wait()` (cancel-safe, `select` it with anything else) and `handle()`
 //!   (link logic + backend), plus a [Sink] to send stream updates from anywhere in the loop.
 //! - [blocking::Server] — the same for devices without async: packets are pushed in, time is polled.
@@ -28,6 +30,8 @@ pub mod rtt;
 pub mod server;
 mod time;
 pub mod transport;
+#[cfg(feature = "udp")]
+pub mod udp;
 #[cfg(feature = "ws")]
 pub mod ws;
 

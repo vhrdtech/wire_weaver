@@ -17,3 +17,6 @@ run-rp2-ww_rtt *args:
 
 run-rp2-ww_ws_ncm *args:
     cargo run --bin rp2_ww_ws_ncm --features "ws_ncm" {{args}}
+
+run-rp2-ww_udp_ncm *args:
+    cargo run --bin rp2_ww_udp_ncm --features "udp_ncm" {{args}}

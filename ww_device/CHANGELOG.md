@@ -8,7 +8,13 @@
   `wire_weaver_client` expects. `ws::WsTx` / `WsRx` (cancel-safe handshake and receive, frames unmasked in place)
   over any `ws::Socket`, sharing it through a `WsConnection`; `WsBuffers` and `ws_server()` returning a ready
   `WsServer`. Handshake and frame headers from the sans-IO parts of `edge-http` / `edge-ws`.
-- `embassy-net` feature: `ws::EmbassyNetSocket`, a `ws::Socket` on an `embassy-net` TCP socket.
+- `udp` feature: UDP as a medium, one `ww_framer` frame per datagram as the `udp` transport of `wire_weaver_client`
+  expects. `udp::UdpSink` / `UdpSource` (packet IO for `FramedTx` / `FramedRx`) over any `udp::DatagramSocket`,
+  sharing it and the current peer through a `UdpConnection`; one host at a time, adopted when it starts link setup,
+  another host takes over the same way. `UdpBuffers` and `udp_server()` returning a ready `UdpServer`.
+- `embassy-net` feature: sockets for the enabled media — `ws::EmbassyNetSocket`, a `ws::Socket` on an `embassy-net`
+  TCP socket, and `udp::EmbassyNetUdpSocket`, a `udp::DatagramSocket` on an `embassy-net` UDP socket (with a send
+  timeout). It no longer enables `ws` by itself, enable `ws` and / or `udp` next to it.
 - Handlers get a `wire_weaver::Context` with the request seq, the server's medium (`Server::with_medium()`, same for
   `blocking::Server`) and an `EventWriter` to send events right from the handler. `Server::new()` and
   `blocking::Server::new()` take a second scratch buffer for these events, `RttBuffers` has one more

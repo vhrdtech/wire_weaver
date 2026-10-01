@@ -12,6 +12,8 @@ repository.workspace = true
 rtt = ["wire_weaver_client/rtt"]
 # WebSocket, for the blinky_ws example
 ws = ["wire_weaver_client/ws"]
+# UDP, for the blinky_udp example
+udp = ["wire_weaver_client/udp"]
 
 [dependencies]
 blinky_api.workspace = true
@@ -47,3 +49,8 @@ required-features = ["rtt"]
 name = "blinky_ws"
 path = "examples/ws.rs"
 required-features = ["ws"]
+
+[[example]]
+name = "blinky_udp"
+path = "examples/udp.rs"
+required-features = ["udp"]

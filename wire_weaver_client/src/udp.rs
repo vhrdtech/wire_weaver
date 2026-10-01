@@ -200,7 +200,6 @@ mod tests {
     use crate::event_loop::device_e2e_tests::{
         DEV_MAX_MESSAGE, connect as connect_cmd, serve, talk,
     };
-    use std::sync::Arc;
     use ww_device::LinkEvent;
 
     /// Tests send `()` as a handle
@@ -214,60 +213,55 @@ mod tests {
         }
     }
 
-    // Device side: packet IO over a socket that is connected to the first host that sends something
+    // Device side: ww_device's UDP medium on a tokio socket
 
-    struct DevSink(Arc<UdpSocket>);
+    struct DevSocket(UdpSocket);
 
-    impl ww_device::PacketSink for DevSink {
-        type Error = ();
-        async fn write_packet(&mut self, packet: &[u8]) -> Result<(), ()> {
-            self.0.send(packet).await.map(|_| ()).map_err(|_| ())
+    impl ww_device::udp::DatagramSocket for DevSocket {
+        type Addr = SocketAddr;
+        type RecvError = std::io::Error;
+        type SendError = std::io::Error;
+        async fn recv_from(&self, buf: &mut [u8]) -> std::io::Result<(usize, SocketAddr)> {
+            self.0.recv_from(buf).await
         }
-    }
-
-    struct DevSource {
-        socket: Arc<UdpSocket>,
-        connected: bool,
-    }
-
-    impl ww_device::PacketSource for DevSource {
-        type Error = ();
-        fn max_packet_len(&self) -> usize {
-            ww_link::UDP_MAX_DATAGRAM_LEN
-        }
-        async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-            self.socket.recv(buf).await.map_err(|_| ())
-        }
-        async fn wait_connected(&mut self) {
-            // one host per test
-            if self.connected {
-                core::future::pending::<()>().await
-            }
-            // peek: the datagram is still read by read_packet
-            let mut b = [0u8; 1];
-            let (_, host) = self.socket.peek_from(&mut b).await.unwrap();
-            self.socket.connect(host).await.unwrap();
-            self.connected = true;
+        async fn send_to(&self, datagram: &[u8], addr: SocketAddr) -> std::io::Result<()> {
+            self.0.send_to(datagram, addr).await.map(|_| ())
         }
     }
 
     async fn device(socket: UdpSocket, events_tx: mpsc::UnboundedSender<LinkEvent>) {
+        use ww_device::udp::{UdpConnection, UdpSink, UdpSource};
         const DATAGRAM: usize = ww_link::UDP_MAX_DATAGRAM_LEN;
-        let socket = Arc::new(socket);
+        let conn = UdpConnection::new(DevSocket(socket));
         let mut tx_frame = [0u8; DATAGRAM];
         let mut rx = ww_device::RxBuffer::<DATAGRAM, DEV_MAX_MESSAGE>::new();
         serve(
-            ww_device::FramedTx::new(DevSink(socket.clone()), &mut tx_frame),
-            ww_device::FramedRx::new(
-                DevSource {
-                    socket,
-                    connected: false,
-                },
-                rx.assembly_buf(DATAGRAM),
-            ),
+            ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_frame),
+            ww_device::FramedRx::new(UdpSource::new(&conn), rx.assembly_buf(DATAGRAM)),
             events_tx,
         )
         .await
+    }
+
+    /// Device on a localhost socket, returns its address
+    async fn start_device() -> (
+        String,
+        mpsc::UnboundedReceiver<LinkEvent>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap().to_string();
+        let (events_tx, events_rx) = mpsc::unbounded_channel();
+        // the medium is not Send (a Cell for the peer, as on embassy), run it on the test's LocalSet
+        let dev = tokio::task::spawn_local(device(socket, events_tx));
+        (addr, events_rx, dev)
+    }
+
+    /// Host event loop, each on its own socket (port)
+    fn start_host(addr: String) -> (mpsc::Sender<Command>, tokio::task::JoinHandle<()>) {
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+        let host = tokio::spawn(crate::event_loop::core::worker(cmd_rx, To(addr)));
+        (cmd_tx, host)
     }
 
     async fn start_udp() -> (
@@ -276,18 +270,62 @@ mod tests {
         tokio::task::JoinHandle<()>,
         tokio::task::JoinHandle<()>,
     ) {
-        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let addr = socket.local_addr().unwrap().to_string();
-        let (events_tx, events_rx) = mpsc::unbounded_channel();
-        let dev = tokio::spawn(device(socket, events_tx));
-        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
-        let host = tokio::spawn(crate::event_loop::core::worker(cmd_rx, To(addr)));
+        let (addr, events_rx, dev) = start_device().await;
+        let (cmd_tx, host) = start_host(addr);
         (cmd_tx, events_rx, dev, host)
     }
 
     #[tokio::test]
     async fn host_and_device_talk_over_udp() {
-        talk(start_udp().await).await
+        tokio::task::LocalSet::new()
+            .run_until(async { talk(start_udp().await).await })
+            .await
+    }
+
+    /// Echo request with `i` in it, as `talk()` sends them
+    async fn echo(cmd_tx: &mpsc::Sender<Command>, i: u32) -> Vec<u8> {
+        use wire_weaver::shrink_wrap::UVlq32Backfill;
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+        let bytes = [0u8; UVlq32Backfill::LEN]
+            .into_iter()
+            .chain(i.to_le_bytes())
+            .collect();
+        cmd_tx
+            .send(Command::SendMessage {
+                bytes,
+                done_tx: Some((done_tx, std::time::Duration::from_secs(5))),
+            })
+            .await
+            .unwrap();
+        done_rx.await.unwrap().unwrap()
+    }
+
+    #[tokio::test]
+    async fn second_host_takes_over() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (addr, mut events_rx, dev) = start_device().await;
+                let (cmd_tx, host) = start_host(addr.clone());
+                connect_cmd(&cmd_tx, (0, 3)).await.result.unwrap();
+                assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+                assert_eq!(&echo(&cmd_tx, 1).await[..4], 1u32.to_le_bytes());
+
+                // another host connects while the first one is up, e.g., the first one crashed
+                let (cmd_tx2, host2) = start_host(addr);
+                connect_cmd(&cmd_tx2, (0, 3)).await.result.unwrap();
+                assert_eq!(
+                    events_rx.recv().await,
+                    Some(LinkEvent::Down(ww_device::DownReason::Transport))
+                );
+                assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+                assert_eq!(&echo(&cmd_tx2, 2).await[..4], 2u32.to_le_bytes());
+
+                drop((cmd_tx, cmd_tx2));
+                host.await.unwrap();
+                host2.await.unwrap();
+                dev.abort();
+            })
+            .await
     }
 
     #[tokio::test]

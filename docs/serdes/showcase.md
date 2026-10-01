@@ -71,6 +71,26 @@ assert_eq!(UVlq32(128).to_ww_bytes(&mut buf).unwrap(), &[0x81, 0x00]); // 2 byte
 assert_eq!(UVlq32(u32::MAX).to_ww_bytes(&mut buf).unwrap(), &[0x8f, 0xff, 0xff, 0xff, 0x7f]); // 5 bytes
 ```
 
+`UVlq32Backfill` is the same number, but always written as the full 5 bytes, padded with empty `0x80` groups in front.
+That reserves room for a value that is only known after the message is serialized, like a request sequence number
+assigned right before sending. Once it is known, `UVlq32Backfill::backfill()` writes it right-justified into those 5
+bytes and returns the slice starting at its shortest encoding, so it costs no more than a plain `UVlq32`:
+
+```rust
+#[derive_shrink_wrap(borrowed)]
+struct Message<'i> {
+    seq: UVlq32Backfill, // must be the first field, so that bytes in front of it can be dropped
+    payload: &'i str,
+}
+
+let len = Message { seq: UVlq32Backfill(0), payload: "ab" }.to_ww_bytes(&mut buf).unwrap().len();
+// buf[..len] is 80 80 80 80 00 61 62 02
+let bytes = UVlq32Backfill::backfill(&mut buf[..len], 300).unwrap();
+assert_eq!(bytes, hex!("82 2c 61 62 02"));
+```
+
+The skipped leading bytes are filled with the padded form, so the whole buffer would also read back as 300.
+
 ## `Option<T>` and `Result<T, E>`: a flag, not a tag
 
 Both are `SelfDescribing`: one `bool` flag followed by the payload (for `Result`, `true` picks `Ok`, `false` picks

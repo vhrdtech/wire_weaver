@@ -38,6 +38,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - `UVlq32`: byte-based variable length `u32` (big endian VLQ, 1 to 5 bytes, byte-aligned), with
   `BufWriter::write_uvlq32()`, `BufWriterOwned::write_uvlq32()`, `BufReader::read_uvlq32()` and
   `Error::MalformedUVlq32`. Supported as a field type by `#[derive_shrink_wrap(..)]`.
+- `UVlq32Backfill`: `UVlq32` always written as the full 5 bytes, so that its value can be filled in after
+  serialization with `UVlq32Backfill::backfill()`, which returns the slice starting at the shortest encoding.
+  Meant for values only known right before sending, like request sequence numbers.
 
 ### 🐛 Fixes
 

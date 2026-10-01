@@ -14,7 +14,7 @@ pub use buf_writer_owned::BufWriterOwned;
 pub mod nib32;
 pub use crate::nib32::UNib32;
 pub mod vlq32;
-pub use crate::vlq32::UVlq32;
+pub use crate::vlq32::{UVlq32, UVlq32Backfill};
 pub mod ref_box;
 pub use ref_box::RefBox;
 pub mod ref_vec;
@@ -105,6 +105,6 @@ pub mod prelude {
         DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
     };
     pub use crate::un::*;
-    pub use crate::vlq32::UVlq32;
+    pub use crate::vlq32::{UVlq32, UVlq32Backfill};
     pub use shrink_wrap_derive::{ShrinkWrap, derive_shrink_wrap};
 }

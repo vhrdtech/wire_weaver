@@ -203,13 +203,8 @@ impl BufWriterOwned {
     /// Write u32 in UVlq32 encoding (big endian VLQ). It will take from 1 byte to 5 bytes in the buffer,
     /// depending on the number. Alignment of 1 byte is used.
     pub fn write_uvlq32(&mut self, val: u32) -> Result<(), Error> {
-        let len = UVlq32(val).len_bytes();
-        for i in (0..len).rev() {
-            let byte = ((val >> (i * 7)) & 0x7f) as u8;
-            let byte = if i > 0 { byte | 0x80 } else { byte };
-            self.write_u8(byte)?;
-        }
-        Ok(())
+        let (bytes, start) = UVlq32(val).encode_right_justified();
+        self.write_raw_slice(&bytes[start..])
     }
 
     /// Write u32 in UNib32 reverse encoding at the current position.

@@ -80,3 +80,36 @@ fn uvlq32_field() {
     assert_eq!(bytes, hex!("80 81 00"));
     assert_eq!(S::from_ww_bytes(bytes).unwrap(), s);
 }
+
+#[test]
+fn uvlq32_backfill_first_field() {
+    #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+    struct Message<'i> {
+        seq: UVlq32Backfill,
+        payload: &'i str,
+    }
+
+    let mut scratch = [0u8; 16];
+    let bytes = Message {
+        seq: UVlq32Backfill(0),
+        payload: "ab",
+    }
+    .to_ww_bytes(&mut scratch)
+    .unwrap();
+    assert_eq!(bytes, hex!("80 80 80 80 00 61 62 02"));
+    let len = bytes.len();
+    let bytes = UVlq32Backfill::backfill(&mut scratch[..len], 300).unwrap();
+    assert_eq!(bytes, hex!("82 2c 61 62 02"));
+    assert_eq!(
+        Message::from_ww_bytes(bytes).unwrap(),
+        Message {
+            seq: UVlq32Backfill(300),
+            payload: "ab"
+        }
+    );
+    assert_eq!(scratch[..len], hex!("80 80 80 82 2c 61 62 02"));
+    assert_eq!(
+        Message::from_ww_bytes(&scratch[..len]).unwrap().seq,
+        UVlq32Backfill(300)
+    );
+}

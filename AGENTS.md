@@ -19,6 +19,10 @@ patch-the-discriminant-later builder pattern), `docs/api/overview.md` (methods/s
 `docs/evolution/rules.md` (what changes are wire-compatible). The docs site source (mkdocs/zensical) lives under
 `docs/`; prefer it before digging into source, but if unclear, source and comments in it are authoritative.
 
+`FEATURES.md` is the feature tracker and roadmap (done, in progress, planned, per area and target release). Check it
+before starting a feature, and update the matching item in the same change when finishing one (see the conventions
+at its top).
+
 ## Commands
 
 ```sh

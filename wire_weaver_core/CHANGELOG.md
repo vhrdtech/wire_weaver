@@ -50,6 +50,9 @@
 - Server codegen emits `API_HASH_NO_DOCS`, `API_HASH_WITH_DOCS` and the compile-time `API_ID` string for USB
   identity strings.
 
+- Generated `stream_data_ser()` has `<name>_sideband(sideband, scratch)`, `<name>_sideband_send(sideband, out)` and
+  `<name>_sideband_send_blocking` for every `stream!` and `sink!`: the device sends a sideband event on its own, from a
+  handler (pass `cx`) or from the event loop.
 - `gen_server_scaffold()` with `ServerScaffoldConfig` generates the user side of a server as Rust source: a server
   struct (with fields for `value_on_changed` properties), a stub for every handler the server codegen expects,
   with the resource's doc comments, and the matching `ww_codegen!` invocation. Method, getter and setter stubs return
@@ -57,6 +60,9 @@
 
 ### 🐛 Fixes
 
+- A stream sideband request whose `sideband_<name>` handler returns `None` is answered with `EventKind::Written`
+  instead of nothing, so the host doesn't keep its seq until a timeout. Hosts built before this change accept the
+  answer as a reply to the request.
 - `method_model = "..=deferred"` servers compile again: generated `<method>_ser_return_event` used an undefined
   `request` for unit methods, `RefVec` instead of `TailBytes` for the return value and `Error` without a lifetime.
 

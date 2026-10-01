@@ -77,6 +77,7 @@ pub(crate) enum ToRx {
     OnStreamEvent {
         path_kind: Box<PathKindOwned>,
         stream_event_tx: StreamUpdateSender,
+        registered_tx: oneshot::Sender<()>,
     },
     RegisterTracer(mpsc::UnboundedSender<TraceEvent>),
     /// Transport is up, rx should start expecting link setup messages.

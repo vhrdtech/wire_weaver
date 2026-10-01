@@ -35,6 +35,7 @@ pub(crate) enum DispatcherCommand {
     OnStreamEvent {
         path_kind: PathKindOwned,
         stream_event_tx: StreamUpdateSender,
+        registered_tx: oneshot::Sender<()>,
     },
 }
 
@@ -110,6 +111,7 @@ impl RxDispatcher {
             DispatcherCommand::OnStreamEvent {
                 path_kind,
                 stream_event_tx,
+                registered_tx,
             } => {
                 if let PathKindOwned::Absolute { path } = path_kind {
                     // TODO: send Connected/Disconnected only on actual connect/disconnect, send status here instead
@@ -118,6 +120,7 @@ impl RxDispatcher {
                     listeners.push(stream_event_tx);
                 }
                 // TODO: other path kinds
+                _ = registered_tx.send(());
             }
         }
     }
@@ -239,7 +242,7 @@ impl RxDispatcher {
                     if let Some(mut done_tx) = self.take_response(event.seq.0) {
                         let return_or_value_bytes = data.as_slice().to_vec();
                         if done_tx.send(Ok(return_or_value_bytes)).is_err() {
-                            warn!("failed to send done notification: {:?}", &event.seq);
+                            debug!("nobody is waiting for the reply to {:?}", &event.seq);
                         }
                     } else {
                         self.unexpected_reply(event.seq.0);
@@ -248,7 +251,7 @@ impl RxDispatcher {
                 EventKind::Written => {
                     if let Some(mut done_tx) = self.take_response(event.seq.0) {
                         if done_tx.send(Ok(vec![])).is_err() {
-                            warn!("failed to send written notification: {:?}", &event.seq);
+                            debug!("nobody is waiting for the reply to {:?}", &event.seq);
                         }
                     } else {
                         self.unexpected_reply(event.seq.0);
@@ -256,6 +259,14 @@ impl RxDispatcher {
                 }
                 EventKind::StreamData { ref path, .. }
                 | EventKind::StreamSideband { ref path, .. } => {
+                    if event.seq.0 != 0 && matches!(event_kind, EventKind::StreamSideband { .. }) {
+                        // reply to a stream sideband request, routed to the stream, releases the seq here
+                        if let Some(mut done_tx) = self.take_response(event.seq.0) {
+                            _ = done_tx.send(Ok(vec![]));
+                        } else {
+                            self.unexpected_reply(event.seq.0);
+                        }
+                    }
                     let ev = match event_kind {
                         EventKind::StreamData { data, .. } => {
                             StreamEvent::Data(data.as_slice().to_vec())

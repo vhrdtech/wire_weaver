@@ -278,10 +278,12 @@ impl TxCore {
             Command::OnStreamEvent {
                 path_kind,
                 stream_event_tx,
+                registered_tx,
             } => {
                 self.output.push_back(TxOutput::ToRx(ToRx::OnStreamEvent {
                     path_kind,
                     stream_event_tx,
+                    registered_tx,
                 }));
             }
             Command::LoopbackTest { progress_tx, .. } => {

@@ -52,6 +52,15 @@ pub(crate) fn stream_ser_methods_recursive(
                 }
             });
         }
+        if let ApiItemKindOwned::Stream { is_up, .. } = &item.kind {
+            methods_ts.extend(sideband_ser_methods(
+                item.ident.as_str(),
+                if *is_up { "stream" } else { "sink" },
+                &maybe_index_arg,
+                &let_index_chain,
+                is_array,
+            ));
+        }
         // streams going out of the device, and observable properties, whose updates are sent as stream data
         let (ty, kind) = match &item.kind {
             ApiItemKindOwned::Stream { ty, is_up: true } => (ty, "stream"),
@@ -166,6 +175,66 @@ pub(crate) fn stream_ser_methods_recursive(
         #child_ts
     });
     ts
+}
+
+/// Sideband events sent by the device on its own, not as a reply to a sideband request from the host.
+fn sideband_ser_methods(
+    ident: &str,
+    kind: &str,
+    maybe_index_arg: &TokenStream,
+    let_index_chain: &TokenStream,
+    is_array: bool,
+) -> TokenStream {
+    let ser = Ident::new(format!("{ident}_sideband").as_str(), Span::call_site());
+    let send = Ident::new(format!("{ident}_sideband_send").as_str(), Span::call_site());
+    let send_blocking = Ident::new(
+        format!("{ident}_sideband_send_blocking").as_str(),
+        Span::call_site(),
+    );
+    let maybe_index = maybe_quote(is_array, quote! { index, });
+    let ser_doc = format!("Serialize Event with StreamSideband kind for this {kind}");
+    let send_doc = format!(
+        "Send a StreamSideband event for this {kind} to the host, from a handler (pass `cx`) or from an event loop"
+    );
+    quote! {
+        #[doc = #ser_doc]
+        pub fn #ser<'a>(
+            &self,
+            #maybe_index_arg
+            sideband: StreamSideband,
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            #let_index_chain
+            ser_ok_event(
+                scratch,
+                0,
+                EventKind::StreamSideband {
+                    path: RefVec::Slice { slice: &index_chain },
+                    sideband,
+                },
+            )
+        }
+
+        #[doc = #send_doc]
+        pub async fn #send(
+            &self,
+            #maybe_index_arg
+            sideband: StreamSideband,
+            out: &mut impl wire_weaver::EventOut,
+        ) -> Result<(), wire_weaver::SendError> {
+            wire_weaver::EventOut::send_with(out, |scratch| self.#ser(#maybe_index sideband, scratch).map(|bytes| bytes.len())).await
+        }
+
+        #[doc = #send_doc]
+        pub fn #send_blocking(
+            &self,
+            #maybe_index_arg
+            sideband: StreamSideband,
+            out: &mut impl wire_weaver::BlockingEventOut,
+        ) -> Result<(), wire_weaver::SendError> {
+            wire_weaver::BlockingEventOut::send_with_blocking(out, |scratch| self.#ser(#maybe_index sideband, scratch).map(|bytes| bytes.len()))
+        }
+    }
 }
 
 fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> TokenStream {

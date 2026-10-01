@@ -106,6 +106,17 @@ mod tests {
                 Ready(sent)
             }
 
+            fn sink_sideband(
+                &mut self,
+                cx: &mut Context<'_, impl BlockingEventOut>,
+                user: u32,
+            ) -> RpcResult<()> {
+                api_impl::stream_data_ser()
+                    .user_sink_sideband_send_blocking(StreamSideband::User(UNib32(user)), cx)
+                    .unwrap();
+                Ready(())
+            }
+
             fn sideband_user_stream(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -219,6 +230,26 @@ mod tests {
             .connect()
             .await
             .expect("connect")
+    }
+
+    /// Only one request can wait for an answer at a time, a request still holding the seq makes the next one fail
+    async fn connect_one_seq(device: &TestDevice) -> StdClient {
+        StdClient::config(|c| c.in_process_path(device.path()).max_seq(1))
+            .connect()
+            .await
+            .expect("connect")
+    }
+
+    /// Call until the seq is free again, the device answered the previous request then
+    async fn seq_released(client: &StdClient) {
+        let start = std::time::Instant::now();
+        while client.finish().call().await.is_err() {
+            assert!(
+                start.elapsed() < Duration::from_millis(500),
+                "seq is still held by the previous request"
+            );
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
     }
 
     fn connect_blocking(device: &TestDevice) -> StdClient {
@@ -428,6 +459,80 @@ mod tests {
         // each index only gets its own updates
         assert_eq!(s1.recv().await.unwrap().0, vec![1]);
         assert_eq!(s3.recv().await.unwrap().0, vec![3]);
+
+        device.send(
+            stream_data_ser()
+                .array_of_streams_sideband(1, StreamSideband::Close, &mut scratch)
+                .unwrap(),
+        );
+        assert!(matches!(
+            s1.recv_any().await.unwrap(),
+            TypedStreamEvent::Sideband(StreamSideband::Close)
+        ));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sideband_without_reply_releases_seq() {
+        let (device, data) = start("streams/sideband_without_reply_seq");
+        let client = connect_one_seq(&device).await;
+        let stream = client.plain_stream().await.unwrap();
+        // the device acknowledges a sideband its handler returned None for
+        stream.open().await.unwrap();
+        seq_released(&client).await;
+        assert_eq!(
+            sideband(&data),
+            vec![sb("plain_stream", StreamSideband::Open)]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sideband_reply_releases_seq() {
+        let (device, data) = start("streams/sideband_reply_seq");
+        data.lock().unwrap().ack_sideband = true;
+        let client = connect_one_seq(&device).await;
+        let mut stream = client.plain_stream().await.unwrap();
+        assert_eq!(
+            stream.recv_any().await.unwrap(),
+            TypedStreamEvent::Connected
+        );
+        stream.open().await.unwrap();
+        seq_released(&client).await;
+        assert_eq!(
+            stream.recv_any().await.unwrap(),
+            TypedStreamEvent::Sideband(StreamSideband::Open)
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sink_sideband_from_device() {
+        let (device, data) = start("streams/sink_sideband");
+        data.lock().unwrap().ack_sideband = true;
+        let mut client = connect(&device).await;
+        let mut sink = client.user_sink().await.unwrap();
+        let recv = async |sink: &mut wire_weaver_client::Sink<Point>| {
+            tokio::time::timeout(Duration::from_secs(1), sink.recv_sideband())
+                .await
+                .expect("sideband reaches the sink")
+                .unwrap()
+        };
+
+        // reply to a sideband request
+        sink.open().await.unwrap();
+        assert_eq!(recv(&mut sink).await, StreamSideband::Open);
+
+        // sent by a handler through its context
+        client.sink_sideband(7).call().await.unwrap();
+        assert_eq!(recv(&mut sink).await, StreamSideband::User(UNib32(7)));
+
+        // sent from the device event loop
+        let mut scratch = [0u8; 64];
+        device.send(
+            stream_data_ser()
+                .user_sink_sideband(StreamSideband::FrameSync, &mut scratch)
+                .unwrap(),
+        );
+        assert_eq!(recv(&mut sink).await, StreamSideband::FrameSync);
+        assert_eq!(sink.try_recv_sideband().unwrap(), None);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -479,6 +584,15 @@ mod tests {
         let mut sink = client.bytes_sink_blocking().unwrap();
         sink.send_bytes_blocking(&[4, 5]).unwrap();
         sink.close_blocking().unwrap();
+        device.send(
+            stream_data_ser()
+                .bytes_sink_sideband(StreamSideband::SizeHint(UNib32(2)), &mut scratch)
+                .unwrap(),
+        );
+        assert_eq!(
+            sink.recv_sideband_blocking().unwrap(),
+            StreamSideband::SizeHint(UNib32(2))
+        );
         for _ in 0..500 {
             if data.lock().unwrap().sideband.len() == 2 {
                 break;

@@ -9,7 +9,7 @@ use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSideband};
 
-/// Stream of typed values from host to device.
+/// Stream of typed values from device to host.
 /// Also holds a sideband channel.
 pub struct Stream<T> {
     pub(crate) transport_cmd_tx: TransportCommander,

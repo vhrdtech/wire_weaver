@@ -163,19 +163,54 @@ impl Commander {
         }
     }
 
+    /// Subscribe to events on `path_kind`, returns once the event loop routes them to the returned receiver, so that
+    /// nothing the device sends after this is lost.
+    async fn register_stream(
+        &self,
+        path_kind: &PathKindOwned,
+    ) -> Result<StreamUpdateReceiver, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
+        self.transport_cmd_tx
+            .send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+                registered_tx,
+            })
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        registered_rx
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(rx)
+    }
+
+    /// Blocking variant of [Self::register_stream].
+    fn register_stream_blocking(
+        &self,
+        path_kind: &PathKindOwned,
+    ) -> Result<StreamUpdateReceiver, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
+        self.transport_cmd_tx
+            .blocking_send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+                registered_tx,
+            })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        registered_rx
+            .blocking_recv()
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(rx)
+    }
+
     pub async fn prepare_stream<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.transport_cmd_tx
-            .send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-            })
-            .await
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        let rx = self.register_stream(&path_kind).await?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -192,13 +227,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.transport_cmd_tx
-            .blocking_send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-            })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        let rx = self.register_stream_blocking(&path_kind)?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -215,21 +244,14 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.transport_cmd_tx
-            .send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-            })
-            .await
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        let rx = self.register_stream(&path_kind).await?;
         Ok(Sink {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
                 self.default_timeout,
             ),
             path_kind,
-            _sideband_rx: rx,
+            sideband_rx: rx,
             _phantom: PhantomData,
             scratch: [0u8; 1024],
         })
@@ -240,20 +262,14 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.transport_cmd_tx
-            .blocking_send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-            })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        let rx = self.register_stream_blocking(&path_kind)?;
         Ok(Sink {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
                 self.default_timeout,
             ),
             path_kind,
-            _sideband_rx: rx,
+            sideband_rx: rx,
             _phantom: PhantomData,
             scratch: [0u8; 1024],
         })
@@ -800,6 +816,8 @@ impl TransportCommander {
             .send(Command::OnStreamEvent {
                 path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
                 stream_event_tx,
+                // the request is sent after this, its events can't overtake the registration
+                registered_tx: oneshot::channel().0,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -828,6 +846,8 @@ impl TransportCommander {
             .blocking_send(Command::OnStreamEvent {
                 path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
                 stream_event_tx,
+                // the request is sent after this, its events can't overtake the registration
+                registered_tx: oneshot::channel().0,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         self.cmd_tx

@@ -154,12 +154,14 @@ impl RxCore {
             ToRx::OnStreamEvent {
                 path_kind,
                 stream_event_tx,
+                registered_tx,
             } => {
                 self.dispatcher.handle_cmd(
                     now,
                     DispatcherCommand::OnStreamEvent {
                         path_kind: *path_kind,
                         stream_event_tx,
+                        registered_tx,
                     },
                 );
             }

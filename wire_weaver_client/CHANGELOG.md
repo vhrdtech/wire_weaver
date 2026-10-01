@@ -2,6 +2,9 @@
 
 ### 🚀 Features
 
+- `Sink::recv_sideband()`, `recv_sideband_blocking()`, `try_recv_sideband()` and `recv_any()` / `recv_any_blocking()`:
+  sideband events from the device (replies to `Sink::sideband()` and events it sends on its own) are no longer
+  dropped.
 - Generated clients have `observe_<property>()` / `observe_<property>_blocking()` for `ro` and `rw` properties: a
   `Stream` of property updates the device sends as stream data on the property's path.
 - In-process transport (`in_process` feature): a device running in the same process (simulators, tests) registers
@@ -118,6 +121,13 @@
 
 ### 🐛 Fixes
 
+- Stream and sink constructors (generated `<stream>()` / `<stream>_blocking()`, `observe_<property>()`,
+  `Commander::prepare_stream` / `prepare_sink`, `DynStream`, `DynSink`) returned before the event loop started routing
+  events to them, so events the device sent right after were sometimes dropped and a following `recv()` waited
+  forever. They now return once the stream is registered.
+- A stream sideband request (`open()`, `close()`, `sideband()` on `Stream` and `Sink`) kept its seq until the default
+  timeout, even when the device replied with a sideband event: the reply was only routed to the stream. Its seq is
+  now released when the reply arrives, so a burst of sideband requests no longer runs out of request IDs.
 - `write_promise` never succeeded: the empty reply was deserialized as `Result<(), E>` and failed with
   `OutOfBoundsReadBool`. A user error (`property!(rw name: T, UserError)`) was deserialized as `Result<(), E>` as
   well and failed, it is now formatted with the user error type into `Error::RemoteErrorDes`. `read_promise` no longer

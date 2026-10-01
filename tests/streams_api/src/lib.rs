@@ -13,6 +13,8 @@ trait Streams {
     /// Handler sends `count` user_stream updates and one array_of_streams[1] update, returns how many user_stream
     /// updates were sent before running out of space
     fn emit(count: u8) -> u8;
+    /// Handler sends `StreamSideband::User(user)` to user_sink
+    fn sink_sideband(user: u32);
 }
 
 #[derive_shrink_wrap(

@@ -43,6 +43,9 @@ pub enum Command {
     OnStreamEvent {
         path_kind: Box<PathKindOwned>,
         stream_event_tx: StreamUpdateSender,
+        /// Notified once the dispatcher routes events on this path to `stream_event_tx`, events received before
+        /// that are not delivered.
+        registered_tx: oneshot::Sender<()>,
     },
 
     /// Close a device connection and stop the worker task. All outstanding requests will return with Error,

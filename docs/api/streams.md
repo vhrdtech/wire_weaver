@@ -82,3 +82,23 @@ The following stream sideband events are supported:
 * FrameSync
 * SizeHint(u32)
 * User(u32)
+
+### Handling sideband on the device
+
+A sideband command from the host calls `sideband_<name>(cx, sideband)` on the server. Returning `Some(sideband)` sends
+it back as a sideband event on the same stream, `None` sends back only an acknowledgement. Either way the host gets an
+answer and releases the request's seq right away; `open()`, `close()` and `sideband()` on the host don't wait for it.
+
+The device can also send sideband events on its own, for streams and sinks alike: `stream_data_ser()` has
+`<name>_sideband_send(sideband, out)`, `<name>_sideband_send_blocking` and `<name>_sideband(sideband, scratch)`, used
+the same way as the data methods above:
+
+```rust
+// e.g., tell the host a sink's buffer is full
+server_impl::stream_data_ser().word_sideband_send(StreamSideband::User(UNib32(1)), cx).await?;
+```
+
+On the host, a stream or sink receives everything the device sends after its constructor (e.g., `client.word().await`)
+returns, events sent before that are not buffered. The first event is always `Connected` (or `Disconnected`), which
+`recv()` skips. `Stream::recv_any()` returns sideband events along with data, `Sink::recv_sideband()` (`_blocking`,
+`try_recv_sideband()`) returns the ones sent to a sink.

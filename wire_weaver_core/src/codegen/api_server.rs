@@ -215,6 +215,8 @@ pub fn gen_server(
         enum WrAction {
             #written_ok_variant,
             WrittenErr,
+            /// Request handled, nothing to send back: answered with Written
+            Acknowledged,
             Deferred
         }
 
@@ -277,6 +279,15 @@ pub fn gen_server(
                                 event_builder.finish(false, &mut wr);
                                 wr.finish_and_take()
                             }
+                            Ok(WrAction::Acknowledged) => {
+                                if request.seq.0 == 0 {
+                                    return Ok(&[])
+                                }
+                                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+                                event_kind_builder.finish_with_kind(EventKindDiscriminants::Written, &mut wr);
+                                event_builder.finish(true, &mut wr);
+                                wr.finish_and_take()
+                            }
                             Ok(WrAction::Deferred) => {
                                 Ok(&[])
                             }
@@ -336,7 +347,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                     .process_root(path, &mut iter, &request, &mut wr, true, &mut cx)
                     #maybe_await
                 {
-                    Ok(WrAction::WrittenOk(_)) => {
+                    Ok(WrAction::WrittenOk(_) | WrAction::Acknowledged) => {
                         either_any_builder.write_item_finish(marker, true, &mut wr);
                     }
                     Ok(WrAction::WrittenErr) => {
@@ -891,7 +902,8 @@ fn handle_stream(
                 Ok(WrAction::WrittenOk(event_kind_builder))
             }
             None => {
-                Ok(WrAction::Deferred)
+                // nothing to send back, but the host is waiting with the request's seq
+                Ok(WrAction::Acknowledged)
             }
         }
     };

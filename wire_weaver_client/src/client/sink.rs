@@ -1,17 +1,17 @@
 use crate::event_loop::commander::TransportCommander;
 use crate::{StreamError, StreamEvent};
 use std::marker::PhantomData;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSideband};
 
-/// Stream of typed values from device to host.
-/// Also holds a sideband channel.
+/// Stream of typed values from host to device.
+/// Also holds a sideband channel, in both directions.
 pub struct Sink<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
-    pub(crate) _sideband_rx: UnboundedReceiver<StreamEvent>,
+    pub(crate) sideband_rx: UnboundedReceiver<StreamEvent>,
     pub(crate) _phantom: PhantomData<T>,
     pub(crate) scratch: [u8; 1024], // TODO: replace with Vec
 }
@@ -53,6 +53,76 @@ impl<T> Sink<T> {
             None,
         )?;
         Ok(())
+    }
+
+    /// Receive one sideband event from the device: a reply to [Self::sideband] or one sent by the device on its own.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if a Disconnected event is received instead.
+    ///
+    /// See [Self::recv_sideband_blocking] for a blocking variant of this method.
+    pub async fn recv_sideband(&mut self) -> Result<StreamSideband, StreamError> {
+        loop {
+            let ev = self.sideband_rx.recv().await.ok_or(StreamError::Closed)?;
+            if let Some(sideband) = sideband_or_err(ev)? {
+                return Ok(sideband);
+            }
+        }
+    }
+
+    /// Receive one sideband event from the device in a blocking manner.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if a Disconnected event is received instead.
+    ///
+    /// See [Self::recv_sideband] for an asynchronous variant of this method.
+    pub fn recv_sideband_blocking(&mut self) -> Result<StreamSideband, StreamError> {
+        loop {
+            let ev = self
+                .sideband_rx
+                .blocking_recv()
+                .ok_or(StreamError::Closed)?;
+            if let Some(sideband) = sideband_or_err(ev)? {
+                return Ok(sideband);
+            }
+        }
+    }
+
+    /// Try to receive one sideband event from the device, `None` if there is none yet.
+    /// Skip [StreamEvent::Connected] events.
+    /// Returns an error if a Disconnected event is received instead.
+    pub fn try_recv_sideband(&mut self) -> Result<Option<StreamSideband>, StreamError> {
+        loop {
+            match self.sideband_rx.try_recv() {
+                Ok(ev) => {
+                    if let Some(sideband) = sideband_or_err(ev)? {
+                        return Ok(Some(sideband));
+                    }
+                }
+                Err(TryRecvError::Empty) => return Ok(None),
+                Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
+            }
+        }
+    }
+
+    /// Receive one event of any kind: sideband, Connected or Disconnected.
+    ///
+    /// See [Self::recv_any_blocking] for a blocking variant of this method.
+    pub async fn recv_any(&mut self) -> Result<StreamEvent, StreamError> {
+        self.sideband_rx.recv().await.ok_or(StreamError::Closed)
+    }
+
+    /// Receive one event of any kind: sideband, Connected or Disconnected.
+    ///
+    /// See [Self::recv_any] for an asynchronous variant of this method.
+    pub fn recv_any_blocking(&mut self) -> Result<StreamEvent, StreamError> {
+        self.sideband_rx.blocking_recv().ok_or(StreamError::Closed)
+    }
+}
+
+fn sideband_or_err(ev: StreamEvent) -> Result<Option<StreamSideband>, StreamError> {
+    match ev {
+        StreamEvent::Sideband(sideband) => Ok(Some(sideband)),
+        StreamEvent::Connected => Ok(None),
+        ev => Err(StreamError::UnexpectedEvent(ev)),
     }
 }
 

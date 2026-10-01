@@ -101,7 +101,10 @@ async fn connect(
     let config = WebSocketConfig::default()
         .max_message_size(Some(max))
         .max_frame_size(Some(max));
-    // messages are buffered until flush already, Nagle would only add latency on top of that
+    // disable_nagle = true sets TCP_NODELAY. tungstenite keeps frames in its own write buffer until flush (or
+    // write_buffer_size, 128 KiB), then writes them in one go, so batching is already done. With Nagle on, the
+    // kernel would also hold back each flush while an earlier segment is unacknowledged, adding up to a
+    // delayed-ACK timeout (~40 ms) of latency to requests.
     tokio_tungstenite::connect_async_with_config(url, Some(config), true).await
 }
 
@@ -265,6 +268,8 @@ mod tests {
         let (events_tx, events_rx) = mpsc::unbounded_channel();
         let dev = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
+            // accept_async does not touch it, same reason as on the host side
+            stream.set_nodelay(true).unwrap();
             let ws = tokio_tungstenite::accept_async(stream).await.unwrap();
             let (tx, rx) = ws.split();
             let rx = DevRx {

@@ -8,12 +8,10 @@ mod tests {
     };
     use std::path::Path;
     use std::sync::Arc;
-    use tests_common::DummyTx;
-    use tokio::sync::mpsc;
     use wire_weaver::prelude::*;
     use wire_weaver_client::ww_numeric::NumericValue::{self as N};
     use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsValueOwned, TypeOwned, ValueOwned};
-    use wire_weaver_client::{Commander, DynResource, DynResourceKind};
+    use wire_weaver_client::{ClientConfig, DynClient, DynResource, DynResourceKind};
 
     mod server {
         use dynamic_api::{CheckError, Everything, Flagged};
@@ -118,7 +116,7 @@ mod tests {
             }
         }
 
-        mod api_impl {
+        pub mod api_impl {
             wire_weaver::ww_codegen!(
                 dynamic_api :: Dynamic for super::DynServer,
                 server = true, no_alloc = true, use_async = false,
@@ -500,33 +498,34 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn calls_into_generated_server() {
-        let (cmd_tx, cmd_rx) = mpsc::channel(128);
-        tokio::spawn(async move {
-            tests_common::test_event_loop(cmd_rx, server::DynServer::default(), DummyTx {}).await;
-        });
-        let cmd = Commander::new(cmd_tx);
+        let device = tests_common::start_device(
+            "dynamic",
+            server::DynServer::default(),
+            dynamic_api::DYNAMIC_FULL_GID,
+            server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let cmd = client.cmd();
         let root = DynResource::root(bundle());
 
-        let r = root
-            .child("no_args")
-            .unwrap()
-            .call(&cmd, &[])
-            .await
-            .unwrap();
+        let r = root.child("no_args").unwrap().call(cmd, &[]).await.unwrap();
         assert_eq!(r, None);
 
         let r = root
             .child("add")
             .unwrap()
-            .call(&cmd, &[num(N::U32(40)), num(N::I16(-2))])
+            .call(cmd, &[num(N::U32(40)), num(N::I16(-2))])
             .await
             .unwrap();
         assert_eq!(r, Some(num(N::I64(38))));
 
         let echo = root.child("echo").unwrap();
-        let r = echo.call(&cmd, &[everything_value()]).await.unwrap();
+        let r = echo.call(cmd, &[everything_value()]).await.unwrap();
         assert_eq!(r, Some(everything_value()));
-        let err = echo.call(&cmd, &[]).await.unwrap_err().to_string();
+        let err = echo.call(cmd, &[]).await.unwrap_err().to_string();
         assert!(err.contains("takes 1 arguments, got 0"), "{err}");
 
         let check = root.child("check").unwrap();
@@ -539,18 +538,18 @@ mod tests {
         };
         let some = |v| ValueOwned::Option(Some(Box::new(num(N::U8(v)))));
         assert_eq!(
-            check.call(&cmd, &[some(5)]).await.unwrap(),
+            check.call(cmd, &[some(5)]).await.unwrap(),
             ok(num(N::U8(5)))
         );
-        assert_eq!(check.call(&cmd, &[some(200)]).await.unwrap(), err("TooBig"));
+        assert_eq!(check.call(cmd, &[some(200)]).await.unwrap(), err("TooBig"));
         assert_eq!(
-            check.call(&cmd, &[ValueOwned::Option(None)]).await.unwrap(),
+            check.call(cmd, &[ValueOwned::Option(None)]).await.unwrap(),
             err("Missing")
         );
 
         let speed = root.child("speed").unwrap();
-        speed.write(&cmd, &num(N::U16(1500))).await.unwrap();
-        assert_eq!(speed.read(&cmd).await.unwrap(), num(N::U16(1500)));
+        speed.write(cmd, &num(N::U16(1500))).await.unwrap();
+        assert_eq!(speed.read(cmd).await.unwrap(), num(N::U16(1500)));
 
         let flagged = root.child("flagged").unwrap();
         let value = strukt(vec![
@@ -563,22 +562,22 @@ mod tests {
             ),
             ("late", ValueOwned::Option(Some(Box::new(num(N::U16(7)))))),
         ]);
-        flagged.write(&cmd, &value).await.unwrap();
-        assert_eq!(flagged.read(&cmd).await.unwrap(), value);
+        flagged.write(cmd, &value).await.unwrap();
+        assert_eq!(flagged.read(cmd).await.unwrap(), value);
 
         let prop = root.child("everything").unwrap();
-        prop.write(&cmd, &everything_value()).await.unwrap();
-        assert_eq!(prop.read(&cmd).await.unwrap(), everything_value());
+        prop.write(cmd, &everything_value()).await.unwrap();
+        assert_eq!(prop.read(cmd).await.unwrap(), everything_value());
 
         let channel = root.child("channel").unwrap();
-        let valid: Vec<u32> = channel.valid_indices(&cmd).await.unwrap().iter().collect();
+        let valid: Vec<u32> = channel.valid_indices(cmd).await.unwrap().iter().collect();
         assert_eq!(valid, vec![0, 1, 2]);
         let gain = channel.index(1).unwrap().child("gain").unwrap();
-        gain.write(&cmd, &num(N::F32(0.25))).await.unwrap();
-        assert_eq!(gain.read(&cmd).await.unwrap(), num(N::F32(0.25)));
+        gain.write(cmd, &num(N::F32(0.25))).await.unwrap();
+        assert_eq!(gain.read(cmd).await.unwrap(), num(N::F32(0.25)));
         let other = channel.index(2).unwrap().child("gain").unwrap();
-        assert_eq!(other.read(&cmd).await.unwrap(), num(N::F32(0.0)));
+        assert_eq!(other.read(cmd).await.unwrap(), num(N::F32(0.0)));
         let id = channel.index(2).unwrap().child("id").unwrap();
-        assert_eq!(id.call(&cmd, &[]).await.unwrap(), Some(num(N::U32(20))));
+        assert_eq!(id.call(cmd, &[]).await.unwrap(), Some(num(N::U32(20))));
     }
 }

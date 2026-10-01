@@ -8,7 +8,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 wire_weaver.workspace = true
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
+ww_device.workspace = true

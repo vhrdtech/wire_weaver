@@ -463,7 +463,7 @@ fn handle_property(
             }
         };
         quote! {
-            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<Result<(), #user_result_ty>> {
+            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#user_result_ty> {
                 #ser_value
                 #index_chain_push
                 let path_kind = #path_kind;

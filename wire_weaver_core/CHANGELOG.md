@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- Generated client `write_<property>` returns `PreparedWrite<UserError>` (`PreparedWrite<()>` without one) instead of
+  `PreparedWrite<Result<(), UserError>>`, see `wire_weaver_client` changelog.
+
 - Generated servers follow `ww_client_server`'s seq change: `Request::seq` is `UVlq32Backfill` and `Event::seq` is
   `UVlq32`, deferred `*_ser_return_event()` methods take a `u32` seq. Wire-incompatible with clients and devices built
   before this change.
@@ -38,6 +41,9 @@
   `Unimplemented`, valid indices stubs allow no index. Used by `ww api scaffold`.
 
 ### 🐛 Fixes
+
+- `method_model = "..=deferred"` servers compile again: generated `<method>_ser_return_event` used an undefined
+  `request` for unit methods, `RefVec` instead of `TailBytes` for the return value and `Error` without a lifetime.
 
 - Types and traits can be referred to through modules: `mod ty; use ty::Ty;`, `crate::`/`self::` paths, and paths
   longer than `ext_crate::Ty` (e.g. `ext_crate::module::Ty`). `ww_version` and `shrink_wrap` used through

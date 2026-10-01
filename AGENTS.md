@@ -100,6 +100,9 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **`tests/`** — one integration-test crate per API feature (`methods`, `properties`, `streams`,
   `array_of_streams`, `traits`), each with a `<name>_api` companion crate defining the trait/types under test —
   this is the best place to see minimal working examples of a specific macro argument or feature combination.
+  `tests_common::start_device` runs the generated server on `ww_device::Server` in a device thread, connected through
+  `wire_weaver_client`'s `in_process` transport, so tests go through the real host event loop (link setup, timeouts,
+  streams); `TestDevice::drop_requests` simulates a stuck device, `TestDevice::send` pushes stream events.
   The device side is tested end-to-end against the real host event loop in
   `wire_weaver_client/src/event_loop/device_e2e_tests.rs` (in-memory packets, real framers on both ends).
 - **`fuzz/`** — fuzzes `ww_framer` tx/rx round-tripping (`cargo fuzz run framer-tx-rx`).
@@ -139,7 +142,8 @@ To bring an existing server in line after the API changed (or to fill in a partl
 6. `cargo check` the crate; errors in bodies after a signature change are expected, point them out.
 
 Known server codegen limitations the scaffold can't work around: `no_alloc = false` servers don't compile, and
-`method_model = "..=deferred"` generates `*_ser_return_event` referring to an undefined `request`.
+`method_model = "..=deferred"` handlers don't get the request's seq, so `<method>_ser_return_event` can't be used to
+answer later yet (a deferred call that is never answered times out on the host).
 
 ## Compatibility rules (don't guess — check `docs/evolution/rules.md`)
 

@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use properties_api::{CustomOwned, InnerOwned};
+    use properties_api::{CustomOwned, InnerOwned, ModeError};
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
-    use tests_common::DummyTx;
-    use tokio::sync::mpsc;
-    use wire_weaver::shrink_wrap::RefVec;
-    use wire_weaver_client::{Commander, Error, MultiRead};
+    use tests_common::TestDevice;
+    use wire_weaver::prelude::*;
+    use wire_weaver_client::{Error, MultiRead};
     use ww_client_server::ErrorKindOwned;
 
     #[derive(Default)]
@@ -14,22 +13,12 @@ mod tests {
         x: u8,
         y_changed: u8,
         custom: CustomOwned,
+        mode: u8,
     }
 
-    mod no_std_sync_server {
-        use super::*;
-        use properties_api::{Custom, Inner};
-        use std::sync::{Arc, RwLock};
-        use tests_common::TestProcessEvents;
-        use wire_weaver::prelude::*;
-        use wire_weaver::{MessageSink, SetResult, Unimplemented};
-
-        pub struct NoStdSyncServer {
-            pub data: Arc<RwLock<SharedTestData>>,
-            pub y: u8,
-        }
-
-        impl NoStdSyncServer {
+    /// Same handlers for both servers, they only differ in `multi_req`
+    macro_rules! handlers {
+        () => {
             fn set_x(&mut self, value: u8) -> SetResult<()> {
                 self.data.write().unwrap().x = value;
                 Set
@@ -65,11 +54,43 @@ mod tests {
             fn get_absent(&mut self) -> GetResult<u8, ()> {
                 Unimplemented.into()
             }
+
+            fn set_mode(&mut self, value: u8) -> SetResult<ModeError> {
+                if value > 10 {
+                    return SetError(ModeError::TooBig);
+                }
+                self.data.write().unwrap().mode = value;
+                Set
+            }
+
+            fn get_mode(&mut self) -> GetResult<u8, ModeError> {
+                match self.data.read().unwrap().mode {
+                    0 => GetError(ModeError::NotSet),
+                    mode => Value(mode),
+                }
+            }
+        };
+    }
+
+    mod multi_req_server {
+        use super::*;
+        use properties_api::{Custom, Inner};
+        use tests_common::TestProcessEvents;
+        use wire_weaver::shrink_wrap::RefVec;
+        use wire_weaver::{MessageSink, SetResult, Unimplemented};
+
+        pub struct Server {
+            pub data: Arc<RwLock<SharedTestData>>,
+            pub y: u8,
         }
 
-        mod api_impl {
+        impl Server {
+            handlers!();
+        }
+
+        pub mod api_impl {
             wire_weaver::ww_codegen!(
-                properties_api :: Properties for super::NoStdSyncServer,
+                properties_api :: Properties for super::Server,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "x=get_set, y=value_on_changed",
@@ -78,7 +99,44 @@ mod tests {
             );
         }
 
-        impl TestProcessEvents for NoStdSyncServer {
+        impl TestProcessEvents for Server {
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                msg_tx: &mut impl MessageSink,
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, msg_tx)
+            }
+        }
+    }
+
+    mod single_req_server {
+        use super::*;
+        use properties_api::{Custom, Inner};
+        use tests_common::TestProcessEvents;
+        use wire_weaver::shrink_wrap::RefVec;
+        use wire_weaver::{MessageSink, SetResult, Unimplemented};
+
+        pub struct Server {
+            pub data: Arc<RwLock<SharedTestData>>,
+            pub y: u8,
+        }
+
+        impl Server {
+            handlers!();
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                properties_api :: Properties for super::Server,
+                server = true, no_alloc = true, use_async = false,
+                method_model = "_=immediate",
+                property_model = "x=get_set, y=value_on_changed",
+            );
+        }
+
+        impl TestProcessEvents for Server {
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
@@ -116,38 +174,68 @@ mod tests {
         }
     }
 
-    // mod no_std_raw_client {
-    //     use super::*;
-    //
-    //     pub struct RawClient {}
-    //
-    //     ww_api!(
-    //         "properties.rs" as tests::Properties for RawClient,
-    //         client = "raw",
-    //         no_alloc = true,
-    //         use_async = false,
-    //     );
-    // }
+    use std_client::StdClient;
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn std_async_client_driving_no_std_sync_server() {
-        tracing_subscriber::fmt::init();
-        let (cmd_tx, cmd_rx) = mpsc::channel(128);
+    fn start_multi_req(path: &str) -> (TestDevice, Arc<RwLock<SharedTestData>>) {
+        let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
-
-        let data_clone = data.clone();
-        let server = no_std_sync_server::NoStdSyncServer {
-            data: data_clone,
+        let server = multi_req_server::Server {
+            data: data.clone(),
             y: 0xBB,
         };
-        tokio::spawn(async move {
-            tests_common::test_event_loop(cmd_rx, server, DummyTx {}).await;
-        });
+        let device = tests_common::start_device(
+            path,
+            server,
+            properties_api::PROPERTIES_FULL_GID,
+            multi_req_server::api_impl::api_hash(),
+        );
+        (device, data)
+    }
 
-        let cmd = Commander::new(cmd_tx);
-        let client = std_client::StdClient { cmd };
-        tokio::time::sleep(Duration::from_millis(10)).await;
+    fn start_single_req(path: &str) -> (TestDevice, Arc<RwLock<SharedTestData>>) {
+        let _ = tracing_subscriber::fmt::try_init();
+        let data = Arc::new(RwLock::new(SharedTestData::default()));
+        let server = single_req_server::Server {
+            data: data.clone(),
+            y: 0xBB,
+        };
+        let device = tests_common::start_device(
+            path,
+            server,
+            properties_api::PROPERTIES_FULL_GID,
+            single_req_server::api_impl::api_hash(),
+        );
+        (device, data)
+    }
 
+    async fn connect(device: &TestDevice) -> StdClient {
+        StdClient::config(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect")
+    }
+
+    fn connect_blocking(device: &TestDevice) -> StdClient {
+        StdClient::config(|c| c.in_process_path(device.path()))
+            .connect_blocking()
+            .expect("connect")
+    }
+
+    fn remote_error_kind(r: Result<impl core::fmt::Debug, Error>) -> ErrorKindOwned {
+        match r {
+            Err(Error::RemoteError(e)) => e.kind,
+            other => panic!("expected RemoteError, got {other:?}"),
+        }
+    }
+
+    fn user_error(r: Result<impl core::fmt::Debug, Error>) -> ModeError {
+        let ErrorKindOwned::UserBytes(bytes) = remote_error_kind(r) else {
+            panic!("expected UserBytes");
+        };
+        ModeError::from_ww_bytes(&bytes).unwrap()
+    }
+
+    async fn get_set_and_value_on_changed(client: &StdClient, data: &Arc<RwLock<SharedTestData>>) {
         let value = client.read_x().read().await.unwrap();
         assert_eq!(value, 0);
 
@@ -165,19 +253,7 @@ mod tests {
         assert_eq!(data.read().unwrap().y_changed, 1);
 
         client.write_y(0xCC).write().await.unwrap();
-        assert_eq!(data.read().unwrap().y_changed, 1);
-
-        let absent = client.read_absent().read().await;
-        let Error::RemoteError(e) = absent.unwrap_err() else {
-            panic!("Expected RemoteError");
-        };
-        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
-
-        let set_absent = client.write_absent(0).write().await;
-        let Error::RemoteError(e) = set_absent.unwrap_err() else {
-            panic!("Expected RemoteError");
-        };
-        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+        assert_eq!(data.read().unwrap().y_changed, 1, "same value, no change");
 
         let mut expected_custom = CustomOwned {
             z: 123,
@@ -206,16 +282,162 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(data.read().unwrap().custom, expected_custom);
+    }
 
-        let multi_read = (client.read_x(), client.read_absent())
+    async fn unimplemented(client: &StdClient) {
+        let r = client.read_absent().read().await;
+        assert!(matches!(
+            remote_error_kind(r),
+            ErrorKindOwned::Unimplemented
+        ));
+        let r = client.write_absent(0).write().await;
+        assert!(matches!(
+            remote_error_kind(r),
+            ErrorKindOwned::Unimplemented
+        ));
+    }
+
+    async fn user_errors(client: &StdClient, data: &Arc<RwLock<SharedTestData>>) {
+        assert_eq!(
+            user_error(client.read_mode().read().await),
+            ModeError::NotSet
+        );
+        assert_eq!(
+            user_error(client.write_mode(11).write().await),
+            ModeError::TooBig
+        );
+        assert_eq!(data.read().unwrap().mode, 0, "failed write is not applied");
+        client.write_mode(5).write().await.unwrap();
+        assert_eq!(client.read_mode().read().await.unwrap(), 5);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_req_server() {
+        let (device, data) = start_multi_req("properties/multi_req");
+        let client = connect(&device).await;
+        get_set_and_value_on_changed(&client, &data).await;
+        unimplemented(&client).await;
+        user_errors(&client, &data).await;
+
+        let (x, absent) = (client.read_x(), client.read_absent())
             .multi_read()
             .await
             .unwrap();
-        let x = multi_read.0.unwrap();
-        // let y = multi_read.1.unwrap();
-        let e = multi_read.1.unwrap_err();
-        assert_eq!(x, 0xAA);
-        // assert_eq!(y, 0xCC);
-        assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+        assert_eq!(x.unwrap(), 0xAA);
+        assert!(matches!(
+            absent.unwrap_err().kind,
+            ErrorKindOwned::Unimplemented
+        ));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn single_req_server() {
+        let (device, data) = start_single_req("properties/single_req");
+        let client = connect(&device).await;
+        get_set_and_value_on_changed(&client, &data).await;
+        unimplemented(&client).await;
+        user_errors(&client, &data).await;
+
+        let r = (client.read_x(), client.read_absent()).multi_read().await;
+        println!("multi_read on a server without multi_req: {r:?}");
+        assert!(r.is_err(), "server without multi_req must refuse it");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn timeout_async() {
+        let (device, data) = start_multi_req("properties/timeout_async");
+        let client = connect(&device).await;
+        device.drop_requests(true);
+        let r = client
+            .read_x()
+            .with_timeout(Duration::from_millis(50))
+            .read()
+            .await;
+        assert!(matches!(r, Err(Error::Timeout)), "{r:?}");
+        let r = client
+            .write_x(1)
+            .with_timeout(Duration::from_millis(50))
+            .write()
+            .await;
+        assert!(matches!(r, Err(Error::Timeout)), "{r:?}");
+
+        // device recovered: requests after a timeout are answered
+        device.drop_requests(false);
+        client.write_x(2).write().await.unwrap();
+        assert_eq!(client.read_x().read().await.unwrap(), 2);
+        assert_eq!(data.read().unwrap().x, 2);
+    }
+
+    #[test]
+    fn timeout_blocking() {
+        let (device, _data) = start_multi_req("properties/timeout_blocking");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let client = connect_blocking(&device);
+        device.drop_requests(true);
+        let r = client
+            .read_x()
+            .with_timeout(Duration::from_millis(50))
+            .blocking_read();
+        assert!(matches!(r, Err(Error::Timeout)), "{r:?}");
+        let r = client
+            .write_x(1)
+            .with_timeout(Duration::from_millis(50))
+            .blocking_write();
+        assert!(matches!(r, Err(Error::Timeout)), "{r:?}");
+
+        device.drop_requests(false);
+        client.write_x(2).blocking_write().unwrap();
+        assert_eq!(client.read_x().blocking_read().unwrap(), 2);
+    }
+
+    #[test]
+    fn timeout_promise() {
+        let (device, _data) = start_multi_req("properties/timeout_promise");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let client = connect_blocking(&device);
+        device.drop_requests(true);
+        let mut read = client
+            .read_x()
+            .with_timeout(Duration::from_millis(50))
+            .read_promise("read_x");
+        tests_common::wait_promise(&mut read);
+        assert!(matches!(read.peek_error(), Some(Error::Timeout)), "{read}");
+        let mut write = client
+            .write_x(1)
+            .with_timeout(Duration::from_millis(50))
+            .write_promise("write_x");
+        tests_common::wait_promise(&mut write);
+        assert!(
+            matches!(write.peek_error(), Some(Error::Timeout)),
+            "{write}"
+        );
+
+        device.drop_requests(false);
+        let mut read = client.read_x().read_promise("read_x");
+        tests_common::wait_promise(&mut read);
+        assert_eq!(read.take_ready(), Some(0));
+    }
+
+    #[test]
+    fn user_error_promise() {
+        let (device, _data) = start_multi_req("properties/user_error_promise");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let client = connect_blocking(&device);
+        let mut write = client.write_mode(5).write_promise("write_mode");
+        tests_common::wait_promise(&mut write);
+        assert_eq!(write.take_ready(), Some(()), "{write}");
+        let mut write = client.write_mode(11).write_promise("write_mode");
+        tests_common::wait_promise(&mut write);
+        let Some(Error::RemoteErrorDes(e)) = write.peek_error() else {
+            panic!("expected deserialized user error, got {write}");
+        };
+        assert!(e.contains("TooBig"), "{e}");
+
+        let mut read = client.read_mode().read_promise("read_mode");
+        tests_common::wait_promise(&mut read);
+        assert_eq!(read.take_ready(), Some(5), "{read}");
     }
 }

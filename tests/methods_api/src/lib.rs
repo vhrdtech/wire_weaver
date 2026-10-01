@@ -7,12 +7,11 @@ trait Methods {
     fn plain_return() -> u8;
     fn user_arg(u: UserDefined<'i>);
     fn user_defined_return() -> UserDefined<'i>;
-
-    // user-defined
-    // ()
-    // array of methods
-    // evolve args
-    // evolve return from plain to struct
+    /// Server returns Unimplemented
+    fn absent();
+    /// Answered later from outside of the handler, or never
+    fn deferred() -> u8;
+    fn deferred_unit();
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]

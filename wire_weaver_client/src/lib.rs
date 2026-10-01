@@ -36,6 +36,9 @@ pub use usb::{list_all_devices as list_all_usb_devices, list_devices as list_usb
 #[cfg(feature = "rtt")]
 mod rtt;
 
+#[cfg(feature = "in_process")]
+pub mod in_process;
+
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
 /// Maximum ww_client_server message this host can receive; advertised to a device during link setup

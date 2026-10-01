@@ -2,6 +2,13 @@
 
 ### 🚀 Features
 
+- In-process transport (`in_process` feature): a device running in the same process (simulators, tests) registers
+  a path with `in_process::device(path, max_message_len)` and serves `ww_device::Server` with the returned
+  `DeviceTx` / `DeviceRx`, the host connects with `ClientConfig::in_process_path(..)` through the regular
+  `PreparedConnection` flow (link setup, version check, introspection, timeouts, streams). `in_process::TokioClock`
+  is a `ww_device::Clock` for devices on the host. Integration tests under `tests/` now run on it, against the real
+  event loop.
+
 - `DynResource`: use any device API known only at runtime (from introspection data or a saved bundle), without
   generated code. Walk it by names and indices (`root.child("periph")?.index(0)?.child("gain")?`), call methods, read
   and write properties with `ww_self::ValueOwned` values, open streams (`DynStream`) and sinks (`DynSink`), read valid
@@ -73,6 +80,10 @@
 
 ### ⚠️ Breaking
 
+- `PreparedWrite::write_promise` returns `Promise<()>` instead of `Promise<E>`. `PreparedWrite<E>`'s `E` is now the
+  property's user error type (`()` if it has none) instead of `Result<(), E>`, generated `write_*` functions changed
+  accordingly. Code naming these types has to be updated, e.g., `Promise<Result<(), MyError>>` → `Promise<()>`.
+
 - `SeqTy` is `u32` (was `u16`). Request seq numbers cycle through 1..=127, so they are serialized into 1 byte, bigger
   ones (up to `ClientConfig::max_seq()`, `DEFAULT_MAX_SEQ` = 2 097 151 by default, 3 bytes) are only used while
   all of these are in flight. `Command::Connect` gains `max_seq`. `Command::SendMessage` bytes must start with the
@@ -104,6 +115,11 @@
   `get()`. It now resolves to an error if the device has introspection disabled, instead of a deserialization error.
 
 ### 🐛 Fixes
+
+- `write_promise` never succeeded: the empty reply was deserialized as `Result<(), E>` and failed with
+  `OutOfBoundsReadBool`. A user error (`property!(rw name: T, UserError)`) was deserialized as `Result<(), E>` as
+  well and failed, it is now formatted with the user error type into `Error::RemoteErrorDes`. `read_promise` no longer
+  deserializes a user error as the property type, it returns `Error::RemoteError` with the raw bytes, same as `read()`.
 
 - A late reply to a timed out request is no longer taken for the answer to a new request that got the same seq: the
   seq of a timed out request stays in use until the late reply arrives (which is then dropped) or until 10 s after the

@@ -46,6 +46,19 @@ impl<T: WwClient> PreparedConnection<T> {
                     Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
+            if iface_kind == InterfaceKind::InProcess {
+                match try_select_in_process(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info = try_connect(&cmd_tx, handle, &config)
+                            .await
+                            .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(
+                            create_commander(config, cmd_tx, device_api_info).await,
+                        ));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
             if iface_kind == InterfaceKind::Rtt {
                 match try_select_rtt(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
@@ -74,6 +87,20 @@ impl<T: WwClient> PreparedConnection<T> {
             #[cfg(feature = "usb")]
             if iface_kind == InterfaceKind::Usb {
                 match crate::usb::try_connect_blocking(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                            .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(create_commander_blocking(
+                            config,
+                            cmd_tx,
+                            device_api_info,
+                        )));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
+            if iface_kind == InterfaceKind::InProcess {
+                match try_select_in_process(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
                         let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
                             .map_err(|e| connect_failed(info, e))?;
@@ -131,6 +158,21 @@ fn try_select_rtt(
         _ = (config, cmd_rx);
         Err(anyhow::anyhow!(
             "RTT selected in the client config, but wire_weaver_client is built without the `rtt` feature"
+        ))
+    }
+}
+
+fn try_select_in_process(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "in_process")]
+    return crate::in_process::try_connect(config, cmd_rx);
+    #[cfg(not(feature = "in_process"))]
+    {
+        _ = (config, cmd_rx);
+        Err(anyhow::anyhow!(
+            "In-process device selected in the client config, but wire_weaver_client is built without the `in_process` feature"
         ))
     }
 }

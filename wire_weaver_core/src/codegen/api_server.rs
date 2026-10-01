@@ -971,16 +971,17 @@ fn ser_method_output(
             let event = Event {
                 seq: wire_weaver::shrink_wrap::UVlq32(#seq_path),
                 result: Ok(EventKind::Value {
-                    data: RefVec::Slice { slice: output_bytes }
+                    data: wire_weaver::shrink_wrap::tail_bytes::TailBytes(output_bytes)
                 })
             };
             event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::response_ser_failed(#es1))?;
-            Ok(event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))?)
+            event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))
         }
     } else {
         let es = errors_seq.next();
         quote! {
-            Ok(ser_unit_return_event(scratch_event, request.seq.0).map_err(|_| Error::response_ser_failed(#es))?)
+            let _ = scratch_args;
+            ww_client_server::util::ser_unit_return_event(scratch_event, #seq_path).map_err(|_| Error::response_ser_failed(#es))
         }
     }
 }
@@ -1049,7 +1050,7 @@ fn deferred_method_return_ser_methods(
             None => quote! {},
         };
         ts.extend(quote! {
-            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<#byte_return_ty, Error> {
+            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<#byte_return_ty, Error<'static>> {
                 #ser_output_or_unit
             }
         });

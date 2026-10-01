@@ -10,7 +10,7 @@ use ww_client_server::PathKindOwned;
 /// * TX ends towards transport and dispatcher event loops
 /// * Resource path
 /// * Property type as a generic `T` argument
-/// * Optional write error type as a generic `E` argument
+/// * User error type as a generic `E` argument, `()` if the property has none
 ///
 /// When obtained, the user can choose how to actually execute the call:
 /// * async: `read()`
@@ -95,8 +95,9 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     /// Return a [Promise] that sends a write request on its first poll and receives the result on subsequent polls.
     /// Useful for immediate mode UI. Must only be polled from synchronous code, not from async tasks,
     /// see [Promise] docs; use `write()` in async code.
+    /// A user error (see `property!(rw name: T, UserError)`) is returned as [Error::RemoteErrorDes] with it formatted.
     #[must_use = "Promise does nothing, unless it is polled"]
-    pub fn write_promise(self, marker: &'static str) -> Promise<E> {
+    pub fn write_promise(self, marker: &'static str) -> Promise<()> {
         if let Err(e) = self.postpone_err {
             return Promise::error(e, marker);
         }
@@ -106,6 +107,10 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
             self.value,
             self.timeout_override,
             self.transport_cmd_tx,
+            |bytes| match E::from_ww_bytes_owned(bytes) {
+                Ok(e) => format!("{e:?}"),
+                Err(e) => format!("failed to deserialize: {e:?}"),
+            },
             marker,
         )
     }

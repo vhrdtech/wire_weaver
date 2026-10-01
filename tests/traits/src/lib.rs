@@ -2,14 +2,8 @@
 mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
-    use std::time::Duration;
-    use tokio::sync::mpsc;
     use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::Commander;
-    use wire_weaver_client::internal::ConnectionInfo;
-    use wire_weaver_client::{DeviceApiInfo, internal::Command};
-    use ww_client_server::{Event, EventKind, Request};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -86,7 +80,7 @@ mod tests {
             }
         }
 
-        mod api_impl {
+        pub mod api_impl {
             wire_weaver::ww_codegen!(
                 traits_api :: Traits for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
@@ -94,6 +88,17 @@ mod tests {
                 property_model = "_=get_set",
                 // debug_to_file = "../../target/tests_traits_server.rs"
             );
+        }
+
+        impl tests_common::TestProcessEvents for NoStdSyncServer {
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                msg_tx: &mut impl MessageSink,
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, msg_tx)
+            }
         }
     }
 
@@ -136,69 +141,21 @@ mod tests {
     //     );
     // }
 
-    struct DummyTx;
-    impl MessageSink for DummyTx {
-        fn send(&mut self, _message: &[u8]) -> impl Future<Output = Result<(), ()>> {
-            core::future::ready(Ok(()))
-        }
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn std_async_client_driving_no_std_sync_server() {
-        tracing_subscriber::fmt::init();
-        let (cmd_tx, mut cmd_rx) = mpsc::channel(128);
+        let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
-
-        let mut dummy_msg_tx = DummyTx {};
-        let data_clone = data.clone();
-        tokio::spawn(async move {
-            let mut server = no_std_sync_server::NoStdSyncServer { data: data_clone };
-            let mut scratch = [0u8; 512];
-
-            let mut seq = 1;
-            while let Some(cmd) = cmd_rx.recv().await {
-                match cmd {
-                    Command::Connect { connected_tx, .. } => {
-                        if let Some(tx) = connected_tx {
-                            tx.send(ConnectionInfo {
-                                result: Ok(DeviceApiInfo::empty()),
-                            })
-                            .unwrap();
-                        }
-                        continue;
-                    }
-                    Command::SendMessage { mut bytes, done_tx } => {
-                        let bytes = Request::set_seq(&mut bytes, seq).unwrap();
-                        seq += 1;
-                        let r = server
-                            .process_request_bytes(bytes, &mut scratch, &mut dummy_msg_tx)
-                            .expect("process_request");
-                        if r.is_empty() {
-                            continue;
-                        }
-                        let event = Event::from_ww_bytes(r).unwrap();
-                        let r = match event.result {
-                            Ok(event_kind) => {
-                                let data = match event_kind {
-                                    EventKind::Value { data } => data.as_slice().to_vec(),
-                                    _ => vec![],
-                                };
-                                Ok(data)
-                            }
-                            Err(e) => Err(wire_weaver_client::Error::RemoteError(e.make_owned())),
-                        };
-                        if let Some((done_tx, _timeout)) = done_tx {
-                            done_tx.send(r).unwrap();
-                        }
-                    }
-                    _ => panic!("not supported command"),
-                }
-            }
-        });
-
-        let cmd = Commander::new(cmd_tx);
-        let client = std_client::StdClient { cmd };
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        let server = no_std_sync_server::NoStdSyncServer { data: data.clone() };
+        let device = tests_common::start_device(
+            "traits",
+            server,
+            traits_api::TRAITS_FULL_GID,
+            no_std_sync_server::api_impl::api_hash(),
+        );
+        let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
 
         client.g1().m1().call().await.unwrap();
         assert!(data.read().unwrap().subgroup_m1_called);

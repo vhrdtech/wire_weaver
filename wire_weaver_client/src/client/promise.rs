@@ -35,8 +35,12 @@ pub struct Promise<T> {
     state: StateInner<T>,
     marker: &'static str, // TODO: change to enum Marker { Static, Owned } with into
     seen: bool,
+    /// Formats `ErrorKind::UserBytes` with the user error type, which can differ from `T` (e.g., `()` of a write)
+    user_err: Option<UserErrFmt>,
     // TODO: Add instant
 }
+
+pub(crate) type UserErrFmt = fn(&[u8]) -> String;
 
 impl<T> Default for Promise<T> {
     fn default() -> Self {
@@ -44,6 +48,7 @@ impl<T> Default for Promise<T> {
             state: StateInner::None,
             marker: "",
             seen: false,
+            user_err: None,
         }
     }
 }
@@ -97,13 +102,13 @@ pub enum PromiseState<'i, T> {
     Err(&'i Error),
 }
 
-// Debug: only needed to deserialize ww_client_server::ErrorKind::UserBytes into user error
 impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
     pub fn empty(marker: &'static str) -> Self {
         Self {
             state: StateInner::None,
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -112,6 +117,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             state: StateInner::Done(Some(value)),
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -120,6 +126,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             state: StateInner::Err(error),
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -139,6 +146,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             },
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -156,6 +164,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             },
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -164,6 +173,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
         value: Vec<u8>,
         timeout: Option<Duration>,
         transport_cmd_tx: TransportCommander,
+        user_err: UserErrFmt,
         marker: &'static str,
     ) -> Self {
         Self {
@@ -175,6 +185,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             },
             marker,
             seen: false,
+            user_err: Some(user_err),
         }
     }
 
@@ -194,6 +205,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             },
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -202,6 +214,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
             state: StateInner::Future(done_rx),
             marker,
             seen: false,
+            user_err: None,
         }
     }
 
@@ -330,21 +343,13 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                     Err(e) => {
                         if let Error::RemoteError(remote) = &e
                             && let ErrorKindOwned::UserBytes(bytes) = &remote.kind
+                            && let Some(user_err) = self.user_err
                         {
-                            match T::from_ww_bytes_owned(bytes) {
-                                Ok(err) => {
-                                    self.state = StateInner::Err(Error::RemoteErrorDes(format!(
-                                        "Error {{ err_seq: {}, user error: {:?} }}",
-                                        remote.err_seq, err
-                                    )))
-                                }
-                                Err(e) => {
-                                    self.state = StateInner::Err(Error::RemoteErrorDes(format!(
-                                        "Error {{ err_seq: {}, failed to deserialize user error: {:?} }}",
-                                        remote.err_seq, e
-                                    )))
-                                }
-                            }
+                            self.state = StateInner::Err(Error::RemoteErrorDes(format!(
+                                "Error {{ err_seq: {}, user error: {} }}",
+                                remote.err_seq,
+                                user_err(bytes)
+                            )));
                         } else {
                             self.state = StateInner::Err(e);
                         }

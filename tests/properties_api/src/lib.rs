@@ -6,6 +6,8 @@ trait Properties {
     property!(rw y: u8);
 
     property!(rw absent: u8);
+    /// Fails with a user error for values above 10, get fails while mode is 0
+    property!(rw mode: u8, ModeError);
 
     // changes pub sub
     // const ro wo
@@ -13,6 +15,12 @@ trait Properties {
     property!(rw custom: Custom<'i>);
     // property!(rw custom: RefVec<'i, u8>);
     // arrays
+}
+
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
+pub enum ModeError {
+    TooBig,
+    NotSet,
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]

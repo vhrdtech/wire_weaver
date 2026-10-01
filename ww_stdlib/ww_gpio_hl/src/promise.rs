@@ -140,10 +140,10 @@ pub struct FlexPromise {
     input_level_cached: Option<Level>,
     speed: Promise<Speed>,
     speed_cached: Option<Speed>,
-    set_speed: Promise<Result<(), ww_gpio::Error>>,
+    set_speed: Promise<()>,
     pull: Promise<Pull>,
     pull_cached: Option<Pull>,
-    set_pull: Promise<Result<(), ww_gpio::Error>>,
+    set_pull: Promise<()>,
 }
 
 impl FlexPromiseRef<'_> {

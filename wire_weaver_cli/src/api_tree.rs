@@ -455,24 +455,27 @@ trait Traits traits_api@0.1.0
         let mut bundle = wire_weaver_core::load(&path, None, false).unwrap();
         let expected = "\
 types
-├─ 0 struct properties_api::Inner unsized
+├─ 0 enum properties_api::ModeError unsized, repr u4
+│  ├─ 0 TooBig
+│  └─ 1 NotSet
+├─ 1 struct properties_api::Inner unsized
 │  ├─ u: u8
 │  └─ v: String
-└─ 1 struct properties_api::Custom unsized
+└─ 2 struct properties_api::Custom unsized
    ├─ z: u8
    └─ inner: Vec<Inner>
 ";
         assert_eq!(render_types(&bundle, false), expected);
 
         // as sent by a device, with a definition left out
-        bundle.types[0] = TypeLocationOwned::SkippedFullVersion {
+        bundle.types[1] = TypeLocationOwned::SkippedFullVersion {
             crate_idx: bundle.root.crate_idx,
             type_name: "Inner".into(),
             signature: vec![],
         };
         let types = render_types(&bundle, false);
         assert!(
-            types.contains("├─ 0 properties_api::Inner (definition not included)\n"),
+            types.contains("├─ 1 properties_api::Inner (definition not included)\n"),
             "{types}"
         );
         assert!(types.contains("└─ inner: Vec<Inner>\n"), "{types}");

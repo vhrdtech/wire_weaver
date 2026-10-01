@@ -17,7 +17,7 @@ rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
 i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
 uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
 ipc = [] # inter-process communication channel (using iceoryx2)
-in_process = [] # in-process channel
+in_process = ["dep:ww_device"] # device running in the same process (simulators, tests)
 
 usb-tracing = [
     "dep:iceoryx2",
@@ -45,6 +45,7 @@ tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_snapshots.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
+ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_link = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }

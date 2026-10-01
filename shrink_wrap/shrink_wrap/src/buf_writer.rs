@@ -357,7 +357,6 @@ impl<'i> BufWriter<'i> {
     /// wr.align_byte(); // Variable sized objects must be byte aligned, because length is in bytes and to not shift the whole buffer by less than one byte
     /// // Calculate the size of the variable length object + all the u16_rev numbers it might have used in Nib16 reverse encoding.
     /// let size_bytes = wr.pos().0 - unsized_start_bytes;
-    /// let size_bytes = u16::try_from(size_bytes).unwrap();
     /// assert_eq!(size_bytes, 4);
     /// // Update the original slot with an actual size.
     /// wr.update_rev_len(size_slot_pos, size_bytes).unwrap();

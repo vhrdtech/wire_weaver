@@ -357,18 +357,18 @@ impl BufWriterOwned {
     /// use shrink_wrap::BufWriterOwned;
     /// let mut wr = BufWriterOwned::new();
     ///
-    /// let size_slot_pos = wr.write_u32_rev(0).unwrap(); // reserve a size slot in the reverse FIFO
+    /// let size_slot_pos = wr.write_rev_len(0).unwrap(); // reserve a size slot in the reverse FIFO
     /// let unsized_start_bytes = wr.pos().0; // remember current position in bytes
     /// // Write an object of unknown size, potentially containing more objects with variable length,
     /// // which in turn will push more numbers to the reverse FIFO.
     /// wr.write_bytes(&[1u8, 2, 3]).unwrap();
     /// // Encode numbers pushed by the object itself to UNib32 reverse encoding, if any
-    /// wr.encode_nib32_rev(wr.u32_rev_pos(), size_slot_pos).unwrap();
+    /// wr.encode_len_fifo(wr.rev_len_pos(), size_slot_pos).unwrap();
     /// wr.align_byte(); // Variable sized objects must be byte aligned
     /// let size_bytes = wr.pos().0 - unsized_start_bytes;
     /// assert_eq!(size_bytes, 4);
     /// // Update the original slot with an actual size.
-    /// wr.update_u32_rev(size_slot_pos, size_bytes as u32).unwrap();
+    /// wr.update_rev_len(size_slot_pos, size_bytes).unwrap();
     /// let buf = wr.finish().unwrap();
     /// assert_eq!(buf, &[1, 2, 3, 3, 4]);
     /// ```

@@ -126,7 +126,7 @@ pub enum RequestKind<'i> {
 
 /// Index for a multi request. Two kinds of multi requests are possible:
 ///
-/// ```
+/// ```ignore
 /// #[ww_trait]
 /// trait GpioBank {
 ///     ww_impl!(pin[]: Pin);

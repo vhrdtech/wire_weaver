@@ -124,10 +124,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **Full name chains** in generated names (fixed the `event_sideband` collision).
 - ✅ **Type paths from Cargo**: trait source path, external types in API crates as full paths.
 - ✅ **Sync and async servers, async / blocking / promise clients** from the same trait.
-- 📋 **Client argument buffers** · `v0.5` — with the `no_alloc` model, generated client code serializes method
-  arguments and property values into a fixed 128 byte stack scratch and then copies it into a `Vec`
-  (`api_client.rs`); the alloc model already uses `to_ww_bytes_owned()`. The client is always `std`, so use
-  `BufWriterOwned` in both cases. Next up after the tracker pass.
 - 📋 **Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
@@ -216,6 +212,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **Stream receive timeout** · `v0.5` — and a beat timeout between updates.
 - 🔍 **Typed attachments with `TraitMarker`** · `v0.5` — trait attachments exist (`Attachment`,
   `examples/all_gpio`); check whether a typed marker is still wanted.
+- 💡 **`no_std` client** (`client = "raw"`) — documented as not working in `ClientModel::Raw`, its test is
+  commented out in `tests/traits`. Its generated code serializes arguments into a fixed 128 byte scratch and
+  then calls `.to_vec()`, which isn't `no_std`; it should write into a caller-provided buffer instead. The std
+  clients (`std_client`, `trait_client`) already serialize with `to_ww_bytes_owned()` and have no size limit.
 - 🚧 **Multi read/write/call** · `v0.5.x` — `MultiRead` exists as a prototype; multi write and call are missing,
   and full multi-property support.
 - 📋 **Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
@@ -357,6 +357,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     - [ ] methods: return type evolving to a struct, adding arguments
 - 🚧 **Binary size tracking** · `v0.5` — flash and RAM per feature for a set of examples, in CI. Consider
   compile-time construction so that only final bytes remain.
+- 📋 **Keep an eye on coverage** — around 70% on average as of 2026-10-01, the important crates are at
+  80-90%, `ww_framer` at 97%. Don't let it drop: add tests with new features and fixes, and raise the crates
+  that are behind.
 - 📋 **Coverage with hardware in the loop** · `v0.5.x`.
 - 📋 **TODOs round** · `v0.5.x` — go through the `TODO` comments in the source.
 - 📋 **Update all dependencies** · `v0.5.x`.

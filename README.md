@@ -22,6 +22,7 @@ WireWeaver is a collection of crates for designing `#[no_std]` APIs:
   - Bit level packing and [more](https://github.com/vhrdtech/wire_weaver/tree/master/shrink_wrap)
 
 Current state is - approaching alpha release.
+See [FEATURES.md](./FEATURES.md) for what works today, what is in progress and what is planned.
 
 ## TLDR
 

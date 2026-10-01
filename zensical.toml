@@ -12,6 +12,7 @@ edit_uri = "edit/master/docs/"
 
 nav = [
     { "Home" = "index.md" },
+    { "Features" = "features.md" },
     { "SerDes" = [
             "serdes/shrink_wrap.md",
             "types.md",
@@ -188,6 +189,11 @@ pymdownx.keys = {}
 pymdownx.magiclink = {}
 pymdownx.mark = {}
 pymdownx.smartsymbols = {}
+# Pulls the repo root FEATURES.md into docs/features.md, keeping a single source
+pymdownx.snippets = {
+  base_path = ["."],
+  check_paths = true
+}
 # pymdownx.snippets = {
 #   base_path = "includes",
 # }

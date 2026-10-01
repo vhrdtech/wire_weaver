@@ -20,6 +20,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - When finishing work, update the item in the same change: mark it ✅, move it up to the done items of its
   area and add a pointer (docs page, crate, test or example). Don't delete done items. Move items that turn
   out to be obsolete to [Dropped and superseded](#dropped-and-superseded) with a one-line reason.
+- This file is also rendered as the docs site's "Features" page (`docs/features.md` includes it), so indent
+  nested lists and paragraphs inside an item by 4 spaces, as Python-Markdown requires.
 - New ideas go into the matching area as 💡. Small code-level gaps stay as `TODO` comments in the source;
   only those that limit users or block a feature get an item here.
 
@@ -156,8 +158,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     - later, a big effort to support a custom syntax, which turned into a project of its own and took a lot of
       resources away from the actual work.
 
-  Plain Rust with `#[ww_trait]` and `#[derive_shrink_wrap]` is the current answer; revisit only with a concrete
-  benefit that outweighs the cost of a parser, tooling and IDE support.
+    Plain Rust with `#[ww_trait]` and `#[derive_shrink_wrap]` is the current answer; revisit only with a concrete
+    benefit that outweighs the cost of a parser, tooling and IDE support.
 
 ## Server / device side
 
@@ -178,9 +180,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
       `ws`, `defmt`, `embassy-time`, `std`;
     - `wire_weaver_client` re-exports `wire_weaver` with transport features.
 
-  Requires: codegen emitting paths through the role crate (or a `crate = ".."` argument / `proc-macro-crate`;
-  `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
-  root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
+    Requires: codegen emitting paths through the role crate (or a `crate = ".."` argument / `proc-macro-crate`;
+    `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
+    root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
 - 📋 **Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

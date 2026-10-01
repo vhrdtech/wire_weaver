@@ -19,6 +19,7 @@ Plus a whole set of standard types and traits, all written in Rust.
 [Get started](api/overview.md){ .md-button .md-button--primary }
 [Standard library](std_library/overview.md){ .md-button }
 [Examples](examples/examples.md){ .md-button }
+[Features and roadmap](features.md){ .md-button }
 </div>
 
 ---

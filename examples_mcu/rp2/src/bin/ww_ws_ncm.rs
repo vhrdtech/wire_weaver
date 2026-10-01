@@ -15,8 +15,11 @@ use defmt::*;
 use defmt_rtt as _;
 use edge_dhcp::io::server::run as dhcp_run;
 use edge_dhcp::server::{Server as DhcpServer, ServerOptions};
-use edge_nal::UdpBind;
-use edge_nal_embassy::{Udp, UdpBuffers};
+use edge_http::Method;
+use edge_http::io::Error as HttpError;
+use edge_http::io::server::{Connection, Handler, Server as HttpServer};
+use edge_nal::{TcpBind, UdpBind, WithTimeout};
+use edge_nal_embassy::{Tcp, TcpBuffers, Udp, UdpBuffers};
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Ipv4Cidr, Stack, StackResources, StaticConfigV4};
@@ -31,6 +34,7 @@ use embassy_usb::class::cdc_ncm::embassy_net::{
 };
 use embassy_usb::class::cdc_ncm::{CdcNcmClass, State as NcmState};
 use embassy_usb::{Builder, UsbDevice};
+use embedded_io_async::{Read, Write};
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
@@ -96,55 +100,66 @@ async fn dhcp_task(stack: Stack<'static>) {
     }
 }
 
-const HTTP_PAGE: &[u8] = b"HTTP/1.1 200 OK\r\n\
-Content-Type: text/html; charset=utf-8\r\n\
-Connection: close\r\n\
-\r\n\
-<!doctype html><title>WireWeaver</title><h1>Hello from WireWeaver!</h1><p>API is at ws://192.168.7.1:8080/ww</p>\n";
+const HTTP_PAGE: &[u8] = b"<!doctype html><title>WireWeaver</title><h1>Hello from WireWeaver!</h1>\
+<p>API is at ws://192.168.7.1:8080/ww</p>\n";
 
-/// Plain HTTP on port 80, one connection at a time: answers every request with the same small page.
+/// Hello world page at `/`, 404 for anything else
+struct HttpHandler;
+
+impl Handler for HttpHandler {
+    type Error<E>
+        = HttpError<E>
+    where
+        E: core::fmt::Debug;
+
+    async fn handle<T, const N: usize>(
+        &self,
+        _task_id: impl core::fmt::Display + Copy,
+        conn: &mut Connection<'_, T, N>,
+    ) -> Result<(), Self::Error<T::Error>>
+    where
+        T: Read + Write,
+    {
+        let headers = conn.headers()?;
+        if headers.method != Method::Get {
+            conn.initiate_response(405, Some("Method Not Allowed"), &[])
+                .await
+        } else if headers.path != "/" {
+            conn.initiate_response(404, Some("Not Found"), &[]).await
+        } else {
+            conn.initiate_response(
+                200,
+                Some("OK"),
+                &[("Content-Type", "text/html; charset=utf-8")],
+            )
+            .await?;
+            conn.write_all(HTTP_PAGE).await
+        }
+    }
+}
+
+/// Plain HTTP on port 80, one connection at a time.
+///
+/// edge-http costs about 40 KB of flash and 3 KB of RAM (default release profile). For a single fixed page, a
+/// hand-written task on a bare `TcpSocket` (read until `\r\n\r\n`, write the response, close) is enough and
+/// saves most of that, see this file's history.
 #[embassy_executor::task]
 async fn http_task(stack: Stack<'static>) {
-    static RX: StaticCell<[u8; 1024]> = StaticCell::new();
-    static TX: StaticCell<[u8; 1024]> = StaticCell::new();
-    let mut socket = TcpSocket::new(stack, RX.init([0; 1024]), TX.init([0; 1024]));
-    let mut buf = [0u8; 512];
-    loop {
-        socket.abort();
-        let _ = socket.flush().await;
-        socket.set_timeout(Some(Duration::from_secs(5)));
-        if let Err(e) = socket.accept(HTTP_PORT).await {
-            warn!("http accept: {:?}", e);
-            Timer::after_millis(100).await;
-            continue;
-        }
-        // read until the end of the request headers, the request itself doesn't matter
-        let mut len = 0;
-        let mut complete = false;
-        while len < buf.len() {
-            match socket.read(&mut buf[len..]).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => len += n,
-            }
-            if buf[..len].windows(4).any(|w| w == b"\r\n\r\n") {
-                complete = true;
-                break;
-            }
-        }
-        if !complete {
-            continue;
-        }
-        let mut written = 0;
-        while written < HTTP_PAGE.len() {
-            match socket.write(&HTTP_PAGE[written..]).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => written += n,
-            }
-        }
-        // send FIN after the page, give the host a moment to close its side before aborting
-        socket.close();
-        let _ = embassy_time::with_timeout(Duration::from_secs(1), socket.flush()).await;
-        let _ = embassy_time::with_timeout(Duration::from_secs(1), socket.read(&mut buf)).await;
+    static TCP_BUFFERS: StaticCell<TcpBuffers<1, 1024, 1024>> = StaticCell::new();
+    static SERVER: StaticCell<HttpServer<1, 1024, 16>> = StaticCell::new();
+    let tcp = Tcp::new(stack, TCP_BUFFERS.init(TcpBuffers::new()));
+    let acceptor = unwrap!(
+        tcp.bind(core::net::SocketAddr::new(
+            Ipv4Addr::UNSPECIFIED.into(),
+            HTTP_PORT
+        ))
+        .await
+    );
+    let server = SERVER.init(HttpServer::new());
+    // a host that is gone without closing the connection: give up on it after 5 s
+    let acceptor = WithTimeout::new(5_000, acceptor);
+    if let Err(e) = server.run(Some(5_000), acceptor, HttpHandler).await {
+        error!("http server: {:?}", Debug2Format(&e));
     }
 }
 

@@ -520,6 +520,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e8d05b815a091dc636cc1d62374cf1b96b763117291242882f9741dd4e251ed"
 dependencies = [
  "base64",
+ "defmt 1.1.1",
+ "edge-nal",
+ "embassy-futures",
+ "embassy-sync",
+ "embedded-io-async 0.7.0",
  "heapless 0.9.3",
  "httparse",
  "sha1_smol",
@@ -1613,6 +1618,7 @@ dependencies = [
  "defmt 1.1.1",
  "defmt-rtt",
  "edge-dhcp",
+ "edge-http",
  "edge-nal",
  "edge-nal-embassy",
  "embassy-embedded-hal",
@@ -1623,6 +1629,7 @@ dependencies = [
  "embassy-sync",
  "embassy-time",
  "embassy-usb",
+ "embedded-io-async 0.7.0",
  "panic-probe",
  "rtt-target",
  "static_cell",

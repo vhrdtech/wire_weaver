@@ -124,11 +124,6 @@ impl<'i> BufReader<'i> {
     pub fn read_unib32(&mut self) -> Result<u32, Error> {
         let value = UNib32::read_forward(self)?.0;
 
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("read_unib32() = {}", value);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("read_unib32() = {}", value);
-
         Ok(value)
     }
 
@@ -136,22 +131,12 @@ impl<'i> BufReader<'i> {
     pub fn read_uvlq32(&mut self) -> Result<u32, Error> {
         let value = UVlq32::read_forward(self)?.0;
 
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("read_uvlq32() = {}", value);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("read_uvlq32() = {}", value);
-
         Ok(value)
     }
 
     /// Read a number encoded with UNib32 backward encoding, from the back of the buffer.
     pub fn read_rev_len(&mut self) -> Result<usize, Error> {
         let value = UNib32::read_reversed(self)?.0;
-
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("read_unib32_rev() = {}", value);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("read_unib32_rev() = {}", value);
 
         Ok(value as usize)
     }
@@ -276,14 +261,10 @@ impl<'i> BufReader<'i> {
     /// deserialized with [des_shrink_wrap](DeserializeShrinkWrap::des_shrink_wrap).
     pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
         if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("reading Unsized object");
             let size = self.read_rev_len()?;
             let mut rd_split = self.split(size)?;
             T::des_shrink_wrap(&mut rd_split)
         } else {
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("reading ?Sized object");
             T::des_shrink_wrap(self)
         }
     }
@@ -292,14 +273,10 @@ impl<'i> BufReader<'i> {
     /// See [read](Self::read) for more information.
     pub fn read_owned<T: DeserializeShrinkWrapOwned>(&mut self) -> Result<T, Error> {
         if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("reading Unsized object");
             let size = self.read_rev_len()?;
             let mut rd_split = self.split(size)?;
             T::des_shrink_wrap_owned(&mut rd_split)
         } else {
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("reading ?Sized object");
             T::des_shrink_wrap_owned(self)
         }
     }
@@ -315,16 +292,6 @@ impl<'i> BufReader<'i> {
         let prev_byte_idx = self.byte_idx;
         self.byte_idx += len;
         let buf = &self.buf[prev_byte_idx..prev_byte_idx + len];
-
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!(
-            "split({}): prev_byte_idx={} {=[u8]:x}",
-            len,
-            prev_byte_idx,
-            buf
-        );
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("split({len}): prev_byte_idx={prev_byte_idx} {:02x?}", buf);
 
         Ok(BufReader {
             buf,

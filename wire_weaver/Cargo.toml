@@ -14,12 +14,8 @@ std = ["shrink_wrap/std", "ww_version/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt"]
 serde = ["shrink_wrap/serde"]
 
-defmt-extended = ["dep:defmt", "shrink_wrap/defmt-extended"]
-tracing-extended = ["dep:tracing", "shrink_wrap/tracing-extended"]
-
 [dependencies]
 defmt = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }
-tracing = { version = "0.1", default-features = false, optional = true }
 wire_weaver_derive.workspace = true
 ww_version = { workspace = true, default-features = false }

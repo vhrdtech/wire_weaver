@@ -188,11 +188,6 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let elements_count = rd.read_rev_len()?;
 
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("Vec element count: {}", elements_count);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("Vec element count: {}", elements_count);
-
         // save BufReader state and read out elements to advance beyond Vec
         let buf = *rd;
         for _ in 0..elements_count {

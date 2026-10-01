@@ -1,5 +1,10 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `defmt-extended` and `tracing-extended` features removed together with the ones in `shrink_wrap`; drop them from
+  your `Cargo.toml`. `wire_weaver` no longer depends on `tracing`.
+
 ### 🚀 Features
 
 - `api_id` module: `ww:<crate>@<version> h=<hash>[ l=<label>]` identity string for USB interface descriptors, so

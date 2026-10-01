@@ -180,8 +180,6 @@ impl<'i> BufWriter<'i> {
         self.buf[self.len_bytes - 2] = val_be[0];
         self.buf[self.len_bytes - 1] = val_be[1];
         self.len_bytes -= 2;
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("written u16 rev = {val} at pos = {}", self.len_bytes);
         Ok(RevPos(self.len_bytes))
     }
 
@@ -199,8 +197,6 @@ impl<'i> BufWriter<'i> {
         let val_be = len.to_le_bytes();
         self.buf[pos.0] = val_be[0];
         self.buf[pos.0 + 1] = val_be[1];
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("updated u16 rev at pos{} = {val}", pos.0);
         Ok(())
     }
 
@@ -401,8 +397,6 @@ impl<'i> BufWriter<'i> {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
             self.len_bytes += 2;
             UNib32(val as u32).write_reversed(self)?;
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("encoded rev.UNib32 = {val}");
             idx += 2;
         }
         debug_assert!(self.bit_idx == 7);

@@ -208,7 +208,7 @@ declared in `[workspace.dependencies]` and used as `dep.workspace = true` (plus 
 the workspace entry has `default-features = false`, a member that needs the defaults lists them in `features` (usually
 `["std"]`); the reverse doesn't work, a member can't turn defaults off if the workspace entry keeps them. The only
 inline exceptions are a few crates that must disable defaults of a dependency other members use with defaults
-(`tracing` in `wire_weaver`, `semver` in `ww_version`, `either` in `shrink_wrap`). `mcu/`, `examples_mcu/*` and
+(`semver` in `ww_version`, `either` in `shrink_wrap`). `mcu/`, `examples_mcu/*` and
 `wire_weaver_tool` are separate workspaces and keep their own.
 
 Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(client): ...`): a short imperative

@@ -33,11 +33,6 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Vec<T> {
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let elements_count = rd.read_rev_len()?;
 
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("Vec element count: {}", elements_count);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("Vec element count: {}", elements_count);
-
         let mut items = vec![];
         for _ in 0..elements_count {
             let item = rd.read()?;
@@ -52,11 +47,6 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for Vec<T> {
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         let elements_count = rd.read_rev_len()?;
-
-        #[cfg(feature = "defmt-extended")]
-        defmt::trace!("Vec element count: {}", elements_count);
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("Vec element count: {}", elements_count);
 
         let mut items = vec![];
         for _ in 0..elements_count {

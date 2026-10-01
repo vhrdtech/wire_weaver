@@ -21,6 +21,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `update_u16_rev()` / `U16RevPos` → `write_rev_len()` / `update_rev_len()` / `RevPos`.
   `BufReader`: `read_raw_str()` → `read_str()`, `read_unib32_rev()` → `read_rev_len()`.
 - `Error::StrTooLong`, `VecTooLong` and `ItemTooLong` are merged into `Error::LenTooLong`.
+- `defmt-extended` and `tracing-extended` features removed (trace logging of reads/writes, didn't work out and was
+  broken); drop them from your `Cargo.toml`. `shrink_wrap` no longer depends on `tracing`.
 
 ### 🚀 Features
 

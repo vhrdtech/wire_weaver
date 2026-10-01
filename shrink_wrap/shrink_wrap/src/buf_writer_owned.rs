@@ -245,8 +245,6 @@ impl BufWriterOwned {
         };
         let len = u32::try_from(len).map_err(|_| Error::LenTooLong)?;
         *slot = len;
-        #[cfg(feature = "tracing-extended")]
-        tracing::trace!("updated u32 rev at pos{} = {val}", pos.0);
         Ok(())
     }
 
@@ -401,8 +399,6 @@ impl BufWriterOwned {
         }
         for val in self.rev.drain(start..end).rev().collect::<Vec<u32>>() {
             self.write_unib32_reversed(val)?;
-            #[cfg(feature = "tracing-extended")]
-            tracing::trace!("encoded rev.UNib32 = {val}");
         }
         debug_assert!(self.bit_idx == 7);
         Ok(())

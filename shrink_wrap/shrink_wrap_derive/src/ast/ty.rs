@@ -15,6 +15,7 @@ pub(crate) enum Type {
     U128,
 
     UNib32,
+    UVlq32,
     ULeb32,
     ULeb64,
     ULeb128,
@@ -105,6 +106,7 @@ impl Type {
             Type::U64 => 64,
             Type::U128 => 128,
             Type::UNib32 => return Some(ObjectSize::SelfDescribing),
+            Type::UVlq32 => return Some(ObjectSize::SelfDescribing),
             Type::ULeb32 => return Some(ObjectSize::SelfDescribing),
             Type::ULeb64 => return Some(ObjectSize::SelfDescribing),
             Type::ULeb128 => return Some(ObjectSize::SelfDescribing),

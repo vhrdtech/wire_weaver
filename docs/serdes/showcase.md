@@ -60,6 +60,17 @@ assert_eq!(version.to_ww_bytes(&mut buf).unwrap(), hex!("01 20"));
 `UNib32` is also what a struct/enum's own reverse-length marker is built from when it's `Unsized` - see
 [the FIFO-of-lengths section](#the-fifo-of-lengths-why-strings-can-come-before-their-length) below.
 
+For numbers that are usually large, `UVlq32` is the byte-based alternative: standard big endian
+[VLQ](https://en.wikipedia.org/wiki/Variable-length_quantity), 1 continuation bit + 7 value bits per byte, most
+significant group first, byte-aligned. It is also `self_describing` and takes 1 to 5 bytes instead of 1 to 11 nibbles:
+
+```rust
+assert_eq!(UVlq32(0).to_ww_bytes(&mut buf).unwrap(), &[0x00]);         // 1 byte
+assert_eq!(UVlq32(127).to_ww_bytes(&mut buf).unwrap(), &[0x7f]);       // 1 byte, max for that size
+assert_eq!(UVlq32(128).to_ww_bytes(&mut buf).unwrap(), &[0x81, 0x00]); // 2 bytes
+assert_eq!(UVlq32(u32::MAX).to_ww_bytes(&mut buf).unwrap(), &[0x8f, 0xff, 0xff, 0xff, 0x7f]); // 5 bytes
+```
+
 ## `Option<T>` and `Result<T, E>`: a flag, not a tag
 
 Both are `SelfDescribing`: one `bool` flag followed by the payload (for `Result`, `true` picks `Ok`, `false` picks

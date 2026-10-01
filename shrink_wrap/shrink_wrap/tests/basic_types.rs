@@ -62,3 +62,21 @@ fn array() {
 fn unit() {
     let _unit: () = DeserializeShrinkWrap::from_ww_bytes(&[]).unwrap();
 }
+
+#[test]
+fn uvlq32_field() {
+    #[derive_shrink_wrap(borrowed, final_structure, derive(Debug, PartialEq))]
+    struct S {
+        flag: bool,
+        len: UVlq32,
+    }
+
+    let mut scratch = [0u8; 8];
+    let s = S {
+        flag: true,
+        len: UVlq32(0x80),
+    };
+    let bytes = s.to_ww_bytes(&mut scratch).unwrap();
+    assert_eq!(bytes, hex!("80 81 00"));
+    assert_eq!(S::from_ww_bytes(bytes).unwrap(), s);
+}

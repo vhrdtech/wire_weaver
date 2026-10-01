@@ -8,6 +8,7 @@
     * Signed and unsigned (one-bit alignment): `u1`, `u2`, `u3`, ... `ub64`, `i2` ... `ib64`
         * `u8` is byte-aligned, while `ub8` is bit-aligned
 * Nibble-based variable length u32: `unib32` (1 to 11 nibbles, four-bit alignment)
+* Byte-based variable length u32: `uvlq32` (big endian VLQ, 1 to 5 bytes, one-byte alignment)
 * Floating point numbers: `f32`, `f64`
 * Textual:
     * UTF-8 string `String`

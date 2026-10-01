@@ -1,5 +1,9 @@
 # shrink_wrap changelog
 
+shrink_wrap was developed inside the wire_weaver repo from May 2024, moved to its own repo
+([romixlab/shrink_wrap](https://github.com/romixlab/shrink_wrap)) in December 2025, where 0.1.0 to 0.1.2 were released,
+and moved back into wire_weaver in February 2026.
+
 ## Unreleased
 
 Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
@@ -13,19 +17,25 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - Naming scheme: borrowed and plain types carry no postfix, allocating ones end with `Owned`.
   New `DeserializeShrinkWrapOwned` and `SerializeShrinkWrapOwned` (std) traits for the owned variants.
 - `shrink_wrap_core` is merged into `shrink_wrap_derive`; `derive_shrink_wrap` and `ww_repr` are also re-exported
-  from the `shrink_wrap` crate root.
+  from the `shrink_wrap` crate root. `ww_repr` is no longer in `shrink_wrap::prelude`, import it from the crate root.
 - Wire format: `u4` is now 1-bit aligned like `u1`..`u3`, the 4-bit aligned type is `Nibble`; strings, tuples and arrays
   are `UnsizedFinalStructure`, same as `Vec<T>`.
-- `StackVec` renamed to `AnyOnStack`, `RawSlice` to `TailBytes`.
-- `BufWriter`: `write_raw_str()` → `write_str()`, `write_u4()` → `write_nib()`, `write_u16_rev()` /
-  `update_u16_rev()` / `U16RevPos` → `write_rev_len()` / `update_rev_len()` / `RevPos`.
-  `BufReader`: `read_raw_str()` → `read_str()`, `read_unib32_rev()` → `read_rev_len()`.
+- `StackVec` renamed to `AnyOnStack`.
+- `BufWriter`: `write_raw_str()` → `write_str()`, `write_u4()` → `write_nib()` (or `write_nib_masked()` for a raw
+  `u8`), `write_u16_rev()` / `update_u16_rev()` / `u16_rev_pos()` / `U16RevPos` → `write_rev_len()` /
+  `update_rev_len()` / `rev_len_pos()` / `RevPos`, `encode_nib16_rev()` → `encode_len_fifo()`.
+  `BufReader`: `read_raw_str(self)` → `read_str(&mut self)`, `read_unib32_rev()` → `read_rev_len()`.
 - `Error::StrTooLong`, `VecTooLong` and `ItemTooLong` are merged into `Error::LenTooLong`.
 - `defmt-extended` and `tracing-extended` features removed (trace logging of reads/writes, didn't work out and was
   broken); drop them from your `Cargo.toml`. `shrink_wrap` no longer depends on `tracing`.
 
 ### 🚀 Features
 
+- `DeserializeShrinkWrapOwned` implemented for all built-in types, `#[derive_shrink_wrap(..)]` generates it too.
+- `Range<T>` and `RangeInclusive<T>` support.
+- Unit type `()` support (zero bits on the wire).
+- `TailBytes`: byte slice that takes all the remaining bytes of the buffer, without a length on the wire. Used by
+  generated code in place of byte slices in streams and dynamic calls.
 - `BufWriterOwned` (std), writing into a growable buffer.
 - `UnsizedBuilder` for builder-style serialization of Unsized objects, `BufWriter::save_state()` /
   `restore_state()` / `reset()` / `pos()`.
@@ -33,8 +43,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - `RefVecU8Builder`.
 - `#[derive_shrink_wrap(discriminants)]` for enums.
 - `Option` and `Result` inside tuples.
-- `BufReader::read_nib()`, `read_owned()`, `bits_left()`, `read_bytes()`.
+- `BufReader::read_nib()`, `read_nib_value()`, `read_owned()`, `bits_left()`, `read_bytes()`.
+  `BufWriter::write_bytes()`, `buf()`.
 - `SerializeShrinkWrap` for `&T` and `&[u8]`.
+- `From<u32> for UNib32` and `From<UNib32> for u32`; `PartialEq` and `Eq` for `ElementSize`.
 - Optional `serde` support.
 - `Display` and `std::error::Error` for `Error`, `Display` for `UNib32`.
 - `UVlq32`: byte-based variable length `u32` (big endian VLQ, 1 to 5 bytes, byte-aligned), with
@@ -47,6 +59,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `BufReader::nibbles_left()` was wrong after reading from the back (`read_u4_rev()`, reversed `UNib32` lengths),
+  and `read_u4()` could fail with `OutOfBoundsReadU4` or read past the reverse part in the last byte.
 - `BufWriter::write_un8(8, ..)` and `BufReader::read_un8(8)` at a byte-aligned position panicked with shift overflow
   in debug builds; in release, `write_un8` silently wrote `0` instead of the value.
 - Smaller flash footprint: `write_un8`/`write_un16` and `read_un8`/`read_un16` forward to the `u32` variants instead
@@ -59,12 +73,16 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ## [0.1.2] - 2026-01-07 #2
 
+Only `shrink_wrap` was released, `shrink_wrap_derive` and `shrink_wrap_core` stay at 0.1.1.
+
 ### 🐛 Bug Fixes 0.1.2
 
 - No_std build
 - Separate versions of workspace crates to avoid publishing duplicates
 
 ## [0.1.1] - 2026-01-07
+
+`shrink_wrap`, `shrink_wrap_derive` and `shrink_wrap_core`.
 
 ### 🐛 Bug Fixes 0.1.1
 
@@ -74,7 +92,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 - Add crates badge
 
-## [0.1.0]
+## [0.1.0] - 2025-12-21
+
+First release of `shrink_wrap`, `shrink_wrap_derive` and `shrink_wrap_core` as standalone crates.
 
 ### 🚀 Features
 
@@ -83,9 +103,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
     - Discrete numbers:
         - Signed (one-byte alignment): `i8`, `i16`, `i32`, `i64`, `i128`
         - Unsigned (one-byte alignment): `u8`, `u16`, `u32`, `u64`, `u128`
-        - Unsigned (four-bit alignment): `u4`
+        - Unsigned (four-bit alignment): `u4`, `Nibble`
         - Signed and unsigned (one-bit alignment): `iN` and `uN` (`U1`, `U2`, `U3`, ... `U64`, `I2` ... `I64`)
     - Nibble-based variable length u32: `UNib32` (1 to 11 nibbles)
+    - Dynamically sized numbers `UN` and `IN` (bit count is carried along)
     - Floating point numbers: `f32`, `f64`
     - UTF-8 string `String`
     - Sequences:
@@ -96,7 +117,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
             - Byte array (no alloc): `RefVec<'i, u8>`
             - Fixed sized array: `[T; N]`
     - `Option<T>` and `Result<T, E>`
-    - `RefBox<T>` for self-referential types.
+    - `RefBox<T>` for self-referential types, `Box<T>` on std.
     - User-defined:
         - Struct
         - Enum with or without data variants
@@ -107,6 +128,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - Zero-copy deserialization
 - StackVec for storing types with arbitrary sizes on stack
 - Built-in mechanism for backwards and forwards compatibility
+- `ElementSize` (`Sized`, `SelfDescribing`, `UnsizedFinalStructure`, `Unsized`) and `#[final_structure]`,
+  `#[self_describing]`, `#[sized]` attributes to trade evolvability for wire size, checked by const asserts.
+- `to_ww_bytes()` and `from_ww_bytes()` on the serdes traits.
+- `defmt` feature.
 - #[shrink_wrap_derive] attribute and #[derive(ShrinkWrap)] derive macro.
 - #[owned = "feature"] attribute to generate TyOwned from Ty<'i> and serdes code for it.
 - Handle #[default = None] on evolved types.

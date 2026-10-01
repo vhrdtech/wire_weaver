@@ -982,6 +982,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#handling-sideband-on-the-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Handling sideband on the device
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2196,6 +2207,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#handling-sideband-on-the-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Handling sideband on the device
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2359,6 +2381,20 @@ Depending on the application, it might be beneficial to start a stream automatic
 <li>SizeHint(u32)</li>
 <li>User(u32)</li>
 </ul>
+<h3 id="handling-sideband-on-the-device">Handling sideband on the device<a class="headerlink" href="#handling-sideband-on-the-device" title="Permanent link">&para;</a></h3>
+<p>A sideband command from the host calls <code>sideband_&lt;name&gt;(cx, sideband)</code> on the server. Returning <code>Some(sideband)</code> sends
+it back as a sideband event on the same stream, <code>None</code> sends back only an acknowledgement. Either way the host gets an
+answer and releases the request's seq right away; <code>open()</code>, <code>close()</code> and <code>sideband()</code> on the host don't wait for it.</p>
+<p>The device can also send sideband events on its own, for streams and sinks alike: <code>stream_data_ser()</code> has
+<code>&lt;name&gt;_sideband_send(sideband, out)</code>, <code>&lt;name&gt;_sideband_send_blocking</code> and <code>&lt;name&gt;_sideband(sideband, scratch)</code>, used
+the same way as the data methods above:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// e.g., tell the host a sink&#39;s buffer is full</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">word_sideband_send</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>On the host, a stream or sink receives everything the device sends after its constructor (e.g., <code>client.word().await</code>)
+returns, events sent before that are not buffered. The first event is always <code>Connected</code> (or <code>Disconnected</code>), which
+<code>recv()</code> skips. <code>Stream::recv_any()</code> returns sideband events along with data, <code>Sink::recv_sideband()</code> (<code>_blocking</code>,
+<code>try_recv_sideband()</code>) returns the ones sent to a sink.</p>
 
 
 

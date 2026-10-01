@@ -2147,6 +2147,10 @@
 </ul>
 </li>
 <li>Nibble-based variable length u32: <code>unib32</code> (1 to 11 nibbles, four-bit alignment)</li>
+<li>Byte-based variable length u32: <code>uvlq32</code> (big endian VLQ, 1 to 5 bytes, one-byte alignment)<ul>
+<li><code>UVlq32Backfill</code>: always written as 5 bytes, value can be filled in later and leading bytes dropped</li>
+</ul>
+</li>
 <li>Floating point numbers: <code>f32</code>, <code>f64</code></li>
 <li>Textual:<ul>
 <li>UTF-8 string <code>String</code></li>

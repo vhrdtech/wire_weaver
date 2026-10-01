@@ -2770,7 +2770,7 @@ flexibility in exchange for a smaller wire size. They map directly onto <code>sh
 </table>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Even though a type can be <code>fnial_stucture</code> or <code>sized</code>, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if <code>bool</code> is followed by <code>u8</code>, 7 bits are left unused and skipped by readers, which can later be reclaimed.</p>
+<p>Even though a type can be <code>fnial_structure</code> or <code>sized</code>, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if <code>bool</code> is followed by <code>u8</code>, 7 bits are left unused and skipped by readers, which can later be reclaimed.</p>
 </div>
 <p>For an enum, this only concerns its <em>payload</em>; see <a href="#ww_repr-repr-enums-only"><code>ww_repr</code></a> below for the discriminant
 itself. Note that pairing an enum with <code>ww_repr</code> alone does <strong>not</strong> make it compact - without one of these three

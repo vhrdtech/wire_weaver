@@ -18,7 +18,7 @@ embassy-time = { version = "0.5.1", features = ["defmt", "defmt-timestamp-uptime
 embassy-rp = { version = "0.10.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"] }
 embassy-usb = { version = "0.6.0", features = ["defmt"], optional = true }
 embassy-futures = { version = "0.1.2" }
-embassy-net = { version = "0.9", features = ["defmt", "tcp", "udp", "proto-ipv4", "medium-ethernet"], optional = true }
+embassy-net = { version = "0.9", features = ["defmt", "tcp", "udp", "proto-ipv4", "medium-ethernet", "auto-icmp-echo-reply"], optional = true }
 edge-dhcp = { version = "0.8", default-features = false, features = ["io", "defmt"], optional = true }
 edge-nal = { version = "0.7", optional = true }
 edge-nal-embassy = { version = "0.9", default-features = false, features = ["defmt", "proto-ipv4", "medium-ethernet", "udp"], optional = true }

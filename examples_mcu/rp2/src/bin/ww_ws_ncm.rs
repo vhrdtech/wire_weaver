@@ -1,6 +1,7 @@
 //! WireWeaver API over WebSocket, on a network over USB: the board shows up on the host as a CDC-NCM Ethernet
 //! adapter, runs embassy-net with a static IP and a small DHCP server (so the host gets an address by itself),
-//! and accepts one WebSocket client at a time on port 8080. The same blinky API as `usb_blinky`.
+//! and accepts one WebSocket client at a time on port 8080. The same blinky API as `usb_blinky`. Also answers ping
+//! and serves a hello world page at http://192.168.7.1.
 //!
 //! Run with `just run rp2 ww_ws_ncm`, then connect from the host with the `ws` feature of `wire_weaver_client`:
 //! `ws://192.168.7.1:8080/ww`.
@@ -44,6 +45,7 @@ bind_interrupts!(struct Irqs {
 /// Device address, the host gets one from `DHCP_RANGE`
 const DEVICE_IP: Ipv4Addr = Ipv4Addr::new(192, 168, 7, 1);
 const WS_PORT: u16 = 8080;
+const HTTP_PORT: u16 = 80;
 /// Locally administered MAC addresses: the device's own one, and the one the host's adapter gets
 const DEVICE_MAC: [u8; 6] = [0x02, 0x77, 0x77, 0x00, 0x00, 0x01];
 const HOST_MAC: [u8; 6] = [0x02, 0x77, 0x77, 0x00, 0x00, 0x02];
@@ -91,6 +93,58 @@ async fn dhcp_task(stack: Stack<'static>) {
             warn!("dhcp server: {:?}", Debug2Format(&e));
             Timer::after_millis(500).await;
         }
+    }
+}
+
+const HTTP_PAGE: &[u8] = b"HTTP/1.1 200 OK\r\n\
+Content-Type: text/html; charset=utf-8\r\n\
+Connection: close\r\n\
+\r\n\
+<!doctype html><title>WireWeaver</title><h1>Hello from WireWeaver!</h1><p>API is at ws://192.168.7.1:8080/ww</p>\n";
+
+/// Plain HTTP on port 80, one connection at a time: answers every request with the same small page.
+#[embassy_executor::task]
+async fn http_task(stack: Stack<'static>) {
+    static RX: StaticCell<[u8; 1024]> = StaticCell::new();
+    static TX: StaticCell<[u8; 1024]> = StaticCell::new();
+    let mut socket = TcpSocket::new(stack, RX.init([0; 1024]), TX.init([0; 1024]));
+    let mut buf = [0u8; 512];
+    loop {
+        socket.abort();
+        let _ = socket.flush().await;
+        socket.set_timeout(Some(Duration::from_secs(5)));
+        if let Err(e) = socket.accept(HTTP_PORT).await {
+            warn!("http accept: {:?}", e);
+            Timer::after_millis(100).await;
+            continue;
+        }
+        // read until the end of the request headers, the request itself doesn't matter
+        let mut len = 0;
+        let mut complete = false;
+        while len < buf.len() {
+            match socket.read(&mut buf[len..]).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => len += n,
+            }
+            if buf[..len].windows(4).any(|w| w == b"\r\n\r\n") {
+                complete = true;
+                break;
+            }
+        }
+        if !complete {
+            continue;
+        }
+        let mut written = 0;
+        while written < HTTP_PAGE.len() {
+            match socket.write(&HTTP_PAGE[written..]).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => written += n,
+            }
+        }
+        // send FIN after the page, give the host a moment to close its side before aborting
+        socket.close();
+        let _ = embassy_time::with_timeout(Duration::from_secs(1), socket.flush()).await;
+        let _ = embassy_time::with_timeout(Duration::from_secs(1), socket.read(&mut buf)).await;
     }
 }
 
@@ -199,6 +253,7 @@ async fn main(spawner: Spawner) {
     );
     spawner.spawn(unwrap!(net_task(net_runner)));
     spawner.spawn(unwrap!(dhcp_task(stack)));
+    spawner.spawn(unwrap!(http_task(stack)));
 
     // WebSocket server on a single TCP socket
     static TCP_RX: StaticCell<[u8; 2048]> = StaticCell::new();

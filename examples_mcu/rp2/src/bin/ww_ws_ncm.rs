@@ -140,9 +140,9 @@ impl Handler for HttpHandler {
 
 /// Plain HTTP on port 80, one connection at a time.
 ///
-/// edge-http costs about 40 KB of flash and 3 KB of RAM (default release profile). For a single fixed page, a
-/// hand-written task on a bare `TcpSocket` (read until `\r\n\r\n`, write the response, close) is enough and
-/// saves most of that, see this file's history.
+/// edge-http costs about 32 KB of flash (35-43 KB with less size-oriented profiles) and 3 KB of RAM. For a single
+/// fixed page, a hand-written task on a bare `TcpSocket` (read until `\r\n\r\n`, write the response, close) is
+/// enough and saves most of that, see this file's history.
 #[embassy_executor::task]
 async fn http_task(stack: Stack<'static>) {
     static TCP_BUFFERS: StaticCell<TcpBuffers<1, 1024, 1024>> = StaticCell::new();

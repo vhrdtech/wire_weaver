@@ -82,3 +82,9 @@ required-features = ["rtt_target"]
 test = false
 doctest = false
 bench = false
+
+[profile.release]
+codegen-units = 1
+debug = 2 # full debug info for defmt and probe-rs, doesn't end up in flash
+lto = 'fat'
+opt-level = "z" # 3 - speed, s - size, z - even less size

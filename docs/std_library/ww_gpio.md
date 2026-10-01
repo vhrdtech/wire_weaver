@@ -190,7 +190,7 @@ The `[bank_index, pin_index]` addressing is passed in as `index: [UNib32; 2]`:
 ```rust
 async fn port_pin_set_output_level(
     &mut self,
-    _msg_tx: &mut impl MessageSink,
+    _cx: &mut Context<'_, impl EventOut>,
     index: [UNib32; 2],
     level: Level,
 ) -> RpcResult<()> {

@@ -4,7 +4,7 @@
 use core::future::{Future, pending};
 
 use embassy_futures::select::{Either, select};
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 
 use crate::fmt::{error, info, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Phase, Received, SendError, Transmit};
@@ -60,8 +60,7 @@ enum ReadyKind {
 ///             }
 ///         }
 ///         Either3::Second(chunk) => {
-///             let (mut sink, scratch) = server.sink();
-///             state.send_uart_chunk(chunk, scratch, &mut sink).await;
+///             _ = stream_data_ser().uart_rx_send(&chunk, &mut server.sink()).await;
 ///         }
 ///         Either3::Third(_) => { /* periodic stream updates through server.sink() */ }
 ///     }
@@ -74,19 +73,34 @@ enum ReadyKind {
 /// Writes are awaited inline, so while a backend handler or a sink write awaits, nothing is received.
 /// This is fine, as the host always reads independently of writing, but backend handlers should not
 /// block for long — use deferred replies instead.
-pub struct Server<'a, Tx, Rx, C> {
+///
+/// A device with several media (e.g., USB and CAN) runs one server per medium, each tagged with
+/// [with_medium](Self::with_medium), and selects on all of their `wait()`s, passing the same backend to `handle()`.
+pub struct Server<'a, Tx, Rx, C, M = ()> {
     link: DeviceLink<'a>,
     tx: Tx,
     rx: Rx,
     clock: C,
     /// Backend replies and control messages are serialized here
     scratch: &'a mut [u8],
+    /// Events sent by handlers and through [Self::sink] are serialized here
+    event_scratch: &'a mut [u8],
+    medium: M,
 }
 
 impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
-    /// `scratch` is used to serialize replies, so it limits their size, together with the host's
-    /// maximum message length.
-    pub fn new(config: LinkConfig<'a>, tx: Tx, rx: Rx, clock: C, scratch: &'a mut [u8]) -> Self {
+    /// `scratch` is used to serialize replies, `event_scratch` to serialize events sent from handlers or through
+    /// [sink](Self::sink) (stream updates, deferred replies), so they limit their size, together with the host's
+    /// maximum message length. Sync backends (`use_async = false`) also queue all events sent while handling one
+    /// request in `event_scratch`, see [EventWriter::queued].
+    pub fn new(
+        config: LinkConfig<'a>,
+        tx: Tx,
+        rx: Rx,
+        clock: C,
+        scratch: &'a mut [u8],
+        event_scratch: &'a mut [u8],
+    ) -> Self {
         let max_message_len = rx.max_message_len();
         Server {
             link: DeviceLink::new(config, max_message_len),
@@ -94,7 +108,28 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
             rx,
             clock,
             scratch,
+            event_scratch,
+            medium: (),
         }
+    }
+}
+
+impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, M> {
+    /// Tag this server with a medium, it is passed to every handler in `wire_weaver::Context`.
+    pub fn with_medium<M2: Copy>(self, medium: M2) -> Server<'a, Tx, Rx, C, M2> {
+        Server {
+            link: self.link,
+            tx: self.tx,
+            rx: self.rx,
+            clock: self.clock,
+            scratch: self.scratch,
+            event_scratch: self.event_scratch,
+            medium,
+        }
+    }
+
+    pub fn medium(&self) -> M {
+        self.medium
     }
 
     pub fn link(&self) -> &DeviceLink<'a> {
@@ -141,7 +176,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
 
     /// Act on what [wait](Self::wait) returned: link setup, requests to the backend, pings, flushes.
     /// Returns a link state change, if any.
-    pub async fn handle<B: WireWeaverAsyncApiBackend>(
+    pub async fn handle<B: WireWeaverAsyncApiBackend<Medium = M>>(
         &mut self,
         ready: Ready,
         backend: &mut B,
@@ -162,12 +197,14 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
                 if let Some((kind, message)) = self.rx.message() {
                     match self.link.handle_message(now, kind, message) {
                         Some(Received::Data(request)) => {
-                            let mut sink = Sink {
+                            let sink = Sink {
                                 link: &mut self.link,
                                 tx: &mut self.tx,
                                 clock: &self.clock,
                             };
-                            process_request(&mut sink, backend, request, self.scratch).await;
+                            let mut out = EventWriter::new(sink, &mut *self.event_scratch);
+                            process_request(&mut out, backend, self.medium, request, self.scratch)
+                                .await;
                         }
                         Some(Received::Loopback { repeat, seq, data }) => {
                             let mut sink = Sink {
@@ -188,7 +225,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
     }
 
     /// Wait and handle forever, for devices that have nothing else to select on.
-    pub async fn run<B: WireWeaverAsyncApiBackend>(&mut self, backend: &mut B) -> ! {
+    pub async fn run<B: WireWeaverAsyncApiBackend<Medium = M>>(&mut self, backend: &mut B) -> ! {
         loop {
             let ready = self.wait().await;
             if let Some(event) = self.handle(ready, backend).await {
@@ -197,22 +234,22 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
         }
     }
 
-    /// Sink to send stream updates or deferred replies from outside of [handle](Self::handle),
-    /// and scratch space to serialize them.
-    pub fn sink(&mut self) -> (Sink<'_, 'a, Tx, C>, &mut [u8]) {
-        (
+    /// Send stream updates or deferred replies from outside of [handle](Self::handle), e.g., with generated
+    /// `stream_data_ser().<name>_send(&value, &mut server.sink())`.
+    pub fn sink(&mut self) -> EventWriter<'_, Sink<'_, 'a, Tx, C>> {
+        EventWriter::new(
             Sink {
                 link: &mut self.link,
                 tx: &mut self.tx,
                 clock: &self.clock,
             },
-            self.scratch,
+            self.event_scratch,
         )
     }
 
     /// Send a data message (serialized `ww_client_server::Event`).
     pub async fn send(&mut self, message: &[u8]) -> Result<(), SendError> {
-        self.sink().0.send_message(message).await
+        self.sink().sink.send_message(message).await
     }
 
     /// Tell the host that the device is going away (e.g., rebooting to perform a firmware update)
@@ -242,7 +279,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
     }
 }
 
-/// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend.
+/// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend inside an [EventWriter].
 pub struct Sink<'s, 'a, Tx, C> {
     link: &'s mut DeviceLink<'a>,
     tx: &'s mut Tx,
@@ -298,12 +335,13 @@ impl<Tx: MessageTx, C: Clock> MessageSink for Sink<'_, '_, Tx, C> {
 }
 
 async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
-    sink: &mut Sink<'_, '_, Tx, C>,
+    out: &mut EventWriter<'_, Sink<'_, '_, Tx, C>>,
     backend: &mut B,
+    medium: B::Medium,
     request: &[u8],
     scratch: &mut [u8],
 ) {
-    let reply = match backend.process_bytes(sink, request, scratch).await {
+    let reply = match backend.process_bytes(out, medium, request, scratch).await {
         Ok(reply) => reply,
         Err(e) => {
             error!("process_bytes failed: {:?}", e);
@@ -314,6 +352,6 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
         }
     };
     if !reply.is_empty() {
-        _ = sink.send_message(reply).await;
+        _ = out.sink.send_message(reply).await;
     }
 }

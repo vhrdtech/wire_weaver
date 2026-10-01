@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- Generated clients have `observe_<property>()` / `observe_<property>_blocking()` for `ro` and `rw` properties: a
+  `Stream` of property updates the device sends as stream data on the property's path.
 - In-process transport (`in_process` feature): a device running in the same process (simulators, tests) registers
   a path with `in_process::device(path, max_message_len)` and serves `ww_device::Server` with the returned
   `DeviceTx` / `DeviceRx`, the host connects with `ClientConfig::in_process_path(..)` through the regular

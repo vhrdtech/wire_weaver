@@ -5,7 +5,7 @@ use crate::codegen::{index_chain::IndexChain, ty_def::TyPos};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess};
 
 pub(crate) fn stream_ser_methods_recursive(
     bundle: &ApiBundleOwned,
@@ -52,25 +52,24 @@ pub(crate) fn stream_ser_methods_recursive(
                 }
             });
         }
-        let ApiItemKindOwned::Stream { ty, is_up } = &item.kind else {
-            continue;
+        // streams going out of the device, and observable properties, whose updates are sent as stream data
+        let (ty, kind) = match &item.kind {
+            ApiItemKindOwned::Stream { ty, is_up: true } => (ty, "stream"),
+            ApiItemKindOwned::Property {
+                ty,
+                access: PropertyAccess::ReadOnly { .. } | PropertyAccess::ReadWrite { .. },
+                ..
+            } => (ty, "property"),
+            _ => continue,
         };
-        if !*is_up {
-            continue;
-        }
         let lifetimes = if ty.is_lifetime(bundle).unwrap() {
             quote! { 'i, 'a }
         } else {
             quote! { 'a }
         };
+        let send_lifetimes = maybe_quote(ty.is_lifetime(bundle).unwrap(), quote! { <'i> });
 
-        // let bytes_to_container = if no_alloc {
-        //     quote! { TailBytes(value_bytes) }
-        // } else {
-        //     quote! { TailBytesOwned(Vec::from(value_bytes)) }
-        // };
-
-        let (value_ty, value_ser) = if ty.is_byte_slice(bundle).unwrap() {
+        let (value_ty, value_ser) = if kind == "stream" && ty.is_byte_slice(bundle).unwrap() {
             (
                 quote! { [u8] },
                 quote! {
@@ -86,8 +85,20 @@ pub(crate) fn stream_ser_methods_recursive(
             (quote! { #ty_def }, value_ser)
         };
         let ident = Ident::new(item.ident.as_str(), Span::call_site());
+        let send = Ident::new(format!("{}_send", item.ident).as_str(), Span::call_site());
+        let send_blocking = Ident::new(
+            format!("{}_send_blocking", item.ident).as_str(),
+            Span::call_site(),
+        );
+        let maybe_index = maybe_quote(is_array, quote! { index, });
+        let ser_doc = format!(
+            "Serialize {kind} value, put it's bytes into Event with StreamData kind and serialize it"
+        );
+        let send_doc = format!(
+            "Serialize {kind} value as StreamData event and send it, from a handler (pass `cx`) or from an event loop"
+        );
         methods_ts.extend(quote! {
-            #[doc = "Serialize stream value, put it's bytes into Event with StreamUpdate kind and serialize it"]
+            #[doc = #ser_doc]
             pub fn #ident<#lifetimes>(
                 &self,
                 #maybe_index_arg
@@ -108,6 +119,26 @@ pub(crate) fn stream_ser_methods_recursive(
                 event_builder.finish(true, &mut wr);
                 wr.finish_and_take()
             }
+
+            #[doc = #send_doc]
+            pub async fn #send #send_lifetimes(
+                &self,
+                #maybe_index_arg
+                value: & #value_ty,
+                out: &mut impl wire_weaver::EventOut,
+            ) -> Result<(), wire_weaver::SendError> {
+                wire_weaver::EventOut::send_with(out, |scratch| self.#ident(#maybe_index value, scratch).map(|bytes| bytes.len())).await
+            }
+
+            #[doc = #send_doc]
+            pub fn #send_blocking #send_lifetimes(
+                &self,
+                #maybe_index_arg
+                value: & #value_ty,
+                out: &mut impl wire_weaver::BlockingEventOut,
+            ) -> Result<(), wire_weaver::SendError> {
+                wire_weaver::BlockingEventOut::send_with_blocking(out, |scratch| self.#ident(#maybe_index value, scratch).map(|bytes| bytes.len()))
+            }
         });
     }
 
@@ -115,6 +146,7 @@ pub(crate) fn stream_ser_methods_recursive(
     let root_entry_fn = maybe_quote(
         is_root,
         quote! {
+            /// Serializers of stream updates and property change notifications (sent as stream data on the property's path).
             pub fn stream_data_ser() -> #ser_struct_name {
                 #ser_struct_name {}
             }

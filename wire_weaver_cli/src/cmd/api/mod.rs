@@ -65,6 +65,10 @@ pub enum ApiCommand {
         #[arg(long, default_value = "_=get_set")]
         property_model: String,
 
+        /// Medium type passed to handlers in `Context` (e.g. `crate::Medium`), see ww_codegen! docs
+        #[arg(long)]
+        medium: Option<String>,
+
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -153,6 +157,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             use_async,
             method_model,
             property_model,
+            medium,
             output,
         } => scaffold::scaffold(
             path,
@@ -163,6 +168,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 use_async,
                 method_model,
                 property_model,
+                medium,
             },
             output,
         ),

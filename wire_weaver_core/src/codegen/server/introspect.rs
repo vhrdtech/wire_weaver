@@ -39,12 +39,22 @@ pub(crate) fn introspect(
             }
         }
     };
-    if !use_async {
-        // TODO: sync variant of MessageSink
-        return (quote! {}, api_hash);
-    }
     let es0 = error_seq.next();
-    let es1 = error_seq.next();
+    let send_event = if use_async {
+        quote! { wire_weaver::EventOut::send_event(cx, &event).await }
+    } else {
+        quote! { wire_weaver::BlockingEventOut::send_event_blocking(cx, &event) }
+    };
+    let send_event = quote! {
+        #send_event.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+    };
+    let send_close = quote! {
+        let event = Event {
+            seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
+            result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
+        };
+        #send_event
+    };
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
@@ -54,33 +64,16 @@ pub(crate) fn introspect(
                         seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
                         result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: TailBytes(chunk) }),
                     };
-                    wr.reset();
-                    event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                    let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                    msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                    #send_event
                 }
-                let event = Event {
-                    seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
-                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
-                };
-                wr.reset();
-                event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                #send_close
                 Ok(WrAction::Deferred)
             }
         }
     } else {
         quote! {
             RequestKind::Introspect => {
-                let event = Event {
-                    seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
-                    result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
-                };
-                wr.reset();
-                event.ser_shrink_wrap(wr).map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                let event_bytes = wr.finish().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-                msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
+                #send_close
                 Ok(WrAction::Deferred)
             }
         }

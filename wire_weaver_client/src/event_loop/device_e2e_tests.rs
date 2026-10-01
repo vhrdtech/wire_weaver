@@ -11,7 +11,7 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
     BufReader, Error as ShrinkWrapError, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 use ww_client_server::{Event, EventKind};
 use ww_device::{DownReason, LinkConfig, LinkEvent};
 use ww_link::{RttChecksum, RttHead, RttTail};
@@ -132,9 +132,12 @@ impl ww_device::Clock for TokioClock {
 struct Echo;
 
 impl WireWeaverAsyncApiBackend for Echo {
+    type Medium = ();
+
     async fn process_bytes<'a>(
         &mut self,
-        _sink: &mut impl MessageSink,
+        _out: &mut EventWriter<'_, impl MessageSink>,
+        _medium: (),
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError> {
@@ -183,6 +186,7 @@ async fn serve(
     events_tx: mpsc::UnboundedSender<LinkEvent>,
 ) {
     let mut scratch = [0u8; 512];
+    let mut event_scratch = [0u8; 512];
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
         ApiHashPair::empty(),
@@ -194,6 +198,7 @@ async fn serve(
         rx,
         TokioClock(tokio::time::Instant::now()),
         &mut scratch,
+        &mut event_scratch,
     );
     let mut backend = Echo;
     loop {

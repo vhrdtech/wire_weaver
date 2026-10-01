@@ -25,6 +25,27 @@ There are two supported way of implementing properties on the server side:
 * value / on_changed - generated code directly reads and writes `speed` field and calls user provided `speed_changed`
   implementation.
 
+### Observing changes
+
+`ro` and `rw` property updates are sent as stream data on the property's path: the server side generates
+`stream_data_ser().<property>_send(&value, out)` (`_send_blocking` for sync servers) and the client
+`observe_<property>()` / `observe_<property>_blocking()`, returning a `Stream` of new values. Sending is up to the
+server, e.g., from `set_speed` or `changed_speed` through their `cx`, or from the event loop through `server.sink()`
+when a `ro` property changes on its own:
+
+```rust
+fn set_speed(&mut self, cx: &mut Context<'_, impl BlockingEventOut>, speed: f32) -> SetResult<()> {
+    self.speed = speed;
+    _ = server_impl::stream_data_ser().speed_send_blocking(&speed, cx);
+    Set
+}
+```
+
+```rust
+let mut speed = client.observe_speed().await?;
+while let Ok(speed) = speed.recv().await { /* .. */ }
+```
+
 ### Fallible property set
 
 Sometimes setting a property can result in an error, in such cases user defined error can be specified as well:

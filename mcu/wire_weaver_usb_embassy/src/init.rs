@@ -4,9 +4,15 @@ use embassy_usb::driver::Driver;
 use embassy_usb::{Builder, Config, UsbDevice};
 use ww_device::{EmbassyClock, FramedRx, FramedTx, LinkConfig, RxBuffer};
 
-/// WireWeaver server over USB, see [ww_device::Server] on how to use it.
-pub type UsbServer<'d, D> =
-    ww_device::Server<'d, FramedTx<'d, Sender<'d, D>>, FramedRx<'d, Receiver<'d, D>>, EmbassyClock>;
+/// WireWeaver server over USB, see [ww_device::Server] on how to use it. `M` is the medium handlers see in their
+/// context, set with [ww_device::Server::with_medium].
+pub type UsbServer<'d, D, M = ()> = ww_device::Server<
+    'd,
+    FramedTx<'d, Sender<'d, D>>,
+    FramedRx<'d, Receiver<'d, D>>,
+    EmbassyClock,
+    M,
+>;
 
 /// Buffers used by [UsbServer].
 ///
@@ -15,14 +21,16 @@ pub type UsbServer<'d, D> =
 /// * `MAX_MESSAGE_LEN` - longest message the device accepts and replies it can serialize, reported to
 ///   the host exactly as is.
 ///
-/// Takes `2 * MAX_MESSAGE_LEN + 2 * MAX_USB_PACKET_LEN` bytes.
+/// Takes `3 * MAX_MESSAGE_LEN + 2 * MAX_USB_PACKET_LEN` bytes.
 pub struct ServerBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
     /// Used to receive USB packets and re-assemble messages from them
     rx: RxBuffer<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
     /// Used to prepare USB packets for transmission
     tx: [u8; MAX_USB_PACKET_LEN],
-    /// Used to serialize replies, events and link messages
+    /// Used to serialize replies and link messages
     scratch: [u8; MAX_MESSAGE_LEN],
+    /// Used to serialize events sent from handlers and through `server.sink()`
+    event_scratch: [u8; MAX_MESSAGE_LEN],
 }
 
 impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
@@ -33,6 +41,7 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
             rx: RxBuffer::new(),
             tx: [0u8; MAX_USB_PACKET_LEN],
             scratch: [0u8; MAX_MESSAGE_LEN],
+            event_scratch: [0u8; MAX_MESSAGE_LEN],
         }
     }
 }
@@ -88,6 +97,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             FramedRx::new(rx, buffers.rx.assembly_buf(max_packet_size)),
             EmbassyClock,
             &mut buffers.scratch,
+            &mut buffers.event_scratch,
         )
     }
 }

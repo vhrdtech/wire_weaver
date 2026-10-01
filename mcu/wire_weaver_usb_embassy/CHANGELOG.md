@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- `ServerBuffers` has an event scratch buffer, `MAX_MESSAGE_LEN` bytes more, used to serialize events sent from
+  handlers and through `server.sink()`. `UsbServer` takes an optional medium type (`UsbServer<'d, D, M = ()>`), set
+  with `server.with_medium(..)`.
 - Event loop moved into user code: `usb_init()` returns `(UsbDevice, UsbServer)`, where `UsbServer` is a
   `ww_device::Server` with cancel-safe `wait()` and `handle()`, plus `run()` for the simple case.
   Other async sources are selected on alongside `wait()`, stream updates are sent through `server.sink()`.

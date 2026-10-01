@@ -94,26 +94,22 @@ async fn send_received_bytes(
     index: u32,
     bytes: &[u8],
 ) {
-    let (mut sink, scratch) = server.sink();
-    if !sink.is_up() {
+    let mut out = server.sink();
+    if !out.sink.is_up() {
         // nobody to send to, drop
         return;
     }
-    let stream_data_event = server_impl::stream_data_ser().uart(index).rx(
-        &RxChunk {
-            flags: None,
-            timestamp: None,
-            bytes: RefVec::new_bytes(bytes),
-        },
-        scratch,
-    );
-    match stream_data_event {
-        Ok(event) => {
-            if let Err(e) = sink.send_message(event).await {
-                error!("send_received_bytes error: {:?}", e);
-            }
-        }
-        Err(e) => error!("stream event serialization error: {:?}", e),
+    let chunk = RxChunk {
+        flags: None,
+        timestamp: None,
+        bytes: RefVec::new_bytes(bytes),
+    };
+    let r = server_impl::stream_data_ser()
+        .uart(index)
+        .rx_send(&chunk, &mut out)
+        .await;
+    if let Err(e) = r {
+        error!("send_received_bytes error: {:?}", e);
     }
 }
 
@@ -139,13 +135,16 @@ mod server_impl {
 }
 
 impl WireWeaverAsyncApiBackend for ServerState {
+    type Medium = ();
+
     async fn process_bytes<'a>(
         &mut self,
-        msg_tx: &mut impl MessageSink,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: (),
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, msg_tx)
+        self.process_request_bytes(data, scratch, out, medium)
             .await
     }
 
@@ -161,7 +160,7 @@ impl ServerState {
 
     async fn sideband_uart_rx(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
@@ -170,14 +169,14 @@ impl ServerState {
 
     async fn sideband_uart_tx(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
         None
     }
 
-    async fn write_uart_tx(&mut self, index: [UNib32; 1], bytes: &[u8]) {
+    async fn write_uart_tx(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 1], bytes: &[u8]) {
         let index = index[0].0 as usize;
         let mut wg = self.tx_producer[index].wait_grant(bytes.len() as u16).await;
         wg.copy_from_slice(bytes);
@@ -186,7 +185,7 @@ impl ServerState {
 
     async fn sideband_uart_tx_mon(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
@@ -195,7 +194,7 @@ impl ServerState {
 
     async fn uart_capabilities(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> RpcResult<Capabilities<'_>> {
         let cap = Capabilities {
@@ -215,7 +214,7 @@ impl ServerState {
     }
 
     async fn set_uart_baud_rate(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _baud_rate: BaudRate,
     ) -> SetResult<ww_uart::Error> {
@@ -223,26 +222,26 @@ impl ServerState {
     }
 
     async fn get_uart_baud_rate(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> GetResult<BaudRate, ww_uart::Error> {
         ww_unimplemented!()
     }
 
     async fn set_uart_mode(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _mode: Mode,
     ) -> SetResult<ww_uart::Error> {
         ww_unimplemented!()
     }
 
-    async fn get_uart_mode(&mut self, _index: [UNib32; 1]) -> GetResult<Mode, ww_uart::Error> {
+    async fn get_uart_mode(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Mode, ww_uart::Error> {
         ww_unimplemented!()
     }
 
     async fn set_uart_stop_bits(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _stop_bits: StopBits,
     ) -> SetResult<ww_uart::Error> {
@@ -250,26 +249,26 @@ impl ServerState {
     }
 
     async fn get_uart_stop_bits(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> GetResult<StopBits, ww_uart::Error> {
         ww_unimplemented!()
     }
 
     async fn set_uart_parity(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _parity: Parity,
     ) -> SetResult<ww_uart::Error> {
         ww_unimplemented!()
     }
 
-    async fn get_uart_parity(&mut self, _index: [UNib32; 1]) -> GetResult<Parity, ww_uart::Error> {
+    async fn get_uart_parity(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Parity, ww_uart::Error> {
         ww_unimplemented!()
     }
 
     async fn set_uart_prevent_back_feed(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _baud_rate: bool,
     ) -> SetResult<ww_uart::Error> {
@@ -277,14 +276,14 @@ impl ServerState {
     }
 
     async fn get_uart_prevent_back_feed(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> GetResult<bool, ww_uart::Error> {
         ww_unimplemented!()
     }
 
     async fn set_uart_reference_voltage(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _voltage: Volt,
     ) -> SetResult<ww_uart::Error> {
@@ -292,7 +291,7 @@ impl ServerState {
     }
 
     async fn get_uart_reference_voltage(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> GetResult<Volt, ww_uart::Error> {
         ww_unimplemented!()
@@ -300,7 +299,7 @@ impl ServerState {
 
     async fn uart_set_pin_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _pin: ww_uart::Pin,
         _is_high: bool,

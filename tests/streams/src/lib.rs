@@ -23,7 +23,6 @@ mod tests {
     mod no_std_sync_server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use wire_weaver::MessageSink;
 
         pub struct NoStdSyncServer {
             pub data: Arc<Mutex<SharedTestData>>,
@@ -38,7 +37,7 @@ mod tests {
 
             fn sideband_plain_stream(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("plain_stream", sideband)
@@ -46,19 +45,23 @@ mod tests {
 
             fn sideband_plain_sink(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("plain_sink", sideband)
             }
 
-            fn write_plain_sink(&mut self, value: u8) {
+            fn write_plain_sink(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: u8,
+            ) {
                 self.data.lock().unwrap().plain_sink.push(value);
             }
 
             fn sideband_vec_stream(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("vec_stream", sideband)
@@ -70,20 +73,42 @@ mod tests {
 
             fn sideband_array_of_streams(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record(&format!("array_of_streams[{}]", index_chain[0].0), sideband)
             }
 
-            fn finish(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn finish(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 Ready(())
+            }
+
+            fn emit(
+                &mut self,
+                cx: &mut Context<'_, impl BlockingEventOut>,
+                count: u8,
+            ) -> RpcResult<u8> {
+                let ser = api_impl::stream_data_ser();
+                ser.array_of_streams_send_blocking(1, &[0xAB, 0xCD], cx)
+                    .unwrap();
+                let mut sent = 0;
+                for i in 0..count {
+                    let point = Point {
+                        x: i as i16,
+                        y: -(i as i16),
+                    };
+                    if ser.user_stream_send_blocking(&point, cx).is_err() {
+                        break;
+                    }
+                    sent += 1;
+                }
+                Ready(sent)
             }
 
             fn sideband_user_stream(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("user_stream", sideband)
@@ -91,25 +116,33 @@ mod tests {
 
             fn sideband_user_sink(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("user_sink", sideband)
             }
 
-            fn write_user_sink(&mut self, value: Point) {
+            fn write_user_sink(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Point,
+            ) {
                 self.data.lock().unwrap().user_sink.push(value);
             }
 
             fn sideband_bytes_sink(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 self.record("bytes_sink", sideband)
             }
 
-            fn write_bytes_sink(&mut self, data: &shrink_wrap::tail_bytes::TailBytes<'_>) {
+            fn write_bytes_sink(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                data: &shrink_wrap::tail_bytes::TailBytes<'_>,
+            ) {
                 self.data.lock().unwrap().bytes_sink.push(data.0.to_vec());
             }
         }
@@ -125,13 +158,16 @@ mod tests {
         }
 
         impl TestProcessEvents for NoStdSyncServer {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }
@@ -251,6 +287,31 @@ mod tests {
             sideband(&data)[1],
             sb("plain_stream", StreamSideband::Close)
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn stream_updates_from_handler() {
+        let (device, _data) = start("streams/from_handler");
+        let mut client = connect(&device).await;
+        let mut points = client.user_stream().await.unwrap();
+        let mut array = client.array_of_streams(1).await.unwrap();
+
+        // events sent by a handler arrive before its reply
+        assert_eq!(client.emit(3).call().await.unwrap(), 3);
+        assert_eq!(array.try_recv().unwrap().unwrap().0, vec![0xAB, 0xCD]);
+        for i in 0..3 {
+            assert_eq!(points.try_recv().unwrap().unwrap(), Point { x: i, y: -i });
+        }
+        assert_eq!(points.try_recv().unwrap(), None);
+
+        // sync server on an async event loop: events are queued in event scratch, which runs out eventually
+        let sent = client.emit(255).call().await.unwrap();
+        assert!(sent > 3 && sent < 255, "{sent}");
+        assert_eq!(array.try_recv().unwrap().unwrap().0, vec![0xAB, 0xCD]);
+        for i in 0..sent as i16 {
+            assert_eq!(points.try_recv().unwrap().unwrap(), Point { x: i, y: -i });
+        }
+        assert_eq!(points.try_recv().unwrap(), None);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

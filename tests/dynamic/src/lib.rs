@@ -17,7 +17,7 @@ mod tests {
         use dynamic_api::{CheckError, Everything, Flagged};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
-        use wire_weaver::{GetResult, MessageSink, SetResult};
+        use wire_weaver::{GetResult, SetResult};
 
         #[derive(Default)]
         pub struct DynServer {
@@ -36,18 +36,23 @@ mod tests {
         }
 
         impl DynServer {
-            fn no_args(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn no_args(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 self.no_args_called = true;
                 Ready(())
             }
 
-            fn add(&mut self, _msg_tx: &mut impl MessageSink, a: u32, b: i16) -> RpcResult<i64> {
+            fn add(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                a: u32,
+                b: i16,
+            ) -> RpcResult<i64> {
                 Ready(a as i64 + b as i64)
             }
 
             fn echo(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Everything<'_>,
             ) -> RpcResult<Everything<'_>> {
                 self.echo = to_bytes(&value);
@@ -56,7 +61,7 @@ mod tests {
 
             fn check(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 x: Option<u8>,
             ) -> RpcResult<Result<u8, CheckError>> {
                 Ready(match x {
@@ -66,31 +71,52 @@ mod tests {
                 })
             }
 
-            fn set_speed(&mut self, value: u16) -> SetResult<()> {
+            fn set_speed(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: u16,
+            ) -> SetResult<()> {
                 self.speed = value;
                 Set
             }
 
-            fn get_speed(&mut self) -> GetResult<u16, ()> {
+            fn get_speed(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<u16, ()> {
                 Value(self.speed)
             }
 
-            fn set_everything(&mut self, value: Everything<'_>) -> SetResult<()> {
+            fn set_everything(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Everything<'_>,
+            ) -> SetResult<()> {
                 self.everything = to_bytes(&value);
                 Set
             }
 
-            fn get_everything(&mut self) -> GetResult<Everything<'_>, ()> {
+            fn get_everything(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Everything<'_>, ()> {
                 Value(Everything::from_ww_bytes(&self.everything).unwrap())
             }
 
-            fn set_flagged(&mut self, value: Flagged<'_>) -> SetResult<()> {
+            fn set_flagged(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Flagged<'_>,
+            ) -> SetResult<()> {
                 let mut buf = [0u8; 64];
                 self.flagged = value.to_ww_bytes(&mut buf).unwrap().to_vec();
                 Set
             }
 
-            fn get_flagged(&mut self) -> GetResult<Flagged<'_>, ()> {
+            fn get_flagged(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Flagged<'_>, ()> {
                 Value(Flagged::from_ww_bytes(&self.flagged).unwrap())
             }
 
@@ -98,18 +124,27 @@ mod tests {
                 ValidIndices::range_u32(0..3)
             }
 
-            fn set_channel_gain(&mut self, index_chain: [UNib32; 1], value: f32) -> SetResult<()> {
+            fn set_channel_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: f32,
+            ) -> SetResult<()> {
                 self.gains[index_chain[0].0 as usize] = value;
                 Set
             }
 
-            fn get_channel_gain(&mut self, index_chain: [UNib32; 1]) -> GetResult<f32, ()> {
+            fn get_channel_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+            ) -> GetResult<f32, ()> {
                 Value(self.gains[index_chain[0].0 as usize])
             }
 
             fn channel_id(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
             ) -> RpcResult<u32> {
                 Ready(index_chain[0].0 * 10)
@@ -126,13 +161,16 @@ mod tests {
         }
 
         impl TestProcessEvents for DynServer {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }

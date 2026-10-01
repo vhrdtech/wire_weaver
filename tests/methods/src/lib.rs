@@ -7,45 +7,55 @@ mod tests {
     use wire_weaver_client::Error;
     use ww_client_server::ErrorKindOwned;
 
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum Medium {
+        #[allow(dead_code)]
+        Usb = 1,
+        Can = 2,
+    }
+
     #[derive(Default)]
     struct SharedTestData {
         no_args_called: bool,
         one_plain_arg: u8,
+        deferred: Option<wire_weaver::ReplyTo<Medium>>,
+        deferred_unit: Option<wire_weaver::ReplyTo<Medium>>,
     }
 
     mod no_std_sync_server {
         use super::*;
         use methods_api::UserDefined;
         use tests_common::TestProcessEvents;
-        use wire_weaver::MessageSink;
         use wire_weaver::prelude::*;
+
+        type Cx<'c, O> = Context<'c, O, Medium>;
 
         pub struct NoStdSyncServer {
             pub data: Arc<RwLock<SharedTestData>>,
         }
 
         impl NoStdSyncServer {
-            fn no_args(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn no_args(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 self.data.write().unwrap().no_args_called = true;
                 Ready(())
             }
 
             fn one_plain_arg(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
                 value: u8,
             ) -> RpcResult<()> {
                 self.data.write().unwrap().one_plain_arg = value;
                 Ready(())
             }
 
-            fn plain_return(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<u8> {
+            fn plain_return(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
                 Ready(0xAA)
             }
 
             fn user_arg(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
                 u: UserDefined<'_>,
             ) -> RpcResult<()> {
                 assert_eq!(u.a, 123);
@@ -59,7 +69,7 @@ mod tests {
 
             fn user_defined_return(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
             ) -> RpcResult<UserDefined<'_>> {
                 Ready(UserDefined {
                     a: 37,
@@ -67,15 +77,41 @@ mod tests {
                 })
             }
 
-            fn deferred(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<u8> {
+            fn deferred(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                self.data.write().unwrap().deferred = cx.reply_to();
                 Deferred
             }
 
-            fn deferred_unit(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn deferred_unit(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.data.write().unwrap().deferred_unit = cx.reply_to();
                 Deferred
             }
 
-            fn absent(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn answer_deferred(
+                &mut self,
+                cx: &mut Cx<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> RpcResult<()> {
+                let mut data = self.data.write().unwrap();
+                if let Some(reply_to) = data.deferred.take() {
+                    assert_eq!(reply_to.medium, cx.medium());
+                    Self::deferred_send_return_blocking(cx, reply_to.seq, value).unwrap();
+                }
+                if let Some(reply_to) = data.deferred_unit.take() {
+                    Self::deferred_unit_send_return_blocking(cx, reply_to.seq).unwrap();
+                }
+                Ready(())
+            }
+
+            fn request_seq(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u32> {
+                Ready(cx.seq())
+            }
+
+            fn request_medium(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                Ready(cx.medium() as u8)
+            }
+
+            fn absent(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 Unimplemented.into()
             }
         }
@@ -86,18 +122,22 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "deferred=deferred, deferred_unit=deferred, _=immediate",
                 property_model = "_=get_set",
+                medium = "super::Medium",
                 // debug_to_file = "../../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
             );
         }
 
         impl TestProcessEvents for NoStdSyncServer {
+            type Medium = Medium;
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: Medium,
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }
@@ -134,11 +174,12 @@ mod tests {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
         let server = no_std_sync_server::NoStdSyncServer { data: data.clone() };
-        let device = tests_common::start_device(
+        let device = tests_common::start_device_on(
             path,
             server,
             methods_api::METHODS_FULL_GID,
             no_std_sync_server::api_impl::api_hash(),
+            Medium::Can,
         );
         (device, data)
     }
@@ -313,6 +354,42 @@ mod tests {
         assert!(matches!(r, Err(Error::Timeout)), "{r:?}");
         // other requests are still answered
         assert_eq!(client.plain_return().call().await.unwrap(), 0xAA);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn context_seq_and_medium() {
+        let (device, _data) = start("methods/context");
+        let client = connect(&device).await;
+        assert_eq!(
+            client.request_medium().call().await.unwrap(),
+            Medium::Can as u8
+        );
+        let seq1 = client.request_seq().call().await.unwrap();
+        let seq2 = client.request_seq().call().await.unwrap();
+        assert_ne!(seq1, 0);
+        assert_ne!(seq2, 0);
+        assert_ne!(seq1, seq2);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn deferred_answered_from_another_handler() {
+        let (device, data) = start("methods/deferred_answered");
+        let mut client = connect(&device).await;
+        let deferred = tokio::spawn(client.deferred().call());
+        let deferred_unit = tokio::spawn(client.deferred_unit().call());
+        for _ in 0..500 {
+            let both_pending = {
+                let d = data.read().unwrap();
+                d.deferred.is_some() && d.deferred_unit.is_some()
+            };
+            if both_pending {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        client.answer_deferred(0x37).call().await.unwrap();
+        assert_eq!(deferred.await.unwrap().unwrap(), 0x37);
+        deferred_unit.await.unwrap().unwrap();
     }
 
     #[test]

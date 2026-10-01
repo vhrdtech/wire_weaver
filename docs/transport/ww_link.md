@@ -255,8 +255,7 @@ loop {
             }
         }
         Either3::Second(chunk) => {
-            let (mut sink, scratch) = server.sink();
-            // serialize a stream update into scratch, then sink.send_message(bytes).await
+            _ = stream_data_ser().uart_rx_send(&chunk, &mut server.sink()).await;
         }
         Either3::Third(_) => { /* periodic updates through server.sink() */ }
     }

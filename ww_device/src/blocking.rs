@@ -12,14 +12,13 @@
 //!     }
 //!     server.poll(now);
 //!     if let Some(chunk) = uart.try_read() {
-//!         let (mut sink, scratch) = server.sink(now);
-//!         state.send_uart_chunk(chunk, scratch, &mut sink);
+//!         _ = stream_data_ser().uart_rx_send_blocking(&chunk, &mut server.sink(now));
 //!     }
 //!     // sleep until the next interrupt or server.poll_timeout()
 //! }
 //! ```
 
-use wire_weaver::{MessageSink, WireWeaverApiBackend};
+use wire_weaver::{BlockingMessageSink, EventWriter, WireWeaverApiBackend};
 
 use crate::fmt::{error, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Received, SendError, Transmit};
@@ -35,12 +34,16 @@ pub trait PacketSink {
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error>;
 }
 
-pub struct Server<'a, P> {
+/// Blocking device server, see the [module docs](self). Same as the async [Server](crate::Server), several media
+/// are served by one server per medium, each tagged with [with_medium](Self::with_medium).
+pub struct Server<'a, P, M = ()> {
     link: DeviceLink<'a>,
     tx: TxFramer<'a>,
     sink: P,
     rx: RxFramer<'a>,
     scratch: &'a mut [u8],
+    event_scratch: &'a mut [u8],
+    medium: M,
 }
 
 impl<'a, P: PacketSink> Server<'a, P> {
@@ -50,12 +53,14 @@ impl<'a, P: PacketSink> Server<'a, P> {
     ///   [RxBuffer::assembly_buf](crate::RxBuffer::assembly_buf)`(tx_frame_buf.len())` to get exactly
     ///   the desired maximum message length.
     /// * `scratch` is used to serialize replies.
+    /// * `event_scratch` is used to serialize events sent from handlers or through [Self::sink].
     pub fn new(
         config: LinkConfig<'a>,
         sink: P,
         tx_frame_buf: &'a mut [u8],
         rx_assembly_buf: &'a mut [u8],
         scratch: &'a mut [u8],
+        event_scratch: &'a mut [u8],
     ) -> Self {
         let max_message_len = rx_assembly_buf.len().saturating_sub(tx_frame_buf.len());
         Server {
@@ -64,7 +69,28 @@ impl<'a, P: PacketSink> Server<'a, P> {
             sink,
             rx: RxFramer::new(rx_assembly_buf),
             scratch,
+            event_scratch,
+            medium: (),
         }
+    }
+}
+
+impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
+    /// Tag this server with a medium, it is passed to every handler in `wire_weaver::Context`.
+    pub fn with_medium<M2: Copy>(self, medium: M2) -> Server<'a, P, M2> {
+        Server {
+            link: self.link,
+            tx: self.tx,
+            sink: self.sink,
+            rx: self.rx,
+            scratch: self.scratch,
+            event_scratch: self.event_scratch,
+            medium,
+        }
+    }
+
+    pub fn medium(&self) -> M {
+        self.medium
     }
 
     pub fn link(&self) -> &DeviceLink<'a> {
@@ -94,7 +120,7 @@ impl<'a, P: PacketSink> Server<'a, P> {
 
     /// Feed a received packet (frame), all messages it completes are processed right away.
     /// Returns a link state change, if any.
-    pub fn on_packet<B: WireWeaverApiBackend>(
+    pub fn on_packet<B: WireWeaverApiBackend<Medium = M>>(
         &mut self,
         now: Instant,
         packet: &[u8],
@@ -118,7 +144,11 @@ impl<'a, P: PacketSink> Server<'a, P> {
                 sink: &mut self.sink,
                 now,
             };
-            ctx.on_message(kind, message, backend, self.scratch);
+            let scratch = Scratch {
+                reply: self.scratch,
+                event: self.event_scratch,
+            };
+            ctx.on_message(kind, message, backend, self.medium, scratch);
             ctx.drain_transmit(self.scratch);
             event = self.link.poll_event().or(event);
         }
@@ -126,7 +156,7 @@ impl<'a, P: PacketSink> Server<'a, P> {
     }
 
     /// Feed a whole message, for media that do not need [ww_framer] (the framer is not used then).
-    pub fn on_message<B: WireWeaverApiBackend>(
+    pub fn on_message<B: WireWeaverApiBackend<Medium = M>>(
         &mut self,
         now: Instant,
         kind: u8,
@@ -139,7 +169,11 @@ impl<'a, P: PacketSink> Server<'a, P> {
             sink: &mut self.sink,
             now,
         };
-        ctx.on_message(kind, message, backend, self.scratch);
+        let scratch = Scratch {
+            reply: self.scratch,
+            event: self.event_scratch,
+        };
+        ctx.on_message(kind, message, backend, self.medium, scratch);
         ctx.drain_transmit(self.scratch);
         self.link.poll_event()
     }
@@ -158,9 +192,10 @@ impl<'a, P: PacketSink> Server<'a, P> {
         self.link.poll_timeout()
     }
 
-    /// Sink to send stream updates or deferred replies, and scratch space to serialize them.
-    pub fn sink(&mut self, now: Instant) -> (Sink<'_, 'a, P>, &mut [u8]) {
-        (
+    /// Send stream updates or deferred replies from outside of request handling, e.g., with generated
+    /// `stream_data_ser().<name>_send_blocking(&value, &mut server.sink(now))`.
+    pub fn sink(&mut self, now: Instant) -> EventWriter<'_, Sink<'_, 'a, P>> {
+        EventWriter::new(
             Sink {
                 ctx: Ctx {
                     link: &mut self.link,
@@ -169,7 +204,7 @@ impl<'a, P: PacketSink> Server<'a, P> {
                     now,
                 },
             },
-            self.scratch,
+            self.event_scratch,
         )
     }
 
@@ -198,6 +233,12 @@ impl<'a, P: PacketSink> Server<'a, P> {
     }
 }
 
+/// Reply and event scratch buffers.
+struct Scratch<'s> {
+    reply: &'s mut [u8],
+    event: &'s mut [u8],
+}
+
 /// Everything but the rx framer and scratch, so that a received message and scratch can be borrowed
 /// at the same time.
 struct Ctx<'s, 'a, P> {
@@ -213,14 +254,20 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
         kind: u8,
         message: &[u8],
         backend: &mut B,
-        scratch: &mut [u8],
+        medium: B::Medium,
+        scratch: Scratch<'_>,
     ) {
+        let Scratch {
+            reply: scratch,
+            event: event_scratch,
+        } = scratch;
         match self.link.handle_message(self.now, kind, message) {
             Some(Received::Data(request)) => {
-                let mut sink = Sink {
+                let sink = Sink {
                     ctx: self.reborrow(),
                 };
-                let reply = match backend.process_bytes(&mut sink, request, scratch) {
+                let mut out = EventWriter::new(sink, event_scratch);
+                let reply = match backend.process_bytes(&mut out, medium, request, scratch) {
                     Ok(reply) => reply,
                     Err(e) => {
                         error!("process_bytes failed: {:?}", e);
@@ -310,7 +357,7 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
     }
 }
 
-/// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend.
+/// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend inside an [EventWriter].
 pub struct Sink<'s, 'a, P> {
     ctx: Ctx<'s, 'a, P>,
 }
@@ -327,9 +374,8 @@ impl<P: PacketSink> Sink<'_, '_, P> {
     }
 }
 
-/// Completes on the first poll, as writes are blocking.
-impl<P: PacketSink> MessageSink for Sink<'_, '_, P> {
-    async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+impl<P: PacketSink> BlockingMessageSink for Sink<'_, '_, P> {
+    fn send(&mut self, message: &[u8]) -> Result<(), ()> {
         self.send_message(message).map_err(|e| {
             warn!("MessageSink::send failed: {:?}", e);
         })

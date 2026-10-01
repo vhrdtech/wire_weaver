@@ -8,18 +8,22 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{ApiHashPair, FullVersion};
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{BlockingEventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 use wire_weaver_client::in_process::{self, TokioClock};
 
 const MAX_MESSAGE_LEN: usize = 1024;
 
 /// Implemented by test servers generated with `use_async = false`, forwards to the generated `process_request_bytes`.
 pub trait TestProcessEvents {
+    /// `medium = ".."` given to `ww_codegen!`, `()` by default.
+    type Medium: Copy + Send + 'static;
+
     fn process_request_bytes<'a>(
         &mut self,
         bytes: &[u8],
         scratch: &'a mut [u8],
-        msg_tx: &mut impl MessageSink,
+        out: &mut impl BlockingEventOut,
+        medium: Self::Medium,
     ) -> Result<&'a [u8], ShrinkWrapError>;
 }
 
@@ -51,11 +55,22 @@ impl TestDevice {
 
 /// Start a device thread serving `server` under `path` (unique per test).
 /// `version` is the API crate's `<TRAIT>_FULL_GID`, `api_hash` is the server's generated `api_hash()`.
-pub fn start_device<S: TestProcessEvents + Send + 'static>(
+pub fn start_device<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     path: &str,
     server: S,
     version: FullVersion<'static>,
     api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_device_on(path, server, version, api_hash, ())
+}
+
+/// Same as [start_device], for servers generated with `medium = ".."`: `medium` is passed to every handler.
+pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    medium: S::Medium,
 ) -> TestDevice {
     let drop_requests = Arc::new(AtomicBool::new(false));
     let (to_device, mut from_test) = mpsc::unbounded_channel::<Vec<u8>>();
@@ -72,10 +87,18 @@ pub fn start_device<S: TestProcessEvents + Send + 'static>(
             .unwrap();
         rt.block_on(async move {
             let mut scratch = [0u8; MAX_MESSAGE_LEN];
+            let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
             let config =
                 ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
-            let mut server =
-                ww_device::Server::new(config, tx, rx, TokioClock::new(), &mut scratch);
+            let mut server = ww_device::Server::new(
+                config,
+                tx,
+                rx,
+                TokioClock::new(),
+                &mut scratch,
+                &mut event_scratch,
+            )
+            .with_medium(medium);
             loop {
                 tokio::select! {
                     ready = server.wait() => {
@@ -103,16 +126,24 @@ struct TestBackend<S> {
 }
 
 impl<S: TestProcessEvents> WireWeaverAsyncApiBackend for TestBackend<S> {
+    type Medium = S::Medium;
+
     async fn process_bytes<'a>(
         &mut self,
-        sink: &mut impl MessageSink,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: S::Medium,
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError> {
         if self.drop_requests.load(Ordering::Relaxed) {
             return Ok(&[]);
         }
-        self.server.process_request_bytes(data, scratch, sink)
+        // sync server: events sent by handlers are queued and sent out after it returns
+        out.queued(|queue| {
+            self.server
+                .process_request_bytes(data, scratch, queue, medium)
+        })
+        .await
     }
 
     fn version(&self) -> FullVersion<'_> {

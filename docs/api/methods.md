@@ -64,32 +64,76 @@ struct ServerState {
 }
 
 impl ServerState {
-    async fn led_on(&mut self) { /* do things */ }
-    async fn set_brightness(&mut self, value: f32) {}
-    async fn temperature(&mut self) -> f32 { 20.0 }
-    async fn user_type(&mut self, state: State) {}
-    async fn user_ret_type(&mut self) -> UserType<'_> {}
+    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+        /* do things */
+        Ready(())
+    }
+    async fn temperature(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<f32> {
+        Ready(20.0)
+    }
+    async fn user_type(&mut self, _cx: &mut Context<'_, impl EventOut>, state: State) -> RpcResult<()> {
+        Ready(())
+    }
 }
 
 mod server_impl {
-    wire_weaver::ww_api!(
-        "../../api/src/lib.rs" as api::MyDevice for ServerState,
+    wire_weaver::ww_codegen!(
+        api :: MyDevice for super::ServerState,
         server = true, no_alloc = true, use_async = true,
     );
 }
 ```
 
-`ww_api` proc-macro invocation will implement `async fn process_request_bytes(..) -> Result<..>` function, which takes
-in request bytes,
-deserializes and processes them and eventually calls one of the methods on self.
+`ww_codegen!` implements `async fn process_request_bytes(bytes, scratch, out, medium) -> Result<..>` on
+`ServerState`, which deserializes a request, calls one of the handlers and serializes the reply into `scratch`.
+`ww api scaffold <api_crate>` prints all the handlers a server is expected to implement, with exact signatures.
 
 ### sync
 
-By setting `use_async = false` a blocking implementation is generated. And there is also a possibility to
-return values later, via a provided request id (for example if executing a method and getting a result takes a long
-time).
+By setting `use_async = false`, a blocking implementation is generated: handlers are plain `fn`s and take
+`cx: &mut Context<'_, impl BlockingEventOut>`. A sync server also runs on the async `ww_device::Server`: events
+sent by its handlers are queued and sent out after it returns (`EventWriter::queued()`), so they are limited by the
+event scratch buffer size.
+
+### Handler context
+
+Every handler (methods, `get_`/`set_`/`changed_` of properties, `sideband_`/`write_` of streams) gets
+`cx: &mut wire_weaver::Context` as the first argument:
+
+* `cx.seq()` - sequence number of the request, 0 if the client does not expect a reply.
+* `cx.medium()` - the medium the request came from. The type is set with `ww_codegen!(.., medium = "crate::Medium")`
+  (`()` by default) and the value with `Server::with_medium(..)`. A device with USB and CAN runs one server per
+  medium, all handling requests with the same server state.
+* `cx.reply_to()` - medium and seq to answer a deferred call later, `None` if no reply is expected.
+* `cx` sends events: stream updates and property updates with the generated
+  `stream_data_ser().<name>_send(&value, cx).await` (`_send_blocking` for sync servers), or any event with
+  `send_event()`. Events sent from a handler go out before its reply.
+
+```rust
+#[derive(Copy, Clone, PartialEq)]
+enum Medium { Usb, Can }
+
+impl ServerState {
+    async fn start_adc(&mut self, cx: &mut Context<'_, impl EventOut, Medium>, rate: u32) -> RpcResult<()> {
+        if cx.medium() == Medium::Can {
+            self.adc_rate = rate.min(100);
+        }
+        // first sample right away, the rest from the event loop through server.sink()
+        _ = server_impl::stream_data_ser().adc_send(&self.sample(), cx).await;
+        Ready(())
+    }
+}
+```
+
+`cx` only reaches the medium the request came from. Events for other media are sent from the event loop through
+their servers' `sink()`.
 
 ### deferred
+
+`method_model = "move_motor=deferred, _=immediate"` lets a method return `Deferred` and answer later. The handler
+keeps `cx.reply_to()`, and the reply is sent with the generated `ServerState::move_motor_send_return(out, seq, output)`
+(`_send_return_blocking` for sync), where `out` is another handler's `cx` or `server.sink()` of `reply_to.medium`.
+A deferred call that is never answered times out on the client.
 
 ### Resource names mapping
 

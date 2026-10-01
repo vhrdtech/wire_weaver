@@ -37,6 +37,9 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///   Depending on the application, it might be more convenient to store property directly as a context struct member and
 ///   use value_on_changed, so that generated code directly reads and writes to it. Notification method is called when the value is changed.
 ///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
+/// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
+///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`
+///   if `use_async = false`) as the first argument, with request seq, medium and a way to send stream updates.
 #[proc_macro]
 pub fn ww_codegen(args: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as ww_impl_args::ApiArgs);

@@ -45,13 +45,16 @@ async fn ww_server_task(
 }
 
 impl WireWeaverAsyncApiBackend for ServerState {
+    type Medium = ();
+
     async fn process_bytes<'a>(
         &mut self,
-        msg_tx: &mut impl MessageSink,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: (),
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, msg_tx)
+        self.process_request_bytes(data, scratch, out, medium)
             .await
     }
 
@@ -76,13 +79,13 @@ mod server_impl {
 }
 
 impl ServerState {
-    async fn led_on(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         self.leds[0].set_high();
         self.leds[1].set_high();
         Ready(())
     }
 
-    async fn led_off(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         self.leds[0].set_low();
         self.leds[1].set_low();
         Ready(())

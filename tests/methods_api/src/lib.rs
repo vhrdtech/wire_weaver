@@ -12,6 +12,12 @@ trait Methods {
     /// Answered later from outside of the handler, or never
     fn deferred() -> u8;
     fn deferred_unit();
+    /// Answers pending `deferred` and `deferred_unit` calls from the handler, with `value` for `deferred`
+    fn answer_deferred(value: u8);
+    /// Sequence number of this request, as seen by the handler
+    fn request_seq() -> u32;
+    /// Medium this request came from, as seen by the handler
+    fn request_medium() -> u8;
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]

@@ -31,6 +31,22 @@ each individual array size is guaranteed to be preserved, even if multiple strea
 transport level. Sending `[1, 2, 3]`, `[4]`, `[5, 6]` will result in the same arrays received on the other end, in the
 same order.
 
+## Sending stream updates
+
+The server side generates `stream_data_ser()`, with `<name>_send(&value, out)` (async) and `<name>_send_blocking`
+(sync) for every `stream!`, and `<name>(&value, scratch)` returning the serialized event. `out` is either the `cx`
+a handler gets, or `server.sink()` anywhere else in the event loop:
+
+```rust
+// from a handler, goes out before its reply
+server_impl::stream_data_ser().byte_send(&0xAA, cx).await?;
+// from the event loop
+server_impl::stream_data_ser().slice_send(&[1, 2, 3], &mut server.sink()).await?;
+```
+
+Streams inside trait arrays are reached the same way as on the client, e.g.,
+`stream_data_ser().port(0).pin(7).event_send(&event, cx)`.
+
 ## Sideband channel
 
 In order to facilitate stream open/close operations, frame synchronization and other operations, all streams

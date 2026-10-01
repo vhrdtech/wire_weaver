@@ -72,6 +72,14 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 ));
             }
         };
+        let medium = if args.ext.medium.is_empty() {
+            None
+        } else {
+            Some(
+                syn::parse_str::<syn::Path>(&args.ext.medium)
+                    .map_err(|e| format!("failed to parse medium type path: {e}"))?,
+            )
+        };
         let ts = gen_server(
             &api_bundle,
             GenServerConfigRaw {
@@ -82,6 +90,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 server_struct_path: args.context_ident.clone(),
                 introspect_mode,
                 multi_req: args.ext.multi_req,
+                medium,
             },
         );
         codegen_ts.append_all(ts);

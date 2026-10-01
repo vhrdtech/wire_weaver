@@ -141,7 +141,7 @@ pub type RttTx<'a, C> = StreamTx<'a, RttSink<C>, RttHead, RttChecksum, RttTail>;
 /// [StreamRx] over an RTT down channel, framer configuration from [ww_link].
 pub type RttRx<'a, C> = StreamRx<'a, RttSource<C>, RttHead, RttChecksum, RttTail>;
 /// WireWeaver server over RTT, see [Server] on how to use it.
-pub type RttServer<'a, C> = Server<'a, RttTx<'a, C>, RttRx<'a, C>, C>;
+pub type RttServer<'a, C, M = ()> = Server<'a, RttTx<'a, C>, RttRx<'a, C>, C, M>;
 
 /// Framer overhead per message on RTT, see [RttBuffers].
 pub const RTT_OVERHEAD: usize = stream_overhead::<RttHead, RttChecksum, RttTail>();
@@ -149,7 +149,7 @@ pub const RTT_OVERHEAD: usize = stream_overhead::<RttHead, RttChecksum, RttTail>
 /// Buffers used by [RttServer], `MAX_MESSAGE_LEN` is the longest message the device accepts and
 /// the longest reply it can serialize, reported to the host exactly as is.
 ///
-/// Takes `3 * MAX_MESSAGE_LEN + 2 * RTT_OVERHEAD` bytes, in addition to the RTT channel buffers
+/// Takes `4 * MAX_MESSAGE_LEN + 2 * RTT_OVERHEAD` bytes, in addition to the RTT channel buffers
 /// themselves, which are allocated by `rtt_init!`.
 #[repr(C)]
 pub struct RttBuffers<const MAX_MESSAGE_LEN: usize> {
@@ -159,8 +159,10 @@ pub struct RttBuffers<const MAX_MESSAGE_LEN: usize> {
     /// Messages are packed into chunks here before going into the up channel
     tx: [u8; MAX_MESSAGE_LEN],
     tx_overhead: [u8; RTT_OVERHEAD],
-    /// Used to serialize replies, events and link messages
+    /// Used to serialize replies and link messages
     scratch: [u8; MAX_MESSAGE_LEN],
+    /// Used to serialize events sent from handlers and through `server.sink()`
+    event_scratch: [u8; MAX_MESSAGE_LEN],
 }
 
 impl<const MAX_MESSAGE_LEN: usize> RttBuffers<MAX_MESSAGE_LEN> {
@@ -171,6 +173,7 @@ impl<const MAX_MESSAGE_LEN: usize> RttBuffers<MAX_MESSAGE_LEN> {
             tx: [0u8; MAX_MESSAGE_LEN],
             tx_overhead: [0u8; RTT_OVERHEAD],
             scratch: [0u8; MAX_MESSAGE_LEN],
+            event_scratch: [0u8; MAX_MESSAGE_LEN],
         }
     }
 }
@@ -200,34 +203,37 @@ pub fn rtt_server<'a, const MAX_MESSAGE_LEN: usize, C: Clock + Clone>(
     config: RttConfig,
     buffers: &'a mut RttBuffers<MAX_MESSAGE_LEN>,
 ) -> RttServer<'a, C> {
-    let (tx_buf, rx_buf, scratch) = buffers.split();
+    let (tx_buf, rx_buf, scratch, event_scratch) = buffers.split();
     Server::new(
         link_config,
         StreamTx::new(RttSink::new(up, clock.clone(), config), tx_buf),
         StreamRx::new(RttSource::new(down, clock.clone(), config), rx_buf),
         clock,
         scratch,
+        event_scratch,
     )
 }
 
 impl<const MAX_MESSAGE_LEN: usize> RttBuffers<MAX_MESSAGE_LEN> {
-    /// Contiguous `MAX_MESSAGE_LEN + RTT_OVERHEAD` tx and rx buffers, and the scratch buffer.
-    fn split(&mut self) -> (&mut [u8], &mut [u8], &mut [u8]) {
+    /// Contiguous `MAX_MESSAGE_LEN + RTT_OVERHEAD` tx and rx buffers, and the scratch buffers.
+    #[allow(clippy::type_complexity)]
+    fn split(&mut self) -> (&mut [u8], &mut [u8], &mut [u8], &mut [u8]) {
         const {
             assert!(
-                size_of::<Self>() == 3 * MAX_MESSAGE_LEN + 2 * RTT_OVERHEAD,
+                size_of::<Self>() == 4 * MAX_MESSAGE_LEN + 2 * RTT_OVERHEAD,
                 "RttBuffers must have no padding"
             )
         };
         let (tx, rx) = (self.tx.as_mut_ptr(), self.rx.as_mut_ptr());
         // SAFETY: repr(C) struct of u8 arrays: alignment 1 and no padding (checked above), so `rx`
         // is followed by `rx_overhead` and `tx` by `tx_overhead`, both are contiguous, initialized
-        // bytes borrowed mutably through self; the ranges do not overlap with each other or `scratch`.
+        // bytes borrowed mutably through self; the ranges do not overlap with each other or the scratch buffers.
         unsafe {
             (
                 core::slice::from_raw_parts_mut(tx, MAX_MESSAGE_LEN + RTT_OVERHEAD),
                 core::slice::from_raw_parts_mut(rx, MAX_MESSAGE_LEN + RTT_OVERHEAD),
                 &mut self.scratch,
+                &mut self.event_scratch,
             )
         }
     }

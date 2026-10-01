@@ -67,8 +67,10 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   `property_model = "..."` macro arguments. Exposes `gen_client`/`gen_server` for use from a `build.rs` as an
   alternative to the proc macro.
 - **`wire_weaver/`** — the user-facing crate: re-exports `shrink_wrap`, the derive/codegen macros, `ww_version`, and
-  defines `WireWeaverAsyncApiBackend`/`MessageSink` (the sans-IO server-side traits) and `RpcResult`/`GetResult`/
-  `SetResult` (method/property call outcomes, including deferred replies). This is what a user's API/firmware/driver
+  defines `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend` (the sans-IO server-side traits), the handler
+  `Context` (request seq, medium, `EventOut`/`BlockingEventOut` to send stream/property updates and deferred replies,
+  `EventWriter`/`EventQueue`) and `RpcResult`/`GetResult`/`SetResult` (method/property call outcomes, including
+  deferred replies). This is what a user's API/firmware/driver
   crate depends on. Generated server code is IO-free by design — transport is always separate.
 - **`wire_weaver_client/`** — generated `std` client runtime: event loop, `Commander`, USB/RTT/tracing client glue,
   used by code the `client = "..."` codegen argument produces. No-std client generation doesn't exist yet.
@@ -133,7 +135,7 @@ To bring an existing server in line after the API changed (or to fill in a partl
 2. Run `ww api scaffold` with those options into the scratchpad — this is the expected handler list.
 3. Collect the existing handlers: every `impl Server` block, in any inline or out-of-line `mod`, across files.
 4. Compare by name, then by signature. Treat as equal what compiles the same: type paths vs. imported names
-   (`shrink_wrap::RefVec` vs `RefVec`), elided vs `'_` lifetimes, `impl MessageSink` vs a generic bound, `&self`
+   (`shrink_wrap::RefVec` vs `RefVec`), elided vs `'_` lifetimes, `impl EventOut` vs a generic bound, `&self`
    where `&mut self` is expected, parameter names.
 5. Edit in place, don't regenerate the file: add missing stubs next to the handlers of the same trait level, fix
    mismatched signatures keeping the body and the user's parameter names, add missing `value_on_changed` struct
@@ -141,9 +143,11 @@ To bring an existing server in line after the API changed (or to fill in a partl
    for the user instead.
 6. `cargo check` the crate; errors in bodies after a signature change are expected, point them out.
 
-Known server codegen limitations the scaffold can't work around: `no_alloc = false` servers don't compile, and
-`method_model = "..=deferred"` handlers don't get the request's seq, so `<method>_ser_return_event` can't be used to
-answer later yet (a deferred call that is never answered times out on the host).
+Every handler takes `cx: &mut Context<'_, impl EventOut, Medium>` (`BlockingEventOut` for `use_async = false`)
+right after `&mut self`; `Medium` comes from `ww_codegen!(.., medium = "..")` (`--medium` for the scaffold), `()` by
+default. Deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`.
+
+Known server codegen limitation the scaffold can't work around: `no_alloc = false` servers don't compile.
 
 ## Compatibility rules (don't guess — check `docs/evolution/rules.md`)
 

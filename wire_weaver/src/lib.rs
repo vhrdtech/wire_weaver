@@ -1,11 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod api_id;
+mod context;
 mod disconnect_reason;
 mod rpc;
 mod test;
 mod valid_indices;
 
+pub use context::{
+    BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter, MessageSink,
+    ReplyTo, SendError,
+};
 pub use disconnect_reason::DisconnectReason;
 pub use rpc::{GetResult, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
@@ -27,7 +32,10 @@ pub mod prelude {
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;
     pub use crate::ww_unimplemented;
-    pub use crate::{MessageSink, WireWeaverApiBackend, WireWeaverAsyncApiBackend};
+    pub use crate::{
+        BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter,
+        MessageSink, ReplyTo, SendError, WireWeaverApiBackend, WireWeaverAsyncApiBackend,
+    };
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{
@@ -37,11 +45,20 @@ pub mod prelude {
     pub use ww_version::FullVersion;
 }
 
+/// Async server backend, glue between a device event loop (e.g., `ww_device::Server`) and a generated server.
+///
+/// Usually forwards to the generated `process_request_bytes`, directly if it was generated with
+/// `use_async = true`, or through [EventWriter::queued] otherwise.
 pub trait WireWeaverAsyncApiBackend {
-    /// Deserialize request and process it.
+    /// Medium type passed to handlers in [Context], must match `ww_codegen!(.., medium = "..")`, `()` by default.
+    type Medium: Copy;
+
+    /// Deserialize request and process it. Events sent by handlers go to `out`, the reply is serialized into
+    /// `scratch` and returned (empty if there is nothing to send back).
     fn process_bytes<'a>(
         &mut self,
-        sink: &mut impl MessageSink,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: Self::Medium,
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
@@ -50,20 +67,22 @@ pub trait WireWeaverAsyncApiBackend {
     fn version(&self) -> FullVersion<'_>;
 }
 
-/// Same as [WireWeaverAsyncApiBackend], for servers generated with `use_async = false`.
+/// Same as [WireWeaverAsyncApiBackend], for blocking event loops (e.g., `ww_device::blocking::Server`) and servers
+/// generated with `use_async = false`.
 pub trait WireWeaverApiBackend {
-    /// Deserialize request and process it.
+    /// Medium type passed to handlers in [Context], must match `ww_codegen!(.., medium = "..")`, `()` by default.
+    type Medium: Copy;
+
+    /// Deserialize request and process it. Events sent by handlers go to `out`, the reply is serialized into
+    /// `scratch` and returned (empty if there is nothing to send back).
     fn process_bytes<'a>(
         &mut self,
-        sink: &mut impl MessageSink,
+        out: &mut impl BlockingEventOut,
+        medium: Self::Medium,
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError>;
 
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;
-}
-
-pub trait MessageSink {
-    fn send(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>>;
 }

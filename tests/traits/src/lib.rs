@@ -2,7 +2,6 @@
 mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
-    use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
 
     #[derive(Default)]
@@ -21,14 +20,14 @@ mod tests {
         }
 
         impl NoStdSyncServer {
-            fn g1_m1(&mut self, _msg_tx: &mut impl MessageSink) -> RpcResult<()> {
+            fn g1_m1(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 self.data.write().unwrap().subgroup_m1_called = true;
                 Ready(())
             }
 
             fn gpio_set_high(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 index: [UNib32; 1],
             ) -> RpcResult<()> {
                 self.data
@@ -39,12 +38,21 @@ mod tests {
                 Ready(())
             }
 
-            fn set_periph_channel_gain(&mut self, index: [UNib32; 2], gain: f32) -> SetResult<()> {
+            fn set_periph_channel_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index: [UNib32; 2],
+                gain: f32,
+            ) -> SetResult<()> {
                 self.data.write().unwrap().set_gain.insert(index, gain);
                 Set
             }
 
-            fn get_periph_channel_gain(&self, index: [UNib32; 2]) -> GetResult<f32, ()> {
+            fn get_periph_channel_gain(
+                &self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index: [UNib32; 2],
+            ) -> GetResult<f32, ()> {
                 let value = self
                     .data
                     .read()
@@ -58,7 +66,7 @@ mod tests {
 
             fn periph_channel_run(
                 &mut self,
-                _msg_tx: &mut impl MessageSink,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
                 _index: [UNib32; 2],
             ) -> RpcResult<()> {
                 Ready(())
@@ -91,13 +99,16 @@ mod tests {
         }
 
         impl tests_common::TestProcessEvents for NoStdSyncServer {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }

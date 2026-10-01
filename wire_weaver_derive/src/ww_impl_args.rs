@@ -40,6 +40,9 @@ pub(crate) struct ImplExtArgs {
 
     #[darling(default)]
     pub(crate) multi_req: bool,
+
+    #[darling(default)]
+    pub(crate) medium: String,
 }
 
 impl Parse for ApiArgs {

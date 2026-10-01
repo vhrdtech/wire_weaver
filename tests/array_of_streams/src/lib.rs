@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use wire_weaver::MessageSink;
     use wire_weaver::prelude::*;
     use ww_client_server::StreamSideband;
     use ww_client_server::{Event, EventKind};
@@ -11,7 +10,7 @@ mod tests {
     mod api_impl {
         use super::NoStdSyncServer;
         use tests_common::TestProcessEvents;
-        use wire_weaver::MessageSink;
+        use wire_weaver::BlockingEventOut;
 
         wire_weaver::ww_codegen!(
             array_of_streams_api :: ArrayOfStreams for NoStdSyncServer,
@@ -22,13 +21,16 @@ mod tests {
         );
 
         impl TestProcessEvents for NoStdSyncServer {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }
@@ -37,7 +39,7 @@ mod tests {
     impl NoStdSyncServer {
         fn sideband_stream(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -45,7 +47,7 @@ mod tests {
 
         fn sideband_array_of_streams(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
@@ -54,7 +56,7 @@ mod tests {
 
         fn sideband_subgroup_stream(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -62,7 +64,7 @@ mod tests {
 
         fn sideband_subgroup_array_of_streams(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
@@ -71,7 +73,7 @@ mod tests {
 
         fn sideband_gpio_stream(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
@@ -80,7 +82,7 @@ mod tests {
 
         fn sideband_gpio_array_of_streams(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 2],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
@@ -89,7 +91,7 @@ mod tests {
 
         fn sideband_periph_channel_stream(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 2],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
@@ -98,7 +100,7 @@ mod tests {
 
         fn sideband_periph_channel_array_of_streams(
             &mut self,
-            _msg_tx: &mut impl MessageSink,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
             _index_chain: [UNib32; 3],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {

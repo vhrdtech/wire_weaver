@@ -490,9 +490,39 @@ fn handle_property(
         quote! {}
     };
 
+    // devices send property updates as stream data on the property's path
+    let observe_fns = if matches!(
+        access,
+        PropertyAccess::ReadWrite { .. } | PropertyAccess::ReadOnly { .. }
+    ) {
+        let observe = Ident::new(&format!("observe_{}", prop_name), Span::call_site());
+        let observe_blocking = Ident::new(
+            &format!("observe_{}_blocking", prop_name),
+            Span::call_site(),
+        );
+        quote! {
+            /// Property updates sent by the device (with generated `stream_data_ser().<property>_send()`).
+            pub async fn #observe(&self) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd.prepare_stream(path_kind).await
+            }
+
+            /// Property updates sent by the device (with generated `stream_data_ser().<property>_send()`).
+            pub fn #observe_blocking(&self) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd.prepare_stream_blocking(path_kind)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     quote! {
         #write_fns
         #read_fns
+        #observe_fns
     }
 }
 

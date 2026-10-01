@@ -45,13 +45,16 @@ async fn ww_server_task(
 }
 
 impl WireWeaverAsyncApiBackend for ServerState {
+    type Medium = ();
+
     async fn process_bytes<'a>(
         &mut self,
-        msg_tx: &mut impl MessageSink,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: (),
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, msg_tx)
+        self.process_request_bytes(data, scratch, out, medium)
             .await
     }
 
@@ -161,7 +164,7 @@ unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
 impl ServerState {
     async fn port_capabilities(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         Ready(BankCapabilities {
@@ -178,12 +181,12 @@ impl ServerState {
         })
     }
 
-    async fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
+    async fn get_port_reference_voltage(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
         Value(ww_si::quantity!(3.3 V f32))
     }
 
     async fn set_port_reference_voltage(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _quantity: Volt,
     ) -> SetResult<Error> {
@@ -192,7 +195,7 @@ impl ServerState {
 
     async fn port_name(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 1],
     ) -> RpcResult<&'_ str> {
         let name = match index[0].0 {
@@ -214,7 +217,7 @@ impl ServerState {
 
     async fn port_pin_set_output_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
         level: Level,
     ) -> RpcResult<()> {
@@ -232,7 +235,7 @@ impl ServerState {
 
     async fn port_pin_output_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
     ) -> RpcResult<Level> {
         let bank_idx = index[0].0 as usize;
@@ -247,7 +250,7 @@ impl ServerState {
 
     async fn port_pin_toggle(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
     ) -> RpcResult<()> {
         let bank_idx = index[0].0 as usize;
@@ -265,7 +268,7 @@ impl ServerState {
 
     async fn port_pin_input_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
     ) -> RpcResult<Level> {
         let bank_idx = index[0].0 as usize;
@@ -280,7 +283,7 @@ impl ServerState {
 
     async fn sideband_port_pin_event(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 2],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
@@ -289,13 +292,13 @@ impl ServerState {
 
     async fn port_pin_set_mode(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
         mode: Mode,
         initial: Option<Level>,
     ) -> RpcResult<Result<(), Error>> {
         if let Some(initial) = initial {
-            self.port_pin_set_output_level(_msg_tx, index, initial)
+            self.port_pin_set_output_level(_cx, index, initial)
                 .await;
         }
         let bank_idx = index[0].0 as usize;
@@ -325,7 +328,7 @@ impl ServerState {
 
     async fn port_pin_mode(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         index: [UNib32; 2],
     ) -> RpcResult<Mode> {
         let bank_idx = index[0].0 as usize;
@@ -347,7 +350,7 @@ impl ServerState {
         Ready(mode)
     }
 
-    async fn set_port_pin_pull(&mut self, index: [UNib32; 2], pull: Pull) -> SetResult<Error> {
+    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], pull: Pull) -> SetResult<Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = match pull {
@@ -362,7 +365,7 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_pull(&mut self, index: [UNib32; 2]) -> GetResult<Pull, Error> {
+    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Pull, Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
@@ -375,7 +378,7 @@ impl ServerState {
         Value(pull)
     }
 
-    async fn set_port_pin_speed(&mut self, index: [UNib32; 2], speed: Speed) -> SetResult<Error> {
+    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], speed: Speed) -> SetResult<Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = match speed {
@@ -391,7 +394,7 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_speed(&mut self, index: [UNib32; 2]) -> GetResult<Speed, Error> {
+    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Speed, Error> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);
@@ -406,7 +409,7 @@ impl ServerState {
 
     async fn port_pin_configure_events(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), Error>> {

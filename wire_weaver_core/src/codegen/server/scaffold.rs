@@ -24,6 +24,8 @@ pub struct ServerScaffoldConfig {
     pub method_model: String,
     /// Empty means `_=get_set`.
     pub property_model: String,
+    /// Path to the medium type passed to handlers in `wire_weaver::Context`, `()` if None.
+    pub medium: Option<String>,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -52,10 +54,20 @@ pub fn gen_server_scaffold(
 
     let root = &api_bundle.root;
     let crate_name = root.crate_name(api_bundle)?.replace('-', "_");
+    let out_trait = if config.use_async {
+        "EventOut"
+    } else {
+        "BlockingEventOut"
+    };
+    let cx = match &config.medium {
+        Some(medium) => format!("_cx: &mut Context<'_, impl {out_trait}, {medium}>, "),
+        None => format!("_cx: &mut Context<'_, impl {out_trait}>, "),
+    };
     let mut s = Scaffold {
         api_bundle,
         no_alloc: config.no_alloc,
         use_async: config.use_async,
+        cx,
         method_model,
         property_model,
         fields: String::new(),
@@ -64,6 +76,10 @@ pub fn gen_server_scaffold(
     s.level(root, None, "root".into(), 0, "")?;
 
     let server = &config.server_struct;
+    let medium = match &config.medium {
+        Some(medium) => format!("medium = {medium:?},\n"),
+        None => String::new(),
+    };
     let trait_name = &root.trait_name;
     let mut out = String::new();
     writeln!(
@@ -82,7 +98,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         );\n\
+         {medium});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -93,6 +109,8 @@ struct Scaffold<'a> {
     api_bundle: &'a ApiBundleOwned,
     no_alloc: bool,
     use_async: bool,
+    /// `_cx: &mut Context<..>, ` argument every handler takes
+    cx: String,
     method_model: MethodModel,
     property_model: PropertyModel,
     fields: String,
@@ -219,10 +237,11 @@ impl Scaffold<'_> {
         }
         writeln!(
             self.handlers,
-            "{}fn {name}(&mut self, _msg_tx: &mut impl MessageSink, {}{args_def}) -> RpcResult<{return_ty}> {{\n\
+            "{}fn {name}(&mut self, {}{}{args_def}) -> RpcResult<{return_ty}> {{\n\
              Unimplemented.into()\n\
              }}\n",
             self.maybe_async(),
+            self.cx,
             index_chain_arg(index_len),
         )?;
         Ok(())
@@ -248,6 +267,7 @@ impl Scaffold<'_> {
         );
         let is_readable = !matches!(access, PropertyAccess::WriteOnly);
         let idx = index_chain_arg(index_len);
+        let cx = self.cx.clone();
         let maybe_async = self.maybe_async();
         match self
             .property_model
@@ -259,7 +279,7 @@ impl Scaffold<'_> {
                     self.docs(item)?;
                     writeln!(
                         self.handlers,
-                        "{maybe_async}fn set_{name}(&mut self, {idx}_value: {value_ty}) -> SetResult<{err_ty}> {{\n\
+                        "{maybe_async}fn set_{name}(&mut self, {cx}{idx}_value: {value_ty}) -> SetResult<{err_ty}> {{\n\
                          Unimplemented.into()\n\
                          }}\n",
                     )?;
@@ -268,7 +288,7 @@ impl Scaffold<'_> {
                     self.docs(item)?;
                     writeln!(
                         self.handlers,
-                        "{maybe_async}fn get_{name}(&mut self, {idx}) -> GetResult<{value_ty}, {err_ty}> {{\n\
+                        "{maybe_async}fn get_{name}(&mut self, {cx}{idx}) -> GetResult<{value_ty}, {err_ty}> {{\n\
                          Unimplemented.into()\n\
                          }}\n",
                     )?;
@@ -298,7 +318,7 @@ impl Scaffold<'_> {
                     writeln!(
                         self.handlers,
                         "/// Called after `{name}` was changed by a client.\n\
-                         {maybe_async}fn changed_{name}(&mut self, {idx}) {{}}\n",
+                         {maybe_async}fn changed_{name}(&mut self, {cx}{idx}) {{}}\n",
                     )?;
                 }
             }
@@ -315,11 +335,12 @@ impl Scaffold<'_> {
         is_up: bool,
     ) -> Result<()> {
         let idx = index_chain_arg(index_len);
+        let cx = self.cx.clone();
         let maybe_async = self.maybe_async();
         self.docs(item)?;
         writeln!(
             self.handlers,
-            "{maybe_async}fn sideband_{name}(&mut self, _msg_tx: &mut impl MessageSink, {idx}_sideband: ww_client_server::StreamSideband) -> Option<ww_client_server::StreamSideband> {{\n\
+            "{maybe_async}fn sideband_{name}(&mut self, {cx}{idx}_sideband: ww_client_server::StreamSideband) -> Option<ww_client_server::StreamSideband> {{\n\
              // TODO: None sends no reply\n\
              None\n\
              }}\n",
@@ -341,7 +362,7 @@ impl Scaffold<'_> {
             self.docs(item)?;
             writeln!(
                 self.handlers,
-                "{maybe_async}fn write_{name}(&mut self, {idx}{arg}) {{}}\n",
+                "{maybe_async}fn write_{name}(&mut self, {cx}{idx}{arg}) {{}}\n",
             )?;
         }
         Ok(())

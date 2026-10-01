@@ -2177,7 +2177,6 @@ dependencies = [
  "relative-path",
  "ron",
  "semver 1.0.28",
- "sha2",
  "shrink_wrap",
  "syn 3.0.4",
  "wire_weaver_snapshots",

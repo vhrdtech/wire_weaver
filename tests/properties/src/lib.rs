@@ -19,20 +19,34 @@ mod tests {
     /// Same handlers for both servers, they only differ in `multi_req`
     macro_rules! handlers {
         () => {
-            fn set_x(&mut self, value: u8) -> SetResult<()> {
+            fn set_x(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> SetResult<()> {
                 self.data.write().unwrap().x = value;
+                // notify observers, through the handler's context
+                api_impl::stream_data_ser()
+                    .x_send_blocking(&value, _cx)
+                    .unwrap();
                 Set
             }
 
-            fn get_x(&mut self) -> GetResult<u8, ()> {
+            fn get_x(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<u8, ()> {
                 Value(self.data.read().unwrap().x)
             }
 
-            fn changed_y(&mut self) {
+            fn changed_y(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.data.write().unwrap().y_changed += 1;
+                api_impl::stream_data_ser()
+                    .y_send_blocking(&self.y, _cx)
+                    .unwrap();
             }
 
-            fn get_custom(&mut self) -> GetResult<Custom<'_>, ()> {
+            fn get_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Custom<'_>, ()> {
                 Value(Custom {
                     z: 123,
                     inner: RefVec::Slice {
@@ -41,21 +55,36 @@ mod tests {
                 })
             }
 
-            fn set_custom(&mut self, custom: Custom<'_>) -> SetResult<()> {
+            fn set_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                custom: Custom<'_>,
+            ) -> SetResult<()> {
                 let custom = custom.make_owned();
                 self.data.write().unwrap().custom = custom;
                 Set
             }
 
-            fn set_absent(&mut self, _value: u8) -> SetResult<()> {
+            fn set_absent(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _value: u8,
+            ) -> SetResult<()> {
                 Unimplemented.into()
             }
 
-            fn get_absent(&mut self) -> GetResult<u8, ()> {
+            fn get_absent(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<u8, ()> {
                 Unimplemented.into()
             }
 
-            fn set_mode(&mut self, value: u8) -> SetResult<ModeError> {
+            fn set_mode(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> SetResult<ModeError> {
                 if value > 10 {
                     return SetError(ModeError::TooBig);
                 }
@@ -63,7 +92,10 @@ mod tests {
                 Set
             }
 
-            fn get_mode(&mut self) -> GetResult<u8, ModeError> {
+            fn get_mode(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<u8, ModeError> {
                 match self.data.read().unwrap().mode {
                     0 => GetError(ModeError::NotSet),
                     mode => Value(mode),
@@ -77,7 +109,7 @@ mod tests {
         use properties_api::{Custom, Inner};
         use tests_common::TestProcessEvents;
         use wire_weaver::shrink_wrap::RefVec;
-        use wire_weaver::{MessageSink, SetResult, Unimplemented};
+        use wire_weaver::{SetResult, Unimplemented};
 
         pub struct Server {
             pub data: Arc<RwLock<SharedTestData>>,
@@ -100,13 +132,16 @@ mod tests {
         }
 
         impl TestProcessEvents for Server {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }
@@ -116,7 +151,7 @@ mod tests {
         use properties_api::{Custom, Inner};
         use tests_common::TestProcessEvents;
         use wire_weaver::shrink_wrap::RefVec;
-        use wire_weaver::{MessageSink, SetResult, Unimplemented};
+        use wire_weaver::{SetResult, Unimplemented};
 
         pub struct Server {
             pub data: Arc<RwLock<SharedTestData>>,
@@ -137,13 +172,16 @@ mod tests {
         }
 
         impl TestProcessEvents for Server {
+            type Medium = ();
+
             fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl MessageSink,
+                out: &mut impl BlockingEventOut,
+                medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                self.process_request_bytes(bytes, scratch, msg_tx)
+                self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
     }
@@ -284,6 +322,22 @@ mod tests {
         assert_eq!(data.read().unwrap().custom, expected_custom);
     }
 
+    async fn observe(client: &StdClient) {
+        let mut x = client.observe_x().await.unwrap();
+        let mut y = client.observe_y().await.unwrap();
+        client.write_x(5).write().await.unwrap();
+        client.write_x(6).write().await.unwrap();
+        // value_on_changed: notified only on change
+        client.write_y(7).write().await.unwrap();
+        client.write_y(7).write().await.unwrap();
+        // updates are sent before the write is acknowledged
+        assert_eq!(x.try_recv().unwrap(), Some(5));
+        assert_eq!(x.try_recv().unwrap(), Some(6));
+        assert_eq!(x.try_recv().unwrap(), None);
+        assert_eq!(y.try_recv().unwrap(), Some(7));
+        assert_eq!(y.try_recv().unwrap(), None);
+    }
+
     async fn unimplemented(client: &StdClient) {
         let r = client.read_absent().read().await;
         assert!(matches!(
@@ -328,6 +382,7 @@ mod tests {
             absent.unwrap_err().kind,
             ErrorKindOwned::Unimplemented
         ));
+        observe(&client).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -341,6 +396,7 @@ mod tests {
         let r = (client.read_x(), client.read_absent()).multi_read().await;
         println!("multi_read on a server without multi_req: {r:?}");
         assert!(r.is_err(), "server without multi_req must refuse it");
+        observe(&client).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

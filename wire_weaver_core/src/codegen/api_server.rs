@@ -35,6 +35,9 @@ pub struct GenServerConfig {
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
+    /// Path to a user type (usually an enum), telling handlers which medium (USB, CAN, ...) a request came from,
+    /// see `wire_weaver::Context::medium()`. `()` if None.
+    pub medium: Option<String>,
 }
 
 pub enum IntrospectMode {
@@ -63,6 +66,9 @@ pub struct GenServerConfigRaw {
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
+    /// Path to a user type (usually an enum), telling handlers which medium (USB, CAN, ...) a request came from,
+    /// see `wire_weaver::Context::medium()`. `()` if None.
+    pub medium: Option<Path>,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -75,6 +81,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             server_struct_path: super::util::str_to_path(&config.server_struct_path),
             introspect_mode: config.introspect_mode,
             multi_req: config.multi_req,
+            medium: config.medium.as_deref().map(super::util::str_to_path),
         }
     }
 }
@@ -104,13 +111,23 @@ pub fn gen_server(
         &config.method_model,
         &mut error_seq,
     );
+    let out_trait = if config.use_async {
+        quote! { wire_weaver::EventOut }
+    } else {
+        quote! { wire_weaver::BlockingEventOut }
+    };
     let crate_name = api_level.crate_name(api_bundle).unwrap();
+    let medium_ty = match &config.medium {
+        Some(path) => quote! { #path },
+        None => quote! { () },
+    };
     let cx = ApiServerCGContext {
         ident_prefix: None,
         no_alloc: config.no_alloc,
         use_async: config.use_async,
         property_model: &config.property_model,
         multi_req: config.multi_req,
+        medium_ty: medium_ty.clone(),
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -204,14 +221,17 @@ pub fn gen_server(
         impl #server_struct_path {
             /// Returns an Error only if request deserialization or error serialization failed.
             /// If there are any other errors, they are sent to the remote.
+            /// Events sent by handlers through their `wire_weaver::Context` go to `out`, `medium` is passed to them as is.
             pub #maybe_async fn process_request_bytes<'a>(
                 &mut self,
                 bytes: &[u8],
                 scratch: &'a mut [u8],
-                msg_tx: &mut impl wire_weaver::MessageSink,
+                out: &mut impl #out_trait,
+                medium: #medium_ty,
             ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd)?;
+                let mut cx = wire_weaver::Context::new(request.seq.0, medium, out);
 
                 let mut wr = BufWriter::new(scratch);
                 let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
@@ -244,7 +264,7 @@ pub fn gen_server(
                 match &request.kind {
                     #maybe_multi_req
                     _ => {
-                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap msg_tx)#maybe_await {
+                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap &mut cx)#maybe_await {
                             Ok(WrAction::WrittenOk(event_kind_builder)) => {
                                 if request.seq.0 == 0 {
                                     return Ok(&[])
@@ -313,7 +333,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                     kind: RequestKind::Read
                 };
                 match self
-                    .process_root(path, &mut iter, &request, &mut wr, true, msg_tx)
+                    .process_root(path, &mut iter, &request, &mut wr, true, &mut cx)
                     #maybe_await
                 {
                     Ok(WrAction::WrittenOk(_)) => {
@@ -351,6 +371,8 @@ struct ApiServerCGContext<'i> {
     use_async: bool,
     property_model: &'i PropertyModel,
     multi_req: bool,
+    /// User medium type or `()`
+    medium_ty: TokenStream,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -392,6 +414,7 @@ fn process_request_inner_recursive(
     );
     let es = error_seq.next();
     let maybe_use_read = maybe_quote_cl(cx.multi_req, || quote! { use_write: bool, });
+    let context_ty = cx.context_ty();
     let mut ts = quote! {
         #maybe_async fn #process_fn_name<'a>(
             &mut self,
@@ -401,7 +424,7 @@ fn process_request_inner_recursive(
             request: &Request<'_>,
             wr: &mut BufWriter<'_>,
             #maybe_use_read
-            msg_tx: &mut impl wire_weaver::MessageSink,
+            cx: &mut #context_ty,
         ) -> Result<WrAction, Error<'a>> {
             match path_iter.next().copied() {
                 #level_matchers
@@ -582,13 +605,23 @@ fn level_matcher(
             let maybe_index_chain_arg = index_chain.fun_argument_call();
             let maybe_use_write = maybe_quote_cl(cx.multi_req, || quote! { use_write, });
             quote! {
-                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_use_write msg_tx)#maybe_await?)
+                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_use_write cx)#maybe_await?)
             }
         }
     }
 }
 
 impl ApiServerCGContext<'_> {
+    /// Type of the `cx` argument passed down to every process_* fn and user handler.
+    fn context_ty(&self) -> TokenStream {
+        let medium_ty = &self.medium_ty;
+        if self.use_async {
+            quote! { wire_weaver::Context<'_, impl wire_weaver::EventOut, #medium_ty> }
+        } else {
+            quote! { wire_weaver::Context<'_, impl wire_weaver::BlockingEventOut, #medium_ty> }
+        }
+    }
+
     fn prepare_event_kind_builder(&self) -> TokenStream {
         if self.multi_req {
             quote! {
@@ -643,7 +676,7 @@ fn handle_method(
         match &request.kind {
             RequestKind::Call { #maybe_args } => {
                 #args_des
-                match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
+                match self.#ident(cx, #maybe_index_chain_arg #args_list)#maybe_await {
                     RpcResult::Ready(output) => {
                         #ev_kind_builder
                         if request.seq.0 != 0 {
@@ -721,7 +754,7 @@ fn handle_property(
                     quote! {
                         let mut rd = BufReader::new(data.as_slice());
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
-                        match self.#set_property(#maybe_index_chain_arg value)#maybe_await {
+                        match self.#set_property(cx, #maybe_index_chain_arg value)#maybe_await {
                             SetResult::Set => {
                                 #ev_kind_builder
                                 Ok(WrAction::WrittenOk(event_kind_builder))
@@ -751,7 +784,7 @@ fn handle_property(
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         if self.#prefixed_ident #maybe_index_chain_indices != value {
                             self.#prefixed_ident #maybe_index_chain_indices = value;
-                            self.#changed_property(#maybe_index_chain_arg)#maybe_await;
+                            self.#changed_property(cx, #maybe_index_chain_arg)#maybe_await;
                         }
                         Ok(WrAction::WrittenOk(event_kind_builder))
                     }
@@ -783,7 +816,7 @@ fn handle_property(
                         Span::call_site(),
                     );
                     quote! {
-                        match self.#get_property(#maybe_index_chain_arg)#maybe_await {
+                        match self.#get_property(cx, #maybe_index_chain_arg)#maybe_await {
                             GetResult::Value(value) => {
                                 #ev_kind_builder
                                 let value: #enforce_ty = value;
@@ -849,7 +882,7 @@ fn handle_stream(
     let ev_kind_builder = cx.prepare_event_kind_builder();
     let handle_sideband = quote! {
         // user fn returns Option<StreamSideband>
-        let r = self.#sideband_fn(msg_tx, #maybe_index_chain_call *sideband)#maybe_await;
+        let r = self.#sideband_fn(cx, #maybe_index_chain_call *sideband)#maybe_await;
         match r {
             Some(sideband) => {
                 #ev_kind_builder
@@ -905,7 +938,7 @@ fn handle_stream(
         quote! {
             RequestKind::Write { data } => {
                 #des_data
-                self.#write(#maybe_index_chain_call #arg)#maybe_await;
+                self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
                 #ev_kind_builder
                 Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
             }
@@ -1049,9 +1082,42 @@ fn deferred_method_return_ser_methods(
             }
             None => quote! {},
         };
+        let ser_output = maybe_quote(
+            return_ty.is_some(),
+            quote! { output.ser_shrink_wrap(&mut wr)?; },
+        );
+        let ser_event = quote! {
+            |scratch: &mut [u8]| -> Result<usize, ShrinkWrapError> {
+                let mut wr = BufWriter::new(scratch);
+                let event_builder = EventBuilder::new(seq, &mut wr)?;
+                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+                #ser_output
+                event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, &mut wr);
+                event_builder.finish(true, &mut wr);
+                Ok(wr.finish()?.len())
+            }
+        };
+        let send_fn_name = Ident::new(
+            format!("{}_send_return", item.ident).as_str(),
+            Span::call_site(),
+        );
+        let send_blocking_fn_name = Ident::new(
+            format!("{}_send_return_blocking", item.ident).as_str(),
+            Span::call_site(),
+        );
         ts.extend(quote! {
             pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<#byte_return_ty, Error<'static>> {
                 #ser_output_or_unit
+            }
+
+            /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
+            pub async fn #send_fn_name<'i>(out: &mut impl wire_weaver::EventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
+                wire_weaver::EventOut::send_with(out, #ser_event).await
+            }
+
+            /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
+            pub fn #send_blocking_fn_name<'i>(out: &mut impl wire_weaver::BlockingEventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
+                wire_weaver::BlockingEventOut::send_with_blocking(out, #ser_event)
             }
         });
     }

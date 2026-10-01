@@ -12,7 +12,7 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, Error as ShrinkWrapError, SerializeShrinkWrap, UVlq32,
 };
-use wire_weaver::{MessageSink, WireWeaverApiBackend};
+use wire_weaver::{BlockingEventOut, WireWeaverApiBackend};
 use ww_client_server::{ErrorKind, Event, EventKind};
 use ww_link::{
     ApiHashPair, CompactVersion, DisconnectReason, FullVersion, Kind, LinkSetup, Message,
@@ -344,12 +344,16 @@ fn loopback() {
 }
 
 /// Echoes request args back as a Value event, fails on requests starting with 0xFF after seq.
+/// Requests starting with 0xEE first send an event with seq 0 and the medium as data through the handler's `out`.
 struct EchoBackend;
 
 impl WireWeaverApiBackend for EchoBackend {
+    type Medium = u8;
+
     fn process_bytes<'a>(
         &mut self,
-        _sink: &mut impl MessageSink,
+        out: &mut impl BlockingEventOut,
+        medium: u8,
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError> {
@@ -358,6 +362,15 @@ impl WireWeaverApiBackend for EchoBackend {
         let data = &data[data.len() - rd.bytes_left()..];
         if data.first() == Some(&0xFF) {
             return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+        }
+        if data.first() == Some(&0xEE) {
+            let event = Event {
+                seq: UVlq32(0),
+                result: Ok(EventKind::Value {
+                    data: TailBytes(&[medium]),
+                }),
+            };
+            out.send_event_blocking(&event).unwrap();
         }
         Event {
             seq,
@@ -434,6 +447,7 @@ fn blocking_server() {
     let mut tx_frame = [0u8; PACKET];
     let mut rx = crate::RxBuffer::<PACKET, 128>::new();
     let mut scratch = [0u8; 128];
+    let mut event_scratch = [0u8; 128];
     let mut sent = Packets::default();
     let mut host = Host {
         tx_buf: [0; 16],
@@ -448,7 +462,9 @@ fn blocking_server() {
             &mut tx_frame,
             rx.assembly_buf(PACKET),
             &mut scratch,
-        );
+            &mut event_scratch,
+        )
+        .with_medium(7u8);
         assert_eq!(server.link().max_message_len(), 128);
         server.on_transport_up(now);
         let host_version = FullVersion::new("test_api", Version::new(0, 3, 0));
@@ -478,6 +494,11 @@ fn blocking_server() {
                 channel: 0,
                 bytes: &[3, 0xFF],
             },
+            // handler sends an event before replying
+            Message::Data {
+                channel: 0,
+                bytes: &[4, 0xEE],
+            },
         ]) {
             server.on_packet(now, &p, &mut backend);
         }
@@ -487,16 +508,13 @@ fn blocking_server() {
         server.poll(now);
 
         // stream update from the main loop
-        let (mut sink, scratch) = server.sink(now);
         let update = Event {
             seq: UVlq32(0),
             result: Ok(EventKind::Value {
                 data: TailBytes(&[0x55]),
             }),
-        }
-        .to_ww_bytes(scratch)
-        .unwrap();
-        sink.send_message(update).unwrap();
+        };
+        server.sink(now).send_event_blocking(&update).unwrap();
         now = now + ACC;
         server.poll(now);
 
@@ -515,10 +533,12 @@ fn blocking_server() {
             Kind::Data0,
             Kind::Data0,
             Kind::Data0,
+            Kind::Data0,
+            Kind::Data0,
             Kind::Disconnect
         ]
     );
-    let events: Vec<Event<'_>> = received[3..7]
+    let events: Vec<Event<'_>> = received[3..9]
         .iter()
         .map(|(_, bytes)| Event::from_ww_bytes(bytes).unwrap())
         .collect();
@@ -535,7 +555,14 @@ fn blocking_server() {
         &events[2].result,
         Err(e) if std::format!("{e:?}").contains("ResponseSerFailed")
     ));
-    assert_eq!(events[3].seq, UVlq32(0));
+    assert_eq!(events[3].seq, UVlq32(0), "event from the handler");
+    assert!(
+        matches!(&events[3].result, Ok(EventKind::Value { data }) if data.0 == [7]),
+        "handler sees the medium"
+    );
+    assert_eq!(events[4].seq, UVlq32(4));
+    assert!(matches!(&events[4].result, Ok(EventKind::Value { data }) if data.0 == [0xEE]));
+    assert_eq!(events[5].seq, UVlq32(0), "event from the main loop");
     let _ = ErrorKind::ResponseSerFailed;
 }
 

@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+- Every generated server handler takes `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` as the first argument
+  after `&mut self` (`BlockingEventOut` for `use_async = false`): methods and `sideband_*` instead of
+  `msg_tx: &mut impl MessageSink`, and newly `get_*`, `set_*`, `changed_*` and `write_*`. `valid_indices_*` don't.
+  Run `ww api scaffold` to see the expected signatures.
+- Generated `process_request_bytes(bytes, scratch, out, medium)` takes `out: &mut impl EventOut` (or
+  `BlockingEventOut`) and the medium instead of `msg_tx`.
+- `GenServerConfig` and `GenServerConfigRaw` have a `medium` field, `ServerScaffoldConfig` too.
 - Generated client `write_<property>` returns `PreparedWrite<UserError>` (`PreparedWrite<()>` without one) instead of
   `PreparedWrite<Result<(), UserError>>`, see `wire_weaver_client` changelog.
 
@@ -22,6 +29,14 @@
 
 ### 🚀 Features
 
+- `medium` server codegen option: type (usually an enum) handlers get from `cx.medium()`, `()` if not set.
+- `stream_data_ser()` has `<name>_send(.., out)` and `<name>_send_blocking(.., out)` for every stream, sending through a
+  handler's `cx` or `server.sink()`, and the same serializers for `ro` / `rw` properties: property updates are sent
+  as stream data on the property's path. Generated clients get `observe_<property>()` /
+  `observe_<property>_blocking()` returning a `Stream` of them.
+- Deferred methods get `<method>_send_return(out, seq, ..)` and `<method>_send_return_blocking(..)`, serializing the
+  reply in one pass, `seq` from `cx.reply_to()` of the deferred call.
+- Introspection works for `use_async = false` servers as well (sent through `cx`).
 - `load_crate()` loads all `#[ww_trait]`/`#[ww_api_root]` traits and `#[derive_shrink_wrap]` types defined in a crate
   into an `ApiBundleOwned`, with traits and types from other crates replaced by `SkippedFullVersion` references
   carrying the signature of the left out definition. Types re-exported from the crate's modules with `pub use` are

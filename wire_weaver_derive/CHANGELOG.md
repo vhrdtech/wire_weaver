@@ -7,6 +7,8 @@
 
 ### 🚀 Features
 
+- `medium = "path::to::Medium"` argument of `ww_codegen!`, the type handlers get from `cx.medium()`, see
+  `wire_weaver_core` changelog for the handler context.
 - `#[ww_api_root]` to mark the API entry point, `#[ww_trait(gid)]` to give a trait a global id.
 - `compact_version!()` creates a `CompactVersion` at compile time.
 - `#[ww_trait]` is fully parsed at the call site, so errors show up earlier.

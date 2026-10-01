@@ -4,7 +4,6 @@
 extern crate panic_semihosting;
 
 use core::fmt::Write;
-use core::future::Future;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
@@ -17,6 +16,7 @@ fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
 
     let mut scratch = [0u8; 512];
+    let mut event_scratch = [0u8; 512];
     let mut server = ServerState {};
 
     let r = api_server::stream_data_ser()
@@ -26,7 +26,8 @@ fn main() -> ! {
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
-    let r = server.process_request_bytes(&event, &mut scratch, &mut DummyTx {});
+    let mut out = EventWriter::new(DummyTx, &mut event_scratch);
+    let r = server.process_request_bytes(&event, &mut scratch, &mut out, ());
     writeln!(stdout, "{r:?}").unwrap();
 
     // exit QEMU
@@ -36,9 +37,9 @@ fn main() -> ! {
 }
 
 struct DummyTx;
-impl wire_weaver::MessageSink for DummyTx {
-    fn send(&mut self, _message: &[u8]) -> impl Future<Output = Result<(), ()>> {
-        core::future::ready(Ok(()))
+impl wire_weaver::BlockingMessageSink for DummyTx {
+    fn send(&mut self, _message: &[u8]) -> Result<(), ()> {
+        Ok(())
     }
 }
 
@@ -47,7 +48,7 @@ pub struct ServerState {}
 impl ServerState {
     fn port_capabilities(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         let cap = BankCapabilities {
@@ -65,12 +66,12 @@ impl ServerState {
         Ready(cap)
     }
 
-    fn get_port_reference_voltage(&mut self, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
+    fn get_port_reference_voltage(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
         Value(ww_si::quantity!(3.3 V f32))
     }
 
     fn set_port_reference_voltage(
-        &mut self,
+        &mut self, _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
         _quantity: Volt,
     ) -> SetResult<Error> {
@@ -79,7 +80,7 @@ impl ServerState {
 
     fn port_name(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
     ) -> RpcResult<&'_ str> {
         ww_unimplemented!()
@@ -87,7 +88,7 @@ impl ServerState {
 
     fn port_pin_set_output_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
         _level: Level,
     ) -> RpcResult<()> {
@@ -96,7 +97,7 @@ impl ServerState {
 
     fn port_pin_output_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
     ) -> RpcResult<Level> {
         ww_unimplemented!()
@@ -104,7 +105,7 @@ impl ServerState {
 
     fn port_pin_toggle(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
     ) -> RpcResult<()> {
         ww_unimplemented!()
@@ -112,7 +113,7 @@ impl ServerState {
 
     fn port_pin_input_level(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
     ) -> RpcResult<Level> {
         ww_unimplemented!()
@@ -120,7 +121,7 @@ impl ServerState {
 
     fn sideband_port_pin_event(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
@@ -129,7 +130,7 @@ impl ServerState {
 
     fn port_pin_set_mode(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
         _mode: Mode,
         _initial: Option<Level>,
@@ -139,31 +140,31 @@ impl ServerState {
 
     fn port_pin_mode(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
     ) -> RpcResult<Mode> {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_pull(&mut self, _index: [UNib32; 2], _pull: Pull) -> SetResult<Error> {
+    fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _pull: Pull) -> SetResult<Error> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_pull(&mut self, _index: [UNib32; 2]) -> GetResult<Pull, Error> {
+    fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Pull, Error> {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_speed(&mut self, _index: [UNib32; 2], _speed: Speed) -> SetResult<Error> {
+    fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _speed: Speed) -> SetResult<Error> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_speed(&mut self, _index: [UNib32; 2]) -> GetResult<Speed, Error> {
+    fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Speed, Error> {
         ww_unimplemented!()
     }
 
     fn port_pin_configure_events(
         &mut self,
-        _msg_tx: &mut impl MessageSink,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), Error>> {

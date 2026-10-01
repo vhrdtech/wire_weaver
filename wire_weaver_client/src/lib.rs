@@ -39,6 +39,9 @@ mod rtt;
 #[cfg(feature = "in_process")]
 pub mod in_process;
 
+#[cfg(feature = "ws")]
+mod ws;
+
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
 /// Maximum ww_client_server message this host can receive; advertised to a device during link setup

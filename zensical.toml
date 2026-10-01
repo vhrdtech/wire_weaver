@@ -57,7 +57,8 @@ nav = [
             "transport/ww_framer.md",
             "transport/ww_link.md",
             "transport/usb.md",
-            "transport/rtt.md"
+            "transport/rtt.md",
+            "transport/websocket.md"
         ]
     },
     {

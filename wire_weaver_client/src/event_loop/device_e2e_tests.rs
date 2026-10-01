@@ -26,7 +26,7 @@ use crate::event_loop::stream::{self, BlockingStreamIo, StreamConfig, StreamRx, 
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
 
 const PACKET: usize = 64;
-const DEV_MAX_MESSAGE: usize = 1024;
+pub(crate) const DEV_MAX_MESSAGE: usize = 1024;
 
 type Packet = Vec<u8>;
 type TxFramer = ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
@@ -180,7 +180,7 @@ async fn device(
     .await
 }
 
-async fn serve(
+pub(crate) async fn serve(
     tx: impl ww_device::MessageTx,
     rx: impl ww_device::MessageRx,
     events_tx: mpsc::UnboundedSender<LinkEvent>,
@@ -396,7 +396,7 @@ async fn host_and_device_talk_over_stream() {
     talk(start_stream()).await
 }
 
-async fn talk(
+pub(crate) async fn talk(
     (cmd_tx, mut events_rx, dev, host): (
         mpsc::Sender<Command>,
         mpsc::UnboundedReceiver<LinkEvent>,

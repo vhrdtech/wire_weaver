@@ -7,6 +7,12 @@
   dropped.
 - Generated clients have `observe_<property>()` / `observe_<property>_blocking()` for `ro` and `rw` properties: a
   `Stream` of property updates the device sends as stream data on the property's path.
+- WebSocket transport (`ws` feature, replaces the outdated `wire_weaver_net_host` crate):
+  `ClientConfig::websocket_url("ws://host:port/path")` connects through the regular `PreparedConnection` flow (link
+  setup, version check, introspection, timeouts, streams), same as USB or RTT. Each `ww_link` message is one binary
+  WebSocket message, `[kind: u8][payload ..]`, without `ww_framer`; messages are buffered until the event loop flushes
+  and Nagle is off. Only plain `ws://` for now, no `wss://` and no discovery. Selecting WebSocket without the
+  feature fails with an explicit error.
 - In-process transport (`in_process` feature): a device running in the same process (simulators, tests) registers
   a path with `in_process::device(path, max_message_len)` and serves `ww_device::Server` with the returned
   `DeviceTx` / `DeviceRx`, the host connects with `ClientConfig::in_process_path(..)` through the regular
@@ -84,6 +90,9 @@
 - `Stream::recv_all_bytes_timeout()`/`recv_all_bytes_timeout_blocking()` fail if no event arrives within the timeout.
 
 ### ⚠️ Breaking
+
+- `ClientConfig::websocket_addr(addr, port, path)` is replaced by `ClientConfig::websocket_url(url)`, which also
+  takes host names. The unused `net` feature is removed, use `ws`.
 
 - `PreparedWrite::write_promise` returns `Promise<()>` instead of `Promise<E>`. `PreparedWrite<E>`'s `E` is now the
   property's user error type (`()` if it has none) instead of `Result<(), E>`, generated `write_*` functions changed

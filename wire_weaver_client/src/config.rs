@@ -102,13 +102,10 @@ pub(crate) enum ConfigPiece {
     /// `.usb_vid_pid(1, 2).no_ww_usb().can()` will try to connect over CAN Bus using USB-CAN bridge
     NoWwUsb,
 
-    /// Connect to a networked device via WebSocket
-    WebSocketAddr {
-        addr: IpAddr,
-        port: u16,
-        path: String,
-    },
-    /// Connect to a network device via WebSocket, other filter pieces are required to select which one.
+    /// Connect to a networked device via WebSocket, `ws://host:port/path`.
+    WebSocketUrl { url: String },
+    /// Consider WebSocket as a connection interface, [WebSocketUrl](Self::WebSocketUrl) is required to select a device
+    /// (there is no discovery yet).
     WebSocket,
     /// Negate previous WebSocket related filters or exclude WebSocket from the interfaces to try.
     NoWebSocket,
@@ -277,11 +274,14 @@ impl ClientConfig {
         f
     }
 
-    /// Select WebSocket device by IP:PORT/PATH
-    pub fn websocket_addr(self, addr: IpAddr, port: u16, path: String) -> Self {
+    /// Connect over WebSocket (requires the `ws` feature), e.g., `ws://192.168.1.10:8080/ww` or
+    /// `ws://my-device.local/ww`. Only plain `ws://` is supported, not `wss://`.
+    ///
+    /// Device filters (serial, label, etc.) are not checked, the device is not known before connecting. Device API is
+    /// checked during link setup anyway.
+    pub fn websocket_url(self, url: impl Into<String>) -> Self {
         let mut f = self;
-        f.pieces
-            .push(ConfigPiece::WebSocketAddr { addr, port, path });
+        f.pieces.push(ConfigPiece::WebSocketUrl { url: url.into() });
         f
     }
 
@@ -554,6 +554,7 @@ impl ValidatedConfig {
                         api_gid,
                         version_req,
                     } => format!("API = {api_gid} {version_req}"),
+                    ConfigPiece::WebSocketUrl { url } => format!("WebSocket URL = {url}"),
                     _ => return None,
                 })
             })
@@ -582,7 +583,7 @@ impl ValidatedConfig {
     pub(crate) fn is_websocket(&self) -> bool {
         self.is_opted_in(
             &[
-                ConfigPieceDiscriminants::WebSocketAddr,
+                ConfigPieceDiscriminants::WebSocketUrl,
                 ConfigPieceDiscriminants::WebSocket,
             ],
             ConfigPieceDiscriminants::NoWebSocket,

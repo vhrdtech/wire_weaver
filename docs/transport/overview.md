@@ -4,7 +4,7 @@ Several transport protocols are supported:
 
 * USB (nusb on host side, embassy on embedded, no drivers needed on Windows/Mac/Linux)
 * RTT over a debug probe (rtt-target on embedded, probe-rs on host side), see [RTT](rtt.md)
-* WebSocket (for reliable control access)
+* WebSocket (host side, for devices on a network), see [WebSocket](websocket.md)
 * UDP (for telemetry)
 * TODO: CAN Bus (using CANOpen)
 

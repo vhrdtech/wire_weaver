@@ -40,6 +40,18 @@ pub type RttChecksum = NopChecksum;
 /// No delimiter, see [RttChecksum].
 pub type RttTail = NopTail;
 
+// Framer configuration for UDP: one frame per datagram
+/// Datagrams keep their boundaries, so messages are packed and split as over USB.
+pub type UdpHead = U2Head;
+/// UDP checksums each datagram, but datagrams get lost or reordered: split messages are protected with CRC-16,
+/// so that a message assembled from the wrong pieces is dropped.
+pub type UdpChecksum = CrcChecksum<Crc16IbmSdlc>;
+/// Datagrams do not need a delimiter.
+pub type UdpTail = NopTail;
+/// Largest datagram payload the host sends: 1500 B Ethernet MTU - 40 B IPv6 header - 8 B UDP header, so that
+/// datagrams are not fragmented over IPv4 or IPv6. A device must be able to receive datagrams of this size.
+pub const UDP_MAX_DATAGRAM_LEN: usize = 1452;
+
 /// Version of this crate, sent in [DeviceInfo::dev_link_version].
 pub const LINK_VERSION: CompactVersion = CompactVersion::new(
     ww_global::WIRE_WEAVER_USB_LINK,

@@ -1,4 +1,4 @@
-use std::{net::IpAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Result, bail};
 use semver::VersionReq;
@@ -110,11 +110,12 @@ pub(crate) enum ConfigPiece {
     /// Negate previous WebSocket related filters or exclude WebSocket from the interfaces to try.
     NoWebSocket,
 
-    /// Connect to a networked device via UDP
-    UdpAddr { addr: IpAddr, port: u16 },
-    /// Connect to a network device via UDP, other filter pieces are required to select which one.
+    /// Connect to a networked device via UDP, `host:port`.
+    UdpAddr { addr: String },
+    /// Consider UDP as a connection interface, [UdpAddr](Self::UdpAddr) is required to select a device
+    /// (there is no discovery yet).
     Udp,
-    /// Negate previous UDP related filters or exclude WebSocket from the interfaces to try.
+    /// Negate previous UDP related filters or exclude UDP from the interfaces to try.
     NoUdp,
 
     /// Connect to a device running in another process via IPC interface (iceoryx2).
@@ -299,10 +300,14 @@ impl ClientConfig {
         f
     }
 
-    /// Select UDP device by IP:PORT
-    pub fn udp_addr(self, addr: IpAddr, port: u16) -> Self {
+    /// Connect over UDP (requires the `udp` feature), e.g., `192.168.1.10:9000`, `[fe80::1%2]:9000` or
+    /// `my-device.local:9000`. The name is resolved when connecting, the first address is used.
+    ///
+    /// UDP is unreliable: a lost request times out, a lost stream event is gone. Device filters (serial, label, etc.)
+    /// are not checked, the device is not known before connecting. Device API is checked during link setup anyway.
+    pub fn udp_addr(self, addr: impl Into<String>) -> Self {
         let mut f = self;
-        f.pieces.push(ConfigPiece::UdpAddr { addr, port });
+        f.pieces.push(ConfigPiece::UdpAddr { addr: addr.into() });
         f
     }
 
@@ -555,6 +560,7 @@ impl ValidatedConfig {
                         version_req,
                     } => format!("API = {api_gid} {version_req}"),
                     ConfigPiece::WebSocketUrl { url } => format!("WebSocket URL = {url}"),
+                    ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
                     _ => return None,
                 })
             })

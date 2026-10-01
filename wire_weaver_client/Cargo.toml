@@ -14,6 +14,7 @@ ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
 ] # WebSocket (using tokio-tungstenite)
+udp = ["tokio/net"] # UDP, one ww_framer frame per datagram
 can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
 rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
 i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux

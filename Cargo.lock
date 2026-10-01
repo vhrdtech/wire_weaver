@@ -3649,16 +3649,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wire_weaver_udp_link"
-version = "0.5.0"
-dependencies = [
- "defmt",
- "strum_macros 0.28.0",
- "wire_weaver",
- "ww_version",
-]
-
-[[package]]
 name = "ww_board_info"
 version = "0.1.0"
 dependencies = [

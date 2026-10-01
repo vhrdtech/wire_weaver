@@ -85,6 +85,19 @@ impl<T: WwClient> PreparedConnection<T> {
                     Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
+            if iface_kind == InterfaceKind::Udp {
+                match try_select_udp(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info = try_connect(&cmd_tx, handle, &config)
+                            .await
+                            .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(
+                            create_commander(config, cmd_tx, device_api_info).await,
+                        ));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
         }
 
         Err(not_found(&config, unmatched))
@@ -154,6 +167,20 @@ impl<T: WwClient> PreparedConnection<T> {
                     Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
+            if iface_kind == InterfaceKind::Udp {
+                match try_select_udp(&config, &mut cmd_rx)? {
+                    Selected::Device { handle, info } => {
+                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                            .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(create_commander_blocking(
+                            config,
+                            cmd_tx,
+                            device_api_info,
+                        )));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
         }
 
         Err(not_found(&config, unmatched))
@@ -200,6 +227,21 @@ fn try_select_ws(
         _ = (config, cmd_rx);
         Err(anyhow::anyhow!(
             "WebSocket selected in the client config, but wire_weaver_client is built without the `ws` feature"
+        ))
+    }
+}
+
+fn try_select_udp(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "udp")]
+    return crate::udp::try_connect(config, cmd_rx);
+    #[cfg(not(feature = "udp"))]
+    {
+        _ = (config, cmd_rx);
+        Err(anyhow::anyhow!(
+            "UDP selected in the client config, but wire_weaver_client is built without the `udp` feature"
         ))
     }
 }

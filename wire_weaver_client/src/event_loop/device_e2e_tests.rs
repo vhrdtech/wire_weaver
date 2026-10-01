@@ -210,7 +210,7 @@ pub(crate) async fn serve(
     }
 }
 
-async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32)) -> ConnectionInfo {
+pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32)) -> ConnectionInfo {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
         .send(Command::Connect {

@@ -13,6 +13,12 @@
   WebSocket message, `[kind: u8][payload ..]`, without `ww_framer`; messages are buffered until the event loop flushes
   and Nagle is off. Only plain `ws://` for now, no `wss://` and no discovery. Selecting WebSocket without the
   feature fails with an explicit error.
+- UDP transport (`udp` feature, replaces the outdated `wire_weaver_udp_link` crate): `ClientConfig::udp_addr("host:port")`
+  connects through the regular `PreparedConnection` flow, same as USB or WebSocket. One `ww_framer` frame per
+  datagram with `ww_link`'s UDP framer configuration, at most `ww_link::UDP_MAX_DATAGRAM_LEN` (1452 B) sent, any size
+  received. Nothing is retransmitted: lost requests time out, lost stream events are gone. If nothing listens on the
+  device port, connecting fails right away. No discovery. Selecting UDP without the feature fails with an explicit
+  error.
 - In-process transport (`in_process` feature): a device running in the same process (simulators, tests) registers
   a path with `in_process::device(path, max_message_len)` and serves `ww_device::Server` with the returned
   `DeviceTx` / `DeviceRx`, the host connects with `ClientConfig::in_process_path(..)` through the regular
@@ -93,6 +99,8 @@
 
 - `ClientConfig::websocket_addr(addr, port, path)` is replaced by `ClientConfig::websocket_url(url)`, which also
   takes host names. The unused `net` feature is removed, use `ws`.
+- `ClientConfig::udp_addr(addr, port)` takes a single `"host:port"` string now (host names are resolved when
+  connecting), e.g., `udp_addr(format!("{ip}:{port}"))`.
 
 - `PreparedWrite::write_promise` returns `Promise<()>` instead of `Promise<E>`. `PreparedWrite<E>`'s `E` is now the
   property's user error type (`()` if it has none) instead of `Result<(), E>`, generated `write_*` functions changed

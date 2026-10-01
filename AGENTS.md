@@ -77,8 +77,8 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **Transport crates** — `ww_link` (link-layer abstraction), `ww_framer` (packs many small messages into one
   packet, or splits a big message across several — used by both USB and UDP transports), `ww_device` (device side:
   sans-IO `DeviceLink` + async `Server` with `wait()`/`handle()` for a user-owned event loop + `blocking::Server`),
-  `wire_weaver_udp_link`, `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
-  lives in the separate `mcu` workspace). Host-side transports (USB, RTT, WebSocket, in-process) live in
+  `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
+  lives in the separate `mcu` workspace). Host-side transports (USB, RTT, WebSocket, UDP, in-process) live in
   `wire_weaver_client` behind features, each a `Transport` impl (`event_loop/transport.rs`) driven by the shared
   event loop core.
 - **`wire_weaver_cli/`** (package `wire_weaver_cli`, binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with

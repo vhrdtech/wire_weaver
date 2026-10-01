@@ -55,6 +55,7 @@ type UsbRx<'a> = ww_framer::FramedRx<'a, UsbHead, UsbChecksum, UsbTail>;
 This is what USB uses (`TxOwned`/`FramedRxOwned` variants with the `std` feature of `ww_framer`). A medium with its own integrity check might drop the checksum,
 a stream medium would add a tail for synchronization, and so on — the link messages stay the same. [RTT](rtt.md)
 uses `RttHead` / `RttChecksum` / `RttTail`: the same head, no checksum and no tail, as its ring buffers cannot corrupt bytes.
+[UDP](udp.md) uses `UdpHead` / `UdpChecksum` / `UdpTail`, the same as USB, one frame per datagram.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.
 
@@ -296,4 +297,4 @@ the head; actual limits are negotiated via `dev_max_message_len` / `host_max_mes
   receiving is never blocked by a write.
 - `ww_device` — device side: sans-IO `DeviceLink`, async and blocking servers, see [above](#how-the-device-runs-it).
 - `wire_weaver_usb_embassy` — USB class and packet IO for embassy-usb on top of `ww_device`.
-- [USB](usb.md), WebSocket, UDP — transports that carry frames.
+- [USB](usb.md), [WebSocket](websocket.md), [UDP](udp.md) — transports that carry frames.

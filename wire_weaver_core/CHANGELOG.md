@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- Generated servers follow `ww_client_server`'s seq change: `Request::seq` is `UVlq32Backfill` and `Event::seq` is
+  `UVlq32`, deferred `*_ser_return_event()` methods take a `u32` seq. Wire-incompatible with clients and devices built
+  before this change.
 - The API hash (`API_HASH_NO_DOCS`/`API_HASH_WITH_DOCS`) is calculated over the introspection data as a device sends
   it, with known traits and types left out, so it changes for APIs using `ww_stdlib` traits or types. A device and a
   client built with `wire_weaver_core` versions that know different snapshots report different hashes for the same

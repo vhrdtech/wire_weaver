@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
-use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
+use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
@@ -515,7 +515,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -535,7 +535,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -553,7 +553,7 @@ impl TransportCommander {
         args: Vec<u8>,
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -576,7 +576,7 @@ impl TransportCommander {
         args: Vec<u8>,
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -598,7 +598,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Read,
         };
@@ -615,7 +615,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Read,
         };
@@ -632,7 +632,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -652,7 +652,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -670,7 +670,7 @@ impl TransportCommander {
         value: Vec<u8>,
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -693,7 +693,7 @@ impl TransportCommander {
         value: Vec<u8>,
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -716,7 +716,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
@@ -734,7 +734,7 @@ impl TransportCommander {
         timeout: Option<Duration>,
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
@@ -790,7 +790,7 @@ impl TransportCommander {
         _timeout: Option<Duration>,
     ) -> Result<StreamUpdateReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };
@@ -818,7 +818,7 @@ impl TransportCommander {
         _timeout: Option<Duration>,
     ) -> Result<StreamUpdateReceiver, Error> {
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };

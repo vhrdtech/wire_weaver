@@ -19,8 +19,8 @@ pub struct ErrorBuilder {
 }
 
 impl EventBuilder {
-    pub fn new(seq: u16, wr: &mut BufWriter) -> Result<Self, Error> {
-        wr.write_u16(seq)?;
+    pub fn new(seq: u32, wr: &mut BufWriter) -> Result<Self, Error> {
+        wr.write_uvlq32(seq)?;
         let result_flag = wr.save_state();
         wr.write_bool(false)?;
         Ok(Self { result_flag })
@@ -79,7 +79,7 @@ impl ErrorBuilder {
 mod tests {
     use wire_weaver::{
         derive_shrink_wrap,
-        shrink_wrap::{prelude::*, tail_bytes::TailBytes},
+        shrink_wrap::{UVlq32, prelude::*, tail_bytes::TailBytes},
     };
 
     use crate::{
@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn event_builder_ok() {
         let ev = Event {
-            seq: 0xABCD,
+            seq: UVlq32(0xABCD),
             result: Ok(crate::EventKind::Value {
                 data: TailBytes(&[0xAA, 0xBB, 0xCC]),
             }),
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn event_builder_err() {
         let ev = Event {
-            seq: 0xABCD,
+            seq: UVlq32(0xABCD),
             result: Err(Error::not_supported(123)),
         };
         let mut buf = [0u8; 32];
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn event_builder_low_level() {
         let ev = Event {
-            seq: 0xABCD,
+            seq: UVlq32(0xABCD),
             result: Ok(crate::EventKind::Value {
                 data: TailBytes(&[0xAA, 0xBB, 0xCC, 0x03]),
             }),
@@ -175,7 +175,7 @@ mod tests {
         let custom_bytes = wr.finish_and_take().unwrap();
 
         let ev = Event {
-            seq: 0xABCD,
+            seq: UVlq32(0xABCD),
             result: Ok(crate::EventKind::Value {
                 data: TailBytes(custom_bytes),
             }),

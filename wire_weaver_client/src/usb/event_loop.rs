@@ -251,8 +251,9 @@ mod tests {
                 Message::LinkSetup(_) => Some(Message::LinkReady),
                 Message::Disconnect(_) => return,
                 Message::Data { bytes, .. } => {
-                    let seq = u16::from_le_bytes([bytes[0], bytes[1]]);
-                    let mut value = bytes[2..].to_vec();
+                    let mut rd = wire_weaver::shrink_wrap::BufReader::new(bytes);
+                    let seq = wire_weaver::shrink_wrap::UVlq32(rd.read_uvlq32().unwrap());
+                    let mut value = bytes[bytes.len() - rd.bytes_left()..].to_vec();
                     value.resize(REPLY_LEN, 0xEE);
                     let event = ww_client_server::Event {
                         seq,
@@ -356,6 +357,7 @@ mod tests {
         cmd_tx
             .send(Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -380,7 +382,7 @@ mod tests {
             let (done_tx, done_rx) = oneshot::channel();
             cmd_tx
                 .send(Command::SendMessage {
-                    bytes: [0u8, 0]
+                    bytes: [0u8; wire_weaver::shrink_wrap::UVlq32Backfill::LEN]
                         .iter()
                         .chain(i.to_le_bytes().iter())
                         .copied()
@@ -406,6 +408,7 @@ mod tests {
         cmd_tx
             .send(Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),

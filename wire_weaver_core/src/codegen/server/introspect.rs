@@ -51,7 +51,7 @@ pub(crate) fn introspect(
                 pub const WW_SELF_BYTES: #introspect_bytes;
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
                     let event = Event {
-                        seq: request.seq,
+                        seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
                         result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: TailBytes(chunk) }),
                     };
                     wr.reset();
@@ -60,7 +60,7 @@ pub(crate) fn introspect(
                     msg_tx.send(event_bytes).await.map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))?;
                 }
                 let event = Event {
-                    seq: request.seq,
+                    seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
                     result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
                 };
                 wr.reset();
@@ -74,7 +74,7 @@ pub(crate) fn introspect(
         quote! {
             RequestKind::Introspect => {
                 let event = Event {
-                    seq: request.seq,
+                    seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
                     result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
                 };
                 wr.reset();

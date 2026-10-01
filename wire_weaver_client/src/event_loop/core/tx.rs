@@ -19,6 +19,8 @@ use crate::{Error, SeqTy};
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
 const LINK_SETUP_RETRY_INTERVAL: Duration = Duration::from_millis(50);
 const LINK_SETUP_RETRIES: u32 = 5;
+/// Largest seq number that is serialized into 1 byte.
+const SEQ_CYCLE_MAX: SeqTy = 127;
 
 pub(crate) enum TxInput {
     Command(Command),
@@ -99,6 +101,7 @@ pub(crate) struct TxCore {
 
     // Seq allocation
     next_seq: SeqTy,
+    max_seq: SeqTy,
     in_flight: HashSet<SeqTy>,
 
     /// Messages sent while link setup is in progress, sent out once the link is up.
@@ -130,6 +133,7 @@ impl TxCore {
             unflushed_since: None,
             next_ping_at: None,
             next_seq: 1,
+            max_seq: crate::DEFAULT_MAX_SEQ,
             in_flight: HashSet::new(),
             held_until_up: VecDeque::new(),
         }
@@ -212,6 +216,7 @@ impl TxCore {
             Command::Connect {
                 handle,
                 client_version,
+                max_seq,
                 connected_tx,
                 failed_tx,
             } => {
@@ -230,6 +235,7 @@ impl TxCore {
                     return Ok(Flow::Continue);
                 }
                 self.exited_tx = failed_tx;
+                self.max_seq = max_seq;
                 self.client_version = Some(*client_version.clone());
                 self.phase = Phase::Connecting;
                 self.output.push_back(TxOutput::Connect(handle));
@@ -309,29 +315,50 @@ impl TxCore {
             }
             return;
         }
-        if bytes.len() > self.device_max_message_len {
-            warn!(
-                "request of {} bytes exceeds device max message length {}, dropping",
-                bytes.len(),
-                self.device_max_message_len
-            );
+        let (seq, done_tx) = match done_tx {
+            Some((done_tx, timeout)) => {
+                let Some(seq) = self.next_seq() else {
+                    // TODO: backpressure when out of request IDs
+                    _ = done_tx.send(Err(Error::Other("No more request IDs available".into())));
+                    return;
+                };
+                (seq, Some((done_tx, timeout)))
+            }
+            None => (0, None),
+        };
+        // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
+        // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
+        // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
+        // Requests are serialized with a 5-byte seq placeholder, drop the part of it not needed for this seq.
+        let error = match ww_client_server::Request::set_seq(&mut bytes, seq).map(|t| t.len()) {
+            Ok(trimmed_len) => {
+                bytes.drain(..bytes.len() - trimmed_len);
+                if bytes.len() > self.device_max_message_len {
+                    warn!(
+                        "request of {} bytes exceeds device max message length {}, dropping",
+                        bytes.len(),
+                        self.device_max_message_len
+                    );
+                    Some(Error::Other(
+                        "request exceeds device max message length".into(),
+                    ))
+                } else {
+                    None
+                }
+            }
+            Err(e) => {
+                warn!("malformed request, dropping: {e:?}");
+                Some(Error::Other(format!("malformed request: {e:?}")))
+            }
+        };
+        if let Some(error) = error {
+            self.in_flight.remove(&seq);
             if let Some((done_tx, _)) = done_tx {
-                _ = done_tx.send(Err(Error::Other(
-                    "request exceeds device max message length".into(),
-                )));
+                _ = done_tx.send(Err(error));
             }
             return;
         }
         if let Some((done_tx, timeout)) = done_tx {
-            let Some(seq) = self.next_seq() else {
-                // TODO: backpressure when out of request IDs
-                _ = done_tx.send(Err(Error::Other("No more request IDs available".into())));
-                return;
-            };
-            // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
-            // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
-            // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
-            ww_client_server::Request::set_seq(&mut bytes, seq);
             // Expect goes out before the request bytes, so rx knows about the seq before the answer can arrive
             self.output.push_back(TxOutput::ToRx(ToRx::Expect {
                 seq,
@@ -457,18 +484,19 @@ impl TxCore {
         self.in_flight.len()
     }
 
+    /// Seq numbers cycle through `1..=SEQ_CYCLE_MAX`, which are serialized into 1 byte, larger ones up to `max_seq`
+    /// are only used while all of these are in flight. Rx keeps the seq of a timed out request in flight for a while,
+    /// see [LATE_REPLY_WINDOW](crate::event_loop::rx_dispatcher::LATE_REPLY_WINDOW).
     fn next_seq(&mut self) -> Option<SeqTy> {
-        for _ in 0..SeqTy::MAX {
-            if self.next_seq == 0 {
-                self.next_seq = 1;
-            }
+        let cycle_max = SEQ_CYCLE_MAX.min(self.max_seq);
+        for _ in 0..cycle_max {
             let seq = self.next_seq;
-            self.next_seq = seq.wrapping_add(1);
+            self.next_seq = if seq >= cycle_max { 1 } else { seq + 1 };
             if self.in_flight.insert(seq) {
                 return Some(seq);
             }
         }
-        None
+        (cycle_max + 1..=self.max_seq).find(|seq| self.in_flight.insert(*seq))
     }
 
     /// Encode a link message and queue it for the wrapper's framer.
@@ -534,5 +562,37 @@ impl TxCore {
             self.output.push_back(TxOutput::ToRx(ToRx::Stop(err)));
         }
         self.output.push_back(TxOutput::Exit(result));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seq_limited_by_max_seq() {
+        let mut tx = TxCore::new();
+        tx.max_seq = 130;
+        let seqs: Vec<SeqTy> = (0..130).map(|_| tx.next_seq().unwrap()).collect();
+        assert_eq!(seqs, (1..=130).collect::<Vec<_>>());
+        assert_eq!(tx.next_seq(), None);
+        tx.in_flight.remove(&129);
+        assert_eq!(tx.next_seq(), Some(129));
+
+        let mut tx = TxCore::new();
+        tx.max_seq = 3;
+        assert_eq!(
+            (0..4).map(|_| tx.next_seq()).collect::<Vec<_>>(),
+            [Some(1), Some(2), Some(3), None]
+        );
+        tx.in_flight.remove(&2);
+        assert_eq!(tx.next_seq(), Some(2));
+    }
+
+    #[test]
+    fn default_max_seq_is_3_bytes() {
+        use wire_weaver::shrink_wrap::UVlq32;
+        assert_eq!(UVlq32(crate::DEFAULT_MAX_SEQ).len_bytes(), 3);
+        assert_eq!(UVlq32(crate::DEFAULT_MAX_SEQ + 1).len_bytes(), 4);
     }
 }

@@ -51,8 +51,7 @@ pub const GENERIC_ERROR_SEQ: u32 = u32::MAX;
 /// reply with a generic error, so that the host does not wait for a timeout.
 /// None if the request has no seq (no reply expected) or `scratch` is too small.
 pub fn generic_error_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<&'s [u8]> {
-    // seq is always the first field of a request, see ww_client_server::Request::set_seq
-    let seq = u16::from_le_bytes([*request.first()?, *request.get(1)?]);
+    let seq = ww_client_server::Request::peek_seq(request).ok()?;
     if seq == 0 {
         return None;
     }

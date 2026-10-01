@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
-use wire_weaver::shrink_wrap::{Error as ShrinkWrapError, SerializeShrinkWrap};
+use wire_weaver::shrink_wrap::{
+    BufReader, Error as ShrinkWrapError, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
+};
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 use ww_client_server::{Event, EventKind};
 use ww_device::{DownReason, LinkConfig, LinkEvent};
@@ -136,13 +138,16 @@ impl WireWeaverAsyncApiBackend for Echo {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError> {
-        if data.get(2) == Some(&0xFF) {
+        let mut rd = BufReader::new(data);
+        let seq = UVlq32(rd.read_uvlq32()?);
+        let data = &data[data.len() - rd.bytes_left()..];
+        if data.first() == Some(&0xFF) {
             return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
         }
-        let mut value = data[2..].to_vec();
+        let mut value = data.to_vec();
         value.resize(300, 0xEE);
         Event {
-            seq: u16::from_le_bytes([data[0], data[1]]),
+            seq,
             result: Ok(EventKind::Value {
                 data: TailBytes(&value),
             }),
@@ -205,6 +210,7 @@ async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32)) -> Connect
     cmd_tx
         .send(Command::Connect {
             handle: Box::new(()),
+            max_seq: crate::DEFAULT_MAX_SEQ,
             client_version: Box::new(FullVersionOwned::new(
                 "test_api".into(),
                 VersionOwned::new(version.0, version.1, 0),
@@ -403,7 +409,10 @@ async fn talk(
     let mut done = vec![];
     for i in 0..N {
         let (done_tx, done_rx) = oneshot::channel();
-        let bytes = [0u8, 0].into_iter().chain(i.to_le_bytes()).collect();
+        let bytes = [0u8; UVlq32Backfill::LEN]
+            .into_iter()
+            .chain(i.to_le_bytes())
+            .collect();
         cmd_tx
             .send(Command::SendMessage {
                 bytes,
@@ -423,7 +432,7 @@ async fn talk(
     let (done_tx, done_rx) = oneshot::channel();
     cmd_tx
         .send(Command::SendMessage {
-            bytes: vec![0, 0, 0xFF],
+            bytes: vec![0, 0, 0, 0, 0, 0xFF],
             done_tx: Some((done_tx, Duration::from_secs(5))),
         })
         .await
@@ -443,7 +452,7 @@ async fn talk(
     let (done_tx, done_rx) = oneshot::channel();
     cmd_tx
         .send(Command::SendMessage {
-            bytes: vec![0; DEV_MAX_MESSAGE + 1],
+            bytes: vec![0; UVlq32Backfill::LEN + DEV_MAX_MESSAGE], // + 1 byte of seq
             done_tx: Some((done_tx, Duration::from_secs(5))),
         })
         .await

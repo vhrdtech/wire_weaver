@@ -7,6 +7,7 @@ use ww_client_server::PathKindOwned;
 use ww_version::FullVersionOwned;
 
 use crate::{
+    SeqTy,
     device_info::ConnectionInfo,
     event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender},
     tracing::TraceEvent,
@@ -22,6 +23,8 @@ pub enum Command {
         /// Interface specific handle or device to connect to (e.g., nusb::DeviceInfo for USB)
         handle: Box<dyn Any + Send>,
         client_version: Box<FullVersionOwned>,
+        /// Largest request seq number to use, see [ClientConfig::max_seq](crate::ClientConfig::max_seq).
+        max_seq: SeqTy,
         /// Connection status sender.
         connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
         /// Before exiting, event loop will return it's command receiver through this channel.

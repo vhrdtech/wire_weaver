@@ -168,10 +168,10 @@ mod tests {
                         continue;
                     }
                     Command::SendMessage { mut bytes, done_tx } => {
-                        Request::set_seq(&mut bytes, seq);
+                        let bytes = Request::set_seq(&mut bytes, seq).unwrap();
                         seq += 1;
                         let r = server
-                            .process_request_bytes(&bytes, &mut scratch, &mut dummy_msg_tx)
+                            .process_request_bytes(bytes, &mut scratch, &mut dummy_msg_tx)
                             .expect("process_request");
                         if r.is_empty() {
                             continue;

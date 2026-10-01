@@ -24,14 +24,18 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 
 /// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
 ///
-/// Smallest size:
-/// - 4B (seq, empty Absolute path - root req, Kind with no data)
-/// - 5B (seq, path len 1 <= 7, Kind with 1B args)
+/// Requests are serialized with seq set to 0 (taking 5 bytes), and then [Request::set_seq] fills in the actual one
+/// right before sending and returns a shorter slice without padding.
+///
+/// Smallest size after [Request::set_seq]:
+/// - 3B (seq <= 127, empty Absolute path - root req, Kind with no data)
+/// - 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
     /// 0 means no answer is expected.
-    pub seq: u16,
+    /// Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc., once [Request::set_seq] is used.
+    pub seq: UVlq32Backfill,
 
     /// Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.
     pub path_kind: PathKind<'i>,
@@ -39,12 +43,6 @@ pub struct Request<'i> {
     /// Action being requested
     pub kind: RequestKind<'i>,
 }
-
-/// Request sequence number.
-/// Serialized as 1 byte if <= 127, 2 bytes if <= 16384
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct Seq(u32);
 
 /// Path to a resource.
 /// 3 modes of addressing are supported:
@@ -171,7 +169,8 @@ pub enum MultiArgs<'i> {
 pub struct Event<'i> {
     /// Same event ID from Request.
     /// 0 for stream data updates.
-    pub seq: u16,
+    /// Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc.
+    pub seq: UVlq32,
     /// Request can be wrong or unsupported, in which case an error is sent back.
     pub result: Result<EventKind<'i>, Error<'i>>,
 }
@@ -498,10 +497,15 @@ impl RequestKind<'_> {
 }
 
 impl Request<'_> {
-    pub fn set_seq(bytes: &mut [u8], seq: u16) {
-        let seq_le = seq.to_le_bytes();
-        bytes[0] = seq_le[0];
-        bytes[1] = seq_le[1];
+    /// Fill in `seq` of a request serialized into `bytes` and return the slice to be sent, starting at the shortest
+    /// encoding of `seq`. `bytes` as a whole stays a valid request as well, see [UVlq32Backfill::backfill].
+    pub fn set_seq(bytes: &mut [u8], seq: u32) -> Result<&mut [u8], shrink_wrap::Error> {
+        UVlq32Backfill::backfill(bytes, seq)
+    }
+
+    /// Read `seq` of a serialized request, without deserializing the rest of it.
+    pub fn peek_seq(bytes: &[u8]) -> Result<u32, shrink_wrap::Error> {
+        BufReader::new(bytes).read_uvlq32()
     }
 }
 
@@ -537,5 +541,41 @@ impl MultiIndex<'_> {
             )),
             MultiIndex::Mask32(mask) => Ok(MultiIndexOwned::Mask32(*mask)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_set_seq() {
+        let request = Request {
+            seq: UVlq32Backfill(0),
+            path_kind: PathKind::absolute(&[]),
+            kind: RequestKind::Read,
+        };
+        let mut buf = [0u8; 16];
+        let len = request.to_ww_bytes(&mut buf).unwrap().len();
+        assert_eq!(len, UVlq32Backfill::LEN + 2);
+
+        for (seq, seq_len) in [(0, 1), (1, 1), (127, 1), (128, 2), (16383, 2), (16384, 3)] {
+            let bytes = Request::set_seq(&mut buf[..len], seq).unwrap();
+            assert_eq!(bytes.len(), seq_len + 2, "seq: {seq}");
+            assert_eq!(Request::peek_seq(bytes), Ok(seq));
+            let request = Request::from_ww_bytes(bytes).unwrap();
+            assert_eq!(request.seq, UVlq32Backfill(seq));
+            assert!(matches!(request.kind, RequestKind::Read));
+        }
+    }
+
+    #[test]
+    fn event_seq_size() {
+        let event = Event {
+            seq: UVlq32(1),
+            result: Ok(EventKind::Written),
+        };
+        let mut buf = [0u8; 16];
+        assert_eq!(event.to_ww_bytes(&mut buf).unwrap().len(), 2);
     }
 }

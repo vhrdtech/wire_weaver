@@ -41,7 +41,9 @@ const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
 /// Maximum ww_client_server message this host can receive; advertised to a device during link setup
 /// and used to size rx assembly buffers.
 pub(crate) const DEFAULT_MAX_MESSAGE_SIZE: usize = 16_384;
-pub type SeqTy = u16;
+pub type SeqTy = u32;
+/// Default for [ClientConfig::max_seq], the largest request seq number that is serialized into 3 bytes.
+pub const DEFAULT_MAX_SEQ: SeqTy = (1 << 21) - 1;
 pub use error::Error;
 
 pub use wire_weaver_snapshots as snapshots;

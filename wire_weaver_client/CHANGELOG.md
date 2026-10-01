@@ -73,6 +73,12 @@
 
 ### ⚠️ Breaking
 
+- `SeqTy` is `u32` (was `u16`). Request seq numbers cycle through 1..=127, so they are serialized into 1 byte, bigger
+  ones (up to `ClientConfig::max_seq()`, `DEFAULT_MAX_SEQ` = 2 097 151 by default, 3 bytes) are only used while
+  all of these are in flight. `Command::Connect` gains `max_seq`. `Command::SendMessage` bytes must start with the
+  5-byte seq placeholder of a serialized `ww_client_server::Request` (the unused part of it is dropped before
+  sending), also for requests without an answer, which are now sent with seq 0 trimmed to 1 byte. Wire-incompatible
+  with devices built against the previous `ww_client_server`.
 - `Error` gains `NotImplementedByDevice` and `IncompatibleResource` variants, exhaustive matches need new arms.
 - `IntrospectBundle` gains `sent_size`, the size of the introspection data as sent by the device, and
   `sent_api_bundle`, the introspection data as sent, before traits and types known from snapshots were put back into
@@ -99,6 +105,9 @@
 
 ### 🐛 Fixes
 
+- A late reply to a timed out request is no longer taken for the answer to a new request that got the same seq: the
+  seq of a timed out request stays in use until the late reply arrives (which is then dropped) or until 10 s after the
+  request was sent (`LATE_REPLY_WINDOW`), its own timeout still fails the call on time.
 - Evolution diff and padding reuse checks tell a relocated `#[flag]` (`TypeOwned::Flag`) from the `Option` or
   `Result` field with the same name, a flag is a 1-bit field in the layout.
 - Connect failing because the transport itself could not be opened (e.g., USB interface busy) could report a dropped

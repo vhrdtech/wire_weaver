@@ -7,7 +7,7 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
-use crate::DeviceInfo;
+use crate::{DeviceInfo, SeqTy};
 
 /// Configuration of device enumuration, selection and connection.
 /// Flexible filters allow for many different scenarios:
@@ -32,6 +32,7 @@ pub struct ClientConfig {
     introspect_client: Option<(Vec<u8>, ApiHashPairOwned)>,
     default_timeout: Option<Duration>,
     client_version: Option<Box<FullVersionOwned>>,
+    max_seq: Option<SeqTy>,
 }
 
 pub(crate) struct ValidatedConfig {
@@ -41,6 +42,7 @@ pub(crate) struct ValidatedConfig {
     pub(crate) cmd_queue_size: usize,
     pub(crate) default_timeout: Duration,
     pub(crate) client_version: Box<FullVersionOwned>,
+    pub(crate) max_seq: SeqTy,
     pub(crate) introspect_client: Option<IntrospectBundle>,
 }
 
@@ -211,6 +213,10 @@ impl ClientConfig {
         } else {
             None
         };
+        let max_seq = s.max_seq.unwrap_or(crate::DEFAULT_MAX_SEQ);
+        if max_seq == 0 {
+            bail!("max_seq must be at least 1");
+        }
         let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
         if !(1..=65_534).contains(&cmd_queue_size) {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
@@ -226,6 +232,7 @@ impl ClientConfig {
             cmd_queue_size,
             default_timeout: s.default_timeout.unwrap_or(crate::DEFAULT_REQUEST_TIMEOUT),
             client_version,
+            max_seq,
             introspect_client,
         })
     }
@@ -400,6 +407,15 @@ impl ClientConfig {
         let mut f = self;
         f.cmd_queue_size = Some(size);
         f
+    }
+
+    /// Largest request seq number to use, default is [DEFAULT_MAX_SEQ](crate::DEFAULT_MAX_SEQ) (3 bytes on the wire).
+    /// Seq numbers up to 127 take 1 byte and are used first, bigger ones only while all of these are in flight, so
+    /// this limits the number of requests waiting for an answer at the same time.
+    pub fn max_seq(self, max_seq: SeqTy) -> Self {
+        let mut c = self;
+        c.max_seq = Some(max_seq);
+        c
     }
 
     pub fn introspect_client(self, ww_self_bytes: &[u8], api_hash: ApiHashPairOwned) -> Self {

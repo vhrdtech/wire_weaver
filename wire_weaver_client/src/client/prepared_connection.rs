@@ -11,7 +11,6 @@ use crate::{
 use anyhow::{Error, Result};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
-use ww_version::FullVersionOwned;
 
 pub struct PreparedConnection<T> {
     config: ClientConfig,
@@ -37,10 +36,9 @@ impl<T: WwClient> PreparedConnection<T> {
             if iface_kind == InterfaceKind::Usb {
                 match crate::usb::try_connect(&config, &mut cmd_rx).await? {
                     Selected::Device { handle, info } => {
-                        let device_api_info =
-                            try_connect(&cmd_tx, handle, config.client_version.clone())
-                                .await
-                                .map_err(|e| connect_failed(info, e))?;
+                        let device_api_info = try_connect(&cmd_tx, handle, &config)
+                            .await
+                            .map_err(|e| connect_failed(info, e))?;
                         return Ok(T::from_cmd(
                             create_commander(config, cmd_tx, device_api_info).await,
                         ));
@@ -51,10 +49,9 @@ impl<T: WwClient> PreparedConnection<T> {
             if iface_kind == InterfaceKind::Rtt {
                 match try_select_rtt(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
-                        let device_api_info =
-                            try_connect(&cmd_tx, handle, config.client_version.clone())
-                                .await
-                                .map_err(|e| connect_failed(info, e))?;
+                        let device_api_info = try_connect(&cmd_tx, handle, &config)
+                            .await
+                            .map_err(|e| connect_failed(info, e))?;
                         return Ok(T::from_cmd(
                             create_commander(config, cmd_tx, device_api_info).await,
                         ));
@@ -78,9 +75,8 @@ impl<T: WwClient> PreparedConnection<T> {
             if iface_kind == InterfaceKind::Usb {
                 match crate::usb::try_connect_blocking(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
-                        let device_api_info =
-                            try_connect_blocking(&cmd_tx, handle, config.client_version.clone())
-                                .map_err(|e| connect_failed(info, e))?;
+                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                            .map_err(|e| connect_failed(info, e))?;
                         return Ok(T::from_cmd(create_commander_blocking(
                             config,
                             cmd_tx,
@@ -93,9 +89,8 @@ impl<T: WwClient> PreparedConnection<T> {
             if iface_kind == InterfaceKind::Rtt {
                 match try_select_rtt(&config, &mut cmd_rx)? {
                     Selected::Device { handle, info } => {
-                        let device_api_info =
-                            try_connect_blocking(&cmd_tx, handle, config.client_version.clone())
-                                .map_err(|e| connect_failed(info, e))?;
+                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                            .map_err(|e| connect_failed(info, e))?;
                         return Ok(T::from_cmd(create_commander_blocking(
                             config,
                             cmd_tx,
@@ -143,13 +138,14 @@ fn try_select_rtt(
 async fn try_connect(
     cmd_tx: &mpsc::Sender<Command>,
     handle: Box<dyn Any + Send>,
-    client_version: Box<FullVersionOwned>,
+    config: &ValidatedConfig,
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
         .send(Command::Connect {
             handle,
-            client_version,
+            client_version: config.client_version.clone(),
+            max_seq: config.max_seq,
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })
@@ -163,13 +159,14 @@ async fn try_connect(
 fn try_connect_blocking(
     cmd_tx: &mpsc::Sender<Command>,
     handle: Box<dyn Any + Send>,
-    client_version: Box<FullVersionOwned>,
+    config: &ValidatedConfig,
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
         .blocking_send(Command::Connect {
             handle,
-            client_version,
+            client_version: config.client_version.clone(),
+            max_seq: config.max_seq,
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

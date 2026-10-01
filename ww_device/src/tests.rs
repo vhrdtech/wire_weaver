@@ -10,7 +10,7 @@ use core::time::Duration;
 
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
-    DeserializeShrinkWrap, Error as ShrinkWrapError, SerializeShrinkWrap,
+    BufReader, DeserializeShrinkWrap, Error as ShrinkWrapError, SerializeShrinkWrap, UVlq32,
 };
 use wire_weaver::{MessageSink, WireWeaverApiBackend};
 use ww_client_server::{ErrorKind, Event, EventKind};
@@ -309,21 +309,21 @@ fn stragglers_and_session_changes() {
 #[test]
 fn generic_error() {
     let mut scratch = [0u8; 64];
-    let reply = generic_error_reply(&[0x34, 0x12, 0xAA], &mut scratch).unwrap();
+    let reply = generic_error_reply(&[0x82, 0x2c, 0xAA], &mut scratch).unwrap();
     let event = Event::from_ww_bytes(reply).unwrap();
-    assert_eq!(event.seq, 0x1234);
+    assert_eq!(event.seq, UVlq32(300));
     let err = event.result.unwrap_err();
     let s = std::format!("{err:?}");
     assert!(s.contains("ResponseSerFailed"), "{s}");
     assert!(s.contains(&std::format!("{GENERIC_ERROR_SEQ}")), "{s}");
 
     assert!(
-        generic_error_reply(&[0, 0, 0xAA], &mut scratch).is_none(),
+        generic_error_reply(&[0, 0xAA], &mut scratch).is_none(),
         "seq 0 = no reply expected"
     );
-    assert!(generic_error_reply(&[1], &mut scratch).is_none());
+    assert!(generic_error_reply(&[0x81], &mut scratch).is_none());
     assert!(
-        generic_error_reply(&[1, 0], &mut [0u8; 2]).is_none(),
+        generic_error_reply(&[1], &mut [0u8; 2]).is_none(),
         "scratch too small"
     );
 }
@@ -353,14 +353,16 @@ impl WireWeaverApiBackend for EchoBackend {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], ShrinkWrapError> {
-        let seq = u16::from_le_bytes([data[0], data[1]]);
-        if data.get(2) == Some(&0xFF) {
+        let mut rd = BufReader::new(data);
+        let seq = UVlq32(rd.read_uvlq32()?);
+        let data = &data[data.len() - rd.bytes_left()..];
+        if data.first() == Some(&0xFF) {
             return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
         }
         Event {
             seq,
             result: Ok(EventKind::Value {
-                data: TailBytes(&data[2..]),
+                data: TailBytes(data),
             }),
         }
         .to_ww_bytes(scratch)
@@ -462,11 +464,11 @@ fn blocking_server() {
         assert_eq!(server.link().config().accumulation_time, ACC);
 
         // two requests in one go, the second one longer than a packet
-        let long: Vec<u8> = [2u8, 0].into_iter().chain(0..40).collect();
+        let long: Vec<u8> = [2u8].into_iter().chain(0..40).collect();
         for p in host.packets(&[
             Message::Data {
                 channel: 0,
-                bytes: &[1, 0, 0xAA],
+                bytes: &[1, 0xAA],
             },
             Message::Data {
                 channel: 0,
@@ -474,7 +476,7 @@ fn blocking_server() {
             },
             Message::Data {
                 channel: 0,
-                bytes: &[3, 0, 0xFF],
+                bytes: &[3, 0xFF],
             },
         ]) {
             server.on_packet(now, &p, &mut backend);
@@ -487,7 +489,7 @@ fn blocking_server() {
         // stream update from the main loop
         let (mut sink, scratch) = server.sink(now);
         let update = Event {
-            seq: 0,
+            seq: UVlq32(0),
             result: Ok(EventKind::Value {
                 data: TailBytes(&[0x55]),
             }),
@@ -520,19 +522,20 @@ fn blocking_server() {
         .iter()
         .map(|(_, bytes)| Event::from_ww_bytes(bytes).unwrap())
         .collect();
-    assert_eq!(events[0].seq, 1);
+    assert_eq!(events[0].seq, UVlq32(1));
     assert!(matches!(&events[0].result, Ok(EventKind::Value { data }) if data.0 == [0xAA]));
-    assert_eq!(events[1].seq, 2);
+    assert_eq!(events[1].seq, UVlq32(2));
     assert!(matches!(&events[1].result, Ok(EventKind::Value { data }) if data.0.len() == 40));
     assert_eq!(
-        events[2].seq, 3,
+        events[2].seq,
+        UVlq32(3),
         "generic error for a request the backend failed on"
     );
     assert!(matches!(
         &events[2].result,
         Err(e) if std::format!("{e:?}").contains("ResponseSerFailed")
     ));
-    assert_eq!(events[3].seq, 0);
+    assert_eq!(events[3].seq, UVlq32(0));
     let _ = ErrorKind::ResponseSerFailed;
 }
 

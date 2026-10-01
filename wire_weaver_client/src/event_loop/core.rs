@@ -385,6 +385,7 @@ mod tests {
     use super::*;
     use crate::device_info::ConnectionInfo;
     use crate::event_loop::command::Command;
+    use crate::event_loop::rx_dispatcher::LATE_REPLY_WINDOW;
     use tokio::sync::oneshot;
     use ww_link::{DeviceInfo, DisconnectReason, Kind, Message};
     use ww_version::{
@@ -495,6 +496,13 @@ mod tests {
         }
     }
 
+    /// Request bytes as serialized by the client: seq placeholder followed by `rest`.
+    fn request(rest: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![0; wire_weaver::shrink_wrap::UVlq32Backfill::LEN];
+        bytes.extend_from_slice(rest);
+        bytes
+    }
+
     fn kinds(sent: &[Sent]) -> Vec<Kind> {
         sent.iter().map(|s| s.kind).collect()
     }
@@ -516,6 +524,7 @@ mod tests {
             now,
             Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -570,7 +579,7 @@ mod tests {
         assert_eq!(p.rx.poll_timeout(), Some(now + PEER_TIMEOUT));
 
         // two requests: written to the framer right away, flushed together after the accumulation window
-        for bytes in [vec![0, 0, 1], vec![0, 0, 2]] {
+        for bytes in [request(&[1]), request(&[2])] {
             p.cmd(
                 now,
                 Command::SendMessage {
@@ -623,44 +632,87 @@ mod tests {
         p.cmd(
             now,
             Command::SendMessage {
-                bytes: vec![0, 0, 0xAA],
+                bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
             },
         );
         let sent = p.take_sent();
-        let seq = u16::from_le_bytes([sent[0].payload[0], sent[0].payload[1]]);
-        assert_eq!(seq, 1);
+        assert_eq!(sent[0].payload, [1, 0xAA], "padding of seq is dropped");
 
+        reply(&mut p, now, 1, &[7]);
+        assert_eq!(done_rx.try_recv().unwrap().unwrap(), vec![7]);
+        assert!(p.tx.in_flight() == 0, "Freed reached tx");
+
+        // a timed out request keeps its seq until a late reply arrives
+        let (done_tx, mut done_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: request(&[0xBB]),
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            },
+        );
+        assert_eq!(p.take_sent()[0].payload, [2, 0xBB]);
+        p.timers(now + Duration::from_secs(1));
+        assert!(matches!(
+            done_rx.try_recv().unwrap(),
+            Err(crate::Error::Timeout)
+        ));
+        assert_eq!(p.tx.in_flight(), 1, "held for a late reply");
+        reply(&mut p, now + Duration::from_secs(2), 2, &[8]);
+        assert_eq!(p.tx.in_flight(), 0, "late reply frees the seq");
+
+        // or until LATE_REPLY_WINDOW after it was sent, if there is none
+        let (done_tx, _done_rx) = oneshot::channel();
+        p.cmd(
+            now + Duration::from_secs(2),
+            Command::SendMessage {
+                bytes: request(&[0xCC]),
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            },
+        );
+        p.timers(now + Duration::from_secs(3));
+        assert_eq!(p.tx.in_flight(), 1);
+        p.feed_from_device(now + Duration::from_secs(6), &Message::Ping);
+        p.timers(now + Duration::from_secs(2) + LATE_REPLY_WINDOW);
+        assert_eq!(p.tx.in_flight(), 0);
+    }
+
+    fn reply(p: &mut Pair, now: Instant, seq: u32, data: &[u8]) {
         let event = ww_client_server::Event {
-            seq,
+            seq: wire_weaver::shrink_wrap::UVlq32(seq),
             result: Ok(ww_client_server::EventKind::Value {
-                data: wire_weaver::shrink_wrap::tail_bytes::TailBytes(&[7]),
+                data: wire_weaver::shrink_wrap::tail_bytes::TailBytes(data),
             }),
         };
         let mut buf = [0u8; 32];
         let bytes =
             wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&event, &mut buf).unwrap();
         p.feed_from_device(now, &Message::Data { channel: 0, bytes });
-        assert_eq!(done_rx.try_recv().unwrap().unwrap(), vec![7]);
-        assert!(p.tx.in_flight() == 0, "Freed reached tx");
+    }
 
-        // a request that times out is freed as well
-        let (done_tx, mut done_rx) = oneshot::channel();
-        p.cmd(
-            now,
-            Command::SendMessage {
-                bytes: vec![0, 0, 0xBB],
-                done_tx: Some((done_tx, Duration::from_secs(1))),
-            },
-        );
-        p.take_sent();
-        assert_eq!(p.tx.in_flight(), 1);
-        p.timers(now + Duration::from_secs(1));
-        assert!(matches!(
-            done_rx.try_recv().unwrap(),
-            Err(crate::Error::Timeout)
-        ));
-        assert!(p.tx.in_flight() == 0);
+    #[test]
+    fn seq_numbers_stay_small() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect(&mut p, now);
+
+        let mut seqs = vec![];
+        for _ in 0..200 {
+            let (done_tx, _done_rx) = oneshot::channel();
+            p.cmd(
+                now,
+                Command::SendMessage {
+                    bytes: request(&[0xAA]),
+                    done_tx: Some((done_tx, Duration::from_secs(1))),
+                },
+            );
+            for sent in p.take_sent() {
+                seqs.push(ww_client_server::Request::peek_seq(&sent.payload).unwrap());
+            }
+        }
+        // all 127 single-byte seqs are in flight, only then bigger ones are used
+        assert_eq!(seqs, (1..=200).collect::<Vec<u32>>());
     }
 
     #[test]
@@ -672,7 +724,7 @@ mod tests {
         p.cmd(
             now,
             Command::SendMessage {
-                bytes: vec![0; 513], // device said 512
+                bytes: request(&[0; 512]), // device said 512, + 1 byte of seq
                 done_tx: Some((done_tx, Duration::from_secs(1))),
             },
         );
@@ -724,6 +776,7 @@ mod tests {
             now,
             Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
@@ -750,7 +803,7 @@ mod tests {
         p.cmd(
             now,
             Command::SendMessage {
-                bytes: vec![0, 0, 0xAA],
+                bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
             },
         );
@@ -760,7 +813,7 @@ mod tests {
         p.feed_from_device(now, &Message::LinkReady);
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::Data0]);
-        assert_eq!(&sent[0].payload[2..], [0xAA]);
+        assert_eq!(sent[0].payload, [1, 0xAA]);
         assert_eq!(p.tx.in_flight(), 1);
     }
 
@@ -773,7 +826,7 @@ mod tests {
         p.cmd(
             now,
             Command::SendMessage {
-                bytes: vec![0, 0, 0xAA],
+                bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
             },
         );
@@ -797,6 +850,7 @@ mod tests {
             now,
             Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
@@ -831,6 +885,7 @@ mod tests {
             now,
             Command::Connect {
                 handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 2, 0),

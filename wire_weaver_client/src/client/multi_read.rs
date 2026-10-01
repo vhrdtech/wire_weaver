@@ -1,7 +1,7 @@
 use tokio::sync::oneshot;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32,
-    either_any_vec::EitherAnyVec,
+    UVlq32Backfill, either_any_vec::EitherAnyVec,
 };
 use ww_client_server::{MultiIndexOwned, RequestKindOwned};
 
@@ -69,7 +69,7 @@ where
 
         let cmd = self.0.commander();
         let req = ww_client_server::RequestOwned {
-            seq: 0,
+            seq: UVlq32Backfill(0),
             path_kind: ww_client_server::PathKindOwned::Absolute { path: vec![] },
             kind: req,
         };

@@ -214,7 +214,7 @@ pub fn gen_server(
                 let request = Request::des_shrink_wrap(&mut rd)?;
 
                 let mut wr = BufWriter::new(scratch);
-                let event_builder = EventBuilder::new(request.seq, &mut wr)?;
+                let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
 
                 // TODO: handle trait paths on server side
                 let PathKind::Absolute { path } = &request.path_kind else {
@@ -246,7 +246,7 @@ pub fn gen_server(
                     _ => {
                         match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap msg_tx)#maybe_await {
                             Ok(WrAction::WrittenOk(event_kind_builder)) => {
-                                if request.seq == 0 {
+                                if request.seq.0 == 0 {
                                     return Ok(&[])
                                 }
                                 #finalize_event_kind
@@ -333,7 +333,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                     }
                 }
             }
-            if request.seq == 0 {
+            if request.seq.0 == 0 {
                 return Ok(&[])
             }
             either_any_builder.finish(&mut wr);
@@ -646,7 +646,7 @@ fn handle_method(
                 match self.#ident(msg_tx, #maybe_index_chain_arg #args_list)#maybe_await {
                     RpcResult::Ready(output) => {
                         #ev_kind_builder
-                        if request.seq != 0 {
+                        if request.seq.0 != 0 {
                             #maybe_enforce_ty
                             #ser_output
                         }
@@ -727,7 +727,7 @@ fn handle_property(
                                 Ok(WrAction::WrittenOk(event_kind_builder))
                             },
                             SetResult::SetError(user_err) => {
-                                // if request.seq != 0 {
+                                // if request.seq.0 != 0 {
                                 // always send errors back, even if they won't reach a user call site, they will show up in logs
                                 #ser_user_err
                                 Ok(WrAction::WrittenErr)
@@ -969,7 +969,7 @@ fn ser_method_output(
 
             let mut event_wr = BufWriter::new(scratch_event);
             let event = Event {
-                seq: #seq_path,
+                seq: wire_weaver::shrink_wrap::UVlq32(#seq_path),
                 result: Ok(EventKind::Value {
                     data: RefVec::Slice { slice: output_bytes }
                 })
@@ -980,7 +980,7 @@ fn ser_method_output(
     } else {
         let es = errors_seq.next();
         quote! {
-            Ok(ser_unit_return_event(scratch_event, request.seq).map_err(|_| Error::response_ser_failed(#es))?)
+            Ok(ser_unit_return_event(scratch_event, request.seq.0).map_err(|_| Error::response_ser_failed(#es))?)
         }
     }
 }
@@ -1049,7 +1049,7 @@ fn deferred_method_return_ser_methods(
             None => quote! {},
         };
         ts.extend(quote! {
-            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u16 #maybe_output) -> Result<#byte_return_ty, Error> {
+            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<#byte_return_ty, Error> {
                 #ser_output_or_unit
             }
         });

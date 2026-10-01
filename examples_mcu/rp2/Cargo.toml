@@ -18,6 +18,10 @@ embassy-time = { version = "0.5.1", features = ["defmt", "defmt-timestamp-uptime
 embassy-rp = { version = "0.10.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"] }
 embassy-usb = { version = "0.6.0", features = ["defmt"], optional = true }
 embassy-futures = { version = "0.1.2" }
+embassy-net = { version = "0.9", features = ["defmt", "tcp", "udp", "proto-ipv4", "medium-ethernet"], optional = true }
+edge-dhcp = { version = "0.8", default-features = false, features = ["io", "defmt"], optional = true }
+edge-nal = { version = "0.7", optional = true }
+edge-nal-embassy = { version = "0.9", default-features = false, features = ["defmt", "proto-ipv4", "medium-ethernet", "udp"], optional = true }
 
 #embassy-embedded-hal = { path = "../../embassy/embassy-embedded-hal", features = ["defmt"] }
 #embassy-sync = { path = "../../embassy/embassy-sync", features = ["defmt"] }
@@ -44,6 +48,7 @@ default = ["defmt_rtt"]
 defmt_rtt = ["dep:defmt-rtt"]
 rtt_target = ["dep:rtt-target", "ww_device/rtt"]
 usb = ["dep:embassy-usb", "dep:wire_weaver_usb_embassy"]
+ws_ncm = ["dep:embassy-usb", "dep:embassy-net", "dep:edge-dhcp", "dep:edge-nal", "dep:edge-nal-embassy", "ww_device/embassy-net"]
 
 [[bin]]
 name = "rp2_blinky"
@@ -56,6 +61,14 @@ bench = false
 name = "rp2_usb_blinky"
 path = "src/bin/usb_blinky.rs"
 required-features = ["usb"]
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "rp2_ww_ws_ncm"
+path = "src/bin/ww_ws_ncm.rs"
+required-features = ["ws_ncm"]
 test = false
 doctest = false
 bench = false

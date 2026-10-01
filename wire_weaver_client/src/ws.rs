@@ -178,11 +178,13 @@ impl MessageRx for WsRx {
 
 #[cfg(test)]
 mod tests {
-    //! Host event loop against [ww_device::Server] over a real WebSocket on localhost.
+    //! Host event loop against [ww_device::Server] with its WebSocket medium, over a real WebSocket on localhost.
     use super::*;
     use crate::event_loop::device_e2e_tests::{DEV_MAX_MESSAGE, serve, talk};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use ww_device::LinkEvent;
+    use ww_device::ws::{WS_OVERHEAD, WsConnection, WsRx as DevRx, WsTx as DevTx};
 
     /// Tests send `()` as a handle
     struct To(String);
@@ -195,65 +197,29 @@ mod tests {
         }
     }
 
-    // Device side: same message format, over an accepted connection
+    // Device side: ww_device's WebSocket medium on a tokio listener
 
-    type DevWs = WebSocketStream<TcpStream>;
-
-    struct DevTx(SplitSink<DevWs, Message>);
-
-    impl ww_device::MessageTx for DevTx {
-        type Error = ();
-        async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), ()> {
-            let bytes: Vec<u8> = [kind].into_iter().chain(message.iter().copied()).collect();
-            self.0
-                .feed(Message::Binary(bytes.into()))
-                .await
-                .map_err(|_| ())
-        }
-        async fn flush(&mut self) -> Result<(), ()> {
-            self.0.flush().await.map_err(|_| ())
-        }
-        fn reset(&mut self) {}
+    struct DevSocket {
+        listener: TcpListener,
+        stream: Option<TcpStream>,
     }
 
-    struct DevRx {
-        rx: SplitStream<DevWs>,
-        message: Option<Bytes>,
-        connected: bool,
-    }
+    impl ww_device::ws::Socket for DevSocket {
+        type Error = std::io::Error;
 
-    impl ww_device::MessageRx for DevRx {
-        type Error = ();
-        async fn wait_message(&mut self) -> Result<(), ()> {
-            while self.message.is_none() {
-                match self.rx.next().await {
-                    Some(Ok(Message::Binary(bytes))) if !bytes.is_empty() => {
-                        self.message = Some(bytes)
-                    }
-                    Some(Ok(Message::Ping(_) | Message::Pong(_))) => {}
-                    _ => return Err(()),
-                }
-            }
-            Ok(())
+        async fn accept(&mut self) {
+            self.stream = None;
+            let (stream, _) = self.listener.accept().await.unwrap();
+            stream.set_nodelay(true).unwrap();
+            self.stream = Some(stream);
         }
-        fn message(&self) -> Option<(u8, &[u8])> {
-            self.message.as_ref().map(|b| (b[0], &b[1..]))
+
+        async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.stream.as_mut().unwrap().read(buf).await
         }
-        fn consume(&mut self) {
-            self.message = None;
-        }
-        async fn wait_connected(&mut self) {
-            // one connection per test
-            if self.connected {
-                core::future::pending::<()>().await
-            }
-            self.connected = true;
-        }
-        fn reset(&mut self) {
-            self.message = None;
-        }
-        fn max_message_len(&self) -> usize {
-            DEV_MAX_MESSAGE
+
+        async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.stream.as_mut().unwrap().write(bytes).await
         }
     }
 
@@ -266,18 +232,17 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("ws://{}/ww", listener.local_addr().unwrap());
         let (events_tx, events_rx) = mpsc::unbounded_channel();
-        let dev = tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
-            // accept_async does not touch it, same reason as on the host side
-            stream.set_nodelay(true).unwrap();
-            let ws = tokio_tungstenite::accept_async(stream).await.unwrap();
-            let (tx, rx) = ws.split();
-            let rx = DevRx {
-                rx,
-                message: None,
-                connected: false,
-            };
-            serve(DevTx(tx), rx, events_tx).await
+        // the medium is not Send (NoopRawMutex, as on embassy), run it on the test's LocalSet
+        let dev = tokio::task::spawn_local(async move {
+            let conn = WsConnection::new(DevSocket {
+                listener,
+                stream: None,
+            });
+            let mut tx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
+            let mut rx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
+            let tx = DevTx::new(&conn, &mut tx_buf);
+            let rx = DevRx::new(&conn, &mut rx_buf);
+            serve(tx, rx, events_tx).await
         });
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
         let host = tokio::spawn(crate::event_loop::core::worker(cmd_rx, To(url)));
@@ -286,7 +251,9 @@ mod tests {
 
     #[tokio::test]
     async fn host_and_device_talk_over_ws() {
-        talk(start_ws().await).await
+        tokio::task::LocalSet::new()
+            .run_until(async { talk(start_ws().await).await })
+            .await
     }
 
     #[tokio::test]

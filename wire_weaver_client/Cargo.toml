@@ -60,4 +60,4 @@ ww_version = { workspace = true, features = ["std"] }
 [dev-dependencies]
 tokio = { workspace = true, features = ["net"] }
 wire_weaver_core = { workspace = true }
-ww_device = { workspace = true }
+ww_device = { workspace = true, features = ["ws"] }

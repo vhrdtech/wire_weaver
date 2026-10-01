@@ -25,6 +25,7 @@ check-core:
     @cargo check
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
+    @cargo check -p ww_device --features=defmt,embassy-net
 
 # cargo check mcu workspace
 [working-directory('mcu')]
@@ -38,6 +39,7 @@ check-examples-mcu:
     @just check-examples-mcu-nucleo-h743zi2
     @just check-examples-mcu-nucleo-g0b1re
     @just check-examples-mcu-stm32h725ig
+    @just check-examples-mcu-rp2
 
 [working-directory('examples_mcu/mcu_qemu')]
 check-examples-mcu-qemu:
@@ -64,6 +66,14 @@ check-examples-mcu-nucleo-g0b1re:
 check-examples-mcu-stm32h725ig:
     # Checking usb_stm32h725ig
     @cargo check
+
+[working-directory('examples_mcu/rp2')]
+check-examples-mcu-rp2:
+    # Checking rp2
+    @cargo check
+    @cargo check --features usb
+    @cargo check --features ws_ncm
+    @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 upload-examples-mcu-usb-stm32h725ig:

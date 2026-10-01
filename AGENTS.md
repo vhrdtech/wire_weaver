@@ -76,7 +76,8 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   used by code the `client = "..."` codegen argument produces. No-std client generation doesn't exist yet.
 - **Transport crates** — `ww_link` (link-layer abstraction), `ww_framer` (packs many small messages into one
   packet, or splits a big message across several — used by both USB and UDP transports), `ww_device` (device side:
-  sans-IO `DeviceLink` + async `Server` with `wait()`/`handle()` for a user-owned event loop + `blocking::Server`),
+  sans-IO `DeviceLink` + async `Server` with `wait()`/`handle()` for a user-owned event loop + `blocking::Server`,
+  RTT and WebSocket media behind the `rtt` / `ws` features, `embassy-net` sockets with `embassy-net`),
   `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
   lives in the separate `mcu` workspace). Host-side transports (USB, RTT, WebSocket, UDP, in-process) live in
   `wire_weaver_client` behind features, each a `Transport` impl (`event_loop/transport.rs`) driven by the shared

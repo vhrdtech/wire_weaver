@@ -14,3 +14,6 @@ run-rp2-usb_blinky *args:
 
 run-rp2-ww_rtt *args:
     cargo run --bin rp2_ww_rtt --no-default-features --features="rtt_target"
+
+run-rp2-ww_ws_ncm *args:
+    cargo run --bin rp2_ww_ws_ncm --features "ws_ncm" {{args}}

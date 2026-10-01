@@ -41,7 +41,7 @@ dependencies = [
 name = "all_gpio_api"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_gpio",
 ]
@@ -282,7 +282,7 @@ dependencies = [
 name = "blinky_api"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -290,7 +290,7 @@ dependencies = [
 name = "blinky_api_evolved"
 version = "0.1.1"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -694,6 +694,15 @@ checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
 name = "defmt"
+version = "0.3.100"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0963443817029b2024136fc4dd07a5107eb8f977eaf18fcd1fdeb11306b64ad"
+dependencies = [
+ "defmt 1.1.1",
+]
+
+[[package]]
+name = "defmt"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2953bfe4f93bbd20cc71198842756f77d161884c99ebbabc41d80231ded88d1"
@@ -790,6 +799,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-http"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e8d05b815a091dc636cc1d62374cf1b96b763117291242882f9741dd4e251ed"
+dependencies = [
+ "base64",
+ "heapless 0.9.3",
+ "httparse",
+ "sha1_smol",
+]
+
+[[package]]
+name = "edge-ws"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b0540ed0af1b8e98c055b74d87aec4ebd22c1bddb447bb625f5a86559f268bf"
+
+[[package]]
 name = "either"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -802,6 +829,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc2d050bdc5c21e0862a89256ed8029ae6c290a93aecefc73084b3002cdebb01"
 
 [[package]]
+name = "embassy-net"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "347bc855bdbdf50ed9c5a1d80e8204badb0ba149b8732dde38e1e9708ed9d313"
+dependencies = [
+ "defmt 1.1.1",
+ "document-features",
+ "embassy-net-driver",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-io-async",
+ "embedded-nal-async",
+ "heapless 0.9.3",
+ "managed",
+ "smoltcp",
+]
+
+[[package]]
+name = "embassy-net-driver"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "524eb3c489760508f71360112bca70f6e53173e6fe48fc5f0efd0f5ab217751d"
+dependencies = [
+ "defmt 0.3.100",
+]
+
+[[package]]
+name = "embassy-sync"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bbd85cf5a5ae56bdf26f618364af642d1d0a4e245cdd75cd9aabda382f65a81"
+dependencies = [
+ "cfg-if",
+ "critical-section",
+ "embedded-io-async",
+ "futures-core",
+ "futures-sink",
+ "heapless 0.9.3",
+]
+
+[[package]]
 name = "embassy-time"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -809,6 +877,7 @@ checksum = "592b0c143ec626e821d4d90da51a2bd91d559d6c442b7c74a47d368c9e23d97a"
 dependencies = [
  "cfg-if",
  "critical-section",
+ "defmt 1.1.1",
  "document-features",
  "embassy-time-driver",
  "embedded-hal 0.2.7",
@@ -862,6 +931,40 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "embedded-io"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
+
+[[package]]
+name = "embedded-io-async"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2564b9f813c544241430e147d8bc454815ef9ac998878d30cc3055449f7fd4c0"
+dependencies = [
+ "embedded-io 0.7.1",
+]
+
+[[package]]
+name = "embedded-nal"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c56a28be191a992f28f178ec338a0bf02f63d7803244add736d026a471e6ed77"
+dependencies = [
+ "nb 1.1.0",
+]
+
+[[package]]
+name = "embedded-nal-async"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb5a1bd585135d302f8f6d7de329310938093da6271b37a6c94b8798795c0c6d"
+dependencies = [
+ "embedded-io-async",
+ "embedded-nal",
+]
 
 [[package]]
 name = "encode_unicode"
@@ -1108,6 +1211,7 @@ version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
 dependencies = [
+ "defmt 1.1.1",
  "hash32 0.3.1",
  "stable_deref_trait",
 ]
@@ -1569,7 +1673,7 @@ version = "0.2.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "668b7183bd07af9a4885f5c35b0cc5c83c4607a913c16b7e17291832910d2dcc"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "jiff-core",
  "jiff-static",
  "portable-atomic",
@@ -1583,7 +1687,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7feca88439efe53da3754500c1851dedf3cb36c524dd5cf8225cc0794de95d09"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
 ]
 
 [[package]]
@@ -1690,6 +1794,12 @@ checksum = "6a1b95cd5421ec55b445b5ae102f5ea0e768de1f82bd3001e11f426c269c3aea"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "managed"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ca88d725a0a943b096803bd34e73a4437208b6077654cc4ecb2947a5f91618d"
 
 [[package]]
 name = "memchr"
@@ -2538,7 +2648,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 name = "shrink_wrap"
 version = "0.2.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "either",
  "hex-literal",
  "paste",
@@ -2603,6 +2713,20 @@ name = "smallvec"
 version = "1.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
+
+[[package]]
+name = "smoltcp"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f73d40463bba65efc9adc6370b56df76d563cc46e2482bba58351b4afb7535e"
+dependencies = [
+ "bitflags 1.3.2",
+ "byteorder",
+ "cfg-if",
+ "defmt 0.3.100",
+ "heapless 0.9.3",
+ "managed",
+]
 
 [[package]]
 name = "socket2"
@@ -3084,7 +3208,7 @@ dependencies = [
 name = "uart_api"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_uart",
 ]
@@ -3523,7 +3647,7 @@ dependencies = [
 name = "wire_weaver"
 version = "0.5.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_version",
@@ -3652,7 +3776,7 @@ dependencies = [
 name = "ww_board_info"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_date_time",
 ]
@@ -3661,7 +3785,7 @@ dependencies = [
 name = "ww_can_bus"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_numeric",
  "ww_version",
@@ -3679,7 +3803,7 @@ dependencies = [
 name = "ww_counters"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_log_bare_metal",
 ]
@@ -3689,7 +3813,7 @@ name = "ww_date_time"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "defmt",
+ "defmt 1.1.1",
  "hex-literal",
  "shrink_wrap",
 ]
@@ -3698,9 +3822,14 @@ dependencies = [
 name = "ww_device"
 version = "0.5.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
+ "edge-http",
+ "edge-ws",
  "embassy-futures",
+ "embassy-net",
+ "embassy-sync",
  "embassy-time",
+ "httparse",
  "log",
  "rtt-target",
  "tokio",
@@ -3715,7 +3844,7 @@ dependencies = [
 name = "ww_dfu"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -3739,7 +3868,7 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
- "defmt",
+ "defmt 1.1.1",
  "serde",
  "serde_json",
  "shrink_wrap",
@@ -3749,7 +3878,7 @@ dependencies = [
 name = "ww_gpio"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_si",
 ]
@@ -3770,7 +3899,7 @@ dependencies = [
 name = "ww_i2c"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -3778,7 +3907,7 @@ dependencies = [
 name = "ww_indication"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -3786,7 +3915,7 @@ dependencies = [
 name = "ww_link"
 version = "0.5.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
  "ww_framer",
@@ -3805,7 +3934,7 @@ dependencies = [
 name = "ww_log_bare_metal"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_si",
 ]
@@ -3814,7 +3943,7 @@ dependencies = [
 name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "serde",
  "shrink_wrap",
 ]
@@ -3835,7 +3964,7 @@ dependencies = [
 name = "ww_si"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "shrink_wrap",
  "ww_numeric",
 ]
@@ -3844,7 +3973,7 @@ dependencies = [
 name = "ww_spi"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -3852,7 +3981,7 @@ dependencies = [
 name = "ww_uart"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
  "ww_si",
 ]
@@ -3861,7 +3990,7 @@ dependencies = [
 name = "ww_uid"
 version = "0.1.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "wire_weaver",
 ]
 
@@ -3876,7 +4005,7 @@ dependencies = [
 name = "ww_version"
 version = "0.2.0"
 dependencies = [
- "defmt",
+ "defmt 1.1.1",
  "hex",
  "hex-literal",
  "semver",

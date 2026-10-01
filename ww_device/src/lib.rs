@@ -9,6 +9,8 @@
 //!   over packets for frame based media (USB, CAN, ...) and [StreamTx] /
 //!   [StreamRx] over bytes for stream media (RTT, UART, ...).
 //! - `rtt` (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
+//! - `ws` (feature `ws`) — WebSocket as a medium over any TCP-like socket, `embassy-net` sockets with the
+//!   `embassy-net` feature.
 //! - [Server] — async glue: `wait()` (cancel-safe, `select` it with anything else) and `handle()`
 //!   (link logic + backend), plus a [Sink] to send stream updates from anywhere in the loop.
 //! - [blocking::Server] — the same for devices without async: packets are pushed in, time is polled.
@@ -26,6 +28,8 @@ pub mod rtt;
 pub mod server;
 mod time;
 pub mod transport;
+#[cfg(feature = "ws")]
+pub mod ws;
 
 #[cfg(test)]
 mod tests;

@@ -4,7 +4,8 @@ use crate::ast::repr::Repr;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_since_attr};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
-    FieldPath, FieldPathRoot, check_flag_order, create_flags, create_tuple_flags, transform_field,
+    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, create_flags,
+    create_tuple_flags, transform_field,
 };
 use syn::{Expr, Lit};
 
@@ -87,6 +88,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
             }
             create_flags(&mut named, &explicit_flags);
             check_flag_order(&named)?;
+            check_backfill_position(&named, false)?;
             propagate_default_to_flags(&mut named)?;
             change_is_ok_to_is_some(&mut named);
             Ok(Fields::Named(named))
@@ -98,6 +100,12 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                     transform_field(def_order_idx as u32, field, path)?;
                 // TODO: Do unnamed fields have to have since, id, default, etc?
                 // TODO: explicit flags in unnamed fields?
+                if field.ty.contains_backfill() {
+                    return Err(
+                        "UVlq32Backfill must be the first field of a struct, enums are not supported"
+                            .into(),
+                    );
+                }
                 unnamed.push(field.ty);
             }
             let unnamed = create_tuple_flags(&unnamed);
@@ -123,5 +131,15 @@ mod tests {
         let item: syn::ItemEnum = syn::parse2(quote! { enum E { A = 15, B } }).unwrap();
         assert!(ItemEnum::from_syn(&item, Repr::Nibble).is_err());
         assert!(ItemEnum::from_syn(&item, Repr::U8).is_ok());
+    }
+
+    #[test]
+    fn backfill_not_allowed_in_enums() {
+        let item: syn::ItemEnum = syn::parse2(quote! { enum E { A(UVlq32Backfill) } }).unwrap();
+        assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
+
+        let item: syn::ItemEnum =
+            syn::parse2(quote! { enum E { A { seq: UVlq32Backfill } } }).unwrap();
+        assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
     }
 }

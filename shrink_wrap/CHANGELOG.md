@@ -41,6 +41,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - `UVlq32Backfill`: `UVlq32` always written as the full 5 bytes, so that its value can be filled in after
   serialization with `UVlq32Backfill::backfill()`, which returns the slice starting at the shortest encoding.
   Meant for values only known right before sending, like request sequence numbers.
+  `#[derive_shrink_wrap(..)]` only accepts it as the first field of a struct, not nested in other types or in enums.
 
 ### 🐛 Fixes
 

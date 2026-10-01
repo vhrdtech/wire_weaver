@@ -150,6 +150,25 @@ pub(crate) fn check_flag_order(fields: &[Field]) -> Result<(), String> {
     Ok(())
 }
 
+/// `UVlq32Backfill::backfill()` patches the first 5 bytes of a buffer, so the field must be first on the wire,
+/// directly and not inside Option, Vec, tuple, etc. Must run after flags are created, as they are inserted
+/// in front of their Option or Result. Enum fields come after the discriminant, so `first_allowed` is false for them.
+pub(crate) fn check_backfill_position(fields: &[Field], first_allowed: bool) -> Result<(), String> {
+    for (idx, field) in fields.iter().enumerate() {
+        if !field.ty.contains_backfill() {
+            continue;
+        }
+        let is_plain = matches!(field.ty, Type::External(_, _));
+        if !(first_allowed && idx == 0 && is_plain) {
+            return Err(format!(
+                "UVlq32Backfill must be the first field of a struct and not nested in another type: {}",
+                field.ident
+            ));
+        }
+    }
+    Ok(())
+}
+
 // fn transform_const(item_const: &syn::ItemConst) -> Result<ItemConst, String> {
 //     let ty = transform_type(
 //         item_const.ty.deref().clone(),

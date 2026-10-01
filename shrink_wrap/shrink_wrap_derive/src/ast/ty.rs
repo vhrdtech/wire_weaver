@@ -95,6 +95,27 @@ impl Type {
         }
     }
 
+    /// Whether this type is or contains `UVlq32Backfill`, recognized by name only.
+    pub(crate) fn contains_backfill(&self) -> bool {
+        match self {
+            Type::External(path, _) => path
+                .segments
+                .last()
+                .is_some_and(|ident| ident == "UVlq32Backfill"),
+            Type::Array(_, ty)
+            | Type::Vec(ty)
+            | Type::Range(ty)
+            | Type::RangeInclusive(ty)
+            | Type::Option(_, ty)
+            | Type::RefBox(ty) => ty.contains_backfill(),
+            Type::Tuple(types) => types.iter().any(|ty| ty.contains_backfill()),
+            Type::Result(_, ok_err_ty) => {
+                ok_err_ty.0.contains_backfill() || ok_err_ty.1.contains_backfill()
+            }
+            _ => false,
+        }
+    }
+
     /// Return ElementSize if it is known. None is returned for Unsized.
     pub(crate) fn element_size(&self) -> Option<ObjectSize> {
         let size_bits = match self {

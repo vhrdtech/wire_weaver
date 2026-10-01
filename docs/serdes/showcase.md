@@ -91,6 +91,11 @@ assert_eq!(bytes, hex!("82 2c 61 62 02"));
 
 The skipped leading bytes are filled with the padded form, so the whole buffer would also read back as 300.
 
+`#[derive_shrink_wrap(..)]` rejects `UVlq32Backfill` anywhere other than the first field of a struct: after another
+field (a `bool` or an `Option` flag would be written in front of it), nested in `Option`, `Vec`, tuples or arrays, and
+in enums, whose discriminant always comes first. The macro recognizes the type by name and only sees one type at a time, so
+it can't check that the struct itself is serialized first and is not, for example, a field of another struct.
+
 ## `Option<T>` and `Result<T, E>`: a flag, not a tag
 
 Both are `SelfDescribing`: one `bool` flag followed by the payload (for `Result`, `true` picks `Ok`, `false` picks

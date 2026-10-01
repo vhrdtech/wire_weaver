@@ -132,6 +132,9 @@ impl Display for UVlq32 {
 /// On the wire it is a [UVlq32], either in canonical (shortest) form if the slice returned by
 /// [backfill](UVlq32Backfill::backfill) is used, or padded with empty `0x80` groups in front if the whole buffer is
 /// used. Both are valid and read back as the same number, by both `UVlq32` and `UVlq32Backfill`.
+///
+/// `#[derive_shrink_wrap(..)]` rejects it anywhere other than the first field of a struct (also inside `Option`,
+/// `Vec`, tuples, arrays and enums), but can't check that the struct itself is serialized at the start of the buffer.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

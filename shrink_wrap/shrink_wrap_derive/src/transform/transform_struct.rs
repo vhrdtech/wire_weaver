@@ -6,7 +6,8 @@ use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 use crate::transform::util::{
-    FieldPath, FieldPathRoot, check_flag_order, create_flags, transform_field,
+    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, create_flags,
+    transform_field,
 };
 
 impl ItemStruct {
@@ -31,6 +32,7 @@ impl ItemStruct {
         collect_unknown_attributes(&mut attrs);
         create_flags(&mut fields, &explicit_flags);
         check_flag_order(&fields)?;
+        check_backfill_position(&fields, true)?;
         propagate_default_to_flags(&mut fields)?;
         change_is_ok_to_is_some(&mut fields);
         Ok(ItemStruct {
@@ -94,5 +96,33 @@ pub(crate) fn change_is_ok_to_is_some(fields: &mut [Field]) {
             let Type::IsOk(ident) = &f.ty else { continue };
             f.ty = Type::IsSome(ident.clone());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn from_tokens(ts: proc_macro2::TokenStream) -> Result<ItemStruct, String> {
+        let item: syn::ItemStruct = syn::parse2(ts).unwrap();
+        ItemStruct::from_syn(&item)
+    }
+
+    #[test]
+    fn backfill_must_be_first() {
+        assert!(from_tokens(quote! { struct S { seq: UVlq32Backfill, a: u8 } }).is_ok());
+        assert!(
+            from_tokens(quote! { struct S { seq: shrink_wrap::UVlq32Backfill, a: u8 } }).is_ok()
+        );
+        assert!(from_tokens(quote! { struct S { a: u8, seq: UVlq32Backfill } }).is_err());
+        // is_some flag of an Option is written in front of it, bool is written first as well
+        assert!(from_tokens(quote! { struct S { a: bool, seq: UVlq32Backfill } }).is_err());
+        assert!(from_tokens(quote! { struct S { seq: Option<UVlq32Backfill> } }).is_err());
+        assert!(from_tokens(quote! { struct S { seq: Vec<UVlq32Backfill> } }).is_err());
+        assert!(from_tokens(quote! { struct S { seq: (UVlq32Backfill, u8) } }).is_err());
+        assert!(from_tokens(quote! { struct S { seq: [UVlq32Backfill; 1] } }).is_err());
+        assert!(
+            from_tokens(quote! { struct S { a: UVlq32Backfill, b: UVlq32Backfill } }).is_err()
+        );
     }
 }

@@ -169,6 +169,24 @@ pub(crate) fn check_backfill_position(fields: &[Field], first_allowed: bool) -> 
     Ok(())
 }
 
+/// `TailBytes` takes all the bytes left in a buffer, so the field must be last on the wire, directly and not inside
+/// Option, Vec, tuple, etc. Flags are inserted in front of their Option or Result, so the last field stays last.
+/// Same for struct fields and enum variant fields: the variant is the last thing written for an enum.
+pub(crate) fn check_tail_bytes_position(types: &[&Type]) -> Result<(), String> {
+    for (idx, ty) in types.iter().enumerate() {
+        if !ty.contains_tail_bytes() {
+            continue;
+        }
+        let is_plain = matches!(ty, Type::External(_, _));
+        if !(idx == types.len() - 1 && is_plain) {
+            return Err(
+                "TailBytes must be the last field of a struct or enum variant and not nested in another type".into(),
+            );
+        }
+    }
+    Ok(())
+}
+
 // fn transform_const(item_const: &syn::ItemConst) -> Result<ItemConst, String> {
 //     let ty = transform_type(
 //         item_const.ty.deref().clone(),

@@ -97,20 +97,30 @@ impl Type {
 
     /// Whether this type is or contains `UVlq32Backfill`, recognized by name only.
     pub(crate) fn contains_backfill(&self) -> bool {
+        self.contains_external(&["UVlq32Backfill"])
+    }
+
+    /// Whether this type is or contains `TailBytes` or `TailBytesOwned`, recognized by name only.
+    pub(crate) fn contains_tail_bytes(&self) -> bool {
+        self.contains_external(&["TailBytes", "TailBytesOwned"])
+    }
+
+    /// Whether this type is or contains an external type whose last path segment is one of `names`.
+    fn contains_external(&self, names: &[&str]) -> bool {
         match self {
             Type::External(path, _) => path
                 .segments
                 .last()
-                .is_some_and(|ident| ident == "UVlq32Backfill"),
+                .is_some_and(|ident| names.iter().any(|name| ident == name)),
             Type::Array(_, ty)
             | Type::Vec(ty)
             | Type::Range(ty)
             | Type::RangeInclusive(ty)
             | Type::Option(_, ty)
-            | Type::RefBox(ty) => ty.contains_backfill(),
-            Type::Tuple(types) => types.iter().any(|ty| ty.contains_backfill()),
+            | Type::RefBox(ty) => ty.contains_external(names),
+            Type::Tuple(types) => types.iter().any(|ty| ty.contains_external(names)),
             Type::Result(_, ok_err_ty) => {
-                ok_err_ty.0.contains_backfill() || ok_err_ty.1.contains_backfill()
+                ok_err_ty.0.contains_external(names) || ok_err_ty.1.contains_external(names)
             }
             _ => false,
         }

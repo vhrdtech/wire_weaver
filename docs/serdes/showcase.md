@@ -244,6 +244,11 @@ pub struct Request<'i> {
 Method arguments and property values are serialized once into their own buffer, then handed to the outer message
 as `TailBytes` - one buffer, no copying to reframe it, no length to write since it's already implied.
 
+`#[derive_shrink_wrap(..)]` rejects `TailBytes` / `TailBytesOwned` anywhere other than the last field of a struct or
+enum variant: before another field, which it would swallow, and nested in `Option`, `Vec`, tuples or arrays. As with
+`UVlq32Backfill`, the macro only sees one type at a time: a `sized` or `final_structure` type ending in `TailBytes`
+must itself be last, up to the first `Unsized` type on the way up, and that is not checked.
+
 ## Self-referential types with `RefBox`
 
 Rust needs a compile-time-known size for any type; a struct or enum can't directly contain itself. `RefBox<'i, T>`

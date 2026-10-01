@@ -6,8 +6,8 @@ use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 use crate::transform::util::{
-    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, create_flags,
-    transform_field,
+    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
+    create_flags, transform_field,
 };
 
 impl ItemStruct {
@@ -33,6 +33,7 @@ impl ItemStruct {
         create_flags(&mut fields, &explicit_flags);
         check_flag_order(&fields)?;
         check_backfill_position(&fields, true)?;
+        check_tail_bytes_position(&fields.iter().map(|f| &f.ty).collect::<Vec<_>>())?;
         propagate_default_to_flags(&mut fields)?;
         change_is_ok_to_is_some(&mut fields);
         Ok(ItemStruct {
@@ -122,5 +123,27 @@ mod tests {
         assert!(from_tokens(quote! { struct S { seq: (UVlq32Backfill, u8) } }).is_err());
         assert!(from_tokens(quote! { struct S { seq: [UVlq32Backfill; 1] } }).is_err());
         assert!(from_tokens(quote! { struct S { a: UVlq32Backfill, b: UVlq32Backfill } }).is_err());
+    }
+
+    #[test]
+    fn tail_bytes_must_be_last() {
+        assert!(from_tokens(quote! { struct S<'i> { a: u8, data: TailBytes<'i> } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: u8, data: TailBytesOwned } }).is_ok());
+        assert!(
+            from_tokens(quote! { struct S<'i> { a: Option<u8>, data: shrink_wrap::tail_bytes::TailBytes<'i> } })
+                .is_ok()
+        );
+        assert!(from_tokens(quote! { struct S<'i> { data: TailBytes<'i> } }).is_ok());
+        assert!(from_tokens(quote! { struct S<'i> { data: TailBytes<'i>, a: u8 } }).is_err());
+        assert!(
+            from_tokens(quote! { struct S<'i> { data: TailBytes<'i>, a: Option<u8> } }).is_err()
+        );
+        assert!(from_tokens(quote! { struct S { data: Option<TailBytesOwned> } }).is_err());
+        assert!(from_tokens(quote! { struct S { data: Vec<TailBytesOwned> } }).is_err());
+        assert!(from_tokens(quote! { struct S<'i> { data: (u8, TailBytes<'i>) } }).is_err());
+        assert!(from_tokens(quote! { struct S<'i> { data: [TailBytes<'i>; 1] } }).is_err());
+        assert!(
+            from_tokens(quote! { struct S<'i> { a: TailBytes<'i>, b: TailBytes<'i> } }).is_err()
+        );
     }
 }

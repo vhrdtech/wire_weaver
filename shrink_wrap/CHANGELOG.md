@@ -56,6 +56,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   serialization with `UVlq32Backfill::backfill()`, which returns the slice starting at the shortest encoding.
   Meant for values only known right before sending, like request sequence numbers.
   `#[derive_shrink_wrap(..)]` only accepts it as the first field of a struct, not nested in other types or in enums.
+- `#[derive_shrink_wrap(..)]` rejects `TailBytes` / `TailBytesOwned` that is not the last field of a struct or enum
+  variant, or is nested in `Option`, `Vec`, tuples or arrays; such a field silently swallowed the fields after it.
 
 ### 🐛 Fixes
 

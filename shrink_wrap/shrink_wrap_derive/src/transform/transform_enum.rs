@@ -4,8 +4,8 @@ use crate::ast::repr::Repr;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_since_attr};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
-    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, create_flags,
-    create_tuple_flags, transform_field,
+    FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
+    create_flags, create_tuple_flags, transform_field,
 };
 use syn::{Expr, Lit};
 
@@ -89,6 +89,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
             create_flags(&mut named, &explicit_flags);
             check_flag_order(&named)?;
             check_backfill_position(&named, false)?;
+            check_tail_bytes_position(&named.iter().map(|f| &f.ty).collect::<Vec<_>>())?;
             propagate_default_to_flags(&mut named)?;
             change_is_ok_to_is_some(&mut named);
             Ok(Fields::Named(named))
@@ -109,6 +110,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                 unnamed.push(field.ty);
             }
             let unnamed = create_tuple_flags(&unnamed);
+            check_tail_bytes_position(&unnamed.iter().collect::<Vec<_>>())?;
             Ok(Fields::Unnamed(unnamed))
         }
         syn::Fields::Unit => Ok(Fields::Unit),
@@ -141,5 +143,28 @@ mod tests {
         let item: syn::ItemEnum =
             syn::parse2(quote! { enum E { A { seq: UVlq32Backfill } } }).unwrap();
         assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
+    }
+
+    #[test]
+    fn tail_bytes_must_be_last_in_variant() {
+        let ok = [
+            quote! { enum E<'i> { A(u8, TailBytes<'i>), B } },
+            quote! { enum E { A(Option<u8>, TailBytesOwned) } },
+            quote! { enum E<'i> { A { a: u8, data: TailBytes<'i> }, B { data: TailBytes<'i> } } },
+        ];
+        for ts in ok {
+            let item: syn::ItemEnum = syn::parse2(ts).unwrap();
+            assert!(ItemEnum::from_syn(&item, Repr::U8).is_ok());
+        }
+        let err = [
+            quote! { enum E<'i> { A(TailBytes<'i>, u8) } },
+            quote! { enum E { A(Option<TailBytesOwned>) } },
+            quote! { enum E<'i> { A { data: TailBytes<'i>, a: u8 } } },
+            quote! { enum E { A { data: Vec<TailBytesOwned> } } },
+        ];
+        for ts in err {
+            let item: syn::ItemEnum = syn::parse2(ts).unwrap();
+            assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
+        }
     }
 }

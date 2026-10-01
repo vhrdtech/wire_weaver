@@ -99,15 +99,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/serdes/derive.md`); replaced `#[derive(ShrinkWrap)]`.
 - ✅ **Discriminant checks**: discriminants must fit `ww_repr`, implicit ones are numbered like in Rust.
 - ✅ **`#[default = ..]` for evolved fields** and `#[flag]` relocation.
+- ✅ **`TailBytes` must be last**: rejected anywhere but as the last field of a struct or enum variant, and nested
+  in `Option`, `Vec`, tuples or arrays (`check_tail_bytes_position`), like `UVlq32Backfill` must be first.
 - 📋 **`#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
-- 📋 **Check that `TailBytes` is last** · `v0.5` — like `UVlq32Backfill` is checked to be the first field
-  (`check_backfill_position` in `shrink_wrap_derive/src/transform/util.rs`). Today only its doc comment warns,
-  and a misplaced `TailBytes` silently swallows the fields after it. The derive can reject it anywhere but as
-  the last field of a struct or enum variant, and nested in `Option`, `Vec`, tuples or arrays. Not visible to
-  it: a struct ending in `TailBytes` used as a non-last field of an outer `sized` / `final_structure` type
-  ("last in the first `Unsized` type on the way up"); that needs a marker on the type, e.g. an associated
-  const, and a compile-time assertion in the outer type.
+- 📋 **Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field
+  of an outer `sized` / `final_structure` type ("last in the first `Unsized` type on the way up") is not visible to
+  the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.
 - 📋 **Prefix enum discriminants** · `v0.5.x`.
 - 💡 **`#[cfg(feature = "..")]` on enum variants** — hard to handle with dynamic serdes in general, but might not
   be that bad for specific use cases.

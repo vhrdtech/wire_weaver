@@ -2689,6 +2689,10 @@ knows the whole message's length, so re-encoding the tail's length would be pure
 </span></code></pre></div>
 <p>Method arguments and property values are serialized once into their own buffer, then handed to the outer message
 as <code>TailBytes</code> - one buffer, no copying to reframe it, no length to write since it's already implied.</p>
+<p><code>#[derive_shrink_wrap(..)]</code> rejects <code>TailBytes</code> / <code>TailBytesOwned</code> anywhere other than the last field of a struct or
+enum variant: before another field, which it would swallow, and nested in <code>Option</code>, <code>Vec</code>, tuples or arrays. As with
+<code>UVlq32Backfill</code>, the macro only sees one type at a time: a <code>sized</code> or <code>final_structure</code> type ending in <code>TailBytes</code>
+must itself be last, up to the first <code>Unsized</code> type on the way up, and that is not checked.</p>
 <h2 id="self-referential-types-with-refbox">Self-referential types with <code>RefBox</code><a class="headerlink" href="#self-referential-types-with-refbox" title="Permanent link">&para;</a></h2>
 <p>Rust needs a compile-time-known size for any type; a struct or enum can't directly contain itself. <code>RefBox&lt;'i, T&gt;</code>
 breaks the cycle the same way <code>Box&lt;T&gt;</code> does on the heap, but for <code>no_std</code>/no-alloc: it stores either a plain <code>&amp;'i T</code>

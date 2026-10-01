@@ -2566,15 +2566,13 @@
 planned, for humans and AI agents alike. It replaces the external task tracker.</p>
 <h2 id="how-to-use-this-file">How to use this file<a class="headerlink" href="#how-to-use-this-file" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status</strong> of each item:<ul>
+<li><strong>Status</strong> of each item:</li>
 <li>✅ done</li>
 <li>🚧 in progress or partially done (the note says what is missing)</li>
 <li>📋 planned</li>
 <li>💡 idea, not committed to</li>
 <li>⛔ blocked (the note says on what)</li>
 <li>🔍 probably done or obsolete, needs a check before closing</li>
-</ul>
-</li>
 <li><strong>Target</strong> is the release an item is planned for: <code>v0.5</code> is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). <code>v0.5.x</code> is the next compatible release after it: <code>v0.5.1</code> if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. <code>grep '</code>v0.5<code>' FEATURES.md</code> gives the release
@@ -2622,18 +2620,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>shrink_wrap_derive/src/codegen/ty.rs</code>).</li>
 <li>📋 <strong><code>FutureVersion</code> enum variant</strong> · <code>v0.5</code> — a catch-all variant holding the unknown discriminant (and the
   payload bytes for <code>Unsized</code> enums), so an older reader can pass on or report an enum value from a newer
-  version instead of failing with <code>EnumFutureVersionOrMalformedData</code>. Notes:<ul>
+  version instead of failing with <code>EnumFutureVersionOrMalformedData</code>. Notes:</li>
 <li>the enum must already be <code>Unsized</code> to add new variants with data later; unit variants then write a 0
-  byte size each;</li>
+    byte size each;</li>
 <li>a <code>sized</code> enum can only get new unit variants;</li>
 <li>add to all enums by default, unless all discriminants of the repr are taken or an attribute opts out.</li>
-</ul>
-</li>
 <li>📋 <strong>Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
   <code>ww_self</code> (a plain <code>u32</code> today).</li>
-<li>📋 <strong>Size-of-enclosing-type field</strong> — a special type that reserves space and is backfilled with the size of
-  the type it is in once that is serialized, building on <code>UVlq32Backfill</code>. Lets a reader skip or bound the
+<li>📋 <strong>Size-of-enclosing-type field</strong> — a special type that reserves space and is backfilled with the size till the end of
+  the type it is in once that is serialized. Lets a reader skip or bound the
   enclosing value without parsing it.</li>
 <li>📋 <strong>Bounded sizes: <code>#[max_size]</code>, bounded <code>String</code>/<code>Vec</code></strong> · <code>v0.5.x</code> — from <code>docs/types.md</code> and
   <code>docs/api/arrays.md</code>. Enables worst-case buffer size analysis (see <a href="#api-model-and-codegen">Codegen</a>).</li>
@@ -2664,15 +2660,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>docs/serdes/derive.md</code>); replaced <code>#[derive(ShrinkWrap)]</code>.</li>
 <li>✅ <strong>Discriminant checks</strong>: discriminants must fit <code>ww_repr</code>, implicit ones are numbered like in Rust.</li>
 <li>✅ <strong><code>#[default = ..]</code> for evolved fields</strong> and <code>#[flag]</code> relocation.</li>
+<li>✅ <strong><code>TailBytes</code> must be last</strong>: rejected anywhere but as the last field of a struct or enum variant, and nested
+  in <code>Option</code>, <code>Vec</code>, tuples or arrays (<code>check_tail_bytes_position</code>), like <code>UVlq32Backfill</code> must be first.</li>
 <li>📋 <strong><code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
   <code>shrink_wrap_derive/src/lib.rs</code>).</li>
-<li>📋 <strong>Check that <code>TailBytes</code> is last</strong> · <code>v0.5</code> — like <code>UVlq32Backfill</code> is checked to be the first field
-  (<code>check_backfill_position</code> in <code>shrink_wrap_derive/src/transform/util.rs</code>). Today only its doc comment warns,
-  and a misplaced <code>TailBytes</code> silently swallows the fields after it. The derive can reject it anywhere but as
-  the last field of a struct or enum variant, and nested in <code>Option</code>, <code>Vec</code>, tuples or arrays. Not visible to
-  it: a struct ending in <code>TailBytes</code> used as a non-last field of an outer <code>sized</code> / <code>final_structure</code> type
-  ("last in the first <code>Unsized</code> type on the way up"); that needs a marker on the type, e.g. an associated
-  const, and a compile-time assertion in the outer type.</li>
+<li>📋 <strong>Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
+  of an outer <code>sized</code> / <code>final_structure</code> type ("last in the first <code>Unsized</code> type on the way up") is not visible to
+  the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.</li>
 <li>📋 <strong>Prefix enum discriminants</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong><code>#[cfg(feature = "..")]</code> on enum variants</strong> — hard to handle with dynamic serdes in general, but might not
   be that bad for specific use cases.</li>
@@ -2717,18 +2711,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   request/response challenge before the call is executed.</li>
 <li>💡 <strong>Refactor codegen to use an IR</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>Generate C</strong> · <code>v0.5.x</code>, and an <strong>FFI example</strong>.</li>
-<li>
-<p>💡 <strong>Standalone definition files with custom syntax</strong> — APIs and types in their own files, with a friendlier
-  syntax: nested levels, no macro calls, SI units. Tried twice already, approach with care:</p>
-<ul>
+<li>💡 <strong>Standalone definition files with custom syntax</strong> — APIs and types in their own files, with a friendlier
+  syntax: nested levels, no macro calls, SI units. Tried twice already, approach with care:</li>
 <li>at the very beginning of this repo, a YAML based language;</li>
 <li>later, a big effort to support a custom syntax, which turned into a project of its own and took a lot of
-  resources away from the actual work.</li>
+    resources away from the actual work.</li>
 </ul>
 <p>Plain Rust with <code>#[ww_trait]</code> and <code>#[derive_shrink_wrap]</code> is the current answer; revisit only with a concrete
-benefit that outweighs the cost of a parser, tooling and IDE support.</p>
-</li>
-</ul>
+  benefit that outweighs the cost of a parser, tooling and IDE support.</p>
 <h2 id="server-device-side">Server / device side<a class="headerlink" href="#server-device-side" title="Permanent link">&para;</a></h2>
 <ul>
 <li>✅ <strong><code>no_std</code>, no-alloc server</strong>, IO-free generated code.</li>
@@ -2739,31 +2729,29 @@ benefit that outweighs the cost of a parser, tooling and IDE support.</p>
 <li>✅ <strong>Device descriptors</strong>: serial, WireWeaver version, API id, version, hash and user label in the USB interface
   string.</li>
 <li>✅ <strong>Media</strong>: USB (embassy), RTT, WebSocket (also on <code>embassy-net</code>).</li>
-<li>
-<p>⛔ <strong>One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
+<li>⛔ <strong>One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
-  std/no_std:</p>
-<ul>
+  std/no_std:</li>
 <li><code>wire_weaver</code> stays lean (shrink_wrap, macros, <code>ww_version</code>, result types) since every API crate and
-  <code>ww_stdlib</code> crate depends on it;</li>
+    <code>ww_stdlib</code> crate depends on it;</li>
 <li><code>ww_device</code> re-exports <code>wire_weaver</code>, <code>ww_framer</code>, <code>ww_link</code> and gets features <code>usb-embassy</code>, <code>rtt</code>, <code>udp</code>,
-  <code>ws</code>, <code>defmt</code>, <code>embassy-time</code>, <code>std</code>;</li>
+    <code>ws</code>, <code>defmt</code>, <code>embassy-time</code>, <code>std</code>;</li>
 <li><code>wire_weaver_client</code> re-exports <code>wire_weaver</code> with transport features.</li>
 </ul>
 <p>Requires: codegen emitting paths through the role crate (or a <code>crate = ".."</code> argument / <code>proc-macro-crate</code>;
-<code>WIRE_WEAVER_REEXPORTS</code> in the crate walker is partly there), and <code>wire_weaver_usb_embassy</code> building in the
-root workspace or merging into <code>ww_device</code>. Separately consider making <code>wire_weaver</code>'s <code>std</code> default off.
-- 📋 <strong>Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
+  <code>WIRE_WEAVER_REEXPORTS</code> in the crate walker is partly there), and <code>wire_weaver_usb_embassy</code> building in the
+  root workspace or merging into <code>ww_device</code>. Separately consider making <code>wire_weaver</code>'s <code>std</code> default off.</p>
+<ul>
+<li>📋 <strong>Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
-  informing the device.
-- 📋 <strong>UDP device medium</strong> · <code>v0.5</code> — the host has a <code>udp</code> transport again, <code>ww_device</code> only has RTT and
-  WebSocket. Needed for the NCM UDP examples.
-- 📋 <strong>Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.
-- 📋 <strong>Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).
-- 💡 <strong>std server on Tower</strong> · <code>v0.5</code>.
-- 💡 <strong>IPC over USB / multi-app devices / USB multiplexer</strong> · <code>v0.5.x</code>.
-- 💡 <strong>FPGA server</strong> · <code>v0.5.x</code>.</p>
-</li>
+  informing the device.</li>
+<li>📋 <strong>UDP device medium</strong> · <code>v0.5</code> — the host has a <code>udp</code> transport again, <code>ww_device</code> only has RTT and
+  WebSocket. Needed for the NCM UDP examples.</li>
+<li>📋 <strong>Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
+<li>📋 <strong>Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
+<li>💡 <strong>std server on Tower</strong> · <code>v0.5</code>.</li>
+<li>💡 <strong>IPC over USB / multi-app devices / USB multiplexer</strong> · <code>v0.5.x</code>.</li>
+<li>💡 <strong>FPGA server</strong> · <code>v0.5.x</code>.</li>
 </ul>
 <h2 id="client-host-side">Client / host side<a class="headerlink" href="#client-host-side" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2914,7 +2902,7 @@ root workspace or merging into <code>ww_device</code>. Separately consider makin
   docs.rs builds them; check whether generated resource types carry doc comments.</li>
 </ul>
 <h2 id="testing-ci-and-performance">Testing, CI and performance<a class="headerlink" href="#testing-ci-and-performance" title="Permanent link">&para;</a></h2>
-<ul>
+<ul class="task-list">
 <li>✅ <strong>CI on GitHub Actions</strong>: fmt, sort, typos, clippy, rustdoc, nextest, doctests, semver-checks, MCU builds.</li>
 <li>✅ <strong>Integration tests</strong> against the real host event loop over <code>in_process</code>, one crate per API feature.</li>
 <li>✅ <strong>Device side end-to-end tests</strong> with real framers on both ends.</li>
@@ -2924,12 +2912,10 @@ root workspace or merging into <code>ww_device</code>. Separately consider makin
 <li>✅ <strong>Stream tests</strong>: byte buffers, basic and user types, open/close, sideband both ways, sinks, arrays of
   streams.</li>
 <li>✅ <strong>Framer fuzzing</strong> (<code>fuzz/</code>).</li>
-<li>🚧 <strong>Remaining test coverage</strong> · <code>v0.5</code>:<ul class="task-list">
+<li>🚧 <strong>Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> methods: return type evolving to a struct, adding arguments</li>
-</ul>
-</li>
 <li>🚧 <strong>Binary size tracking</strong> · <code>v0.5</code> — flash and RAM per feature for a set of examples, in CI. Consider
   compile-time construction so that only final bytes remain.</li>
 <li>📋 <strong>Keep an eye on coverage</strong> — around 70% on average as of 2026-10-01, the important crates are at

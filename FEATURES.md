@@ -6,12 +6,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 ## How to use this file
 
 - **Status** of each item:
-    - ✅ done
-    - 🚧 in progress or partially done (the note says what is missing)
-    - 📋 planned
-    - 💡 idea, not committed to
-    - ⛔ blocked (the note says on what)
-    - 🔍 probably done or obsolete, needs a check before closing
+  - ✅ done
+  - 🚧 in progress or partially done (the note says what is missing)
+  - 📋 planned
+  - 💡 idea, not committed to
+  - ⛔ blocked (the note says on what)
+  - 🔍 probably done or obsolete, needs a check before closing
 - **Target** is the release an item is planned for: `v0.5` is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). `v0.5.x` is the next compatible release after it: `v0.5.1` if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. `grep '`v0.5`' FEATURES.md` gives the release
@@ -60,15 +60,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **`FutureVersion` enum variant** · `v0.5` — a catch-all variant holding the unknown discriminant (and the
   payload bytes for `Unsized` enums), so an older reader can pass on or report an enum value from a newer
   version instead of failing with `EnumFutureVersionOrMalformedData`. Notes:
-    - the enum must already be `Unsized` to add new variants with data later; unit variants then write a 0
-      byte size each;
-    - a `sized` enum can only get new unit variants;
-    - add to all enums by default, unless all discriminants of the repr are taken or an attribute opts out.
+  - the enum must already be `Unsized` to add new variants with data later; unit variants then write a 0
+    byte size each;
+  - a `sized` enum can only get new unit variants;
+  - add to all enums by default, unless all discriminants of the repr are taken or an attribute opts out.
 - 📋 **Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
-- 📋 **Size-of-enclosing-type field** — a special type that reserves space and is backfilled with the size of
-  the type it is in once that is serialized, building on `UVlq32Backfill`. Lets a reader skip or bound the
+- 📋 **Size-of-enclosing-type field** — a special type that reserves space and is backfilled with the size till the end of
+  the type it is in once that is serialized. Lets a reader skip or bound the
   enclosing value without parsing it.
 - 📋 **Bounded sizes: `#[max_size]`, bounded `String`/`Vec`** · `v0.5.x` — from `docs/types.md` and
   `docs/api/arrays.md`. Enables worst-case buffer size analysis (see [Codegen](#api-model-and-codegen)).
@@ -152,12 +152,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **Generate C** · `v0.5.x`, and an **FFI example**.
 - 💡 **Standalone definition files with custom syntax** — APIs and types in their own files, with a friendlier
   syntax: nested levels, no macro calls, SI units. Tried twice already, approach with care:
-    - at the very beginning of this repo, a YAML based language;
-    - later, a big effort to support a custom syntax, which turned into a project of its own and took a lot of
-      resources away from the actual work.
+  - at the very beginning of this repo, a YAML based language;
+  - later, a big effort to support a custom syntax, which turned into a project of its own and took a lot of
+    resources away from the actual work.
 
-    Plain Rust with `#[ww_trait]` and `#[derive_shrink_wrap]` is the current answer; revisit only with a concrete
-    benefit that outweighs the cost of a parser, tooling and IDE support.
+  Plain Rust with `#[ww_trait]` and `#[derive_shrink_wrap]` is the current answer; revisit only with a concrete
+  benefit that outweighs the cost of a parser, tooling and IDE support.
 
 ## Server / device side
 
@@ -172,15 +172,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ⛔ **One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:
-    - `wire_weaver` stays lean (shrink_wrap, macros, `ww_version`, result types) since every API crate and
-      `ww_stdlib` crate depends on it;
-    - `ww_device` re-exports `wire_weaver`, `ww_framer`, `ww_link` and gets features `usb-embassy`, `rtt`, `udp`,
-      `ws`, `defmt`, `embassy-time`, `std`;
-    - `wire_weaver_client` re-exports `wire_weaver` with transport features.
+  - `wire_weaver` stays lean (shrink_wrap, macros, `ww_version`, result types) since every API crate and
+    `ww_stdlib` crate depends on it;
+  - `ww_device` re-exports `wire_weaver`, `ww_framer`, `ww_link` and gets features `usb-embassy`, `rtt`, `udp`,
+    `ws`, `defmt`, `embassy-time`, `std`;
+  - `wire_weaver_client` re-exports `wire_weaver` with transport features.
 
-    Requires: codegen emitting paths through the role crate (or a `crate = ".."` argument / `proc-macro-crate`;
-    `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
-    root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
+  Requires: codegen emitting paths through the role crate (or a `crate = ".."` argument / `proc-macro-crate`;
+  `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
+  root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
+
 - 📋 **Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -352,9 +353,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   streams.
 - ✅ **Framer fuzzing** (`fuzz/`).
 - 🚧 **Remaining test coverage** · `v0.5`:
-    - [ ] properties: unimplemented, observe stream
-    - [ ] streams: promise timeout
-    - [ ] methods: return type evolving to a struct, adding arguments
+  - [ ] properties: unimplemented, observe stream
+  - [ ] streams: promise timeout
+  - [ ] methods: return type evolving to a struct, adding arguments
 - 🚧 **Binary size tracking** · `v0.5` — flash and RAM per feature for a set of examples, in CI. Consider
   compile-time construction so that only final bytes remain.
 - 📋 **Keep an eye on coverage** — around 70% on average as of 2026-10-01, the important crates are at

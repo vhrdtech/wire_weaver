@@ -2728,7 +2728,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>User handlers called straight from the RX loop</strong>, transport glue extracted into <code>ww_device</code>.</li>
 <li>✅ <strong>Device descriptors</strong>: serial, WireWeaver version, API id, version, hash and user label in the USB interface
   string.</li>
-<li>✅ <strong>Media</strong>: USB (embassy), RTT, WebSocket (also on <code>embassy-net</code>).</li>
+<li>✅ <strong>Media</strong>: USB (embassy), RTT, WebSocket and UDP (both also on <code>embassy-net</code>).</li>
+<li>✅ <strong>UDP device medium</strong> — <code>ww_device::udp</code>, one frame per datagram over any datagram socket, one host at a
+  time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>).</li>
 <li>⛔ <strong>One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:</li>
@@ -2745,8 +2747,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
-<li>📋 <strong>UDP device medium</strong> · <code>v0.5</code> — the host has a <code>udp</code> transport again, <code>ww_device</code> only has RTT and
-  WebSocket. Needed for the NCM UDP examples.</li>
 <li>📋 <strong>Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
 <li>💡 <strong>std server on Tower</strong> · <code>v0.5</code>.</li>
@@ -2792,9 +2792,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong><code>ww_framer</code></strong>: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.</li>
 <li>✅ <strong><code>ww_link</code></strong>: link setup, device info, API version exchange.</li>
-<li>✅ <strong>USB</strong>, <strong>RTT</strong>, <strong>WebSocket</strong>, <strong>UDP</strong> (host side) and <strong>in-process</strong>.</li>
+<li>✅ <strong>USB</strong>, <strong>RTT</strong>, <strong>WebSocket</strong>, <strong>UDP</strong> and <strong>in-process</strong>.</li>
 <li>✅ <strong>USB CDC-NCM</strong>: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
-  itself, ping and a hello page over HTTP (<code>examples_mcu/rp2</code>, <code>ww_ws_ncm</code>).</li>
+  itself, ping and a hello page over HTTP (<code>examples_mcu/rp2</code>, <code>ww_ws_ncm</code>); UDP the same way (<code>ww_udp_ncm</code>).</li>
 <li>💡 <strong>USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>
@@ -2873,12 +2873,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <ul>
 <li>✅ <strong>Host examples</strong>: <code>blinky</code> (+ evolved API), <code>all_gpio</code>, <code>uart</code>, <code>blinky_py</code> (hand-written pyo3 wrapper).</li>
 <li>✅ <strong>Serialization only</strong>: <code>minimal_shrink_wrap</code>, <code>compare_wire_formats</code>.</li>
-<li>✅ <strong>MCU examples</strong>: nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig, mcu_qemu, rp2 (USB, RTT, WebSocket over
-  NCM).</li>
+<li>✅ <strong>MCU examples</strong>: nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig, mcu_qemu, rp2 (USB, RTT, WebSocket and UDP
+  over NCM).</li>
+<li>✅ <strong>NCM UDP example</strong>: <code>examples_mcu/rp2</code> <code>ww_udp_ncm</code>, host side <code>blinky_udp</code>.</li>
 <li>✅ <strong>Project layout</strong> of paired <code>&lt;name&gt;_api</code> / <code>&lt;name&gt;</code> crates (<code>docs/api/folder_structure.md</code>).</li>
 <li>📋 <strong>Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>Example with two media</strong> · <code>v0.5</code>.</li>
-<li>📋 <strong>NCM UDP example</strong> and <strong>NCM WebSocket + UDP example</strong> · <code>v0.5</code> — need the UDP device medium.</li>
+<li>📋 <strong>NCM WebSocket + UDP example</strong> · <code>v0.5</code> — both media on one stack, sharing the backend.</li>
 <li>💡 <strong>WebSocket over Ethernet example</strong> for some board · <code>v0.5.x</code> — the <code>ws</code> medium already runs on
   <code>embassy-net</code>, so Ethernet needs no transport work, only an example.</li>
 <li>📋 <strong>Reconnect demo</strong> · <code>v0.5.x</code> — keep reconnecting with streams and UI feedback; <code>disconnect_keep_streams</code>.</li>

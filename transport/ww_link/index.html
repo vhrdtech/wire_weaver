@@ -391,6 +391,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1557,6 +1561,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1929,6 +1937,60 @@
     
   
   RTT
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
 
     
   </span>
@@ -2465,6 +2527,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2541,6 +2607,7 @@ control traffic is rare.</p>
 <p>This is what USB uses (<code>TxOwned</code>/<code>FramedRxOwned</code> variants with the <code>std</code> feature of <code>ww_framer</code>). A medium with its own integrity check might drop the checksum,
 a stream medium would add a tail for synchronization, and so on — the link messages stay the same. <a href="../rtt/">RTT</a>
 uses <code>RttHead</code> / <code>RttChecksum</code> / <code>RttTail</code>: the same head, no checksum and no tail, as its ring buffers cannot corrupt bytes.
+<a href="../udp/">UDP</a> uses <code>UdpHead</code> / <code>UdpChecksum</code> / <code>UdpTail</code>, the same as USB, one frame per datagram.
 Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
 size). Both ends of a link must of course agree on the configuration.</p>
 <h3 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h3>
@@ -2863,7 +2930,7 @@ the head; actual limits are negotiated via <code>dev_max_message_len</code> / <c
   receiving is never blocked by a write.</li>
 <li><code>ww_device</code> — device side: sans-IO <code>DeviceLink</code>, async and blocking servers, see <a href="#how-the-device-runs-it">above</a>.</li>
 <li><code>wire_weaver_usb_embassy</code> — USB class and packet IO for embassy-usb on top of <code>ww_device</code>.</li>
-<li><a href="../usb/">USB</a>, WebSocket, UDP — transports that carry frames.</li>
+<li><a href="../usb/">USB</a>, <a href="../websocket/">WebSocket</a>, <a href="../udp/">UDP</a> — transports that carry frames.</li>
 </ul>
 
 

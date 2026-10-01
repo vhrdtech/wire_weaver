@@ -97,7 +97,13 @@
         <loc>https://ww.vhrd.tech/transport/rtt/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/transport/udp/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/transport/usb/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/transport/websocket/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/ww_framer/</loc>

@@ -12,13 +12,13 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/transport/overview/">
+        <link rel="canonical" href="https://ww.vhrd.tech/transport/udp/">
       
       
-        <link rel="prev" href="../../std_library/ww_self/">
+        <link rel="prev" href="../websocket/">
       
       
-        <link rel="next" href="../ww_framer/">
+        <link rel="next" href="../../examples/examples/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Overview - WireWeaver</title>
+        <title>UDP - WireWeaver</title>
       
     
     
@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#transport-protocols" class="md-skip">
+        <a href="#udp" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              UDP
             
           </span>
         </div>
@@ -400,7 +400,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="././" class="md-tabs__link">
+        <a href="../overview/" class="md-tabs__link">
           
   
   Transport protocols
@@ -1616,34 +1616,10 @@
                   
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Overview
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -1658,36 +1634,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#transport-protocols" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Transport protocols
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1832,10 +1778,36 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../udp/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1850,6 +1822,71 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#host-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reliability
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2144,6 +2181,8 @@
                     
                     
                     
+                      
+                    
                     
                       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
                       <div class="md-sidebar-button__wrapper">
@@ -2159,6 +2198,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -2167,10 +2208,43 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#transport-protocols" class="md-nav__link">
+  <a href="#host-side" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Transport protocols
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reliability
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
       </span>
     </span>
   </a>
@@ -2240,7 +2314,7 @@
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../overview/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -2265,21 +2339,47 @@
   
 
 
-  <h1 id="__skip">Overview</h1>
-
-<h2 id="transport-protocols">Transport protocols<a class="headerlink" href="#transport-protocols" title="Permanent link">&para;</a></h2>
-<p>Several transport protocols are supported:</p>
+<h1 id="udp">UDP<a class="headerlink" href="#udp" title="Permanent link">&para;</a></h1>
+<p>Connects the host to a device on a network over UDP: low overhead and no connection state, for telemetry-heavy
+devices, where a lost stream event now and then is better than a stall while TCP retransmits.</p>
+<h2 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h2>
+<p>Enable the <code>udp</code> feature of <code>wire_weaver_client</code> and select the device by address:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">blinky</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Blinky</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">udp_addr</span><span class="p">(</span><span class="s">&quot;192.168.1.10:9000&quot;</span><span class="p">))</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="p">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>Host names are resolved when connecting (<code>my-device.local:9000</code>), the first address is used. IPv6 works too
+(<code>[fe80::1%2]:9000</code>).</p>
+<p>Everything above the medium is the same as with <a href="../usb/">USB</a> or <a href="../websocket/">WebSocket</a>: <a href="../ww_link/">link setup</a>,
+version check, introspection, pings, timeouts, streams. There is no discovery, so device filters (serial, label, ...)
+are not checked before connecting.</p>
+<p>The host socket is connected to the device address: datagrams from anyone else are dropped by the OS, and if nothing
+listens on the device port, the ICMP error fails the connection right away (on Linux and macOS) instead of after the
+link setup retries.</p>
+<h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
+<p>Each datagram is one <a href="../ww_framer/">ww_framer</a> frame, with <code>ww_link</code>'s UDP configuration: <code>UdpHead</code> (<code>U2Head</code>),
+<code>UdpChecksum</code> (CRC-16 on split messages only) and <code>UdpTail</code> (none). Same as over USB, small messages accumulated by the
+event loop share a datagram and big ones are split across several.</p>
+<p>The host sends datagrams of at most <code>ww_link::UDP_MAX_DATAGRAM_LEN</code> (1452 B: Ethernet MTU minus IPv6 and UDP headers,
+so that nothing is fragmented over IPv4 or IPv6), the device must be able to receive datagrams of this size. The
+host accepts datagrams of any size, the device picks its own frame size.</p>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<p>Nothing is retransmitted:</p>
 <ul>
-<li>USB (nusb on host side, embassy on embedded, no drivers needed on Windows/Mac/Linux)</li>
-<li>RTT over a debug probe (rtt-target on embedded, probe-rs on host side), see <a href="../rtt/">RTT</a></li>
-<li>WebSocket (host side, for devices on a network), see <a href="../websocket/">WebSocket</a></li>
-<li>UDP (host side, for devices on a network, best for telemetry), see <a href="../udp/">UDP</a></li>
-<li>TODO: CAN Bus (using CANOpen)</li>
+<li>a lost request (or its reply) times out, as a request to a busy device would;</li>
+<li>a lost stream event is gone;</li>
+<li>a message split across datagrams is dropped if any piece of it is lost or reordered, the framer detects it from the
+  remaining length and the CRC, and continues with the next one;</li>
+<li>link setup survives losses, <code>GetDeviceInfo</code> is retried;</li>
+<li>if the device goes away silently, the peer timeout ends the session.</li>
 </ul>
-<p>Others could be easily implemented, possibly reusing the same code.</p>
-<p>USB and UDP transports support multiple events per packet/datagram. Many small messages can be accumulated over a time
-window conserving bandwidth and allowing much higher message throughput per unit of time that would otherwise be
-possible with one message per packet/datagram.</p>
+<p>Keep messages that must not be lost small enough to fit in one datagram, or use <a href="../websocket/">WebSocket</a> if the
+device can run TCP.</p>
+<h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
+<p>There is no ready-made device side yet. A server waits for the first datagram, answers to its sender (e.g., connects
+its socket to it) and runs the same <a href="../ww_link/#how-the-device-runs-it">Server</a> loop as over USB, on top of
+<code>ww_device</code>'s <code>FramedTx</code> / <code>FramedRx</code> with a <code>PacketSink</code> / <code>PacketSource</code> that send and receive datagrams.
+<code>wire_weaver_client/src/udp.rs</code> has one in its tests, on top of <code>tokio::net::UdpSocket</code>.</p>
 
 
 
@@ -2319,7 +2419,7 @@ possible with one message per packet/datagram.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../std_library/ww_self/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ww_self">
+          <a href="../websocket/" class="md-footer__link md-footer__link--prev" aria-label="Previous: WebSocket">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2329,20 +2429,20 @@ possible with one message per packet/datagram.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                ww_self
+                WebSocket
               </div>
             </div>
           </a>
         
         
           
-          <a href="../ww_framer/" class="md-footer__link md-footer__link--next" aria-label="Next: Framer">
+          <a href="../../examples/examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples and Templates">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Framer
+                Examples and Templates
               </div>
             </div>
             <div class="md-footer__button md-icon">

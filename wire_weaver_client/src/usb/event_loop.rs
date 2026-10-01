@@ -46,10 +46,10 @@ impl Transport for NusbTransport {
         let dev = super::connect::connect(&di).map_err(|e| format!("{e:#}"))?;
         trace!("max_packet_size: {}", dev.max_packet_size);
         let is_bulk = dev.transfer_type == TransferType::Bulk;
-        let sink =
-            Sink::new(&dev.interface, dev.max_packet_size, is_bulk).map_err(|e| e.to_string())?;
-        let source =
-            Source::new(&dev.interface, dev.max_packet_size, is_bulk).map_err(|e| e.to_string())?;
+        let sink = Sink::new(&dev.interface, dev.ep_out, dev.max_packet_size, is_bulk)
+            .map_err(|e| e.to_string())?;
+        let source = Source::new(&dev.interface, dev.ep_in, dev.max_packet_size, is_bulk)
+            .map_err(|e| e.to_string())?;
         Ok(Opened {
             tx: NusbTx {
                 framer: TxFramer::new(dev.max_packet_size),

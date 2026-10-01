@@ -30,22 +30,24 @@ const CANCEL_TIMEOUT: Duration = Duration::from_secs(1);
 impl Sink {
     pub fn new(
         interface: &Interface,
+        address: u8,
         max_packet_size: usize,
         use_bulk: bool,
     ) -> Result<Self, nusb::Error> {
         if use_bulk {
-            Self::new_inner::<Bulk>(interface, max_packet_size, "bulk_out")
+            Self::new_inner::<Bulk>(interface, address, max_packet_size, "bulk_out")
         } else {
-            Self::new_inner::<Interrupt>(interface, max_packet_size, "irq_out")
+            Self::new_inner::<Interrupt>(interface, address, max_packet_size, "irq_out")
         }
     }
 
     fn new_inner<EpType: BulkOrInterrupt + 'static>(
         interface: &Interface,
+        address: u8,
         max_packet_size: usize,
         marker: &'static str,
     ) -> Result<Self, nusb::Error> {
-        let ep_out = interface.endpoint::<EpType, Out>(0x01)?; // TODO: un-hardcode endpoint addresses
+        let ep_out = interface.endpoint::<EpType, Out>(address)?;
         let (submit_tx, submit_rx) = mpsc::channel(TX_QUEUE_SIZE);
         let (completion_tx, completion_rx) = mpsc::channel(TX_QUEUE_SIZE);
         let mut buf_pool = Vec::with_capacity(TX_QUEUE_SIZE);
@@ -203,22 +205,24 @@ pub(crate) struct Source {
 impl Source {
     pub fn new(
         interface: &Interface,
+        address: u8,
         max_packet_size: usize,
         use_bulk: bool,
     ) -> Result<Self, nusb::Error> {
         if use_bulk {
-            Self::new_inner::<Bulk>(interface, max_packet_size, "bulk_in")
+            Self::new_inner::<Bulk>(interface, address, max_packet_size, "bulk_in")
         } else {
-            Self::new_inner::<Interrupt>(interface, max_packet_size, "irq_in")
+            Self::new_inner::<Interrupt>(interface, address, max_packet_size, "irq_in")
         }
     }
 
     fn new_inner<EpType: BulkOrInterrupt + 'static>(
         interface: &Interface,
+        address: u8,
         max_packet_size: usize,
         marker: &'static str,
     ) -> Result<Self, nusb::Error> {
-        let mut ep_in = interface.endpoint::<EpType, In>(0x81)?;
+        let mut ep_in = interface.endpoint::<EpType, In>(address)?;
         for _ in 0..RX_QUEUE_SIZE {
             let mut rx = ep_in.allocate(max_packet_size);
             rx.set_requested_len(max_packet_size);

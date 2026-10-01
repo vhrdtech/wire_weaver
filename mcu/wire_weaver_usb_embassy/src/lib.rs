@@ -148,7 +148,6 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             )
         } else {
             // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
-            // TODO: verify that None as endpoint address here is correct, first available endpoint will be used internally
             (
                 alt.endpoint_interrupt_out(None, max_packet_size, 1),
                 alt.endpoint_interrupt_in(None, max_packet_size, 1),

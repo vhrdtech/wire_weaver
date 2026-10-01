@@ -138,6 +138,10 @@
 
 ### 🐛 Fixes
 
+- USB: endpoint addresses and the interface number are no longer hardcoded (`0x01` / `0x81` on interface 0). They are
+  read from the active configuration descriptor. The client picks the interface with WireWeaver class/protocol
+  (`0xFF` / `0x37`), or for devices not reporting it, the first interface with a bulk or interrupt IN/OUT pair.
+  Composite devices where the WireWeaver interface isn't first, or gets other endpoint numbers, now connect.
 - Stream and sink constructors (generated `<stream>()` / `<stream>_blocking()`, `observe_<property>()`,
   `Commander::prepare_stream` / `prepare_sink`, `DynStream`, `DynSink`) returned before the event loop started routing
   events to them, so events the device sent right after were sometimes dropped and a following `recv()` waited

@@ -10,6 +10,8 @@ repository.workspace = true
 [features]
 # RTT through a debug probe, for the blinky_rtt example
 rtt = ["wire_weaver_client/rtt"]
+# WebSocket, for the blinky_ws example
+ws = ["wire_weaver_client/ws"]
 
 [dependencies]
 blinky_api.workspace = true
@@ -40,3 +42,8 @@ path = "examples/simple.rs"
 name = "blinky_rtt"
 path = "examples/rtt.rs"
 required-features = ["rtt"]
+
+[[example]]
+name = "blinky_ws"
+path = "examples/ws.rs"
+required-features = ["ws"]

@@ -66,4 +66,4 @@ server.run(&mut state).await;
 `examples_mcu/rp2` has a complete example, `ww_ws_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server (`edge-dhcp`), so the host is configured
 automatically, and serves the blinky API at `ws://192.168.7.1:8080/ww`. Run it with `just run rp2 ww_ws_ncm` from
-`examples_mcu/rp2`.
+`examples_mcu/rp2`, then blink from the host with `cargo run -p blinky --features ws --example blinky_ws`.

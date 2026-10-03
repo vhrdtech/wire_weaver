@@ -23,6 +23,14 @@ patch-the-discriminant-later builder pattern), `docs/api/overview.md` (methods/s
 before starting a feature, and update the matching item in the same change when finishing one (see the conventions
 at its top). It is also the docs site's "Features" page, pulled in by `docs/features.md`, so edit the root file only.
 
+- Items have stable IDs per area (`SW-3`, `SRV-4`, `CLT-12`): never renumber or reuse one; new items take the next
+  free number of their area. Reference them in commit messages, CHANGELOG entries and code `TODO`s
+  (`// TODO(SRV-4): ...`).
+- **Name IDs with a short slug when talking to the user** (answers, plans, summaries, tables): `CLT-12
+  stream-receive-timeout`, never a bare `CLT-12`. The slug is 2-4 kebab-case words from the item's title. Commit
+  messages, CHANGELOG and code `TODO`s keep the bare ID.
+- Don't track status anywhere else (README checklists, TODO files, external trackers).
+
 ## Commands
 
 ```sh

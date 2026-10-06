@@ -212,7 +212,9 @@ rule.
 Every user-visible change (features, fixes, breaking changes) gets an entry under `## Unreleased` in the
 `CHANGELOG.md` of each affected crate, written in the same change — don't leave it for later. Follow the existing
 format (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`), name the public items involved, and for breaking changes
-say what users must change. Create the file if a crate doesn't have one yet.
+say what users must change. Create the file if a crate doesn't have one yet. Questions like "what's new" or
+"what changed since X" are answered from these changelogs, newest sections first (the user's version or date as
+the cutoff), with FEATURES.md for current status.
 
 Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
 position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/rules.md`: purely

@@ -4,7 +4,9 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::{maybe_quote, serdes_scaffold};
+use crate::codegen::util::{
+    CratePath, assert_sized_before_tail_size, maybe_quote, serdes_scaffold,
+};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::{Lit, LitInt, Path};
@@ -23,6 +25,7 @@ pub(crate) struct CGItemEnum<'i> {
     /// was used to disambiguate it (see `TyKind::Ambiguous`). Such a type never gets a `<'i>`
     /// generic, even on its "borrowed" (`is_ref: true`) side.
     pub(crate) ambiguous: bool,
+    pub(crate) crate_path: &'i CratePath,
 }
 
 impl<'i> CGItemEnum<'i> {
@@ -59,13 +62,22 @@ impl<'i> CGItemEnum<'i> {
         let variants = CGEnumFieldsDef {
             variants: self.variants,
             is_ref,
+            cp: self.crate_path,
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(self.ident, self.cfg, is_ref)
+            size.assert_element_size(self.ident, self.cfg, is_ref, self.crate_path)
         } else {
             quote! {}
         };
+        let assert_tail_size = self.variants.iter().map(|v| {
+            let types: Vec<&Type> = match &v.fields {
+                Fields::Named(named) => named.iter().map(|f| &f.ty).collect(),
+                Fields::Unnamed(unnamed) => unnamed.iter().collect(),
+                Fields::Unit => vec![],
+            };
+            assert_sized_before_tail_size(&types, self.ident, self.cfg, is_ref, self.crate_path)
+        });
         let native_repr = self.native_repr();
 
         let ts = quote! {
@@ -77,6 +89,7 @@ impl<'i> CGItemEnum<'i> {
             pub enum #enum_name #lifetime { #variants }
 
             #assert_size
+            #(#assert_tail_size)*
         };
         ts
     }
@@ -108,7 +121,7 @@ impl<'i> CGItemEnum<'i> {
         };
 
         let mut unknown_unsized = vec![];
-        let mut sum = self.size_assumption.unwrap_or(ObjectSize::Unsized); // enum is Unsized by default.
+        let mut sum = self.size_assumption.clone().unwrap_or(ObjectSize::Unsized); // enum is Unsized by default.
         // No need to check if it's already Unsized.
         if !matches!(sum, ObjectSize::Unsized) {
             if matches!(self.repr, Repr::UNib32) {
@@ -148,10 +161,9 @@ impl<'i> CGItemEnum<'i> {
         }
         let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
         let element_size = if implicitly_unsized {
-            let r#unsized = ObjectSize::Unsized;
-            quote! { #r#unsized }
+            ObjectSize::Unsized.tokens(self.crate_path)
         } else {
-            sum.sum_recursively(unknown_unsized, is_ref)
+            sum.sum_recursively(unknown_unsized, is_ref, self.crate_path)
         };
         serdes_scaffold(
             enum_name,
@@ -161,6 +173,7 @@ impl<'i> CGItemEnum<'i> {
             element_size,
             is_ref,
             is_ref && !self.ambiguous,
+            self.crate_path,
         )
     }
 }
@@ -168,6 +181,7 @@ impl<'i> CGItemEnum<'i> {
 struct CGEnumFieldsDef<'a> {
     variants: &'a [Variant],
     is_ref: bool,
+    cp: &'a CratePath,
 }
 
 impl ToTokens for CGEnumFieldsDef<'_> {
@@ -185,8 +199,10 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                     let fields_docs = fields_named.iter().map(|f| &f.docs).collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
                         fields_named.iter().map(|f| f.ident.clone()).collect();
-                    let field_types: Vec<TokenStream> =
-                        fields_named.iter().map(|f| f.ty.def(self.is_ref)).collect();
+                    let field_types: Vec<TokenStream> = fields_named
+                        .iter()
+                        .map(|f| f.ty.def(self.is_ref, self.cp))
+                        .collect();
                     quote!(#variant_docs #ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
                 }
                 Fields::Unnamed(fields_unnamed) => {
@@ -196,7 +212,7 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                         .collect::<Vec<_>>();
                     let field_types: Vec<TokenStream> = fields_unnamed
                         .iter()
-                        .map(|ty| ty.def(self.is_ref))
+                        .map(|ty| ty.def(self.is_ref, self.cp))
                         .collect();
                     quote!(#variant_docs #ident ( #(#field_types),* ) = #discriminant,)
                 }
@@ -262,8 +278,11 @@ impl ToTokens for CGEnumSer<'_> {
                         let field_name = &field.ident;
                         let field_path = if matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
                             FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
+                        } else if matches!(field.ty, Type::TailSize(_)) {
+                            fields_names.push(quote!(#field_name: _)); // its value is not written, don't bind it
+                            FieldPath::Ref(quote! {})
                         } else {
-                            fields_names.push(field_name.clone()); // do not create a match arm with a flag, because it's not a part of an enum
+                            fields_names.push(quote!(#field_name)); // do not create a match arm with a flag, because it's not a part of an enum
                             FieldPath::Ref(quote!(#field_name))
                         };
                         // tokens.append_all(trace_extended_key_val(
@@ -273,6 +292,12 @@ impl ToTokens for CGEnumSer<'_> {
                         field
                             .ty
                             .buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
+                    }
+                    if fields_named
+                        .iter()
+                        .any(|f| matches!(f.ty, Type::TailSize(_)))
+                    {
+                        Type::backfill_tail_size(&mut ser);
                     }
                     let variant_name = &variant.ident;
                     ser_data_variants.append_all(
@@ -298,6 +323,12 @@ impl ToTokens for CGEnumSer<'_> {
                         //     field_name.to_string().as_str(),
                         // ));
                         ty.buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
+                    }
+                    if fields_unnamed
+                        .iter()
+                        .any(|ty| matches!(ty, Type::TailSize(_)))
+                    {
+                        Type::backfill_tail_size(&mut ser);
                     }
                     let variant_name = &variant.ident;
                     ser_data_variants.append_all(
@@ -355,11 +386,12 @@ impl ToTokens for CGEnumDes<'_> {
         //     self.item_enum.ident.to_string().as_str(),
         // ));
         let read_discriminant = read_discriminant(self.item_enum.repr);
+        let error = self.item_enum.crate_path.error();
         tokens.append_all(quote! {
             let discriminant = rd.#read_discriminant;
             Ok(match discriminant {
                 #known_variants
-                _ => { return Err(ShrinkWrapError::EnumFutureVersionOrMalformedData); }
+                _ => { return Err(#error::EnumFutureVersionOrMalformedData); }
             })
         });
     }
@@ -405,6 +437,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             &quote! { _ },
+                            self.item_enum.crate_path,
                             &mut des_fields,
                         );
                     }
@@ -432,6 +465,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             &quote! { _ },
+                            self.item_enum.crate_path,
                             &mut des_fields,
                         );
                     }

@@ -1,5 +1,6 @@
 use crate::ast::docs::Docs;
 use crate::ast::item_struct::Field;
+use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
@@ -167,6 +168,48 @@ pub(crate) fn check_backfill_position(fields: &[Field], first_allowed: bool) -> 
         }
     }
     Ok(())
+}
+
+/// A `TailSize<N>` slot bounds the rest of the value for a reader, so there is at most one per struct or enum
+/// variant, as a plain field, and every field before it must be `Sized` or `SelfDescribing`: a `Vec`, `String` or
+/// `Unsized` field keeps its length at the back of the buffer, which a reader bounded by nothing but the slot can't
+/// find when the buffer is longer than the value. Known types are checked here; user types before the slot get a
+/// const assert in the generated code. Returns the index of the slot field, if any.
+pub(crate) fn check_tail_size_position(
+    types: &[&Type],
+    names: &[String],
+) -> Result<Option<usize>, String> {
+    let mut slot = None;
+    for (idx, ty) in types.iter().enumerate() {
+        if !ty.contains_tail_size() {
+            continue;
+        }
+        if slot.is_some() {
+            return Err(format!(
+                "at most one TailSize per struct or enum variant: {}",
+                names[idx]
+            ));
+        }
+        if !matches!(ty, Type::TailSize(_)) {
+            return Err(format!(
+                "TailSize must be a plain field, not inside Option, Vec, Result, tuples or arrays: {}",
+                names[idx]
+            ));
+        }
+        slot = Some(idx);
+    }
+    let Some(slot) = slot else {
+        return Ok(None);
+    };
+    for (ty, name) in types.iter().zip(names).take(slot) {
+        if let Some(ObjectSize::Unsized | ObjectSize::UnsizedFinalStructure) = ty.element_size() {
+            return Err(format!(
+                "field `{name}` before the TailSize slot must be Sized or SelfDescribing (no Vec, String or Unsized type): \
+its length would be at the back of the buffer, where a reader bounded by the slot alone can't find it"
+            ));
+        }
+    }
+    Ok(Some(slot))
 }
 
 /// `TailBytes` takes all the bytes left in a buffer, so the field must be last on the wire, directly and not inside

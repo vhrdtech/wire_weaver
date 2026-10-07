@@ -5,9 +5,36 @@ use syn::{File, Item, Path, parse2};
 use crate::{
     args::Args,
     ast::{item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize, repr::Repr},
-    codegen::{item_enum::CGItemEnum, item_struct::CGItemStruct},
+    codegen::{item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath},
     transform::docs_util::add_notes,
 };
+
+/// How generated code reaches the `shrink_wrap` crate: `crate_path(..)` if given, else the name it has in the
+/// user's `Cargo.toml` (`::shrink_wrap`, also inside `shrink_wrap` itself thanks to `extern crate self`), else
+/// through `wire_weaver`'s re-export when only that is a dependency. `None` when neither is found: names are left
+/// unqualified, for `use shrink_wrap::prelude::*` in the user's module to resolve, as before.
+fn crate_path(explicit: Option<TokenStream>) -> CratePath {
+    use proc_macro_crate::{FoundCrate, crate_name};
+    if let Some(path) = explicit {
+        return CratePath(Some(path));
+    }
+    let found = match crate_name("shrink_wrap") {
+        Ok(FoundCrate::Itself) => Some(quote::quote! { ::shrink_wrap }),
+        Ok(FoundCrate::Name(name)) => {
+            let name = Ident::new(&name, Span::call_site());
+            Some(quote::quote! { ::#name })
+        }
+        Err(_) => match crate_name("wire_weaver") {
+            Ok(FoundCrate::Itself) => Some(quote::quote! { crate::shrink_wrap }),
+            Ok(FoundCrate::Name(name)) => {
+                let name = Ident::new(&name, Span::call_site());
+                Some(quote::quote! { ::#name::shrink_wrap })
+            }
+            Err(_) => None,
+        },
+    };
+    CratePath(found)
+}
 
 pub fn shrink_wrap_attr(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut file = match syn::parse2::<File>(item) {
@@ -53,6 +80,7 @@ fn generate_inner(
 ) -> Result<TokenStream, String> {
     let do_generate_borrowed = matches!(ty_kind, TyKind::ImpliedRef) | args.borrowed.is_some();
     let ambiguous = matches!(ty_kind, TyKind::Ambiguous);
+    let crate_path = crate_path(args.crate_path);
     let generate_borrowed = if do_generate_borrowed {
         Some(CGSeed::new(
             item_name(name.clone(), ty_kind, true),
@@ -61,8 +89,9 @@ fn generate_inner(
             &args.cfg_attr,
             args.derive_borrowed.clone(),
             &args.derive,
-            args.size_assumption,
+            args.size_assumption.clone(),
             ambiguous,
+            &crate_path,
         ))
     } else {
         None
@@ -77,8 +106,9 @@ fn generate_inner(
             &args.cfg_attr,
             args.derive_owned,
             &args.derive,
-            args.size_assumption,
+            args.size_assumption.clone(),
             ambiguous,
+            &crate_path,
         ))
     } else {
         None
@@ -91,7 +121,17 @@ fn generate_inner(
                 return Err("For enums, ww_repr must be specified".into());
             };
             let mut ww_item_enum = ItemEnum::from_syn(item_enum, repr)?;
-            add_notes(&mut ww_item_enum.docs, args.size_assumption, true);
+            let has_tail_size = ww_item_enum.variants.iter().any(|v| match &v.fields {
+                crate::ast::item_enum::Fields::Named(named) => {
+                    named.iter().any(|f| f.ty.contains_tail_size())
+                }
+                crate::ast::item_enum::Fields::Unnamed(unnamed) => {
+                    unnamed.iter().any(|ty| ty.contains_tail_size())
+                }
+                crate::ast::item_enum::Fields::Unit => false,
+            });
+            check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            add_notes(&mut ww_item_enum.docs, args.size_assumption.clone(), true);
             // A single `MyTypeDiscriminants` enum is emitted (named off whichever of
             // borrowed/owned is generated, preferring borrowed), never mutating `ww_item_enum`
             // itself since it's still needed below to generate the real borrowed/owned types.
@@ -136,7 +176,16 @@ fn generate_inner(
                 return Err("structs must not have a ww_repr".into());
             }
             let mut ww_item_struct = ItemStruct::from_syn(item_struct)?;
-            add_notes(&mut ww_item_struct.docs, args.size_assumption, false);
+            let has_tail_size = ww_item_struct
+                .fields
+                .iter()
+                .any(|f| f.ty.contains_tail_size());
+            check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            add_notes(
+                &mut ww_item_struct.docs,
+                args.size_assumption.clone(),
+                false,
+            );
 
             if let Some(borrowed) = generate_borrowed {
                 let cg_item_struct = borrowed.cg_struct(&ww_item_struct);
@@ -157,6 +206,22 @@ fn generate_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// A `TailSize` slot counts the bytes to the end of the value including the reverse lengths its fields keep at
+/// the back, which only an `Unsized` type owns: a `sized`, `final_structure` or `self_describing` type has no end
+/// of its own on the wire.
+fn check_tail_size_unsized(
+    has_tail_size: bool,
+    size_assumption: &Option<ObjectSize>,
+) -> Result<(), String> {
+    if has_tail_size && size_assumption.is_some() {
+        return Err(
+            "TailSize is only allowed in Unsized types: remove sized, final_structure or self_describing"
+                .into(),
+        );
+    }
+    Ok(())
 }
 
 fn shrink_wrap_derive_inner(mut file: File) -> Result<TokenStream, String> {
@@ -192,16 +257,17 @@ fn item_name(name: String, ty_kind: TyKind, is_ref: bool) -> Ident {
     Ident::new(&ident, Span::call_site())
 }
 
-struct CGSeed {
+struct CGSeed<'a> {
     ident: Ident,
     cfg: Option<TokenStream>,
     cfg_attr: Vec<TokenStream>,
     derive: Vec<Path>,
     size_assumption: Option<ObjectSize>,
     ambiguous: bool,
+    crate_path: &'a CratePath,
 }
 
-impl CGSeed {
+impl<'a> CGSeed<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
         ident: Ident,
@@ -212,6 +278,7 @@ impl CGSeed {
         derive_add: &[Path],
         size_assumption: Option<ObjectSize>,
         ambiguous: bool,
+        crate_path: &'a CratePath,
     ) -> Self {
         let mut cfg_attr = cfg_attr;
         cfg_attr.extend(cfg_attr_add.iter().cloned());
@@ -224,6 +291,7 @@ impl CGSeed {
             derive,
             size_assumption,
             ambiguous,
+            crate_path,
         }
     }
 
@@ -247,8 +315,9 @@ impl CGSeed {
             cfg: self.cfg.as_ref(),
             cfg_attr: &self.cfg_attr,
             derive: &self.derive,
-            size_assumption: self.size_assumption,
+            size_assumption: self.size_assumption.clone(),
             ambiguous: self.ambiguous,
+            crate_path: self.crate_path,
         }
     }
 
@@ -260,8 +329,9 @@ impl CGSeed {
             cfg: self.cfg.as_ref(),
             cfg_attr: &self.cfg_attr,
             derive: &self.derive,
-            size_assumption: self.size_assumption,
+            size_assumption: self.size_assumption.clone(),
             ambiguous: self.ambiguous,
+            crate_path: self.crate_path,
         }
     }
 }

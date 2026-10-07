@@ -58,6 +58,22 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `#[derive_shrink_wrap(..)]` only accepts it as the first field of a struct, not nested in other types or in enums.
 - `#[derive_shrink_wrap(..)]` rejects `TailBytes` / `TailBytesOwned` that is not the last field of a struct or enum
   variant, or is nested in `Option`, `Vec`, tuples or arrays; such a field silently swallowed the fields after it.
+- `TailSize<N>` (SW-18): a field the derive macro fills in with the size of the rest of the enclosing value once it is
+  serialized, and bounds the value with when reading, so a value can be read from a longer buffer (a file region, a
+  record at a fixed offset), skipped without parsing, or evolved with trailing fields old readers skip. On the wire a
+  `UVlq32` right-justified in `N` bytes (1 to 5, 5 by default), valid for any `UVlq32` reader; serializing fails with
+  `Error::LenTooLong` when the size does not fit the width. Allowed in any position of a struct or enum variant, one
+  per struct or variant, in `Unsized` types only; the fields before it must be `Sized` or `SelfDescribing` (compile
+  error, or a const assert for user types). `BufWriter::reserve_tail_size()` / `backfill_tail_size()` (same on
+  `BufWriterOwned`) for hand-written serialization. Types without it are unchanged on the wire.
+- `#[derive_shrink_wrap(..)]` accepts any const expression as an array length (`[f32; MAX_SERIES]`, `[u8; N * 2]`),
+  not only integer literals; a `sized` type's `ELEMENT_SIZE` carries the length symbolically.
+- Generated code names `shrink_wrap` items by path, so `use shrink_wrap::prelude::*` is no longer required for the
+  macro and the names no longer clash with the user's own `BufReader`, `Error` and friends (e.g. `tokio::io::BufReader`
+  in the same module). The crate is found in `Cargo.toml` (`::shrink_wrap`, also renamed, or
+  `::wire_weaver::shrink_wrap` when only `wire_weaver` is a dependency), the new `crate_path(..)` directive overrides
+  it, and when neither crate is a dependency the names stay unqualified as before. `shrink_wrap_derive` depends on
+  `proc-macro-crate` for the lookup.
 
 ### 🐛 Fixes
 

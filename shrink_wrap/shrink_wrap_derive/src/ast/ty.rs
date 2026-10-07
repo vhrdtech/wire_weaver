@@ -1,6 +1,27 @@
 use crate::ast::object_size::ObjectSize;
 use crate::ast::path::Path;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{ToTokens, quote};
+use syn::{Expr, LitInt};
+
+/// Length of a `[T; N]` field: an integer literal the macro can do math with, or any other const expression
+/// (`MAX_SERIES`, `N * 2`, `{ .. }`) emitted as written.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ArrayLen {
+    Lit(usize),
+    Expr(Expr),
+}
+
+impl ToTokens for ArrayLen {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            ArrayLen::Lit(len) => {
+                LitInt::new(format!("{len}").as_str(), Span::call_site()).to_tokens(tokens)
+            }
+            ArrayLen::Expr(expr) => expr.to_tokens(tokens),
+        }
+    }
+}
 
 // TODO: Convert to struct and add span
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -37,7 +58,7 @@ pub(crate) enum Type {
     // Bytes,
     String,
 
-    Array(usize, Box<Type>),
+    Array(ArrayLen, Box<Type>),
     Tuple(Vec<Type>),
     Vec(Box<Type>),
     Range(Box<Type>),
@@ -60,6 +81,9 @@ pub(crate) enum Type {
     IsOk(Ident),
 
     RefBox(Box<Type>),
+
+    /// `TailSize<N>`, the size of the rest of the enclosing value, backfilled; `None` is the default width.
+    TailSize(Option<Expr>),
 }
 
 impl Type {
@@ -95,6 +119,24 @@ impl Type {
         }
     }
 
+    /// Whether `pred` holds for this type or any type nested in it.
+    pub(crate) fn any(&self, pred: &dyn Fn(&Type) -> bool) -> bool {
+        if pred(self) {
+            return true;
+        }
+        match self {
+            Type::Array(_, ty)
+            | Type::Vec(ty)
+            | Type::Range(ty)
+            | Type::RangeInclusive(ty)
+            | Type::Option(_, ty)
+            | Type::RefBox(ty) => ty.any(pred),
+            Type::Tuple(types) => types.iter().any(|ty| ty.any(pred)),
+            Type::Result(_, ok_err_ty) => ok_err_ty.0.any(pred) || ok_err_ty.1.any(pred),
+            _ => false,
+        }
+    }
+
     /// Whether this type is or contains `UVlq32Backfill`, recognized by name only.
     pub(crate) fn contains_backfill(&self) -> bool {
         self.contains_external(&["UVlq32Backfill"])
@@ -105,24 +147,42 @@ impl Type {
         self.contains_external(&["TailBytes", "TailBytesOwned"])
     }
 
+    /// Whether this type is or contains `TailSize<N>`.
+    pub(crate) fn contains_tail_size(&self) -> bool {
+        self.any(&|ty| matches!(ty, Type::TailSize(_)))
+    }
+
     /// Whether this type is or contains an external type whose last path segment is one of `names`.
     fn contains_external(&self, names: &[&str]) -> bool {
-        match self {
+        self.any(&|ty| match ty {
             Type::External(path, _) => path
                 .segments
                 .last()
                 .is_some_and(|ident| names.iter().any(|name| ident == name)),
+            _ => false,
+        })
+    }
+
+    /// Every user type (`Type::External`) in this type, nested ones included, with whether it takes a lifetime.
+    pub(crate) fn externals(&self, out: &mut Vec<(Path, bool)>) {
+        match self {
+            Type::External(path, is_lifetime) => out.push((path.clone(), *is_lifetime)),
             Type::Array(_, ty)
             | Type::Vec(ty)
             | Type::Range(ty)
             | Type::RangeInclusive(ty)
             | Type::Option(_, ty)
-            | Type::RefBox(ty) => ty.contains_external(names),
-            Type::Tuple(types) => types.iter().any(|ty| ty.contains_external(names)),
-            Type::Result(_, ok_err_ty) => {
-                ok_err_ty.0.contains_external(names) || ok_err_ty.1.contains_external(names)
+            | Type::RefBox(ty) => ty.externals(out),
+            Type::Tuple(types) => {
+                for ty in types {
+                    ty.externals(out);
+                }
             }
-            _ => false,
+            Type::Result(_, ok_err_ty) => {
+                ok_err_ty.0.externals(out);
+                ok_err_ty.1.externals(out);
+            }
+            _ => {}
         }
     }
 
@@ -157,14 +217,26 @@ impl Type {
                     ObjectSize::Unsized => ObjectSize::Unsized,
                     ObjectSize::UnsizedFinalStructure => ObjectSize::UnsizedFinalStructure,
                     ObjectSize::SelfDescribing => ObjectSize::SelfDescribing,
-                    ObjectSize::Sized { size_bits } => ObjectSize::Sized {
-                        size_bits: len * size_bits,
+                    ObjectSize::Sized {
+                        size_bits,
+                        symbolic,
+                    } => match len {
+                        ArrayLen::Lit(len) => ObjectSize::Sized {
+                            size_bits: len * size_bits,
+                            symbolic: symbolic
+                                .iter()
+                                .map(|term| quote! { #len * (#term) })
+                                .collect(),
+                        },
+                        ArrayLen::Expr(len) => ObjectSize::sized_symbolic(
+                            quote! { (#len) * (#size_bits #(+ #symbolic)*) },
+                        ),
                     },
                 };
                 return Some(size);
             }
             Type::Tuple(types) => {
-                let mut sum = ObjectSize::Sized { size_bits: 0 };
+                let mut sum = ObjectSize::sized(0);
                 for ty in types {
                     sum = sum.add(ty.element_size()?);
                 }
@@ -173,7 +245,7 @@ impl Type {
             Type::Vec(_) => return Some(ObjectSize::UnsizedFinalStructure),
             Type::Range(ty) | Type::RangeInclusive(ty) => return ty.element_size(),
             Type::External(_, _) => return None, // cannot know if it's actually Unsized or not, const calculation will be performed instead
-            Type::IsSome(_) | Type::IsOk(_) => return Some(ObjectSize::Sized { size_bits: 1 }),
+            Type::IsSome(_) | Type::IsOk(_) => return Some(ObjectSize::sized(1)),
             Type::Result(_, ok_err_ty) => {
                 let mut sum = ObjectSize::SelfDescribing;
                 sum = sum.add(ok_err_ty.0.element_size()?);
@@ -184,7 +256,18 @@ impl Type {
                 return Some(option_ty.element_size()?.add(ObjectSize::SelfDescribing));
             }
             Type::RefBox(_) => return Some(ObjectSize::Unsized),
+            Type::TailSize(None) => 5 * 8,
+            Type::TailSize(Some(width)) => {
+                if let Expr::Lit(lit) = width
+                    && let syn::Lit::Int(lit_int) = &lit.lit
+                    && let Ok(width) = lit_int.base10_parse::<usize>()
+                {
+                    width * 8
+                } else {
+                    return Some(ObjectSize::sized_symbolic(quote! { 8 * (#width) }));
+                }
+            }
         };
-        Some(ObjectSize::Sized { size_bits })
+        Some(ObjectSize::sized(size_bits))
     }
 }

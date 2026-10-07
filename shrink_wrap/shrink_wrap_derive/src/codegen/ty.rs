@@ -1,8 +1,8 @@
 use crate::ast::ty::Type;
+use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{TokenStreamExt, quote};
 use std::ops::Deref;
-use syn::{Lit, LitInt};
 
 #[derive(Clone)]
 pub(crate) enum FieldPath {
@@ -40,14 +40,14 @@ impl FieldPath {
 }
 
 impl Type {
-    pub(crate) fn def(&self, no_alloc: bool) -> TokenStream {
+    pub(crate) fn def(&self, no_alloc: bool, cp: &CratePath) -> TokenStream {
         match self {
             Type::Bool => quote! { bool },
-            Type::Nibble => quote! { Nibble },
+            Type::Nibble => cp.item(quote! { Nibble }),
             Type::U8 => quote! { u8 },
             Type::U16 => quote! { u16 },
-            Type::UNib32 => quote! { UNib32 },
-            Type::UVlq32 => quote! { UVlq32 },
+            Type::UNib32 => cp.item(quote! { UNib32 }),
+            Type::UVlq32 => cp.item(quote! { UVlq32 }),
             Type::U32 | Type::ULeb32 => quote! { u32 },
             Type::U64 | Type::ULeb64 => quote! { u64 },
             Type::U128 | Type::ULeb128 => quote! { u128 },
@@ -73,18 +73,18 @@ impl Type {
                 }
             }
             Type::Array(len, ty) => {
-                let item_ty = ty.def(no_alloc);
-                let len = Lit::Int(LitInt::new(format!("{}", len).as_str(), Span::call_site()));
+                let item_ty = ty.def(no_alloc, cp);
                 quote! { [#item_ty; #len] }
             }
             Type::Tuple(types) => {
-                let types = types.iter().map(|ty| ty.def(no_alloc));
+                let types = types.iter().map(|ty| ty.def(no_alloc, cp));
                 quote! { ( #(#types),* ) }
             }
             Type::Vec(inner_ty) => {
-                let inner_ty = inner_ty.def(no_alloc);
+                let inner_ty = inner_ty.def(no_alloc, cp);
                 if no_alloc {
-                    quote! { RefVec<'i, #inner_ty> }
+                    let ref_vec = cp.item(quote! { RefVec });
+                    quote! { #ref_vec<'i, #inner_ty> }
                 } else {
                     quote! { Vec<#inner_ty> }
                 }
@@ -101,31 +101,47 @@ impl Type {
                 }
             }
             Type::Result(_, ok_err_ty) => {
-                let ok_ty = ok_err_ty.0.def(no_alloc);
-                let err_ty = ok_err_ty.1.def(no_alloc);
+                let ok_ty = ok_err_ty.0.def(no_alloc, cp);
+                let err_ty = ok_err_ty.1.def(no_alloc, cp);
                 quote! { Result<#ok_ty, #err_ty> }
             }
             Type::Option(_, option_ty) => {
-                let option_ty = option_ty.def(no_alloc);
+                let option_ty = option_ty.def(no_alloc, cp);
                 quote! { Option<#option_ty> }
             }
             Type::Range(ty) => {
-                let ty = ty.def(no_alloc);
+                let ty = ty.def(no_alloc, cp);
                 quote! { core::ops::Range<#ty> }
             }
             Type::RangeInclusive(ty) => {
-                let ty = ty.def(no_alloc);
+                let ty = ty.def(no_alloc, cp);
                 quote! { core::ops::RangeInclusive<#ty> }
             }
             Type::IsSome(_) | Type::IsOk(_) => quote! { bool },
             Type::RefBox(box_ty) => {
-                let box_ty = box_ty.def(no_alloc);
+                let box_ty = box_ty.def(no_alloc, cp);
                 if no_alloc {
-                    quote! { RefBox<'i, #box_ty> }
+                    let ref_box = cp.item(quote! { RefBox });
+                    quote! { #ref_box<'i, #box_ty> }
                 } else {
                     quote! { Box<#box_ty>}
                 }
             }
+            Type::TailSize(width) => {
+                let tail_size = cp.item(quote! { TailSize });
+                match width {
+                    Some(width) => quote! { #tail_size<{ #width }> },
+                    None => quote! { #tail_size },
+                }
+            }
+        }
+    }
+
+    /// Width of a `TailSize` slot in bytes, as an expression.
+    fn tail_size_width(width: &Option<syn::Expr>) -> TokenStream {
+        match width {
+            Some(width) => quote! { { #width } },
+            None => quote! { 5 },
         }
     }
 
@@ -209,6 +225,15 @@ impl Type {
             Type::ILeb32 => unimplemented!("ileb32"),
             Type::ILeb64 => unimplemented!("ileb64"),
             Type::ILeb128 => unimplemented!("ileb128"),
+            Type::TailSize(width) => {
+                // the field's value is ignored: the slot is filled in by `backfill_tail_size` (see `Type::backfill_tail_size`)
+                // once the fields after it are written
+                let width = Self::tail_size_width(width);
+                tokens.append_all(
+                    quote! { let __tail_size_slot = wr.reserve_tail_size(#width) #handle_eob; },
+                );
+                return;
+            }
             Type::Array(_, _) => {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
@@ -247,12 +272,19 @@ impl Type {
         tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
     }
 
+    /// Fill in the slot reserved by [buf_write](Self::buf_write) for a `TailSize` field, after all the fields
+    /// of the struct or enum variant are written.
+    pub(crate) fn backfill_tail_size(tokens: &mut TokenStream) {
+        tokens.append_all(quote! { wr.backfill_tail_size(__tail_size_slot)?; });
+    }
+
     pub(crate) fn buf_read(
         &self,
         variable_name: &Ident,
         owned: bool,
         handle_err: TokenStream,
         enforce_ty: &TokenStream,
+        cp: &CratePath,
         tokens: &mut TokenStream,
     ) {
         let read = if owned {
@@ -261,6 +293,17 @@ impl Type {
             quote! { read }
         };
         let read_fn = match self {
+            Type::TailSize(_) => {
+                // the slot bounds the rest of the value: a longer buffer stops at the value's end, a shorter one
+                // is an error, and fields a newer writer added after the ones known here are skipped
+                let ty = self.def(!owned, cp);
+                tokens.append_all(quote! {
+                    let #variable_name: #ty = rd.#read()?;
+                    let mut __tail_rd = rd.split(#variable_name.0 as usize)?;
+                    let rd = &mut __tail_rd;
+                });
+                return;
+            }
             Type::Bool | Type::IsOk(_) | Type::IsSome(_) => "read_bool",
             Type::Nibble => "read_nib",
             Type::U8 => "read_u8",

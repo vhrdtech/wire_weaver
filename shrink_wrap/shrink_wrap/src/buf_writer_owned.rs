@@ -1,5 +1,5 @@
 use crate::nib32::UNib32;
-use crate::vlq32::UVlq32;
+use crate::vlq32::{UVlq32, UVlq32Backfill};
 use crate::{ElementSize, Error, Nibble, SerializeShrinkWrapOwned};
 
 const ONE_MORE_NIBBLE: u8 = 0b1000;
@@ -41,6 +41,17 @@ pub struct UnsizedBuilderOwned {
 /// Index of a number in the reverse FIFO of [BufWriterOwned].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct RevPos(usize);
+
+/// A reserved [TailSize](crate::TailSize) slot, see [BufWriterOwned::reserve_tail_size].
+#[must_use = "the slot must be filled in with backfill_tail_size"]
+pub struct TailSizeSlot {
+    /// First byte of the slot
+    start: usize,
+    /// Bytes the slot takes
+    len: usize,
+    /// Length of the reverse FIFO right after the slot was reserved
+    rev_mark: usize,
+}
 
 impl BufWriterOwned {
     /// Create a new empty BufWriterOwned.
@@ -318,6 +329,37 @@ impl BufWriterOwned {
     pub fn write_str(&mut self, val: &str) -> Result<(), Error> {
         self.write_rev_len(val.len())?;
         self.write_raw_slice(val.as_bytes())
+    }
+
+    /// Align to byte and reserve `len` bytes (1 to 5) for a [TailSize](crate::TailSize) slot, to be filled in with
+    /// [backfill_tail_size](Self::backfill_tail_size) once everything that belongs to the enclosing value is written.
+    /// Same as [BufWriter::reserve_tail_size](crate::BufWriter::reserve_tail_size).
+    pub fn reserve_tail_size(&mut self, len: usize) -> Result<TailSizeSlot, Error> {
+        if !(1..=UVlq32Backfill::LEN).contains(&len) {
+            return Err(Error::InvalidBitCount);
+        }
+        self.align_byte();
+        let start = self.byte_idx;
+        let placeholder = crate::tail_size::encode_slot(0, len)?;
+        self.write_raw_slice(&placeholder[placeholder.len() - len..])?;
+        Ok(TailSizeSlot {
+            start,
+            len,
+            rev_mark: self.rev.len(),
+        })
+    }
+
+    /// Encode the reverse lengths pushed since [reserve_tail_size](Self::reserve_tail_size), align to byte and fill
+    /// the slot in with the number of bytes from its end to the current position.
+    /// Fails with [Error::LenTooLong] if that does not fit into the slot's width.
+    pub fn backfill_tail_size(&mut self, slot: TailSizeSlot) -> Result<(), Error> {
+        self.encode_rev_range(slot.rev_mark, self.rev.len())?;
+        self.align_byte();
+        let end = slot.start + slot.len;
+        let size = u32::try_from(self.byte_idx - end).map_err(|_| Error::LenTooLong)?;
+        let encoded = crate::tail_size::encode_slot(size, slot.len)?;
+        self.buf[slot.start..end].copy_from_slice(&encoded[encoded.len() - slot.len..]);
+        Ok(())
     }
 
     /// Write any value that implements [SerializeShrinkWrapOwned].

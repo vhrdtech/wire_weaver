@@ -7,7 +7,7 @@ use crate::ast::ty::Type;
 use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
-    create_flags, transform_field,
+    check_tail_size_position, create_flags, transform_field,
 };
 
 impl ItemStruct {
@@ -34,6 +34,13 @@ impl ItemStruct {
         check_flag_order(&fields)?;
         check_backfill_position(&fields, true)?;
         check_tail_bytes_position(&fields.iter().map(|f| &f.ty).collect::<Vec<_>>())?;
+        check_tail_size_position(
+            &fields.iter().map(|f| &f.ty).collect::<Vec<_>>(),
+            &fields
+                .iter()
+                .map(|f| f.ident.to_string())
+                .collect::<Vec<_>>(),
+        )?;
         propagate_default_to_flags(&mut fields)?;
         change_is_ok_to_is_some(&mut fields);
         Ok(ItemStruct {
@@ -105,7 +112,7 @@ mod tests {
     use super::*;
 
     fn from_tokens(ts: proc_macro2::TokenStream) -> Result<ItemStruct, String> {
-        let item: syn::ItemStruct = syn::parse2(ts).unwrap();
+        let item: syn::ItemStruct = syn::parse2(ts).map_err(|e| e.to_string())?;
         ItemStruct::from_syn(&item)
     }
 
@@ -123,6 +130,46 @@ mod tests {
         assert!(from_tokens(quote! { struct S { seq: (UVlq32Backfill, u8) } }).is_err());
         assert!(from_tokens(quote! { struct S { seq: [UVlq32Backfill; 1] } }).is_err());
         assert!(from_tokens(quote! { struct S { a: UVlq32Backfill, b: UVlq32Backfill } }).is_err());
+    }
+
+    #[test]
+    fn tail_size_rules() {
+        assert!(from_tokens(quote! { struct S { size: TailSize, a: u8 } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: u8, size: TailSize<2>, b: u8 } }).is_ok());
+        assert!(
+            from_tokens(quote! { struct S { a: u8, size: shrink_wrap::TailSize<2>, b: u8 } })
+                .is_ok()
+        );
+        assert!(from_tokens(quote! { struct S { a: u8, size: TailSize<N>, b: u8 } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: u8, size: TailSize<{ 2 }>, b: u8 } }).is_ok());
+        // anything Sized or SelfDescribing before it: bool, Option flag, UNib32, Option<u8>, a plain external
+        assert!(
+            from_tokens(quote! { struct S { a: bool, b: Option<u8>, c: UNib32, d: Ext, size: TailSize, e: Vec<u8> } })
+                .is_ok()
+        );
+        // the fields before it must not keep their length at the back of the buffer
+        assert!(from_tokens(quote! { struct S { a: Vec<u8>, size: TailSize } }).is_err());
+        assert!(from_tokens(quote! { struct S { a: String, size: TailSize } }).is_err());
+        assert!(from_tokens(quote! { struct S { a: Option<Vec<u8>>, size: TailSize } }).is_err());
+        assert!(from_tokens(quote! { struct S { a: (u8, String), size: TailSize } }).is_err());
+        assert!(from_tokens(quote! { struct S { a: RefBox<'i, u8>, size: TailSize } }).is_err());
+        // plain field only, one per struct
+        assert!(from_tokens(quote! { struct S { size: Option<TailSize> } }).is_err());
+        assert!(from_tokens(quote! { struct S { size: Vec<TailSize> } }).is_err());
+        assert!(from_tokens(quote! { struct S { size: (TailSize, u8) } }).is_err());
+        assert!(from_tokens(quote! { struct S { size: [TailSize; 1] } }).is_err());
+        assert!(from_tokens(quote! { struct S { a: TailSize, b: TailSize } }).is_err());
+        assert!(from_tokens(quote! { struct S { size: TailSize(u8) } }).is_err());
+        assert!(from_tokens(quote! { struct S { size: TailSize<2, 3> } }).is_err());
+    }
+
+    #[test]
+    fn array_len_const_or_literal() {
+        assert!(from_tokens(quote! { struct S { a: [u8; 4] } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: [u8; N] } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: [u8; crate::N * 2] } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: [u8; { 1 + 2 }] } }).is_ok());
+        assert!(from_tokens(quote! { struct S { a: [u8; "x"] } }).is_err());
     }
 
     #[test]

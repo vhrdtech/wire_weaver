@@ -1,6 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
+use quote::ToTokens;
 use syn::parse::{Parse, ParseStream};
-use syn::{Path, Token};
+use syn::{Path, Token, parse2};
 
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
@@ -26,6 +27,9 @@ pub(crate) struct Args {
     pub(crate) size_assumption: Option<ObjectSize>,
     pub(crate) ww_repr: Option<Repr>,
     pub(crate) discriminants_enum: bool,
+    /// `crate_path(some::path)`: how generated code names the `shrink_wrap` crate, instead of looking it up in
+    /// `Cargo.toml`.
+    pub(crate) crate_path: Option<TokenStream>,
 }
 
 impl Parse for Args {
@@ -41,6 +45,7 @@ impl Parse for Args {
         let mut derive_borrowed = Vec::new();
         let mut size_assumption = None;
         let mut ww_repr = None;
+        let mut crate_path = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -80,11 +85,7 @@ impl Parse for Args {
                     set_size_assumption(&mut size_assumption, ObjectSize::SelfDescribing, &ident)?;
                 }
                 "sized" => {
-                    set_size_assumption(
-                        &mut size_assumption,
-                        ObjectSize::Sized { size_bits: 0 },
-                        &ident,
-                    )?;
+                    set_size_assumption(&mut size_assumption, ObjectSize::sized(0), &ident)?;
                 }
                 "ww_repr" => {
                     input.parse::<Token![=]>()?;
@@ -100,6 +101,10 @@ impl Parse for Args {
                 }
                 "discriminants" => {
                     discriminants_enum = true;
+                }
+                "crate_path" => {
+                    let path: Path = parse_paren_token_stream(input).and_then(parse2)?;
+                    crate_path = Some(path.to_token_stream());
                 }
                 u => {
                     return Err(syn::Error::new(
@@ -129,6 +134,7 @@ impl Parse for Args {
             derive_borrowed,
             size_assumption,
             ww_repr,
+            crate_path,
         })
     }
 }
@@ -136,7 +142,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants";
+final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, crate_path(..)";
 
 /// Parses a required `(Path1, Path2, ..)`, like Rust's own `#[derive(..)]`
 fn parse_path_list_paren(input: ParseStream) -> syn::Result<Vec<Path>> {
@@ -226,6 +232,22 @@ mod args_parse_tests {
         assert_eq!(args.derive.len(), 2);
         assert_eq!(args.derive_owned.len(), 1);
         assert_eq!(args.derive_borrowed.len(), 1);
+    }
+
+    #[test]
+    fn crate_path_is_a_path() {
+        let args: Args = parse2(quote! { crate_path(wire_weaver::shrink_wrap), owned }).unwrap();
+        assert_eq!(
+            args.crate_path.unwrap().to_string(),
+            quote! { wire_weaver::shrink_wrap }.to_string()
+        );
+        let args: Args = parse2(quote! { crate_path(::shrink_wrap) }).unwrap();
+        assert_eq!(
+            args.crate_path.unwrap().to_string(),
+            quote! { ::shrink_wrap }.to_string()
+        );
+        assert!(parse2::<Args>(quote! { crate_path = "shrink_wrap" }).is_err());
+        assert!(parse2::<Args>(quote! { crate_path(1) }).is_err());
     }
 
     #[test]

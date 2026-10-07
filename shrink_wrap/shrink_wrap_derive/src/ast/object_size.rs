@@ -1,39 +1,67 @@
+use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{LitInt, LitStr};
 
 /// Object size from shrink_wrap crate, copied here to decouple the two. Generated code refers to the shrink_wrap one.
 /// Extensive description is in shrink_wrap.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum ObjectSize {
     Unsized,
     UnsizedFinalStructure,
     SelfDescribing,
-    Sized { size_bits: usize },
-}
-
-impl ToTokens for ObjectSize {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let ts = match self {
-            ObjectSize::Unsized => quote! { ElementSize::Unsized },
-            ObjectSize::UnsizedFinalStructure => quote! { ElementSize::UnsizedFinalStructure },
-            ObjectSize::SelfDescribing => quote! { ElementSize::SelfDescribing },
-            ObjectSize::Sized { size_bits } => {
-                let size_bits = LitInt::new(format!("{size_bits}").as_str(), Span::call_site());
-                quote! { ElementSize::Sized { size_bits: #size_bits } }
-            }
-        };
-        tokens.extend(ts);
-    }
+    /// `size_bits` is the part known to the macro; `symbolic` holds terms it can't evaluate (an array length
+    /// given as a const path, a `TailSize<N>` width), emitted as `size_bits + term + ..` for the compiler to fold.
+    Sized {
+        size_bits: usize,
+        symbolic: Vec<TokenStream>,
+    },
 }
 
 impl ObjectSize {
-    pub(crate) fn sum_recursively(&self, sizes: Vec<Ident>, is_ref: bool) -> TokenStream {
+    pub(crate) fn sized(size_bits: usize) -> Self {
+        ObjectSize::Sized {
+            size_bits,
+            symbolic: Vec::new(),
+        }
+    }
+
+    pub(crate) fn sized_symbolic(term: TokenStream) -> Self {
+        ObjectSize::Sized {
+            size_bits: 0,
+            symbolic: vec![term],
+        }
+    }
+
+    /// `ElementSize::..` expression naming the `shrink_wrap` type through `cp`.
+    pub(crate) fn tokens(&self, cp: &CratePath) -> TokenStream {
+        let element_size = cp.item(quote! { ElementSize });
+        match self {
+            ObjectSize::Unsized => quote! { #element_size::Unsized },
+            ObjectSize::UnsizedFinalStructure => quote! { #element_size::UnsizedFinalStructure },
+            ObjectSize::SelfDescribing => quote! { #element_size::SelfDescribing },
+            ObjectSize::Sized {
+                size_bits,
+                symbolic,
+            } => {
+                let size_bits = LitInt::new(format!("{size_bits}").as_str(), Span::call_site());
+                quote! { #element_size::Sized { size_bits: #size_bits #(+ #symbolic)* } }
+            }
+        }
+    }
+
+    pub(crate) fn sum_recursively(
+        &self,
+        sizes: Vec<Ident>,
+        is_ref: bool,
+        cp: &CratePath,
+    ) -> TokenStream {
+        let this = self.tokens(cp);
         if sizes.is_empty() {
-            quote! { #self }
+            this
         } else {
-            let sizes = sum_unknown(sizes, is_ref);
-            quote! { #self.add(#sizes) }
+            let sizes = sum_unknown(sizes, is_ref, cp);
+            quote! { #this.add(#sizes) }
         }
     }
 
@@ -42,12 +70,14 @@ impl ObjectSize {
         ident: &Ident,
         cfg: Option<&TokenStream>,
         is_ref: bool,
+        cp: &CratePath,
     ) -> TokenStream {
+        let element_size = cp.item(quote! { ElementSize });
         let size_ts = match self {
-            ObjectSize::Unsized => quote! { Unsized },
-            ObjectSize::UnsizedFinalStructure => quote! { UnsizedFinalStructure },
-            ObjectSize::SelfDescribing => quote! { SelfDescribing },
-            ObjectSize::Sized { .. } => quote! { Sized { .. } },
+            ObjectSize::Unsized => quote! { #element_size::Unsized },
+            ObjectSize::UnsizedFinalStructure => quote! { #element_size::UnsizedFinalStructure },
+            ObjectSize::SelfDescribing => quote! { #element_size::SelfDescribing },
+            ObjectSize::Sized { .. } => quote! { #element_size::Sized { .. } },
         };
         let size = match self {
             ObjectSize::Unsized => "Unsized",
@@ -58,27 +88,17 @@ impl ObjectSize {
         let err_msg = format!("{} must be {size}", ident);
         let err_msg = LitStr::new(&err_msg, Span::call_site());
         let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
-        let (ser_trait, des_trait) = if is_ref {
-            (
-                quote! { SerializeShrinkWrap },
-                quote! { DeserializeShrinkWrap },
-            )
-        } else {
-            (
-                quote! { SerializeShrinkWrapOwned },
-                quote! { DeserializeShrinkWrapOwned },
-            )
-        };
+        let (ser_trait, des_trait) = cp.serdes_traits(is_ref);
         quote! {
             #cfg
             const _: () = assert!(
-                matches!(<#ident as #ser_trait>::ELEMENT_SIZE, ElementSize::#size_ts),
+                matches!(<#ident as #ser_trait>::ELEMENT_SIZE, #size_ts),
                 #err_msg
             );
 
             #cfg
             const _: () = assert!(
-                matches!(<#ident as #des_trait>::ELEMENT_SIZE, ElementSize::#size_ts),
+                matches!(<#ident as #des_trait>::ELEMENT_SIZE, #size_ts),
                 #err_msg
             );
         }
@@ -97,11 +117,19 @@ impl ObjectSize {
             (_, ObjectSize::Unsized) => ObjectSize::Unsized,
             (ObjectSize::SelfDescribing, _) => ObjectSize::SelfDescribing,
             (_, ObjectSize::SelfDescribing) => ObjectSize::SelfDescribing,
-            (ObjectSize::Sized { size_bits: size_a }, ObjectSize::Sized { size_bits: size_b }) => {
+            (
                 ObjectSize::Sized {
-                    size_bits: *size_a + size_b,
-                }
-            }
+                    size_bits: size_a,
+                    symbolic: symbolic_a,
+                },
+                ObjectSize::Sized {
+                    size_bits: size_b,
+                    symbolic: symbolic_b,
+                },
+            ) => ObjectSize::Sized {
+                size_bits: *size_a + size_b,
+                symbolic: symbolic_a.iter().cloned().chain(symbolic_b).collect(),
+            },
         }
     }
 
@@ -110,14 +138,10 @@ impl ObjectSize {
     }
 }
 
-fn sum_unknown(mut sizes: Vec<Ident>, is_ref: bool) -> TokenStream {
-    let ser_trait = if is_ref {
-        quote! { SerializeShrinkWrap }
-    } else {
-        quote! { SerializeShrinkWrapOwned }
-    };
+fn sum_unknown(mut sizes: Vec<Ident>, is_ref: bool, cp: &CratePath) -> TokenStream {
+    let (ser_trait, _) = cp.serdes_traits(is_ref);
     if let Some(ident) = sizes.pop() {
-        let inner = sum_unknown(sizes, is_ref);
+        let inner = sum_unknown(sizes, is_ref, cp);
         if inner.is_empty() {
             quote! { <#ident as #ser_trait>::ELEMENT_SIZE }
         } else {

@@ -71,17 +71,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
-- 📋 **SW-18 Size-of-enclosing-type field** — a special type that reserves space and is backfilled with the size till the end of
-  the type it is in once that is serialized. Lets a reader skip or bound the
-  enclosing value without parsing it.
+- ✅ **SW-18 Size-of-enclosing-type field** `TailSize<N>`: a field the derive macro fills in with the size of the rest
+  of the value once it is serialized (a `UVlq32` right-justified in `N` bytes, 1 to 5), in any position, nested types
+  each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
+  errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be `Sized` or
+  `SelfDescribing`, checked at compile time. `docs/serdes/shrink_wrap.md`, showcase.
 - 📋 **SW-19 Bounded sizes: `#[max_size]`, bounded `String`/`Vec`** · `v0.5.x` — from `docs/types.md` and
   `docs/api/arrays.md`. Enables worst-case buffer size analysis (see [Codegen](#api-model-and-codegen-api)).
+  An Unsized record at a fixed file offset already works without it: serialize into a buffer of the capacity
+  (too big fails), read with `TailSize<N>` (SW-18) bounding the value; what is left here is computing that
+  capacity from the type.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
   `0..=8, 12, 16`; checked on serialization and deserialization, possibly using fewer bits on the wire
   (`docs/types.md`, "Subtypes").
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
-- 📋 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` only covers `ww_framer` today. Round-trip generated types and feed random
-  bytes into readers.
+- 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
+  round-tripped, random bytes into their readers). Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small

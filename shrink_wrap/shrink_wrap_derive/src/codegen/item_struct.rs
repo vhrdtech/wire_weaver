@@ -3,8 +3,9 @@ use crate::ast::item_struct::Field;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
-use crate::codegen::util::maybe_quote;
-use crate::codegen::util::serdes_scaffold;
+use crate::codegen::util::{
+    CratePath, assert_sized_before_tail_size, maybe_quote, serdes_scaffold,
+};
 use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::Path;
@@ -22,6 +23,7 @@ pub(crate) struct CGItemStruct<'i> {
     /// was used to disambiguate it (see `TyKind::Ambiguous`). Such a type never gets a `<'i>`
     /// generic, even on its "borrowed" (`is_ref: true`) side.
     pub(crate) ambiguous: bool,
+    pub(crate) crate_path: &'i CratePath,
 }
 
 impl<'i> CGItemStruct<'i> {
@@ -37,13 +39,21 @@ impl<'i> CGItemStruct<'i> {
         let fields = CGStructFieldsDef {
             fields: self.fields,
             is_ref,
+            cp: self.crate_path,
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(self.ident, self.cfg, is_ref)
+            size.assert_element_size(self.ident, self.cfg, is_ref, self.crate_path)
         } else {
             quote! {}
         };
+        let assert_tail_size = assert_sized_before_tail_size(
+            &self.fields.iter().map(|f| &f.ty).collect::<Vec<_>>(),
+            self.ident,
+            self.cfg,
+            is_ref,
+            self.crate_path,
+        );
         let ts = quote! {
             #cfg
             #docs
@@ -51,6 +61,7 @@ impl<'i> CGItemStruct<'i> {
             #(#[cfg_attr(#cfg_attr)])*
             pub struct #ident #lifetime { #fields }
             #assert_size
+            #assert_tail_size
         };
         ts
     }
@@ -67,7 +78,7 @@ impl<'i> CGItemStruct<'i> {
         };
 
         let mut unknown_unsized = vec![];
-        let mut sum = self.size_assumption.unwrap_or(ObjectSize::Unsized); // struct is Unsized by default.
+        let mut sum = self.size_assumption.clone().unwrap_or(ObjectSize::Unsized); // struct is Unsized by default.
         // No need to check if it's already Unsized.
         if !matches!(sum, ObjectSize::Unsized) {
             // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
@@ -85,10 +96,9 @@ impl<'i> CGItemStruct<'i> {
         }
         let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
         let element_size = if implicitly_unsized {
-            let r#unsized = ObjectSize::Unsized;
-            quote! { #r#unsized }
+            ObjectSize::Unsized.tokens(self.crate_path)
         } else {
-            sum.sum_recursively(unknown_unsized, is_ref)
+            sum.sum_recursively(unknown_unsized, is_ref, self.crate_path)
         };
         serdes_scaffold(
             struct_name,
@@ -98,6 +108,7 @@ impl<'i> CGItemStruct<'i> {
             element_size,
             is_ref,
             is_ref && !self.ambiguous,
+            self.crate_path,
         )
     }
 }
@@ -105,6 +116,7 @@ impl<'i> CGItemStruct<'i> {
 struct CGStructFieldsDef<'a> {
     fields: &'a [Field],
     is_ref: bool,
+    cp: &'a CratePath,
 }
 
 impl ToTokens for CGStructFieldsDef<'_> {
@@ -114,7 +126,7 @@ impl ToTokens for CGStructFieldsDef<'_> {
                 continue;
             }
             let ident = &struct_field.ident;
-            let ty = struct_field.ty.def(self.is_ref);
+            let ty = struct_field.ty.def(self.is_ref, self.cp);
             let docs = &struct_field.docs;
             tokens.append_all(quote! {
                 #docs
@@ -147,6 +159,14 @@ impl ToTokens for CGStructSer<'_> {
                 .ty
                 .buf_write(field_path, self.is_ref, quote! { ? }, tokens);
         }
+        if self
+            .item_struct
+            .fields
+            .iter()
+            .any(|f| matches!(f.ty, Type::TailSize(_)))
+        {
+            Type::backfill_tail_size(tokens);
+        }
         tokens.append_all(quote! {
             Ok(())
         });
@@ -162,9 +182,14 @@ impl ToTokens for CGStructDes<'_> {
                 field_names.push(field_name.clone());
             }
             let handle_eob = struct_field.handle_eob();
-            struct_field
-                .ty
-                .buf_read(field_name, !self.is_ref, handle_eob, &quote! { _ }, tokens);
+            struct_field.ty.buf_read(
+                field_name,
+                !self.is_ref,
+                handle_eob,
+                &quote! { _ },
+                self.item_struct.crate_path,
+                tokens,
+            );
         }
         let struct_name = &self.item_struct.ident;
         tokens.append_all(quote! {

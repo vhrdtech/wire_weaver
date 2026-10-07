@@ -1,5 +1,5 @@
 use crate::ast::path::Path;
-use crate::ast::ty::Type;
+use crate::ast::ty::{ArrayLen, Type};
 use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment};
@@ -16,10 +16,15 @@ pub(crate) fn transform_type(
                 let ty = transform_path_segment(path_segment, path)?;
                 Ok(ty)
             } else {
+                let last = type_path.path.segments.last().expect("");
+                if last.ident == "TailSize" {
+                    // e.g. shrink_wrap::TailSize<2>: keep the width, it is not a plain external type
+                    return transform_type_tail_size(last);
+                }
                 let mut path = Path {
                     segments: Vec::new(),
                 };
-                let is_lifetime = is_lifetime(&type_path.path.segments.last().expect("").arguments);
+                let is_lifetime = is_lifetime(&last.arguments);
                 for segment in type_path.path.segments {
                     path.segments.push(segment.ident);
                 }
@@ -42,13 +47,16 @@ pub(crate) fn transform_type(
             Ok(Type::Tuple(types))
         }
         syn::Type::Array(type_array) => {
-            let Expr::Lit(lit) = type_array.len else {
-                return Err("only literals supported as array length".into());
+            let len = match &type_array.len {
+                Expr::Lit(lit) => {
+                    let Lit::Int(lit_int) = &lit.lit else {
+                        return Err("only integers supported as array length".into());
+                    };
+                    ArrayLen::Lit(lit_int.base10_parse().map_err(|e| e.to_string())?)
+                }
+                // a const (`[f32; MAX_SERIES]`) or any other const expression, emitted as written
+                expr => ArrayLen::Expr(expr.clone()),
             };
-            let Lit::Int(lit_int) = lit.lit else {
-                return Err("only integers supported as array length".into());
-            };
-            let len: usize = lit_int.base10_parse().unwrap();
             let ty = transform_type(*type_array.elem, None, path)?;
             Ok(Type::Array(len, Box::new(ty)))
         }
@@ -95,6 +103,7 @@ fn transform_path_segment(
         "Range" => transform_type_range(path_segment, field_path)?,
         "RangeInclusive" => transform_type_range_inclusive(path_segment, field_path)?,
         "RefBox" => transform_type_ref_box(path_segment, field_path)?,
+        "TailSize" => transform_type_tail_size(path_segment)?,
         other_ty => {
             // u1, u2, .., u63, except u8, u16, ...
             if let Some(un) = other_ty
@@ -243,4 +252,37 @@ fn transform_type_ref_box(path_segment: &PathSegment, path: &FieldPath) -> Resul
     };
     let inner_ty = transform_type(inner_ty.clone(), None, path)?;
     Ok(Type::RefBox(Box::new(inner_ty)))
+}
+
+/// `TailSize`, `TailSize<N>` or `TailSize<{ expr }>`: the width is kept as an expression, the macro only needs to
+/// emit it back (`N` alone parses as a type, not a const, so both forms are accepted).
+fn transform_type_tail_size(path_segment: &PathSegment) -> Result<Type, String> {
+    let width = match &path_segment.arguments {
+        PathArguments::None => None,
+        PathArguments::AngleBracketed(args) => {
+            let mut args = args.args.iter();
+            let (Some(arg), None) = (args.next(), args.next()) else {
+                return Err("expected TailSize or TailSize<N>".into());
+            };
+            match arg {
+                GenericArgument::Const(expr) => Some(expr.clone()),
+                GenericArgument::Type(syn::Type::Path(type_path)) => {
+                    Some(Expr::Path(syn::ExprPath {
+                        attrs: vec![],
+                        qself: type_path.qself.clone(),
+                        path: type_path.path.clone(),
+                    }))
+                }
+                other => {
+                    return Err(format!(
+                        "expected TailSize<N> with N a const, got {other:?}"
+                    ));
+                }
+            }
+        }
+        PathArguments::Parenthesized(_) => {
+            return Err("expected TailSize or TailSize<N>, got TailSize(..)".into());
+        }
+    };
+    Ok(Type::TailSize(width))
 }

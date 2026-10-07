@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
+// So that the code `#[derive_shrink_wrap(..)]` generates can name this crate as `::shrink_wrap` from inside it too.
+extern crate self as shrink_wrap;
+
 pub mod buf_reader;
 
 pub use buf_reader::BufReader;
@@ -33,6 +36,8 @@ pub mod alloc;
 pub mod any_on_stack;
 pub mod nib;
 pub mod tail_bytes;
+pub mod tail_size;
+pub use tail_size::TailSize;
 pub mod un;
 
 pub use nib::Nibble;
@@ -99,6 +104,7 @@ pub mod prelude {
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;
     pub use crate::ref_vec::{RefVec, RefVecIter};
+    pub use crate::tail_size::TailSize;
     #[cfg(feature = "std")]
     pub use crate::traits::SerializeShrinkWrapOwned;
     pub use crate::traits::{

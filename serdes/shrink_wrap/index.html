@@ -2808,6 +2808,8 @@ cost one bit), while the same values as tenths of a percent and whole bytes in <
 most mantissa bits; integers, fixed-point values, slowly changing or often repeated readings and timestamps
 compress well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use
 its width, the small buckets are the same for every type.</p>
+<p><code>cargo run --example time_series</code> (in <code>shrink_wrap/shrink_wrap</code>) prints the encoded sizes of synthetic timestamps,
+a counter, a sine wave and a constant, raw vs <code>Delta</code>/<code>DeltaOfDelta</code>/<code>XorFloat</code>.</p>
 <p>The decoders never panic on malformed input: every read is bounds-checked, a count larger than the bits left is
 rejected before anything is allocated (<code>Error::MalformedSeries</code>), and the owned decoders push element by element
 instead of trusting the count. Since the elements carry no length of their own, a truncated <em>top-level</em> buffer may

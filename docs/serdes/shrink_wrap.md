@@ -192,6 +192,46 @@ directly only matters once you're implementing serdes for a hand-written type, b
 `shrink_wrap` (see the [builder pattern](showcase.md#patching-a-discriminant-after-youve-already-started-writing-its-payload)
 in the showcase), or otherwise need more control than one call to `ser_shrink_wrap` gives you.
 
+## Size of the rest of a value: `TailSize<N>`
+
+The FIFO of sizes puts a value's size at the _back_ of the buffer, which is exactly right when the buffer is the
+value: the reader knows where the back is. It doesn't help when the value sits in a buffer longer than itself - a
+header at the start of a file, a record at a fixed offset of a ring file, a message with padding after it - nor
+when a reader wants to skip a value without parsing it. `TailSize<N>` covers that case from the inside: a field
+that the writer fills in, once the value is serialized, with the number of bytes from the end of the field to the
+end of the value (the value's own reverse lengths included), and that the reader uses to bound the rest of the
+value.
+
+On the wire it is a `UVlq32` right-justified in `N` bytes (1 to 5, 5 by default), padded with empty `0x80` groups
+in front, so any `UVlq32` reader decodes it; `N` is the capacity: 127 bytes for `N = 1`, 16 KB for 2, 2 MB for 3,
+256 MB for 4, 4 GB for 5, and serialization fails with `Error::LenTooLong` beyond it.
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct Header<'i> {
+    magic: u16,
+    size: TailSize<2>, // filled in on write, ignored as an input
+    name: &'i str,
+    count: u32,
+}
+```
+
+`#[derive_shrink_wrap(..)]` generates, around the fields after the slot, what you would write by hand with
+`BufWriter::reserve_tail_size()` and `backfill_tail_size()`: reserve the slot, write the rest, encode the reverse
+lengths those fields pushed (so they land inside the value's range, where they would have gone anyway), align to
+byte, and fill the slot in. On read: read the slot, `split()` the reader to that many bytes, read the rest from the
+split. So a buffer longer than the value stops at the value's end, a truncated one fails with
+`Error::OutOfBoundsSplit` instead of reading garbage, and fields a newer writer appended after the ones this reader
+knows are skipped - the usual evolution rules keep working inside the bounded range. Nested values each get their own
+slot, and a value with a slot is still a plain `Unsized` value to whatever contains it.
+
+The rules the macro checks: one `TailSize` per struct or enum variant, as a plain field (not inside `Option`, `Vec`,
+tuples or arrays), only in `Unsized` types (a `sized`, `final_structure` or `self_describing` type has no end of its
+own on the wire), and every field before it `Sized` or `SelfDescribing` - a `Vec`, `String` or `Unsized` field keeps
+its length at the back of the buffer, which is not where the value ends when the buffer is longer than it. The slot,
+its position and `N` are part of the layout: put it in the first version of a type. The
+[showcase](showcase.md#bounding-a-value-from-the-inside-with-tailsize) has the bytes.
+
 ## Next step
 
 Check out the [derive](derive.md) macro that generates all of the above from a plain struct/enum definition, and

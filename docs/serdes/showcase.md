@@ -96,6 +96,58 @@ field (a `bool` or an `Option` flag would be written in front of it), nested in 
 in enums, whose discriminant always comes first. The macro recognizes the type by name and only sees one type at a time, so
 it can't check that the struct itself is serialized first and is not, for example, a field of another struct.
 
+## Bounding a value from the inside with `TailSize`
+
+A value read from a buffer longer than itself - a header at the start of a file, a record at a fixed offset - has
+no back for its FIFO of lengths to live at. `TailSize<N>` (see [the wire format page](shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen))
+is a field the writer fills in with the number of bytes from the end of the field to the end of the value, as a
+`UVlq32` right-justified in `N` bytes, and the reader bounds the rest of the value with:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct Header<'i> {
+    magic: u16,
+    size: TailSize<2>, // ignored on write, filled in; up to 16 KB with 2 bytes
+    name: &'i str,
+    count: u32,
+}
+
+let header = Header { magic: 0xABCD, size: TailSize(0), name: "ab", count: 7 };
+let mut region = [0xFFu8; 64]; // the file region: longer than the value, garbage after it
+let len = header.to_ww_bytes(&mut region).unwrap().len();
+assert_eq!(&region[..len], hex!("CD AB 80 07 61 62 07 00 00 00 02"));
+//                                 ^^^^^ 7 bytes follow the slot: "ab", count, "ab"'s reversed length
+
+// the whole region: the reader stops where the slot says, the 0xFF bytes are never looked at
+let back = Header::from_ww_bytes(&region).unwrap();
+assert_eq!(back, Header { size: TailSize(7), ..header });
+// one byte short: an error, not garbage
+assert!(Header::from_ww_bytes(&region[..len - 1]).is_err());
+```
+
+A field added after `count` later is skipped by this reader the same way, since it only ever reads the 7 bytes.
+Nested values each carry their own slot; the sizes compose the way the FIFO does:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct Inner<'i> { a: u8, size: TailSize<1>, s: &'i str }
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct Outer<'i> { size: TailSize, inner: Inner<'i>, after: u8 }
+
+let outer = Outer { size: TailSize(0), inner: Inner { a: 1, size: TailSize(0), s: "xyz" }, after: 9 };
+assert_eq!(outer.to_ww_bytes(&mut buf).unwrap(), hex!("80 80 80 80 08 01 04 78 79 7A 03 09 06"));
+//  outer slot, 5 bytes, 8 follow ^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^ inner: a, slot (4 follow), "xyz", its length
+//                                         after ^^ ^^ inner's size (6) in the outer's FIFO, inside the outer's 8
+```
+
+This is what makes `Unsized` records at fixed file offsets work: serialize each into a buffer of the slot's capacity
+(a record that outgrows it fails to serialize instead of overflowing), read each with `from_ww_bytes` on its
+region, and evolve the record type with `#[default]` fields like any other. The fields before the slot must be
+`Sized` or `SelfDescribing`, and there is one slot per struct or enum variant, in `Unsized` types only; the macro
+checks all of that at compile time. A reader that doesn't care about the value reads the fields up to the slot and
+`split()`s past it.
+
 ## `Option<T>` and `Result<T, E>`: a flag, not a tag
 
 Both are `SelfDescribing`: one `bool` flag followed by the payload (for `Result`, `true` picks `Ok`, `false` picks

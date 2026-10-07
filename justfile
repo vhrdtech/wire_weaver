@@ -123,3 +123,8 @@ deps-ext:
 [working-directory('fuzz')]
 fuzz-framer:
     cargo +nightly fuzz run framer-tx-rx -- -max_len=32768
+
+# Fuzz shrink_wrap TailSize types (SW-22)
+[working-directory('fuzz')]
+fuzz-shrink-wrap:
+    cargo +nightly fuzz run shrink-wrap-tail-size -- -max_len=4096

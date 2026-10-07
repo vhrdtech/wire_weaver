@@ -335,6 +335,22 @@ enum ErrorCode { NotFound, Timeout, /* ... */ }
 Every generated enum also gets an inherent `fn discriminant(&self) -> <repr's native type>` method regardless of
 whether [`discriminants`](#discriminants-enums-only) is used.
 
+### `crate_path(<path>)`
+
+Generated code refers to `shrink_wrap` items by path, so neither `use shrink_wrap::prelude::*` nor any other
+import is needed for the macro, and the names it uses (`BufReader`, `Error`, `ElementSize`, ...) never clash with
+the module's own. The macro finds the crate in `Cargo.toml`: `::shrink_wrap` (or whatever it is renamed to), or
+`::wire_weaver::shrink_wrap` when only `wire_weaver` is a dependency. `crate_path(..)` overrides that, for a crate
+that reaches `shrink_wrap` through some other re-export:
+
+```rust
+#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]
+struct Point { x: u8, y: u8 }
+```
+
+When neither crate is a dependency and nothing is given, the names are left unqualified and the prelude import is
+needed, as it was before.
+
 ### `discriminants` (enums only)
 
 Additionally generates a fieldless `{Name}Discriminants` enum, carrying only the variants (no payloads) plus its own
@@ -397,6 +413,13 @@ fn round_trip() {
 | `&'i str`        | `String`         |
 | `RefBox<'i, T>`  | `Box<T>`         |
 | `UserType<'i>`   | `UserTypeOwned`  |
+
+Array lengths can be any const expression (`[f32; MAX_SERIES]`, `[u8; N * 2]`), not only literals; a `sized` type's
+`ELEMENT_SIZE` carries them symbolically.
+
+`TailSize<N>` is the same on both sides: a slot the macro fills in with the size of the rest of the value, see
+[the wire format page](shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen). It is only allowed in types without a
+size assumption.
 
 # Next step
 

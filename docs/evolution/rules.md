@@ -148,6 +148,10 @@ By default, user defined struct or enum is `Unsized`. Both can contain variable-
 strings or other structs and enums. Unsized types support all the evolution options. It is recommended to stick with
 unsized types, unless extreme space-saving is required.
 
+A `TailSize<N>` field (see [wire format](../serdes/shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen)) is part
+of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields
+after it evolve as usual, and old readers skip what newer writers append.
+
 When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
 overhead, giving all the nice backwards and forwards compatibility benefits.
 

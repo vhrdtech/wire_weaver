@@ -10,6 +10,8 @@
 * Nibble-based variable length u32: `unib32` (1 to 11 nibbles, four-bit alignment)
 * Byte-based variable length u32: `uvlq32` (big endian VLQ, 1 to 5 bytes, one-byte alignment)
     * `UVlq32Backfill`: always written as 5 bytes, value can be filled in later and leading bytes dropped
+    * `TailSize<N>`: right-justified in `N` bytes, filled in with the size of the rest of the enclosing value, which
+      readers bound the value with (see [wire format](serdes/shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen))
 * Floating point numbers: `f32`, `f64`
 * Textual:
     * UTF-8 string `String`
@@ -20,9 +22,8 @@
         * Byte array: `Vec<u8>`
         * Arbitrary length array (no alloc): `RefVec<'i, T>`
         * Byte array (no alloc): `RefVec<'i, u8>`
-        * Fixed sized array: `[T; N]`
+        * Fixed sized array: `[T; N]`, `N` a literal or any const expression
         * TODO: Max bounded
-        * TODO: Fixed length array: `[T; N]`
 * `Option<T>` and `Result<T, E>`
 * `RefBox<T>` for self-referential types.
 * User-defined:

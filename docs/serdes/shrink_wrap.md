@@ -235,4 +235,5 @@ its position and `N` are part of the layout: put it in the first version of a ty
 ## Next step
 
 Check out the [derive](derive.md) macro that generates all of the above from a plain struct/enum definition, and
-the [showcase](showcase.md) for worked, byte-verified examples of the tricks this format enables.
+the [showcase](showcase.md) for worked, byte-verified examples of the tricks this format enables, and the
+[use cases](use_cases.md) for real files, frames and messages built with it.

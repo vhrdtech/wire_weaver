@@ -32,7 +32,7 @@ Plus a whole set of standard types and traits, all written in Rust.
 
     ---
     Dense zero-copy, no-alloc and no_std wire format. Dynamically sized user-defined types and vectors (on no_std as well).
-    Bit level packing and [more](serdes/showcase.md).
+    Bit level packing and [more](serdes/showcase.md), [real-world use cases](serdes/use_cases.md).
 
 -   :material-function: __[RPC](api/methods.md)__
 

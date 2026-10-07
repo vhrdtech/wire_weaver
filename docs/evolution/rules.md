@@ -152,6 +152,11 @@ A `TailSize<N>` field (see [wire format](../serdes/shrink_wrap.md#size-of-the-re
 of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields
 after it evolve as usual, and old readers skip what newer writers append.
 
+A `Delta<T>`, `DeltaOfDelta<T>` or `XorFloat<T>` field (see
+[wire format](../serdes/shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)) is like a `Vec<T>`
+field: it can be appended with `#[default = Default::default()]` (old data reads as an empty sequence), but
+swapping it for a `Vec<T>` or another of the three, or changing `T`, changes the bits and breaks compatibility.
+
 When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
 overhead, giving all the nice backwards and forwards compatibility benefits.
 

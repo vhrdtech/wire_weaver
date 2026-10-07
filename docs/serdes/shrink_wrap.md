@@ -232,6 +232,65 @@ its length at the back of the buffer, which is not where the value ends when the
 its position and `N` are part of the layout: put it in the first version of a type. The
 [showcase](showcase.md#bounding-a-value-from-the-inside-with-tailsize) has the bytes.
 
+## Compressed sequences: `Delta`, `DeltaOfDelta` and `XorFloat`
+
+A `Vec<T>` of readings taken one after another is mostly redundancy: the next value is usually the previous one
+or close to it. `Delta<'i, T>`, `DeltaOfDelta<'i, T>` (integers `u8`..`u64`, `i8`..`i64`) and `XorFloat<'i, T>`
+(`f32`, `f64`) are sequence types used exactly like `RefVec<'i, T>` - a field holding a slice to serialize, a
+bounded reader after deserializing, decoded as you `.iter()` - whose elements are written bit by bit against the
+element before. Their owned counterparts `DeltaOwned<T>`, `DeltaOfDeltaOwned<T>` and `XorFloatOwned<T>` wrap a
+`Vec<T>` (`std`), and the derive macro maps one to the other like it does `RefVec` and `Vec` (see
+[type mapping](derive.md#type-mapping)).
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]
+struct Block<'i> {
+    ts: u32,
+    size: TailSize<2>,
+    stamps: DeltaOfDelta<'i, u64>, // timestamps with a near-constant step
+    counts: Delta<'i, i16>,        // a counter, fixed-point readings
+    temps: XorFloat<'i, f32>,      // floats
+}
+```
+
+Around the elements the layout is that of `Vec<T>`: `UnsizedFinalStructure`, the element count as a reverse
+length at the back of the enclosing value, nothing else. Inside:
+
+- The first element is written at the full width of `T` through the bit cursor (most significant bit first, so a
+  `u32` first element reads as big-endian in a hex dump, unlike a `u32` field), every further element as a prefix
+  code against the previous one. There is no alignment in between or after: a `bool` written next shares the
+  byte, a `u8` aligns itself as always.
+- **`Delta<T>`**: the difference to the previous element, wrapped at the width `W` of `T` (so `u8` 0 after 255 is
+  `+1`), zigzag-encoded to `z` and written as `0` for `z = 0`, else `10` and 7 bits (`z < 128`), `110` and 9 bits
+  (`< 512`), `1110` and 12 bits (`< 4096`), `11110` and 20 bits (`< 2^20`), `111110` and 32 bits (`< 2^32`), where
+  buckets at or above `W` are left out and the last bucket is `W` bits after a `1` for every bucket and no `0`:
+  `11` + 8 bits for `u8`/`i8`, `1111` + 16 bits for 16-bit types, `11111` + 32 bits for 32-bit, `111111` + 64 bits
+  for 64-bit types. A repeated value costs 1 bit, a step within `-64..=63` costs 9.
+- **`DeltaOfDelta<T>`**: the same code applied to the change of the difference (the previous difference starts at
+  0), the Gorilla timestamp code: a value that grows by the same step as the one before costs 1 bit.
+- **`XorFloat<T>`**: the XOR of the bit patterns of the value and the previous one. `0` when it is zero (a repeated
+  value); `10` and the bits inside the window of the previous explicitly coded XOR (its leading and trailing zero
+  counts) when the new XOR fits in it; otherwise `11`, the leading zero count (5 bits for `f32`, 6 for `f64`), the
+  number of significant bits minus one (5 / 6 bits) and those bits, which become the new window. Pure bit
+  operations: NaN payloads, `-0.0` and infinities round-trip exactly.
+
+These codes are part of the wire format and stay as they are, like the rest of this page. The
+[showcase](showcase.md#compressed-sequences-delta-deltaofdelta-and-xorfloat) has the bytes.
+
+What to expect: on an hour of 1 s telemetry from `tpm_mesh_dash` (34 series, mostly CPU percentages and byte
+counters), `XorFloat<f32>` in blocks of 60 took 64% of the raw `f32`s (39% of the values repeat exactly, those
+cost one bit), while the same values as tenths of a percent and whole bytes in `Delta<i32>` / `Delta<i64>` took
+32%. Floats with full-precision noise (a CPU percentage computed from counters) XOR badly - every value changes
+most mantissa bits; integers, fixed-point values, slowly changing or often repeated readings and timestamps
+compress well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use
+its width, the small buckets are the same for every type.
+
+The decoders never panic on malformed input: every read is bounds-checked, a count larger than the bits left is
+rejected before anything is allocated (`Error::MalformedSeries`), and the owned decoders push element by element
+instead of trusting the count. Since the elements carry no length of their own, a truncated *top-level* buffer may
+still decode (to other values) when the garbage happens to form valid codes; inside a struct, the enclosing size
+slot or `TailSize` bounds the value and a truncation is caught there.
+
 ## Next step
 
 Check out the [derive](derive.md) macro that generates all of the above from a plain struct/enum definition, and

@@ -35,7 +35,11 @@ pub use traits::{
 pub mod alloc;
 pub mod any_on_stack;
 pub mod nib;
+pub mod series;
 pub mod tail_bytes;
+pub use series::{Delta, DeltaOfDelta, XorFloat};
+#[cfg(feature = "std")]
+pub use series::{DeltaOfDeltaOwned, DeltaOwned, XorFloatOwned};
 pub mod tail_size;
 pub use tail_size::TailSize;
 pub mod un;
@@ -67,6 +71,10 @@ pub enum Error {
     EnumFutureVersionOrMalformedData,
     InvalidBitCount,
     SubtypeOutOfRange,
+    /// A [Delta] / [DeltaOfDelta] / [XorFloat] sequence that
+    /// cannot have been written by the encoder: more elements than bits, or a code that refers to state the
+    /// decoder does not have.
+    MalformedSeries,
 }
 
 impl Display for Error {
@@ -104,6 +112,9 @@ pub mod prelude {
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;
     pub use crate::ref_vec::{RefVec, RefVecIter};
+    pub use crate::series::{Delta, DeltaOfDelta, XorFloat};
+    #[cfg(feature = "std")]
+    pub use crate::series::{DeltaOfDeltaOwned, DeltaOwned, XorFloatOwned};
     pub use crate::tail_size::TailSize;
     #[cfg(feature = "std")]
     pub use crate::traits::SerializeShrinkWrapOwned;

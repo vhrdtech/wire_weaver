@@ -55,6 +55,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-13 Binary format documented** in `docs/serdes/shrink_wrap.md`, worked tricks in `docs/serdes/showcase.md`.
 - ✅ **SW-14 Usable standalone** as a dense data storage format (`examples/minimal_shrink_wrap`,
   `examples/compare_wire_formats`).
+- ✅ **SW-31 `Delta` / `DeltaOfDelta`**: integer sequences as (differences of) differences in a bit-level prefix code,
+  zero-copy `Delta<'i, T>` and `DeltaOwned<T>`, `u8`..`u64` / `i8`..`i64`; the Gorilla timestamp code
+  (`docs/serdes/shrink_wrap.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
+- ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
+  `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
 - 🚧 **SW-15 Handle end of buffer when reading evolved fields** · `v0.5` — fields with `#[default = ..]` already fall
   back to the default, but on _any_ read error (`Field::handle_eob` in
   `shrink_wrap_derive/src/codegen/item_struct.rs`), not only on end of buffer. Missing: fall back only on
@@ -96,8 +101,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   into the buffer. It might not work out.
 - 💡 **SW-26 Map support** — `HashMap`/`BTreeMap`, probably as a `Vec` of `(K, V)`.
 - 💡 **SW-27 In-place editing** of serialized data.
-- 💡 **SW-28 Compression wrappers** · `v0.5.x` — in-place dictionary compression as `Compression<T>`; delta,
-  delta-of-delta and float XOR encodings for time series (strings?).
+- 🚧 **SW-28 Compression wrappers** · `v0.5.x` — the time-series part is done as SW-31 (`Delta`, `DeltaOfDelta`)
+  and SW-32 (`XorFloat`); in-place dictionary compression as `Compression<T>` (strings?) stays an idea.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).

@@ -394,6 +394,49 @@ the discriminant in front of it was written last. `ww_client_server`'s tests con
 byte-for-byte identical to building the equivalent value up front and calling `.to_ww_bytes()` on it directly - the
 builder is purely a streaming-friendly way to produce the exact same bytes.
 
+## Compressed sequences: `Delta`, `DeltaOfDelta` and `XorFloat`
+
+The three sequence types of the [wire format page](shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)
+are `RefVec`s whose elements are written bit by bit against the previous one. Five `u8` readings, as a `Vec<u8>` and
+as a `Delta<u8>`:
+
+```rust
+let v: Vec<u8> = vec![100, 100, 101, 99, 200];
+assert_eq!(v.to_ww_bytes(&mut buf).unwrap(), hex!("64 64 65 63 c8 05"));
+assert_eq!(Delta::new(&[100u8, 100, 101, 99, 200]).to_ww_bytes(&mut buf).unwrap(), hex!("64 40 a0 7e 50 05"));
+```
+
+Both end in the count nibble `5`. The `Delta` bytes are `01100100` (the first value, 8 bits), then `0` (100 again),
+`10 0000010` (+1: zigzag 2 in the 7-bit bucket), `10 0000011` (-2: zigzag 3), `11 11001010` (+101: zigzag 202 does
+not fit 7 bits, so the full 8 bits after `11`); 29 bits padded to 4 bytes. Here the saving is small; it grows with
+every repeated or slowly moving value, which costs 1 or 9 bits instead of 8 to 64:
+
+```rust
+// timestamps every 10 s with a little jitter
+let ts = [1_700_000_000u32, 1_700_000_010, 1_700_000_020, 1_700_000_030, 1_700_000_041, 1_700_000_050];
+assert_eq!(Delta::new(&ts).to_ww_bytes(&mut buf).unwrap().len(), 11);        // 32 + 5 x 9 bits
+assert_eq!(DeltaOfDelta::new(&ts).to_ww_bytes(&mut buf).unwrap(), hex!("65 53 f1 00 8a 10 28 18 06"));
+```
+
+The `DeltaOfDelta` bytes: `65 53 f1 00` is `1_700_000_000`, most significant bit first; then `10 0 0010100` (the
+first difference, 10, as a change from 0), `0`, `0` (two more steps of 10), `10 0000010` (+1: a step of 11),
+`10 0000011` (-2: back to 9), 61 bits in 8 bytes, and the count nibble `6` in its own byte since the data did not
+end on a nibble boundary. A regular clock costs one bit per tick.
+
+```rust
+let temps = [21.5f32, 21.5, 21.5, 21.75, 21.75, 22.0];
+assert_eq!(XorFloat::new(&temps).to_ww_bytes(&mut buf).unwrap(), hex!("41 ac 00 00 37 02 d6 3f 06"));
+```
+
+`41 ac 00 00` is `21.5`, then `0`, `0` (repeats); `21.75` XORs to `0x0002_0000`, one significant bit after 14
+leading zeros: `11 01110 00000 1` (14, length 1 written as 0, the bit); `0` (repeat); `22.0` XORs with `21.75` to
+`0x001e_0000`, four bits after 11 leading zeros, which do not fit the previous window (14 leading, 17 trailing),
+so again an explicit `11 01011 00011 1111`. 64 bits in 8 bytes, then the count nibble. Had the next value XORed
+to, say, `0x0004_0000`, it would fit that window and cost `10` plus 4 bits. In a real block
+one `XorFloat` per series holds a minute or an hour of samples, and the block is bounded by a `TailSize` slot
+(see [bounding from the inside](#bounding-a-value-from-the-inside-with-tailsize)), so it can sit at any offset of
+a file.
+
 ## Putting it together: real wire sizes
 
 A few real types from `ww_stdlib`, each combining several of the tricks above:

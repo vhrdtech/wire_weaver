@@ -24,6 +24,11 @@
         * Byte array (no alloc): `RefVec<'i, u8>`
         * Fixed sized array: `[T; N]`, `N` a literal or any const expression
         * TODO: Max bounded
+    * Compressed sequences, written bit by bit against the previous element
+      (see [wire format](serdes/shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)):
+        * Integers as differences: `Delta<'i, T>` / `DeltaOwned<T>`, `T` any of `u8`..`u64`, `i8`..`i64`
+        * Integers as differences of differences (timestamps): `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>`
+        * Floats as XOR with the previous value: `XorFloat<'i, T>` / `XorFloatOwned<T>`, `T` is `f32` or `f64`
 * `Option<T>` and `Result<T, E>`
 * `RefBox<T>` for self-referential types.
 * User-defined:

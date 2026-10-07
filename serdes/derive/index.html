@@ -3083,8 +3083,16 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
 <td><code>UserType&lt;'i&gt;</code></td>
 <td><code>UserTypeOwned</code></td>
 </tr>
+<tr>
+<td><code>UserType&lt;'i, T&gt;</code></td>
+<td><code>UserTypeOwned&lt;T&gt;</code></td>
+</tr>
 </tbody>
 </table>
+<p>Generic arguments of a user type are emitted as written (<code>Twice&lt;u8&gt;</code> stays <code>Twice&lt;u8&gt;</code> on both sides); only a
+leading lifetime is replaced by the generated type's and dropped in the owned variant. The borrowed/owned pairs
+of <code>shrink_wrap</code> itself follow this scheme too (<code>Delta&lt;'i, T&gt;</code> / <code>DeltaOwned&lt;T&gt;</code>, <code>XorFloat&lt;'i, T&gt;</code> /
+<code>XorFloatOwned&lt;T&gt;</code>).</p>
 <p>Array lengths can be any const expression (<code>[f32; MAX_SERIES]</code>, <code>[u8; N * 2]</code>), not only literals; a <code>sized</code> type's
 <code>ELEMENT_SIZE</code> carries them symbolically.</p>
 <p><code>TailSize&lt;N&gt;</code> is the same on both sides: a slot the macro fills in with the size of the rest of the value, see

@@ -813,6 +813,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2435,6 +2446,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2739,6 +2761,58 @@ own on the wire), and every field before it <code>Sized</code> or <code>SelfDesc
 its length at the back of the buffer, which is not where the value ends when the buffer is longer than it. The slot,
 its position and <code>N</code> are part of the layout: put it in the first version of a type. The
 <a href="../showcase/#bounding-a-value-from-the-inside-with-tailsize">showcase</a> has the bytes.</p>
+<h2 id="compressed-sequences-delta-deltaofdelta-and-xorfloat">Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code><a class="headerlink" href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" title="Permanent link">&para;</a></h2>
+<p>A <code>Vec&lt;T&gt;</code> of readings taken one after another is mostly redundancy: the next value is usually the previous one
+or close to it. <code>Delta&lt;'i, T&gt;</code>, <code>DeltaOfDelta&lt;'i, T&gt;</code> (integers <code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>) and <code>XorFloat&lt;'i, T&gt;</code>
+(<code>f32</code>, <code>f64</code>) are sequence types used exactly like <code>RefVec&lt;'i, T&gt;</code> - a field holding a slice to serialize, a
+bounded reader after deserializing, decoded as you <code>.iter()</code> - whose elements are written bit by bit against the
+element before. Their owned counterparts <code>DeltaOwned&lt;T&gt;</code>, <code>DeltaOfDeltaOwned&lt;T&gt;</code> and <code>XorFloatOwned&lt;T&gt;</code> wrap a
+<code>Vec&lt;T&gt;</code> (<code>std</code>), and the derive macro maps one to the other like it does <code>RefVec</code> and <code>Vec</code> (see
+<a href="../derive/#type-mapping">type mapping</a>).</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Block</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">ts</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="nc">TailSize</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">stamps</span><span class="p">:</span><span class="w"> </span><span class="nc">DeltaOfDelta</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// timestamps with a near-constant step</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="n">counts</span><span class="p">:</span><span class="w"> </span><span class="nc">Delta</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">        </span><span class="c1">// a counter, fixed-point readings</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="n">temps</span><span class="p">:</span><span class="w"> </span><span class="nc">XorFloat</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">f32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">      </span><span class="c1">// floats</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Around the elements the layout is that of <code>Vec&lt;T&gt;</code>: <code>UnsizedFinalStructure</code>, the element count as a reverse
+length at the back of the enclosing value, nothing else. Inside:</p>
+<ul>
+<li>The first element is written at the full width of <code>T</code> through the bit cursor (most significant bit first, so a
+  <code>u32</code> first element reads as big-endian in a hex dump, unlike a <code>u32</code> field), every further element as a prefix
+  code against the previous one. There is no alignment in between or after: a <code>bool</code> written next shares the
+  byte, a <code>u8</code> aligns itself as always.</li>
+<li><strong><code>Delta&lt;T&gt;</code></strong>: the difference to the previous element, wrapped at the width <code>W</code> of <code>T</code> (so <code>u8</code> 0 after 255 is
+  <code>+1</code>), zigzag-encoded to <code>z</code> and written as <code>0</code> for <code>z = 0</code>, else <code>10</code> and 7 bits (<code>z &lt; 128</code>), <code>110</code> and 9 bits
+  (<code>&lt; 512</code>), <code>1110</code> and 12 bits (<code>&lt; 4096</code>), <code>11110</code> and 20 bits (<code>&lt; 2^20</code>), <code>111110</code> and 32 bits (<code>&lt; 2^32</code>), where
+  buckets at or above <code>W</code> are left out and the last bucket is <code>W</code> bits after a <code>1</code> for every bucket and no <code>0</code>:
+  <code>11</code> + 8 bits for <code>u8</code>/<code>i8</code>, <code>1111</code> + 16 bits for 16-bit types, <code>11111</code> + 32 bits for 32-bit, <code>111111</code> + 64 bits
+  for 64-bit types. A repeated value costs 1 bit, a step within <code>-64..=63</code> costs 9.</li>
+<li><strong><code>DeltaOfDelta&lt;T&gt;</code></strong>: the same code applied to the change of the difference (the previous difference starts at
+  0), the Gorilla timestamp code: a value that grows by the same step as the one before costs 1 bit.</li>
+<li><strong><code>XorFloat&lt;T&gt;</code></strong>: the XOR of the bit patterns of the value and the previous one. <code>0</code> when it is zero (a repeated
+  value); <code>10</code> and the bits inside the window of the previous explicitly coded XOR (its leading and trailing zero
+  counts) when the new XOR fits in it; otherwise <code>11</code>, the leading zero count (5 bits for <code>f32</code>, 6 for <code>f64</code>), the
+  number of significant bits minus one (5 / 6 bits) and those bits, which become the new window. Pure bit
+  operations: NaN payloads, <code>-0.0</code> and infinities round-trip exactly.</li>
+</ul>
+<p>These codes are part of the wire format and stay as they are, like the rest of this page. The
+<a href="../showcase/#compressed-sequences-delta-deltaofdelta-and-xorfloat">showcase</a> has the bytes.</p>
+<p>What to expect: on an hour of 1 s telemetry from <code>tpm_mesh_dash</code> (34 series, mostly CPU percentages and byte
+counters), <code>XorFloat&lt;f32&gt;</code> in blocks of 60 took 64% of the raw <code>f32</code>s (39% of the values repeat exactly, those
+cost one bit), while the same values as tenths of a percent and whole bytes in <code>Delta&lt;i32&gt;</code> / <code>Delta&lt;i64&gt;</code> took
+32%. Floats with full-precision noise (a CPU percentage computed from counters) XOR badly - every value changes
+most mantissa bits; integers, fixed-point values, slowly changing or often repeated readings and timestamps
+compress well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use
+its width, the small buckets are the same for every type.</p>
+<p>The decoders never panic on malformed input: every read is bounds-checked, a count larger than the bits left is
+rejected before anything is allocated (<code>Error::MalformedSeries</code>), and the owned decoders push element by element
+instead of trusting the count. Since the elements carry no length of their own, a truncated <em>top-level</em> buffer may
+still decode (to other values) when the garbage happens to form valid codes; inside a struct, the enclosing size
+slot or <code>TailSize</code> bounds the value and a truncation is caught there.</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
 <p>Check out the <a href="../derive/">derive</a> macro that generates all of the above from a plain struct/enum definition, and
 the <a href="../showcase/">showcase</a> for worked, byte-verified examples of the tricks this format enables, and the

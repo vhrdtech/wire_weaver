@@ -2769,6 +2769,10 @@ unsized types, unless extreme space-saving is required.</p>
 <p>A <code>TailSize&lt;N&gt;</code> field (see <a href="../../serdes/shrink_wrap/#size-of-the-rest-of-a-value-tailsizen">wire format</a>) is part
 of the layout like a <code>Sized</code> field: adding, removing or moving it, or changing <code>N</code>, breaks compatibility; fields
 after it evolve as usual, and old readers skip what newer writers append.</p>
+<p>A <code>Delta&lt;T&gt;</code>, <code>DeltaOfDelta&lt;T&gt;</code> or <code>XorFloat&lt;T&gt;</code> field (see
+<a href="../../serdes/shrink_wrap/#compressed-sequences-delta-deltaofdelta-and-xorfloat">wire format</a>) is like a <code>Vec&lt;T&gt;</code>
+field: it can be appended with <code>#[default = Default::default()]</code> (old data reads as an empty sequence), but
+swapping it for a <code>Vec&lt;T&gt;</code> or another of the three, or changing <code>T</code>, changes the bits and breaks compatibility.</p>
 <p>When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
 overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 <ul>

@@ -910,6 +910,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#putting-it-together-real-wire-sizes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2467,6 +2478,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#putting-it-together-real-wire-sizes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2870,6 +2892,38 @@ deeper, wrapping the whole payload in an <code>UnsizedBuilder</code> so its reve
 the discriminant in front of it was written last. <code>ww_client_server</code>'s tests confirm the builder's output is
 byte-for-byte identical to building the equivalent value up front and calling <code>.to_ww_bytes()</code> on it directly - the
 builder is purely a streaming-friendly way to produce the exact same bytes.</p>
+<h2 id="compressed-sequences-delta-deltaofdelta-and-xorfloat">Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code><a class="headerlink" href="#compressed-sequences-delta-deltaofdelta-and-xorfloat" title="Permanent link">&para;</a></h2>
+<p>The three sequence types of the <a href="../shrink_wrap/#compressed-sequences-delta-deltaofdelta-and-xorfloat">wire format page</a>
+are <code>RefVec</code>s whose elements are written bit by bit against the previous one. Five <code>u8</code> readings, as a <code>Vec&lt;u8&gt;</code> and
+as a <code>Delta&lt;u8&gt;</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="fm">vec!</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="mi">99</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">];</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;64 64 65 63 c8 05&quot;</span><span class="p">));</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Delta</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">100</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="mi">99</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">]).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;64 40 a0 7e 50 05&quot;</span><span class="p">));</span>
+</span></code></pre></div>
+<p>Both end in the count nibble <code>5</code>. The <code>Delta</code> bytes are <code>01100100</code> (the first value, 8 bits), then <code>0</code> (100 again),
+<code>10 0000010</code> (+1: zigzag 2 in the 7-bit bucket), <code>10 0000011</code> (-2: zigzag 3), <code>11 11001010</code> (+101: zigzag 202 does
+not fit 7 bits, so the full 8 bits after <code>11</code>); 29 bits padded to 4 bytes. Here the saving is small; it grows with
+every repeated or slowly moving value, which costs 1 or 9 bits instead of 8 to 64:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1">// timestamps every 10 s with a little jitter</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1_700_000_000</span><span class="k">u32</span><span class="p">,</span><span class="w"> </span><span class="mi">1_700_000_010</span><span class="p">,</span><span class="w"> </span><span class="mi">1_700_000_020</span><span class="p">,</span><span class="w"> </span><span class="mi">1_700_000_030</span><span class="p">,</span><span class="w"> </span><span class="mi">1_700_000_041</span><span class="p">,</span><span class="w"> </span><span class="mi">1_700_000_050</span><span class="p">];</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Delta</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ts</span><span class="p">).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">len</span><span class="p">(),</span><span class="w"> </span><span class="mi">11</span><span class="p">);</span><span class="w">        </span><span class="c1">// 32 + 5 x 9 bits</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">DeltaOfDelta</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ts</span><span class="p">).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;65 53 f1 00 8a 10 28 18 06&quot;</span><span class="p">));</span>
+</span></code></pre></div>
+<p>The <code>DeltaOfDelta</code> bytes: <code>65 53 f1 00</code> is <code>1_700_000_000</code>, most significant bit first; then <code>10 0 0010100</code> (the
+first difference, 10, as a change from 0), <code>0</code>, <code>0</code> (two more steps of 10), <code>10 0000010</code> (+1: a step of 11),
+<code>10 0000011</code> (-2: back to 9), 61 bits in 8 bytes, and the count nibble <code>6</code> in its own byte since the data did not
+end on a nibble boundary. A regular clock costs one bit per tick.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">temps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mf">21.5</span><span class="k">f32</span><span class="p">,</span><span class="w"> </span><span class="mf">21.5</span><span class="p">,</span><span class="w"> </span><span class="mf">21.5</span><span class="p">,</span><span class="w"> </span><span class="mf">21.75</span><span class="p">,</span><span class="w"> </span><span class="mf">21.75</span><span class="p">,</span><span class="w"> </span><span class="mf">22.0</span><span class="p">];</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">XorFloat</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">temps</span><span class="p">).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;41 ac 00 00 37 02 d6 3f 06&quot;</span><span class="p">));</span>
+</span></code></pre></div>
+<p><code>41 ac 00 00</code> is <code>21.5</code>, then <code>0</code>, <code>0</code> (repeats); <code>21.75</code> XORs to <code>0x0002_0000</code>, one significant bit after 14
+leading zeros: <code>11 01110 00000 1</code> (14, length 1 written as 0, the bit); <code>0</code> (repeat); <code>22.0</code> XORs with <code>21.75</code> to
+<code>0x001e_0000</code>, four bits after 11 leading zeros, which do not fit the previous window (14 leading, 17 trailing),
+so again an explicit <code>11 01011 00011 1111</code>. 64 bits in 8 bytes, then the count nibble. Had the next value XORed
+to, say, <code>0x0004_0000</code>, it would fit that window and cost <code>10</code> plus 4 bits. In a real block
+one <code>XorFloat</code> per series holds a minute or an hour of samples, and the block is bounded by a <code>TailSize</code> slot
+(see <a href="#bounding-a-value-from-the-inside-with-tailsize">bounding from the inside</a>), so it can sit at any offset of
+a file.</p>
 <h2 id="putting-it-together-real-wire-sizes">Putting it together: real wire sizes<a class="headerlink" href="#putting-it-together-real-wire-sizes" title="Permanent link">&para;</a></h2>
 <p>A few real types from <code>ww_stdlib</code>, each combining several of the tricks above:</p>
 <ul>
@@ -2879,8 +2933,8 @@ builder is purely a streaming-friendly way to produce the exact same bytes.</p>
 <li><strong><code>ww_date_time::DateTime</code></strong> - <code>self_describing</code>, a <code>Year</code> newtype storing years as <code>UNib32</code> shifted by 2025 (so
   "now" costs a handful of bits, ancient or far-future dates cost more), and a <code>Timezone</code> that's <code>UTC</code> in 1 bit for
   the common case. A full UTC timestamp with second-level precision packs into <strong>4 bytes</strong>:
-  <div class="language-rust highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_utc_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">dt</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;05 F3 96 C0&quot;</span><span class="p">));</span>
+  <div class="language-rust highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_utc_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">dt</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;05 F3 96 C0&quot;</span><span class="p">));</span>
 </span></code></pre></div></li>
 <li><strong><code>ww_client_server::PathKind</code></strong> - <code>ww_repr = nib</code> picking between three addressing modes (<code>Absolute</code>,
   <code>GlobalCompact</code>, <code>GlobalFull</code>), each shaped so the cheapest, most common case (a short absolute path) costs a

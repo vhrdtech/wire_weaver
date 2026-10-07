@@ -2306,6 +2306,13 @@
 <li>TODO: Max bounded</li>
 </ul>
 </li>
+<li>Compressed sequences, written bit by bit against the previous element
+  (see <a href="../serdes/shrink_wrap/#compressed-sequences-delta-deltaofdelta-and-xorfloat">wire format</a>):<ul>
+<li>Integers as differences: <code>Delta&lt;'i, T&gt;</code> / <code>DeltaOwned&lt;T&gt;</code>, <code>T</code> any of <code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code></li>
+<li>Integers as differences of differences (timestamps): <code>DeltaOfDelta&lt;'i, T&gt;</code> / <code>DeltaOfDeltaOwned&lt;T&gt;</code></li>
+<li>Floats as XOR with the previous value: <code>XorFloat&lt;'i, T&gt;</code> / <code>XorFloatOwned&lt;T&gt;</code>, <code>T</code> is <code>f32</code> or <code>f64</code></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><code>Option&lt;T&gt;</code> and <code>Result&lt;T, E&gt;</code></li>

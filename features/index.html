@@ -2645,6 +2645,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>SW-13 Binary format documented</strong> in <code>docs/serdes/shrink_wrap.md</code>, worked tricks in <code>docs/serdes/showcase.md</code>.</li>
 <li>✅ <strong>SW-14 Usable standalone</strong> as a dense data storage format (<code>examples/minimal_shrink_wrap</code>,
   <code>examples/compare_wire_formats</code>).</li>
+<li>✅ <strong>SW-31 <code>Delta</code> / <code>DeltaOfDelta</code></strong>: integer sequences as (differences of) differences in a bit-level prefix code,
+  zero-copy <code>Delta&lt;'i, T&gt;</code> and <code>DeltaOwned&lt;T&gt;</code>, <code>u8</code>..<code>u64</code> / <code>i8</code>..<code>i64</code>; the Gorilla timestamp code
+  (<code>docs/serdes/shrink_wrap.md</code>, <code>shrink_wrap/src/series/</code>, <code>shrink_wrap/tests/series.rs</code>).</li>
+<li>✅ <strong>SW-32 <code>XorFloat</code></strong>: <code>f32</code> / <code>f64</code> sequences as XOR with the previous value (Gorilla), bit-exact,
+  <code>XorFloat&lt;'i, T&gt;</code> / <code>XorFloatOwned&lt;T&gt;</code> (same places as SW-31).</li>
 <li>🚧 <strong>SW-15 Handle end of buffer when reading evolved fields</strong> · <code>v0.5</code> — fields with <code>#[default = ..]</code> already fall
   back to the default, but on <em>any</em> read error (<code>Field::handle_eob</code> in
   <code>shrink_wrap_derive/src/codegen/item_struct.rs</code>), not only on end of buffer. Missing: fall back only on
@@ -2686,8 +2691,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   into the buffer. It might not work out.</li>
 <li>💡 <strong>SW-26 Map support</strong> — <code>HashMap</code>/<code>BTreeMap</code>, probably as a <code>Vec</code> of <code>(K, V)</code>.</li>
 <li>💡 <strong>SW-27 In-place editing</strong> of serialized data.</li>
-<li>💡 <strong>SW-28 Compression wrappers</strong> · <code>v0.5.x</code> — in-place dictionary compression as <code>Compression&lt;T&gt;</code>; delta,
-  delta-of-delta and float XOR encodings for time series (strings?).</li>
+<li>🚧 <strong>SW-28 Compression wrappers</strong> · <code>v0.5.x</code> — the time-series part is done as SW-31 (<code>Delta</code>, <code>DeltaOfDelta</code>)
+  and SW-32 (<code>XorFloat</code>); in-place dictionary compression as <code>Compression&lt;T&gt;</code> (strings?) stays an idea.</li>
 <li>💡 <strong>SW-29 Flatten support</strong> — apply a type's layout across struct/enum boundaries.</li>
 <li>💡 <strong>SW-30 <code>derive_shrink_wrap</code> on a whole module at once</strong>. For definitions in separate files with own syntax, see
   <a href="#api-model-and-codegen-api">standalone definition files</a>.</li>
@@ -2700,6 +2705,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>DER-3 <code>#[default = ..]</code> for evolved fields</strong> and <code>#[flag]</code> relocation.</li>
 <li>✅ <strong>DER-4 <code>TailBytes</code> must be last</strong>: rejected anywhere but as the last field of a struct or enum variant, and nested
   in <code>Option</code>, <code>Vec</code>, tuples or arrays (<code>check_tail_bytes_position</code>), like <code>UVlq32Backfill</code> must be first.</li>
+<li>✅ <strong>DER-10 Generic arguments on user field types</strong>: <code>Foo&lt;u8&gt;</code>, <code>Wrapper&lt;'i, T&gt;</code> are emitted as written,
+  <code>Wrapper&lt;'i, T&gt;</code> maps to <code>WrapperOwned&lt;T&gt;</code> in the owned variant (<code>docs/serdes/derive.md</code>, type mapping; test
+  <code>shrink_wrap/tests/generic_external.rs</code>).</li>
 <li>📋 <strong>DER-5 <code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
   <code>shrink_wrap_derive/src/lib.rs</code>).</li>
 <li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field

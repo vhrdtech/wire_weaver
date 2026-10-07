@@ -285,6 +285,9 @@ most mantissa bits; integers, fixed-point values, slowly changing or often repea
 compress well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use
 its width, the small buckets are the same for every type.
 
+`cargo run --example time_series` (in `shrink_wrap/shrink_wrap`) prints the encoded sizes of synthetic timestamps,
+a counter, a sine wave and a constant, raw vs `Delta`/`DeltaOfDelta`/`XorFloat`.
+
 The decoders never panic on malformed input: every read is bounds-checked, a count larger than the bits left is
 rejected before anything is allocated (`Error::MalformedSeries`), and the owned decoders push element by element
 instead of trusting the count. Since the elements carry no length of their own, a truncated *top-level* buffer may

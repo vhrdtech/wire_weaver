@@ -38,7 +38,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   one: a repeated value costs 1 bit, a small integer step 9, a regular timestamp tick 1 (Gorilla codes). Borrowed
   variants decode lazily with no allocation (`no_std`), decoders reject malformed input with the new
   `Error::MalformedSeries` instead of panicking or allocating from an untrusted count. Bit layout in
-  `docs/serdes/shrink_wrap.md`, bytes in `docs/serdes/showcase.md`.
+  `docs/serdes/shrink_wrap.md`, bytes in `docs/serdes/showcase.md`; `examples/time_series.rs` prints encoded sizes
+  for synthetic timestamps/counter/float data, raw vs compressed.
 - `#[derive_shrink_wrap(..)]` keeps the generic arguments of user field types (DER-10): `x: Twice<u8>` is emitted
   as written, `x: Wrapper<'i, T>` becomes `WrapperOwned<T>` in the owned variant. Before, the arguments were
   dropped and such a struct did not compile.

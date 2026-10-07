@@ -26,3 +26,10 @@ path = "src/shrink_wrap_tail_size.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "shrink-wrap-series"
+path = "src/shrink_wrap_series.rs"
+test = false
+doc = false
+bench = false

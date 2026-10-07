@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.67">
+      <meta name="generator" content="zensical-0.0.68">
     
     
       
@@ -36,12 +36,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ae390e2.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.595f2bf5.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b27955a4.min.css">
       
       
 
@@ -81,14 +81,11 @@
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
     <div data-md-component="skip">
-      
-        
-        <a href="#shrink-wrap" class="md-skip">
-          Skip to content
-        </a>
-      
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
     </div>
     <div data-md-component="announce">
       
@@ -794,6 +791,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>to_ww_bytes</code>/<code>from_ww_bytes</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#size-of-the-rest-of-a-value-tailsizen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size of the rest of a value: <code>TailSize&lt;N&gt;</code>
       </span>
     </span>
   </a>
@@ -2385,6 +2393,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#size-of-the-rest-of-a-value-tailsizen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size of the rest of a value: <code>TailSize&lt;N&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2470,6 +2489,7 @@
 
               
               <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
                 
                   
 
@@ -2653,6 +2673,39 @@ exactly the top-level-value case above:</p>
 directly only matters once you're implementing serdes for a hand-written type, building a streaming API on top of
 <code>shrink_wrap</code> (see the <a href="../showcase/#patching-a-discriminant-after-youve-already-started-writing-its-payload">builder pattern</a>
 in the showcase), or otherwise need more control than one call to <code>ser_shrink_wrap</code> gives you.</p>
+<h2 id="size-of-the-rest-of-a-value-tailsizen">Size of the rest of a value: <code>TailSize&lt;N&gt;</code><a class="headerlink" href="#size-of-the-rest-of-a-value-tailsizen" title="Permanent link">&para;</a></h2>
+<p>The FIFO of sizes puts a value's size at the <em>back</em> of the buffer, which is exactly right when the buffer is the
+value: the reader knows where the back is. It doesn't help when the value sits in a buffer longer than itself - a
+header at the start of a file, a record at a fixed offset of a ring file, a message with padding after it - nor
+when a reader wants to skip a value without parsing it. <code>TailSize&lt;N&gt;</code> covers that case from the inside: a field
+that the writer fills in, once the value is serialized, with the number of bytes from the end of the field to the
+end of the value (the value's own reverse lengths included), and that the reader uses to bound the rest of the
+value.</p>
+<p>On the wire it is a <code>UVlq32</code> right-justified in <code>N</code> bytes (1 to 5, 5 by default), padded with empty <code>0x80</code> groups
+in front, so any <code>UVlq32</code> reader decodes it; <code>N</code> is the capacity: 127 bytes for <code>N = 1</code>, 16 KB for 2, 2 MB for 3,
+256 MB for 4, 4 GB for 5, and serialization fails with <code>Error::LenTooLong</code> beyond it.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Header</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">magic</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="nc">TailSize</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// filled in on write, ignored as an input</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>#[derive_shrink_wrap(..)]</code> generates, around the fields after the slot, what you would write by hand with
+<code>BufWriter::reserve_tail_size()</code> and <code>backfill_tail_size()</code>: reserve the slot, write the rest, encode the reverse
+lengths those fields pushed (so they land inside the value's range, where they would have gone anyway), align to
+byte, and fill the slot in. On read: read the slot, <code>split()</code> the reader to that many bytes, read the rest from the
+split. So a buffer longer than the value stops at the value's end, a truncated one fails with
+<code>Error::OutOfBoundsSplit</code> instead of reading garbage, and fields a newer writer appended after the ones this reader
+knows are skipped - the usual evolution rules keep working inside the bounded range. Nested values each get their own
+slot, and a value with a slot is still a plain <code>Unsized</code> value to whatever contains it.</p>
+<p>The rules the macro checks: one <code>TailSize</code> per struct or enum variant, as a plain field (not inside <code>Option</code>, <code>Vec</code>,
+tuples or arrays), only in <code>Unsized</code> types (a <code>sized</code>, <code>final_structure</code> or <code>self_describing</code> type has no end of its
+own on the wire), and every field before it <code>Sized</code> or <code>SelfDescribing</code> - a <code>Vec</code>, <code>String</code> or <code>Unsized</code> field keeps
+its length at the back of the buffer, which is not where the value ends when the buffer is longer than it. The slot,
+its position and <code>N</code> are part of the layout: put it in the first version of a type. The
+<a href="../showcase/#bounding-a-value-from-the-inside-with-tailsize">showcase</a> has the bytes.</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
 <p>Check out the <a href="../derive/">derive</a> macro that generates all of the above from a plain struct/enum definition, and
 the <a href="../showcase/">showcase</a> for worked, byte-verified examples of the tricks this format enables.</p>
@@ -2795,7 +2848,7 @@ the <a href="../showcase/">showcase</a> for worked, byte-verified examples of th
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.67a597eb.min.js"></script>
+      <script src="../../assets/javascripts/bundle.3c842f4c.min.js"></script>
       
     
   </body>

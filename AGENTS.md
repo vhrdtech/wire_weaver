@@ -246,9 +246,10 @@ Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(cl
 summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for
 multi-crate changes.
 
-Never commit on your own initiative. When a change is done, update the changelogs, then show the proposed commit
-message and the list of files to be staged, and ask the user before running `git commit`. Approval covers only that one
-commit, not later ones.
+Commit on your own initiative (tpm CLAUDE.md "Commits are free, prod is gated"): work happens on a session branch
+(`tpm work new SLUG`), each finished step is one commit with the changelogs updated in it. When the work is done and
+the user agrees, `tpm land` puts it on main; pushing is the housekeeping timer's job. Anything that reaches clients
+(prod deploy, firmware/OTA release, registry publish) still waits for the user's OK.
 
 ## Naming convention
 
@@ -258,11 +259,13 @@ you write that's meant to be reusable across projects, not project-specific.
 
 ## Versions
 
-Every commit with real work bumps the version in the same commit (manifest + CHANGELOG entry), so any build
-traces back to a commit:
-- Patch for fixes and small changes, minor for features or anything breaking before 1.0, major only when the
-  owner says so. In a workspace, only the crates that changed.
-- Docs-only, CI-only and no-behaviour-change refactors skip it; a burst of follow-up fixes shares one bump.
+Landing bumps the version, not each work commit (tpm CLAUDE.md "Landing bumps the version"), so any build from main
+traces back to a release commit:
+- Session commits add CHANGELOG entries under `[Unreleased]` without bumping. `tpm land` turns them into the next
+  version's section with the manifest bump in one `release: x.y.z` commit: minor for Added/Changed/Removed/Deprecated,
+  else patch; major only when the owner says so (`tpm land --version`).
+- In a workspace, bump the changed crates by hand on the branch, then `tpm land --no-bump`. Docs-only, CI-only and
+  no-behaviour-change refactors land without a bump.
 - CLIs print version, git SHA and build time in `--version`, e.g. `tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026
   18:20)`: a small `build.rs` without extra crates (`git rev-parse --short HEAD`, `-dirty` when
   `git status --porcelain` isn't empty, `rerun-if-changed` on `.git/HEAD` and `.git/index`, `unknown` without

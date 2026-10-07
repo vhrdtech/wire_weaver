@@ -110,6 +110,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-3 `#[default = ..]` for evolved fields** and `#[flag]` relocation.
 - ✅ **DER-4 `TailBytes` must be last**: rejected anywhere but as the last field of a struct or enum variant, and nested
   in `Option`, `Vec`, tuples or arrays (`check_tail_bytes_position`), like `UVlq32Backfill` must be first.
+- ✅ **DER-10 Generic arguments on user field types**: `Foo<u8>`, `Wrapper<'i, T>` are emitted as written,
+  `Wrapper<'i, T>` maps to `WrapperOwned<T>` in the owned variant (`docs/serdes/derive.md`, type mapping; test
+  `shrink_wrap/tests/generic_external.rs`).
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field

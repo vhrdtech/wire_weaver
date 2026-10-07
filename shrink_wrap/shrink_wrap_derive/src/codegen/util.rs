@@ -127,18 +127,16 @@ pub(crate) fn assert_sized_before_tail_size(
     let (ser_trait, _) = cp.serdes_traits(is_ref);
     let mut tokens = TokenStream::new();
     for (path, is_lifetime) in externals {
-        let path = &path;
-        let ty = maybe_quote(is_lifetime && is_ref, || quote! { <'static> });
+        let ty = path.tokens((is_lifetime && is_ref).then(|| quote! { 'static }));
         let err_msg = format!(
             "{}: field of type {} before the TailSize slot must be Sized or SelfDescribing",
-            owner,
-            quote! { #path }
+            owner, ty
         );
         tokens.extend(quote! {
             #cfg
             const _: () = assert!(
                 matches!(
-                    <#path #ty as #ser_trait>::ELEMENT_SIZE,
+                    <#ty as #ser_trait>::ELEMENT_SIZE,
                     #element_size::Sized { .. } | #element_size::SelfDescribing
                 ),
                 #err_msg

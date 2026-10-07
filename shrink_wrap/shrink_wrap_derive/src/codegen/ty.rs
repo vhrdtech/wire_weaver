@@ -94,11 +94,7 @@ impl Type {
             //     quote! { #path }
             // }
             Type::External(path, is_lifetime) => {
-                if *is_lifetime && no_alloc {
-                    quote! { #path<'i> }
-                } else {
-                    quote! { #path }
-                }
+                path.tokens((*is_lifetime && no_alloc).then(|| quote! { 'i }))
             }
             Type::Result(_, ok_err_ty) => {
                 let ok_ty = ok_err_ty.0.def(no_alloc, cp);

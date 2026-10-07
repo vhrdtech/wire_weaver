@@ -413,6 +413,12 @@ fn round_trip() {
 | `&'i str`        | `String`         |
 | `RefBox<'i, T>`  | `Box<T>`         |
 | `UserType<'i>`   | `UserTypeOwned`  |
+| `UserType<'i, T>` | `UserTypeOwned<T>` |
+
+Generic arguments of a user type are emitted as written (`Twice<u8>` stays `Twice<u8>` on both sides); only a
+leading lifetime is replaced by the generated type's and dropped in the owned variant. The borrowed/owned pairs
+of `shrink_wrap` itself follow this scheme too (`Delta<'i, T>` / `DeltaOwned<T>`, `XorFloat<'i, T>` /
+`XorFloatOwned<T>`).
 
 Array lengths can be any const expression (`[f32; MAX_SERIES]`, `[u8; N * 2]`), not only literals; a `sized` type's
 `ELEMENT_SIZE` carries them symbolically.

@@ -31,6 +31,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `#[derive_shrink_wrap(..)]` keeps the generic arguments of user field types (DER-10): `x: Twice<u8>` is emitted
+  as written, `x: Wrapper<'i, T>` becomes `WrapperOwned<T>` in the owned variant. Before, the arguments were
+  dropped and such a struct did not compile.
 - `DeserializeShrinkWrapOwned` implemented for all built-in types, `#[derive_shrink_wrap(..)]` generates it too.
 - `Range<T>` and `RangeInclusive<T>` support.
 - Unit type `()` support (zero bits on the wire).

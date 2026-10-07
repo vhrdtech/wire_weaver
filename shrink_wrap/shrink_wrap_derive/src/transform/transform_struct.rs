@@ -133,6 +133,39 @@ mod tests {
     }
 
     #[test]
+    fn generic_external_types() {
+        use crate::ast::ty::Type;
+        let s = from_tokens(
+            quote! { struct S<'i> { a: Foo<u8>, b: Bar<'i, f32>, c: a::b::Baz<u8, 4>, d: Plain } },
+        )
+        .unwrap();
+        let ext = |i: usize| match &s.fields[i].ty {
+            Type::External(path, is_lifetime) => (path.clone(), *is_lifetime),
+            other => panic!("{other:?}"),
+        };
+        let (a, a_lt) = ext(0);
+        assert_eq!(a.args.len(), 1);
+        assert!(!a_lt);
+        assert_eq!(a.tokens(None).to_string(), "Foo < u8 >");
+        let (mut b, b_lt) = ext(1);
+        assert!(b_lt);
+        assert_eq!(b.tokens(None).to_string(), "Bar < 'i , f32 >");
+        assert_eq!(
+            b.tokens(Some(quote! { 'static })).to_string(),
+            "Bar < 'static , f32 >"
+        );
+        b.make_owned();
+        assert_eq!(b.tokens(None).to_string(), "BarOwned < f32 >");
+        let (c, _) = ext(2);
+        assert_eq!(c.tokens(None).to_string(), "a :: b :: Baz < u8 , 4 >");
+        let (mut d, _) = ext(3);
+        assert_eq!(d.tokens(None).to_string(), "Plain");
+        assert_eq!(d.tokens(Some(quote! { 'i })).to_string(), "Plain < 'i >");
+        d.make_owned();
+        assert_eq!(d.tokens(None).to_string(), "PlainOwned");
+    }
+
+    #[test]
     fn tail_size_rules() {
         assert!(from_tokens(quote! { struct S { size: TailSize, a: u8 } }).is_ok());
         assert!(from_tokens(quote! { struct S { a: u8, size: TailSize<2>, b: u8 } }).is_ok());

@@ -21,14 +21,15 @@ pub(crate) fn transform_type(
                     // e.g. shrink_wrap::TailSize<2>: keep the width, it is not a plain external type
                     return transform_type_tail_size(last);
                 }
-                let mut path = Path {
-                    segments: Vec::new(),
-                };
                 let is_lifetime = is_lifetime(&last.arguments);
-                for segment in type_path.path.segments {
-                    path.segments.push(segment.ident);
-                }
-                Ok(Type::External(path, is_lifetime))
+                let args = generic_args(&last.arguments);
+                let segments = type_path
+                    .path
+                    .segments
+                    .into_iter()
+                    .map(|s| s.ident)
+                    .collect();
+                Ok(Type::External(Path::new(segments, args), is_lifetime))
             }
         }
         syn::Type::Reference(type_ref) => {
@@ -123,13 +124,24 @@ fn transform_path_segment(
                 }
             }
 
+            // a user type, with its generic arguments as written (`Foo<u8>`, `XorFloat<'i, f32>`)
             return Ok(Type::External(
-                Path::new_ident(Ident::new(other_ty, path_segment.ident.span())),
+                Path::new(
+                    vec![Ident::new(other_ty, path_segment.ident.span())],
+                    generic_args(&path_segment.arguments),
+                ),
                 is_lifetime(&path_segment.arguments),
             ));
         }
     };
     Ok(ty)
+}
+
+fn generic_args(arguments: &PathArguments) -> Vec<GenericArgument> {
+    match arguments {
+        PathArguments::AngleBracketed(args) => args.args.iter().cloned().collect(),
+        _ => Vec::new(),
+    }
 }
 
 fn is_lifetime(arguments: &PathArguments) -> bool {

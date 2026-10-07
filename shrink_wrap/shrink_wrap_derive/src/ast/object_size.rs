@@ -1,3 +1,4 @@
+use crate::ast::path::Path;
 use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -52,7 +53,7 @@ impl ObjectSize {
 
     pub(crate) fn sum_recursively(
         &self,
-        sizes: Vec<Ident>,
+        sizes: Vec<(Path, bool)>,
         is_ref: bool,
         cp: &CratePath,
     ) -> TokenStream {
@@ -138,14 +139,17 @@ impl ObjectSize {
     }
 }
 
-fn sum_unknown(mut sizes: Vec<Ident>, is_ref: bool, cp: &CratePath) -> TokenStream {
+/// `ELEMENT_SIZE` of every user type in `sizes` summed up: `(path, whether it takes a lifetime)`, the lifetime is
+/// `'static` in a const context.
+fn sum_unknown(mut sizes: Vec<(Path, bool)>, is_ref: bool, cp: &CratePath) -> TokenStream {
     let (ser_trait, _) = cp.serdes_traits(is_ref);
-    if let Some(ident) = sizes.pop() {
+    if let Some((path, is_lifetime)) = sizes.pop() {
+        let ty = path.tokens((is_lifetime && is_ref).then(|| quote! { 'static }));
         let inner = sum_unknown(sizes, is_ref, cp);
         if inner.is_empty() {
-            quote! { <#ident as #ser_trait>::ELEMENT_SIZE }
+            quote! { <#ty as #ser_trait>::ELEMENT_SIZE }
         } else {
-            quote! { <#ident as #ser_trait>::ELEMENT_SIZE.add(#inner) }
+            quote! { <#ty as #ser_trait>::ELEMENT_SIZE.add(#inner) }
         }
     } else {
         TokenStream::new()

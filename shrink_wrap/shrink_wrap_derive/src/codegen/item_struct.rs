@@ -87,10 +87,8 @@ impl<'i> CGItemStruct<'i> {
                 if let Some(size) = f.ty.element_size() {
                     sum = sum.add(size);
                 }
-                if let Type::External(path, _) = &f.ty
-                    && let Some(ident) = path.segments.last()
-                {
-                    unknown_unsized.push(ident.clone());
+                if let Type::External(path, is_lifetime) = &f.ty {
+                    unknown_unsized.push((path.clone(), *is_lifetime));
                 }
             }
         }

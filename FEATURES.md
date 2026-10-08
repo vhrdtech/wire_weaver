@@ -60,6 +60,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/serdes/shrink_wrap.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
 - ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
   `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
+- ✅ **SW-33 `UVlq64`**: byte-based variable length `u64`, same big endian VLQ encoding as `UVlq32`, 1 to 10 bytes,
+  `uvlq64` field type in `#[derive_shrink_wrap(..)]`, `BufReader::read_uvlq64`/`BufWriter`/`BufWriterOwned::write_uvlq64`
+  (`shrink_wrap/src/vlq64.rs`, `docs/types.md`, `docs/serdes/showcase.md`). No `UVlq64Backfill` (not asked for).
 - 🚧 **SW-15 Handle end of buffer when reading evolved fields** · `v0.5` — fields with `#[default = ..]` already fall
   back to the default, but on _any_ read error (`Field::handle_eob` in
   `shrink_wrap_derive/src/codegen/item_struct.rs`), not only on end of buffer. Missing: fall back only on

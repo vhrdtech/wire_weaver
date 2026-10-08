@@ -71,7 +71,19 @@ assert_eq!(UVlq32(128).to_ww_bytes(&mut buf).unwrap(), &[0x81, 0x00]); // 2 byte
 assert_eq!(UVlq32(u32::MAX).to_ww_bytes(&mut buf).unwrap(), &[0x8f, 0xff, 0xff, 0xff, 0x7f]); // 5 bytes
 ```
 
-`UVlq32Backfill` is the same number, but always written as the full 5 bytes, padded with empty `0x80` groups in front.
+`UVlq64` is the same encoding widened to `u64`, for values that can outgrow 32 bits (byte counters, unix
+milliseconds): still `self_describing`, 1 to 10 bytes (10 groups of 7 bits cover 70 bits, with room to spare for
+`u64::MAX`):
+
+```rust
+assert_eq!(UVlq64(0).to_ww_bytes(&mut buf).unwrap(), &[0x00]);         // 1 byte
+assert_eq!(UVlq64(127).to_ww_bytes(&mut buf).unwrap(), &[0x7f]);       // 1 byte, max for that size
+assert_eq!(UVlq64(128).to_ww_bytes(&mut buf).unwrap(), &[0x81, 0x00]); // 2 bytes
+assert_eq!(UVlq64(u32::MAX as u64).to_ww_bytes(&mut buf).unwrap(), &[0x8f, 0xff, 0xff, 0xff, 0x7f]); // 5 bytes, same as UVlq32
+assert_eq!(UVlq64(u64::MAX).to_ww_bytes(&mut buf).unwrap(), &[0x81, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]); // 10 bytes
+```
+
+There is no `UVlq64Backfill`; `UVlq32Backfill` is the same number, but always written as the full 5 bytes, padded with empty `0x80` groups in front.
 That reserves room for a value that is only known after the message is serialized, like a request sequence number
 assigned right before sending. Once it is known, `UVlq32Backfill::backfill()` writes it right-justified into those 5
 bytes and returns the slice starting at its shortest encoding, so it costs no more than a plain `UVlq32`:

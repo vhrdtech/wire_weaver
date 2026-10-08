@@ -2,6 +2,7 @@ use crate::Error::OutOfBoundsRev;
 use crate::nib32::UNib32;
 use crate::un::read_unx;
 use crate::vlq32::UVlq32;
+use crate::vlq64::UVlq64;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
@@ -130,6 +131,13 @@ impl<'i> BufReader<'i> {
     /// Align to byte and read a number encoded with UVlq32 encoding (big endian VLQ).
     pub fn read_uvlq32(&mut self) -> Result<u32, Error> {
         let value = UVlq32::read_forward(self)?.0;
+
+        Ok(value)
+    }
+
+    /// Align to byte and read a number encoded with UVlq64 encoding (big endian VLQ).
+    pub fn read_uvlq64(&mut self) -> Result<u64, Error> {
+        let value = UVlq64::read_forward(self)?.0;
 
         Ok(value)
     }

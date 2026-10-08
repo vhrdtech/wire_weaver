@@ -82,6 +82,24 @@ fn uvlq32_field() {
 }
 
 #[test]
+fn uvlq64_field() {
+    #[derive_shrink_wrap(borrowed, final_structure, derive(Debug, PartialEq))]
+    struct S {
+        flag: bool,
+        len: UVlq64,
+    }
+
+    let mut scratch = [0u8; 16];
+    let s = S {
+        flag: true,
+        len: UVlq64(u64::MAX),
+    };
+    let bytes = s.to_ww_bytes(&mut scratch).unwrap();
+    assert_eq!(bytes, hex!("80 81 ff ff ff ff ff ff ff ff 7f"));
+    assert_eq!(S::from_ww_bytes(bytes).unwrap(), s);
+}
+
+#[test]
 fn uvlq32_backfill_first_field() {
     #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
     struct Message<'i> {

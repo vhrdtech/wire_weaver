@@ -12,6 +12,7 @@
     * `UVlq32Backfill`: always written as 5 bytes, value can be filled in later and leading bytes dropped
     * `TailSize<N>`: right-justified in `N` bytes, filled in with the size of the rest of the enclosing value, which
       readers bound the value with (see [wire format](serdes/shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen))
+* Byte-based variable length u64: `uvlq64` (same VLQ encoding as `uvlq32`, 1 to 10 bytes, one-byte alignment)
 * Floating point numbers: `f32`, `f64`
 * Textual:
     * UTF-8 string `String`

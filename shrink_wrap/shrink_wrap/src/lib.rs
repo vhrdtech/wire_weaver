@@ -18,6 +18,8 @@ pub mod nib32;
 pub use crate::nib32::UNib32;
 pub mod vlq32;
 pub use crate::vlq32::{UVlq32, UVlq32Backfill};
+pub mod vlq64;
+pub use crate::vlq64::UVlq64;
 pub mod ref_box;
 pub use ref_box::RefBox;
 pub mod ref_vec;
@@ -65,6 +67,7 @@ pub enum Error {
     InternalSliceToArrayCast,
     MalformedUNib32,
     MalformedUVlq32,
+    MalformedUVlq64,
     MalformedLeb,
     MalformedUtf8,
     LenTooLong,
@@ -123,5 +126,6 @@ pub mod prelude {
     };
     pub use crate::un::*;
     pub use crate::vlq32::{UVlq32, UVlq32Backfill};
+    pub use crate::vlq64::UVlq64;
     pub use shrink_wrap_derive::{ShrinkWrap, derive_shrink_wrap};
 }

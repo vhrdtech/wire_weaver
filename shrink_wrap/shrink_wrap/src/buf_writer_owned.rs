@@ -1,5 +1,6 @@
 use crate::nib32::UNib32;
 use crate::vlq32::{UVlq32, UVlq32Backfill};
+use crate::vlq64::UVlq64;
 use crate::{ElementSize, Error, Nibble, SerializeShrinkWrapOwned};
 
 const ONE_MORE_NIBBLE: u8 = 0b1000;
@@ -215,6 +216,13 @@ impl BufWriterOwned {
     /// depending on the number. Alignment of 1 byte is used.
     pub fn write_uvlq32(&mut self, val: u32) -> Result<(), Error> {
         let (bytes, start) = UVlq32(val).encode_right_justified();
+        self.write_raw_slice(&bytes[start..])
+    }
+
+    /// Write u64 in UVlq64 encoding (big endian VLQ). It will take from 1 byte to 10 bytes in the buffer,
+    /// depending on the number. Alignment of 1 byte is used.
+    pub fn write_uvlq64(&mut self, val: u64) -> Result<(), Error> {
+        let (bytes, start) = UVlq64(val).encode_right_justified();
         self.write_raw_slice(&bytes[start..])
     }
 

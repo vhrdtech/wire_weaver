@@ -1,6 +1,7 @@
 use crate::nib32::UNib32;
 use crate::un::write_unx;
 use crate::vlq32::UVlq32;
+use crate::vlq64::UVlq64;
 use crate::{ElementSize, Error, Nibble, SerializeShrinkWrap};
 
 /// no_std buffer writer that supports 1 bit, 4 bit, variable length integer and other operations.
@@ -172,6 +173,12 @@ impl<'i> BufWriter<'i> {
     /// depending on the number. Alignment of 1 byte is used.
     pub fn write_uvlq32(&mut self, val: u32) -> Result<(), Error> {
         UVlq32(val).write_forward(self)
+    }
+
+    /// Write u64 in UVlq64 encoding (big endian VLQ). It will take from 1 byte to 10 bytes in the buffer,
+    /// depending on the number. Alignment of 1 byte is used.
+    pub fn write_uvlq64(&mut self, val: u64) -> Result<(), Error> {
+        UVlq64(val).write_forward(self)
     }
 
     /// Write len to the back of the buffer, later when [BufWriter::encode_len_fifo()] or [BufWriter::finish()]

@@ -68,6 +68,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   serialization with `UVlq32Backfill::backfill()`, which returns the slice starting at the shortest encoding.
   Meant for values only known right before sending, like request sequence numbers.
   `#[derive_shrink_wrap(..)]` only accepts it as the first field of a struct, not nested in other types or in enums.
+- `UVlq64` (SW-33): byte-based variable length `u64`, same VLQ encoding as `UVlq32` widened to 64 bits (big endian,
+  1 to 10 bytes, byte-aligned), with `BufWriter::write_uvlq64()`, `BufWriterOwned::write_uvlq64()`,
+  `BufReader::read_uvlq64()` and `Error::MalformedUVlq64`. Supported as a field type (`uvlq64`) by
+  `#[derive_shrink_wrap(..)]`. No `UVlq64Backfill`.
 - `#[derive_shrink_wrap(..)]` rejects `TailBytes` / `TailBytesOwned` that is not the last field of a struct or enum
   variant, or is nested in `Option`, `Vec`, tuples or arrays; such a field silently swallowed the fields after it.
 - `TailSize<N>` (SW-18): a field the derive macro fills in with the size of the rest of the enclosing value once it is

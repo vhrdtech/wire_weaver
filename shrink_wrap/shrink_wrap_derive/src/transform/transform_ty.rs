@@ -84,6 +84,7 @@ fn transform_path_segment(
         "u128" => Type::U128,
         "unib32" | "UNib32" => Type::UNib32,
         "uvlq32" | "UVlq32" => Type::UVlq32,
+        "uvlq64" | "UVlq64" => Type::UVlq64,
         "uleb32" | "ULeb32" => Type::ULeb32,
         "uleb64" | "ULeb63" => Type::ULeb64,
         "uleb128" | "ULeb128" => Type::ULeb128,

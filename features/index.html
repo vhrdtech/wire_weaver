@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.68">
+      <meta name="generator" content="zensical-0.0.69">
     
     
       
@@ -36,7 +36,7 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.595f2bf5.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e15858d4.min.css">
       
         
           
@@ -2650,6 +2650,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>docs/serdes/shrink_wrap.md</code>, <code>shrink_wrap/src/series/</code>, <code>shrink_wrap/tests/series.rs</code>).</li>
 <li>✅ <strong>SW-32 <code>XorFloat</code></strong>: <code>f32</code> / <code>f64</code> sequences as XOR with the previous value (Gorilla), bit-exact,
   <code>XorFloat&lt;'i, T&gt;</code> / <code>XorFloatOwned&lt;T&gt;</code> (same places as SW-31).</li>
+<li>✅ <strong>SW-33 <code>UVlq64</code></strong>: byte-based variable length <code>u64</code>, same big endian VLQ encoding as <code>UVlq32</code>, 1 to 10 bytes,
+  <code>uvlq64</code> field type in <code>#[derive_shrink_wrap(..)]</code>, <code>BufReader::read_uvlq64</code>/<code>BufWriter</code>/<code>BufWriterOwned::write_uvlq64</code>
+  (<code>shrink_wrap/src/vlq64.rs</code>, <code>docs/types.md</code>, <code>docs/serdes/showcase.md</code>). No <code>UVlq64Backfill</code> (not asked for).</li>
 <li>🚧 <strong>SW-15 Handle end of buffer when reading evolved fields</strong> · <code>v0.5</code> — fields with <code>#[default = ..]</code> already fall
   back to the default, but on <em>any</em> read error (<code>Field::handle_eob</code> in
   <code>shrink_wrap_derive/src/codegen/item_struct.rs</code>), not only on end of buffer. Missing: fall back only on
@@ -3133,7 +3136,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.3c842f4c.min.js"></script>
+      <script src="../assets/javascripts/bundle.8b1c90bd.min.js"></script>
       
     
   </body>

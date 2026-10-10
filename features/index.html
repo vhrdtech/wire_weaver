@@ -256,6 +256,8 @@
       
         
       
+        
+      
     
     
     
@@ -818,6 +820,8 @@
       
         
       
+        
+      
     
     
     
@@ -985,6 +989,33 @@
     
   
   Use cases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/code_size/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Code size on small CPUs
 
     
   </span>
@@ -2650,6 +2681,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>docs/serdes/shrink_wrap.md</code>, <code>shrink_wrap/src/series/</code>, <code>shrink_wrap/tests/series.rs</code>).</li>
 <li>✅ <strong>SW-32 <code>XorFloat</code></strong>: <code>f32</code> / <code>f64</code> sequences as XOR with the previous value (Gorilla), bit-exact,
   <code>XorFloat&lt;'i, T&gt;</code> / <code>XorFloatOwned&lt;T&gt;</code> (same places as SW-31).</li>
+<li>✅ <strong>SW-34 Smaller code on small CPUs</strong>: <code>BufReader</code> / <code>BufWriter</code> reads and writes that keep an error instead of
+  returning it (<code>read_u8_latch</code>, <code>write_u32_latch</code>, .., <code>latched()</code>), used by <code>#[derive_shrink_wrap]</code> for plain
+  fields with one check per type; <code>Error</code> without payloads; one shared integer read and write; no division in
+  <code>UNib32</code>. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
+  Numbers, where the rest goes and what is left to do: <code>docs/serdes/code_size.md</code> (measured by TEST-17).</li>
 <li>✅ <strong>SW-33 <code>UVlq64</code></strong>: byte-based variable length <code>u64</code>, same big endian VLQ encoding as <code>UVlq32</code>, 1 to 10 bytes,
   <code>uvlq64</code> field type in <code>#[derive_shrink_wrap(..)]</code>, <code>BufReader::read_uvlq64</code>/<code>BufWriter</code>/<code>BufWriterOwned::write_uvlq64</code>
   (<code>shrink_wrap/src/vlq64.rs</code>, <code>docs/types.md</code>, <code>docs/serdes/showcase.md</code>). No <code>UVlq64Backfill</code> (not asked for).</li>
@@ -2962,6 +2998,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>TEST-7 Stream tests</strong>: byte buffers, basic and user types, open/close, sideband both ways, sinks, arrays of
   streams.</li>
 <li>✅ <strong>TEST-8 Framer fuzzing</strong> (<code>fuzz/</code>).</li>
+<li>✅ <strong>TEST-17 <code>shrink_wrap</code> code size bench</strong>: <code>just size-bench</code> builds one bare firmware image per test case
+  (plain struct, enum, list, <code>Option</code>, decode or encode only, the request/reply codec of a small softcore firmware
+  and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints <code>.text</code> + <code>.rodata</code>, or the largest symbols
+  (<code>shrink_wrap/size_bench</code>, results in <code>docs/serdes/code_size.md</code>).</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>

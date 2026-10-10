@@ -235,9 +235,15 @@ fn write_discriminant(repr: Repr, tokens: &mut TokenStream) {
             tokens.append_all(quote! { wr.write_bool(self.discriminant() != 0)?; });
             return;
         }
-        Repr::U8 => ("write_u8", None),
-        Repr::U16 => ("write_u16", None),
-        Repr::U32 => ("write_u32", None),
+        Repr::U8 | Repr::U16 | Repr::U32 => {
+            let write_fn = match repr {
+                Repr::U8 => quote!(write_u8_latch),
+                Repr::U16 => quote!(write_u16_latch),
+                _ => quote!(write_u32_latch),
+            };
+            tokens.append_all(quote! { wr.#write_fn(self.discriminant()); });
+            return;
+        }
         Repr::Nibble => ("write_nib_masked", None),
         Repr::UNib32 => ("write_unib32", None),
         Repr::U(bits) if bits < 8 => ("write_un8", Some(bits)),
@@ -336,14 +342,14 @@ impl ToTokens for CGEnumSer<'_> {
         }
 
         if ser_data_variants.is_empty() {
-            tokens.append_all(quote!(Ok(())));
+            tokens.append_all(quote!(wr.latched()));
         } else {
             tokens.append_all(quote! {
                 match &self {
                     #ser_data_variants,
                     _ => {}
                 }
-                Ok(())
+                wr.latched()
             });
         }
     }
@@ -352,9 +358,10 @@ impl ToTokens for CGEnumSer<'_> {
 fn read_discriminant(repr: Repr) -> TokenStream {
     let (write_fn, bits) = match repr {
         Repr::U(1) => return quote! { read_bool()? as u8 },
-        Repr::U8 => ("read_u8", None),
-        Repr::U16 => ("read_u16", None),
-        Repr::U32 => ("read_u32", None),
+        // a failed read gives 0 and is reported by `rd.latched()?` after the variant's fields
+        Repr::U8 => return quote! { read_u8_latch() },
+        Repr::U16 => return quote! { read_u16_latch() },
+        Repr::U32 => return quote! { read_u32_latch() },
         Repr::Nibble => ("read_nib_value", None),
         Repr::UNib32 => ("read_unib32", None),
         Repr::U(bits) if bits < 8 => ("read_un8", Some(bits)),
@@ -385,10 +392,12 @@ impl ToTokens for CGEnumDes<'_> {
         let error = self.item_enum.crate_path.error();
         tokens.append_all(quote! {
             let discriminant = rd.#read_discriminant;
-            Ok(match discriminant {
+            let value = match discriminant {
                 #known_variants
                 _ => { return Err(#error::EnumFutureVersionOrMalformedData); }
-            })
+            };
+            rd.latched()?;
+            Ok(value)
         });
     }
 }
@@ -432,7 +441,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             field_name,
                             !self.is_ref,
                             handle_eob,
-                            &quote! { _ },
+                            field.default.is_none(),
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );
@@ -460,7 +469,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             &field_name,
                             !self.is_ref,
                             handle_eob,
-                            &quote! { _ },
+                            true,
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );

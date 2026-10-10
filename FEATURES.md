@@ -60,6 +60,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/serdes/shrink_wrap.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
 - ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
   `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
+- ✅ **SW-34 Smaller code on small CPUs**: `BufReader` / `BufWriter` reads and writes that keep an error instead of
+  returning it (`read_u8_latch`, `write_u32_latch`, .., `latched()`), used by `#[derive_shrink_wrap]` for plain
+  fields with one check per type; `Error` without payloads; one shared integer read and write; no division in
+  `UNib32`. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
+  Numbers, where the rest goes and what is left to do: `docs/serdes/code_size.md` (measured by TEST-17).
 - ✅ **SW-33 `UVlq64`**: byte-based variable length `u64`, same big endian VLQ encoding as `UVlq32`, 1 to 10 bytes,
   `uvlq64` field type in `#[derive_shrink_wrap(..)]`, `BufReader::read_uvlq64`/`BufWriter`/`BufWriterOwned::write_uvlq64`
   (`shrink_wrap/src/vlq64.rs`, `docs/types.md`, `docs/serdes/showcase.md`). No `UVlq64Backfill` (not asked for).

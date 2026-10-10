@@ -19,6 +19,8 @@ pub struct BufReader<'i> {
     byte_idx: usize,
     /// Next bit to read from, starts from 7
     bit_idx: u8,
+    /// First error of the `read_*_latch` methods since the last [latched](Self::latched)
+    latch: Option<Error>,
 }
 
 impl<'i> BufReader<'i> {
@@ -31,20 +33,47 @@ impl<'i> BufReader<'i> {
             is_at_bit7_rev: false,
             byte_idx: 0,
             bit_idx: 7,
+            latch: None,
         }
     }
 
     /// Read bool with alignment of 1 bit.
+    #[inline(always)]
     pub fn read_bool(&mut self) -> Result<bool, Error> {
+        Ok(self.read_bit()? != 0)
+    }
+
+    // The integer and bool reads go through read_bit and read_le32: one copy of the bounds checks, and a
+    // Result<u32, Error> comes back in two registers on 32-bit CPUs, where Result<bool, Error> or Result<u8, Error>
+    // would go through memory at every call (docs/serdes/code_size.md).
+    #[inline(never)]
+    fn read_bit(&mut self) -> Result<u32, Error> {
         if self.bits_in_byte_left() == 0 {
             return Err(Error::OutOfBoundsReadBool);
         }
-        let val = (self.buf[self.byte_idx] & (1 << self.bit_idx)) != 0;
+        let val = (self.buf[self.byte_idx] >> self.bit_idx) & 1;
         if self.bit_idx == 0 {
             self.bit_idx = 7;
             self.byte_idx += 1;
         } else {
             self.bit_idx -= 1;
+        }
+        Ok(val as u32)
+    }
+
+    /// Align to byte and read `len` (1 to 4) bytes as a Little Endian number.
+    #[inline(never)]
+    fn read_le32(&mut self, len: usize) -> Result<u32, Error> {
+        let Ok(bytes) = self.read_raw_slice(len) else {
+            return Err(if len == 1 {
+                Error::OutOfBoundsReadU8
+            } else {
+                Error::OutOfBoundsReadRawSlice
+            });
+        };
+        let mut val = 0;
+        for byte in bytes.iter().rev() {
+            val = (val << 8) | *byte as u32;
         }
         Ok(val)
     }
@@ -101,24 +130,54 @@ impl<'i> BufReader<'i> {
     read_unx!(read_un32, u32, 32);
     read_unx!(read_un64, u64, 64);
 
-    /// Read u8 with alignment of 1 byte.
-    pub fn read_u8(&mut self) -> Result<u8, Error> {
-        self.align_byte();
-        if self.bytes_left() == 0 {
-            return Err(Error::OutOfBoundsReadU8);
+    /// Read bool like [read_bool](Self::read_bool), but an error is kept in the reader instead of returned
+    /// (the value is then `false`): see [latched](Self::latched).
+    #[inline(never)]
+    pub fn read_bool_latch(&mut self) -> bool {
+        match self.read_bit() {
+            Ok(bit) => bit != 0,
+            Err(e) => {
+                self.latch.get_or_insert(e);
+                false
+            }
         }
-        let val = self.buf[self.byte_idx];
-        self.byte_idx += 1;
-        Ok(val)
+    }
+
+    #[inline(never)]
+    fn read_le32_latch(&mut self, len: usize) -> u32 {
+        match self.read_le32(len) {
+            Ok(val) => val,
+            Err(e) => {
+                self.latch.get_or_insert(e);
+                0
+            }
+        }
+    }
+
+    /// The first error of the `read_*_latch` methods since the last call, if any.
+    ///
+    /// The `_latch` reads are what `#[derive_shrink_wrap]` generates for plain fields: a run of them is followed
+    /// by one `rd.latched()?` instead of an error check after each read, which is about half the code on small
+    /// CPUs (docs/serdes/code_size.md). A read that fails gives 0, and the reads after it go on: don't use the values
+    /// before `latched()` returned `Ok`, in particular not as a loop bound.
+    #[inline]
+    pub fn latched(&mut self) -> Result<(), Error> {
+        match self.latch.take() {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    /// Read u8 with alignment of 1 byte.
+    #[inline(always)]
+    pub fn read_u8(&mut self) -> Result<u8, Error> {
+        Ok(self.read_le32(1)? as u8)
     }
 
     /// Align to byte and read u16 in Little Endian.
+    #[inline(always)]
     pub fn read_u16(&mut self) -> Result<u16, Error> {
-        let u16_bytes: [u8; 2] = self
-            .read_raw_slice(2)?
-            .try_into()
-            .map_err(|_| Error::InternalSliceToArrayCast)?;
-        Ok(u16::from_le_bytes(u16_bytes))
+        Ok(self.read_le32(2)? as u16)
     }
 
     /// Align to nibble and read a number encoded with UNib32 forward encoding, from the front of the buffer.
@@ -150,12 +209,9 @@ impl<'i> BufReader<'i> {
     }
 
     /// Align to byte and read u32 in Little Endian.
+    #[inline(always)]
     pub fn read_u32(&mut self) -> Result<u32, Error> {
-        let u32_bytes: [u8; 4] = self
-            .read_raw_slice(4)?
-            .try_into()
-            .map_err(|_| Error::InternalSliceToArrayCast)?;
-        Ok(u32::from_le_bytes(u32_bytes))
+        self.read_le32(4)
     }
 
     /// Align to byte and read u64 in Little Endian.
@@ -182,21 +238,15 @@ impl<'i> BufReader<'i> {
     }
 
     /// Align to byte and read i16 in Little Endian.
+    #[inline(always)]
     pub fn read_i16(&mut self) -> Result<i16, Error> {
-        let i16_bytes: [u8; 2] = self
-            .read_raw_slice(2)?
-            .try_into()
-            .map_err(|_| Error::InternalSliceToArrayCast)?;
-        Ok(i16::from_le_bytes(i16_bytes))
+        Ok(self.read_le32(2)? as i16)
     }
 
     /// Align to byte and read i32 in Little Endian.
+    #[inline(always)]
     pub fn read_i32(&mut self) -> Result<i32, Error> {
-        let i32_bytes: [u8; 4] = self
-            .read_raw_slice(4)?
-            .try_into()
-            .map_err(|_| Error::InternalSliceToArrayCast)?;
-        Ok(i32::from_le_bytes(i32_bytes))
+        Ok(self.read_le32(4)? as i32)
     }
 
     /// Align to byte and read i64 in Little Endian.
@@ -218,12 +268,9 @@ impl<'i> BufReader<'i> {
     }
 
     /// Align to byte and read u32 in Little Endian, then create f32 from it.
+    #[inline(always)]
     pub fn read_f32(&mut self) -> Result<f32, Error> {
-        let f32_bytes: [u8; 4] = self
-            .read_raw_slice(4)?
-            .try_into()
-            .map_err(|_| Error::InternalSliceToArrayCast)?;
-        Ok(f32::from_le_bytes(f32_bytes))
+        Ok(f32::from_bits(self.read_le32(4)?))
     }
 
     /// Align to byte and read u64 in Little Endian, then create f64 from it.
@@ -233,6 +280,48 @@ impl<'i> BufReader<'i> {
             .try_into()
             .map_err(|_| Error::InternalSliceToArrayCast)?;
         Ok(f64::from_le_bytes(f64_bytes))
+    }
+
+    /// [read_u8](Self::read_u8), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_u8_latch(&mut self) -> u8 {
+        self.read_le32_latch(1) as u8
+    }
+
+    /// [read_u16](Self::read_u16), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_u16_latch(&mut self) -> u16 {
+        self.read_le32_latch(2) as u16
+    }
+
+    /// [read_u32](Self::read_u32), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_u32_latch(&mut self) -> u32 {
+        self.read_le32_latch(4)
+    }
+
+    /// [read_i8](Self::read_i8), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_i8_latch(&mut self) -> i8 {
+        self.read_le32_latch(1) as i8
+    }
+
+    /// [read_i16](Self::read_i16), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_i16_latch(&mut self) -> i16 {
+        self.read_le32_latch(2) as i16
+    }
+
+    /// [read_i32](Self::read_i32), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_i32_latch(&mut self) -> i32 {
+        self.read_le32_latch(4) as i32
+    }
+
+    /// [read_f32](Self::read_f32), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_f32_latch(&mut self) -> f32 {
+        f32::from_bits(self.read_le32_latch(4))
     }
 
     /// Align to byte and create a slice with the provided length.
@@ -295,7 +384,7 @@ impl<'i> BufReader<'i> {
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
         self.align_byte();
         if self.bytes_left() < len {
-            return Err(Error::OutOfBoundsSplit(UNib32(len as u32)));
+            return Err(Error::OutOfBoundsSplit);
         }
         let prev_byte_idx = self.byte_idx;
         self.byte_idx += len;
@@ -307,6 +396,7 @@ impl<'i> BufReader<'i> {
             is_at_bit7_rev: false,
             byte_idx: 0,
             bit_idx: 7,
+            latch: None,
         })
     }
 
@@ -417,7 +507,7 @@ impl<'i> BufReader<'i> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BufReader, BufWriter, Error, UNib32};
+    use crate::{BufReader, BufWriter, Error};
     use hex_literal::hex;
 
     #[test]
@@ -664,6 +754,23 @@ mod tests {
     }
 
     #[test]
+    fn latched_reads() {
+        let buf = [0x80, 0x34, 0x12, 0xAA];
+        let mut rd = BufReader::new(&buf);
+        assert!(rd.read_bool_latch());
+        assert_eq!(rd.read_u16_latch(), 0x1234);
+        assert_eq!(rd.latched(), Ok(()));
+        // 4 bytes wanted, 1 left: 0, the error is kept, and the reads after it go on
+        assert_eq!(rd.read_u32_latch(), 0);
+        assert_eq!(rd.read_u8_latch(), 0xAA);
+        assert_eq!(rd.read_u8_latch(), 0);
+        assert!(!rd.read_bool_latch());
+        // the first error, once
+        assert_eq!(rd.latched(), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.latched(), Ok(()));
+    }
+
+    #[test]
     fn read_u8_out_of_bounds() {
         let mut rd = BufReader::new(&[]);
         assert_eq!(rd.read_u8(), Err(Error::OutOfBoundsReadU8));
@@ -680,7 +787,7 @@ mod tests {
     fn split_out_of_bounds() {
         let buf = [1, 2];
         let mut rd = BufReader::new(&buf);
-        assert_eq!(rd.split(3), Err(Error::OutOfBoundsSplit(UNib32(3))));
+        assert_eq!(rd.split(3), Err(Error::OutOfBoundsSplit));
     }
 
     #[test]

@@ -21,6 +21,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - Wire format: `u4` is now 1-bit aligned like `u1`..`u3`, the 4-bit aligned type is `Nibble`; strings, tuples and arrays
   are `UnsizedFinalStructure`, same as `Vec<T>`.
 - `StackVec` renamed to `AnyOnStack`.
+- `Error::OutOfBoundsWriteUN`, `OutOfBoundsReadUN` and `OutOfBoundsSplit` no longer carry a `UNib32` (the bit count
+  or length asked for), and `Error` is `#[repr(u32)]` with no payloads at all: a `Result<u32, Error>` then comes
+  back in two registers instead of through memory on 32-bit CPUs (SW-34). Match on the bare variants.
 - `BufWriter`: `write_raw_str()` → `write_str()`, `write_u4()` → `write_nib()` (or `write_nib_masked()` for a raw
   `u8`), `write_u16_rev()` / `update_u16_rev()` / `u16_rev_pos()` / `U16RevPos` → `write_rev_len()` /
   `update_rev_len()` / `rev_len_pos()` / `RevPos`, `encode_nib16_rev()` → `encode_len_fifo()`.
@@ -31,6 +34,18 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Smaller code on small CPUs (SW-34), same wire format: a derived request/reply codec of a softcore firmware is
+  19 % smaller on RV32IC (11.3 → 9.2 KB) and 20 % on Cortex-M0. Numbers and what is left in
+  `docs/serdes/code_size.md`, measured with `just size-bench` (TEST-17).
+    - `BufReader::read_bool_latch()`, `read_u8_latch()`, `read_u16_latch()`, `read_u32_latch()`, `read_i8_latch()`,
+      `read_i16_latch()`, `read_i32_latch()`, `read_f32_latch()` and the same `write_*_latch()` on `BufWriter` (and
+      `BufWriterOwned`, where they cannot fail): no `Result`, the first error is kept until `latched()` returns
+      it, a failed read gives 0. `BufWriter::finish()` returns a kept error too.
+    - `#[derive_shrink_wrap(..)]` reads and writes plain fields, `Option` / `Result` flags and `u8` / `u16` /
+      `u32` discriminants through them and checks once per struct or enum. Fields with `#[default = ..]`, lists,
+      strings and nested types are handled as before. `BufReader` (and so `RefVec`) is 4 bytes larger.
+    - The integer reads and writes up to 32 bits share one function each, and writing them no longer calls
+      `memcpy`; `UNib32::len_nibbles()` no longer divides (430 bytes of division and `clz` routines on RV32I).
 - Compressed sequences for time series (SW-31, SW-32): `Delta<'i, T>` / `DeltaOwned<T>` and
   `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>` for `u8`..`u64` and `i8`..`i64`, `XorFloat<'i, T>` /
   `XorFloatOwned<T>` for `f32` / `f64`. Used as fields like `RefVec<'i, T>` / `Vec<T>`, same layout around the

@@ -229,7 +229,7 @@ mod tests {
         let bytes = wr.finish().unwrap();
         assert_eq!(
             Delta::<u32>::from_ww_bytes(bytes),
-            Err(Error::OutOfBoundsReadUN(crate::UNib32(32)))
+            Err(Error::OutOfBoundsReadUN)
         );
     }
 

@@ -25,6 +25,8 @@ pub struct BufWriter<'i> {
     bit_idx: u8,
     /// Buffer length from the front, shrinks when [Self::write_rev_len()] is used.
     len_bytes: usize,
+    /// First error of the `write_*_latch` methods since the last [latched](Self::latched)
+    latch: Option<Error>,
 }
 
 /// Buffer writer state that can be used to jump back and fill in some data.
@@ -69,6 +71,7 @@ impl<'i> BufWriter<'i> {
             len_bytes,
             byte_idx: 0,
             bit_idx: 7,
+            latch: None,
         }
     }
 
@@ -78,6 +81,7 @@ impl<'i> BufWriter<'i> {
         self.len_bytes = self.buf.len();
         self.byte_idx = 0;
         self.bit_idx = 7;
+        self.latch = None;
     }
 
     /// Write on bit to the buffer. One can write 8 bits with this function, and only one byte will be used in the buffer.
@@ -146,21 +150,108 @@ impl<'i> BufWriter<'i> {
     write_unx!(write_un32, u32, 32);
     write_unx!(write_un64, u64, 64);
 
-    /// Write u8 with alignment of 1 byte.
-    pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
+    /// Align to byte and write the `len` (1 to 4) low bytes of `val` in Little Endian.
+    // All the integer writes up to 32 bits go through here: one copy of the bounds checks, and no call into
+    // memcpy for 2 or 4 bytes (docs/serdes/code_size.md).
+    #[inline(never)]
+    fn write_le32(&mut self, mut val: u32, len: usize) -> Result<(), Error> {
         self.align_byte();
-        if self.bytes_left() == 0 {
-            return Err(Error::OutOfBoundsWriteU8);
+        let end = self.byte_idx + len;
+        let Some(bytes) = self.buf[..self.len_bytes].get_mut(self.byte_idx..end) else {
+            return Err(if len == 1 {
+                Error::OutOfBoundsWriteU8
+            } else {
+                Error::OutOfBoundsWriteRawSlice
+            });
+        };
+        for byte in bytes {
+            *byte = val as u8;
+            val >>= 8;
         }
-        self.buf[self.byte_idx] = val;
-        self.byte_idx += 1;
+        self.byte_idx = end;
         Ok(())
     }
 
+    /// Write bool like [write_bool](Self::write_bool), but an error is kept in the writer instead of returned:
+    /// see [latched](Self::latched).
+    #[inline(never)]
+    pub fn write_bool_latch(&mut self, val: bool) {
+        if let Err(e) = self.write_bool(val) {
+            self.latch.get_or_insert(e);
+        }
+    }
+
+    #[inline(never)]
+    fn write_le32_latch(&mut self, val: u32, len: usize) {
+        if let Err(e) = self.write_le32(val, len) {
+            self.latch.get_or_insert(e);
+        }
+    }
+
+    /// The first error of the `write_*_latch` methods since the last call, if any. [finish](Self::finish) returns
+    /// it too.
+    ///
+    /// The `_latch` writes are what `#[derive_shrink_wrap]` generates for plain fields: a run of them is followed
+    /// by one `wr.latched()?` instead of an error check after each write, which is about half the code on small
+    /// CPUs (docs/serdes/code_size.md). A write that fails writes nothing, and the writes after it go on.
+    #[inline]
+    pub fn latched(&mut self) -> Result<(), Error> {
+        match self.latch.take() {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    /// [write_u8](Self::write_u8), an error is kept for [latched](Self::latched).
+    pub fn write_u8_latch(&mut self, val: u8) {
+        self.write_le32_latch(val as u32, 1)
+    }
+
+    /// [write_u16](Self::write_u16), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_u16_latch(&mut self, val: u16) {
+        self.write_le32_latch(val as u32, 2)
+    }
+
+    /// [write_u32](Self::write_u32), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_u32_latch(&mut self, val: u32) {
+        self.write_le32_latch(val, 4)
+    }
+
+    /// [write_i8](Self::write_i8), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_i8_latch(&mut self, val: i8) {
+        self.write_u8_latch(val as u8)
+    }
+
+    /// [write_i16](Self::write_i16), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_i16_latch(&mut self, val: i16) {
+        self.write_le32_latch(val as u16 as u32, 2)
+    }
+
+    /// [write_i32](Self::write_i32), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_i32_latch(&mut self, val: i32) {
+        self.write_le32_latch(val as u32, 4)
+    }
+
+    /// [write_f32](Self::write_f32), an error is kept for [latched](Self::latched).
+    #[inline(always)]
+    pub fn write_f32_latch(&mut self, val: f32) {
+        self.write_le32_latch(val.to_bits(), 4)
+    }
+
+    /// Write u8 with alignment of 1 byte.
+    pub fn write_u8(&mut self, val: u8) -> Result<(), Error> {
+        self.write_le32(val as u32, 1)
+    }
+
     /// Write u16 in Little Endian and alignment of 1 byte.
+    #[inline(always)]
     pub fn write_u16(&mut self, val: u16) -> Result<(), Error> {
-        self.write_raw_slice(&val.to_le_bytes())?;
-        Ok(())
+        self.write_le32(val as u32, 2)
     }
 
     /// Write u16 in UNib32 forward encoding. It will take from 1 nibble to 11 nibbles in the buffer,
@@ -219,9 +310,9 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Write u32 in Little Endian and alignment of 1 byte.
+    #[inline(always)]
     pub fn write_u32(&mut self, val: u32) -> Result<(), Error> {
-        self.write_raw_slice(&val.to_le_bytes())?;
-        Ok(())
+        self.write_le32(val, 4)
     }
 
     /// Write u64 in Little Endian and alignment of 1 byte.
@@ -242,15 +333,15 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Write i16 in Little Endian and alignment of 1 byte.
+    #[inline(always)]
     pub fn write_i16(&mut self, val: i16) -> Result<(), Error> {
-        self.write_raw_slice(&val.to_le_bytes())?;
-        Ok(())
+        self.write_le32(val as u16 as u32, 2)
     }
 
     /// Write i32 in Little Endian and alignment of 1 byte.
+    #[inline(always)]
     pub fn write_i32(&mut self, val: i32) -> Result<(), Error> {
-        self.write_raw_slice(&val.to_le_bytes())?;
-        Ok(())
+        self.write_le32(val as u32, 4)
     }
 
     /// Write i64 in Little Endian and alignment of 1 byte.
@@ -266,9 +357,9 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Write f32 in Little Endian and alignment of 1 byte.
+    #[inline(always)]
     pub fn write_f32(&mut self, val: f32) -> Result<(), Error> {
-        self.write_raw_slice(&val.to_bits().to_le_bytes())?;
-        Ok(())
+        self.write_le32(val.to_bits(), 4)
     }
 
     /// Write f64 in Little Endian and alignment of 1 byte.
@@ -472,7 +563,7 @@ impl<'i> BufWriter<'i> {
     /// Align to byte, encode all the remaining numbers written to the back of the buffer, align to byte and
     /// return the slice containing written data.
     pub fn finish(&mut self) -> Result<&[u8], Error> {
-        // self.align_byte();
+        self.latched()?;
         let reverse_u16_written = (self.buf.len() - self.len_bytes) / 2;
         if reverse_u16_written > 0 {
             self.encode_len_fifo(RevPos(self.len_bytes), RevPos(self.buf.len()))?;
@@ -837,6 +928,29 @@ mod tests {
         wr.write_nib_masked(0xFA).unwrap();
         let buf = wr.finish().unwrap();
         assert_eq!(buf, &[0b1010_0000]);
+    }
+
+    #[test]
+    fn latched_writes() {
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_bool_latch(true);
+        wr.write_u16_latch(0x1234);
+        assert_eq!(wr.latched(), Ok(()));
+        // doesn't fit: nothing written, the error is kept, and the writes after it go on
+        wr.write_u32_latch(0xAABBCCDD);
+        wr.write_u8_latch(0x55);
+        wr.write_u8_latch(0x66);
+        assert_eq!(wr.latched(), Err(Error::OutOfBoundsWriteRawSlice));
+        assert_eq!(wr.finish().unwrap(), &[0x80, 0x34, 0x12, 0x55]);
+
+        // finish reports an error nobody asked for, and the writer is clean after reset
+        let mut wr = BufWriter::new(&mut buf[..1]);
+        wr.write_u16_latch(1);
+        assert_eq!(wr.finish(), Err(Error::OutOfBoundsWriteRawSlice));
+        wr.write_u16_latch(1);
+        wr.reset();
+        assert_eq!(wr.finish().unwrap(), &[]);
     }
 
     #[test]

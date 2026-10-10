@@ -17,12 +17,15 @@ const ONE_MORE_NIBBLE: u8 = 0b1000;
 
 impl UNib32 {
     pub fn len_nibbles(&self) -> usize {
-        // TODO: measure what is faster, this impl or the one in tests
-        if self.0 == 0 {
-            1
-        } else {
-            ((32 - self.0.leading_zeros()) as usize).div_ceil(3)
+        // A loop rather than `bits.div_ceil(3)`: no division routine on CPUs without a divider (RV32I, Cortex-M0),
+        // which is 170 bytes of code there, see docs/serdes/code_size.md.
+        let mut val = self.0 >> 3;
+        let mut nibbles = 1;
+        while val != 0 {
+            val >>= 3;
+            nibbles += 1;
         }
+        nibbles
     }
 
     pub(crate) fn write_forward(&self, wr: &mut BufWriter) -> Result<(), Error> {

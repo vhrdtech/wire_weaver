@@ -176,7 +176,7 @@ impl Type {
                     let path = field_path.by_value();
                     quote! { #path.#option_field }
                 };
-                tokens.append_all(quote! { wr.write_bool(#path.is_some()) #handle_eob; });
+                tokens.append_all(quote! { wr.write_bool_latch(#path.is_some()); });
                 return;
             }
             Type::Option(_, _ty) => {
@@ -197,7 +197,7 @@ impl Type {
                     let path = field_path.by_value();
                     quote! { #path.#result_field }
                 };
-                tokens.append_all(quote! { wr.write_bool(#path.is_ok()) #handle_eob; });
+                tokens.append_all(quote! { wr.write_bool_latch(#path.is_ok()); });
                 return;
             }
             Type::Result(_flag_ident, _ok_err_ty) => {
@@ -264,9 +264,33 @@ impl Type {
                 return;
             }
         };
-        let write_fn = Ident::new(write_fn, Span::call_site());
         let field_path = field_path.by_value();
-        tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
+        if self.is_latched() {
+            // no check here: the error is kept in the writer until `wr.latched()` at the end of the type
+            let write_fn = Ident::new(&format!("{write_fn}_latch"), Span::call_site());
+            tokens.append_all(quote! { wr.#write_fn(#field_path); });
+        } else {
+            let write_fn = Ident::new(write_fn, Span::call_site());
+            tokens.append_all(quote! { wr.#write_fn(#field_path) #handle_eob; });
+        }
+    }
+
+    /// Plain types that `BufReader` / `BufWriter` have `_latch` methods for: read or written without an error
+    /// check of their own, the type's code ends with one `latched()?` instead.
+    pub(crate) fn is_latched(&self) -> bool {
+        matches!(
+            self,
+            Type::Bool
+                | Type::U8
+                | Type::U16
+                | Type::U32
+                | Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::F32
+                | Type::IsSome(_)
+                | Type::IsOk(_)
+        )
     }
 
     /// Fill in the slot reserved by [buf_write](Self::buf_write) for a `TailSize` field, after all the fields
@@ -280,7 +304,8 @@ impl Type {
         variable_name: &Ident,
         owned: bool,
         handle_err: TokenStream,
-        enforce_ty: &TokenStream,
+        // false for a field with a default: its read must see the error to fall back
+        latch: bool,
         cp: &CratePath,
         tokens: &mut TokenStream,
     ) {
@@ -295,6 +320,8 @@ impl Type {
                 // is an error, and fields a newer writer added after the ones known here are skipped
                 let ty = self.def(!owned, cp);
                 tokens.append_all(quote! {
+                    // the fields before the slot were read from this reader, the ones after it have their own
+                    rd.latched()?;
                     let #variable_name: #ty = rd.#read()?;
                     let mut __tail_rd = rd.split(#variable_name.0 as usize)?;
                     let rd = &mut __tail_rd;
@@ -371,7 +398,13 @@ impl Type {
                 return;
             }
         };
+        if latch && self.is_latched() {
+            // no check here: the error is kept in the reader until `rd.latched()?` at the end of the type
+            let read_fn = Ident::new(&format!("{read_fn}_latch"), Span::call_site());
+            tokens.append_all(quote! { let #variable_name: _ = rd.#read_fn(); });
+            return;
+        }
         let read_fn = Ident::new(read_fn, Span::call_site());
-        tokens.append_all(quote! { let #variable_name: #enforce_ty = rd.#read_fn() #handle_err; })
+        tokens.append_all(quote! { let #variable_name: _ = rd.#read_fn() #handle_err; })
     }
 }

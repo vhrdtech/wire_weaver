@@ -166,7 +166,7 @@ impl ToTokens for CGStructSer<'_> {
             Type::backfill_tail_size(tokens);
         }
         tokens.append_all(quote! {
-            Ok(())
+            wr.latched()
         });
     }
 }
@@ -184,13 +184,14 @@ impl ToTokens for CGStructDes<'_> {
                 field_name,
                 !self.is_ref,
                 handle_eob,
-                &quote! { _ },
+                struct_field.default.is_none(),
                 self.item_struct.crate_path,
                 tokens,
             );
         }
         let struct_name = &self.item_struct.ident;
         tokens.append_all(quote! {
+            rd.latched()?;
             Ok(#struct_name {
                 #(#field_names),*
             })

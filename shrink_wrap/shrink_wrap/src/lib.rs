@@ -50,8 +50,9 @@ pub use nib::Nibble;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[repr(u32)]
 pub enum Error {
-    OutOfBoundsWriteBool,
+    OutOfBoundsWriteBool = 1,
     OutOfBoundsReadBool,
     OutOfBoundsWriteU4,
     OutOfBoundsReadU4,
@@ -59,9 +60,9 @@ pub enum Error {
     OutOfBoundsReadU8,
     OutOfBoundsWriteRawSlice,
     OutOfBoundsReadRawSlice,
-    OutOfBoundsWriteUN(UNib32),
-    OutOfBoundsReadUN(UNib32),
-    OutOfBoundsSplit(UNib32),
+    OutOfBoundsWriteUN,
+    OutOfBoundsReadUN,
+    OutOfBoundsSplit,
     OutOfBoundsRev,
     OutOfBoundsRevCompact,
     InternalSliceToArrayCast,

@@ -68,7 +68,7 @@ fn truncated_buffer_is_an_error() {
     let bytes = header().to_ww_bytes(&mut buf).unwrap().to_vec();
     assert!(matches!(
         Header::from_ww_bytes(&bytes[..bytes.len() - 1]),
-        Err(ShrinkWrapError::OutOfBoundsSplit(_))
+        Err(ShrinkWrapError::OutOfBoundsSplit)
     ));
     // a zeroed region: the slot's bytes are not a 2-byte number
     assert_eq!(
@@ -409,4 +409,14 @@ fn qualified_names_without_the_prelude() {
     );
     let bytes = no_prelude::Explicit { x: 3 }.to_ww_bytes(&mut buf).unwrap();
     assert_eq!(no_prelude::Explicit::from_ww_bytes(bytes).unwrap().x, 3);
+}
+
+/// A plain field before the slot is read without a check of its own (`read_u16_latch`): its error must
+/// surface before the slot is used, not get lost with the outer reader.
+#[test]
+fn truncated_before_the_slot_is_an_error() {
+    assert_eq!(
+        Header::from_ww_bytes(&[0xCD]),
+        Err(ShrinkWrapError::OutOfBoundsReadRawSlice)
+    );
 }

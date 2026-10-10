@@ -6,6 +6,15 @@ default:
 test:
     cargo nextest run --workspace --no-fail-fast
 
+# What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors
+lint:
+    cargo fmt --all --check
+    cargo sort -w -g --check
+    typos
+    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+
 # Build the Python module (wire_weaver_py) into its own venv and run its tests
 [working-directory('wire_weaver_py')]
 test-py:

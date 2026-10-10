@@ -32,6 +32,8 @@ enum Target {
     Rv32i,
     /// RISC-V RV32IC (the QERV softcore of fpga_tools' busgen)
     Rv32ic,
+    /// RV32IC with linker relaxation (`-C target-feature=+relax`): calls take 2 or 4 bytes instead of 8
+    Rv32icRelax,
     /// Cortex-M0
     Thumbv6m,
 }
@@ -41,13 +43,14 @@ impl Target {
         match self {
             Target::Rv32i => "rv32i",
             Target::Rv32ic => "rv32ic",
+            Target::Rv32icRelax => "rv32ic-relax",
             Target::Thumbv6m => "thumbv6m",
         }
     }
 
     fn triple(self) -> &'static str {
         match self {
-            Target::Rv32i | Target::Rv32ic => "riscv32i-unknown-none-elf",
+            Target::Rv32i | Target::Rv32ic | Target::Rv32icRelax => "riscv32i-unknown-none-elf",
             Target::Thumbv6m => "thumbv6m-none-eabi",
         }
     }
@@ -56,6 +59,7 @@ impl Target {
         let common = "-C link-arg=-Tlink.x -Zlocation-detail=none -Zfmt-debug=none";
         match self {
             Target::Rv32ic => format!("{common} -C target-feature=+c"),
+            Target::Rv32icRelax => format!("{common} -C target-feature=+c,+relax"),
             _ => common.to_string(),
         }
     }
@@ -96,29 +100,52 @@ struct Image {
     symbols: Vec<(u64, String)>,
 }
 
-fn build(fw: &Path, target: Target, case: &str, flavor: Flavor, sw_features: &[String]) -> Result<Image> {
+fn build(
+    fw: &Path,
+    target: Target,
+    case: &str,
+    flavor: Flavor,
+    sw_features: &[String],
+) -> Result<Image> {
     let mut features = vec![case.to_string()];
     if flavor == Flavor::Final {
         features.push("final".into());
     }
     features.extend(sw_features.iter().map(|f| format!("shrink_wrap/{f}")));
-    // one target dir per target: RV32I and RV32IC share a triple and differ in RUSTFLAGS only
+    // one target dir per target: the RV32 ones share a triple and differ in RUSTFLAGS only
     let target_dir = fw.join("target").join(target.name());
     let mut cmd = Command::new("cargo");
     cmd.current_dir(fw)
-        .args(["build", "--release", "--quiet", "--target", target.triple(), "--features", &features.join(",")])
+        .args([
+            "build",
+            "--release",
+            "--quiet",
+            "--target",
+            target.triple(),
+            "--features",
+            &features.join(","),
+        ])
         .arg("--target-dir")
         .arg(&target_dir)
         .env("RUSTFLAGS", target.rustflags());
     // fw/ has its own toolchain file; don't hand down the toolchain this runner was started with
-    for var in ["RUSTUP_TOOLCHAIN", "RUSTC", "RUSTDOC", "CARGO", "CARGO_TARGET_DIR", "CARGO_ENCODED_RUSTFLAGS"] {
+    for var in [
+        "RUSTUP_TOOLCHAIN",
+        "RUSTC",
+        "RUSTDOC",
+        "CARGO",
+        "CARGO_TARGET_DIR",
+        "CARGO_ENCODED_RUSTFLAGS",
+    ] {
         cmd.env_remove(var);
     }
     let status = cmd.status().context("running cargo")?;
     if !status.success() {
         bail!("build of case {case} for {} failed", target.name());
     }
-    let elf = target_dir.join(target.triple()).join("release/size_bench_fw");
+    let elf = target_dir
+        .join(target.triple())
+        .join("release/size_bench_fw");
     let data = std::fs::read(&elf).with_context(|| format!("reading {}", elf.display()))?;
     let file = object::File::parse(&*data)?;
     let size = |name| file.section_by_name(name).map_or(0, |s| s.size());
@@ -126,22 +153,44 @@ fn build(fw: &Path, target: Target, case: &str, flavor: Flavor, sw_features: &[S
         .symbols()
         .filter(|s| s.size() > 0 && matches!(s.kind(), SymbolKind::Text | SymbolKind::Data))
         .filter(|s| {
-            let section = s.section_index().and_then(|i| file.section_by_index(i).ok());
+            let section = s
+                .section_index()
+                .and_then(|i| file.section_by_index(i).ok());
             section.is_some_and(|sec| matches!(sec.name(), Ok(".text" | ".rodata")))
         })
-        .map(|s| (s.size(), format!("{:#}", rustc_demangle::demangle(s.name().unwrap_or("?")))))
+        .map(|s| {
+            (
+                s.size(),
+                format!("{:#}", rustc_demangle::demangle(s.name().unwrap_or("?"))),
+            )
+        })
         .collect();
     symbols.sort_by(|a, b| b.cmp(a));
-    Ok(Image { text: size(".text"), rodata: size(".rodata"), symbols })
+    Ok(Image {
+        text: size(".text"),
+        rodata: size(".rodata"),
+        symbols,
+    })
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let fw = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fw");
-    let targets = if args.target.is_empty() { Target::value_variants().to_vec() } else { args.target };
+    let targets = if args.target.is_empty() {
+        Target::value_variants().to_vec()
+    } else {
+        args.target
+    };
     for case in &args.case {
         if !CASES.iter().any(|(name, _)| name == case) {
-            bail!("no case `{case}`, there are: {}", CASES.iter().map(|(name, _)| *name).collect::<Vec<_>>().join(", "));
+            bail!(
+                "no case `{case}`, there are: {}",
+                CASES
+                    .iter()
+                    .map(|(name, _)| *name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
     }
     let mut rows = vec![];
@@ -168,27 +217,43 @@ fn main() -> Result<()> {
                     rows.iter()
                         .enumerate()
                         .map(|(i, &(case, flavor))| {
-                            eprintln!("[{}/{}] {} {case} {flavor:?}", i + 1, rows.len(), target.name());
+                            eprintln!(
+                                "[{}/{}] {} {case} {flavor:?}",
+                                i + 1,
+                                rows.len(),
+                                target.name()
+                            );
                             build(fw, target, case, flavor, sw_features)
                         })
                         .collect()
                 })
             })
             .collect();
-        handles.into_iter().map(|h| h.join().expect("build thread panicked")).collect()
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("build thread panicked"))
+            .collect()
     });
     let results = results.into_iter().collect::<Result<Vec<_>>>()?;
 
     if let Some(n) = args.symbols {
         for (target, images) in targets.iter().zip(&results) {
             for (&(case, flavor), image) in rows.iter().zip(images) {
-                println!("\n{case} ({flavor:?}), {}: .text {}, .rodata {}", target.name(), image.text, image.rodata);
+                println!(
+                    "\n{case} ({flavor:?}), {}: .text {}, .rodata {}",
+                    target.name(),
+                    image.text,
+                    image.rodata
+                );
                 for (size, name) in image.symbols.iter().take(n) {
                     println!("{size:>7}  {name}");
                 }
                 let rest: u64 = image.symbols.iter().skip(n).map(|(size, _)| size).sum();
                 if rest > 0 {
-                    println!("{rest:>7}  ({} more)", image.symbols.len().saturating_sub(n));
+                    println!(
+                        "{rest:>7}  ({} more)",
+                        image.symbols.len().saturating_sub(n)
+                    );
                 }
             }
         }
@@ -202,7 +267,12 @@ fn main() -> Result<()> {
     targets.iter().for_each(|_| print!(" ---: |"));
     println!();
     for (i, &(case, flavor)) in rows.iter().enumerate() {
-        let flavor = match (CASES.iter().any(|&(name, has_final)| name == case && has_final), flavor) {
+        let flavor = match (
+            CASES
+                .iter()
+                .any(|&(name, has_final)| name == case && has_final),
+            flavor,
+        ) {
             (false, _) => "",
             (true, Flavor::Evolvable) => "evolvable",
             (true, Flavor::Final) => "final",

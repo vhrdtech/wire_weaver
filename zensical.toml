@@ -18,7 +18,8 @@ nav = [
             "types.md",
             "serdes/derive.md",
             "serdes/showcase.md",
-            "serdes/use_cases.md"
+            "serdes/use_cases.md",
+            "serdes/code_size.md"
         ]
     },
     { "API" = [

@@ -112,6 +112,10 @@ serve-docs:
 build-docs:
     uv run --with zensical zensical build --clean
 
+# shrink_wrap's code size on small CPUs (RV32I, RV32IC, Cortex-M0) per test case, `just size-bench --help` (TEST-17)
+size-bench *args:
+    cargo run -q --release -p size_bench -- {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

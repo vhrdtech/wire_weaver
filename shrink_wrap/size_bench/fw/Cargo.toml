@@ -1,0 +1,46 @@
+cargo-features = ["panic-immediate-abort"]
+
+[package]
+name = "size_bench_fw"
+version = "0.1.0"
+edition = "2024"
+description = "Bare firmware images, one test case each, for measuring shrink_wrap's code size on small CPUs"
+publish = false
+
+# Built for bare-metal targets with a nightly toolchain, so not a member of the repo root workspace.
+[workspace]
+
+[features]
+# One case per build, picked by `size_bench` (the runner next to this crate). `empty` is the image without any
+# shrink_wrap code: what the other cases are compared with.
+empty = []
+rw_de = []
+rw_ser = []
+struct_de = []
+struct_ser = []
+enum_de = []
+enum_ser = []
+vec_de = []
+vec_ser = []
+option_de = []
+option_ser = []
+busgen_de = []
+busgen_ser = []
+busgen = []
+busgen_hand = []
+# Types with a size assumption (`sized` where the fields allow it, else `final_structure`) instead of the
+# evolvable default.
+final = []
+
+[dependencies]
+shrink_wrap = { path = "../../shrink_wrap", default-features = false }
+
+# Same as fpga_tools tools/busgen/fw (QERV softcore, 8 KB of RAM for code, data and stack)
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "immediate-abort"
+debug = 0
+strip = false
+overflow-checks = false

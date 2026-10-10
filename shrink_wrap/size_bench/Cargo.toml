@@ -1,0 +1,15 @@
+[package]
+name = "size_bench"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Builds the firmware images in fw/ and prints shrink_wrap's code size per test case and target"
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+object = { version = "0.40", default-features = false, features = ["elf", "read_core", "std"] }
+rustc-demangle = "0.1"

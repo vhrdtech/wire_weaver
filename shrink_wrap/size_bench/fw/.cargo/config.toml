@@ -1,0 +1,13 @@
+# For building one case by hand (`cargo build --release --features busgen`). The runner sets the target and
+# RUSTFLAGS itself, per target.
+[build]
+target = "riscv32i-unknown-none-elf"
+
+[target.riscv32i-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tlink.x", "-C", "target-feature=+c", "-Zlocation-detail=none", "-Zfmt-debug=none"]
+
+[target.thumbv6m-none-eabi]
+rustflags = ["-C", "link-arg=-Tlink.x", "-Zlocation-detail=none", "-Zfmt-debug=none"]
+
+[unstable]
+build-std = ["core"]

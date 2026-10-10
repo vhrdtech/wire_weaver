@@ -373,6 +373,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **TEST-7 Stream tests**: byte buffers, basic and user types, open/close, sideband both ways, sinks, arrays of
   streams.
 - ✅ **TEST-8 Framer fuzzing** (`fuzz/`).
+- ✅ **TEST-17 `shrink_wrap` code size bench**: `just size-bench` builds one bare firmware image per test case
+  (plain struct, enum, list, `Option`, decode or encode only, the request/reply codec of a small softcore firmware
+  and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints `.text` + `.rodata`, or the largest symbols
+  (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

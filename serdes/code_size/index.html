@@ -2536,10 +2536,12 @@ stack (the QERV RISC-V of fpga_tools' <code>busgen</code>), whose request/reply 
 not fit.</p>
 <p>Summary:</p>
 <ul>
-<li>The derived codec of that firmware went from 11.3 KB to 9.2 KB on RV32IC (15.1 → 12.7 KB on RV32I, 9.3 → 7.4 KB
-  on Cortex-M0) with three changes that keep the wire format as it is. With <code>sized</code> / <code>final_structure</code> types and
-  linker relaxation it is 7.4 KB. The same codec written by hand is 5.2 to 5.8 KB.</li>
+<li>The derived codec of that firmware went from 11.3 KB to 9.0 KB on RV32IC (15.1 → 12.5 KB on RV32I, 9.3 → 7.3 KB
+  on Cortex-M0) with five changes that keep the wire format as it is. With <code>sized</code> / <code>final_structure</code> types and
+  linker relaxation it is 7.3 KB. The same codec written by hand is 5.2 to 5.8 KB.</li>
 <li>Half of what was saved came from one thing: plain fields are no longer checked for an error one by one.</li>
+<li>An encoder whose types have no lists, strings or nested evolvable types does not link the code for lengths at
+  all: a struct of eight fields is 964 bytes on RV32IC instead of 1476 (1934 before any of this).</li>
 <li>No cargo feature was needed, and none is proposed: what a firmware does not call is not linked, and a feature
   that changes the wire format would be a trap (see <a href="#feature-flags">Feature flags</a>).</li>
 <li>A build setting found on the way is worth more than any of the code changes on RISC-V: linker relaxation was off,
@@ -2599,7 +2601,7 @@ are measured, not run.</p>
 </tr>
 <tr>
 <td><code>rw_de</code>, <code>rw_ser</code></td>
-<td><code>BufReader</code> / <code>BufWriter</code> alone: a <code>u8</code>, a <code>bool</code>, a <code>u16</code>, a <code>u32</code></td>
+<td><code>BufReader</code> / <code>BufWriter</code> alone: a <code>u8</code>, a <code>bool</code>, a <code>u16</code>, a <code>u32</code> (<code>rw_ser</code> ends with <code>finish_no_lens()</code> since step 4)</td>
 </tr>
 <tr>
 <td><code>struct_de</code>, <code>struct_ser</code></td>
@@ -2641,7 +2643,7 @@ small cases give the same number for both.</p>
 <p><code>busgen_hand</code> is the yardstick, not <code>empty</code>: the handler that acts on a request, the enum values it builds and the
 bench's own <code>black_box</code> calls are in both <code>busgen</code> and <code>busgen_hand</code>. What the two differ by is the codec.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p><code>.text</code> + <code>.rodata</code> in bytes, before (as of <code>f661ec9c</code>) and after the three <a href="#what-was-changed">changes</a>:</p>
+<p><code>.text</code> + <code>.rodata</code> in bytes, before (as of <code>f661ec9c</code>) and after the five <a href="#what-was-changed">changes</a>:</p>
 <table>
 <thead>
 <tr>
@@ -2665,10 +2667,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>rw_ser</code></td>
 <td></td>
-<td style="text-align: right;">2540 → 1456</td>
-<td style="text-align: right;">1806 → 996</td>
-<td style="text-align: right;">1690 → 920</td>
-<td style="text-align: right;">1460 → 794</td>
+<td style="text-align: right;">2540 → 688</td>
+<td style="text-align: right;">1806 → 462</td>
+<td style="text-align: right;">1690 → 428</td>
+<td style="text-align: right;">1460 → 384</td>
 </tr>
 <tr>
 <td><code>struct_de</code></td>
@@ -2681,10 +2683,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>struct_ser</code></td>
 <td></td>
-<td style="text-align: right;">2620 → 2092</td>
-<td style="text-align: right;">1934 → 1476</td>
-<td style="text-align: right;">1746 → 1336</td>
-<td style="text-align: right;">1596 → 1240</td>
+<td style="text-align: right;">2620 → 1348</td>
+<td style="text-align: right;">1934 → 964</td>
+<td style="text-align: right;">1746 → 872</td>
+<td style="text-align: right;">1596 → 830</td>
 </tr>
 <tr>
 <td><code>busgen_de</code></td>
@@ -2697,26 +2699,26 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>busgen_ser</code></td>
 <td>evolvable</td>
-<td style="text-align: right;">6776 → 5496</td>
-<td style="text-align: right;">4762 → 3820</td>
-<td style="text-align: right;">4346 → 3424</td>
-<td style="text-align: right;">4054 → 3344</td>
+<td style="text-align: right;">6776 → 5284</td>
+<td style="text-align: right;">4762 → 3650</td>
+<td style="text-align: right;">4346 → 3256</td>
+<td style="text-align: right;">4054 → 3224</td>
 </tr>
 <tr>
 <td><code>busgen</code></td>
 <td>evolvable</td>
-<td style="text-align: right;">15148 → 12744</td>
-<td style="text-align: right;">11308 → 9170</td>
-<td style="text-align: right;">10338 → 8260</td>
-<td style="text-align: right;">9302 → 7400</td>
+<td style="text-align: right;">15148 → 12532</td>
+<td style="text-align: right;">11308 → 9000</td>
+<td style="text-align: right;">10338 → 8114</td>
+<td style="text-align: right;">9302 → 7320</td>
 </tr>
 <tr>
 <td><code>busgen</code></td>
 <td>final</td>
-<td style="text-align: right;">13672 → 11364</td>
-<td style="text-align: right;">10320 → 8232</td>
-<td style="text-align: right;">9496 → 7446</td>
-<td style="text-align: right;">8370 → 6660</td>
+<td style="text-align: right;">13672 → 11148</td>
+<td style="text-align: right;">10320 → 8062</td>
+<td style="text-align: right;">9496 → 7296</td>
+<td style="text-align: right;">8370 → 6512</td>
 </tr>
 <tr>
 <td><code>busgen_hand</code></td>
@@ -2760,10 +2762,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>rw_ser</code></td>
 <td></td>
-<td style="text-align: right;">1456</td>
-<td style="text-align: right;">996</td>
-<td style="text-align: right;">920</td>
-<td style="text-align: right;">794</td>
+<td style="text-align: right;">688</td>
+<td style="text-align: right;">462</td>
+<td style="text-align: right;">428</td>
+<td style="text-align: right;">384</td>
 </tr>
 <tr>
 <td><code>struct_de</code></td>
@@ -2776,10 +2778,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>struct_ser</code></td>
 <td></td>
-<td style="text-align: right;">2092</td>
-<td style="text-align: right;">1476</td>
-<td style="text-align: right;">1336</td>
-<td style="text-align: right;">1240</td>
+<td style="text-align: right;">1348</td>
+<td style="text-align: right;">964</td>
+<td style="text-align: right;">872</td>
+<td style="text-align: right;">830</td>
 </tr>
 <tr>
 <td><code>enum_de</code></td>
@@ -2792,10 +2794,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>enum_ser</code></td>
 <td></td>
-<td style="text-align: right;">2160</td>
-<td style="text-align: right;">1536</td>
-<td style="text-align: right;">1396</td>
-<td style="text-align: right;">1298</td>
+<td style="text-align: right;">1420</td>
+<td style="text-align: right;">1012</td>
+<td style="text-align: right;">920</td>
+<td style="text-align: right;">864</td>
 </tr>
 <tr>
 <td><code>vec_de</code></td>
@@ -2808,10 +2810,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>vec_ser</code></td>
 <td></td>
-<td style="text-align: right;">1958</td>
-<td style="text-align: right;">1378</td>
-<td style="text-align: right;">1286</td>
-<td style="text-align: right;">1180</td>
+<td style="text-align: right;">1634</td>
+<td style="text-align: right;">1142</td>
+<td style="text-align: right;">1074</td>
+<td style="text-align: right;">1030</td>
 </tr>
 <tr>
 <td><code>option_de</code></td>
@@ -2824,10 +2826,10 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>option_ser</code></td>
 <td></td>
-<td style="text-align: right;">2220</td>
-<td style="text-align: right;">1572</td>
-<td style="text-align: right;">1412</td>
-<td style="text-align: right;">1286</td>
+<td style="text-align: right;">1452</td>
+<td style="text-align: right;">1048</td>
+<td style="text-align: right;">936</td>
+<td style="text-align: right;">888</td>
 </tr>
 <tr>
 <td><code>busgen_de</code></td>
@@ -2848,34 +2850,34 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 <tr>
 <td><code>busgen_ser</code></td>
 <td>evolvable</td>
-<td style="text-align: right;">5496</td>
-<td style="text-align: right;">3820</td>
-<td style="text-align: right;">3424</td>
-<td style="text-align: right;">3344</td>
+<td style="text-align: right;">5284</td>
+<td style="text-align: right;">3650</td>
+<td style="text-align: right;">3256</td>
+<td style="text-align: right;">3224</td>
 </tr>
 <tr>
 <td><code>busgen_ser</code></td>
 <td>final</td>
-<td style="text-align: right;">4708</td>
-<td style="text-align: right;">3356</td>
-<td style="text-align: right;">2972</td>
-<td style="text-align: right;">2944</td>
+<td style="text-align: right;">4464</td>
+<td style="text-align: right;">3180</td>
+<td style="text-align: right;">2820</td>
+<td style="text-align: right;">2796</td>
 </tr>
 <tr>
 <td><code>busgen</code></td>
 <td>evolvable</td>
-<td style="text-align: right;">12744</td>
-<td style="text-align: right;">9170</td>
-<td style="text-align: right;">8260</td>
-<td style="text-align: right;">7400</td>
+<td style="text-align: right;">12532</td>
+<td style="text-align: right;">9000</td>
+<td style="text-align: right;">8114</td>
+<td style="text-align: right;">7320</td>
 </tr>
 <tr>
 <td><code>busgen</code></td>
 <td>final</td>
-<td style="text-align: right;">11364</td>
-<td style="text-align: right;">8232</td>
-<td style="text-align: right;">7446</td>
-<td style="text-align: right;">6660</td>
+<td style="text-align: right;">11148</td>
+<td style="text-align: right;">8062</td>
+<td style="text-align: right;">7296</td>
+<td style="text-align: right;">6512</td>
 </tr>
 <tr>
 <td><code>busgen_hand</code></td>
@@ -2887,8 +2889,97 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 </tr>
 </tbody>
 </table>
-<p>Read as: on RV32IC the derived codec is now 1.6 times the hand-written one with evolvable types and 1.45 times with
+<p>Read as: on RV32IC the derived codec is now 1.55 times the hand-written one with evolvable types and 1.4 times with
 final ones (it was 1.95 and 1.8 times), and Cortex-M0 code is about 20 % smaller than RV32IC for the same source.</p>
+<p>The encoders, before and after steps 4 and 5 alone (the length FIFO, SW-36; the decoders did not change):</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rw_ser</code></td>
+<td></td>
+<td style="text-align: right;">1456 → 688</td>
+<td style="text-align: right;">996 → 462</td>
+<td style="text-align: right;">920 → 428</td>
+<td style="text-align: right;">794 → 384</td>
+</tr>
+<tr>
+<td><code>struct_ser</code></td>
+<td></td>
+<td style="text-align: right;">2092 → 1348</td>
+<td style="text-align: right;">1476 → 964</td>
+<td style="text-align: right;">1336 → 872</td>
+<td style="text-align: right;">1240 → 830</td>
+</tr>
+<tr>
+<td><code>enum_ser</code></td>
+<td></td>
+<td style="text-align: right;">2160 → 1420</td>
+<td style="text-align: right;">1536 → 1012</td>
+<td style="text-align: right;">1396 → 920</td>
+<td style="text-align: right;">1298 → 864</td>
+</tr>
+<tr>
+<td><code>option_ser</code></td>
+<td></td>
+<td style="text-align: right;">2220 → 1452</td>
+<td style="text-align: right;">1572 → 1048</td>
+<td style="text-align: right;">1412 → 936</td>
+<td style="text-align: right;">1286 → 888</td>
+</tr>
+<tr>
+<td><code>vec_ser</code></td>
+<td></td>
+<td style="text-align: right;">1958 → 1634</td>
+<td style="text-align: right;">1378 → 1142</td>
+<td style="text-align: right;">1286 → 1074</td>
+<td style="text-align: right;">1180 → 1030</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">5496 → 5284</td>
+<td style="text-align: right;">3820 → 3650</td>
+<td style="text-align: right;">3424 → 3256</td>
+<td style="text-align: right;">3344 → 3224</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>final</td>
+<td style="text-align: right;">4708 → 4464</td>
+<td style="text-align: right;">3356 → 3180</td>
+<td style="text-align: right;">2972 → 2820</td>
+<td style="text-align: right;">2944 → 2796</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12744 → 12532</td>
+<td style="text-align: right;">9170 → 9000</td>
+<td style="text-align: right;">8260 → 8114</td>
+<td style="text-align: right;">7400 → 7320</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11364 → 11148</td>
+<td style="text-align: right;">8232 → 8062</td>
+<td style="text-align: right;">7446 → 7296</td>
+<td style="text-align: right;">6660 → 6512</td>
+</tr>
+</tbody>
+</table>
+<p><code>rw_ser</code>, <code>struct_ser</code>, <code>enum_ser</code> and <code>option_ser</code> have no lengths and lose the FIFO code (step 4). <code>vec_ser</code> and
+the <code>busgen</code> cases have lists and keep it, smaller (step 5).</p>
 <h2 id="where-the-bytes-went">Where the bytes went<a class="headerlink" href="#where-the-bytes-went" title="Permanent link">&para;</a></h2>
 <p>The largest symbols of <code>busgen</code> (evolvable) on RV32IC before the changes, 11100 bytes of <code>.text</code>:</p>
 <table>
@@ -3030,8 +3121,8 @@ exits: 6 to 10 bytes per field. <code>Request</code> has about 80 fields and <co
 <p><strong>The length FIFO.</strong> Lengths of lists, strings and nested <code>Unsized</code> values are collected as <code>u16</code> slots at the end
 of the buffer and turned into nibbles by <code>finish()</code>. <code>encode_len_fifo</code>, <code>write_nib</code>, <code>align_nibble</code>,
 <code>write_rev_len</code> and the nibble counting are 850 bytes on the encode side, <code>read_rev_len</code> 156 on the decode side.
-<code>finish()</code> is always called, so an encoder pays for this even when its types have no lengths: <code>rw_ser</code> (four
-integer writes) was 1806 bytes.</p>
+<code>finish()</code> was always called, so an encoder paid for this even when its types had no lengths: <code>rw_ser</code> (four
+integer writes) was 1806 bytes. Steps 4 and 5 below are about this.</p>
 <p><strong>A division.</strong> <code>UNib32::len_nibbles</code> was <code>(32 - leading_zeros).div_ceil(3)</code>. RV32I has neither a divider nor a
 count-leading-zeros instruction, so this one line linked 172 bytes of division and a software <code>clz</code>: 430 bytes in
 every image that encodes (<code>rw_ser</code> 1806 → 1378 with a three line loop instead).</p>
@@ -3044,15 +3135,15 @@ when it is walked. Each <code>T</code> costs a <code>read::&lt;RefVec&lt;T&gt;&g
 bytes). Encoding a <code>RefVec&lt;T&gt;</code> also contains the decoder of <code>T</code>, for its <code>Buf</code> variant (a list taken from another
 buffer); the optimizer removes it only when it can prove the list is a slice.</p>
 <p><strong>Decode only, encode only.</strong> Nothing to switch off: the linker keeps what is called. <code>busgen_de</code> is 6.0 KB,
-<code>busgen_ser</code> 3.8 KB, and neither contains the other's primitives.</p>
+<code>busgen_ser</code> 3.7 KB, and neither contains the other's primitives.</p>
 <p><strong>Bounds checks and panics.</strong> With <code>panic = "immediate-abort"</code> no panic code or message is left, a failed check is
 one <code>unimp</code>. The checks themselves stay: <code>BufReader</code> and <code>BufWriter</code> compare against their own limits and then index
 a slice, which checks again. It is 4 to 8 bytes per access and was three times in three functions for
 <code>read_u8</code> / <code>read_u16</code> / <code>read_u32</code>.</p>
-<p><strong>Cortex-M0.</strong> The same picture with smaller numbers: <code>_start</code> 4828 of 7372 bytes after the changes, <code>memcpy</code>
-316, <code>encode_len_fifo</code> 216. Thumb has no linker relaxation to forget, and a call is 4 bytes.</p>
+<p><strong>Cortex-M0.</strong> The same picture with smaller numbers: <code>_start</code> 4864 of 7292 bytes after the changes, <code>memcpy</code>
+316, <code>encode_len_fifo</code> 174. Thumb has no linker relaxation to forget, and a call is 4 bytes.</p>
 <h2 id="what-was-changed">What was changed<a class="headerlink" href="#what-was-changed" title="Permanent link">&para;</a></h2>
-<p>All three keep the wire format: every byte-level test of the workspace passes unchanged.</p>
+<p>All five keep the wire format: every byte-level test of the workspace passes unchanged.</p>
 <table>
 <thead>
 <tr>
@@ -3092,6 +3183,20 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 <td style="text-align: right;">996</td>
 <td style="text-align: right;">554</td>
 </tr>
+<tr>
+<td>4. no FIFO code for types without lengths</td>
+<td style="text-align: right;">9170</td>
+<td style="text-align: right;">8232</td>
+<td style="text-align: right;">466</td>
+<td style="text-align: right;">554</td>
+</tr>
+<tr>
+<td>5. smaller length FIFO</td>
+<td style="text-align: right;">9000</td>
+<td style="text-align: right;">8062</td>
+<td style="text-align: right;">462</td>
+<td style="text-align: right;">554</td>
+</tr>
 </tbody>
 </table>
 <p>(RV32IC, bytes. The other targets move the same way, see <a href="#results">Results</a>.)</p>
@@ -3113,13 +3218,35 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
    <code>RefVec</code>), and the smallest cases grow by 10 to 30 bytes.</li>
 </ol>
 <p>The rule for hand-written code that uses the <code>_latch</code> methods: don't use a value before <code>latched()</code> returned
-   <code>Ok</code>, in particular not as a loop bound.</p>
+   <code>Ok</code>, in particular not as a loop bound.
+4. <strong>No FIFO code for types without lengths</strong> (SW-36). <code>SerializeShrinkWrap</code> has an associated constant
+   <code>PUSHES_LEN</code>: whether <code>ser_shrink_wrap</code> can leave a length for <code>finish()</code> to encode. <code>to_ww_bytes</code> ends with
+   <code>wr.finish_for::&lt;Self&gt;()</code>, which is <code>finish()</code> when it is <code>true</code> and <code>finish_no_lens()</code> (latched error, align
+   to a byte, done) when it is <code>false</code>. The choice is made at compile time, so <code>encode_len_fifo</code>, <code>write_nib</code> and
+   the rest are not linked: 510 to 530 bytes less on RV32IC for <code>rw_ser</code>, <code>struct_ser</code>, <code>enum_ser</code> and
+   <code>option_ser</code>, about 750 on RV32I, 400 to 440 on Cortex-M0.</p>
+<p>The default is <code>true</code> for everything that is not <code>Sized</code>, so a hand-written impl stays correct without knowing
+   about it. <code>#[derive_shrink_wrap]</code> computes it from the fields: <code>false</code> only when no field is a string, a list, a
+   <code>RefBox</code>, a nested <code>Unsized</code> type (its size slot is a length) or a user type that pushes one itself (asked
+   through its own constant, also inside <code>Option</code>, <code>Result</code>, arrays and tuples). Evolvable (<code>Unsized</code>) root types
+   made of plain fields qualify, they need no <code>sized</code>. A type that says <code>false</code> and pushes a length anyway panics
+   in a debug build and gets <code>Error::LenFifoNotEmpty</code> in a release one, never a message without its lengths.</p>
+<p>Code that calls <code>ser_shrink_wrap</code> and <code>finish()</code> itself gets the same with <code>wr.finish_for::&lt;T&gt;()</code>, where <code>T</code> is
+   the type of everything written into that writer.
+5. <strong>A smaller length FIFO</strong> (SW-36), for the types that do have lengths. <code>write_nib</code> aligns and writes in one
+   step (140 → 130 bytes on RV32IC) and <code>encode_len_fifo</code> no longer needs <code>align_nibble</code>
+   (82 bytes, not linked any more); the nibbles are counted in one pass over a slice, as a parity, and written by
+   a loop that does not ask for the length of each number first (276 → 214 bytes; 216 → 174 on Cortex-M0).
+   <code>vec_ser</code> 1378 → 1142, <code>busgen</code> 9170 → 9000.</p>
+<p>Fixed on the way: aligning to a nibble from the last three bits of a byte (<code>align_nibble()</code>, <code>write_nib()</code>, a
+   length after 5 to 7 bits) left those bits as they were in the buffer instead of zero. A reader skips them, so
+   nothing on the other end changes, but the bytes depended on what the buffer held before.</p>
 <h2 id="build-settings">Build settings<a class="headerlink" href="#build-settings" title="Permanent link">&para;</a></h2>
 <p>Not <code>shrink_wrap</code>'s to fix, but worth more than each code change:</p>
 <ul>
 <li><strong>Linker relaxation on RISC-V.</strong> <code>riscv32i-unknown-none-elf</code> builds without it, so every call that is not
   inlined is <code>auipc</code> + <code>jalr</code>, 8 bytes. With <code>-C target-feature=+relax</code> the linker turns them into <code>jal</code> (4 bytes)
-  or <code>c.jal</code> (2 bytes): <code>busgen</code> 9170 → 8260, <code>busgen_hand</code> 5762 → 5152. Add it to the <code>rustflags</code> of any RISC-V
+  or <code>c.jal</code> (2 bytes): <code>busgen</code> 9000 → 8114, <code>busgen_hand</code> 5762 → 5152. Add it to the <code>rustflags</code> of any RISC-V
   firmware that is short of space.</li>
 <li><strong><code>memcpy</code></strong> from <code>compiler_builtins</code> is 338 bytes on RV32IC (316 on Cortex-M0), word-wise with alignment
   handling. It is linked as soon as a value of more than a few words is moved, which a request or reply enum is.
@@ -3138,11 +3265,11 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 <tbody>
 <tr>
 <td>decode-only / encode-only</td>
-<td>nothing to do: unused code is not linked (6.0 KB and 3.8 KB of the 9.2 KB)</td>
+<td>nothing to do: unused code is not linked (6.0 KB and 3.7 KB of the 9.0 KB)</td>
 </tr>
 <tr>
 <td>no <code>u4</code> / nibble / varint support</td>
-<td>nothing to do for the types (<code>UNib32</code>, <code>UVlq32</code>, <code>Nibble</code> are linked only when used); the nibble code that is always there belongs to the length FIFO</td>
+<td>nothing to do for the types (<code>UNib32</code>, <code>UVlq32</code>, <code>Nibble</code> are linked only when used); the nibble code of the length FIFO is linked only for types with lengths (step 4)</td>
 </tr>
 <tr>
 <td>no evolution support</td>
@@ -3150,7 +3277,7 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 </tr>
 <tr>
 <td>fixed-size-only mode, no length FIFO</td>
-<td>worth doing without a flag, see below</td>
+<td>done without a flag (step 4): decided per type at compile time</td>
 </tr>
 <tr>
 <td>cheaper errors</td>
@@ -3163,26 +3290,25 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 </tbody>
 </table>
 <h2 id="what-is-left">What is left<a class="headerlink" href="#what-is-left" title="Permanent link">&para;</a></h2>
-<p><code>busgen</code> is still 3.1 to 3.4 KB above the hand-written codec on RV32IC. In order of what they would bring:</p>
+<p><code>busgen</code> is still 3.0 to 3.2 KB above the hand-written codec on RV32IC. In order of what they would bring:</p>
 <ol>
-<li><strong>No FIFO code for types without lengths</strong> (about 600 bytes for an encoder whose types are all fixed-size, and
-   <code>rw_ser</code> would be near 400). <code>finish()</code> cannot know at compile time that nothing was pushed. A <code>Sized</code> root type
-   never pushes a length, so <code>to_ww_bytes</code> could skip the FIFO for it by its <code>ELEMENT_SIZE</code>; an evolvable root made
-   of plain fields would need one more associated constant (<code>has lengths</code>), computed by the derive from the
-   fields. Wire format unchanged.</li>
 <li><strong><code>RefVec&lt;T&gt;</code> of <code>Sized</code> elements without a decode pass</strong>: the end of the list is <code>count * size</code>, and
    <code>RefVecIter</code> can read in place. <code>ElementSize::Sized { size_bits }</code> is right for every type since SW-35 (enums
    count their discriminant and one variant), but it is the size of the value without alignment padding: the
    stride of an element also depends on its alignment (<code>struct { a: bool, b: u8 }</code> is 9 bits, 2 bytes per
    element). Saves the <code>read::&lt;RefVec&lt;T&gt;&gt;</code> instances and a pass at run time.</li>
-<li><strong>A smaller <code>encode_len_fifo</code></strong> (276 bytes now, plus <code>write_nib</code> 140 and <code>align_nibble</code> 82): two loops with
-   checked indexing, could be one over a slice.</li>
 <li><strong>Latched reads for the rest</strong>: <code>Nibble</code>, <code>u1</code>..<code>u32</code> (<code>read_un32</code>), <code>u64</code>. Small for the bench types, real for
    bit-packed ones.</li>
 <li><strong>A firmware-side <code>memcpy</code></strong>, see <a href="#build-settings">Build settings</a>: 300 bytes.</li>
+<li><strong><code>finish_for</code> in generated server and client code</strong>: the code <code>ww_codegen!</code> generates and <code>ww_client_server</code>
+   still end with <code>finish()</code>. Most of their messages carry arguments as bytes, a length, so the FIFO stays; a
+   stream or a reply of plain values could lose it.</li>
+<li><strong>The rest of the length FIFO</strong> for types with lengths: <code>encode_len_fifo</code> 214, <code>write_nib</code> 130,
+   <code>write_rev_len</code> 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
+   form there, and two checks against the end of the buffer.</li>
 </ol>
 <p>For a softcore with 8 KB in all, the hand-written codec stays the right choice today: the firmware it was measured
-for is 4.65 KB as shipped, and the derived codec alone would be 7.4 KB at best. With 16 KB, or on a Cortex-M0 with
+for is 4.65 KB as shipped, and the derived codec alone would be 7.3 KB at best. With 16 KB, or on a Cortex-M0 with
 32 KB of flash, the derived codec fits with room to spare.</p>
 <h2 id="a-small-uart-transport">A small UART transport<a class="headerlink" href="#a-small-uart-transport" title="Permanent link">&para;</a></h2>
 <p>The softcore talks over a UART with its own framing: <code>COBS(seq, message, crc16) 0x00</code>, CRC-16/XMODEM a nibble at a

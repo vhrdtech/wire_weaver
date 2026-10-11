@@ -2657,6 +2657,12 @@ byte boundary before writing, which is why the <code>true</code> above ends up a
 with each other and only force a new byte once something byte-aligned (<code>write_u8</code>, <code>write_u16</code>, a <code>&amp;str</code>, ...) or
 explicitly aligned (<code>align_nibble</code>/<code>align_byte</code>) comes along. <code>finish()</code> closes out the FIFO of sizes (encoding any
 that are still pending as reversed <code>UNib32</code>s at the back) and returns the written prefix as a <code>&amp;[u8]</code>.</p>
+<p>When nothing pushed a size (no string, list or nested <code>Unsized</code> value), <code>finish_no_lens()</code> returns the same bytes
+without linking the code that encodes the FIFO, which matters on a CPU with a few kilobytes of flash (see
+<a href="../code_size/">Code size on small CPUs</a>). <code>wr.finish_for::&lt;T&gt;()</code> picks one of the two at compile time by
+<code>T::PUSHES_LEN</code>, which <code>#[derive_shrink_wrap]</code> computes from the fields; <code>to_ww_bytes</code> does that for you. A
+hand-written <code>SerializeShrinkWrap</code> impl may set <code>const PUSHES_LEN: bool = false;</code> when no path through its
+<code>ser_shrink_wrap</code> pushes a size; the default is <code>true</code> for everything that is not <code>Sized</code>, which is always correct.</p>
 <h3 id="bufreader">BufReader<a class="headerlink" href="#bufreader" title="Permanent link">&para;</a></h3>
 <p><code>BufReader</code> mirrors <code>BufWriter</code>: it walks the same slice forward with matching bit/nibble/byte-aligned read methods,
 and knows how to <code>split()</code> off a sub-reader bounded to exactly the number of bytes a size slot said an <code>Unsized</code>

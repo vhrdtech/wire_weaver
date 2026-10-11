@@ -2686,6 +2686,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   fields with one check per type; <code>Error</code> without payloads; one shared integer read and write; no division in
   <code>UNib32</code>. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
   Numbers, where the rest goes and what is left to do: <code>docs/serdes/code_size.md</code> (measured by TEST-17).</li>
+<li>✅ <strong>SW-36 No length FIFO code for types without lengths</strong>: <code>SerializeShrinkWrap::PUSHES_LEN</code>, computed by
+  <code>#[derive_shrink_wrap]</code> from the fields (default <code>true</code> unless <code>Sized</code>), lets <code>to_ww_bytes</code> and
+  <code>BufWriter::finish_for::&lt;T&gt;()</code> end with <code>finish_no_lens()</code> at compile time, so the FIFO encoder is not linked:
+  about 510 bytes less per such encoder on RV32IC (a struct of plain fields 1476 → 964). For types with lengths
+  <code>encode_len_fifo</code> / <code>write_nib</code> are smaller (<code>vec_ser</code> 1378 → 1142). Same wire format
+  (<code>shrink_wrap/tests/pushes_len.rs</code>, <code>docs/serdes/code_size.md</code> steps 4 and 5).</li>
 <li>✅ <strong>SW-35 Exact <code>ElementSize</code> of enums</strong>: a <code>sized</code> / <code>self_describing</code> enum reports the discriminant plus one
   variant (<code>ElementSize::one_of</code>) instead of the sum of all variants without the discriminant; <code>sized</code> with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire

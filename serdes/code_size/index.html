@@ -3171,9 +3171,10 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
    of plain fields would need one more associated constant (<code>has lengths</code>), computed by the derive from the
    fields. Wire format unchanged.</li>
 <li><strong><code>RefVec&lt;T&gt;</code> of <code>Sized</code> elements without a decode pass</strong>: the end of the list is <code>count * size</code>, and
-   <code>RefVecIter</code> can read in place. Needs <code>ElementSize::Sized { size_bits }</code> to be right for every type first
-   (it is not for enums with a <code>ww_repr</code> other than <code>unib32</code>). Saves the <code>read::&lt;RefVec&lt;T&gt;&gt;</code> instances and a pass
-   at run time.</li>
+   <code>RefVecIter</code> can read in place. <code>ElementSize::Sized { size_bits }</code> is right for every type since SW-35 (enums
+   count their discriminant and one variant), but it is the size of the value without alignment padding: the
+   stride of an element also depends on its alignment (<code>struct { a: bool, b: u8 }</code> is 9 bits, 2 bytes per
+   element). Saves the <code>read::&lt;RefVec&lt;T&gt;&gt;</code> instances and a pass at run time.</li>
 <li><strong>A smaller <code>encode_len_fifo</code></strong> (276 bytes now, plus <code>write_nib</code> 140 and <code>align_nibble</code> 82): two loops with
    checked indexing, could be one over a slice.</li>
 <li><strong>Latched reads for the rest</strong>: <code>Nibble</code>, <code>u1</code>..<code>u32</code> (<code>read_un32</code>), <code>u64</code>. Small for the bench types, real for

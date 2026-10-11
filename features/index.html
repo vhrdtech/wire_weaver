@@ -2686,6 +2686,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   fields with one check per type; <code>Error</code> without payloads; one shared integer read and write; no division in
   <code>UNib32</code>. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
   Numbers, where the rest goes and what is left to do: <code>docs/serdes/code_size.md</code> (measured by TEST-17).</li>
+<li>✅ <strong>SW-35 Exact <code>ElementSize</code> of enums</strong>: a <code>sized</code> / <code>self_describing</code> enum reports the discriminant plus one
+  variant (<code>ElementSize::one_of</code>) instead of the sum of all variants without the discriminant; <code>sized</code> with variants
+  of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
+  format (<code>shrink_wrap/tests/enum_size.rs</code>, <code>docs/serdes/derive.md</code>). Unblocks reading <code>RefVec&lt;Sized T&gt;</code> in place.</li>
 <li>✅ <strong>SW-33 <code>UVlq64</code></strong>: byte-based variable length <code>u64</code>, same big endian VLQ encoding as <code>UVlq32</code>, 1 to 10 bytes,
   <code>uvlq64</code> field type in <code>#[derive_shrink_wrap(..)]</code>, <code>BufReader::read_uvlq64</code>/<code>BufWriter</code>/<code>BufWriterOwned::write_uvlq64</code>
   (<code>shrink_wrap/src/vlq64.rs</code>, <code>docs/types.md</code>, <code>docs/serdes/showcase.md</code>). No <code>UVlq64Backfill</code> (not asked for).</li>

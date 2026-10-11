@@ -2717,6 +2717,10 @@ field needs a size slot reserved for it at all:</p>
 combination is deliberately "sticky" upward (<code>Sized</code> + <code>SelfDescribing</code> = <code>SelfDescribing</code>, anything + <code>Unsized</code> =
 <code>Unsized</code>, and <code>UnsizedFinalStructure</code> wins over everything), so a type can never end up silently claiming a
 stronger guarantee than its fields actually provide; a compile-time assertion checks this for you.
+<code>ElementSize::one_of</code> combines the variants of an enum, of which only one is on the wire: variants of the same
+<code>Sized</code> size keep it, <code>Sized</code> variants of different sizes give <code>SelfDescribing</code> (the discriminant tells the length),
+anything else follows <code>add</code>. The discriminant is then added on top: <code>Sized</code> for every <code>ww_repr</code> but <code>unib32</code>.
+<code>size_bits</code> counts the bits of the value itself, without alignment padding.
 <a href="../derive/#size-assumptions-final_structure-self_describing-sized">Size assumptions</a> in the derive page covers how
 to pick one of these for your own types via the <code>final_structure</code>/<code>self_describing</code>/<code>sized</code> directives, and the
 <a href="../showcase/#sub-byte-packing">showcase</a> has worked byte-level examples of each.</p>

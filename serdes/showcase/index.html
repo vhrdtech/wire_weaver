@@ -2782,15 +2782,16 @@ can be smaller on average, because it's <code>SelfDescribing</code> rather than 
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w">         </span><span class="o">&amp;</span><span class="p">[</span><span class="mb">0b11_000000</span><span class="p">]);</span><span class="w"> </span><span class="c1">// 2 bits used</span>
 </span></code></pre></div>
 <p>Same worst case (2 bits, tying the <code>u2</code> enum), but the common/default case (<code>None</code>) costs only <strong>1 bit</strong> instead of 2. <code>ww_date_time::Timezone</code> uses exactly this shape for the same reason - UTC is the overwhelmingly common case:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, ..), sized, ww_repr = u1)]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, ..), self_describing, ww_repr = u1)]</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Timezone</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="n">UTC</span><span class="p">,</span><span class="w">              </span><span class="c1">// costs 1 bit</span>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="n">Other</span><span class="p">(</span><span class="n">OtherTimezone</span><span class="p">),</span><span class="w"> </span><span class="c1">// costs 1 bit + OtherTimezone&#39;s own bits</span>
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>Timezone</code> itself <em>is</em> the sized-enum side of this trade-off (<code>ww_repr = u1</code>, so <code>UTC</code> and <code>Other(..)</code> both cost at
-least 1 bit) - but notice it's shaped exactly like <code>Option&lt;OtherTimezone&gt;</code> would be, and was written as an explicit
-enum instead so that <code>Other</code>'s payload (<code>OtherTimezone</code>, itself <code>ww_repr = u3, sized</code>) could be added as a real,
+<p><code>Timezone</code> has a fixed size discriminant (<code>ww_repr = u1</code>, so <code>UTC</code> and <code>Other(..)</code> both cost at least 1 bit), and
+it is <code>self_describing</code> rather than <code>sized</code>, because its two variants are not of one size - but notice it's shaped
+exactly like <code>Option&lt;OtherTimezone&gt;</code> would be, and was written as an explicit
+enum instead so that <code>Other</code>'s payload (<code>OtherTimezone</code>, itself <code>ww_repr = u3, self_describing</code>) could be added as a real,
 named variant rather than a bare tuple. Same bit-level trick, better ergonomics for a type with more than two
 states down the line.</p>
 <h2 id="relocating-presence-flags-with-flag">Relocating presence flags with <code>#[flag]</code><a class="headerlink" href="#relocating-presence-flags-with-flag" title="Permanent link">&para;</a></h2>

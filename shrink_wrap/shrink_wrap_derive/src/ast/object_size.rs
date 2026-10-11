@@ -1,4 +1,4 @@
-use crate::ast::path::Path;
+use crate::ast::ty::Type;
 use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -51,26 +51,54 @@ impl ObjectSize {
         }
     }
 
-    pub(crate) fn sum_recursively(
+    /// `ElementSize` const expression of `types` laid out one after another, on top of `self`. Sizes known to the
+    /// macro are summed here, the rest (user types) is left to the compiler: `Sized { .. }.add(<T as ..>::ELEMENT_SIZE)`.
+    pub(crate) fn sum_fields<'a>(
         &self,
-        sizes: Vec<(Path, bool)>,
+        types: impl IntoIterator<Item = &'a Type>,
         is_ref: bool,
         cp: &CratePath,
     ) -> TokenStream {
-        let this = self.tokens(cp);
-        if sizes.is_empty() {
-            this
-        } else {
-            let sizes = sum_unknown(sizes, is_ref, cp);
-            quote! { #this.add(#sizes) }
+        // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
+        // See ElementSize docs and comments on the add method.
+        let mut sum = self.clone();
+        let mut unknown = vec![];
+        for ty in types {
+            match ty.element_size() {
+                Some(size) => sum = sum.add(size),
+                None => unknown.push(ty.size_expr(is_ref, cp)),
+            }
+        }
+        let sum = sum.tokens(cp);
+        quote! { #sum #(.add(#unknown))* }
+    }
+
+    /// Size as a part of an error message: `8 bits`, `8 bits + N * 16`, `not Sized`.
+    pub(crate) fn describe(&self) -> String {
+        match self {
+            ObjectSize::Sized {
+                size_bits,
+                symbolic,
+            } => {
+                let mut s = format!("{size_bits} bit{}", if *size_bits == 1 { "" } else { "s" });
+                for term in symbolic {
+                    s += &format!(" + {term}");
+                }
+                s
+            }
+            _ => "not Sized".into(),
         }
     }
 
+    /// Const assert that the type's `ELEMENT_SIZE` is what was asked for. `before` runs first in the same const
+    /// block (a more specific check with a better message), `hint` is appended to the message.
     pub(crate) fn assert_element_size(
         &self,
         ident: &Ident,
         cfg: Option<&TokenStream>,
         is_ref: bool,
+        before: TokenStream,
+        hint: &str,
         cp: &CratePath,
     ) -> TokenStream {
         let element_size = cp.item(quote! { ElementSize });
@@ -86,22 +114,23 @@ impl ObjectSize {
             ObjectSize::SelfDescribing => "SelfDescribing",
             ObjectSize::Sized { .. } => "Sized",
         };
-        let err_msg = format!("{} must be {size}", ident);
+        let err_msg = format!("{} must be {size}{hint}", ident);
         let err_msg = LitStr::new(&err_msg, Span::call_site());
         let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
         let (ser_trait, des_trait) = cp.serdes_traits(is_ref);
         quote! {
             #cfg
-            const _: () = assert!(
-                matches!(<#ident as #ser_trait>::ELEMENT_SIZE, #size_ts),
-                #err_msg
-            );
-
-            #cfg
-            const _: () = assert!(
-                matches!(<#ident as #des_trait>::ELEMENT_SIZE, #size_ts),
-                #err_msg
-            );
+            const _: () = {
+                #before
+                assert!(
+                    matches!(<#ident as #ser_trait>::ELEMENT_SIZE, #size_ts),
+                    #err_msg
+                );
+                assert!(
+                    matches!(<#ident as #des_trait>::ELEMENT_SIZE, #size_ts),
+                    #err_msg
+                );
+            };
         }
     }
 
@@ -132,26 +161,5 @@ impl ObjectSize {
                 symbolic: symbolic_a.iter().cloned().chain(symbolic_b).collect(),
             },
         }
-    }
-
-    pub(crate) fn is_unsized(&self) -> bool {
-        matches!(self, ObjectSize::Unsized)
-    }
-}
-
-/// `ELEMENT_SIZE` of every user type in `sizes` summed up: `(path, whether it takes a lifetime)`, the lifetime is
-/// `'static` in a const context.
-fn sum_unknown(mut sizes: Vec<(Path, bool)>, is_ref: bool, cp: &CratePath) -> TokenStream {
-    let (ser_trait, _) = cp.serdes_traits(is_ref);
-    if let Some((path, is_lifetime)) = sizes.pop() {
-        let ty = path.tokens((is_lifetime && is_ref).then(|| quote! { 'static }));
-        let inner = sum_unknown(sizes, is_ref, cp);
-        if inner.is_empty() {
-            quote! { <#ty as #ser_trait>::ELEMENT_SIZE }
-        } else {
-            quote! { <#ty as #ser_trait>::ELEMENT_SIZE.add(#inner) }
-        }
-    } else {
-        TokenStream::new()
     }
 }

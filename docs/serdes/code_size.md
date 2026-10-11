@@ -240,9 +240,10 @@ The options that were on the table, and why none became a cargo feature:
    of plain fields would need one more associated constant (`has lengths`), computed by the derive from the
    fields. Wire format unchanged.
 2. **`RefVec<T>` of `Sized` elements without a decode pass**: the end of the list is `count * size`, and
-   `RefVecIter` can read in place. Needs `ElementSize::Sized { size_bits }` to be right for every type first
-   (it is not for enums with a `ww_repr` other than `unib32`). Saves the `read::<RefVec<T>>` instances and a pass
-   at run time.
+   `RefVecIter` can read in place. `ElementSize::Sized { size_bits }` is right for every type since SW-35 (enums
+   count their discriminant and one variant), but it is the size of the value without alignment padding: the
+   stride of an element also depends on its alignment (`struct { a: bool, b: u8 }` is 9 bits, 2 bytes per
+   element). Saves the `read::<RefVec<T>>` instances and a pass at run time.
 3. **A smaller `encode_len_fifo`** (276 bytes now, plus `write_nib` 140 and `align_nibble` 82): two loops with
    checked indexing, could be one over a slice.
 4. **Latched reads for the rest**: `Nibble`, `u1`..`u32` (`read_un32`), `u64`. Small for the bench types, real for

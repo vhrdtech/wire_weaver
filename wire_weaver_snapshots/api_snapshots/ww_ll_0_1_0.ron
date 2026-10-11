@@ -9,7 +9,7 @@
         (docs: [], ident: "WatchNotSupported", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "Access", variants: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [], ident: "Access", variants: [
         (docs: [], ident: "WriteOnly", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "ReadOnly", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "ReadWrite", fields: Unit, discriminant: 2, since: None),

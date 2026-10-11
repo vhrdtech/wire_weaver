@@ -172,6 +172,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
 
 ### FinalStructure, SelfDescribing and Sized types
 
+* `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its
+  parent, the bytes are the same, and the checker reports it as compatible. A `sized` enum must have variants of one
+  size (see [derive](../serdes/derive.md#size-assumptions-final_structure-self_describing-sized)).
 * New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * Struct fields and enum variants can be renamed (but their position must NOT change).

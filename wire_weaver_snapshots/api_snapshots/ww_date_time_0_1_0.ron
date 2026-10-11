@@ -28,7 +28,7 @@
             "TODO: checked subtype when implemented",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(3), crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(3), crate_idx: 0, docs: [
         "Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.",
     ], ident: "OtherTimezone", variants: [
         (docs: [], ident: "Naive", fields: Unit, discriminant: 0, since: None),
@@ -36,7 +36,7 @@
             (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(IB(18))), docs: []),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "Timezone information.",
         "UTC is preferred ant takes only 1 bit.",
     ], ident: "Timezone", variants: [

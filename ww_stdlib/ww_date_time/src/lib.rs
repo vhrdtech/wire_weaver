@@ -38,7 +38,7 @@ pub struct DateTime {
     borrowed,
     owned(feature = "std"),
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
-    sized,
+    self_describing,
     ww_repr = u1
 )]
 pub enum Timezone {
@@ -51,7 +51,7 @@ pub enum Timezone {
     borrowed,
     owned(feature = "std"),
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
-    sized,
+    self_describing,
     ww_repr = u3
 )]
 pub enum OtherTimezone {

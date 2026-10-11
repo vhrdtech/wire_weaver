@@ -130,8 +130,9 @@ pub enum ElementSize {
     /// Element size is not stored.
     SelfDescribing,
 
-    /// Element size is known and not stored in a buffer. Actual size in bits is not currently used for anything meaningful,
-    /// so some types are incorrectly reporting zero.
+    /// Element size is known and not stored in a buffer. `size_bits` is the exact number of bits the element takes
+    /// on the wire, alignment excluded: for an enum it is the discriminant plus the fields of a variant, and every
+    /// variant has the same size (see [one_of](ElementSize::one_of)).
     Sized { size_bits: usize },
 }
 
@@ -172,6 +173,66 @@ impl ElementSize {
             ) => ElementSize::Sized {
                 size_bits: *size_a + size_b,
             },
+        }
+    }
+
+    /// Size of an enum's payload: only one of the variants is on the wire, so their sizes are not summed.
+    ///
+    /// Variants of the same `Sized` size give that size. `Sized` variants of different sizes give `SelfDescribing`:
+    /// the discriminant tells how long the value is. Otherwise, the same precedence as in [add](ElementSize::add).
+    /// The discriminant itself is not counted here, `add` it to the result.
+    ///
+    /// A `sized` enum must have variants of one size, this one does not compile:
+    /// ```compile_fail
+    /// use shrink_wrap::prelude::*;
+    ///
+    /// #[derive_shrink_wrap(borrowed, ww_repr = u8, sized)]
+    /// enum Reading {
+    ///     Short(u8),
+    ///     Long(u32),
+    /// }
+    /// ```
+    pub const fn one_of(&self, other: ElementSize) -> ElementSize {
+        match (self, other) {
+            (
+                ElementSize::Sized { size_bits: size_a },
+                ElementSize::Sized { size_bits: size_b },
+            ) => {
+                if *size_a == size_b {
+                    ElementSize::Sized { size_bits: size_b }
+                } else {
+                    ElementSize::SelfDescribing
+                }
+            }
+            (_, other) => self.add(other),
+        }
+    }
+
+    /// True if every size is `Sized`, but they are not all the same: an enum with such variants cannot be `sized`.
+    pub const fn variants_differ(variants: &[ElementSize]) -> bool {
+        let mut first = None;
+        let mut differ = false;
+        let mut i = 0;
+        while i < variants.len() {
+            let ElementSize::Sized { size_bits } = variants[i] else {
+                return false;
+            };
+            match first {
+                None => first = Some(size_bits),
+                Some(first) => differ = differ || first != size_bits,
+            }
+            i += 1;
+        }
+        differ
+    }
+
+    /// Size of `count` elements one after another, as in an array `[T; count]`.
+    pub const fn repeat(&self, count: usize) -> ElementSize {
+        match self {
+            ElementSize::Sized { size_bits } => ElementSize::Sized {
+                size_bits: *size_bits * count,
+            },
+            other => *other,
         }
     }
 
@@ -375,6 +436,9 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
     }
 }
 
+// Option<T> and Result<T, E> are SelfDescribing whatever T is, also for an Unsized T: the value inside goes through
+// `wr.write()`, which gives an Unsized T its own size slot, so the Option as a whole needs none from its parent.
+// `T::ELEMENT_SIZE.add(SelfDescribing)` would make Option<Unsized> Unsized, add a second slot and change the wire.
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
@@ -655,7 +719,7 @@ impl DeserializeShrinkWrapOwned for () {
 }
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(&self.start)?;
@@ -666,7 +730,7 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
 
 #[cfg(feature = "std")]
 impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::Range<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write(&self.start)?;
@@ -676,7 +740,7 @@ impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::Range<
 }
 
 impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for core::ops::Range<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let start = rd.read()?;
@@ -686,7 +750,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for core::ops::
 }
 
 impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for core::ops::Range<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         let start = rd.read_owned()?;
@@ -696,7 +760,7 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for core::ops::Ra
 }
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::RangeInclusive<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(self.start())?;
@@ -707,7 +771,7 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::RangeInclusive<T
 
 #[cfg(feature = "std")]
 impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::RangeInclusive<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write(self.start())?;
@@ -717,7 +781,7 @@ impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for core::ops::RangeI
 }
 
 impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for core::ops::RangeInclusive<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let start = rd.read()?;
@@ -727,7 +791,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for core::ops::
 }
 
 impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for core::ops::RangeInclusive<T> {
-    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         let start = rd.read_owned()?;

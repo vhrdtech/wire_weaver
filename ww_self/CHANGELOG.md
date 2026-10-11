@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+* `PropertyAccess` and `Repr` are `self_describing` instead of `sized`: their variants differ in size, which a `sized`
+  enum can no longer have (SW-35). Same bytes, only `ELEMENT_SIZE` and the type signatures change.
 * `TypeOwned::is_unsized()` now means `ElementSize::Unsized` (its size is recorded in the FIFO of sizes at the back of
   the buffer when written as a field): true only for Unsized structs and enums and `Box`. It was also true for
   strings, and for arrays, tuples, `Option` and `Result` containing Unsized types, whose size is never written.

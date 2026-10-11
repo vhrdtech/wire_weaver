@@ -10,7 +10,7 @@
         (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin asynchronous event (interrupt reason), sent via the [Gpio] `event` stream if enabled.",
     ], ident: "IoPinEvent", variants: [
         (docs: [], ident: "RisingEdge", fields: Unit, discriminant: 0, since: None),
@@ -19,7 +19,7 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: Nibble, crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin mode (Push-Pull, Open-Drain, Input, etc.)",
     ], ident: "Mode", variants: [
         (docs: [], ident: "PushPullOutput", fields: Unit, discriminant: 0, since: None),
@@ -50,7 +50,7 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 8, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin pull configuration (pull-up, pull-down, etc.)",
     ], ident: "Pull", variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
@@ -60,7 +60,7 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: Nibble, crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin drive strength configuration",
     ], ident: "Speed", variants: [
         (docs: [], ident: "Slow", fields: Unit, discriminant: 0, since: None),

@@ -4,7 +4,7 @@
     (id: 0, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "CANBusInterfaceGroup", docs: []),
     (id: 1, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "CANBusInterface", docs: []),
 ]), types: [
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANId", variants: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANId", variants: [
         (docs: [], ident: "Standard", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(UB(11))), docs: []),
         ]), discriminant: 0, since: None),
@@ -24,7 +24,7 @@
         (docs: [], ident: "Normal", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "ErrorPassive", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANFrameKind", variants: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [], ident: "CANFrameKind", variants: [
         (docs: [], ident: "Classic", fields: Named([
             (ident: Some("rtr"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
         ]), discriminant: 0, since: None),

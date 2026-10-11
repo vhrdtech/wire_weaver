@@ -217,16 +217,17 @@ assert_eq!(Some(true).to_ww_bytes(&mut buf).unwrap(),         &[0b11_000000]); /
 Same worst case (2 bits, tying the `u2` enum), but the common/default case (`None`) costs only **1 bit** instead of 2. `ww_date_time::Timezone` uses exactly this shape for the same reason - UTC is the overwhelmingly common case:
 
 ```rust
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, ..), sized, ww_repr = u1)]
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, ..), self_describing, ww_repr = u1)]
 pub enum Timezone {
     UTC,              // costs 1 bit
     Other(OtherTimezone), // costs 1 bit + OtherTimezone's own bits
 }
 ```
 
-`Timezone` itself _is_ the sized-enum side of this trade-off (`ww_repr = u1`, so `UTC` and `Other(..)` both cost at
-least 1 bit) - but notice it's shaped exactly like `Option<OtherTimezone>` would be, and was written as an explicit
-enum instead so that `Other`'s payload (`OtherTimezone`, itself `ww_repr = u3, sized`) could be added as a real,
+`Timezone` has a fixed size discriminant (`ww_repr = u1`, so `UTC` and `Other(..)` both cost at least 1 bit), and
+it is `self_describing` rather than `sized`, because its two variants are not of one size - but notice it's shaped
+exactly like `Option<OtherTimezone>` would be, and was written as an explicit
+enum instead so that `Other`'s payload (`OtherTimezone`, itself `ww_repr = u3, self_describing`) could be added as a real,
 named variant rather than a bare tuple. Same bit-level trick, better ergonomics for a type with more than two
 states down the line.
 

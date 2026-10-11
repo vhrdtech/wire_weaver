@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- Compatibility checks (device vs host on connect, and `ww api` evolution checks) treat `sized` and `self_describing`
+  as the same layout: a type can move between the two without being reported as breaking (SW-35).
 - `Sink::recv_sideband()`, `recv_sideband_blocking()`, `try_recv_sideband()` and `recv_any()` / `recv_any_blocking()`:
   sideband events from the device (replies to `Sink::sideband()` and events it sends on its own) are no longer
   dropped.

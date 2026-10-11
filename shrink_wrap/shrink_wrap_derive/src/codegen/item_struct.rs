@@ -43,7 +43,7 @@ impl<'i> CGItemStruct<'i> {
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(self.ident, self.cfg, is_ref, self.crate_path)
+            size.assert_element_size(self.ident, self.cfg, is_ref, quote! {}, "", self.crate_path)
         } else {
             quote! {}
         };
@@ -77,26 +77,12 @@ impl<'i> CGItemStruct<'i> {
             is_ref,
         };
 
-        let mut unknown_unsized = vec![];
-        let mut sum = self.size_assumption.clone().unwrap_or(ObjectSize::Unsized); // struct is Unsized by default.
-        // No need to check if it's already Unsized.
-        if !matches!(sum, ObjectSize::Unsized) {
-            // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
-            // See ElementSize docs and comments on sum method.
-            for f in self.fields {
-                if let Some(size) = f.ty.element_size() {
-                    sum = sum.add(size);
-                }
-                if let Type::External(path, is_lifetime) = &f.ty {
-                    unknown_unsized.push((path.clone(), *is_lifetime));
-                }
+        let element_size = match &self.size_assumption {
+            // struct is Unsized by default, no need to look at the fields
+            None | Some(ObjectSize::Unsized) => ObjectSize::Unsized.tokens(self.crate_path),
+            Some(size) => {
+                size.sum_fields(self.fields.iter().map(|f| &f.ty), is_ref, self.crate_path)
             }
-        }
-        let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
-        let element_size = if implicitly_unsized {
-            ObjectSize::Unsized.tokens(self.crate_path)
-        } else {
-            sum.sum_recursively(unknown_unsized, is_ref, self.crate_path)
         };
         serdes_scaffold(
             struct_name,

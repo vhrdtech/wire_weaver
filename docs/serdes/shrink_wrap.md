@@ -137,6 +137,10 @@ field needs a size slot reserved for it at all:
 combination is deliberately "sticky" upward (`Sized` + `SelfDescribing` = `SelfDescribing`, anything + `Unsized` =
 `Unsized`, and `UnsizedFinalStructure` wins over everything), so a type can never end up silently claiming a
 stronger guarantee than its fields actually provide; a compile-time assertion checks this for you.
+`ElementSize::one_of` combines the variants of an enum, of which only one is on the wire: variants of the same
+`Sized` size keep it, `Sized` variants of different sizes give `SelfDescribing` (the discriminant tells the length),
+anything else follows `add`. The discriminant is then added on top: `Sized` for every `ww_repr` but `unib32`.
+`size_bits` counts the bits of the value itself, without alignment padding.
 [Size assumptions](derive.md#size-assumptions-final_structure-self_describing-sized) in the derive page covers how
 to pick one of these for your own types via the `final_structure`/`self_describing`/`sized` directives, and the
 [showcase](showcase.md#sub-byte-packing) has worked byte-level examples of each.

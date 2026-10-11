@@ -194,7 +194,7 @@ pub struct Argument<'i> {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Copy, Debug),
-    sized,
+    self_describing,
     ww_repr = u3
 )]
 pub enum PropertyAccess {
@@ -345,7 +345,7 @@ pub struct ItemEnum<'i> {
     owned(feature = "std"),
     cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
-    sized,
+    self_describing,
     ww_repr = u3
 )]
 pub enum Repr {

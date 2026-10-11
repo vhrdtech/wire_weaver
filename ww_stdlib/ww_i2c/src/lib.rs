@@ -141,7 +141,7 @@ pub enum I2cError {
     ZeroLengthTransfer,
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), sized, ww_repr = u3)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), self_describing, ww_repr = u3)]
 pub enum I2cMode {
     /// Disable I2C controller, disconnect it from IO pins and set IOs as high-Z inputs
     Disabled,

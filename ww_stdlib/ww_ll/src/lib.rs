@@ -58,7 +58,7 @@ pub trait Memory32 {
     property!(ro access: Access);
 }
 
-#[derive_shrink_wrap(borrowed, derive(Clone, Debug), sized, ww_repr = u2)]
+#[derive_shrink_wrap(borrowed, derive(Clone, Debug), self_describing, ww_repr = u2)]
 pub enum Access {
     WriteOnly,
     ReadOnly,

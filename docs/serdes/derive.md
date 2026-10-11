@@ -254,8 +254,21 @@ flexibility in exchange for a smaller wire size. They map directly onto `shrink_
 
     Even though a type can be `fnial_structure` or `sized`, it can still be evolved. But only by reusing previously unused gaps, which by default are set to 0. For example if `bool` is followed by `u8`, 7 bits are left unused and skipped by readers, which can later be reclaimed.
 
-For an enum, this only concerns its _payload_; see [`ww_repr`](#ww_repr-repr-enums-only) below for the discriminant
-itself. Note that pairing an enum with `ww_repr` alone does **not** make it compact - without one of these three
+For an enum, only one variant is on the wire, so its size is the discriminant (see
+[`ww_repr`](#ww_repr-repr-enums-only) below) plus the fields of _one_ variant, not of all of them:
+
+- `sized` needs every variant to take the same number of bits (unit variants take 0), and a fixed size discriminant
+  (anything but `unib32`). `ELEMENT_SIZE` is then `Sized { size_bits: discriminant + variant }`.
+- Variants of different sizes make the enum `self_describing`: the discriminant tells how long the value is. Asking
+  for `sized` is a compile error that names the variants and their sizes:
+
+    ```text
+    sized enum Reading: variants differ in size (Short: 8 bits, Long: 32 bits); use self_describing instead of
+    sized, or pad the variants to one size
+    ```
+
+`sized` and `self_describing` produce the same bytes, for the type and for whatever contains it, so switching
+between the two is not a wire change. Note that pairing an enum with `ww_repr` alone does **not** make it compact - without one of these three
 directives it stays `Unsized`, exactly like a struct:
 
 ```rust
@@ -312,7 +325,13 @@ fn compact_vs_not() {
 
 Whichever assumption you pick, the macro inserts a compile-time assertion checking that the type's _actual_ generated
 `ELEMENT_SIZE` matches the one you asked for - if a field turns out to make the type `Unsized` after all, the build
-fails instead of silently producing an incompatible layout.
+fails instead of silently producing an incompatible layout. User types are counted wherever they are in a field
+(`Point`, `[Point; 3]`, `(Point, u8)`, `Option<Point>`, `Range<Point>`): the macro can't see their size, so it emits a
+const expression over their `ELEMENT_SIZE` and the compiler folds it.
+
+`size_bits` is the sum of the fields' own bits. Alignment padding between fields depends on where the value starts
+in the buffer and is not part of it: `struct { a: bool, b: u8 }` is `Sized { size_bits: 9 }` and takes 2 bytes
+on its own.
 
 ### `ww_repr = <repr>` (enums only)
 

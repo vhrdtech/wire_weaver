@@ -18,6 +18,17 @@ pub(crate) enum Fields {
     Unit,
 }
 
+impl Fields {
+    /// Field types in wire order, flags included.
+    pub(crate) fn types(&self) -> Vec<&Type> {
+        match self {
+            Fields::Named(named) => named.iter().map(|f| &f.ty).collect(),
+            Fields::Unnamed(unnamed) => unnamed.iter().collect(),
+            Fields::Unit => vec![],
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct Variant {
     pub(crate) docs: Docs,

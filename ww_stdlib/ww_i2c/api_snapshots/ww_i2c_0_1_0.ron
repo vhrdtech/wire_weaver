@@ -21,7 +21,7 @@
         (ident: Some("slave_supported"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("monitor_supported"), default: None, since: None, ty: Bool, docs: []),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(3), crate_idx: 0, docs: [], ident: "I2cMode", variants: [
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(3), crate_idx: 0, docs: [], ident: "I2cMode", variants: [
         (docs: [
             "Disable I2C controller, disconnect it from IO pins and set IOs as high-Z inputs",
         ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),

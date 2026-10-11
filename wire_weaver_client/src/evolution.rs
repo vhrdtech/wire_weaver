@@ -682,6 +682,29 @@ mod tests {
     }
 
     #[test]
+    fn sized_to_self_describing() {
+        // same bytes: neither gets a size slot from its parent
+        let v1 = r#"
+            #[derive_shrink_wrap(sized, ww_repr = u2)]
+            pub enum E { A, B(u8) }
+            #[derive_shrink_wrap(sized)]
+            pub struct S { pub a: u8 }
+        "#;
+        let v2 = v1.replace("sized", "self_describing");
+        let report = self::report(v1, &v2);
+        assert_eq!(report.change, Change::Compatible, "{report:?}");
+        let report = self::report(&v2, v1);
+        assert_eq!(report.change, Change::Compatible, "{report:?}");
+
+        // a size slot appears or goes away
+        let v2 = v1.replace("sized, ww_repr = u2", "ww_repr = u2");
+        assert_breaking(&self::report(v1, &v2), "Sized { size_bits: 0 } vs Unsized");
+        // FinalStructure is a promise about the fields, kept apart
+        let v2 = v1.replace("(sized)", "(final_structure)");
+        assert_breaking(&self::report(v1, &v2), "vs UnsizedFinalStructure");
+    }
+
+    #[test]
     fn unsized_struct_fields_in_padding() {
         let v1 = r#"
             #[derive_shrink_wrap]

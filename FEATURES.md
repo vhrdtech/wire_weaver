@@ -65,6 +65,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   fields with one check per type; `Error` without payloads; one shared integer read and write; no division in
   `UNib32`. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
   Numbers, where the rest goes and what is left to do: `docs/serdes/code_size.md` (measured by TEST-17).
+- ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
+  variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
+  of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
+  format (`shrink_wrap/tests/enum_size.rs`, `docs/serdes/derive.md`). Unblocks reading `RefVec<Sized T>` in place.
 - ✅ **SW-33 `UVlq64`**: byte-based variable length `u64`, same big endian VLQ encoding as `UVlq32`, 1 to 10 bytes,
   `uvlq64` field type in `#[derive_shrink_wrap(..)]`, `BufReader::read_uvlq64`/`BufWriter`/`BufWriterOwned::write_uvlq64`
   (`shrink_wrap/src/vlq64.rs`, `docs/types.md`, `docs/serdes/showcase.md`). No `UVlq64Backfill` (not asked for).

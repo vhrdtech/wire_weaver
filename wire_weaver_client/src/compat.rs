@@ -625,7 +625,13 @@ impl<'a> TypeCheck<'a> {
         r_size: &ElementSize,
         r: &'a FieldsOwned,
     ) -> Result<(), String> {
-        if std::mem::discriminant(w_size) != std::mem::discriminant(r_size) {
+        // Sized and SelfDescribing are laid out the same way: a parent stores a size only for Unsized, and
+        // FinalStructure shares the parent's size slots
+        let layout = |size: &ElementSize| match size {
+            ElementSize::Sized { .. } => std::mem::discriminant(&ElementSize::SelfDescribing),
+            other => std::mem::discriminant(other),
+        };
+        if layout(w_size) != layout(r_size) {
             return Err(format!("{w_size:?} vs {r_size:?}"));
         }
         let (w, r) = (fields(w), fields(r));

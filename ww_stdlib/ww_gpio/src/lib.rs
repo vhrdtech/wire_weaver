@@ -91,7 +91,7 @@ pub enum Level {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
-    sized,
+    self_describing,
     ww_repr = nib
 )]
 pub enum Mode {
@@ -130,7 +130,7 @@ pub enum Error {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
-    sized,
+    self_describing,
     ww_repr = u2
 )]
 pub enum Pull {
@@ -146,7 +146,7 @@ pub enum Pull {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
-    sized,
+    self_describing,
     ww_repr = nib
 )]
 pub enum Speed {
@@ -163,7 +163,7 @@ pub enum Speed {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
-    sized,
+    self_describing,
     ww_repr = u2
 )]
 // TODO: Add optional timestamp?

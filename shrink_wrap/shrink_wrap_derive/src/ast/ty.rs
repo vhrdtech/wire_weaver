@@ -1,5 +1,6 @@
 use crate::ast::object_size::ObjectSize;
 use crate::ast::path::Path;
+use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, quote};
 use syn::{Expr, LitInt};
@@ -245,7 +246,11 @@ impl Type {
                 return Some(sum);
             }
             Type::Vec(_) => return Some(ObjectSize::UnsizedFinalStructure),
-            Type::Range(ty) | Type::RangeInclusive(ty) => return ty.element_size(),
+            Type::Range(ty) | Type::RangeInclusive(ty) => {
+                // start and end
+                let size = ty.element_size()?;
+                return Some(size.add(size.clone()));
+            }
             Type::External(_, _) => return None, // cannot know if it's actually Unsized or not, const calculation will be performed instead
             Type::IsSome(_) | Type::IsOk(_) => return Some(ObjectSize::sized(1)),
             Type::Result(_, ok_err_ty) => {
@@ -271,5 +276,45 @@ impl Type {
             }
         };
         Some(ObjectSize::sized(size_bits))
+    }
+
+    /// `ElementSize` const expression of this type, also when a user type is somewhere inside
+    /// ([element_size](Self::element_size) gives up on those): the compiler folds it.
+    pub(crate) fn size_expr(&self, is_ref: bool, cp: &CratePath) -> TokenStream {
+        if let Some(size) = self.element_size() {
+            return size.tokens(cp);
+        }
+        let element_size = cp.item(quote! { ElementSize });
+        match self {
+            Type::External(path, is_lifetime) => {
+                let (ser_trait, _) = cp.serdes_traits(is_ref);
+                // 'static, because it is a const context
+                let ty = path.tokens((*is_lifetime && is_ref).then(|| quote! { 'static }));
+                quote! { <#ty as #ser_trait>::ELEMENT_SIZE }
+            }
+            Type::Array(len, ty) => {
+                let size = ty.size_expr(is_ref, cp);
+                quote! { #size.repeat(#len) }
+            }
+            Type::Tuple(types) => {
+                let sizes = types.iter().map(|ty| ty.size_expr(is_ref, cp));
+                quote! { #element_size::Sized { size_bits: 0 } #(.add(#sizes))* }
+            }
+            Type::Range(ty) | Type::RangeInclusive(ty) => {
+                let size = ty.size_expr(is_ref, cp);
+                quote! { #size.add(#size) }
+            }
+            Type::Option(_, ty) => {
+                let size = ty.size_expr(is_ref, cp);
+                quote! { #size.add(#element_size::SelfDescribing) }
+            }
+            Type::Result(_, ok_err_ty) => {
+                let ok = ok_err_ty.0.size_expr(is_ref, cp);
+                let err = ok_err_ty.1.size_expr(is_ref, cp);
+                quote! { #element_size::SelfDescribing.add(#ok).add(#err) }
+            }
+            // element_size() knows every other type
+            _ => ObjectSize::Unsized.tokens(cp),
+        }
     }
 }

@@ -179,13 +179,10 @@ cascades to every other crate, which framework code is actually wire-defining (`
 `ww_client_server`, server/client codegen), and which version position to bump. Tell the user explicitly when a change
 breaks the wire, and which deployed devices/hosts it affects.
 
-Gotcha: for a `sized` enum, the derive macro's compile-time assertion only checks that `ELEMENT_SIZE` is the
-`Sized { .. }` _variant_, not that `size_bits` is numerically correct — and for non-`unib32` reprs, the
-discriminant's own bits are never folded into that constant (only payload field sizes are summed; see
-`shrink_wrap_derive/src/codegen/item_enum.rs`). A fieldless `ww_repr = u2, sized` enum can report
-`ELEMENT_SIZE = Sized { size_bits: 0 }` even though it actually writes 2 bits on the wire. Actual serialization is
-still byte-correct (it's driven by `BufWriter`'s live bit cursor, not by this constant), but don't trust
-`size_bits` for manual space math — verify with a real `to_ww_bytes()` call instead (see "Editing `docs/`" below).
+`ElementSize::Sized { size_bits }` is the exact number of bits of the value's own fields (SW-35): for an enum, the
+discriminant plus one variant, and a `sized` enum whose variants differ in size is a compile error (it has to be
+`self_describing`, same bytes). Alignment padding is not part of `size_bits` (`struct { a: bool, b: u8 }` is 9 bits
+and takes 2 bytes), so for space math verify with a real `to_ww_bytes()` call (see "Editing `docs/`" below).
 
 ## Editing `docs/`
 

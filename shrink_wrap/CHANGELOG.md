@@ -32,8 +32,22 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - `defmt-extended` and `tracing-extended` features removed (trace logging of reads/writes, didn't work out and was
   broken); drop them from your `Cargo.toml`. `shrink_wrap` no longer depends on `tracing`.
 
+- A `sized` enum whose variants differ in size no longer compiles (SW-35): `sized enum X: variants differ in size
+  (A: 8 bits, B: 32 bits); use self_describing ..`. Replace `sized` with `self_describing` on it, and on every `sized`
+  type that contains it: the bytes stay the same, nothing has to be done on the other end. Such an enum never had
+  one size, its `ELEMENT_SIZE` was wrong.
+- `ELEMENT_SIZE` of `sized` / `self_describing` types changes where it was wrong (SW-35), the wire format does not:
+    - enums: `Sized { size_bits }` is the discriminant plus one variant, it was the sum of all variants without
+      the discriminant (`ww_repr = u8` with `A(u8)` and `B(u8)`: 16 bits, was 16 by accident; `ww_repr = u2` without
+      fields: 2 bits, was 0);
+    - user types inside `[T; N]`, tuples, `Range<T>` and `Option<T>` / `Result<T, E>` fields are counted, they were
+      left out: a `sized` type with an `Option<UserType>` field no longer compiles (it is `self_describing`);
+    - `Range<T>` and `RangeInclusive<T>` are two `T`, not one.
+
 ### 🚀 Features
 
+- `ElementSize::one_of()` (size of an enum's payload: same size or `SelfDescribing`), `ElementSize::variants_differ()`
+  and `ElementSize::repeat()` (`[T; N]`), all `const fn` (SW-35). The size assert of a `sized` type says why it failed.
 - Smaller code on small CPUs (SW-34), same wire format: a derived request/reply codec of a softcore firmware is
   19 % smaller on RV32IC (11.3 → 9.2 KB) and 20 % on Cortex-M0. Numbers and what is left in
   `docs/serdes/code_size.md`, measured with `just size-bench` (TEST-17).

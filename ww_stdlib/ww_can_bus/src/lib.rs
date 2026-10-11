@@ -173,7 +173,7 @@ struct CANFrame<'i> {
 #[derive_shrink_wrap(
     borrowed,
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
-    sized,
+    self_describing,
     ww_repr = u2
 )]
 enum CANId {
@@ -181,7 +181,7 @@ enum CANId {
     Extended(U29),
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), sized, ww_repr = u2)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), self_describing, ww_repr = u2)]
 enum CANFrameKind {
     Classic { rtr: CANRtr },
     FD { brs: CANBrs, esi: CANEsi },

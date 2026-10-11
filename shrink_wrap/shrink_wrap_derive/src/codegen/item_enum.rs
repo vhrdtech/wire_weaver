@@ -9,6 +9,7 @@ use crate::codegen::util::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
+use std::collections::HashSet;
 use syn::{Lit, LitInt, Path};
 
 #[derive(Clone, Debug)]
@@ -66,16 +67,19 @@ impl<'i> CGItemEnum<'i> {
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
-            size.assert_element_size(self.ident, self.cfg, is_ref, self.crate_path)
+            let is_sized = matches!(size, ObjectSize::Sized { .. });
+            let before = maybe_quote(is_sized, || self.assert_variants_same_size(is_ref));
+            let hint = match (is_sized, self.repr) {
+                (true, Repr::UNib32) => ": a unib32 discriminant is SelfDescribing",
+                (true, _) => ": a variant has a field that is not Sized",
+                _ => "",
+            };
+            size.assert_element_size(self.ident, self.cfg, is_ref, before, hint, self.crate_path)
         } else {
             quote! {}
         };
         let assert_tail_size = self.variants.iter().map(|v| {
-            let types: Vec<&Type> = match &v.fields {
-                Fields::Named(named) => named.iter().map(|f| &f.ty).collect(),
-                Fields::Unnamed(unnamed) => unnamed.iter().collect(),
-                Fields::Unit => vec![],
-            };
+            let types = v.fields.types();
             assert_sized_before_tail_size(&types, self.ident, self.cfg, is_ref, self.crate_path)
         });
         let native_repr = self.native_repr();
@@ -109,6 +113,80 @@ impl<'i> CGItemEnum<'i> {
         }
     }
 
+    /// Size of each variant's fields as an `ElementSize` const expression, discriminant not included.
+    fn variant_sizes(&self, is_ref: bool) -> Vec<TokenStream> {
+        self.variants
+            .iter()
+            .map(|v| ObjectSize::sized(0).sum_fields(v.fields.types(), is_ref, self.crate_path))
+            .collect()
+    }
+
+    /// `ELEMENT_SIZE` const expression: only one variant is on the wire, so the variants are folded with `one_of`
+    /// (same size or SelfDescribing) instead of being summed, then the discriminant is added.
+    fn element_size(&self, is_ref: bool) -> TokenStream {
+        let size = match &self.size_assumption {
+            // enum is Unsized by default, no need to look at the variants
+            None | Some(ObjectSize::Unsized) => return ObjectSize::Unsized.tokens(self.crate_path),
+            // nothing added to it changes it
+            Some(ObjectSize::UnsizedFinalStructure) => {
+                return ObjectSize::UnsizedFinalStructure.tokens(self.crate_path);
+            }
+            Some(size) => size,
+        };
+        let discriminant = match self.repr {
+            Repr::U(bits) => ObjectSize::sized(bits as usize),
+            Repr::Nibble => ObjectSize::sized(4),
+            Repr::U8 => ObjectSize::sized(8),
+            Repr::U16 => ObjectSize::sized(16),
+            Repr::U32 => ObjectSize::sized(32),
+            Repr::UNib32 => ObjectSize::SelfDescribing,
+        };
+        // `self_describing` stays SelfDescribing also when every variant happens to be of one size
+        let start = size.add(discriminant).tokens(self.crate_path);
+        // identical expressions are the same size: keeps the expression short for unit variants
+        let mut seen = HashSet::new();
+        let mut variants = self.variant_sizes(is_ref);
+        variants.retain(|size| seen.insert(size.to_string()));
+        let mut variants = variants.into_iter();
+        match variants.next() {
+            Some(first) => quote! { #start.add(#first #(.one_of(#variants))*) },
+            None => start,
+        }
+    }
+
+    /// Part of the size assert of a `sized` enum: variants of different sizes make it SelfDescribing, say which.
+    fn assert_variants_same_size(&self, is_ref: bool) -> TokenStream {
+        let element_size = self.crate_path.item(quote! { ElementSize });
+        let variants = self.variant_sizes(is_ref);
+        let sizes = self
+            .variants
+            .iter()
+            .map(|v| {
+                let mut known = ObjectSize::sized(0);
+                let mut user_types = String::new();
+                for ty in v.fields.types() {
+                    match ty.element_size() {
+                        Some(size) => known = known.add(size),
+                        None => {
+                            let ty = ty.def(is_ref, self.crate_path).to_string();
+                            user_types += &format!(" + {}", ty.replace(' ', ""));
+                        }
+                    }
+                }
+                format!("{}: {}{user_types}", v.ident, known.describe())
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let err_msg = format!(
+            "sized enum {}: variants differ in size ({sizes}); use self_describing instead of sized, \
+            or pad the variants to one size",
+            self.ident
+        );
+        quote! {
+            assert!(!#element_size::variants_differ(&[#(#variants),*]), #err_msg);
+        }
+    }
+
     pub(crate) fn serdes_rust(&self, is_ref: bool) -> TokenStream {
         let enum_name = &self.ident;
         let enum_ser = CGEnumSer {
@@ -120,47 +198,7 @@ impl<'i> CGItemEnum<'i> {
             is_ref,
         };
 
-        let mut unknown_unsized = vec![];
-        let mut sum = self.size_assumption.clone().unwrap_or(ObjectSize::Unsized); // enum is Unsized by default.
-        // No need to check if it's already Unsized.
-        if !matches!(sum, ObjectSize::Unsized) {
-            if matches!(self.repr, Repr::UNib32) {
-                sum = sum.add(ObjectSize::SelfDescribing);
-            }
-            // NOTE: make sure to not accidentally bump Unsized to UFS here if any of the fields is UFS.
-            // See ElementSize docs and comments on sum method.
-            for v in self.variants {
-                match &v.fields {
-                    Fields::Named(named) => {
-                        for f in named {
-                            if let Some(size) = f.ty.element_size() {
-                                sum = sum.add(size);
-                            }
-                            if let Type::External(path, is_lifetime) = &f.ty {
-                                unknown_unsized.push((path.clone(), *is_lifetime));
-                            }
-                        }
-                    }
-                    Fields::Unnamed(unnamed) => {
-                        for ty in unnamed {
-                            if let Some(size) = ty.element_size() {
-                                sum = sum.add(size);
-                            }
-                            if let Type::External(path, is_lifetime) = ty {
-                                unknown_unsized.push((path.clone(), *is_lifetime));
-                            }
-                        }
-                    }
-                    Fields::Unit => {}
-                }
-            }
-        }
-        let implicitly_unsized = sum.is_unsized() && unknown_unsized.is_empty();
-        let element_size = if implicitly_unsized {
-            ObjectSize::Unsized.tokens(self.crate_path)
-        } else {
-            sum.sum_recursively(unknown_unsized, is_ref, self.crate_path)
-        };
+        let element_size = self.element_size(is_ref);
         serdes_scaffold(
             enum_name,
             enum_ser,

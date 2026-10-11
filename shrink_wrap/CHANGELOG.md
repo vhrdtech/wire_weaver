@@ -46,6 +46,22 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- No length FIFO code for types without lengths, and a smaller one for the others (SW-36), same wire format. On
+  RV32IC an encoder of a struct of plain fields is 964 bytes instead of 1476, of four integers 462 instead of 996;
+  one with a list 1142 instead of 1378. All numbers in `docs/serdes/code_size.md`.
+    - New associated constant `SerializeShrinkWrap::PUSHES_LEN`: whether `ser_shrink_wrap` can leave a length
+      (string, list, `RefBox`, the size slot of a nested `Unsized` value) for `finish()` to encode. It has a
+      default (`true` unless the type is `Sized`), so existing hand-written impls compile and behave as before;
+      set it to `false` in one only when no path pushes a length. `#[derive_shrink_wrap(..)]` computes it from
+      the fields, also for evolvable (`Unsized`) types. New `const fn write_pushes_len::<T>()`: whether
+      `wr.write::<T>()` pushes one, for writing that constant by hand.
+    - New `BufWriter::finish_no_lens()` (latched error, align to a byte, the written bytes; the FIFO encoder is
+      not linked), `finish_for::<T>()` and `finish_for_and_take::<T>()` (one or the other by `T::PUSHES_LEN`, at
+      compile time). `to_ww_bytes()` uses `finish_for`. `finish()` and `finish_and_take()` are unchanged.
+    - New `Error::LenFifoNotEmpty`: `finish_no_lens()` on a writer that does have lengths, i.e. a wrong
+      `PUSHES_LEN = false`. A debug build panics there instead. Add an arm if you match on `Error` exhaustively.
+    - `BufWriter::encode_len_fifo()`, `write_nib()` and `align_nibble()` are smaller; `align_byte()` is no longer
+      inlined.
 - `ElementSize::one_of()` (size of an enum's payload: same size or `SelfDescribing`), `ElementSize::variants_differ()`
   and `ElementSize::repeat()` (`[T; N]`), all `const fn` (SW-35). The size assert of a `sized` type says why it failed.
 - Smaller code on small CPUs (SW-34), same wire format: a derived request/reply codec of a softcore firmware is
@@ -122,6 +138,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `BufWriter::align_nibble()`, `write_nib()` and a length encoded after 5 to 7 bits of a byte left the last three
+  bits of that byte as they were in the buffer instead of zero (SW-36). A reader skips those bits, so decoding is
+  not affected; the bytes no longer depend on what the buffer held before.
 - `BufReader::nibbles_left()` was wrong after reading from the back (`read_u4_rev()`, reversed `UNib32` lengths),
   and `read_u4()` could fail with `OutOfBoundsReadU4` or read past the reverse part in the last byte.
 - `BufWriter::write_un8(8, ..)` and `BufReader::read_un8(8)` at a byte-aligned position panicked with shift overflow

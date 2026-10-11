@@ -69,7 +69,8 @@ pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
         wr.write_bool(src(true))?;
         wr.write_u16(src(2))?;
         wr.write_u32(src(3))?;
-        wr.finish()
+        // no lengths were pushed: the length FIFO encoder is not linked
+        wr.finish_no_lens()
     }
     match write(&mut BufWriter::new(tx)) {
         Ok(bytes) => bytes.len(),

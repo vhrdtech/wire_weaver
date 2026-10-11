@@ -188,6 +188,49 @@ impl Type {
         }
     }
 
+    /// Const `bool` expression: whether writing a field of this type with `wr.write()` (or its `write_*`
+    /// method) pushes a length to the reverse length FIFO. `None` when it never does, so that a type made of
+    /// plain fields gets a literal `false`. What `SerializeShrinkWrap::PUSHES_LEN` of a derived type is made of.
+    pub(crate) fn pushes_len_expr(&self, cp: &CratePath) -> Option<TokenStream> {
+        match self {
+            Type::String | Type::Vec(_) | Type::RefBox(_) => Some(quote! { true }),
+            Type::External(path, is_lifetime) => {
+                let element_size = cp.item(quote! { ElementSize });
+                let (ser_trait, _) = cp.serdes_traits(true);
+                // 'static, because it is a const context
+                let ty = path.tokens(is_lifetime.then(|| quote! { 'static }));
+                // an Unsized value gets a size slot from `wr.write()`, the others push what they push
+                Some(quote! {
+                    (matches!(<#ty as #ser_trait>::ELEMENT_SIZE, #element_size::Unsized)
+                        || <#ty as #ser_trait>::PUSHES_LEN)
+                })
+            }
+            Type::Array(_, ty)
+            | Type::Range(ty)
+            | Type::RangeInclusive(ty)
+            | Type::Option(_, ty) => ty.pushes_len_expr(cp),
+            Type::Tuple(types) => Self::any_pushes_len(types.iter(), cp),
+            Type::Result(_, ok_err_ty) => {
+                Self::any_pushes_len([&ok_err_ty.0, &ok_err_ty.1].into_iter(), cp)
+            }
+            // integers, flags, varints, the TailSize slot (its backfill encodes what was pushed after it)
+            _ => None,
+        }
+    }
+
+    /// `||` of [pushes_len_expr](Self::pushes_len_expr) over `types`, `None` when none of them pushes a length.
+    pub(crate) fn any_pushes_len<'a>(
+        types: impl Iterator<Item = &'a Type>,
+        cp: &CratePath,
+    ) -> Option<TokenStream> {
+        let exprs: Vec<_> = types.filter_map(|ty| ty.pushes_len_expr(cp)).collect();
+        if exprs.is_empty() {
+            None
+        } else {
+            Some(quote! { (#(#exprs)||*) })
+        }
+    }
+
     /// Return ElementSize if it is known. None is returned for Unsized.
     pub(crate) fn element_size(&self) -> Option<ObjectSize> {
         let size_bits = match self {

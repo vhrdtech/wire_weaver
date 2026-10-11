@@ -7,10 +7,12 @@ not fit.
 
 Summary:
 
-- The derived codec of that firmware went from 11.3 KB to 9.2 KB on RV32IC (15.1 → 12.7 KB on RV32I, 9.3 → 7.4 KB
-  on Cortex-M0) with three changes that keep the wire format as it is. With `sized` / `final_structure` types and
-  linker relaxation it is 7.4 KB. The same codec written by hand is 5.2 to 5.8 KB.
+- The derived codec of that firmware went from 11.3 KB to 9.0 KB on RV32IC (15.1 → 12.5 KB on RV32I, 9.3 → 7.3 KB
+  on Cortex-M0) with five changes that keep the wire format as it is. With `sized` / `final_structure` types and
+  linker relaxation it is 7.3 KB. The same codec written by hand is 5.2 to 5.8 KB.
 - Half of what was saved came from one thing: plain fields are no longer checked for an error one by one.
+- An encoder whose types have no lists, strings or nested evolvable types does not link the code for lengths at
+  all: a struct of eight fields is 964 bytes on RV32IC instead of 1476 (1934 before any of this).
 - No cargo feature was needed, and none is proposed: what a firmware does not call is not linked, and a feature
   that changes the wire format would be a trap (see [Feature flags](#feature-flags)).
 - A build setting found on the way is worth more than any of the code changes on RISC-V: linker relaxation was off,
@@ -39,7 +41,7 @@ are measured, not run.
 | case | what it holds |
 | --- | --- |
 | `empty` | no `shrink_wrap` code: 38 bytes on RV32IC, the floor of every other case |
-| `rw_de`, `rw_ser` | `BufReader` / `BufWriter` alone: a `u8`, a `bool`, a `u16`, a `u32` |
+| `rw_de`, `rw_ser` | `BufReader` / `BufWriter` alone: a `u8`, a `bool`, a `u16`, a `u32` (`rw_ser` ends with `finish_no_lens()` since step 4) |
 | `struct_de`, `struct_ser` | a struct of eight integers and flags (`Wave`) |
 | `enum_de`, `enum_ser` | an enum of five small variants |
 | `vec_de`, `vec_ser` | a struct with a `u16` and a `RefVec<u16>`, the list walked after decoding |
@@ -58,18 +60,18 @@ bench's own `black_box` calls are in both `busgen` and `busgen_hand`. What the t
 
 ## Results
 
-`.text` + `.rodata` in bytes, before (as of `f661ec9c`) and after the three [changes](#what-was-changed):
+`.text` + `.rodata` in bytes, before (as of `f661ec9c`) and after the five [changes](#what-was-changed):
 
 | case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
 | --- | --- | ---: | ---: | ---: | ---: |
 | `rw_de` | | 796 → 648 | 512 → 444 | 472 → 404 | 430 → 364 |
-| `rw_ser` | | 2540 → 1456 | 1806 → 996 | 1690 → 920 | 1460 → 794 |
+| `rw_ser` | | 2540 → 688 | 1806 → 462 | 1690 → 428 | 1460 → 384 |
 | `struct_de` | | 944 → 840 | 638 → 554 | 568 → 478 | 530 → 440 |
-| `struct_ser` | | 2620 → 2092 | 1934 → 1476 | 1746 → 1336 | 1596 → 1240 |
+| `struct_ser` | | 2620 → 1348 | 1934 → 964 | 1746 → 872 | 1596 → 830 |
 | `busgen_de` | evolvable | 10748 → 8468 | 7718 → 6040 | 7104 → 5442 | 6316 → 5044 |
-| `busgen_ser` | evolvable | 6776 → 5496 | 4762 → 3820 | 4346 → 3424 | 4054 → 3344 |
-| `busgen` | evolvable | 15148 → 12744 | 11308 → 9170 | 10338 → 8260 | 9302 → 7400 |
-| `busgen` | final | 13672 → 11364 | 10320 → 8232 | 9496 → 7446 | 8370 → 6660 |
+| `busgen_ser` | evolvable | 6776 → 5284 | 4762 → 3650 | 4346 → 3256 | 4054 → 3224 |
+| `busgen` | evolvable | 15148 → 12532 | 11308 → 9000 | 10338 → 8114 | 9302 → 7320 |
+| `busgen` | final | 13672 → 11148 | 10320 → 8062 | 9496 → 7296 | 8370 → 6512 |
 | `busgen_hand` | | 7824 | 5762 | 5152 | 4408 |
 
 All cases after the changes:
@@ -78,25 +80,42 @@ All cases after the changes:
 | --- | --- | ---: | ---: | ---: | ---: |
 | `empty` | | 56 | 38 | 34 | 44 |
 | `rw_de` | | 648 | 444 | 404 | 364 |
-| `rw_ser` | | 1456 | 996 | 920 | 794 |
+| `rw_ser` | | 688 | 462 | 428 | 384 |
 | `struct_de` | | 840 | 554 | 478 | 440 |
-| `struct_ser` | | 2092 | 1476 | 1336 | 1240 |
+| `struct_ser` | | 1348 | 964 | 872 | 830 |
 | `enum_de` | | 1004 | 678 | 586 | 512 |
-| `enum_ser` | | 2160 | 1536 | 1396 | 1298 |
+| `enum_ser` | | 1420 | 1012 | 920 | 864 |
 | `vec_de` | | 908 | 592 | 548 | 536 |
-| `vec_ser` | | 1958 | 1378 | 1286 | 1180 |
+| `vec_ser` | | 1634 | 1142 | 1074 | 1030 |
 | `option_de` | | 980 | 658 | 554 | 520 |
-| `option_ser` | | 2220 | 1572 | 1412 | 1286 |
+| `option_ser` | | 1452 | 1048 | 936 | 888 |
 | `busgen_de` | evolvable | 8468 | 6040 | 5442 | 5044 |
 | `busgen_de` | final | 7588 | 5452 | 4920 | 4496 |
-| `busgen_ser` | evolvable | 5496 | 3820 | 3424 | 3344 |
-| `busgen_ser` | final | 4708 | 3356 | 2972 | 2944 |
-| `busgen` | evolvable | 12744 | 9170 | 8260 | 7400 |
-| `busgen` | final | 11364 | 8232 | 7446 | 6660 |
+| `busgen_ser` | evolvable | 5284 | 3650 | 3256 | 3224 |
+| `busgen_ser` | final | 4464 | 3180 | 2820 | 2796 |
+| `busgen` | evolvable | 12532 | 9000 | 8114 | 7320 |
+| `busgen` | final | 11148 | 8062 | 7296 | 6512 |
 | `busgen_hand` | | 7824 | 5762 | 5152 | 4408 |
 
-Read as: on RV32IC the derived codec is now 1.6 times the hand-written one with evolvable types and 1.45 times with
+Read as: on RV32IC the derived codec is now 1.55 times the hand-written one with evolvable types and 1.4 times with
 final ones (it was 1.95 and 1.8 times), and Cortex-M0 code is about 20 % smaller than RV32IC for the same source.
+
+The encoders, before and after steps 4 and 5 alone (the length FIFO, SW-36; the decoders did not change):
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `rw_ser` | | 1456 → 688 | 996 → 462 | 920 → 428 | 794 → 384 |
+| `struct_ser` | | 2092 → 1348 | 1476 → 964 | 1336 → 872 | 1240 → 830 |
+| `enum_ser` | | 2160 → 1420 | 1536 → 1012 | 1396 → 920 | 1298 → 864 |
+| `option_ser` | | 2220 → 1452 | 1572 → 1048 | 1412 → 936 | 1286 → 888 |
+| `vec_ser` | | 1958 → 1634 | 1378 → 1142 | 1286 → 1074 | 1180 → 1030 |
+| `busgen_ser` | evolvable | 5496 → 5284 | 3820 → 3650 | 3424 → 3256 | 3344 → 3224 |
+| `busgen_ser` | final | 4708 → 4464 | 3356 → 3180 | 2972 → 2820 | 2944 → 2796 |
+| `busgen` | evolvable | 12744 → 12532 | 9170 → 9000 | 8260 → 8114 | 7400 → 7320 |
+| `busgen` | final | 11364 → 11148 | 8232 → 8062 | 7446 → 7296 | 6660 → 6512 |
+
+`rw_ser`, `struct_ser`, `enum_ser` and `option_ser` have no lengths and lose the FIFO code (step 4). `vec_ser` and
+the `busgen` cases have lists and keep it, smaller (step 5).
 
 ## Where the bytes went
 
@@ -144,8 +163,8 @@ exits: 6 to 10 bytes per field. `Request` has about 80 fields and `Reply` about 
 **The length FIFO.** Lengths of lists, strings and nested `Unsized` values are collected as `u16` slots at the end
 of the buffer and turned into nibbles by `finish()`. `encode_len_fifo`, `write_nib`, `align_nibble`,
 `write_rev_len` and the nibble counting are 850 bytes on the encode side, `read_rev_len` 156 on the decode side.
-`finish()` is always called, so an encoder pays for this even when its types have no lengths: `rw_ser` (four
-integer writes) was 1806 bytes.
+`finish()` was always called, so an encoder paid for this even when its types had no lengths: `rw_ser` (four
+integer writes) was 1806 bytes. Steps 4 and 5 below are about this.
 
 **A division.** `UNib32::len_nibbles` was `(32 - leading_zeros).div_ceil(3)`. RV32I has neither a divider nor a
 count-leading-zeros instruction, so this one line linked 172 bytes of division and a software `clz`: 430 bytes in
@@ -162,19 +181,19 @@ bytes). Encoding a `RefVec<T>` also contains the decoder of `T`, for its `Buf` v
 buffer); the optimizer removes it only when it can prove the list is a slice.
 
 **Decode only, encode only.** Nothing to switch off: the linker keeps what is called. `busgen_de` is 6.0 KB,
-`busgen_ser` 3.8 KB, and neither contains the other's primitives.
+`busgen_ser` 3.7 KB, and neither contains the other's primitives.
 
 **Bounds checks and panics.** With `panic = "immediate-abort"` no panic code or message is left, a failed check is
 one `unimp`. The checks themselves stay: `BufReader` and `BufWriter` compare against their own limits and then index
 a slice, which checks again. It is 4 to 8 bytes per access and was three times in three functions for
 `read_u8` / `read_u16` / `read_u32`.
 
-**Cortex-M0.** The same picture with smaller numbers: `_start` 4828 of 7372 bytes after the changes, `memcpy`
-316, `encode_len_fifo` 216. Thumb has no linker relaxation to forget, and a call is 4 bytes.
+**Cortex-M0.** The same picture with smaller numbers: `_start` 4864 of 7292 bytes after the changes, `memcpy`
+316, `encode_len_fifo` 174. Thumb has no linker relaxation to forget, and a call is 4 bytes.
 
 ## What was changed
 
-All three keep the wire format: every byte-level test of the workspace passes unchanged.
+All five keep the wire format: every byte-level test of the workspace passes unchanged.
 
 | step | `busgen` evolvable | `busgen` final | `rw_ser` | `struct_de` |
 | --- | ---: | ---: | ---: | ---: |
@@ -182,6 +201,8 @@ All three keep the wire format: every byte-level test of the workspace passes un
 | 1. no division in `UNib32::len_nibbles` | 10872 | 9870 | 1378 | 638 |
 | 2. `Error` without payloads, shared integer read / write | 10184 | 9076 | 984 | 532 |
 | 3. latched errors for plain fields | 9170 | 8232 | 996 | 554 |
+| 4. no FIFO code for types without lengths | 9170 | 8232 | 466 | 554 |
+| 5. smaller length FIFO | 9000 | 8062 | 462 | 554 |
 
 (RV32IC, bytes. The other targets move the same way, see [Results](#results).)
 
@@ -203,6 +224,31 @@ All three keep the wire format: every byte-level test of the workspace passes un
 
    The rule for hand-written code that uses the `_latch` methods: don't use a value before `latched()` returned
    `Ok`, in particular not as a loop bound.
+4. **No FIFO code for types without lengths** (SW-36). `SerializeShrinkWrap` has an associated constant
+   `PUSHES_LEN`: whether `ser_shrink_wrap` can leave a length for `finish()` to encode. `to_ww_bytes` ends with
+   `wr.finish_for::<Self>()`, which is `finish()` when it is `true` and `finish_no_lens()` (latched error, align
+   to a byte, done) when it is `false`. The choice is made at compile time, so `encode_len_fifo`, `write_nib` and
+   the rest are not linked: 510 to 530 bytes less on RV32IC for `rw_ser`, `struct_ser`, `enum_ser` and
+   `option_ser`, about 750 on RV32I, 400 to 440 on Cortex-M0.
+
+   The default is `true` for everything that is not `Sized`, so a hand-written impl stays correct without knowing
+   about it. `#[derive_shrink_wrap]` computes it from the fields: `false` only when no field is a string, a list, a
+   `RefBox`, a nested `Unsized` type (its size slot is a length) or a user type that pushes one itself (asked
+   through its own constant, also inside `Option`, `Result`, arrays and tuples). Evolvable (`Unsized`) root types
+   made of plain fields qualify, they need no `sized`. A type that says `false` and pushes a length anyway panics
+   in a debug build and gets `Error::LenFifoNotEmpty` in a release one, never a message without its lengths.
+
+   Code that calls `ser_shrink_wrap` and `finish()` itself gets the same with `wr.finish_for::<T>()`, where `T` is
+   the type of everything written into that writer.
+5. **A smaller length FIFO** (SW-36), for the types that do have lengths. `write_nib` aligns and writes in one
+   step (140 → 130 bytes on RV32IC) and `encode_len_fifo` no longer needs `align_nibble`
+   (82 bytes, not linked any more); the nibbles are counted in one pass over a slice, as a parity, and written by
+   a loop that does not ask for the length of each number first (276 → 214 bytes; 216 → 174 on Cortex-M0).
+   `vec_ser` 1378 → 1142, `busgen` 9170 → 9000.
+
+   Fixed on the way: aligning to a nibble from the last three bits of a byte (`align_nibble()`, `write_nib()`, a
+   length after 5 to 7 bits) left those bits as they were in the buffer instead of zero. A reader skips them, so
+   nothing on the other end changes, but the bytes depended on what the buffer held before.
 
 ## Build settings
 
@@ -210,7 +256,7 @@ Not `shrink_wrap`'s to fix, but worth more than each code change:
 
 - **Linker relaxation on RISC-V.** `riscv32i-unknown-none-elf` builds without it, so every call that is not
   inlined is `auipc` + `jalr`, 8 bytes. With `-C target-feature=+relax` the linker turns them into `jal` (4 bytes)
-  or `c.jal` (2 bytes): `busgen` 9170 → 8260, `busgen_hand` 5762 → 5152. Add it to the `rustflags` of any RISC-V
+  or `c.jal` (2 bytes): `busgen` 9000 → 8114, `busgen_hand` 5762 → 5152. Add it to the `rustflags` of any RISC-V
   firmware that is short of space.
 - **`memcpy`** from `compiler_builtins` is 338 bytes on RV32IC (316 on Cortex-M0), word-wise with alignment
   handling. It is linked as soon as a value of more than a few words is moved, which a request or reply enum is.
@@ -223,35 +269,34 @@ The options that were on the table, and why none became a cargo feature:
 
 | idea | verdict |
 | --- | --- |
-| decode-only / encode-only | nothing to do: unused code is not linked (6.0 KB and 3.8 KB of the 9.2 KB) |
-| no `u4` / nibble / varint support | nothing to do for the types (`UNib32`, `UVlq32`, `Nibble` are linked only when used); the nibble code that is always there belongs to the length FIFO |
+| decode-only / encode-only | nothing to do: unused code is not linked (6.0 KB and 3.7 KB of the 9.0 KB) |
+| no `u4` / nibble / varint support | nothing to do for the types (`UNib32`, `UVlq32`, `Nibble` are linked only when used); the nibble code of the length FIFO is linked only for types with lengths (step 4) |
 | no evolution support | exists per type as `sized` / `final_structure` (0.9 to 1.0 KB here). As a cargo feature it would change the wire format of every type at once, and cargo unifies features across a build: one crate in the tree turning it on would silently change the bytes of all the others |
-| fixed-size-only mode, no length FIFO | worth doing without a flag, see below |
+| fixed-size-only mode, no length FIFO | done without a flag (step 4): decided per type at compile time |
 | cheaper errors | done (step 2), for everybody |
 | `#[inline(never)]` shared helpers, non-generic paths | done for the integer reads and writes (steps 2 and 3) |
 
 ## What is left
 
-`busgen` is still 3.1 to 3.4 KB above the hand-written codec on RV32IC. In order of what they would bring:
+`busgen` is still 3.0 to 3.2 KB above the hand-written codec on RV32IC. In order of what they would bring:
 
-1. **No FIFO code for types without lengths** (about 600 bytes for an encoder whose types are all fixed-size, and
-   `rw_ser` would be near 400). `finish()` cannot know at compile time that nothing was pushed. A `Sized` root type
-   never pushes a length, so `to_ww_bytes` could skip the FIFO for it by its `ELEMENT_SIZE`; an evolvable root made
-   of plain fields would need one more associated constant (`has lengths`), computed by the derive from the
-   fields. Wire format unchanged.
-2. **`RefVec<T>` of `Sized` elements without a decode pass**: the end of the list is `count * size`, and
+1. **`RefVec<T>` of `Sized` elements without a decode pass**: the end of the list is `count * size`, and
    `RefVecIter` can read in place. `ElementSize::Sized { size_bits }` is right for every type since SW-35 (enums
    count their discriminant and one variant), but it is the size of the value without alignment padding: the
    stride of an element also depends on its alignment (`struct { a: bool, b: u8 }` is 9 bits, 2 bytes per
    element). Saves the `read::<RefVec<T>>` instances and a pass at run time.
-3. **A smaller `encode_len_fifo`** (276 bytes now, plus `write_nib` 140 and `align_nibble` 82): two loops with
-   checked indexing, could be one over a slice.
-4. **Latched reads for the rest**: `Nibble`, `u1`..`u32` (`read_un32`), `u64`. Small for the bench types, real for
+2. **Latched reads for the rest**: `Nibble`, `u1`..`u32` (`read_un32`), `u64`. Small for the bench types, real for
    bit-packed ones.
-5. **A firmware-side `memcpy`**, see [Build settings](#build-settings): 300 bytes.
+3. **A firmware-side `memcpy`**, see [Build settings](#build-settings): 300 bytes.
+4. **`finish_for` in generated server and client code**: the code `ww_codegen!` generates and `ww_client_server`
+   still end with `finish()`. Most of their messages carry arguments as bytes, a length, so the FIFO stays; a
+   stream or a reply of plain values could lose it.
+5. **The rest of the length FIFO** for types with lengths: `encode_len_fifo` 214, `write_nib` 130,
+   `write_rev_len` 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
+   form there, and two checks against the end of the buffer.
 
 For a softcore with 8 KB in all, the hand-written codec stays the right choice today: the firmware it was measured
-for is 4.65 KB as shipped, and the derived codec alone would be 7.4 KB at best. With 16 KB, or on a Cortex-M0 with
+for is 4.65 KB as shipped, and the derived codec alone would be 7.3 KB at best. With 16 KB, or on a Cortex-M0 with
 32 KB of flash, the derived codec fits with room to spare.
 
 ## A small UART transport

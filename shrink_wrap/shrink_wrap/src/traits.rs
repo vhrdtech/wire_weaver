@@ -6,13 +6,33 @@ use paste::paste;
 pub trait SerializeShrinkWrap {
     const ELEMENT_SIZE: ElementSize;
 
+    /// Whether [ser_shrink_wrap](Self::ser_shrink_wrap) can leave a length in the writer's reverse length FIFO
+    /// ([write_rev_len](BufWriter::write_rev_len): a list, a string, a nested `Unsized` value) for
+    /// [finish](BufWriter::finish) to encode.
+    ///
+    /// When it is `false`, [to_ww_bytes](Self::to_ww_bytes) ends with
+    /// [finish_no_lens](BufWriter::finish_no_lens) and the FIFO encoder is not linked at all, about 600 bytes on
+    /// a small CPU (docs/serdes/code_size.md). The bytes are the same either way.
+    ///
+    /// The default is `true` for everything but `Sized` types, which is always correct. `#[derive_shrink_wrap]`
+    /// sets it from the fields. Set it to `false` in a hand-written impl only when no path through
+    /// `ser_shrink_wrap` pushes a length, see [write_pushes_len].
+    const PUSHES_LEN: bool = !matches!(Self::ELEMENT_SIZE, ElementSize::Sized { .. });
+
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error>;
 
     fn to_ww_bytes<'i>(&self, buf: &'i mut [u8]) -> Result<&'i [u8], Error> {
         let mut wr = BufWriter::new(buf);
         self.ser_shrink_wrap(&mut wr)?;
-        wr.finish_and_take()
+        wr.finish_for_and_take::<Self>()
     }
+}
+
+/// Whether [wr.write::\<T\>()](BufWriter::write) pushes a length: the size slot of an `Unsized` `T`, or whatever
+/// `T` pushes by itself. This is what a [PUSHES_LEN](SerializeShrinkWrap::PUSHES_LEN) of a type is made of:
+/// the `||` of it over everything the type writes.
+pub const fn write_pushes_len<T: SerializeShrinkWrap + ?Sized>() -> bool {
+    matches!(T::ELEMENT_SIZE, ElementSize::Unsized) || T::PUSHES_LEN
 }
 
 pub trait DeserializeShrinkWrap<'i>: Sized {
@@ -139,6 +159,7 @@ pub enum ElementSize {
 // was originally implemented when calling write in server codegen, not knowing if object is plain or custom (e.g., &u8)
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for &T {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+    const PUSHES_LEN: bool = T::PUSHES_LEN;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         <T as SerializeShrinkWrap>::ser_shrink_wrap(self, wr)
@@ -441,6 +462,7 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
 // `T::ELEMENT_SIZE.add(SelfDescribing)` would make Option<Unsized> Unsized, add a second slot and change the wire.
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = write_pushes_len::<T>();
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
@@ -496,6 +518,7 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for Option<T> {
 
 impl<T: SerializeShrinkWrap, E: SerializeShrinkWrap> SerializeShrinkWrap for Result<T, E> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = write_pushes_len::<T>() || write_pushes_len::<E>();
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
@@ -567,6 +590,7 @@ macro_rules! impl_tuple {
             impl<$($types: SerializeShrinkWrap),*> SerializeShrinkWrap for ($($types),*) {
                 // const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
                 const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+                const PUSHES_LEN: bool = false $(|| write_pushes_len::<$types>())*;
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     $(wr.write(&self.$indices)?;)*
@@ -625,6 +649,7 @@ impl_tuple!(A, B, C, D, E, F, G, H; 0, 1, 2, 3, 4, 5, 6, 7);
 
 impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
+    const PUSHES_LEN: bool = write_pushes_len::<T>();
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         for elem in self {
@@ -720,6 +745,7 @@ impl DeserializeShrinkWrapOwned for () {
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
+    const PUSHES_LEN: bool = write_pushes_len::<T>();
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(&self.start)?;
@@ -761,6 +787,7 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for core::ops::Ra
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::RangeInclusive<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
+    const PUSHES_LEN: bool = write_pushes_len::<T>();
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(self.start())?;

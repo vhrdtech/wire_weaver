@@ -47,22 +47,18 @@ impl UNib32 {
 
     pub(crate) fn write_reversed(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let mut val = self.0;
-        let len = self.len_nibbles();
-        for i in 0..len {
-            let nib = (val & 0b111) as u8;
-            // reversed unib is written left to write, but read from right to left, so "one more nibble" bits must also be reversed
-            if len >= 1 && i == 0 {
-                // (len == 1 && i == 0) || (len > 1 && i == 0)
-                // no flag if only one nibble or if the last nibble (seen from right to left, so at i == 0)
-                wr.write_nib_masked(nib)
-                    .map_err(|_| Error::OutOfBoundsRevCompact)?;
-            } else {
-                wr.write_nib_masked(nib | ONE_MORE_NIBBLE)
-                    .map_err(|_| Error::OutOfBoundsRevCompact)?;
-            }
+        // reversed unib is written left to right, but read from right to left: the nibble written first is the last
+        // one read, so it is the one without the "one more nibble" flag
+        let mut more = 0;
+        loop {
+            wr.write_nib_masked(val as u8 & 0b111 | more)
+                .map_err(|_| Error::OutOfBoundsRevCompact)?;
             val >>= 3;
+            if val == 0 {
+                return Ok(());
+            }
+            more = ONE_MORE_NIBBLE;
         }
-        Ok(())
     }
 
     pub(crate) fn read_forward(rd: &mut BufReader) -> Result<Self, Error> {
@@ -107,6 +103,7 @@ impl UNib32 {
 
 impl SerializeShrinkWrap for UNib32 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = false;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)

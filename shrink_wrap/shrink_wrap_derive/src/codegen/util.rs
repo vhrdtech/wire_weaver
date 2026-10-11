@@ -49,6 +49,7 @@ pub(crate) fn serdes_scaffold(
     des: impl ToTokens,
     cfg: Option<&TokenStream>,
     element_size: TokenStream,
+    pushes_len: Option<TokenStream>,
     is_ref: bool,
     has_lifetime: bool,
     cp: &CratePath,
@@ -63,10 +64,13 @@ pub(crate) fn serdes_scaffold(
         // The trait itself always carries a `'i` (the input buffer's lifetime); `#ty_lifetime` is
         // only applied to `#ty_name` when the type actually has a `<'i>` generic of its own.
         let ty_lifetime = maybe_quote(has_lifetime, || quote! { <'i> });
+        // `false` only when no field can push a length, see SerializeShrinkWrap::PUSHES_LEN
+        let pushes_len = pushes_len.unwrap_or_else(|| quote! { false });
         quote! {
             #cfg
             impl<'i> #ser_trait for #ty_name #ty_lifetime {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
+                const PUSHES_LEN: bool = #pushes_len;
 
                 fn ser_shrink_wrap(&self, wr: &mut #buf_writer) -> Result<(), #error> {
                     #ser

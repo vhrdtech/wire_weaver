@@ -65,6 +65,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   fields with one check per type; `Error` without payloads; one shared integer read and write; no division in
   `UNib32`. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
   Numbers, where the rest goes and what is left to do: `docs/serdes/code_size.md` (measured by TEST-17).
+- ✅ **SW-36 No length FIFO code for types without lengths**: `SerializeShrinkWrap::PUSHES_LEN`, computed by
+  `#[derive_shrink_wrap]` from the fields (default `true` unless `Sized`), lets `to_ww_bytes` and
+  `BufWriter::finish_for::<T>()` end with `finish_no_lens()` at compile time, so the FIFO encoder is not linked:
+  about 510 bytes less per such encoder on RV32IC (a struct of plain fields 1476 → 964). For types with lengths
+  `encode_len_fifo` / `write_nib` are smaller (`vec_ser` 1378 → 1142). Same wire format
+  (`shrink_wrap/tests/pushes_len.rs`, `docs/serdes/code_size.md` steps 4 and 5).
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire

@@ -91,6 +91,7 @@ impl DeserializeShrinkWrapOwned for String {
 
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Box<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const PUSHES_LEN: bool = T::PUSHES_LEN;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         T::ser_shrink_wrap(self, wr)

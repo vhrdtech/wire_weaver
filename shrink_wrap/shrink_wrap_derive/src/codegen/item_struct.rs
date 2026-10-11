@@ -90,6 +90,7 @@ impl<'i> CGItemStruct<'i> {
             struct_des,
             self.cfg,
             element_size,
+            Type::any_pushes_len(self.fields.iter().map(|f| &f.ty), self.crate_path),
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,

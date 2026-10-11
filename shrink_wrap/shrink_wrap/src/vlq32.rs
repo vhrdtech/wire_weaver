@@ -66,6 +66,7 @@ impl UVlq32 {
 
 impl SerializeShrinkWrap for UVlq32 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = false;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)
@@ -161,6 +162,7 @@ impl UVlq32Backfill {
 
 impl SerializeShrinkWrap for UVlq32Backfill {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = false;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write_raw_slice(&UVlq32(self.0).encode_right_justified().0)

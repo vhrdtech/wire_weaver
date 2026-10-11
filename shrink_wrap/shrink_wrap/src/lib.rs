@@ -31,6 +31,7 @@ pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
 pub use traits::SerializeShrinkWrapOwned;
 pub use traits::{
     DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, SerializeShrinkWrap,
+    write_pushes_len,
 };
 
 #[cfg(feature = "std")]
@@ -79,6 +80,9 @@ pub enum Error {
     /// cannot have been written by the encoder: more elements than bits, or a code that refers to state the
     /// decoder does not have.
     MalformedSeries,
+    /// [BufWriter::finish_no_lens] on a writer that has lengths to encode: the type's
+    /// [PUSHES_LEN](SerializeShrinkWrap::PUSHES_LEN) is `false`, but its `ser_shrink_wrap` pushed one.
+    LenFifoNotEmpty,
 }
 
 impl Display for Error {

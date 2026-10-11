@@ -86,6 +86,13 @@ with each other and only force a new byte once something byte-aligned (`write_u8
 explicitly aligned (`align_nibble`/`align_byte`) comes along. `finish()` closes out the FIFO of sizes (encoding any
 that are still pending as reversed `UNib32`s at the back) and returns the written prefix as a `&[u8]`.
 
+When nothing pushed a size (no string, list or nested `Unsized` value), `finish_no_lens()` returns the same bytes
+without linking the code that encodes the FIFO, which matters on a CPU with a few kilobytes of flash (see
+[Code size on small CPUs](code_size.md)). `wr.finish_for::<T>()` picks one of the two at compile time by
+`T::PUSHES_LEN`, which `#[derive_shrink_wrap]` computes from the fields; `to_ww_bytes` does that for you. A
+hand-written `SerializeShrinkWrap` impl may set `const PUSHES_LEN: bool = false;` when no path through its
+`ser_shrink_wrap` pushes a size; the default is `true` for everything that is not `Sized`, which is always correct.
+
 ### BufReader
 
 `BufReader` mirrors `BufWriter`: it walks the same slice forward with matching bit/nibble/byte-aligned read methods,

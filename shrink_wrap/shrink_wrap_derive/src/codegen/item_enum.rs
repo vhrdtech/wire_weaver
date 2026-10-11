@@ -205,6 +205,11 @@ impl<'i> CGItemEnum<'i> {
             enum_des,
             self.cfg,
             element_size,
+            // the discriminant never pushes a length, any variant's field can
+            Type::any_pushes_len(
+                self.variants.iter().flat_map(|v| v.fields.types()),
+                self.crate_path,
+            ),
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,

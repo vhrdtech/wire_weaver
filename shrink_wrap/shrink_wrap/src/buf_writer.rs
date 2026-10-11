@@ -105,21 +105,29 @@ impl<'i> BufWriter<'i> {
     /// Note that there is a method write_un8(4, val), that will also write 4 bits to the buffer,
     /// but will use an alignment of 1 bit instead.
     pub fn write_nib(&mut self, val: Nibble) -> Result<(), Error> {
-        self.align_nibble();
-        if self.nibbles_left() == 0 {
-            return Err(Error::OutOfBoundsWriteU4);
+        // align_nibble() and the write in one: the bits left over in a half written nibble are cleared with it
+        if self.bit_idx < 3 {
+            self.align_byte();
         }
+        let Some(byte) = self.buf[..self.len_bytes].get_mut(self.byte_idx) else {
+            return Err(Error::OutOfBoundsWriteU4);
+        };
         if self.bit_idx == 7 {
-            self.buf[self.byte_idx] &= 0b0000_1111;
-            self.buf[self.byte_idx] |= val.value() << 4;
+            // the low nibble is kept: it may hold data when writing after restore_state()
+            *byte = *byte & 0b0000_1111 | val.value() << 4;
             self.bit_idx = 3;
         } else {
-            self.buf[self.byte_idx] &= 0b1111_0000;
-            self.buf[self.byte_idx] |= val.value();
+            *byte = *byte & Self::written_mask(self.bit_idx) | val.value();
             self.bit_idx = 7;
             self.byte_idx += 1;
         }
         Ok(())
+    }
+
+    /// Mask of the bits of a byte that are written already, when `bit_idx` is the next one to write
+    #[inline(always)]
+    fn written_mask(bit_idx: u8) -> u8 {
+        (0xFF00u32 >> (7 - bit_idx)) as u8
     }
 
     /// Align to nibble and write one [Nibble], 4 lower bits are used, and higher bits are ignored.
@@ -523,38 +531,33 @@ impl<'i> BufWriter<'i> {
     /// println!("{buf:02x?}");
     ///```
     pub fn encode_len_fifo(&mut self, from: RevPos, to: RevPos) -> Result<(), Error> {
-        if to.0 < from.0 {
+        // one u16 per length, the one pushed last first
+        let Some(slots) = self.buf.get(from.0..to.0) else {
+            return Ok(());
+        };
+        if slots.len() < 2 {
             return Ok(());
         }
-        let reverse_u16_written = (to.0 - from.0) / 2;
-        // dbg!(reverse_u16_written);
-        if reverse_u16_written == 0 {
-            return Ok(());
+        let mut odd = 0;
+        for slot in slots.as_chunks::<2>().0 {
+            odd ^= UNib32(u16::from_le_bytes(*slot) as u32).len_nibbles();
         }
-        let mut total_nibbles = 0;
-        let mut idx = from.0;
-        for _ in 0..reverse_u16_written {
-            let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
-            total_nibbles += UNib32(val as u32).len_nibbles();
-            idx += 2;
+        // write_nib() aligns to a nibble first: from bits 6 to 3 that is the middle of a byte
+        if (3..7).contains(&self.bit_idx) {
+            odd ^= 1;
         }
-        self.align_nibble();
-        let not_at_byte_boundary = self.bit_idx != 7;
-        if not_at_byte_boundary {
-            total_nibbles += 1;
-        }
-        if total_nibbles % 2 != 0 {
-            // ensure that reading from the back always starts from a valid Vlu16N
+        if odd & 1 != 0 {
+            // ensure that reading from the back always starts from a valid UNib32
             self.write_nib(Nibble::zero())
                 .map_err(|_| Error::OutOfBoundsRevCompact)?;
         }
-
-        let mut idx = self.len_bytes;
-        for _ in 0..reverse_u16_written {
+        let mut idx = from.0;
+        while idx + 1 < to.0 {
             let val = u16::from_le_bytes([self.buf[idx], self.buf[idx + 1]]);
-            self.len_bytes += 2;
-            UNib32(val as u32).write_reversed(self)?;
             idx += 2;
+            // the slot is free from here on, the nibbles may take its place
+            self.len_bytes = idx;
+            UNib32(val as u32).write_reversed(self)?;
         }
         debug_assert!(self.bit_idx == 7);
         Ok(())
@@ -586,6 +589,50 @@ impl<'i> BufWriter<'i> {
         Ok(&self.buf[0..len])
     }
 
+    /// [finish](Self::finish) for a writer nothing pushed a length into (no
+    /// [write_rev_len](Self::write_rev_len), list, string or nested `Unsized` value): align to byte and return
+    /// the slice containing written data, the same bytes `finish` gives.
+    ///
+    /// Without a call to `finish` the code that encodes the lengths is not linked, about 600 bytes on a small
+    /// CPU (docs/serdes/code_size.md). If a length was pushed after all, this panics in a debug build and returns
+    /// [Error::LenFifoNotEmpty] in a release one. Prefer [finish_for](Self::finish_for), which picks by the type.
+    pub fn finish_no_lens(&mut self) -> Result<&[u8], Error> {
+        self.latched()?;
+        if self.len_bytes != self.buf.len() {
+            debug_assert!(
+                false,
+                "finish_no_lens() with lengths in the FIFO: PUSHES_LEN of the type is wrong"
+            );
+            return Err(Error::LenFifoNotEmpty);
+        }
+        self.align_byte();
+        let byte_idx = self.byte_idx;
+        self.byte_idx = 0;
+        Ok(&self.buf[0..byte_idx])
+    }
+
+    /// [finish](Self::finish) after `T::ser_shrink_wrap(wr)` of a root value, or
+    /// [finish_no_lens](Self::finish_no_lens) when `T` never pushes a length
+    /// ([PUSHES_LEN](SerializeShrinkWrap::PUSHES_LEN) is `false`). Decided at compile time, so only one of the
+    /// two is linked. `T` must be the type of everything written since the writer was created or reset.
+    #[inline(always)]
+    pub fn finish_for<T: SerializeShrinkWrap + ?Sized>(&mut self) -> Result<&[u8], Error> {
+        if T::PUSHES_LEN {
+            self.finish()
+        } else {
+            self.finish_no_lens()
+        }
+    }
+
+    /// [finish_for](Self::finish_for) that takes self by value, allowing one to return the slice from functions.
+    #[inline(always)]
+    pub fn finish_for_and_take<T: SerializeShrinkWrap + ?Sized>(
+        mut self,
+    ) -> Result<&'i [u8], Error> {
+        let len = self.finish_for::<T>()?.len();
+        Ok(&self.buf[0..len])
+    }
+
     /// Return the buffer, note that buffer is not set to zero and might contain old data.
     pub fn deinit(self) -> &'i mut [u8] {
         self.buf
@@ -598,25 +645,22 @@ impl<'i> BufWriter<'i> {
     /// Align writer to the next nibble if not already, setting the remaining bits to zero.
     #[inline]
     pub fn align_nibble(&mut self) {
-        if self.bit_idx == 7 || self.bit_idx == 3 {
-            return;
-        }
-        if self.bit_idx > 3 {
-            self.buf[self.byte_idx] &= !(0xFF >> (7 - self.bit_idx));
+        if self.bit_idx < 3 {
+            self.align_byte();
+        } else if self.bit_idx & 3 != 3 {
+            // in the middle of a byte, so the byte is there
+            self.buf[self.byte_idx] &= Self::written_mask(self.bit_idx);
             self.bit_idx = 3;
-        } else {
-            self.bit_idx = 7;
-            self.byte_idx += 1;
         }
     }
 
     /// Align writer to the next byte if not already, setting the remaining bits to zero.
-    #[inline]
+    #[inline(never)]
     pub fn align_byte(&mut self) {
         if self.bit_idx == 7 {
             return;
         }
-        self.buf[self.byte_idx] &= !(0xFF >> (7 - self.bit_idx));
+        self.buf[self.byte_idx] &= Self::written_mask(self.bit_idx);
         self.bit_idx = 7;
         self.byte_idx += 1;
     }
@@ -1161,6 +1205,126 @@ mod tests {
         assert_eq!(wr.pos(), (1, 7));
         let buf = wr.finish().unwrap();
         assert_eq!(buf, &[0b1111_1000]);
+    }
+
+    #[test]
+    fn align_nibble_from_lower_bits_zeroes_reserved_bits() {
+        let mut buf = [0xFF; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        for _ in 0..5 {
+            wr.write_bool(true).unwrap();
+        }
+        wr.align_nibble();
+        assert_eq!(wr.pos(), (1, 7));
+        assert_eq!(wr.finish().unwrap(), &[0b1111_1000]);
+    }
+
+    #[test]
+    fn write_nib_from_any_bit() {
+        // (bits written before the nibble, bytes after it): the bits left in a half written nibble are zero
+        let cases: [(usize, &[u8]); 8] = [
+            (0, &[0b1010_0000]),
+            (1, &[0b1000_1010]),
+            (2, &[0b1100_1010]),
+            (3, &[0b1110_1010]),
+            (4, &[0b1111_1010]),
+            (5, &[0b1111_1000, 0b1010_0000]),
+            (6, &[0b1111_1100, 0b1010_0000]),
+            (7, &[0b1111_1110, 0b1010_0000]),
+        ];
+        for (bits, expected) in cases {
+            let mut buf = [0xFF; 2];
+            let mut wr = BufWriter::new(&mut buf);
+            for _ in 0..bits {
+                wr.write_bool(true).unwrap();
+            }
+            wr.write_nib(Nibble::new_masked(0b1010)).unwrap();
+            assert_eq!(wr.finish().unwrap(), expected, "{bits} bits");
+        }
+    }
+
+    #[test]
+    fn write_nib_keeps_the_other_nibble() {
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        let start = wr.save_state();
+        wr.write_nib(Nibble::zero()).unwrap();
+        wr.write_nib(Nibble::new_masked(0xB)).unwrap();
+        let end = wr.save_state();
+        // patch the first nibble later
+        wr.restore_state(start);
+        wr.write_nib(Nibble::new_masked(0xA)).unwrap();
+        wr.restore_state(end);
+        assert_eq!(wr.finish().unwrap(), &[0xAB]);
+    }
+
+    #[test]
+    fn write_nib_out_of_bounds_mid_byte() {
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_nib(Nibble::zero()).unwrap();
+        wr.write_bool(true).unwrap();
+        // the low nibble is started, the next one would be in a second byte
+        assert_eq!(wr.write_nib(Nibble::zero()), Err(Error::OutOfBoundsWriteU4));
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_nib(Nibble::zero()).unwrap();
+        wr.write_nib(Nibble::zero()).unwrap();
+        assert_eq!(wr.write_nib(Nibble::zero()), Err(Error::OutOfBoundsWriteU4));
+    }
+
+    #[test]
+    fn len_fifo_from_any_bit() {
+        // lengths after 0 to 8 bits: a padding nibble where the count of nibbles would end in the middle of a byte
+        let cases: [(usize, &[u8]); 9] = [
+            (0, &[0x03]),
+            (1, &[0x83]),
+            (2, &[0xC3]),
+            (3, &[0xE3]),
+            (4, &[0xF3]),
+            (5, &[0xF8, 0x03]),
+            (6, &[0xFC, 0x03]),
+            (7, &[0xFE, 0x03]),
+            (8, &[0xFF, 0x03]),
+        ];
+        for (bits, expected) in cases {
+            let mut buf = [0xFF; 8];
+            let mut wr = BufWriter::new(&mut buf);
+            for _ in 0..bits {
+                wr.write_bool(true).unwrap();
+            }
+            wr.write_rev_len(3).unwrap();
+            assert_eq!(wr.finish().unwrap(), expected, "{bits} bits");
+        }
+    }
+
+    #[test]
+    fn len_fifo_order_and_sizes() {
+        // 1 to 6 nibbles per length; the one pushed first is the last in the buffer, read first from the back
+        let mut buf = [0xFF; 32];
+        let mut wr = BufWriter::new(&mut buf);
+        for len in [7, 8, 0o777, 0o1000, 0o77777, 0xFFFF] {
+            wr.write_rev_len(len).unwrap();
+        }
+        let bytes = wr.finish().unwrap().to_vec();
+        assert_eq!(bytes, hex!("0 7FFFF9 7FFFF 0889 7FF 09 7"));
+        let mut rd = BufReader::new(&bytes);
+        for len in [7, 8, 0o777, 0o1000, 0o77777, 0xFFFF] {
+            assert_eq!(rd.read_rev_len(), Ok(len));
+        }
+    }
+
+    #[test]
+    fn len_fifo_out_of_space() {
+        // 0xFFFF takes 6 nibbles, one byte more than its slot
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_rev_len(0xFFFF).unwrap();
+        assert_eq!(wr.finish(), Err(Error::OutOfBoundsRevCompact));
+        let mut buf = [0u8; 3];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_rev_len(0xFFFF).unwrap();
+        assert_eq!(wr.finish().unwrap(), hex!("7FFFF9"));
     }
 
     #[test]

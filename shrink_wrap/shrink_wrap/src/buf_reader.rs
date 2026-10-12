@@ -324,6 +324,70 @@ impl<'i> BufReader<'i> {
         f32::from_bits(self.read_le32_latch(4))
     }
 
+    // The reads below are the plain ones with the error kept in the reader: the same function is called, so the
+    // value, the error and the reader state are exactly those of the read with a `Result`
+    // (shrink_wrap/tests/latched_reads.rs holds them against each other). One copy per kind of read.
+
+    /// [read_un32](Self::read_un32), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(never)]
+    pub fn read_un32_latch(&mut self, bit_count: u8) -> u32 {
+        match self.read_un32(bit_count) {
+            Ok(val) => val,
+            Err(e) => {
+                self.latch.get_or_insert(e);
+                0
+            }
+        }
+    }
+
+    /// [read_un8](Self::read_un8), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_un8_latch(&mut self, bit_count: u8) -> u8 {
+        if bit_count > 8 {
+            self.latch.get_or_insert(Error::InvalidBitCount);
+            return 0;
+        }
+        self.read_un32_latch(bit_count) as u8
+    }
+
+    /// [read_un16](Self::read_un16), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline(always)]
+    pub fn read_un16_latch(&mut self, bit_count: u8) -> u16 {
+        if bit_count > 16 {
+            self.latch.get_or_insert(Error::InvalidBitCount);
+            return 0;
+        }
+        self.read_un32_latch(bit_count) as u16
+    }
+
+    /// [read_un64](Self::read_un64), an error is kept for [latched](Self::latched) and gives 0.
+    #[inline]
+    pub fn read_un64_latch(&mut self, bit_count: u8) -> u64 {
+        match self.read_un64(bit_count) {
+            Ok(val) => val,
+            Err(e) => {
+                self.latch.get_or_insert(e);
+                0
+            }
+        }
+    }
+
+    /// What `#[derive_shrink_wrap]` reads a field of a user type with: [read](Self::read), except for the types
+    /// that keep a failed read for [latched](Self::latched) (`U1`..`U64`, `I2`..`I64`), see
+    /// [DeserializeShrinkWrap::des_shrink_wrap_latch].
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn read_field<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
+        T::des_shrink_wrap_latch(self)
+    }
+
+    /// [read_field](Self::read_field) for [DeserializeShrinkWrapOwned] types.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn read_field_owned<T: DeserializeShrinkWrapOwned>(&mut self) -> Result<T, Error> {
+        T::des_shrink_wrap_owned_latch(self)
+    }
+
     /// Align to byte and create a slice with the provided length.
     pub fn read_raw_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
         self.align_byte();

@@ -18,6 +18,8 @@ const CASES: &[(&str, bool)] = &[
     ("enum_ser", true),
     ("vec_de", true),
     ("vec_ser", true),
+    ("bits_de", true),
+    ("bits_ser", true),
     ("option_de", true),
     ("option_ser", true),
     ("busgen_de", true),

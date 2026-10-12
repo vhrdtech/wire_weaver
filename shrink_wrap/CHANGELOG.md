@@ -82,6 +82,14 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   (`bool`, `u1`..`uN`, `Nibble`, enums, structs, strings, ..) are decoded as before. It is not free in code: a
   decoder with such a list is 50 to 140 bytes larger (RV32IC `vec_de` 592 → 652), see `docs/serdes/code_size.md`.
   Nothing to change in user code; `DeserializeShrinkWrap` has a hidden constant with a default for it.
+- `U1`..`U64` and `I2`..`I64` fields are read without an error check each too (SW-38), in a struct or enum
+  variant whose other fields are latched as well (`bool`, `u8`..`u32`, `i8`..`i32`, `f32`, flags): a bit-packed
+  struct of eight fields decodes in 846 bytes instead of 886 on RV32IC, 1276 instead of 1364 on RV32I. Same wire
+  format, same result and `Error` as reading every field with `?`. In a type that also has a list, a string, a
+  nested type, a `Nibble`, a `u64` or a varint they are read as before, so that a later error never replaces the
+  first one. New `BufReader::read_un8_latch()`, `read_un16_latch()`, `read_un32_latch()` and `read_un64_latch()`;
+  `DeserializeShrinkWrap` / `DeserializeShrinkWrapOwned` have a hidden constant and method with defaults for it,
+  nothing to change in user code.
 - Compressed sequences for time series (SW-31, SW-32): `Delta<'i, T>` / `DeltaOwned<T>` and
   `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>` for `u8`..`u64` and `i8`..`i64`, `XorFloat<'i, T>` /
   `XorFloatOwned<T>` for `f32` / `f64`. Used as fields like `RefVec<'i, T>` / `Vec<T>`, same layout around the

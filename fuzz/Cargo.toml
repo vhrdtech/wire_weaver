@@ -40,3 +40,10 @@ path = "src/shrink_wrap_ref_vec.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "shrink-wrap-latched"
+path = "src/shrink_wrap_latched.rs"
+test = false
+doc = false
+bench = false

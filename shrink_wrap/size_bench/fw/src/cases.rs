@@ -138,6 +138,27 @@ pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
     )
 }
 
+#[cfg(feature = "bits_de")]
+pub fn run(rx: &[u8], _tx: &mut [u8]) -> usize {
+    sink(Sample::from_ww_bytes(rx));
+    0
+}
+
+#[cfg(feature = "bits_ser")]
+pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
+    let sample = Sample {
+        ch: U3::new(1).unwrap_or(U3::zero()),
+        on: true,
+        gain: U4::new(2).unwrap_or(U4::zero()),
+        div: U12::new(3).unwrap_or(U12::zero()),
+        off: I10::new(-4).unwrap_or(I10::zero()),
+        raw: U20::new(5).unwrap_or(U20::zero()),
+        flags: U5::new(6).unwrap_or(U5::zero()),
+        level: 7,
+    };
+    enc(&src(sample), tx)
+}
+
 #[cfg(feature = "option_de")]
 pub fn run(rx: &[u8], _tx: &mut [u8]) -> usize {
     sink(I2cSlave::from_ww_bytes(rx));

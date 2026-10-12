@@ -40,6 +40,19 @@ macro_rules! types {
             pub unit: u32,
         }
 
+        /// A bit-packed struct, as a register or a sensor sample: numbers of a few bits, a signed one, flags
+        #[derive_shrink_wrap(borrowed, derive(Clone, Copy) $($fin)*)]
+        pub struct Sample {
+            pub ch: U3,
+            pub on: bool,
+            pub gain: U4,
+            pub div: U12,
+            pub off: I10,
+            pub raw: U20,
+            pub flags: U5,
+            pub level: u8,
+        }
+
         /// A struct with two `Option`s
         #[derive_shrink_wrap(borrowed, derive(Clone, Copy) $($fin)*)]
         pub struct I2cSlave {

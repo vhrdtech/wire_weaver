@@ -161,6 +161,14 @@ impl ToTokens for CGStructSer<'_> {
 impl ToTokens for CGStructDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut field_names = vec![];
+        let all_latched = Type::all_latched_expr(
+            self.item_struct
+                .fields
+                .iter()
+                .map(|f| (&f.ty, f.default.is_none())),
+            !self.is_ref,
+            self.item_struct.crate_path,
+        );
         for struct_field in self.item_struct.fields {
             let field_name = &struct_field.ident;
             if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
@@ -172,6 +180,7 @@ impl ToTokens for CGStructDes<'_> {
                 !self.is_ref,
                 handle_eob,
                 struct_field.default.is_none(),
+                &all_latched,
                 self.item_struct.crate_path,
                 tokens,
             );

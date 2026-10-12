@@ -68,6 +68,13 @@ macro_rules! un {
                 fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
                 }
+
+                const LATCHES: bool = true;
+
+                #[inline(always)]
+                fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
+                    Ok([<U $bits>](rd.[<read_un $base_bits _latch>]($bits)))
+                }
             }
 
             impl DeserializeShrinkWrapOwned for [<U $bits>] {
@@ -75,6 +82,13 @@ macro_rules! un {
 
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
+                }
+
+                const LATCHES: bool = true;
+
+                #[inline(always)]
+                fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+                    Ok([<U $bits>](rd.[<read_un $base_bits _latch>]($bits)))
                 }
             }
         }
@@ -201,6 +215,19 @@ macro_rules! signed_un {
                     Self(-[<2 _ i $base_bits>].pow($bits - 2) - [<2 _ i $base_bits>].pow($bits - 2))
                 }
 
+                // the low `$bits` bits of `val` as read from the wire, sign extended
+                #[inline(always)]
+                fn sign_extend(val: [<u $base_bits>]) -> Self {
+                    let is_negative = val & (1 << ($bits - 1)) != 0;
+                    if is_negative {
+                        const SIGN_EXTEND_M1: [<u $base_bits>] = [<u $base_bits>]::MAX << ($bits - 1);
+                        const SIGN_EXTEND: [<u $base_bits>] = SIGN_EXTEND_M1 << 1;
+                        Self((val | SIGN_EXTEND) as [<i $base_bits>])
+                    } else {
+                        Self(val as [<i $base_bits>])
+                    }
+                }
+
                 #[inline(always)]
                 pub const fn minus_one() -> Self {
                     Self(-1)
@@ -249,15 +276,14 @@ macro_rules! signed_un {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
 
                 fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-                    let val = rd.[<read_un $base_bits>]($bits)?;
-                    let is_negative = val & (1 << ($bits - 1)) != 0;
-                    if is_negative {
-                        const SIGN_EXTEND_M1: [<u $base_bits>] = [<u $base_bits>]::MAX << ($bits - 1);
-                        const SIGN_EXTEND: [<u $base_bits>] = SIGN_EXTEND_M1 << 1;
-                        Ok(Self((val | SIGN_EXTEND) as [<i $base_bits>]))
-                    } else {
-                        Ok(Self(val as [<i $base_bits>]))
-                    }
+                    Ok(Self::sign_extend(rd.[<read_un $base_bits>]($bits)?))
+                }
+
+                const LATCHES: bool = true;
+
+                #[inline(always)]
+                fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
+                    Ok(Self::sign_extend(rd.[<read_un $base_bits _latch>]($bits)))
                 }
             }
 
@@ -265,15 +291,14 @@ macro_rules! signed_un {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
 
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-                    let val = rd.[<read_un $base_bits>]($bits)?;
-                    let is_negative = val & (1 << ($bits - 1)) != 0;
-                    if is_negative {
-                        const SIGN_EXTEND_M1: [<u $base_bits>] = [<u $base_bits>]::MAX << ($bits - 1);
-                        const SIGN_EXTEND: [<u $base_bits>] = SIGN_EXTEND_M1 << 1;
-                        Ok(Self((val | SIGN_EXTEND) as [<i $base_bits>]))
-                    } else {
-                        Ok(Self(val as [<i $base_bits>]))
-                    }
+                    Ok(Self::sign_extend(rd.[<read_un $base_bits>]($bits)?))
+                }
+
+                const LATCHES: bool = true;
+
+                #[inline(always)]
+                fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+                    Ok(Self::sign_extend(rd.[<read_un $base_bits _latch>]($bits)))
                 }
             }
         }

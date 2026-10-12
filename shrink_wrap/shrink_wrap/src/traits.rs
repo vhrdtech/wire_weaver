@@ -53,6 +53,24 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error>;
 
+    /// `true` only for `U1`..`U64` and `I2`..`I64`: [des_shrink_wrap_latch](Self::des_shrink_wrap_latch)
+    /// keeps the error in the reader instead of returning it. `#[derive_shrink_wrap]` then reads a field of
+    /// this type with it, in a struct or enum variant whose every other read does that too (SW-38).
+    #[doc(hidden)]
+    const LATCHES: bool = false;
+
+    /// How `#[derive_shrink_wrap]` reads a field of this type ([BufReader::read_field]). By default
+    /// [read](BufReader::read), as before. With [LATCHES](Self::LATCHES) it is a read that can only fail for
+    /// too few bits left and gives a value for every bit pattern: the error is kept in the reader for
+    /// [latched](BufReader::latched), the value is then 0, and it always returns `Ok`, so that the caller's
+    /// error check folds away when it is inlined. The error kept is the first one and the one
+    /// [read](BufReader::read) would return, the reader state the same as after that read.
+    #[doc(hidden)]
+    #[inline(always)]
+    fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
+        rd.read()
+    }
+
     fn from_ww_bytes(buf: &'i [u8]) -> Result<Self, Error> {
         let mut rd = BufReader::new(buf);
         let value = Self::des_shrink_wrap(&mut rd)?;
@@ -79,6 +97,18 @@ pub trait DeserializeShrinkWrapOwned: Sized {
     const ELEMENT_SIZE: ElementSize;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error>;
+
+    /// [DeserializeShrinkWrap::LATCHES] for the owned side.
+    #[doc(hidden)]
+    const LATCHES: bool = false;
+
+    /// [DeserializeShrinkWrap::des_shrink_wrap_latch] for the owned side, by default
+    /// [read_owned](BufReader::read_owned).
+    #[doc(hidden)]
+    #[inline(always)]
+    fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+        rd.read_owned()
+    }
 
     fn from_ww_bytes_owned(buf: &[u8]) -> Result<Self, Error> {
         let mut rd = BufReader::new(buf);

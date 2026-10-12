@@ -469,6 +469,11 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                 Fields::Named(fields_named) => {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
+                    let all_latched = Type::all_latched_expr(
+                        fields_named.iter().map(|f| (&f.ty, f.default.is_none())),
+                        !self.is_ref,
+                        self.item_enum.crate_path,
+                    );
                     for field in fields_named {
                         let field_name = &field.ident;
                         if !matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
@@ -485,6 +490,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             field.default.is_none(),
+                            &all_latched,
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );
@@ -495,6 +501,11 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
                     let mut idx_skip_flags = 0;
+                    let all_latched = Type::all_latched_expr(
+                        fields_unnamed.iter().map(|ty| (ty, true)),
+                        !self.is_ref,
+                        self.item_enum.crate_path,
+                    );
                     for ty in fields_unnamed {
                         let field_name =
                             Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
@@ -513,6 +524,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             true,
+                            &all_latched,
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );

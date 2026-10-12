@@ -151,3 +151,8 @@ fuzz-shrink-wrap-series:
 [working-directory('fuzz')]
 fuzz-shrink-wrap-ref-vec:
     cargo +nightly fuzz run shrink-wrap-ref-vec -- -max_len=4096
+
+# Fuzz shrink_wrap's latched reads of U1..U64 / I2..I64 against reads with a Result (SW-38)
+[working-directory('fuzz')]
+fuzz-shrink-wrap-latched:
+    cargo +nightly fuzz run shrink-wrap-latched -- -max_len=4096

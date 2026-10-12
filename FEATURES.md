@@ -77,6 +77,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `just fuzz-shrink-wrap-ref-vec`). Costs 50 to 140 bytes of code in a decoder with such a list. Other `Sized` types
   keep the pass on purpose (stride is not `size_bits`, elements are validated there):
   `docs/serdes/code_size.md`.
+- ✅ **SW-38 Latched reads of `U1`..`U64` / `I2`..`I64` fields**: read like the integers of SW-34, with one error
+  check per type, where every field of the struct or enum variant is latched (decided at compile time through a
+  hidden `DeserializeShrinkWrap::LATCHES`); a bit-packed struct decodes in 40 bytes less on RV32IC (886 → 846),
+  88 on RV32I. Same wire format, results and errors as reading field by field (`shrink_wrap/tests/latched_reads.rs`,
+  `just fuzz-shrink-wrap-latched`). `Nibble`, `u64` and varints are not latched: one such field costs more than it
+  saves (`docs/serdes/code_size.md`).
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
@@ -398,9 +404,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   streams.
 - ✅ **TEST-8 Framer fuzzing** (`fuzz/`).
 - ✅ **TEST-17 `shrink_wrap` code size bench**: `just size-bench` builds one bare firmware image per test case
-  (plain struct, enum, list, `Option`, decode or encode only, the request/reply codec of a small softcore firmware
-  and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints `.text` + `.rodata`, or the largest symbols
-  (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
+  (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
+  softcore firmware and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints `.text` + `.rodata`, or the
+  largest symbols (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

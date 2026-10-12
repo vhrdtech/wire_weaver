@@ -38,6 +38,19 @@ pub const fn write_pushes_len<T: SerializeShrinkWrap + ?Sized>() -> bool {
 pub trait DeserializeShrinkWrap<'i>: Sized {
     const ELEMENT_SIZE: ElementSize;
 
+    /// `Some(n)` only for `u8`..`u128`, `i8`..`i128`, `f32` and `f64`, `n` being their size in bytes: a list of
+    /// them ([RefVec](crate::RefVec)) finds its end with one bounds check instead of decoding every element
+    /// (SW-37). Leave it `None` in every other impl, also in one that forwards `ELEMENT_SIZE` of such a type.
+    ///
+    /// It promises about [des_shrink_wrap](Self::des_shrink_wrap) what `ElementSize::Sized` does not: it is
+    /// [read_raw_slice(n)](BufReader::read_raw_slice) and nothing else, i.e. it aligns to a byte, takes exactly
+    /// `n` bytes, accepts every bit pattern and can only fail for too few bytes left. Types that are `Sized` but
+    /// not that plain keep the decode pass: `bool`, `u1`..`uN` and `Nibble` are bit-packed (no byte stride, and
+    /// the last byte can be shared with the lengths read from the back), an enum has discriminants to reject, a
+    /// struct's stride depends on alignment padding that `size_bits` does not count.
+    #[doc(hidden)]
+    const PLAIN_BYTES: Option<usize> = None;
+
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error>;
 
     fn from_ww_bytes(buf: &'i [u8]) -> Result<Self, Error> {
@@ -385,6 +398,9 @@ macro_rules! impl_deserialize {
         paste! {
             impl<'i> DeserializeShrinkWrap<'i> for [<$sign $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+                // See the constant's docs for what this promises about the read below, and
+                // tests/ref_vec_skip.rs, which holds every type of this macro to it.
+                const PLAIN_BYTES: Option<usize> = Some($bits / 8);
 
                 fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     rd.[<read_ $sign $bits>]()

@@ -146,3 +146,8 @@ fuzz-shrink-wrap:
 [working-directory('fuzz')]
 fuzz-shrink-wrap-series:
     cargo +nightly fuzz run shrink-wrap-series -- -max_len=4096
+
+# Fuzz shrink_wrap RefVec of plain numbers against its decode pass (SW-37)
+[working-directory('fuzz')]
+fuzz-shrink-wrap-ref-vec:
+    cargo +nightly fuzz run shrink-wrap-ref-vec -- -max_len=4096

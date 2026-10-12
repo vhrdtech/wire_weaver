@@ -71,6 +71,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   about 510 bytes less per such encoder on RV32IC (a struct of plain fields 1476 → 964). For types with lengths
   `encode_len_fifo` / `write_nib` are smaller (`vec_ser` 1378 → 1142). Same wire format
   (`shrink_wrap/tests/pushes_len.rs`, `docs/serdes/code_size.md` steps 4 and 5).
+- ✅ **SW-37 `RefVec` of plain numbers without the decode pass**: a list of `u8`..`u128`, `i8`..`i128`, `f32` or
+  `f64` finds its end with one bounds check instead of reading every element (4096 bytes: 10 µs → 6 ns on a host),
+  same result, errors and reader state as the pass, same wire format (`shrink_wrap/tests/ref_vec_skip.rs`,
+  `just fuzz-shrink-wrap-ref-vec`). Costs 50 to 140 bytes of code in a decoder with such a list. Other `Sized` types
+  keep the pass on purpose (stride is not `size_bits`, elements are validated there):
+  `docs/serdes/code_size.md`.
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
@@ -109,7 +115,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/types.md`, "Subtypes").
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
-  round-tripped, random bytes into their readers). Round-trip every built-in type and the derive's features.
+  round-tripped, random bytes into their readers); `shrink-wrap-series` (SW-31, SW-32) and `shrink-wrap-ref-vec`
+  (SW-37) came with their features. Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small

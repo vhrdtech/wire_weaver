@@ -190,6 +190,31 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
 
         // save BufReader state and read out elements to advance beyond Vec
         let buf = *rd;
+        // u8..u128, i8..i128, f32, f64 only (SW-37): reading one is `read_raw_slice(size)` and nothing else, so
+        // all of them succeed exactly when one read of count * size bytes does, and that one leaves the reader
+        // where they would (tests/ref_vec_skip.rs compares the two on result and reader state). A constant per
+        // T, so every other RefVec<T> compiles to the pass alone, as before.
+        //
+        // Only success is decided here. An empty list reads nothing and so does not align either; a count
+        // whose size overflows, or a list that is too short, goes on to the pass below, which gives the error
+        // and the reader state it always gave (a failed read_raw_slice has only aligned to a byte, which the
+        // first read of the pass does too).
+        //
+        // Not done from ElementSize::Sized { size_bits } for other types, on purpose:
+        // - size_bits has no alignment padding in it, so it is not the stride of an element
+        //   (`struct { a: bool, b: u8 }` is 9 bits and takes 2 bytes; bit-packed elements share bytes with each
+        //   other, and the last one with the lengths read from the back);
+        // - the pass is also where an element is validated (an enum's discriminant, a string's UTF-8, a nested
+        //   length): skipping it would move those errors from here to the iteration.
+        if let Some(size) = T::PLAIN_BYTES
+            && let Some(len) = elements_count.checked_mul(size)
+            && (len == 0 || rd.read_raw_slice(len).is_ok())
+        {
+            return Ok(RefVec::Buf {
+                buf,
+                elements_count,
+            });
+        }
         for _ in 0..elements_count {
             let _item: T = rd.read()?;
         }

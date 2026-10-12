@@ -76,6 +76,12 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
       strings and nested types are handled as before. `BufReader` (and so `RefVec`) is 4 bytes larger.
     - The integer reads and writes up to 32 bits share one function each, and writing them no longer calls
       `memcpy`; `UNib32::len_nibbles()` no longer divides (430 bytes of division and `clz` routines on RV32I).
+- `RefVec<T>` of `u8`..`u128`, `i8`..`i128`, `f32` and `f64` is decoded without reading every element (SW-37):
+  the end of the list is one bounds check (`RefVec<u8>` of 4096 bytes: 10 µs → 6 ns on an x86-64 host). Same wire
+  format, and for every input the same result, `Error` and reader position as before; lists of any other type
+  (`bool`, `u1`..`uN`, `Nibble`, enums, structs, strings, ..) are decoded as before. It is not free in code: a
+  decoder with such a list is 50 to 140 bytes larger (RV32IC `vec_de` 592 → 652), see `docs/serdes/code_size.md`.
+  Nothing to change in user code; `DeserializeShrinkWrap` has a hidden constant with a default for it.
 - Compressed sequences for time series (SW-31, SW-32): `Delta<'i, T>` / `DeltaOwned<T>` and
   `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>` for `u8`..`u64` and `i8`..`i64`, `XorFloat<'i, T>` /
   `XorFloatOwned<T>` for `f32` / `f64`. Used as fields like `RefVec<'i, T>` / `Vec<T>`, same layout around the

@@ -97,6 +97,9 @@ All cases after the changes:
 | `busgen` | final | 11148 | 8062 | 7296 | 6512 |
 | `busgen_hand` | | 7824 | 5762 | 5152 | 4408 |
 
+`vec_de`, `busgen_de` and `busgen` are 50 to 140 bytes larger since SW-37, which is not in these tables: see
+[Lists of plain numbers](#lists-of-plain-numbers-time-for-bytes).
+
 Read as: on RV32IC the derived codec is now 1.55 times the hand-written one with evolvable types and 1.4 times with
 final ones (it was 1.95 and 1.8 times), and Cortex-M0 code is about 20 % smaller than RV32IC for the same source.
 
@@ -250,6 +253,55 @@ All five keep the wire format: every byte-level test of the workspace passes unc
    length after 5 to 7 bits) left those bits as they were in the buffer instead of zero. A reader skips them, so
    nothing on the other end changes, but the bytes depended on what the buffer held before.
 
+## Lists of plain numbers: time for bytes
+
+Done after the five steps (SW-37), and the one change here that makes the code larger. Decoding a `RefVec<T>`
+reads every element once just to find where the list ends. For `u8`..`u128`, `i8`..`i128`, `f32` and `f64` that
+is now one bounds check: reading such a value is "align to a byte, take N bytes" and nothing else, so `count`
+reads succeed exactly when one read of `count * N` bytes does. A list that is too short, or a count whose size
+overflows, still goes through the pass, so the error and the reader state are the ones it always gave. The wire
+format does not change.
+
+| | `RefVec<u8>` of 16 | of 256 | of 4096 |
+| --- | ---: | ---: | ---: |
+| decode pass | 43 ns | 631 ns | 10254 ns |
+| one bounds check | 5 ns | 5 ns | 6 ns |
+
+(`from_ww_bytes` on an x86-64 host, for the proportion. On a small CPU the pass is a call of `read_le32`, about 30
+instructions, per element; on a bit-serial softcore each of them takes 32 clock cycles or more.)
+
+It was expected to save code as well, and does not. Since step 2 the pass over a list of integers is a loop of
+about 22 bytes around the shared `read_le32`, nothing like the 130 byte `read::<RefVec<u16>>` of the first
+profile. The check comes on top of it (the pass stays for the error case), and `read_raw_slice` is no longer
+inlined into its only caller:
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `vec_de` | | 908 → 1004 | 592 → 652 | 548 → 596 | 536 → 582 |
+| `busgen_de` | evolvable | 8468 → 8604 | 6040 → 6126 | 5442 → 5504 | 5044 → 5112 |
+| `busgen_de` | final | 7588 → 7708 | 5452 → 5524 | 4920 → 4982 | 4496 → 4556 |
+| `busgen` | evolvable | 12532 → 12664 | 9000 → 9086 | 8114 → 8180 | 7320 → 7384 |
+| `busgen` | final | 11148 → 11268 | 8062 → 8134 | 7296 → 7356 | 6512 → 6576 |
+
+Every other case is unchanged, to the byte: the choice is a constant per element type
+(`DeserializeShrinkWrap::PLAIN_BYTES`, hidden, `None` by default), so a list of anything else compiles to the pass
+alone. Two other shapes were measured and were larger: one shared function that computes the end and the reader
+state after a failure (`vec_de` 714, `busgen` 9082 on RV32IC), and the same on top of `read_raw_slice` (670, 9114).
+
+Only these twelve types, on purpose. `ElementSize::Sized { size_bits }` is not used to skip other elements:
+
+- It is the size of the value without alignment padding, so it is not the stride of an element:
+  `struct { a: bool, b: u8 }` is 9 bits and takes 2 bytes. `bool`, `u1`..`uN` and `Nibble` are bit-packed, their
+  elements share bytes with each other and the last one with the lengths read from the back.
+- The pass is also where an element is validated: an enum's discriminant, a string's UTF-8, a nested length.
+  Without it those errors would move from decode time to the iteration, where code written against today's
+  behaviour does not expect them.
+
+`shrink_wrap/tests/ref_vec_skip.rs` holds the two against each other, result and whole reader state: every type,
+empty to long lists, every truncation, counts up to `u32::MAX`, lists that start in the middle of a byte or end
+where the lengths begin, inside a struct with every byte damaged in turn, and 40 000 random buffers read from
+random reader states. `just fuzz-shrink-wrap-ref-vec` does the same under libFuzzer.
+
 ## Build settings
 
 Not `shrink_wrap`'s to fix, but worth more than each code change:
@@ -278,13 +330,14 @@ The options that were on the table, and why none became a cargo feature:
 
 ## What is left
 
-`busgen` is still 3.0 to 3.2 KB above the hand-written codec on RV32IC. In order of what they would bring:
+`busgen` is still 3.0 to 3.3 KB above the hand-written codec on RV32IC. In order of what they would bring:
 
-1. **`RefVec<T>` of `Sized` elements without a decode pass**: the end of the list is `count * size`, and
-   `RefVecIter` can read in place. `ElementSize::Sized { size_bits }` is right for every type since SW-35 (enums
-   count their discriminant and one variant), but it is the size of the value without alignment padding: the
-   stride of an element also depends on its alignment (`struct { a: bool, b: u8 }` is 9 bits, 2 bytes per
-   element). Saves the `read::<RefVec<T>>` instances and a pass at run time.
+1. **`RefVec<T>` of `Sized` structs and enums without a decode pass**: not planned. It was done for plain
+   numbers only (SW-37, [above](#lists-of-plain-numbers-time-for-bytes)), where it is provably the same as the
+   pass, and there it costs code instead of saving it. For other `Sized` types it would also change behaviour:
+   the stride of an element is not its `size_bits` (alignment padding: `struct { a: bool, b: u8 }` is 9 bits,
+   2 bytes per element), and an invalid element (an enum discriminant) would be reported when the list is walked
+   instead of when it is decoded.
 2. **Latched reads for the rest**: `Nibble`, `u1`..`u32` (`read_un32`), `u64`. Small for the bench types, real for
    bit-packed ones.
 3. **A firmware-side `memcpy`**, see [Build settings](#build-settings): 300 bytes.

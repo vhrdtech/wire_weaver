@@ -2,6 +2,7 @@ use crate::ast::path::Path;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::transform::util::FieldPath;
 use proc_macro2::Ident;
+use quote::ToTokens;
 use syn::{Attribute, Expr, GenericArgument, Lit, PathArguments, PathSegment};
 
 pub(crate) fn transform_type(
@@ -65,7 +66,15 @@ pub(crate) fn transform_type(
             let inner = transform_type(*type_slice.elem, None, path)?;
             Ok(Type::Vec(Box::new(inner)))
         }
-        u => Err(format!("{u:?} is not supported")),
+        // rustc wraps a `$T:ty` macro_rules fragment (and any other type coming out of macro expansion) in an
+        // invisible group for hygiene; a literal `(u16)` parses as Paren. Neither changes the type, so unwrap and
+        // recurse as if the inner type had been written directly.
+        syn::Type::Group(type_group) => transform_type(*type_group.elem, _attrs, path),
+        syn::Type::Paren(type_paren) => transform_type(*type_paren.elem, _attrs, path),
+        u => Err(format!(
+            "`{}` is not supported as a field type",
+            u.to_token_stream()
+        )),
     }
 }
 

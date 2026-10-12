@@ -143,6 +143,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-10 Generic arguments on user field types**: `Foo<u8>`, `Wrapper<'i, T>` are emitted as written,
   `Wrapper<'i, T>` maps to `WrapperOwned<T>` in the owned variant (`docs/serdes/derive.md`, type mapping; test
   `shrink_wrap/tests/generic_external.rs`).
+- ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
+  rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field

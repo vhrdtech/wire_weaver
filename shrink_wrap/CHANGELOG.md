@@ -158,6 +158,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `ww_repr = u2` enum was sent as `0`). It is now a compile error, same as with the `#[ww_repr]` attribute.
 - An enum variant without an explicit discriminant following one with it (`A = 15, B`) got the same discriminant
   instead of the next one, failing to compile with a duplicate discriminant error.
+- `#[derive_shrink_wrap(..)]` rejected a field type substituted from a macro_rules `$T:ty` fragment, e.g.
+  `RefVec<'i, $T>` in a macro expanding to a struct (DER-11): rustc wraps such a fragment in an invisible group for
+  hygiene (and a literal `(u16)` parses the same way), which the type transform had no arm for. The catch-all error
+  for a still-unsupported type now shows it as written instead of a debug dump of the `syn` AST.
 
 ### 📚 Documentation
 

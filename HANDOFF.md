@@ -5,8 +5,12 @@
   `bits_de` 886 -> 846 B RV32IC, every other bench case unchanged. Nibble/u64/varints NOT latched (cost for
   one field, numbers in code_size.md). Tests: shrink_wrap/tests/latched_reads.rs, fuzz `shrink-wrap-latched`.
 
-## Next
-- B: firmware-side memcpy in the size bench (code_size.md "Build settings").
+- B (SW-39): byte-wise memcpy as an option of the bench (`--fw-features byte_memcpy`), documented as advice for
+  very small targets with its downsides (user's wish). -324 B RV32IC per image that moves a value.
+
+## Next (user, 12 Oct 21:01: the two fixes before C, each its own commit + SW id + CHANGELOG Fixed)
+- Fix 1: bit reads must not read into the reversed-length nibble (read_un*, read_bool, latched, writer mirror).
+- Fix 2: mixed latched/non-latched types return the FIRST error (+124 B busgen accepted, find the cheapest form).
 - C: finish_for in ww_codegen! output (wire_weaver_core) and ww_client_server.
 - End: update "What is left", git rm HANDOFF.md, tpm work ready.
 

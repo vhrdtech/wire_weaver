@@ -30,6 +30,8 @@ busgen_de = []
 busgen_ser = []
 busgen = []
 busgen_hand = []
+# The firmware's own byte-wise `memcpy` instead of the word-wise one of `compiler_builtins`.
+byte_memcpy = []
 # Types with a size assumption (`sized` where the fields allow it, else `final_structure`) instead of the
 # evolvable default.
 final = []

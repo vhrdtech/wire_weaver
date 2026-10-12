@@ -83,6 +83,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   88 on RV32I. Same wire format, results and errors as reading field by field (`shrink_wrap/tests/latched_reads.rs`,
   `just fuzz-shrink-wrap-latched`). `Nibble`, `u64` and varints are not latched: one such field costs more than it
   saves (`docs/serdes/code_size.md`).
+- ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
+  `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
+  RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for
+  the whole firmware. Code and downsides in `docs/serdes/code_size.md` ("Build settings"), measured with
+  `just size-bench --fw-features byte_memcpy`. Nothing in `shrink_wrap` depends on it.
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire

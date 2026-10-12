@@ -29,4 +29,8 @@ the repository's Cargo workspace, and built from its own directory.
 | `rp2`                                             | Raspberry Pi RP2350                                                         |
 | `mcu_qemu`                                        | Cortex-M3 emulated in QEMU (`all_gpio_api`)                                 |
 
+A firmware short of flash or RAM for code: linker relaxation on RISC-V saves about 10 %, and on very small
+targets a byte-wise `memcpy` about 320 bytes, with downsides, see
+[code size on small CPUs](../serdes/code_size.md#build-settings).
+
 A connected device can be inspected with the [command line tool](../cli.md): `ww list`, then `ww introspect`.

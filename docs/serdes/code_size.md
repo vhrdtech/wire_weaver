@@ -367,10 +367,75 @@ Not `shrink_wrap`'s to fix, but worth more than each code change:
   inlined is `auipc` + `jalr`, 8 bytes. With `-C target-feature=+relax` the linker turns them into `jal` (4 bytes)
   or `c.jal` (2 bytes): `busgen` 9000 → 8114, `busgen_hand` 5762 → 5152. Add it to the `rustflags` of any RISC-V
   firmware that is short of space.
-- **`memcpy`** from `compiler_builtins` is 338 bytes on RV32IC (316 on Cortex-M0), word-wise with alignment
-  handling. It is linked as soon as a value of more than a few words is moved, which a request or reply enum is.
-  `-Zbuild-std-features=optimize_for_size` does not change it. A firmware can define its own byte-wise `memcpy`
-  (about 20 bytes; not tried here, the loop must be kept from being turned back into a `memcpy` call).
+- **A byte-wise `memcpy`, for very small targets only** (SW-39): a measurement and advice, nothing in
+  `shrink_wrap` depends on it or asks for it. The `memcpy` of `compiler_builtins` is 338 bytes on RV32IC (316 on
+  Cortex-M0), word-wise with alignment handling. It is linked as soon as a value of more than a few words is
+  moved, which a request or reply enum is, and an encoder's value is; `-Zbuild-std-features=optimize_for_size`
+  does not change it. A firmware can define its own, a byte at a time: 22 bytes on RV32IC and Cortex-M0, 36 on
+  RV32I. Its symbol wins over the weak one of `compiler_builtins`. Only worth it where 300 bytes decide whether the
+  firmware fits (the 8 KB softcore above), and only with the downsides in mind:
+
+    - **Speed**: one byte per iteration instead of a word, about four times slower for long copies. Fine for moves
+      of a few dozen bytes, not for a firmware that copies buffers.
+    - **It replaces `memcpy` for the whole firmware**, every crate in it: HAL, drivers, buffer copies of the
+      transport, not only `shrink_wrap`'s moves.
+    - **The loop can be turned back into a call of `memcpy`**: LLVM recognizes a byte copy loop and replaces it with
+      `memcpy`, which here is the function itself, an endless recursion. `compiler_builtins` is built with
+      `#![no_builtins]` against this; the code below uses a volatile store. With the nightly of October 2026 LLVM
+      leaves the loop alone without it as well, in `memcpy` and in `__aeabi_memcpy`, but nothing promises that.
+      Check the disassembly when changing it.
+    - **`memmove`, `memset`, `memcmp` are separate** and stay those of `compiler_builtins` (none of them is linked
+      in the bench images).
+    - On Arm, code calls `__aeabi_memcpy`, whose `compiler_builtins` version calls its own `memcpy` directly, so that
+      symbol has to be defined too (and `__aeabi_memcpy4` / `__aeabi_memcpy8` if the code uses them).
+
+
+  ```rust
+  mod byte_memcpy {
+      use core::ffi::c_void;
+
+      #[inline(always)]
+      unsafe fn copy(dest: *mut c_void, src: *const c_void, n: usize) {
+          let (dest, src) = (dest.cast::<u8>(), src.cast::<u8>());
+          let mut i = 0;
+          while i < n {
+              // volatile: LLVM must not turn the loop back into a call of `memcpy`, i.e. of itself
+              unsafe { dest.add(i).write_volatile(*src.add(i)) };
+              i += 1;
+          }
+      }
+
+      #[unsafe(no_mangle)]
+      pub unsafe extern "C" fn memcpy(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void {
+          unsafe { copy(dest, src, n) };
+          dest
+      }
+
+      #[cfg(target_arch = "arm")]
+      #[unsafe(no_mangle)]
+      pub unsafe extern "C" fn __aeabi_memcpy(dest: *mut c_void, src: *const c_void, n: usize) {
+          unsafe { copy(dest, src, n) };
+      }
+  }
+  ```
+
+  `just size-bench --fw-features byte_memcpy` builds the bench with it (`shrink_wrap/size_bench/fw/src/main.rs`,
+  off by default, the tables above are without it); every image that copies a value is 300 to 410 bytes smaller,
+  the others do not change:
+
+  | case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+  | --- | --- | ---: | ---: | ---: | ---: |
+  | `struct_ser` | | 1348 → 936 | 964 → 640 | 872 → 554 | 830 → 526 |
+  | `vec_ser` | | 1634 → 1222 | 1142 → 818 | 1074 → 756 | 1030 → 726 |
+  | `busgen_de` | evolvable | 8604 → 8192 | 6126 → 5802 | 5504 → 5182 | 5112 → 4806 |
+  | `busgen_ser` | evolvable | 5284 → 4872 | 3650 → 3326 | 3256 → 2938 | 3224 → 2922 |
+  | `busgen` | evolvable | 12664 → 12252 | 9086 → 8762 | 8180 → 7848 | 7384 → 7082 |
+  | `busgen` | final | 11268 → 10856 | 8134 → 7810 | 7356 → 7030 | 6576 → 6270 |
+  | `busgen_hand` | | 7824 → 7412 | 5762 → 5438 | 5152 → 4834 | 4408 → 4104 |
+  | `rw_de`, `struct_de`, `vec_de`, `bits_de`, .. | | unchanged | | | |
+
+  The other `_ser` cases lose the same 412 / 324 / 318 / 304 bytes. With both settings the derived `busgen` codec
+  is 7848 bytes on RV32IC (evolvable) and 7030 (final), the hand-written one 4834.
 
 ## Feature flags
 
@@ -400,7 +465,9 @@ The options that were on the table, and why none became a cargo feature:
    types. What is left of it: `Nibble`, `u64` and the varints pay only from about two fields of a kind, and the
    mixed types (latched fields next to lists or nested types) report a later error instead of the first one in
    some cases; the fix measured 124 bytes on `busgen`.
-3. **A firmware-side `memcpy`**, see [Build settings](#build-settings): 300 bytes.
+3. **A firmware-side `memcpy`**: measured and documented as advice for very small targets, not a code change
+   (SW-39, [Build settings](#build-settings)): 324 bytes less on RV32IC for a firmware that moves a value, at the
+   price of speed and of replacing `memcpy` for the whole firmware.
 4. **`finish_for` in generated server and client code**: the code `ww_codegen!` generates and `ww_client_server`
    still end with `finish()`. Most of their messages carry arguments as bytes, a length, so the FIFO stays; a
    stream or a reply of plain values could lose it.

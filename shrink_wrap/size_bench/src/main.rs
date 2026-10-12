@@ -82,6 +82,9 @@ struct Args {
     /// shrink_wrap features to build with, e.g. `tiny`
     #[arg(long, value_delimiter = ',')]
     sw_features: Vec<String>,
+    /// Features of the firmware itself: `byte_memcpy` (its own byte-wise `memcpy`)
+    #[arg(long, value_delimiter = ',')]
+    fw_features: Vec<String>,
     /// Instead of the table: the N largest symbols of each image
     #[arg(short, long, value_name = "N")]
     symbols: Option<usize>,
@@ -108,11 +111,13 @@ fn build(
     case: &str,
     flavor: Flavor,
     sw_features: &[String],
+    fw_features: &[String],
 ) -> Result<Image> {
     let mut features = vec![case.to_string()];
     if flavor == Flavor::Final {
         features.push("final".into());
     }
+    features.extend(fw_features.iter().cloned());
     features.extend(sw_features.iter().map(|f| format!("shrink_wrap/{f}")));
     // one target dir per target: the RV32 ones share a triple and differ in RUSTFLAGS only
     let target_dir = fw.join("target").join(target.name());
@@ -214,7 +219,8 @@ fn main() -> Result<()> {
         let handles: Vec<_> = targets
             .iter()
             .map(|&target| {
-                let (rows, fw, sw_features) = (&rows, &fw, &args.sw_features);
+                let (rows, fw, sw_features, fw_features) =
+                    (&rows, &fw, &args.sw_features, &args.fw_features);
                 scope.spawn(move || {
                     rows.iter()
                         .enumerate()
@@ -225,7 +231,7 @@ fn main() -> Result<()> {
                                 rows.len(),
                                 target.name()
                             );
-                            build(fw, target, case, flavor, sw_features)
+                            build(fw, target, case, flavor, sw_features, fw_features)
                         })
                         .collect()
                 })

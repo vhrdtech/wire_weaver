@@ -21,6 +21,48 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+/// A byte at a time `memcpy`, instead of the word-wise one of `compiler_builtins` (338 bytes on RV32IC, 316 on
+/// Cortex-M0): about 20 bytes. The firmware's own symbols win over the weak ones of `compiler_builtins`. Off by
+/// default: a measurement, and advice for very small targets only, it is slower and replaces `memcpy` for the
+/// whole firmware (docs/serdes/code_size.md, "Build settings").
+#[cfg(feature = "byte_memcpy")]
+mod byte_memcpy {
+    use core::ffi::c_void;
+
+    /// # Safety
+    /// `dest` and `src` are valid for `n` bytes and do not overlap.
+    #[inline(always)]
+    unsafe fn copy(dest: *mut c_void, src: *const c_void, n: usize) {
+        let (dest, src) = (dest.cast::<u8>(), src.cast::<u8>());
+        let mut i = 0;
+        while i < n {
+            // SAFETY: as the caller promised. The volatile store keeps LLVM from turning the loop back into a
+            // call of `memcpy`, i.e. of itself.
+            unsafe { dest.add(i).write_volatile(*src.add(i)) };
+            i += 1;
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn memcpy(
+        dest: *mut c_void,
+        src: *const c_void,
+        n: usize,
+    ) -> *mut c_void {
+        // SAFETY: the same contract as ours
+        unsafe { copy(dest, src, n) };
+        dest
+    }
+
+    /// What Arm code calls; the one of `compiler_builtins` would call its own `memcpy`, not the one above.
+    #[cfg(target_arch = "arm")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn __aeabi_memcpy(dest: *mut c_void, src: *const c_void, n: usize) {
+        // SAFETY: the same contract as ours
+        unsafe { copy(dest, src, n) };
+    }
+}
+
 static mut RX: [u8; 1100] = [0; 1100];
 static mut TX: [u8; 300] = [0; 300];
 

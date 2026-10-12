@@ -433,11 +433,23 @@ impl ToTokens for CGEnumDes<'_> {
         // ));
         let read_discriminant = read_discriminant(self.item_enum.repr);
         let error = self.item_enum.crate_path.error();
+        // A latched discriminant that failed to read is 0, so is one read after an earlier latched read failed:
+        // without a variant 0 that is this arm, where the kept error comes first. Any other discriminant read
+        // returns the kept error itself.
+        let latched_discriminant = matches!(self.item_enum.repr, Repr::U8 | Repr::U16 | Repr::U32);
+        let has_zero = self.item_enum.variants.iter().any(|v| v.discriminant == 0);
+        let check_kept = maybe_quote(
+            latched_discriminant && !has_zero,
+            || quote! { rd.latched()?; },
+        );
         tokens.append_all(quote! {
             let discriminant = rd.#read_discriminant;
             let value = match discriminant {
                 #known_variants
-                _ => { return Err(#error::EnumFutureVersionOrMalformedData); }
+                _ => {
+                    #check_kept
+                    return Err(#error::EnumFutureVersionOrMalformedData);
+                }
             };
             rd.latched()?;
             Ok(value)
@@ -469,11 +481,6 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                 Fields::Named(fields_named) => {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
-                    let all_latched = Type::all_latched_expr(
-                        fields_named.iter().map(|f| (&f.ty, f.default.is_none())),
-                        !self.is_ref,
-                        self.item_enum.crate_path,
-                    );
                     for field in fields_named {
                         let field_name = &field.ident;
                         if !matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
@@ -490,7 +497,6 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             field.default.is_none(),
-                            &all_latched,
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );
@@ -501,11 +507,6 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                     let mut field_names = vec![];
                     let mut des_fields = TokenStream::new();
                     let mut idx_skip_flags = 0;
-                    let all_latched = Type::all_latched_expr(
-                        fields_unnamed.iter().map(|ty| (ty, true)),
-                        !self.is_ref,
-                        self.item_enum.crate_path,
-                    );
                     for ty in fields_unnamed {
                         let field_name =
                             Ident::new(format!("_{idx_skip_flags}").as_str(), Span::call_site());
@@ -524,7 +525,6 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                             !self.is_ref,
                             handle_eob,
                             true,
-                            &all_latched,
                             self.item_enum.crate_path,
                             &mut des_fields,
                         );

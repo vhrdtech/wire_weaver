@@ -12,8 +12,11 @@
   check). Model test buf_reader.rs bounds_every_state_every_read, round trips tests/rev_nibble_bounds.rs.
   Also fixed the tail-size fuzz target (NaN != NaN), separate commit.
 
-## Next (user, 12 Oct 21:01: the two fixes before C, each its own commit + SW id + CHANGELOG Fixed)
-- Fix 2: mixed latched/non-latched types return the FIRST error (+124 B busgen accepted, find the cheapest form).
+- Fix 2 (SW-41): a kept error stops the reader (kept() at the start of every leaf read, byte reads share
+  take_bytes, enum `_` arm checks latched() when no variant 0). +20 B busgen RV32IC; 4 forms measured
+  (code_size.md "Fixed on the way"). The SW-38 all-latched rule and the LATCHES consts are gone with it.
+
+## Next
 - C: finish_for in ww_codegen! output (wire_weaver_core) and ww_client_server.
 - End: update "What is left", git rm HANDOFF.md, tpm work ready.
 

@@ -69,8 +69,6 @@ macro_rules! un {
                     Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
                 }
 
-                const LATCHES: bool = true;
-
                 #[inline(always)]
                 fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
                     Ok([<U $bits>](rd.[<read_un $base_bits _latch>]($bits)))
@@ -83,8 +81,6 @@ macro_rules! un {
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     Ok([<U $bits>](rd.[<read_un $base_bits>]($bits)?))
                 }
-
-                const LATCHES: bool = true;
 
                 #[inline(always)]
                 fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
@@ -154,6 +150,7 @@ macro_rules! read_unx {
         paste::paste! {
             #[doc = "Read up to " $max_bit_count " bits (without alignment) into " $base_ty " number."]
             pub fn $fn_name(&mut self, bit_count: u8) -> Result<$base_ty, Error> {
+                self.kept()?;
                 if bit_count > $max_bit_count {
                     return Err(Error::InvalidBitCount);
                 }
@@ -282,8 +279,6 @@ macro_rules! signed_un {
                     Ok(Self::sign_extend(rd.[<read_un $base_bits>]($bits)?))
                 }
 
-                const LATCHES: bool = true;
-
                 #[inline(always)]
                 fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
                     Ok(Self::sign_extend(rd.[<read_un $base_bits _latch>]($bits)))
@@ -296,8 +291,6 @@ macro_rules! signed_un {
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     Ok(Self::sign_extend(rd.[<read_un $base_bits>]($bits)?))
                 }
-
-                const LATCHES: bool = true;
 
                 #[inline(always)]
                 fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {

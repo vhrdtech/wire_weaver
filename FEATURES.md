@@ -78,11 +78,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   keep the pass on purpose (stride is not `size_bits`, elements are validated there):
   `docs/serdes/code_size.md`.
 - ✅ **SW-38 Latched reads of `U1`..`U64` / `I2`..`I64` fields**: read like the integers of SW-34, with one error
-  check per type, where every field of the struct or enum variant is latched (decided at compile time through a
-  hidden `DeserializeShrinkWrap::LATCHES`); a bit-packed struct decodes in 40 bytes less on RV32IC (886 → 846),
-  88 on RV32I. Same wire format, results and errors as reading field by field (`shrink_wrap/tests/latched_reads.rs`,
-  `just fuzz-shrink-wrap-latched`). `Nibble`, `u64` and varints are not latched: one such field costs more than it
-  saves (`docs/serdes/code_size.md`).
+  check per type (through a hidden `DeserializeShrinkWrap::des_shrink_wrap_latch`); a bit-packed struct decodes in
+  40 bytes less on RV32IC (886 → 846), 88 on RV32I. Same wire format, results and errors as reading field by field
+  (`shrink_wrap/tests/latched_reads.rs`, `just fuzz-shrink-wrap-latched`). `Nibble`, `u64` and varints are not
+  latched: one such field costs more than it saves (`docs/serdes/code_size.md`).
+- ✅ **SW-41 First error in types that mix latched and other fields**: an error kept by a `_latch` read stops the
+  reader (reads with a `Result` return it, no read moves), so a derived decoder with lists or nested types next to
+  plain fields returns the first error again, as before SW-34. 20 bytes on a request/reply decoder (RV32IC), four
+  forms measured (`docs/serdes/code_size.md`, `shrink_wrap/tests/latched_errors.rs`).
 - ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
   `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for

@@ -307,9 +307,9 @@ random reader states. `just fuzz-shrink-wrap-ref-vec` does the same under libFuz
 
 Done after SW-37 (SW-38). `U1`..`U64` and `I2`..`I64` fields are read like the integers of step 3: no error check
 each, one `rd.latched()?` per type. The derive cannot tell `U4` from a nested struct by its name, so the type says
-so itself: `DeserializeShrinkWrap::LATCHES` (hidden, `false` by default) is `true` for them, and their
-`des_shrink_wrap_latch` calls `BufReader::read_un32_latch` / `read_un64_latch`, which are `read_un32` /
-`read_un64` with the error kept. The wire format does not change.
+so itself: their `DeserializeShrinkWrap::des_shrink_wrap_latch` (hidden, `read` by default) calls
+`BufReader::read_un32_latch` / `read_un64_latch`, which are `read_un32` / `read_un64` with the error kept, and the
+derive reads every field of a user type through it. The wire format does not change.
 
 | case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -317,18 +317,10 @@ so itself: `DeserializeShrinkWrap::LATCHES` (hidden, `false` by default) is `tru
 
 Every other case is unchanged, to the byte: none of them has such a field.
 
-**Only where every field is latched.** Since step 3 a type that mixes latched fields with ones read with `?` (a
-list, a string, a nested type) can report the wrong error: when a latched read fails and a later `?` read fails
-too, the later error is returned and the first one is left in the reader. A struct of a `u32` and a
-`RefVec<u8>` decoded from 0 to 5 bytes gives `OutOfBoundsRev` or `OutOfBoundsReadU8` in 11 of 24 cases where
-reading field by field gives `OutOfBoundsReadRawSlice`; it is an error in all of them, never a panic. For the
-`U`/`I` fields that was not acceptable: today they report their own error. So the derive latches them only in a
-struct or enum variant whose every read is latched (a compile-time `&&` of the fields' `LATCHES`); there its one
-`latched()?` is its only error exit and reports the first error, the one reading field by field gives. Everywhere
-else they are read with `?` as before. Fixing the mixed types for everybody was measured too: map any error
-leaving a derived decoder to the kept one (`latch.take().unwrap_or(e)`, one function, called on the error path).
-It costs 124 bytes in `busgen` and 26 in `struct_de` on RV32IC, more than this step saves, so it was not done
-(see [What is left](#what-is-left)).
+As first landed, this was limited to types whose every field is latched: since step 3 a type that mixed latched
+fields with lists or nested types could report a later error instead of the first one, and the `U`/`I` fields
+were not to join that. The mixed types were fixed right after (SW-41, [Fixed on the way](#fixed-on-the-way)), and
+the limit went with it.
 
 **Not latched: `Nibble`, `u64` / `i64` / `f64`, `u128` / `i128`, the varints.** Tried, and one field of a kind costs
 more than it saves: the read is a function of its own then, where with `?` it was inlined into its only caller. A
@@ -344,20 +336,17 @@ rule above):
 | `U`/`I` | 2172 | 1424 | 1180 |
 | `U`/`I`, `Nibble`, `u64`, `UNib32` | 2036 | 1358 | 1100 |
 
-From about two fields of a kind it would pay. With the rule above, a type with one of these fields is a mixed type
-and reads its `U`/`I` fields with `?`: such a struct gets nothing from this step.
+From about two fields of a kind it would pay.
 
 Discriminants other than `u8` / `u16` / `u32` (`Nibble`, `u1`..`u31`, `UNib32`) and `TailSize` slots are read with
 `?` as before: the code decides with them before `latched()` is checked. (`u8` / `u16` / `u32` discriminants and
 `Option` / `Result` flags have been latched since step 3: a failed one reads as 0 / `false`, i.e. variant 0 or
-`None` / `Err`, and the kept error is what the type returns, unless that variant has a `?` read of its own that
-fails first, the mixed case above.)
+`None` / `Err`, and since SW-41 the kept error is what the type returns in every case.)
 
 `shrink_wrap/tests/latched_reads.rs` holds each of the 126 types against its read with a `Result` (value, error,
 whole reader state, from every bit offset and from 20 000 random reader states, an earlier kept error stays
-first) and derived structs and enums against the same fields read one by one with `?`; seven hand-made mutants
-(a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension, latching in
-mixed types) each fail it. `just fuzz-shrink-wrap-latched` does the same under libFuzzer.
+first) and derived structs and enums against the same fields read one by one with `?`; six hand-made mutants
+(a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension) each fail it. `just fuzz-shrink-wrap-latched` does the same under libFuzzer.
 
 ## Fixed on the way
 
@@ -377,6 +366,45 @@ read has one check more:
 | `busgen` | final | 11268 → 11360 | 8134 → 8190 | 7356 → 7416 | 6576 → 6632 |
 
 (`busgen_ser` grows because encoding a `RefVec<RxFrame>` contains its decoder, see [Lists](#where-the-bytes-went).)
+
+**The first error in types that mix latched and other fields** (SW-41). Since step 3, a type with latched plain
+fields and fields read with `?` (a list, a string, a nested evolvable type, an `Option` of one) could return a
+later error instead of the first: in a `u32` followed by a `RefVec<u8>`, decoded from 0 to 5 bytes, 11 of 24
+cases gave `OutOfBoundsRev` or `OutOfBoundsReadU8` where reading field by field gives `OutOfBoundsReadRawSlice`. It
+was an error in every case, but not the one it was before step 3. Now an error kept in the reader stops it: every
+read with a `Result` returns that error, a `_latch` read gives 0, and no read moves; an enum without a variant 0
+checks `latched()` before it reports an unknown discriminant (a discriminant read after an error is 0). So every
+error exit of a derived decoder reports the first error, and nothing read after it decides anything.
+
+Four forms were measured, RV32IC, bytes over the code before the fix:
+
+| form | `struct_de` | `vec_de` | `busgen` evolvable | `busgen` final |
+| --- | ---: | ---: | ---: | ---: |
+| map the error that leaves a derived decoder to the kept one (`latch.take().unwrap_or(e)`, per type) | +26 | | +124 | |
+| the check at the start of every read | +16 | +48 | +68 | +116 |
+| the same, the reads with a `Result` only, the `_latch` ones go on | 0 | +34 | +30 | +90 |
+| the check at the start of every read, the byte reads sharing one bounds check (chosen) | +48 | +28 | +20 | +20 |
+
+The last one is the cheapest for a real decoder; the small cases pay for a function call the first one inlines.
+All targets, with the chosen form:
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `rw_de` | | 648 → 732 | 444 → 492 | 404 → 446 | 364 → 402 |
+| `struct_de` | | 840 → 924 | 554 → 602 | 478 → 520 | 440 → 478 |
+| `enum_de` | | 1004 → 1088 | 678 → 726 | 586 → 628 | 512 → 550 |
+| `vec_de` | | 1040 → 1060 | 664 → 692 | 608 → 628 | 622 → 632 |
+| `bits_de` | | 1168 → 1256 | 774 → 822 | 686 → 728 | 622 → 652 |
+| `option_de` | | 980 → 1064 | 658 → 706 | 554 → 596 | 520 → 558 |
+| `busgen_de` | evolvable | 8696 → 8736 | 6182 → 6202 | 5564 → 5596 | 5168 → 5196 |
+| `busgen_ser` | evolvable | 5296 → 5348 | 3676 → 3718 | 3282 → 3324 | 3228 → 3296 |
+| `busgen` | evolvable | 12756 → 12800 | 9142 → 9162 | 8244 → 8276 | 7440 → 7468 |
+| `busgen` | final | 11360 → 11388 | 8190 → 8210 | 7416 → 7438 | 6632 → 6652 |
+
+`shrink_wrap/tests/latched_errors.rs` holds a request enum with each of these shapes against the same fields read
+one by one with `?`: the result (error included) and the reader of every truncation, every byte damaged in turn
+and 20 000 random buffers; an enum without a variant 0 after a failed field. Removing any one of the checks makes
+a test fail.
 
 ## Build settings
 
@@ -479,11 +507,10 @@ The options that were on the table, and why none became a cargo feature:
    the stride of an element is not its `size_bits` (alignment padding: `struct { a: bool, b: u8 }` is 9 bits,
    2 bytes per element), and an invalid element (an enum discriminant) would be reported when the list is walked
    instead of when it is decoded.
-2. **Latched reads for the rest**: done for `U1`..`U64` / `I2`..`I64` in types whose every field is latched
-   (SW-38, [above](#latched-bit-fields)): 40 bytes less for a bit-packed struct on RV32IC, nothing for the busgen
-   types. What is left of it: `Nibble`, `u64` and the varints pay only from about two fields of a kind, and the
-   mixed types (latched fields next to lists or nested types) report a later error instead of the first one in
-   some cases; the fix measured 124 bytes on `busgen`.
+2. **Latched reads for the rest**: done for `U1`..`U64` / `I2`..`I64` (SW-38, [above](#latched-bit-fields)):
+   40 bytes less for a bit-packed struct on RV32IC, nothing for the busgen types. Not done: `Nibble`, `u64` and
+   the varints pay only from about two fields of a kind. Fixed on the way: mixed types report the first error
+   again (SW-41, 20 bytes on `busgen`).
 3. **A firmware-side `memcpy`**: measured and documented as advice for very small targets, not a code change
    (SW-39, [Build settings](#build-settings)): 324 bytes less on RV32IC for a firmware that moves a value, at the
    price of speed and of replacing `memcpy` for the whole firmware.

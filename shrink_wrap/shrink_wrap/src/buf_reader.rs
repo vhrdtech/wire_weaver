@@ -48,6 +48,7 @@ impl<'i> BufReader<'i> {
     // would go through memory at every call (docs/serdes/code_size.md).
     #[inline(never)]
     fn read_bit(&mut self) -> Result<u32, Error> {
+        self.kept()?;
         if self.bits_in_byte_left() == 0 {
             return Err(Error::OutOfBoundsReadBool);
         }
@@ -64,7 +65,8 @@ impl<'i> BufReader<'i> {
     /// Align to byte and read `len` (1 to 4) bytes as a Little Endian number.
     #[inline(never)]
     fn read_le32(&mut self, len: usize) -> Result<u32, Error> {
-        let Ok(bytes) = self.read_raw_slice(len) else {
+        self.kept()?;
+        let Some(bytes) = self.take_bytes(len) else {
             return Err(if len == 1 {
                 Error::OutOfBoundsReadU8
             } else {
@@ -87,6 +89,7 @@ impl<'i> BufReader<'i> {
     /// Note that there is a method read_un8(4, val), that will also read 4 bits from the buffer,
     /// but will use an alignment of 1 bit instead.
     pub fn read_nib(&mut self) -> Result<Nibble, Error> {
+        self.kept()?;
         self.align_nibble();
         if self.nibbles_in_byte_left() == 0 {
             return Err(Error::OutOfBoundsReadU4);
@@ -154,12 +157,25 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// An error kept by a `_latch` read: while it is there no read moves, a read with a `Result` returns it and a
+    /// `_latch` read gives 0 (SW-41). So a value whose plain fields are latched reports the first error even when
+    /// a later field, read with `?`, fails too, and nothing read after the error decides anything (a discriminant
+    /// is 0, a flag `false`). Not cleared: [latched](Self::latched) still returns it.
+    #[inline(always)]
+    fn kept(&self) -> Result<(), Error> {
+        match self.latch {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
     /// The first error of the `read_*_latch` methods since the last call, if any.
     ///
     /// The `_latch` reads are what `#[derive_shrink_wrap]` generates for plain fields: a run of them is followed
     /// by one `rd.latched()?` instead of an error check after each read, which is about half the code on small
-    /// CPUs (docs/serdes/code_size.md). A read that fails gives 0, and the reads after it go on: don't use the values
-    /// before `latched()` returned `Ok`, in particular not as a loop bound.
+    /// CPUs (docs/serdes/code_size.md). A read that fails gives 0, so do the `_latch` reads after it, and every
+    /// read with a `Result` returns the kept error until it is taken here: don't use the values before
+    /// `latched()` returned `Ok`, in particular not as a loop bound.
     #[inline]
     pub fn latched(&mut self) -> Result<(), Error> {
         match self.latch.take() {
@@ -390,13 +406,20 @@ impl<'i> BufReader<'i> {
 
     /// Align to byte and create a slice with the provided length.
     pub fn read_raw_slice(&mut self, len: usize) -> Result<&'i [u8], Error> {
+        self.kept()?;
+        self.take_bytes(len).ok_or(Error::OutOfBoundsReadRawSlice)
+    }
+
+    /// [read_raw_slice](Self::read_raw_slice) without looking at a kept error
+    #[inline(never)]
+    fn take_bytes(&mut self, len: usize) -> Option<&'i [u8]> {
         self.align_byte();
         if self.bytes_left() < len {
-            return Err(Error::OutOfBoundsReadRawSlice);
+            return None;
         }
         let val = &self.buf[self.byte_idx..self.byte_idx + len];
         self.byte_idx += len;
-        Ok(val)
+        Some(val)
     }
 
     /// Read length of the u8 slice from the back of the buffer and then the slice itself
@@ -446,6 +469,7 @@ impl<'i> BufReader<'i> {
     /// This is the main mechanism used for forwards and backwards compatibility, as it allows for older code
     /// to ignore newer data by simply skipping additional bytes it doesn't know about.
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
+        self.kept()?;
         self.align_byte();
         if self.bytes_left() < len {
             return Err(Error::OutOfBoundsSplit);
@@ -465,6 +489,7 @@ impl<'i> BufReader<'i> {
     }
 
     pub(crate) fn read_u4_rev(&mut self) -> Result<u8, Error> {
+        self.kept()?;
         if self.byte_idx >= self.len_bytes {
             return Err(OutOfBoundsRev);
         }
@@ -836,14 +861,26 @@ mod tests {
         assert!(rd.read_bool_latch());
         assert_eq!(rd.read_u16_latch(), 0x1234);
         assert_eq!(rd.latched(), Ok(()));
-        // 4 bytes wanted, 1 left: 0, the error is kept, and the reads after it go on
+        // 4 bytes wanted, 1 left: 0, the error is kept, and the reads after it give 0 without moving (SW-41)
         assert_eq!(rd.read_u32_latch(), 0);
-        assert_eq!(rd.read_u8_latch(), 0xAA);
+        let pos = rd.pos();
         assert_eq!(rd.read_u8_latch(), 0);
         assert!(!rd.read_bool_latch());
+        assert_eq!(rd.pos(), pos);
+        // a read with a Result returns the kept error too, and keeps it
+        assert_eq!(rd.read_u8(), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_bool(), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_nib(), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_un8(3), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_un64(3), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_raw_slice(1), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.split(1), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.read_rev_len(), Err(Error::OutOfBoundsReadRawSlice));
+        assert_eq!(rd.pos(), pos);
         // the first error, once
         assert_eq!(rd.latched(), Err(Error::OutOfBoundsReadRawSlice));
         assert_eq!(rd.latched(), Ok(()));
+        assert_eq!(rd.read_u8_latch(), 0xAA);
     }
 
     #[test]

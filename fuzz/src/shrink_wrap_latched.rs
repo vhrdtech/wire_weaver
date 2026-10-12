@@ -9,7 +9,6 @@ use shrink_wrap::prelude::*;
 use shrink_wrap::{BufReader, Error};
 
 fn check<'i, T: DeserializeShrinkWrap<'i> + PartialEq + core::fmt::Debug>(rd: BufReader<'i>) {
-    assert!(T::LATCHES);
     let mut rd_old = rd;
     let old = rd_old.read::<T>();
     let mut rd_new = rd;

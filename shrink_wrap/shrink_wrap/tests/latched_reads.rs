@@ -1,9 +1,8 @@
 //! `U1`..`U64` and `I2`..`I64` fields of derived types are read with the error kept in the reader
 //! (`BufReader::read_field`, `read_un*_latch`) and checked once per type, like the integers since SW-34 (SW-38).
-//! Only in a struct or an enum variant whose every read keeps its error, so that the one check reports the first
-//! one. That must not be observable: a read gives the value, the error and the reader state of the read with a
-//! `Result`, a failed one gives 0 and keeps the first error, and a derived type gives the result of reading
-//! every field with `?`, and on success the same reader.
+//! That must not be observable: a read gives the value, the error and the reader state of the read with a
+//! `Result`, a failed one gives 0 and keeps the first error, and a derived type gives the result of reading every
+//! field with `?` (since SW-41 also when it has lists or nested types), and on success the same reader.
 
 use shrink_wrap::prelude::*;
 use shrink_wrap::{BufReader, Error};
@@ -446,19 +445,33 @@ fn random_buffers() {
     assert!(ok > 1000 && err > 1000, "{ok} decoded, {err} errors");
 }
 
+/// Every other type is read by `read_field` as by `read`: its error is returned, not kept.
 #[test]
-fn scope_is_exactly_the_bit_numbers() {
-    for_each_un!(|T| {
-        const { assert!(<T as DeserializeShrinkWrap>::LATCHES) };
-        const { assert!(<T as DeserializeShrinkWrapOwned>::LATCHES) };
-    });
-    const { assert!(!<u8 as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<bool as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<Nibble as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<UNib32 as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<Option<U4> as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<(U4, U4) as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<Sample as DeserializeShrinkWrap>::LATCHES) };
-    const { assert!(!<Sample as DeserializeShrinkWrapOwned>::LATCHES) };
-    const { assert!(!<Ev as DeserializeShrinkWrap>::LATCHES) };
+fn other_types_are_read_as_before() {
+    fn same<'i, T: DeserializeShrinkWrap<'i> + PartialEq + core::fmt::Debug>(buf: &'i [u8]) {
+        let (mut a, mut b) = (BufReader::new(buf), BufReader::new(buf));
+        assert_eq!(
+            a.read::<T>(),
+            b.read_field::<T>(),
+            "{}",
+            core::any::type_name::<T>()
+        );
+        assert_eq!(a, b);
+    }
+    for buf in [
+        &[][..],
+        &[0x80],
+        &[0xFF, 0xFF],
+        &[0x12, 0x34, 0x56, 0x78, 0x9A],
+    ] {
+        same::<u8>(buf);
+        same::<u32>(buf);
+        same::<bool>(buf);
+        same::<Nibble>(buf);
+        same::<UNib32>(buf);
+        same::<Option<U4>>(buf);
+        same::<(U4, U4)>(buf);
+        same::<Sample>(buf);
+        same::<Ev>(buf);
+    }
 }

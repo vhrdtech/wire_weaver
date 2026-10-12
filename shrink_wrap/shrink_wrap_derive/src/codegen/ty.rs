@@ -299,39 +299,6 @@ impl Type {
         tokens.append_all(quote! { wr.backfill_tail_size(__tail_size_slot)?; });
     }
 
-    /// Const `bool` expression: whether none of the reads of `fields` (type, read with a latch, i.e. no default)
-    /// has an error exit of its own, when user types that can latch (`U1`..`U64`, `I2`..`I64`, asked through
-    /// `DeserializeShrinkWrap::LATCHES`) are read with one too. Then a struct's or a variant's only error exit is
-    /// its `rd.latched()?`, which reports the first error, the one reading every field with `?` gives. In any
-    /// other type a user type is read with `?` as before: there an error after a failed latched read would be
-    /// reported instead of it (see [buf_read](Self::buf_read)).
-    pub(crate) fn all_latched_expr<'a>(
-        fields: impl Iterator<Item = (&'a Type, bool)>,
-        owned: bool,
-        cp: &CratePath,
-    ) -> TokenStream {
-        let (_, des_trait) = cp.serdes_traits(!owned);
-        let mut exprs = vec![];
-        for (ty, latch) in fields {
-            if !latch || ty.is_latched() {
-                // a field with a default falls back instead of returning
-                continue;
-            }
-            if let Type::External(_, _) = ty {
-                let def = ty.def(!owned, cp);
-                exprs.push(quote! { <#def as #des_trait>::LATCHES });
-            } else {
-                return quote! { false };
-            }
-        }
-        if exprs.is_empty() {
-            quote! { true }
-        } else {
-            quote! { (#(#exprs)&&*) }
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn buf_read(
         &self,
         variable_name: &Ident,
@@ -339,8 +306,6 @@ impl Type {
         handle_err: TokenStream,
         // false for a field with a default: its read must see the error to fall back
         latch: bool,
-        // `all_latched_expr` of the struct or enum variant: user types that can latch their errors do
-        all_latched: &TokenStream,
         cp: &CratePath,
         tokens: &mut TokenStream,
     ) {
@@ -401,19 +366,15 @@ impl Type {
                 return;
             }
             Type::External(_, _) if latch => {
-                // `read_field` is `read` but for the types that can keep the error for `rd.latched()?`
-                // (`DeserializeShrinkWrap::des_shrink_wrap_latch`); the condition is a constant
+                // `read_field` is `read`, but `U1`..`U64` and `I2`..`I64` keep the error for `rd.latched()?`
+                // (`DeserializeShrinkWrap::des_shrink_wrap_latch`)
                 let read_field = if owned {
                     quote! { read_field_owned }
                 } else {
                     quote! { read_field }
                 };
                 tokens.append_all(quote! {
-                    let #variable_name = if #all_latched {
-                        rd.#read_field() #handle_err
-                    } else {
-                        rd.#read() #handle_err
-                    };
+                    let #variable_name = rd.#read_field() #handle_err;
                 });
                 return;
             }

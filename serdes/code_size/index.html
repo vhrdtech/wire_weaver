@@ -15,6 +15,7 @@
         <link rel="canonical" href="https://ww.vhrd.tech/serdes/code_size/">
       
       
+      
         <link rel="prev" href="../use_cases/">
       
       
@@ -25,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.69">
+      <meta name="generator" content="zensical-0.0.70">
     
     
       
@@ -36,12 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e15858d4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e442bf79.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b27955a4.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
       
       
 
@@ -906,6 +907,39 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Lists of plain numbers: time for bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#latched-bit-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Latched bit fields
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed-on-the-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed on the way
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replies-of-generated-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Replies of generated servers
       </span>
     </span>
   </a>
@@ -2421,6 +2455,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#latched-bit-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Latched bit fields
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed-on-the-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed on the way
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replies-of-generated-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Replies of generated servers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-settings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2638,6 +2705,10 @@ are measured, not run.</p>
 <td>a struct with a <code>u16</code> and a <code>RefVec&lt;u16&gt;</code>, the list walked after decoding</td>
 </tr>
 <tr>
+<td><code>bits_de</code>, <code>bits_ser</code></td>
+<td>a bit-packed struct: <code>U3</code>, <code>bool</code>, <code>U4</code>, <code>U12</code>, <code>I10</code>, <code>U20</code>, <code>U5</code>, <code>u8</code> (<code>Sample</code>, since SW-38)</td>
+</tr>
+<tr>
 <td><code>option_de</code>, <code>option_ser</code></td>
 <td>a struct of ten fields, two of them <code>Option</code></td>
 </tr>
@@ -2656,6 +2727,10 @@ are measured, not run.</p>
 <tr>
 <td><code>busgen_hand</code></td>
 <td>the same as <code>busgen</code> with a hand-written codec: bytes, little endian, a list is a count and its items, reading past the end gives zeros</td>
+</tr>
+<tr>
+<td><code>reply</code></td>
+<td>a method's reply as <code>ww_codegen!</code> server code encodes it: a <code>Wave</code> return value alone, then the <code>ww_client_server::Event</code> around its bytes, and the error event when that fails</td>
 </tr>
 </tbody>
 </table>
@@ -3373,6 +3448,360 @@ state after a failure (<code>vec_de</code> 714, <code>busgen</code> 9082 on RV32
 empty to long lists, every truncation, counts up to <code>u32::MAX</code>, lists that start in the middle of a byte or end
 where the lengths begin, inside a struct with every byte damaged in turn, and 40 000 random buffers read from
 random reader states. <code>just fuzz-shrink-wrap-ref-vec</code> does the same under libFuzzer.</p>
+<h2 id="latched-bit-fields">Latched bit fields<a class="headerlink" href="#latched-bit-fields" title="Permanent link">&para;</a></h2>
+<p>Done after SW-37 (SW-38). <code>U1</code>..<code>U64</code> and <code>I2</code>..<code>I64</code> fields are read like the integers of step 3: no error check
+each, one <code>rd.latched()?</code> per type. The derive cannot tell <code>U4</code> from a nested struct by its name, so the type says
+so itself: their <code>DeserializeShrinkWrap::des_shrink_wrap_latch</code> (hidden, <code>read</code> by default) calls
+<code>BufReader::read_un32_latch</code> / <code>read_un64_latch</code>, which are <code>read_un32</code> / <code>read_un64</code> with the error kept, and the
+derive reads every field of a user type through it. The wire format does not change.</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bits_de</code></td>
+<td></td>
+<td style="text-align: right;">1364 → 1276</td>
+<td style="text-align: right;">886 → 846</td>
+<td style="text-align: right;">786 → 746</td>
+<td style="text-align: right;">700 → 666</td>
+</tr>
+</tbody>
+</table>
+<p>Every other case is unchanged, to the byte: none of them has such a field.</p>
+<p>As first landed, this was limited to types whose every field is latched: since step 3 a type that mixed latched
+fields with lists or nested types could report a later error instead of the first one, and the <code>U</code>/<code>I</code> fields
+were not to join that. The mixed types were fixed right after (SW-41, <a href="#fixed-on-the-way">Fixed on the way</a>), and
+the limit went with it.</p>
+<p><strong>Not latched: <code>Nibble</code>, <code>u64</code> / <code>i64</code> / <code>f64</code>, <code>u128</code> / <code>i128</code>, the varints.</strong> Tried, and one field of a kind costs
+more than it saves: the read is a function of its own then, where with <code>?</code> it was inlined into its only caller. A
+struct of five <code>U</code>/<code>I</code> fields, a <code>bool</code>, a <code>Nibble</code>, a <code>UNib32</code> and a <code>u64</code> (every field latched, before the
+rule above):</p>
+<table>
+<thead>
+<tr>
+<th>latched</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>nothing (before)</td>
+<td style="text-align: right;">1628</td>
+<td style="text-align: right;">1086</td>
+<td style="text-align: right;">900</td>
+</tr>
+<tr>
+<td><code>U</code>/<code>I</code></td>
+<td style="text-align: right;">1580</td>
+<td style="text-align: right;">1060</td>
+<td style="text-align: right;">872</td>
+</tr>
+<tr>
+<td><code>U</code>/<code>I</code>, <code>Nibble</code>, <code>u64</code>, <code>UNib32</code></td>
+<td style="text-align: right;">1628</td>
+<td style="text-align: right;">1090</td>
+<td style="text-align: right;">908</td>
+</tr>
+<tr>
+<td>the same with three more <code>Nibble</code>, <code>UNib32</code> and <code>u64</code>: nothing</td>
+<td style="text-align: right;">2232</td>
+<td style="text-align: right;">1452</td>
+<td style="text-align: right;">1204</td>
+</tr>
+<tr>
+<td><code>U</code>/<code>I</code></td>
+<td style="text-align: right;">2172</td>
+<td style="text-align: right;">1424</td>
+<td style="text-align: right;">1180</td>
+</tr>
+<tr>
+<td><code>U</code>/<code>I</code>, <code>Nibble</code>, <code>u64</code>, <code>UNib32</code></td>
+<td style="text-align: right;">2036</td>
+<td style="text-align: right;">1358</td>
+<td style="text-align: right;">1100</td>
+</tr>
+</tbody>
+</table>
+<p>From about two fields of a kind it would pay.</p>
+<p>Discriminants other than <code>u8</code> / <code>u16</code> / <code>u32</code> (<code>Nibble</code>, <code>u1</code>..<code>u31</code>, <code>UNib32</code>) and <code>TailSize</code> slots are read with
+<code>?</code> as before: the code decides with them before <code>latched()</code> is checked. (<code>u8</code> / <code>u16</code> / <code>u32</code> discriminants and
+<code>Option</code> / <code>Result</code> flags have been latched since step 3: a failed one reads as 0 / <code>false</code>, i.e. variant 0 or
+<code>None</code> / <code>Err</code>, and since SW-41 the kept error is what the type returns in every case.)</p>
+<p><code>shrink_wrap/tests/latched_reads.rs</code> holds each of the 126 types against its read with a <code>Result</code> (value, error,
+whole reader state, from every bit offset and from 20 000 random reader states, an earlier kept error stays
+first) and derived structs and enums against the same fields read one by one with <code>?</code>; six hand-made mutants
+(a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension) each fail it. <code>just fuzz-shrink-wrap-latched</code> does the same under libFuzzer.</p>
+<h2 id="fixed-on-the-way">Fixed on the way<a class="headerlink" href="#fixed-on-the-way" title="Permanent link">&para;</a></h2>
+<p><strong>Bit reads and the lengths in the last byte</strong> (SW-40). The last byte of a message can hold forward data in its
+high nibble and the first length nibble in its low one. <code>read_un32</code> / <code>read_un64</code> read to the end of that byte
+(with 4 bits left, <code>read_un8(6)</code> returned 2 bits of the length), and a length was read from a nibble the forward
+side had read past. Both are errors now, for malformed input only. In bytes: the bit loop is shorter, the reverse
+read has one check more:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vec_de</code></td>
+<td></td>
+<td style="text-align: right;">1004 → 1040</td>
+<td style="text-align: right;">652 → 664</td>
+<td style="text-align: right;">596 → 608</td>
+<td style="text-align: right;">582 → 622</td>
+</tr>
+<tr>
+<td><code>bits_de</code></td>
+<td></td>
+<td style="text-align: right;">1276 → 1168</td>
+<td style="text-align: right;">846 → 774</td>
+<td style="text-align: right;">746 → 686</td>
+<td style="text-align: right;">666 → 622</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">8604 → 8696</td>
+<td style="text-align: right;">6126 → 6182</td>
+<td style="text-align: right;">5504 → 5564</td>
+<td style="text-align: right;">5112 → 5168</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">5284 → 5296</td>
+<td style="text-align: right;">3650 → 3676</td>
+<td style="text-align: right;">3256 → 3282</td>
+<td style="text-align: right;">3224 → 3228</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12664 → 12756</td>
+<td style="text-align: right;">9086 → 9142</td>
+<td style="text-align: right;">8180 → 8244</td>
+<td style="text-align: right;">7384 → 7440</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11268 → 11360</td>
+<td style="text-align: right;">8134 → 8190</td>
+<td style="text-align: right;">7356 → 7416</td>
+<td style="text-align: right;">6576 → 6632</td>
+</tr>
+</tbody>
+</table>
+<p>(<code>busgen_ser</code> grows because encoding a <code>RefVec&lt;RxFrame&gt;</code> contains its decoder, see <a href="#where-the-bytes-went">Lists</a>.)</p>
+<p><strong>The first error in types that mix latched and other fields</strong> (SW-41). Since step 3, a type with latched plain
+fields and fields read with <code>?</code> (a list, a string, a nested evolvable type, an <code>Option</code> of one) could return a
+later error instead of the first: in a <code>u32</code> followed by a <code>RefVec&lt;u8&gt;</code>, decoded from 0 to 5 bytes, 11 of 24
+cases gave <code>OutOfBoundsRev</code> or <code>OutOfBoundsReadU8</code> where reading field by field gives <code>OutOfBoundsReadRawSlice</code>. It
+was an error in every case, but not the one it was before step 3. Now an error kept in the reader stops it: every
+read with a <code>Result</code> returns that error, a <code>_latch</code> read gives 0, and no read moves; an enum without a variant 0
+checks <code>latched()</code> before it reports an unknown discriminant (a discriminant read after an error is 0). So every
+error exit of a derived decoder reports the first error, and nothing read after it decides anything.</p>
+<p>Four forms were measured, RV32IC, bytes over the code before the fix:</p>
+<table>
+<thead>
+<tr>
+<th>form</th>
+<th style="text-align: right;"><code>struct_de</code></th>
+<th style="text-align: right;"><code>vec_de</code></th>
+<th style="text-align: right;"><code>busgen</code> evolvable</th>
+<th style="text-align: right;"><code>busgen</code> final</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>map the error that leaves a derived decoder to the kept one (<code>latch.take().unwrap_or(e)</code>, per type)</td>
+<td style="text-align: right;">+26</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">+124</td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td>the check at the start of every read</td>
+<td style="text-align: right;">+16</td>
+<td style="text-align: right;">+48</td>
+<td style="text-align: right;">+68</td>
+<td style="text-align: right;">+116</td>
+</tr>
+<tr>
+<td>the same, the reads with a <code>Result</code> only, the <code>_latch</code> ones go on</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">+34</td>
+<td style="text-align: right;">+30</td>
+<td style="text-align: right;">+90</td>
+</tr>
+<tr>
+<td>the check at the start of every read, the byte reads sharing one bounds check (chosen)</td>
+<td style="text-align: right;">+48</td>
+<td style="text-align: right;">+28</td>
+<td style="text-align: right;">+20</td>
+<td style="text-align: right;">+20</td>
+</tr>
+</tbody>
+</table>
+<p>The last one is the cheapest for a real decoder; the small cases pay for a function call the first one inlines.
+All targets, with the chosen form:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rw_de</code></td>
+<td></td>
+<td style="text-align: right;">648 → 732</td>
+<td style="text-align: right;">444 → 492</td>
+<td style="text-align: right;">404 → 446</td>
+<td style="text-align: right;">364 → 402</td>
+</tr>
+<tr>
+<td><code>struct_de</code></td>
+<td></td>
+<td style="text-align: right;">840 → 924</td>
+<td style="text-align: right;">554 → 602</td>
+<td style="text-align: right;">478 → 520</td>
+<td style="text-align: right;">440 → 478</td>
+</tr>
+<tr>
+<td><code>enum_de</code></td>
+<td></td>
+<td style="text-align: right;">1004 → 1088</td>
+<td style="text-align: right;">678 → 726</td>
+<td style="text-align: right;">586 → 628</td>
+<td style="text-align: right;">512 → 550</td>
+</tr>
+<tr>
+<td><code>vec_de</code></td>
+<td></td>
+<td style="text-align: right;">1040 → 1060</td>
+<td style="text-align: right;">664 → 692</td>
+<td style="text-align: right;">608 → 628</td>
+<td style="text-align: right;">622 → 632</td>
+</tr>
+<tr>
+<td><code>bits_de</code></td>
+<td></td>
+<td style="text-align: right;">1168 → 1256</td>
+<td style="text-align: right;">774 → 822</td>
+<td style="text-align: right;">686 → 728</td>
+<td style="text-align: right;">622 → 652</td>
+</tr>
+<tr>
+<td><code>option_de</code></td>
+<td></td>
+<td style="text-align: right;">980 → 1064</td>
+<td style="text-align: right;">658 → 706</td>
+<td style="text-align: right;">554 → 596</td>
+<td style="text-align: right;">520 → 558</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">8696 → 8736</td>
+<td style="text-align: right;">6182 → 6202</td>
+<td style="text-align: right;">5564 → 5596</td>
+<td style="text-align: right;">5168 → 5196</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">5296 → 5348</td>
+<td style="text-align: right;">3676 → 3718</td>
+<td style="text-align: right;">3282 → 3324</td>
+<td style="text-align: right;">3228 → 3296</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12756 → 12800</td>
+<td style="text-align: right;">9142 → 9162</td>
+<td style="text-align: right;">8244 → 8276</td>
+<td style="text-align: right;">7440 → 7468</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11360 → 11388</td>
+<td style="text-align: right;">8190 → 8210</td>
+<td style="text-align: right;">7416 → 7438</td>
+<td style="text-align: right;">6632 → 6652</td>
+</tr>
+</tbody>
+</table>
+<p><code>shrink_wrap/tests/latched_errors.rs</code> holds a request enum with each of these shapes against the same fields read
+one by one with <code>?</code>: the result (error included) and the reader of every truncation, every byte damaged in turn
+and 20 000 random buffers; an enum without a variant 0 after a failed field. Removing any one of the checks makes
+a test fail.</p>
+<h2 id="replies-of-generated-servers">Replies of generated servers<a class="headerlink" href="#replies-of-generated-servers" title="Permanent link">&para;</a></h2>
+<p>Measured after SW-41, not changed. The code <code>ww_codegen!</code> generates for a server ends every message with
+<code>finish()</code>: the request's reply, a stream's data, a deferred return, an error. All but one of them write a
+<code>ww_client_server::Event</code>, and <code>Event</code> pushes lengths whatever it holds (<code>PUSHES_LEN</code> is <code>true</code>: its <code>ErrorKind</code> is
+evolvable and has a size slot, <code>StreamData</code> has a <code>RefVec</code> path), so for them <code>finish_for</code> <em>is</em> <code>finish</code>. The one
+that is not is the return value of a method, serialized alone into a scratch buffer before it goes into the event
+as <code>TailBytes</code>. <code>reply</code> is that code, and with <code>--fw-features finish_for</code> the same with <code>finish_for::&lt;Wave&gt;()</code> for
+the return value:</p>
+<table>
+<thead>
+<tr>
+<th>return value ends with</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>finish()</code> (as generated)</td>
+<td style="text-align: right;">5120</td>
+<td style="text-align: right;">3632</td>
+<td style="text-align: right;">3236</td>
+<td style="text-align: right;">3144</td>
+</tr>
+<tr>
+<td><code>finish_for::&lt;Wave&gt;()</code></td>
+<td style="text-align: right;">5144 (+24)</td>
+<td style="text-align: right;">3646 (+14)</td>
+<td style="text-align: right;">3250 (+14)</td>
+<td style="text-align: right;">3160 (+16)</td>
+</tr>
+</tbody>
+</table>
+<p>The same for both flavors (a root <code>Wave</code> pushes no length either way). <code>Event::ser_shrink_wrap</code> is one function
+for every variant of the event, so <code>encode_len_fifo</code>, <code>write_rev_len</code> and <code>write_nib</code> are linked in any firmware
+with a generated server, even one whose methods all return plain values; <code>finish_for</code> at the return value only adds
+<code>finish_no_lens</code> next to <code>finish</code>. The generated code keeps <code>finish()</code>. For the length FIFO to drop out of a
+server, <code>Event</code> itself would have to lose its lengths: a <code>final_structure</code>/<code>sized</code> event, which is a wire change of
+<code>ww_client_server</code>.</p>
 <h2 id="build-settings">Build settings<a class="headerlink" href="#build-settings" title="Permanent link">&para;</a></h2>
 <p>Not <code>shrink_wrap</code>'s to fix, but worth more than each code change:</p>
 <ul>
@@ -3380,11 +3809,141 @@ random reader states. <code>just fuzz-shrink-wrap-ref-vec</code> does the same u
   inlined is <code>auipc</code> + <code>jalr</code>, 8 bytes. With <code>-C target-feature=+relax</code> the linker turns them into <code>jal</code> (4 bytes)
   or <code>c.jal</code> (2 bytes): <code>busgen</code> 9000 → 8114, <code>busgen_hand</code> 5762 → 5152. Add it to the <code>rustflags</code> of any RISC-V
   firmware that is short of space.</li>
-<li><strong><code>memcpy</code></strong> from <code>compiler_builtins</code> is 338 bytes on RV32IC (316 on Cortex-M0), word-wise with alignment
-  handling. It is linked as soon as a value of more than a few words is moved, which a request or reply enum is.
-  <code>-Zbuild-std-features=optimize_for_size</code> does not change it. A firmware can define its own byte-wise <code>memcpy</code>
-  (about 20 bytes; not tried here, the loop must be kept from being turned back into a <code>memcpy</code> call).</li>
+<li>
+<p><strong>A byte-wise <code>memcpy</code>, for very small targets only</strong> (SW-39): a measurement and advice, nothing in
+  <code>shrink_wrap</code> depends on it or asks for it. The <code>memcpy</code> of <code>compiler_builtins</code> is 338 bytes on RV32IC (316 on
+  Cortex-M0), word-wise with alignment handling. It is linked as soon as a value of more than a few words is
+  moved, which a request or reply enum is, and an encoder's value is; <code>-Zbuild-std-features=optimize_for_size</code>
+  does not change it. A firmware can define its own, a byte at a time: 22 bytes on RV32IC and Cortex-M0, 36 on
+  RV32I. Its symbol wins over the weak one of <code>compiler_builtins</code>. Only worth it where 300 bytes decide whether the
+  firmware fits (the 8 KB softcore above), and only with the downsides in mind:</p>
+<ul>
+<li><strong>Speed</strong>: one byte per iteration instead of a word, about four times slower for long copies. Fine for moves
+  of a few dozen bytes, not for a firmware that copies buffers.</li>
+<li><strong>It replaces <code>memcpy</code> for the whole firmware</strong>, every crate in it: HAL, drivers, buffer copies of the
+  transport, not only <code>shrink_wrap</code>'s moves.</li>
+<li><strong>The loop can be turned back into a call of <code>memcpy</code></strong>: LLVM recognizes a byte copy loop and replaces it with
+  <code>memcpy</code>, which here is the function itself, an endless recursion. <code>compiler_builtins</code> is built with
+  <code>#![no_builtins]</code> against this; the code below uses a volatile store. With the nightly of October 2026 LLVM
+  leaves the loop alone without it as well, in <code>memcpy</code> and in <code>__aeabi_memcpy</code>, but nothing promises that.
+  Check the disassembly when changing it.</li>
+<li><strong><code>memmove</code>, <code>memset</code>, <code>memcmp</code> are separate</strong> and stay those of <code>compiler_builtins</code> (none of them is linked
+  in the bench images).</li>
+<li>On Arm, code calls <code>__aeabi_memcpy</code>, whose <code>compiler_builtins</code> version calls its own <code>memcpy</code> directly, so that
+  symbol has to be defined too (and <code>__aeabi_memcpy4</code> / <code>__aeabi_memcpy8</code> if the code uses them).</li>
 </ul>
+</li>
+</ul>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">mod</span><span class="w"> </span><span class="nn">byte_memcpy</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">ffi</span><span class="p">::</span><span class="n">c_void</span><span class="p">;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="cp">#[inline(always)]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="n">dest</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">dest</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">dest</span><span class="p">.</span><span class="n">cast</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="n">src</span><span class="p">.</span><span class="n">cast</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">());</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">            </span><span class="c1">// volatile: LLVM must not turn the loop back into a call of `memcpy`, i.e. of itself</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">            </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dest</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">).</span><span class="n">write_volatile</span><span class="p">(</span><span class="o">*</span><span class="n">src</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">))</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">            </span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="cp">#[unsafe(no_mangle)]</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">memcpy</span><span class="p">(</span><span class="n">dest</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">c_void</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">copy</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="n">dest</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="cp">#[cfg(target_arch = </span><span class="s">&quot;arm&quot;</span><span class="cp">)]</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="cp">#[unsafe(no_mangle)]</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">__aeabi_memcpy</span><span class="p">(</span><span class="n">dest</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_void</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">copy</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>just size-bench --fw-features byte_memcpy</code> builds the bench with it (<code>shrink_wrap/size_bench/fw/src/main.rs</code>,
+  off by default, the tables above are without it); every image that copies a value is 300 to 410 bytes smaller,
+  the others do not change:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>struct_ser</code></td>
+<td></td>
+<td style="text-align: right;">1348 → 936</td>
+<td style="text-align: right;">964 → 640</td>
+<td style="text-align: right;">872 → 554</td>
+<td style="text-align: right;">830 → 526</td>
+</tr>
+<tr>
+<td><code>vec_ser</code></td>
+<td></td>
+<td style="text-align: right;">1634 → 1222</td>
+<td style="text-align: right;">1142 → 818</td>
+<td style="text-align: right;">1074 → 756</td>
+<td style="text-align: right;">1030 → 726</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">8604 → 8192</td>
+<td style="text-align: right;">6126 → 5802</td>
+<td style="text-align: right;">5504 → 5182</td>
+<td style="text-align: right;">5112 → 4806</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">5284 → 4872</td>
+<td style="text-align: right;">3650 → 3326</td>
+<td style="text-align: right;">3256 → 2938</td>
+<td style="text-align: right;">3224 → 2922</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12664 → 12252</td>
+<td style="text-align: right;">9086 → 8762</td>
+<td style="text-align: right;">8180 → 7848</td>
+<td style="text-align: right;">7384 → 7082</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11268 → 10856</td>
+<td style="text-align: right;">8134 → 7810</td>
+<td style="text-align: right;">7356 → 7030</td>
+<td style="text-align: right;">6576 → 6270</td>
+</tr>
+<tr>
+<td><code>busgen_hand</code></td>
+<td></td>
+<td style="text-align: right;">7824 → 7412</td>
+<td style="text-align: right;">5762 → 5438</td>
+<td style="text-align: right;">5152 → 4834</td>
+<td style="text-align: right;">4408 → 4104</td>
+</tr>
+<tr>
+<td><code>rw_de</code>, <code>struct_de</code>, <code>vec_de</code>, <code>bits_de</code>, ..</td>
+<td></td>
+<td style="text-align: right;">unchanged</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+</tr>
+</tbody>
+</table>
+<p>The other <code>_ser</code> cases lose the same 412 / 324 / 318 / 304 bytes. With both settings the derived <code>busgen</code> codec
+  is 7848 bytes on RV32IC (evolvable) and 7030 (final), the hand-written one 4834.</p>
 <h2 id="feature-flags">Feature flags<a class="headerlink" href="#feature-flags" title="Permanent link">&para;</a></h2>
 <p>The options that were on the table, and why none became a cargo feature:</p>
 <table>
@@ -3430,12 +3989,17 @@ random reader states. <code>just fuzz-shrink-wrap-ref-vec</code> does the same u
    the stride of an element is not its <code>size_bits</code> (alignment padding: <code>struct { a: bool, b: u8 }</code> is 9 bits,
    2 bytes per element), and an invalid element (an enum discriminant) would be reported when the list is walked
    instead of when it is decoded.</li>
-<li><strong>Latched reads for the rest</strong>: <code>Nibble</code>, <code>u1</code>..<code>u32</code> (<code>read_un32</code>), <code>u64</code>. Small for the bench types, real for
-   bit-packed ones.</li>
-<li><strong>A firmware-side <code>memcpy</code></strong>, see <a href="#build-settings">Build settings</a>: 300 bytes.</li>
-<li><strong><code>finish_for</code> in generated server and client code</strong>: the code <code>ww_codegen!</code> generates and <code>ww_client_server</code>
-   still end with <code>finish()</code>. Most of their messages carry arguments as bytes, a length, so the FIFO stays; a
-   stream or a reply of plain values could lose it.</li>
+<li><strong>Latched reads for the rest</strong>: done for <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> (SW-38, <a href="#latched-bit-fields">above</a>):
+   40 bytes less for a bit-packed struct on RV32IC, nothing for the busgen types. Not done: <code>Nibble</code>, <code>u64</code> and
+   the varints pay only from about two fields of a kind. Fixed on the way: mixed types report the first error
+   again (SW-41, 20 bytes on <code>busgen</code>).</li>
+<li><strong>A firmware-side <code>memcpy</code></strong>: measured and documented as advice for very small targets, not a code change
+   (SW-39, <a href="#build-settings">Build settings</a>): 324 bytes less on RV32IC for a firmware that moves a value, at the
+   price of speed and of replacing <code>memcpy</code> for the whole firmware.</li>
+<li><strong><code>finish_for</code> in generated server and client code</strong>: measured, not done (<a href="#replies-of-generated-servers">Replies of generated
+   servers</a>): every server message is a <code>ww_client_server::Event</code>, which always
+   pushes lengths, so the FIFO stays; <code>finish_for</code> for a return value costs 14 bytes on RV32IC instead of saving
+   any. The client side runs on <code>std</code> only. What would remove it is a size-assumed <code>Event</code>, a wire change.</li>
 <li><strong>The rest of the length FIFO</strong> for types with lengths: <code>encode_len_fifo</code> 214, <code>write_nib</code> 130,
    <code>write_rev_len</code> 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
    form there, and two checks against the end of the buffer.</li>
@@ -3618,10 +4182,10 @@ place for that case when the transport is built.</p>
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.8b1c90bd.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a2388154.min.js"></script>
       
     
   </body>

@@ -15,6 +15,7 @@
         <link rel="canonical" href="https://ww.vhrd.tech/features/">
       
       
+      
         <link rel="prev" href="./..">
       
       
@@ -25,7 +26,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.69">
+      <meta name="generator" content="zensical-0.0.70">
     
     
       
@@ -36,12 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e15858d4.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e442bf79.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b27955a4.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b60ce83d.min.css">
       
       
 
@@ -2698,6 +2699,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>just fuzz-shrink-wrap-ref-vec</code>). Costs 50 to 140 bytes of code in a decoder with such a list. Other <code>Sized</code> types
   keep the pass on purpose (stride is not <code>size_bits</code>, elements are validated there):
   <code>docs/serdes/code_size.md</code>.</li>
+<li>✅ <strong>SW-38 Latched reads of <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> fields</strong>: read like the integers of SW-34, with one error
+  check per type (through a hidden <code>DeserializeShrinkWrap::des_shrink_wrap_latch</code>); a bit-packed struct decodes in
+  40 bytes less on RV32IC (886 → 846), 88 on RV32I. Same wire format, results and errors as reading field by field
+  (<code>shrink_wrap/tests/latched_reads.rs</code>, <code>just fuzz-shrink-wrap-latched</code>). <code>Nibble</code>, <code>u64</code> and varints are not
+  latched: one such field costs more than it saves (<code>docs/serdes/code_size.md</code>).</li>
+<li>✅ <strong>SW-41 First error in types that mix latched and other fields</strong>: an error kept by a <code>_latch</code> read stops the
+  reader (reads with a <code>Result</code> return it, no read moves), so a derived decoder with lists or nested types next to
+  plain fields returns the first error again, as before SW-34. 20 bytes on a request/reply decoder (RV32IC), four
+  forms measured (<code>docs/serdes/code_size.md</code>, <code>shrink_wrap/tests/latched_errors.rs</code>).</li>
+<li>✅ <strong>SW-39 Byte-wise <code>memcpy</code>, measured, advice for very small targets</strong>: a firmware's own <code>memcpy</code> (and
+  <code>__aeabi_memcpy</code> on Arm) of 22 bytes instead of the word-wise one of <code>compiler_builtins</code>: 324 bytes less on
+  RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing <code>memcpy</code> for
+  the whole firmware. Code and downsides in <code>docs/serdes/code_size.md</code> ("Build settings"), measured with
+  <code>just size-bench --fw-features byte_memcpy</code>. Nothing in <code>shrink_wrap</code> depends on it.</li>
+<li>✅ <strong>SW-40 Bit reads stay out of the lengths in the last byte</strong>: <code>read_un8</code>..<code>read_un64</code> (and <code>U1</code>..<code>U64</code>,
+  <code>I2</code>..<code>I64</code>) no longer read into the length nibble the last byte shares with the forward data, and a length is
+  no longer read from bits the forward side has read; both are <code>OutOfBounds..</code> errors. Malformed input only, every
+  message the writers produce decodes as before. Checked against a bit-level model in every reader state of 1 to
+  3 byte buffers (<code>buf_reader.rs</code> <code>bounds_every_state_every_read</code>) and by round trips of random messages
+  (<code>shrink_wrap/tests/rev_nibble_bounds.rs</code>).</li>
 <li>✅ <strong>SW-35 Exact <code>ElementSize</code> of enums</strong>: a <code>sized</code> / <code>self_describing</code> enum reports the discriminant plus one
   variant (<code>ElementSize::one_of</code>) instead of the sum of all variants without the discriminant; <code>sized</code> with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
@@ -2764,6 +2785,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>DER-10 Generic arguments on user field types</strong>: <code>Foo&lt;u8&gt;</code>, <code>Wrapper&lt;'i, T&gt;</code> are emitted as written,
   <code>Wrapper&lt;'i, T&gt;</code> maps to <code>WrapperOwned&lt;T&gt;</code> in the owned variant (<code>docs/serdes/derive.md</code>, type mapping; test
   <code>shrink_wrap/tests/generic_external.rs</code>).</li>
+<li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
+  rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>📋 <strong>DER-5 <code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
   <code>shrink_wrap_derive/src/lib.rs</code>).</li>
 <li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
@@ -3016,9 +3039,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   streams.</li>
 <li>✅ <strong>TEST-8 Framer fuzzing</strong> (<code>fuzz/</code>).</li>
 <li>✅ <strong>TEST-17 <code>shrink_wrap</code> code size bench</strong>: <code>just size-bench</code> builds one bare firmware image per test case
-  (plain struct, enum, list, <code>Option</code>, decode or encode only, the request/reply codec of a small softcore firmware
-  and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints <code>.text</code> + <code>.rodata</code>, or the largest symbols
-  (<code>shrink_wrap/size_bench</code>, results in <code>docs/serdes/code_size.md</code>).</li>
+  (plain struct, enum, list, bit fields, <code>Option</code>, decode or encode only, the request/reply codec of a small
+  softcore firmware and the same by hand) for RV32I, RV32IC and Cortex-M0 and prints <code>.text</code> + <code>.rodata</code>, or the
+  largest symbols (<code>shrink_wrap/size_bench</code>, results in <code>docs/serdes/code_size.md</code>).</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
@@ -3190,10 +3213,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.8b1c90bd.min.js"></script>
+      <script src="../assets/javascripts/bundle.a2388154.min.js"></script>
       
     
   </body>

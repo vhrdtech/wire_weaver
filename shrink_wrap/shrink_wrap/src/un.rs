@@ -162,11 +162,14 @@ macro_rules! read_unx {
                 let mut bits_left = bit_count;
 
                 while bits_left > 0 {
-                    if (self.bytes_left() == 0) && (self.bits_in_byte_left() == 0) {
+                    // the bits of this byte that are not a length read from the back (SW-40): `bit_idx + 1`
+                    // would run into one in the last byte
+                    let in_byte = self.bits_in_byte_left();
+                    if in_byte == 0 {
                         return Err(Error::OutOfBoundsReadUN);
                     }
 
-                    let bits_to_read = bits_left.min(self.bit_idx + 1);
+                    let bits_to_read = bits_left.min(in_byte);
                     let mask = ((1u16 << bits_to_read) - 1) as u8;
                     let shift = self.bit_idx + 1 - bits_to_read;
                     let bits = (self.buf[self.byte_idx] >> shift) & mask;

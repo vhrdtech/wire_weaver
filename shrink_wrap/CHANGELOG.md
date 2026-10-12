@@ -152,6 +152,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- Bit reads could take bits of a length in the last byte, and a length bits the forward reads had taken (SW-40).
+  The last byte of a message can hold forward data in its high nibble and the first nibble of the lengths read from
+  the back in its low one. `BufReader::read_un8()` / `read_un16()` / `read_un32()` / `read_un64()` (and so
+  `U1`..`U64`, `I2`..`I64` and their `_latch` reads) read up to the end of that byte: with 4 bits left before a
+  length, `read_un8(6)` returned 2 bits of the length as data instead of `Error::OutOfBoundsReadUN`. And reading a
+  length (`read_rev_len()`, every list, string and nested `Unsized` value) took a nibble the forward side had
+  already read past, instead of `Error::OutOfBoundsRev`. Both are errors now; `read_bool()`, `read_nib()` and the
+  byte reads were right already. Only malformed input is affected: every message `BufWriter` / `BufWriterOwned`
+  writes decodes as before (`shrink_wrap/tests/rev_nibble_bounds.rs`), and the writer never wrote into its lengths.
 - `BufWriter::align_nibble()`, `write_nib()` and a length encoded after 5 to 7 bits of a byte left the last three
   bits of that byte as they were in the buffer instead of zero (SW-36). A reader skips those bits, so decoding is
   not affected; the bytes no longer depend on what the buffer held before.

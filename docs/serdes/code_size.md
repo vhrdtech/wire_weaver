@@ -359,6 +359,25 @@ first) and derived structs and enums against the same fields read one by one wit
 (a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension, latching in
 mixed types) each fail it. `just fuzz-shrink-wrap-latched` does the same under libFuzzer.
 
+## Fixed on the way
+
+**Bit reads and the lengths in the last byte** (SW-40). The last byte of a message can hold forward data in its
+high nibble and the first length nibble in its low one. `read_un32` / `read_un64` read to the end of that byte
+(with 4 bits left, `read_un8(6)` returned 2 bits of the length), and a length was read from a nibble the forward
+side had read past. Both are errors now, for malformed input only. In bytes: the bit loop is shorter, the reverse
+read has one check more:
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `vec_de` | | 1004 → 1040 | 652 → 664 | 596 → 608 | 582 → 622 |
+| `bits_de` | | 1276 → 1168 | 846 → 774 | 746 → 686 | 666 → 622 |
+| `busgen_de` | evolvable | 8604 → 8696 | 6126 → 6182 | 5504 → 5564 | 5112 → 5168 |
+| `busgen_ser` | evolvable | 5284 → 5296 | 3650 → 3676 | 3256 → 3282 | 3224 → 3228 |
+| `busgen` | evolvable | 12664 → 12756 | 9086 → 9142 | 8180 → 8244 | 7384 → 7440 |
+| `busgen` | final | 11268 → 11360 | 8134 → 8190 | 7356 → 7416 | 6576 → 6632 |
+
+(`busgen_ser` grows because encoding a `RefVec<RxFrame>` contains its decoder, see [Lists](#where-the-bytes-went).)
+
 ## Build settings
 
 Not `shrink_wrap`'s to fix, but worth more than each code change:

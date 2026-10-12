@@ -468,6 +468,18 @@ impl<'i> BufReader<'i> {
         if self.byte_idx >= self.len_bytes {
             return Err(OutOfBoundsRev);
         }
+        // the forward side is in the last byte: the nibble must be one it has not read into (SW-40), the low one
+        // while it is at bit 3 or before, the high one only if it has read nothing of the byte
+        if self.byte_idx + 1 == self.len_bytes {
+            let free = if self.is_at_bit7_rev {
+                self.bit_idx == 7
+            } else {
+                self.bit_idx >= 3
+            };
+            if !free {
+                return Err(OutOfBoundsRev);
+            }
+        }
         if self.is_at_bit7_rev {
             self.is_at_bit7_rev = false;
             self.len_bytes -= 1;
@@ -950,13 +962,15 @@ mod tests {
 
     #[test]
     fn bits_in_byte_left_low_bit_idx() {
-        // Exercises the is_at_bit7_rev branch of bits_in_byte_left() when bit_idx < 3.
+        // 5 bits of the last byte are read: its low nibble is no longer free for a length (SW-40), this used to
+        // give one and leave the reader in the is_at_bit7_rev, bit_idx < 3 state, now unreachable.
         let buf = [1, 2, 3];
         let mut rd = BufReader::new(&buf);
         rd.read_u16().unwrap();
         rd.read_un8(5).unwrap();
-        rd.read_u4_rev().unwrap();
-        assert_eq!(rd.bits_in_byte_left(), 0);
+        assert_eq!(rd.read_u4_rev(), Err(Error::OutOfBoundsRev));
+        assert!(!rd.is_at_bit7_rev);
+        assert_eq!(rd.bits_in_byte_left(), 3);
     }
 
     #[test]
@@ -988,5 +1002,187 @@ mod tests {
             rd.read_bool().unwrap();
         }
         assert_eq!(rd.read_nib_value(), Ok(0xA));
+    }
+
+    /// A read of the model: what it takes and how it fails.
+    #[derive(Debug, Clone, Copy)]
+    enum Op {
+        Bool,
+        BoolLatch,
+        Un8(u8),
+        Un16(u8),
+        Un32(u8),
+        Un32Latch(u8),
+        Un64(u8),
+        Un64Latch(u8),
+        Nib,
+        U8,
+        U8Latch,
+        U16,
+        U32,
+        U64,
+        Raw(usize),
+        Rev,
+    }
+
+    impl Op {
+        fn all() -> Vec<Op> {
+            let mut ops = vec![Op::Bool, Op::BoolLatch, Op::Nib, Op::U8, Op::U8Latch];
+            ops.extend([Op::U16, Op::U32, Op::U64, Op::Rev]);
+            ops.extend((0..4).map(Op::Raw));
+            ops.extend((1..=8).map(Op::Un8));
+            ops.extend((1..=16).map(Op::Un16));
+            ops.extend((1..=32).flat_map(|n| [Op::Un32(n), Op::Un32Latch(n)]));
+            ops.extend((1..=64).flat_map(|n| [Op::Un64(n), Op::Un64Latch(n)]));
+            ops
+        }
+
+        fn run(self, rd: &mut BufReader) -> Result<u64, Error> {
+            let latched = |rd: &mut BufReader, val: u64| rd.latched().map(|_| val);
+            match self {
+                Op::Bool => rd.read_bool().map(u64::from),
+                Op::BoolLatch => {
+                    let val = rd.read_bool_latch();
+                    latched(rd, val as u64)
+                }
+                Op::Un8(n) => rd.read_un8(n).map(u64::from),
+                Op::Un16(n) => rd.read_un16(n).map(u64::from),
+                Op::Un32(n) => rd.read_un32(n).map(u64::from),
+                Op::Un32Latch(n) => {
+                    let val = rd.read_un32_latch(n);
+                    latched(rd, val as u64)
+                }
+                Op::Un64(n) => rd.read_un64(n),
+                Op::Un64Latch(n) => {
+                    let val = rd.read_un64_latch(n);
+                    latched(rd, val)
+                }
+                Op::Nib => rd.read_nib().map(|nib| nib.value() as u64),
+                Op::U8 => rd.read_u8().map(u64::from),
+                Op::U8Latch => {
+                    let val = rd.read_u8_latch();
+                    latched(rd, val as u64)
+                }
+                Op::U16 => rd.read_u16().map(u64::from),
+                Op::U32 => rd.read_u32().map(u64::from),
+                Op::U64 => rd.read_u64(),
+                Op::Raw(len) => rd
+                    .read_raw_slice(len)
+                    .map(|bytes| bytes.iter().rev().fold(0, |v, b| v << 8 | *b as u64)),
+                Op::Rev => rd.read_u4_rev().map(u64::from),
+            }
+        }
+
+        /// What the read must give from a reader whose forward side is at bit `fwd` and whose lengths read from
+        /// the back begin at bit `bound` (bits counted from the start, MSB first), and where the forward side is
+        /// afterwards.
+        fn expect(self, buf: &[u8], fwd: usize, bound: usize) -> (Result<u64, Error>, usize) {
+            let bits = |from: usize, n: usize| {
+                (from..from + n).fold(0u64, |v, i| {
+                    v << 1 | ((buf[i / 8] >> (7 - i % 8)) & 1) as u64
+                })
+            };
+            // n bits from bit `at`, if they are all before the lengths
+            let take = |at: usize, n: usize, err: Error| {
+                if at + n <= bound {
+                    (Ok(bits(at, n)), at + n)
+                } else {
+                    (Err(err), fwd)
+                }
+            };
+            let bytes = |n: usize, err: Error| {
+                let at = fwd.div_ceil(8) * 8;
+                // whole bytes only: a byte whose low nibble is a length is not one; no bytes are always there
+                if n == 0 || at + n * 8 <= bound / 8 * 8 {
+                    let le = (0..n).rev().fold(0u64, |v, i| v << 8 | bits(at + i * 8, 8));
+                    (Ok(le), at + n * 8)
+                } else {
+                    (Err(err), fwd)
+                }
+            };
+            match self {
+                Op::Bool | Op::BoolLatch => take(fwd, 1, Error::OutOfBoundsReadBool),
+                Op::Un8(n)
+                | Op::Un16(n)
+                | Op::Un32(n)
+                | Op::Un32Latch(n)
+                | Op::Un64(n)
+                | Op::Un64Latch(n) => take(fwd, n as usize, Error::OutOfBoundsReadUN),
+                Op::Nib => take(fwd.div_ceil(4) * 4, 4, Error::OutOfBoundsReadU4),
+                Op::U8 | Op::U8Latch => bytes(1, Error::OutOfBoundsReadU8),
+                Op::U16 => bytes(2, Error::OutOfBoundsReadRawSlice),
+                Op::U32 => bytes(4, Error::OutOfBoundsReadRawSlice),
+                Op::U64 => bytes(8, Error::OutOfBoundsReadRawSlice),
+                Op::Raw(len) => bytes(len, Error::OutOfBoundsReadRawSlice),
+                Op::Rev => {
+                    if bound >= 4 && fwd <= bound - 4 {
+                        (Ok(bits(bound - 4, 4)), fwd)
+                    } else {
+                        (Err(Error::OutOfBoundsRev), fwd)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The forward side's bit and where the lengths begin, see [Op::expect].
+    fn sides(rd: &BufReader) -> (usize, usize) {
+        let fwd = rd.byte_idx * 8 + (7 - rd.bit_idx) as usize;
+        let bound = rd.len_bytes * 8 - if rd.is_at_bit7_rev { 4 } else { 0 };
+        (fwd, bound)
+    }
+
+    /// Every reader state of buffers of 1 to 3 bytes (forward position, lengths read from the back), every
+    /// read: a read never takes a bit of the other side, and fails only when its bits are not there (SW-40).
+    #[test]
+    fn bounds_every_state_every_read() {
+        let mut states = 0;
+        for buf in [
+            &[0xA5u8][..],
+            &[0x3C, 0xA1],
+            &[0xFF, 0x00, 0x96],
+            &[0x12, 0x34, 0x56],
+        ] {
+            for len_bytes in 0..=buf.len() {
+                for is_at_bit7_rev in [false, true] {
+                    if is_at_bit7_rev && len_bytes == 0 {
+                        continue;
+                    }
+                    let bound = len_bytes * 8 - if is_at_bit7_rev { 4 } else { 0 };
+                    for fwd in 0..=buf.len() * 8 {
+                        let (byte_idx, bit_idx) = (fwd / 8, 7 - (fwd % 8) as u8);
+                        // past the lengths only by aligning to the next byte, i.e. at a byte at or after them
+                        if fwd > bound && !(bit_idx == 7 && byte_idx >= len_bytes) {
+                            continue;
+                        }
+                        let rd = BufReader {
+                            buf,
+                            len_bytes,
+                            is_at_bit7_rev,
+                            byte_idx,
+                            bit_idx,
+                            latch: None,
+                        };
+                        states += 1;
+                        for op in Op::all() {
+                            let mut rd = rd;
+                            let (expected, fwd_after) = op.expect(buf, fwd, bound);
+                            let what =
+                                format!("{op:?} on {buf:02x?} at {fwd}, lengths from {bound}");
+                            assert_eq!(op.run(&mut rd), expected, "{what}");
+                            if expected.is_ok() {
+                                let bound_after = if matches!(op, Op::Rev) {
+                                    bound - 4
+                                } else {
+                                    bound
+                                };
+                                assert_eq!(sides(&rd), (fwd_after, bound_after), "{what}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(states > 100, "{states}");
     }
 }

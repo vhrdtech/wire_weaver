@@ -8,8 +8,11 @@
 - B (SW-39): byte-wise memcpy as an option of the bench (`--fw-features byte_memcpy`), documented as advice for
   very small targets with its downsides (user's wish). -324 B RV32IC per image that moves a value.
 
+- Fix 1 (SW-40): bit reads vs the length nibble of the last byte (read_unx chunk limit, read_u4_rev free-nibble
+  check). Model test buf_reader.rs bounds_every_state_every_read, round trips tests/rev_nibble_bounds.rs.
+  Also fixed the tail-size fuzz target (NaN != NaN), separate commit.
+
 ## Next (user, 12 Oct 21:01: the two fixes before C, each its own commit + SW id + CHANGELOG Fixed)
-- Fix 1: bit reads must not read into the reversed-length nibble (read_un*, read_bool, latched, writer mirror).
 - Fix 2: mixed latched/non-latched types return the FIRST error (+124 B busgen accepted, find the cheapest form).
 - C: finish_for in ww_codegen! output (wire_weaver_core) and ww_client_server.
 - End: update "What is left", git rm HANDOFF.md, tpm work ready.

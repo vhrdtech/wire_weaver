@@ -88,6 +88,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for
   the whole firmware. Code and downsides in `docs/serdes/code_size.md` ("Build settings"), measured with
   `just size-bench --fw-features byte_memcpy`. Nothing in `shrink_wrap` depends on it.
+- ✅ **SW-40 Bit reads stay out of the lengths in the last byte**: `read_un8`..`read_un64` (and `U1`..`U64`,
+  `I2`..`I64`) no longer read into the length nibble the last byte shares with the forward data, and a length is
+  no longer read from bits the forward side has read; both are `OutOfBounds..` errors. Malformed input only, every
+  message the writers produce decodes as before. Checked against a bit-level model in every reader state of 1 to
+  3 byte buffers (`buf_reader.rs` `bounds_every_state_every_read`) and by round trips of random messages
+  (`shrink_wrap/tests/rev_nibble_bounds.rs`).
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire

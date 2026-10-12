@@ -902,6 +902,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lists-of-plain-numbers-time-for-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Lists of plain numbers: time for bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-settings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2399,6 +2410,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lists-of-plain-numbers-time-for-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Lists of plain numbers: time for bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-settings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2889,6 +2911,8 @@ bench's own <code>black_box</code> calls are in both <code>busgen</code> and <co
 </tr>
 </tbody>
 </table>
+<p><code>vec_de</code>, <code>busgen_de</code> and <code>busgen</code> are 50 to 140 bytes larger since SW-37, which is not in these tables: see
+<a href="#lists-of-plain-numbers-time-for-bytes">Lists of plain numbers</a>.</p>
 <p>Read as: on RV32IC the derived codec is now 1.55 times the hand-written one with evolvable types and 1.4 times with
 final ones (it was 1.95 and 1.8 times), and Cortex-M0 code is about 20 % smaller than RV32IC for the same source.</p>
 <p>The encoders, before and after steps 4 and 5 alone (the length FIFO, SW-36; the decoders did not change):</p>
@@ -3241,6 +3265,114 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 <p>Fixed on the way: aligning to a nibble from the last three bits of a byte (<code>align_nibble()</code>, <code>write_nib()</code>, a
    length after 5 to 7 bits) left those bits as they were in the buffer instead of zero. A reader skips them, so
    nothing on the other end changes, but the bytes depended on what the buffer held before.</p>
+<h2 id="lists-of-plain-numbers-time-for-bytes">Lists of plain numbers: time for bytes<a class="headerlink" href="#lists-of-plain-numbers-time-for-bytes" title="Permanent link">&para;</a></h2>
+<p>Done after the five steps (SW-37), and the one change here that makes the code larger. Decoding a <code>RefVec&lt;T&gt;</code>
+reads every element once just to find where the list ends. For <code>u8</code>..<code>u128</code>, <code>i8</code>..<code>i128</code>, <code>f32</code> and <code>f64</code> that
+is now one bounds check: reading such a value is "align to a byte, take N bytes" and nothing else, so <code>count</code>
+reads succeed exactly when one read of <code>count * N</code> bytes does. A list that is too short, or a count whose size
+overflows, still goes through the pass, so the error and the reader state are the ones it always gave. The wire
+format does not change.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;"><code>RefVec&lt;u8&gt;</code> of 16</th>
+<th style="text-align: right;">of 256</th>
+<th style="text-align: right;">of 4096</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>decode pass</td>
+<td style="text-align: right;">43 ns</td>
+<td style="text-align: right;">631 ns</td>
+<td style="text-align: right;">10254 ns</td>
+</tr>
+<tr>
+<td>one bounds check</td>
+<td style="text-align: right;">5 ns</td>
+<td style="text-align: right;">5 ns</td>
+<td style="text-align: right;">6 ns</td>
+</tr>
+</tbody>
+</table>
+<p>(<code>from_ww_bytes</code> on an x86-64 host, for the proportion. On a small CPU the pass is a call of <code>read_le32</code>, about 30
+instructions, per element; on a bit-serial softcore each of them takes 32 clock cycles or more.)</p>
+<p>It was expected to save code as well, and does not. Since step 2 the pass over a list of integers is a loop of
+about 22 bytes around the shared <code>read_le32</code>, nothing like the 130 byte <code>read::&lt;RefVec&lt;u16&gt;&gt;</code> of the first
+profile. The check comes on top of it (the pass stays for the error case), and <code>read_raw_slice</code> is no longer
+inlined into its only caller:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vec_de</code></td>
+<td></td>
+<td style="text-align: right;">908 → 1004</td>
+<td style="text-align: right;">592 → 652</td>
+<td style="text-align: right;">548 → 596</td>
+<td style="text-align: right;">536 → 582</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">8468 → 8604</td>
+<td style="text-align: right;">6040 → 6126</td>
+<td style="text-align: right;">5442 → 5504</td>
+<td style="text-align: right;">5044 → 5112</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>final</td>
+<td style="text-align: right;">7588 → 7708</td>
+<td style="text-align: right;">5452 → 5524</td>
+<td style="text-align: right;">4920 → 4982</td>
+<td style="text-align: right;">4496 → 4556</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12532 → 12664</td>
+<td style="text-align: right;">9000 → 9086</td>
+<td style="text-align: right;">8114 → 8180</td>
+<td style="text-align: right;">7320 → 7384</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11148 → 11268</td>
+<td style="text-align: right;">8062 → 8134</td>
+<td style="text-align: right;">7296 → 7356</td>
+<td style="text-align: right;">6512 → 6576</td>
+</tr>
+</tbody>
+</table>
+<p>Every other case is unchanged, to the byte: the choice is a constant per element type
+(<code>DeserializeShrinkWrap::PLAIN_BYTES</code>, hidden, <code>None</code> by default), so a list of anything else compiles to the pass
+alone. Two other shapes were measured and were larger: one shared function that computes the end and the reader
+state after a failure (<code>vec_de</code> 714, <code>busgen</code> 9082 on RV32IC), and the same on top of <code>read_raw_slice</code> (670, 9114).</p>
+<p>Only these twelve types, on purpose. <code>ElementSize::Sized { size_bits }</code> is not used to skip other elements:</p>
+<ul>
+<li>It is the size of the value without alignment padding, so it is not the stride of an element:
+  <code>struct { a: bool, b: u8 }</code> is 9 bits and takes 2 bytes. <code>bool</code>, <code>u1</code>..<code>uN</code> and <code>Nibble</code> are bit-packed, their
+  elements share bytes with each other and the last one with the lengths read from the back.</li>
+<li>The pass is also where an element is validated: an enum's discriminant, a string's UTF-8, a nested length.
+  Without it those errors would move from decode time to the iteration, where code written against today's
+  behaviour does not expect them.</li>
+</ul>
+<p><code>shrink_wrap/tests/ref_vec_skip.rs</code> holds the two against each other, result and whole reader state: every type,
+empty to long lists, every truncation, counts up to <code>u32::MAX</code>, lists that start in the middle of a byte or end
+where the lengths begin, inside a struct with every byte damaged in turn, and 40 000 random buffers read from
+random reader states. <code>just fuzz-shrink-wrap-ref-vec</code> does the same under libFuzzer.</p>
 <h2 id="build-settings">Build settings<a class="headerlink" href="#build-settings" title="Permanent link">&para;</a></h2>
 <p>Not <code>shrink_wrap</code>'s to fix, but worth more than each code change:</p>
 <ul>
@@ -3290,13 +3422,14 @@ a slice, which checks again. It is 4 to 8 bytes per access and was three times i
 </tbody>
 </table>
 <h2 id="what-is-left">What is left<a class="headerlink" href="#what-is-left" title="Permanent link">&para;</a></h2>
-<p><code>busgen</code> is still 3.0 to 3.2 KB above the hand-written codec on RV32IC. In order of what they would bring:</p>
+<p><code>busgen</code> is still 3.0 to 3.3 KB above the hand-written codec on RV32IC. In order of what they would bring:</p>
 <ol>
-<li><strong><code>RefVec&lt;T&gt;</code> of <code>Sized</code> elements without a decode pass</strong>: the end of the list is <code>count * size</code>, and
-   <code>RefVecIter</code> can read in place. <code>ElementSize::Sized { size_bits }</code> is right for every type since SW-35 (enums
-   count their discriminant and one variant), but it is the size of the value without alignment padding: the
-   stride of an element also depends on its alignment (<code>struct { a: bool, b: u8 }</code> is 9 bits, 2 bytes per
-   element). Saves the <code>read::&lt;RefVec&lt;T&gt;&gt;</code> instances and a pass at run time.</li>
+<li><strong><code>RefVec&lt;T&gt;</code> of <code>Sized</code> structs and enums without a decode pass</strong>: not planned. It was done for plain
+   numbers only (SW-37, <a href="#lists-of-plain-numbers-time-for-bytes">above</a>), where it is provably the same as the
+   pass, and there it costs code instead of saving it. For other <code>Sized</code> types it would also change behaviour:
+   the stride of an element is not its <code>size_bits</code> (alignment padding: <code>struct { a: bool, b: u8 }</code> is 9 bits,
+   2 bytes per element), and an invalid element (an enum discriminant) would be reported when the list is walked
+   instead of when it is decoded.</li>
 <li><strong>Latched reads for the rest</strong>: <code>Nibble</code>, <code>u1</code>..<code>u32</code> (<code>read_un32</code>), <code>u64</code>. Small for the bench types, real for
    bit-packed ones.</li>
 <li><strong>A firmware-side <code>memcpy</code></strong>, see <a href="#build-settings">Build settings</a>: 300 bytes.</li>

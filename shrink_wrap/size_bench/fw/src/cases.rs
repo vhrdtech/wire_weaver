@@ -363,3 +363,55 @@ pub fn run(rx: &[u8], tx: &mut [u8]) -> usize {
 
 #[cfg(feature = "busgen_hand")]
 pub use crate::hand::run;
+
+/// A method's reply as `ww_codegen!` server code encodes it (`ser_method_output`): the return value alone into
+/// one scratch buffer, then the event around its bytes, and the error event every generated server sends when
+/// that fails.
+#[cfg(feature = "reply")]
+pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
+    use ww_client_server::{Error, Event, EventKind, util::ser_err_event};
+
+    fn reply<'a>(
+        output: &Wave,
+        seq: u32,
+        scratch_args: &mut [u8],
+        scratch_event: &'a mut [u8],
+    ) -> Result<&'a [u8], Error<'static>> {
+        let mut wr = BufWriter::new(scratch_args);
+        output
+            .ser_shrink_wrap(&mut wr)
+            .map_err(|_| Error::response_ser_failed(1))?;
+        #[cfg(not(feature = "finish_for"))]
+        let output_bytes = wr.finish_and_take();
+        #[cfg(feature = "finish_for")]
+        let output_bytes = wr.finish_for_and_take::<Wave>();
+        let output_bytes = output_bytes.map_err(|_| Error::response_ser_failed(2))?;
+        let mut event_wr = BufWriter::new(scratch_event);
+        let event = Event {
+            seq: UVlq32(seq),
+            result: Ok(EventKind::Value {
+                data: shrink_wrap::tail_bytes::TailBytes(output_bytes),
+            }),
+        };
+        event
+            .ser_shrink_wrap(&mut event_wr)
+            .map_err(|_| Error::response_ser_failed(3))?;
+        event_wr
+            .finish_and_take()
+            .map_err(|_| Error::response_ser_failed(4))
+    }
+
+    let mut scratch = [0u8; 64];
+    let (head, tail) = tx.split_at_mut(150);
+    let seq = src(5);
+    match reply(&src(WAVE), seq, &mut scratch, head) {
+        Ok(bytes) => bytes.len(),
+        Err(e) => match ser_err_event(tail, seq, e) {
+            Ok(bytes) => bytes.len(),
+            Err(e) => {
+                sink(e);
+                0
+            }
+        },
+    }
+}

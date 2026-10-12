@@ -26,6 +26,7 @@ const CASES: &[(&str, bool)] = &[
     ("busgen_ser", true),
     ("busgen", true),
     ("busgen_hand", false),
+    ("reply", true),
 ];
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -82,7 +83,7 @@ struct Args {
     /// shrink_wrap features to build with, e.g. `tiny`
     #[arg(long, value_delimiter = ',')]
     sw_features: Vec<String>,
-    /// Features of the firmware itself: `byte_memcpy` (its own byte-wise `memcpy`)
+    /// Features of the firmware itself: `byte_memcpy` (its own byte-wise `memcpy`), `finish_for` (in `reply`)
     #[arg(long, value_delimiter = ',')]
     fw_features: Vec<String>,
     /// Instead of the table: the N largest symbols of each image

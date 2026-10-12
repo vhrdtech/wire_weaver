@@ -51,6 +51,7 @@ are measured, not run.
 | `busgen_ser` | its transmit side: one of the nine `Reply` variants encoded |
 | `busgen` | both: a request decoded, acted on, its reply encoded |
 | `busgen_hand` | the same as `busgen` with a hand-written codec: bytes, little endian, a list is a count and its items, reading past the end gives zeros |
+| `reply` | a method's reply as `ww_codegen!` server code encodes it: a `Wave` return value alone, then the `ww_client_server::Event` around its bytes, and the error event when that fails |
 
 The cases with derived types are built twice: `evolvable` (the default, every type `Unsized`) and `final` (`sized`
 where the fields allow it, else `final_structure`). The two differ only where a type is nested in another, so the
@@ -406,6 +407,28 @@ one by one with `?`: the result (error included) and the reader of every truncat
 and 20 000 random buffers; an enum without a variant 0 after a failed field. Removing any one of the checks makes
 a test fail.
 
+## Replies of generated servers
+
+Measured after SW-41, not changed. The code `ww_codegen!` generates for a server ends every message with
+`finish()`: the request's reply, a stream's data, a deferred return, an error. All but one of them write a
+`ww_client_server::Event`, and `Event` pushes lengths whatever it holds (`PUSHES_LEN` is `true`: its `ErrorKind` is
+evolvable and has a size slot, `StreamData` has a `RefVec` path), so for them `finish_for` *is* `finish`. The one
+that is not is the return value of a method, serialized alone into a scratch buffer before it goes into the event
+as `TailBytes`. `reply` is that code, and with `--fw-features finish_for` the same with `finish_for::<Wave>()` for
+the return value:
+
+| return value ends with | rv32i | rv32ic | rv32ic-relax | thumbv6m |
+| --- | ---: | ---: | ---: | ---: |
+| `finish()` (as generated) | 5120 | 3632 | 3236 | 3144 |
+| `finish_for::<Wave>()` | 5144 (+24) | 3646 (+14) | 3250 (+14) | 3160 (+16) |
+
+The same for both flavors (a root `Wave` pushes no length either way). `Event::ser_shrink_wrap` is one function
+for every variant of the event, so `encode_len_fifo`, `write_rev_len` and `write_nib` are linked in any firmware
+with a generated server, even one whose methods all return plain values; `finish_for` at the return value only adds
+`finish_no_lens` next to `finish`. The generated code keeps `finish()`. For the length FIFO to drop out of a
+server, `Event` itself would have to lose its lengths: a `final_structure`/`sized` event, which is a wire change of
+`ww_client_server`.
+
 ## Build settings
 
 Not `shrink_wrap`'s to fix, but worth more than each code change:
@@ -514,9 +537,10 @@ The options that were on the table, and why none became a cargo feature:
 3. **A firmware-side `memcpy`**: measured and documented as advice for very small targets, not a code change
    (SW-39, [Build settings](#build-settings)): 324 bytes less on RV32IC for a firmware that moves a value, at the
    price of speed and of replacing `memcpy` for the whole firmware.
-4. **`finish_for` in generated server and client code**: the code `ww_codegen!` generates and `ww_client_server`
-   still end with `finish()`. Most of their messages carry arguments as bytes, a length, so the FIFO stays; a
-   stream or a reply of plain values could lose it.
+4. **`finish_for` in generated server and client code**: measured, not done ([Replies of generated
+   servers](#replies-of-generated-servers)): every server message is a `ww_client_server::Event`, which always
+   pushes lengths, so the FIFO stays; `finish_for` for a return value costs 14 bytes on RV32IC instead of saving
+   any. The client side runs on `std` only. What would remove it is a size-assumed `Event`, a wire change.
 5. **The rest of the length FIFO** for types with lengths: `encode_len_fifo` 214, `write_nib` 130,
    `write_rev_len` 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
    form there, and two checks against the end of the buffer.

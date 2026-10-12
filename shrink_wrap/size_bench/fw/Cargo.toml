@@ -30,6 +30,11 @@ busgen_de = []
 busgen_ser = []
 busgen = []
 busgen_hand = []
+# A method's reply the way `ww_codegen!` server code encodes it: the return value alone, then a
+# `ww_client_server::Event` around it, plus the error event every generated server has.
+reply = ["dep:ww_client_server"]
+# `reply` with `finish_for` for the return value instead of `finish` (code_size.md, "What is left")
+finish_for = []
 # The firmware's own byte-wise `memcpy` instead of the word-wise one of `compiler_builtins`.
 byte_memcpy = []
 # Types with a size assumption (`sized` where the fields allow it, else `final_structure`) instead of the
@@ -38,6 +43,7 @@ final = []
 
 [dependencies]
 shrink_wrap = { path = "../../shrink_wrap", default-features = false }
+ww_client_server = { path = "../../../ww_stdlib/ww_client_server", default-features = false, optional = true }
 
 # Same as fpga_tools tools/busgen/fw (QERV softcore, 8 KB of RAM for code, data and stack)
 [profile.release]

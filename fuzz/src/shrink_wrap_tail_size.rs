@@ -84,7 +84,9 @@ fuzz_target!(|data: &[u8]| {
     // garbage after the value does not change the result
     let mut longer = bytes.clone();
     longer.extend_from_slice(&garbage);
-    assert_eq!(OuterOwned::from_ww_bytes_owned(&longer).expect("bounded"), back);
+    // compared as bytes: a NaN in `values` is not equal to itself
+    let back_longer = OuterOwned::from_ww_bytes_owned(&longer).expect("bounded");
+    assert_eq!(back_longer.to_ww_bytes_owned(), back.to_ww_bytes_owned());
     // a truncated value is an error, never garbage
     if bytes.len() > 1 {
         assert!(OuterOwned::from_ww_bytes_owned(&bytes[..bytes.len() - 1]).is_err());

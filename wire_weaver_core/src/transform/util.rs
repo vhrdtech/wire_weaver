@@ -164,7 +164,7 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" => {
+                | "crate_path" | "non_exhaustive" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr` and the size assumption) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {

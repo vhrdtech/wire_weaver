@@ -9,9 +9,44 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std"]
+# every number type: a host does not know what a device will send
+std = ["shrink_wrap/std", "all"]
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
 serde = ["dep:serde", "shrink_wrap/serde"]
+
+# NumericValue variants, one feature each (U8 is always there): firmware enables the number types it uses
+all = [
+    "nibble",
+    "u16",
+    "u32",
+    "unib32",
+    "u64",
+    "i32",
+    "f32",
+    "un",
+    "in",
+    "u128",
+    "i8",
+    "i16",
+    "i64",
+    "i128",
+    "f64",
+]
+nibble = []
+u16 = []
+u32 = []
+unib32 = []
+u64 = []
+i32 = []
+f32 = []
+un = []
+in = []
+u128 = []
+i8 = []
+i16 = []
+i64 = []
+i128 = []
+f64 = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }

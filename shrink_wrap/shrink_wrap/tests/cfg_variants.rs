@@ -1,7 +1,7 @@
 //! `#[cfg(..)]` on enum variants (DER-8): a variant compiled out keeps its discriminant, so both builds agree on
 //! the bytes of every variant they share, and the smaller build reports the ones it lacks.
 //!
-//! `cfg(any())` is always false and `cfg(all())` always true, so no cargo feature is needed here.
+//! `cfg(any())` is always false and `cfg(test)` true here, so no cargo feature is needed here.
 
 use shrink_wrap::prelude::*;
 use shrink_wrap::{ElementSize, Error};
@@ -32,11 +32,14 @@ enum Subset {
     B(u128),
     #[cfg(any())]
     C,
-    #[cfg(all())]
+    #[cfg(test)]
     D(u16),
     // a type that does not exist where the variant is compiled out
     #[cfg(any())]
-    E { x: NoSuchType, y: u8 },
+    E {
+        x: NoSuchType,
+        y: u8,
+    },
 }
 
 #[test]
@@ -89,7 +92,7 @@ enum SizedSubset {
     #[cfg(any())]
     A(u8),
     B(u8),
-    #[cfg(all())]
+    #[cfg(test)]
     C(u8),
 }
 
@@ -119,7 +122,7 @@ fn sized_enum_keeps_its_size() {
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq), ww_repr = u8)]
 enum LenFullOwned {
     A(u8),
-    #[cfg(all())]
+    #[cfg(test)]
     B(Vec<u8>),
 }
 

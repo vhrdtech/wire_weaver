@@ -80,8 +80,13 @@ impl<'i> CGItemEnum<'i> {
         };
         let assert_tail_size = self.variants.iter().map(|v| {
             let types = v.fields.types();
-            let assert =
-                assert_sized_before_tail_size(&types, self.ident, self.cfg, is_ref, self.crate_path);
+            let assert = assert_sized_before_tail_size(
+                &types,
+                self.ident,
+                self.cfg,
+                is_ref,
+                self.crate_path,
+            );
             if v.cfg.is_empty() || assert.is_empty() {
                 assert
             } else {

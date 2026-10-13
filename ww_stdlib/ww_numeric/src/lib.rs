@@ -124,34 +124,55 @@ pub enum SubTypeKind<'i> {
 ///
 /// Minimum size is 1 byte (u4, unib32 0..=7).
 /// u8 is 2 bytes, u32 - is 5 bytes, etc.
+///
+/// Each variant but `U8` (so that there is always one) is behind the cargo feature of its name (`u16`, `f32`,
+/// `unib32`, ..), `all` (part of `std`) enables them all. Firmware picks the ones it uses: the value is as big as the biggest variant enabled (`u128` makes it
+/// 24 to 32 bytes) and unused number types bring no code. The bytes on the wire do not depend on the features;
+/// a variant that is not enabled is read as [Error::EnumVariantDisabled](shrink_wrap::Error::EnumVariantDisabled).
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Copy, Clone, Debug, PartialEq),
+    non_exhaustive,
     self_describing,
     ww_repr = unib32
 )]
 pub enum NumericValue {
+    #[cfg(feature = "nibble")]
     Nibble(Nibble),
     U8(u8),
+    #[cfg(feature = "u16")]
     U16(u16),
+    #[cfg(feature = "u32")]
     U32(u32),
+    #[cfg(feature = "unib32")]
     UNib32(u32),
+    #[cfg(feature = "u64")]
     U64(u64),
+    #[cfg(feature = "i32")]
     I32(i32),
+    #[cfg(feature = "f32")]
     F32(f32),
 
+    #[cfg(feature = "un")]
     UN(UN),
+    #[cfg(feature = "in")]
     IN(IN),
 
+    #[cfg(feature = "u128")]
     U128(u128),
+    #[cfg(feature = "i8")]
     I8(i8),
+    #[cfg(feature = "i16")]
     I16(i16),
+    #[cfg(feature = "i64")]
     I64(i64),
+    #[cfg(feature = "i128")]
     I128(i128),
     // F16,
+    #[cfg(feature = "f64")]
     F64(f64),
     // TODO: the rest
 }
@@ -160,42 +181,72 @@ impl NumericValue {
     pub fn ty(&self) -> NumericBaseType {
         use NumericBaseType::*;
         match self {
+            #[cfg(feature = "nibble")]
             NumericValue::Nibble(_) => Nibble,
             NumericValue::U8(_) => U8,
+            #[cfg(feature = "u16")]
             NumericValue::U16(_) => U16,
+            #[cfg(feature = "u32")]
             NumericValue::U32(_) => U32,
+            #[cfg(feature = "unib32")]
             NumericValue::UNib32(_) => UNib32,
+            #[cfg(feature = "u64")]
             NumericValue::U64(_) => U64,
+            #[cfg(feature = "i32")]
             NumericValue::I32(_) => I32,
+            #[cfg(feature = "f32")]
             NumericValue::F32(_) => F32,
+            #[cfg(feature = "un")]
             NumericValue::UN(_) => todo!(),
+            #[cfg(feature = "in")]
             NumericValue::IN(_) => todo!(),
+            #[cfg(feature = "u128")]
             NumericValue::U128(_) => U128,
+            #[cfg(feature = "i8")]
             NumericValue::I8(_) => I8,
+            #[cfg(feature = "i16")]
             NumericValue::I16(_) => I16,
+            #[cfg(feature = "i64")]
             NumericValue::I64(_) => I64,
+            #[cfg(feature = "i128")]
             NumericValue::I128(_) => I128,
+            #[cfg(feature = "f64")]
             NumericValue::F64(_) => F64,
         }
     }
 
     pub fn as_f32(&self) -> f32 {
         match *self {
+            #[cfg(feature = "nibble")]
             NumericValue::Nibble(x) => x.value() as f32,
             NumericValue::U8(x) => x as f32,
+            #[cfg(feature = "u16")]
             NumericValue::U16(x) => x as f32,
+            #[cfg(feature = "u32")]
             NumericValue::U32(x) => x as f32,
+            #[cfg(feature = "unib32")]
             NumericValue::UNib32(x) => x as f32,
+            #[cfg(feature = "u64")]
             NumericValue::U64(x) => x as f32,
+            #[cfg(feature = "i32")]
             NumericValue::I32(x) => x as f32,
+            #[cfg(feature = "f32")]
             NumericValue::F32(x) => x,
+            #[cfg(feature = "un")]
             NumericValue::UN(_x) => todo!(),
+            #[cfg(feature = "in")]
             NumericValue::IN(_x) => todo!(),
+            #[cfg(feature = "u128")]
             NumericValue::U128(x) => x as f32,
+            #[cfg(feature = "i8")]
             NumericValue::I8(x) => x as f32,
+            #[cfg(feature = "i16")]
             NumericValue::I16(x) => x as f32,
+            #[cfg(feature = "i64")]
             NumericValue::I64(x) => x as f32,
+            #[cfg(feature = "i128")]
             NumericValue::I128(x) => x as f32,
+            #[cfg(feature = "f64")]
             NumericValue::F64(x) => x as f32,
         }
     }
@@ -376,27 +427,42 @@ macro_rules! value {
 impl NumericBaseType {
     pub fn default(&self) -> NumericValue {
         match self {
+            #[cfg(feature = "nibble")]
             NumericBaseType::Nibble => NumericValue::Nibble(Nibble::zero()),
             NumericBaseType::U8 => NumericValue::U8(0),
+            #[cfg(feature = "u16")]
             NumericBaseType::U16 => NumericValue::U16(0),
+            #[cfg(feature = "u32")]
             NumericBaseType::U32 => NumericValue::U32(0),
+            #[cfg(feature = "unib32")]
             NumericBaseType::UNib32 => NumericValue::UNib32(0),
+            #[cfg(feature = "u64")]
             NumericBaseType::U64 => NumericValue::U64(0),
+            #[cfg(feature = "i32")]
             NumericBaseType::I32 => NumericValue::I32(0),
+            #[cfg(feature = "f32")]
             NumericBaseType::F32 => NumericValue::F32(0.0),
+            #[cfg(feature = "u128")]
             NumericBaseType::U128 => NumericValue::U128(0),
+            #[cfg(feature = "i8")]
             NumericBaseType::I8 => NumericValue::I8(0),
+            #[cfg(feature = "i16")]
             NumericBaseType::I16 => NumericValue::I16(0),
+            #[cfg(feature = "i64")]
             NumericBaseType::I64 => NumericValue::I64(0),
+            #[cfg(feature = "i128")]
             NumericBaseType::I128 => NumericValue::I128(0),
             NumericBaseType::F16 => unimplemented!(),
+            #[cfg(feature = "f64")]
             NumericBaseType::F64 => NumericValue::F64(0.0),
             NumericBaseType::UB(_) => unimplemented!(),
             NumericBaseType::IB(_) => unimplemented!(),
+            #[cfg(feature = "un")]
             NumericBaseType::UN => NumericValue::UN(UN::UN8 {
                 bit_count: U3::zero(),
                 value: 0,
             }),
+            #[cfg(feature = "in")]
             NumericBaseType::IN => NumericValue::IN(IN::IN8 {
                 bit_count: U3::zero(),
                 value: 0,

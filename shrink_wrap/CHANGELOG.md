@@ -8,6 +8,14 @@ and moved back into wire_weaver in February 2026.
 
 Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
+### 🚀 Features
+
+- `#[cfg(..)]` on enum variants (DER-8): the variant, its serdes code and its part of `ELEMENT_SIZE` exist only where
+  the predicate holds. Discriminants are numbered over all variants, so the wire format does not depend on features;
+  reading a variant that is compiled out gives the new `Error::EnumVariantDisabled`. Before, the attribute was
+  silently dropped and the variant always generated. A `sized` enum needs at least one variant without `#[cfg]`.
+- `non_exhaustive` argument of `#[derive_shrink_wrap(..)]`, puts `#[non_exhaustive]` on the generated types.
+
 ### ⚠️ Breaking
 
 - `#[derive_shrink_wrap(..)]` takes all options as arguments instead of separate attributes: `#[owned = "std"]`

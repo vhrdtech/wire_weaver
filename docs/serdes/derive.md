@@ -131,7 +131,7 @@ case.
 to the parser, but the codebase consistently writes them in this order (and so do the examples below):
 
 ```text
-borrowed, owned, cfg_attr*, derive*, final_structure|self_describing|sized, ww_repr, discriminants
+borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants
 ```
 
 ### `borrowed`, `borrowed(<cfg predicate>)`
@@ -353,6 +353,35 @@ enum ErrorCode { NotFound, Timeout, /* ... */ }
 
 Every generated enum also gets an inherent `fn discriminant(&self) -> <repr's native type>` method regardless of
 whether [`discriminants`](#discriminants-enums-only) is used.
+
+### `#[cfg(..)]` on enum variants
+
+A variant can be compiled out, typically behind a cargo feature, when only some targets need it: firmware enables
+the few it uses, a host enables all of them.
+
+```rust
+#[derive_shrink_wrap(borrowed, non_exhaustive, self_describing, ww_repr = unib32)]
+pub enum Number {
+    U8(u8),
+    #[cfg(feature = "f32")]
+    F32(f32),
+    #[cfg(feature = "u128")]
+    U128(u128),
+}
+```
+
+- **The wire format does not depend on it.** Discriminants are numbered over all variants, `U128` is 2 with or
+  without `f32`, so two builds with different features agree on every variant they share.
+- The variant, its serializing and deserializing code and its part of the size exist only where the predicate
+  holds: without `u128` the enum above is 8 bytes in memory instead of 32, and no 128-bit code is linked.
+- Reading a variant that is compiled out gives `Error::EnumVariantDisabled` (an unknown number is still
+  `EnumFutureVersionOrMalformedData`).
+- A `sized` enum needs at least one variant without `#[cfg]`, so its size cannot change with features.
+- Cargo features are unified across a build: a crate that matches such an enum without a `_` arm stops compiling
+  when another crate enables one more variant. The `non_exhaustive` argument puts `#[non_exhaustive]` on the
+  generated types and makes the `_` arm mandatory outside the defining crate.
+
+`ww_numeric::NumericValue` is built this way. `#[cfg]` on fields is not supported: it would change the bytes.
 
 ### `crate_path(<path>)`
 

@@ -102,6 +102,10 @@ impl Parse for Args {
                 "discriminants" => {
                     discriminants_enum = true;
                 }
+                "non_exhaustive" => {
+                    // other attributes on the item are not kept, and this one is wanted on both types
+                    cfg_attr.push(quote::quote! { all(), non_exhaustive });
+                }
                 "crate_path" => {
                     let path: Path = parse_paren_token_stream(input).and_then(parse2)?;
                     crate_path = Some(path.to_token_stream());
@@ -142,7 +146,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, crate_path(..)";
+final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
 
 /// Parses a required `(Path1, Path2, ..)`, like Rust's own `#[derive(..)]`
 fn parse_path_list_paren(input: ParseStream) -> syn::Result<Vec<Path>> {

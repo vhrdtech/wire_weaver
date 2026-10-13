@@ -715,7 +715,7 @@ macro_rules! quantity {
     };
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "u32"))]
 mod tests {
     use super::*;
     use ww_numeric::NumericBaseType;

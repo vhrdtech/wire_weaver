@@ -100,6 +100,11 @@
         "",
         "Minimum size is 1 byte (u4, unib32 0..=7).",
         "u8 is 2 bytes, u32 - is 5 bytes, etc.",
+        "",
+        "Each variant but `U8` (so that there is always one) is behind the cargo feature of its name (`u16`, `f32`,",
+        "`unib32`, ..), `all` (part of `std`) enables them all. Firmware picks the ones it uses: the value is as big as the biggest variant enabled (`u128` makes it",
+        "24 to 32 bytes) and unused number types bring no code. The bytes on the wire do not depend on the features;",
+        "a variant that is not enabled is read as [Error::EnumVariantDisabled](shrink_wrap::Error::EnumVariantDisabled).",
     ], ident: "NumericValue", variants: [
         (docs: [], ident: "Nibble", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),

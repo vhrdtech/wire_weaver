@@ -35,6 +35,9 @@ check-core:
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
     @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
+    # check ww_si with no number type and with a few (NumericValue variants are features)
+    @cargo check -p ww_si --no-default-features
+    @cargo check -p ww_si --no-default-features --features=f32,u16,defmt
 
 # cargo check mcu workspace
 [working-directory('mcu')]

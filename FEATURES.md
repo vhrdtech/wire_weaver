@@ -171,8 +171,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of an outer `sized` / `final_structure` type ("last in the first `Unsized` type on the way up") is not visible to
   the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.
 - 📋 **DER-7 Prefix enum discriminants** · `v0.5.x`.
-- 💡 **DER-8 `#[cfg(feature = "..")]` on enum variants** — hard to handle with dynamic serdes in general, but might not
-  be that bad for specific use cases.
+- ✅ **DER-8 `#[cfg(..)]` on enum variants** — a variant keeps its discriminant in every configuration, a build without
+  it reads `Error::EnumVariantDisabled` (`docs/serdes/derive.md`). First user: `ww_numeric::NumericValue`, one cargo
+  feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
+  the wire format, should be a compile error), `ww_si` enums.
 
 ## API model and codegen (`API`)
 

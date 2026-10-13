@@ -5,12 +5,36 @@ pub struct Per;
 
 /// Convert quantities to f32 before calculating final quantity.
 /// E.g., (distance, Per, time, ToF32).into()
+#[cfg(feature = "f32")]
 pub struct ToF32;
 
 #[derive(Debug)]
 pub enum Error {
     DifferentNumberTypes,
     UnsupportedType,
+}
+
+/// Only number types that are enabled as features are handled.
+fn div(distance: NumericValue, time: NumericValue) -> Result<NumericValue, Error> {
+    match (distance, time) {
+        #[cfg(feature = "u32")]
+        (NumericValue::U32(distance), NumericValue::U32(time)) => {
+            Ok(NumericValue::U32(distance / time))
+        }
+        #[cfg(feature = "u64")]
+        (NumericValue::U64(distance), NumericValue::U64(time)) => {
+            Ok(NumericValue::U64(distance / time))
+        }
+        #[cfg(feature = "f32")]
+        (NumericValue::F32(distance), NumericValue::F32(time)) => {
+            Ok(NumericValue::F32(distance / time))
+        }
+        #[cfg(feature = "f64")]
+        (NumericValue::F64(distance), NumericValue::F64(time)) => {
+            Ok(NumericValue::F64(distance / time))
+        }
+        _ => Err(Error::UnsupportedType),
+    }
 }
 
 impl TryFrom<(Meter, Per, Second)> for Speed {
@@ -20,21 +44,7 @@ impl TryFrom<(Meter, Per, Second)> for Speed {
         if quantity.0.value.ty() != quantity.2.value.ty() {
             return Err(Error::DifferentNumberTypes);
         }
-        let value = match (quantity.0.value, quantity.2.value) {
-            (NumericValue::U32(distance), NumericValue::U32(time)) => {
-                NumericValue::U32(distance / time)
-            }
-            (NumericValue::U64(distance), NumericValue::U64(time)) => {
-                NumericValue::U64(distance / time)
-            }
-            (NumericValue::F32(distance), NumericValue::F32(time)) => {
-                NumericValue::F32(distance / time)
-            }
-            (NumericValue::F64(distance), NumericValue::F64(time)) => {
-                NumericValue::F64(distance / time)
-            }
-            _ => return Err(Error::UnsupportedType),
-        };
+        let value = div(quantity.0.value, quantity.2.value)?;
         let distance_prefix: i8 = quantity.0.prefix.into();
         let time_prefix: i8 = quantity.2.prefix.into();
         let prefix = distance_prefix - time_prefix;
@@ -43,6 +53,7 @@ impl TryFrom<(Meter, Per, Second)> for Speed {
     }
 }
 
+#[cfg(feature = "f32")]
 impl TryFrom<(Meter, Per, Second, ToF32)> for Speed {
     type Error = Error;
 
@@ -59,7 +70,7 @@ impl TryFrom<(Meter, Per, Second, ToF32)> for Speed {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "u32"))]
 mod tests {
     use super::*;
     use crate as ww_si;

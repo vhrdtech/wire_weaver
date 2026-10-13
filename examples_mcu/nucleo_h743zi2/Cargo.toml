@@ -31,7 +31,7 @@ wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["f32"] }
 
 [[bin]]
 name = "nucleo-h743zi2-blinky"
